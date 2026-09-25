@@ -124,9 +124,11 @@ $bn_sf_fpage_url = static function ( int $p ) use ( $bn_sf_base_url, $bn_sf_fold
 	return add_query_arg( 'bn_folder_page', $p, $url );
 };
 
-$bn_sf_doc_url = static function ( int $did ) use ( $bn_sf_base_url ): string {
-	// Clean URL: /spaces/{slug}/files/{id}/ (base_url already ends in files/).
-	return trailingslashit( $bn_sf_base_url ) . $did . '/';
+$bn_sf_doc_query = ! empty( $bn_sf_doc_query );
+$bn_sf_doc_url   = static function ( int $did ) use ( $bn_sf_base_url, $bn_sf_doc_query ): string {
+	// Clean URL on the Files tab: /spaces/{slug}/files/{id}/ (base_url already ends
+	// in files/). An embed on any other page uses the ?bn_doc= alias instead.
+	return $bn_sf_doc_query ? add_query_arg( 'bn_doc', $did, $bn_sf_base_url ) : trailingslashit( $bn_sf_base_url ) . $did . '/';
 };
 
 // A cookie-authenticated browser needs a nonce on a REST GET, so a plain

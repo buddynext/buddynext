@@ -220,6 +220,24 @@ add_action( 'buddynext_space_admin_after_stats', function ( int $space_id, int $
 
 BuddyNext Pro uses this seam to render its "Last 30 days" analytics row (new members, left, net growth, posts) for space owners; with Pro inactive the page is unchanged. `$viewer_id` has already passed the manage-space capability gate, so the hook never fires for a member.
 
+## Show a space's Files on another page
+
+A space's Files tab (browse, folders, search, upload, single file) can render on any page, for example a plugin that gives some spaces their own landing page.
+
+```php
+buddynext_render_drive_files(
+    'space',                                  // or 'user' for a member's own drive
+    $space_id,
+    get_permalink(),                          // the page it renders on
+    absint( $_GET['bn_doc'] ?? 0 ),           // honour single-file links
+    array( 'can_write' => false )             // optional: hide Upload / Link a file
+);
+```
+
+- It loads its own styles and scripts. Folder, page and search links are query args on your page URL, and a file opens at `?bn_doc={id}`.
+- Access stays MediaVerse's: a viewer who cannot read the drive sees "No files to show". `can_write` can only hide the write controls, never grant them.
+- `buddynext_render_drive_files_args` filters the options per drive: `( array $args, string $drive_type, int $drive_id )`.
+
 ## Notes / gotchas
 
 - **Free vs Pro.** Every hook here is fired by Free. `buddynext_can_join_space` plus `buddynext_space_join_denied_data` are the documented gated-spaces / paywall seam that Pro builds on; `buddynext_space_types` is the extension point for new space kinds.

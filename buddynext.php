@@ -1140,6 +1140,50 @@ function buddynext_space_moderation_url( string $slug ): string {
 }
 
 /**
+ * Render a document drive's Files UI anywhere: the same browse / folders /
+ * search / upload / single-file UI as a space's or member's Files tab.
+ *
+ * For a page that shows a space's files outside the space's own tab. Access is
+ * MediaVerse's: a viewer who cannot read the drive gets the empty state, never
+ * the files, and nothing here can grant write.
+ *
+ * @since 1.2.2
+ *
+ * @param string $drive_type 'space' or 'user'.
+ * @param int    $drive_id   Space id, or the member id for a personal drive.
+ * @param string $base_url   URL of the page it renders on. Folder, page and search
+ *                           links are query args on it; a file opens at ?bn_doc={id}.
+ * @param int    $doc_id     File to show, or 0 for the list. Pass
+ *                           absint( $_GET['bn_doc'] ?? 0 ) to honour file links.
+ * @param array  $args       { @type bool $can_write False hides Upload / Link. }
+ * @return void
+ */
+function buddynext_render_drive_files( string $drive_type, int $drive_id, string $base_url, int $doc_id = 0, array $args = array() ): void {
+	if ( ! in_array( $drive_type, array( 'space', 'user' ), true ) || $drive_id <= 0 ) {
+		return;
+	}
+
+	/**
+	 * Filters the options of an embedded Files UI.
+	 *
+	 * @since 1.2.2
+	 *
+	 * @param array  $args       { @type bool $can_write }
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id.
+	 */
+	$args                    = (array) apply_filters( 'buddynext_render_drive_files_args', $args, $drive_type, $drive_id );
+	$args['doc_query_links'] = true;
+
+	buddynext_service( 'assets' )->enqueue( 'space-files' );
+	( new class() {
+		use \BuddyNext\Nav\Providers\RendersDriveFiles {
+			render_drive_files as public;
+		}
+	} )->render_drive_files( $drive_type, $drive_id, $base_url, $doc_id, $args );
+}
+
+/**
  * Return the Community Admin Panel URL.
  *
  * @return string Absolute URL.

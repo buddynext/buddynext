@@ -37,9 +37,15 @@ trait RendersDriveFiles {
 	 * @param int    $drive_id   Drive id (space id, or the profile owner id).
 	 * @param string $base_url   The Files tab URL (list root + single-doc base).
 	 * @param int    $doc_id     Single-document id, or 0 for the list.
+	 * @param array  $args       Embed options (buddynext_render_drive_files()): `can_write`
+	 *                           false hides Upload / Link; `doc_query_links` true links
+	 *                           single files as ?bn_doc={id} (any page) instead of
+	 *                           the Files tab's clean {base}/{id}/ path.
 	 * @return void
 	 */
-	protected function render_drive_files( string $drive_type, int $drive_id, string $base_url, int $doc_id = 0 ): void {
+	protected function render_drive_files( string $drive_type, int $drive_id, string $base_url, int $doc_id = 0, array $args = array() ): void {
+		$doc_query_links = ! empty( $args['doc_query_links'] );
+
 		// Single-file view — a real deep-linkable page, not a modal.
 		if ( $doc_id > 0 ) {
 			$this->render_drive_file_single( $drive_type, $drive_id, $doc_id, $base_url );
@@ -89,6 +95,7 @@ trait RendersDriveFiles {
 					'bn_sf_pages'        => $search['pages'],
 					'bn_sf_total'        => $search['total'],
 					'bn_sf_can_moderate' => $can_moderate,
+					'bn_sf_doc_query'    => $doc_query_links,
 				)
 			);
 			return;
@@ -127,7 +134,9 @@ trait RendersDriveFiles {
 				'bn_sf_folder_page'    => $view['folder_page'],
 				'bn_sf_folder_pages'   => $view['folder_pages'],
 				'bn_sf_folder_total'   => $view['folder_total'],
-				'bn_sf_can_write'      => $view['can_write'],
+				// An embed may hide the write controls; it can never grant them.
+				'bn_sf_can_write'      => $view['can_write'] && ( ! isset( $args['can_write'] ) || (bool) $args['can_write'] ),
+				'bn_sf_doc_query'      => $doc_query_links,
 				'bn_sf_can_moderate'   => $can_moderate,
 				// Drives the Files-tab uploader the same way the activity composer's
 				// attach control is configured, so a contributor can add a file from
