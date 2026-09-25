@@ -1809,10 +1809,9 @@ class ModerationService {
 	/**
 	 * Whether a user may view the moderation queue (report queue + pending approvals).
 	 *
-	 * The SINGLE predicate the REST route (ModerationController::require_queue_access)
-	 * and the queue template (templates/moderation/queue.php) share, so a space-only
-	 * moderator gets both the 200 and a drawn page instead of a 200 the template
-	 * refuses to render as "Access Restricted" (card 10264294189). Two ways in:
+	 * The predicate behind the REST queue route (ModerationController::
+	 * require_queue_access), so a space-only moderator's app / API reads are
+	 * scoped rather than refused (card 10264294189). Two ways in:
 	 * site-wide authority to review the queue, OR ownership/moderation of at least
 	 * one space (the get_queue() handler then scopes the results to those spaces).
 	 * A plain member holds neither and is refused on both surfaces.

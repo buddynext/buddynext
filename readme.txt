@@ -61,8 +61,12 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 = 1.2.2 - In development =
 
+* Improve  - Community Admin moderation now pages through every open report, filters by type and sorts by most reported, so moderators without wp-admin access can work the whole queue.
+* Improve  - Report rows show the first line of what was reported, and the More menu adds View reported item, Warn author and Reverse last strike.
+* Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.
 * Fix      - Community Admin report rows stack on phones, and the row's More menu is no longer cut off by the card or the screen edge.
 * Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
+* Dev      - Removed the buddynext_mod_queue_columns filter with the retired page; buddynext_mod_queue_row_actions and buddynext_moderation_queue_before now fire in Community Admin.
 
 = 1.2.1 - September 2026 =
 

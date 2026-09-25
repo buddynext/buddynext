@@ -183,17 +183,34 @@ $bn_appeal_susps = $bn_ca_mod->get_suspensions_by_ids( $bn_appeal_susp_ids );
 
 // ── Open reports (cross-space, consolidated per content group) ─────────────────
 
-$bn_ca_queue = $bn_ca_mod->get_queue(
+// Paged on the Moderation section (the only full front-end report queue: the
+// wp-admin one is administrator-only). Same ?mpage= param as the other tabs.
+$bn_ca_rp_page  = ( 'moderation' === $admin_section && isset( $_GET['mpage'] ) ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_ca_rp_types = array(
+	''        => __( 'All types', 'buddynext' ),
+	'post'    => __( 'Posts', 'buddynext' ),
+	'comment' => __( 'Comments', 'buddynext' ),
+	'message' => __( 'Messages', 'buddynext' ),
+	'user'    => __( 'Profiles', 'buddynext' ),
+	'space'   => __( 'Spaces', 'buddynext' ),
+);
+$bn_ca_rp_type  = isset( $_GET['rtype'] ) ? sanitize_key( wp_unslash( $_GET['rtype'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_ca_rp_type  = isset( $bn_ca_rp_types[ $bn_ca_rp_type ] ) ? $bn_ca_rp_type : '';
+$bn_ca_rp_sort  = ( isset( $_GET['rsort'] ) && 'reported' === $_GET['rsort'] ) ? 'reported' : 'newest'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_ca_queue    = $bn_ca_mod->get_queue(
 	array(
-		'per_page' => 10,
-		'page'     => 1,
+		'per_page'    => 20,
+		'page'        => $bn_ca_rp_page,
+		'object_type' => $bn_ca_rp_type,
+		'sort'        => $bn_ca_rp_sort,
 		// Batches the offender lookup (post/comment/message author, or the
 		// reported user directly) plus their strike count and suspension state
 		// in one pass — the row actions below need offender_id for Strike/Suspend.
 		'enrich'   => true,
 	)
 );
-$report_rows = $bn_ca_queue['items'];
+$report_rows    = $bn_ca_queue['items'];
+$bn_ca_rp_pages = (int) ceil( (int) $bn_ca_queue['total'] / 20 );
 
 // ── Recent activity log (site-wide) ──────────────────────────────────────────
 
@@ -882,31 +899,49 @@ $posts_pct_abs = abs( $posts_pct );
 							<?php esc_html_e( 'Open reports', 'buddynext' ); ?>
 							<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $open_reports ) ); ?></span>
 						</span>
-						<a href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>" class="bn-ca-card__link">
-							<?php esc_html_e( 'View all', 'buddynext' ); ?>
-						</a>
+						<?php if ( current_user_can( 'manage_options' ) ) : ?>
+							<a href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>" class="bn-ca-card__link">
+								<?php esc_html_e( 'View all', 'buddynext' ); ?>
+							</a>
+						<?php endif; ?>
 					</header>
 
+					<form class="bn-ca-members-search bn-ca-report-filter" method="get" action="<?php echo esc_url( $bn_ca_routed ? trailingslashit( $admin_base . 'moderation' ) : $admin_base ); ?>">
+						<?php if ( ! $bn_ca_routed ) : ?>
+							<input type="hidden" name="bn_admin" value="moderation" />
+						<?php endif; ?>
+						<select name="rtype" class="bn-input" aria-label="<?php esc_attr_e( 'Report type', 'buddynext' ); ?>">
+							<?php foreach ( $bn_ca_rp_types as $bn_rt_key => $bn_rt_label ) : ?>
+								<option value="<?php echo esc_attr( $bn_rt_key ); ?>" <?php selected( $bn_ca_rp_type, $bn_rt_key ); ?>><?php echo esc_html( $bn_rt_label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<select name="rsort" class="bn-input" aria-label="<?php esc_attr_e( 'Sort reports', 'buddynext' ); ?>">
+							<option value="newest" <?php selected( $bn_ca_rp_sort, 'newest' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
+							<option value="reported" <?php selected( $bn_ca_rp_sort, 'reported' ); ?>><?php esc_html_e( 'Most reported', 'buddynext' ); ?></option>
+						</select>
+						<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Filter', 'buddynext' ); ?></button>
+					</form>
+
+					<?php
+					/**
+					 * Fires before the moderation report list (Community Admin > Moderation).
+					 *
+					 * @since 1.1.0
+					 */
+					do_action( 'buddynext_moderation_queue_before' );
+					?>
+
 					<?php if ( empty( $report_rows ) ) : ?>
-						<p class="bn-ca-card__empty"><?php esc_html_e( 'No open reports.', 'buddynext' ); ?></p>
+						<p class="bn-ca-card__empty"><?php echo esc_html( '' !== $bn_ca_rp_type ? __( 'No open reports of this type.', 'buddynext' ) : __( 'No open reports.', 'buddynext' ) ); ?></p>
 					<?php else : ?>
-						<?php
-						$displayed   = 0;
-						$show_limit  = 5;
-						$extra_count = max( 0, count( $report_rows ) - $show_limit );
-						?>
 						<?php foreach ( $report_rows as $rpt ) : ?>
 							<?php
-							if ( $displayed >= $show_limit ) {
-								break;
-							}
 							$rpt_count    = (int) ( $rpt['reporter_count'] ?? 1 );
 							$rpt_severity = bn_report_severity( $rpt_count );
 							$rpt_reason   = ucfirst( (string) ( $rpt['reason'] ?? __( 'Report', 'buddynext' ) ) );
 							$rpt_ts       = ! empty( $rpt['created_at'] ) ? (int) strtotime( (string) $rpt['created_at'] . ' UTC' ) : 0;
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
 							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
-							++$displayed;
 							// Interactivity context the moderation store's dismiss/removeContent
 							// actions read. data-report-id is the selector they use to drop the
 							// row on success.
@@ -928,6 +963,11 @@ $posts_pct_abs = abs( $posts_pct );
 							$rpt_escalated = 'escalated' === (string) ( $rpt['status'] ?? '' );
 							$rpt_offender  = (int) ( $rpt['offender_id'] ?? 0 );
 							$rpt_suspended = ! empty( $rpt['offender_suspended'] );
+							$rpt_strikes   = (int) ( $rpt['strikes_count'] ?? 0 );
+							// What was reported, so the row is workable without opening it.
+							// ponytail: one lookup per row (20 per page), same as the wp-admin queue.
+							$rpt_excerpt  = \BuddyNext\Core\ObjectLabels::excerpt( $rpt_obj_type, $rpt_obj_id );
+							$rpt_view_url = false === \BuddyNext\Core\ObjectLabels::exists( $rpt_obj_type, $rpt_obj_id ) ? '' : \BuddyNext\Core\ObjectLabels::view_url( $rpt_obj_type, $rpt_obj_id );
 							$rpt_ctx       = wp_json_encode(
 								array(
 									'reportId'     => (int) $rpt['id'],
@@ -939,7 +979,8 @@ $posts_pct_abs = abs( $posts_pct );
 									'cwHasWarning' => $rpt_cw_has,
 									'escalated'    => $rpt_escalated,
 									'userId'       => $rpt_offender,
-									'strikes'      => (int) ( $rpt['strikes_count'] ?? 0 ),
+									'spaceId'      => (int) ( $rpt['space_id'] ?? 0 ),
+									'strikes'      => $rpt_strikes,
 									'moreMenuOpen' => false,
 								)
 							);
@@ -950,6 +991,7 @@ $posts_pct_abs = abs( $posts_pct );
 										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>
 										<?php echo esc_html( $rpt_reason ); ?>
 									</div>
+									<div class="bn-ca-report-row__excerpt"><?php echo esc_html( '' !== $rpt_excerpt ? $rpt_excerpt : buddynext_object_label( $rpt_obj_type, $rpt_obj_id ) ); ?></div>
 									<div class="bn-ca-report-row__meta">
 										<?php
 										printf(
@@ -966,6 +1008,20 @@ $posts_pct_abs = abs( $posts_pct );
 								<?php endif; ?>
 								<div class="bn-ca-row__actions">
 									<?php
+									/**
+									 * Fires inside each moderation report row's action cluster,
+									 * before the built-in actions (Community Admin > Moderation).
+									 *
+									 * Output is rendered verbatim inside .bn-ca-row__actions;
+									 * handlers must escape on output.
+									 *
+									 * @since 1.1.0
+									 *
+									 * @param array<string,mixed> $rpt Hydrated queue item from
+									 *                                 ModerationService::get_queue( enrich ).
+									 */
+									do_action( 'buddynext_mod_queue_row_actions', $rpt );
+
 									// Primary, inline: the two actions reached for most. Everything
 									// else (card 10331285055) folds into the "... More" overflow —
 									// same split as the wp-admin queue.
@@ -1000,6 +1056,11 @@ $posts_pct_abs = abs( $posts_pct );
 											<?php buddynext_icon( 'more-horizontal' ); ?>
 										</button>
 										<div class="bn-ca-more-menu" role="menu">
+											<?php if ( '' !== $rpt_view_url ) : ?>
+												<a class="bn-ca-more-menu-item" role="menuitem" href="<?php echo esc_url( $rpt_view_url ); ?>" target="_blank" rel="noopener">
+													<?php esc_html_e( 'View reported item', 'buddynext' ); ?>
+												</a>
+											<?php endif; ?>
 											<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.resolveReport">
 												<?php esc_html_e( 'Resolve', 'buddynext' ); ?>
 											</button>
@@ -1023,9 +1084,18 @@ $posts_pct_abs = abs( $posts_pct );
 												</div>
 											<?php endif; ?>
 											<?php if ( $rpt_offender > 0 && 'user' !== $rpt_obj_type ) : ?>
+												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.warnUser">
+													<?php esc_html_e( 'Warn author', 'buddynext' ); ?>
+												</button>
 												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.strikeUser">
 													<?php esc_html_e( 'Strike author', 'buddynext' ); ?>
 												</button>
+												<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/issue-strike' ) ) : ?>
+													<?php // Undo a mis-issued strike. Hidden while the record is clean; state.noStrikes tracks strikeUser() live. ?>
+													<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.reverseStrike" data-wp-bind--hidden="state.noStrikes" data-wp-bind--aria-label="state.reverseStrikeAria" <?php echo $rpt_strikes > 0 ? '' : 'hidden'; ?>>
+														<?php esc_html_e( 'Reverse last strike', 'buddynext' ); ?>
+													</button>
+												<?php endif; ?>
 												<?php if ( $rpt_suspended ) : ?>
 													<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Already suspended', 'buddynext' ); ?></span>
 												<?php else : ?>
@@ -1040,16 +1110,25 @@ $posts_pct_abs = abs( $posts_pct );
 							</div>
 						<?php endforeach; ?>
 
-						<?php if ( $extra_count > 0 ) : ?>
-							<a href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>" class="bn-ca-card__more">
-								<?php
-								printf(
-									/* translators: %s: number of additional reports. */
-									esc_html__( '+ %s more', 'buddynext' ),
-									esc_html( number_format_i18n( $extra_count ) )
-								);
-								?>
-							</a>
+						<?php if ( $bn_ca_rp_pages > 1 ) : ?>
+							<nav class="bn-pagination bn-ca-pagination" aria-label="<?php esc_attr_e( 'Report pages', 'buddynext' ); ?>">
+								<?php if ( $bn_ca_rp_page > 1 ) : ?>
+									<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_rp_page - 1 ) ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+								<?php endif; ?>
+								<span class="bn-ca-pagination__status">
+									<?php
+									printf(
+										/* translators: 1: current page, 2: total pages. */
+										esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+										esc_html( number_format_i18n( $bn_ca_rp_page ) ),
+										esc_html( number_format_i18n( $bn_ca_rp_pages ) )
+									);
+									?>
+								</span>
+								<?php if ( $bn_ca_rp_page < $bn_ca_rp_pages ) : ?>
+									<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mpage', $bn_ca_rp_page + 1 ) ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+								<?php endif; ?>
+							</nav>
 						<?php endif; ?>
 					<?php endif; ?>
 				</section>

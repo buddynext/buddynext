@@ -3,9 +3,8 @@
  * Shared moderator content-warning control (Interactivity surfaces).
  *
  * Used by every front-end moderation surface that renders a report row - the
- * community-admin panel (templates/community-admin.php), the /moderation/ hub
- * (templates/moderation/queue.php) and the space-level moderation panel
- * (templates/spaces/moderation.php). All three drive the same
+ * community-admin panel (templates/community-admin.php) and the space-level
+ * moderation panel (templates/spaces/moderation.php). Both drive the same
  * buddynext/moderation Interactivity store, whose setCwType / setContentWarning
  * / clearContentWarning actions read objectId + cwType from the ROW's
  * data-wp-context. So each caller only has to (a) put objectId / objectType /

@@ -123,13 +123,14 @@ This filter only affects the reporter's own view. It never reveals content moder
 
 ## Moderation-queue render seams
 
-The admin moderation queue and the member-facing report modal expose theming seams so you can add columns, row actions, or panel content without forking the templates.
+The Community Admin moderation queue and the member-facing report modal expose theming seams so you can add row actions or panel content without forking the templates.
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_mod_queue_columns` | filter | The moderation-queue table header is built | `array $columns` |
-| `buddynext_mod_queue_row_actions` | action | A moderation-queue row's action cell renders | row context args |
-| `buddynext_moderation_queue_before` | action | Before the moderation-queue list renders | - |
+| `buddynext_mod_queue_row_actions` | action | A Community Admin report row's action cell renders, before the built-in actions | `array $report` (hydrated `ModerationService::get_queue()` item) |
+| `buddynext_moderation_queue_before` | action | Before the Community Admin report list renders | - |
+
+`buddynext_mod_queue_columns` was removed in 1.2.2 along with the standalone `/moderation/` page whose table it filtered; the report list in Community Admin is not a table.
 | `buddynext_part_member_report_modal_before` / `_after` | action | Around the member report modal markup | `array $args` |
 | `buddynext_part_member_report_modal_args` / `_classes` | filter | Shape the report modal's args / wrapper classes | `array $args` / `array $classes, array $args` |
 | `buddynext_part_space_settings_panel_moderation_before` / `_after` | action | Around the space moderation settings panel | `array $args` |

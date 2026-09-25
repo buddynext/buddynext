@@ -155,7 +155,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-08-29-space-slug-beats-scope';
+	private const ROUTER_VERSION = '2026-09-26-retire-moderation-hub';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -2053,10 +2053,6 @@ class PageRouter {
 				}
 				break;
 
-			case 'moderation':
-				$assets->enqueue( 'moderation' );
-				break;
-
 			case 'community_admin':
 				// The panel's .bn-ca-* chrome lives in bn-moderation.css and its
 				// Appeals approve/deny controls run on the buddynext/moderation
@@ -2367,8 +2363,8 @@ class PageRouter {
 	 */
 	private function resolve_hub_template( string $hub ): ?string {
 		// Non-hub routes without a descriptor resolve here: the single-post
-		// permalink, the settings sub-tabs, and the moderation queue (post folds
-		// into feed; settings + moderation get descriptors — plan Phase 4). Every
+		// permalink and the settings sub-tabs (post folds into feed; settings gets
+		// a descriptor — plan Phase 4). Every
 		// hub, core or addon, resolves through its descriptor's resolve_template
 		// callback in the default branch, so there is one path.
 		switch ( $hub ) {
@@ -2381,9 +2377,6 @@ class PageRouter {
 					$settings_section = 'account';
 				}
 				return 'settings/' . $settings_section . '.php';
-
-			case 'moderation':
-				return 'moderation/queue.php';
 
 			default:
 				$bn_descriptor = HubRegistry::instance()->get( $hub );
@@ -2429,13 +2422,11 @@ class PageRouter {
 		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_legacy_search%', '([01])' );
 
-		// Non-hub routes that have no descriptor: single-post permalink, the
-		// settings sub-tabs, and the moderation queue. These stay explicit until
-		// they gain their own descriptors (post folds into feed; settings +
-		// moderation get descriptors — plan Phase 4).
+		// Non-hub routes that have no descriptor: single-post permalink and the
+		// settings sub-tabs. These stay explicit until they gain their own
+		// descriptors (post folds into feed; settings gets one — plan Phase 4).
 		self::register_post_rules();
 		self::register_settings_rules();
-		self::register_moderation_rules();
 
 		// Every hub — core and addon — registers its own rewrite rules through
 		// its descriptor's register_rules callback. Core hubs now ride the exact
@@ -2747,23 +2738,6 @@ class PageRouter {
 		add_rewrite_rule(
 			'^settings/?$',
 			'index.php?bn_hub=settings&bn_settings_section=account',
-			'top'
-		);
-	}
-
-	/**
-	 * Register Moderation hub rewrite rules.
-	 *
-	 * Single rule — the moderation hub has no sub-endpoints.
-	 *
-	 * @return void
-	 */
-	private function register_moderation_rules(): void {
-		$m = self::hub_slug( 'buddynext_slug_moderation', 'moderation' );
-
-		add_rewrite_rule(
-			'^' . preg_quote( $m, '/' ) . '/?$',
-			'index.php?bn_hub=moderation',
 			'top'
 		);
 	}

@@ -1,95 +1,95 @@
 # Moderation Queue
 
-The moderation queue is the page where moderators review reported content and pending items, then act on them: dismiss a report, escalate it, resolve it, or take action on the content or the member. It is the single place a moderator works through everything members have flagged.
+The moderation queue is where moderators review reported content and act on it: dismiss a report, escalate it, resolve it, or take action on the content or the member. It lives in the **Community Admin** panel, under **Moderation > Reports**.
 
-![The BuddyNext moderation queue listing reported items grouped by content](../images/moderation-queue.webp)
+![The Community Admin moderation queue, with a report row's More menu open](../images/moderation-queue.webp)
 
 ## Why use it
 
-A community's reports are only useful if someone can act on them quickly and fairly. The queue turns a stream of individual reports into one organized worklist: grouped by item, sorted by urgency, with the context a moderator needs to decide without leaving the page.
+A community's reports are only useful if someone can act on them quickly and fairly. The queue turns a stream of individual reports into one organized worklist: grouped by item, filterable by type, sortable by how many people reported it.
 
-For the owner, a clear queue is what keeps moderation fast at scale. Reports on the same post are merged into one row so a moderator acts once per piece of content instead of clicking through five identical reports. Counters at the top show how much is pending, what is urgent, and how much was cleared today, so you can see at a glance whether your team is keeping up. For the moderator, every report carries the reason, who and how many reported it, and a preview of the content, so the decision is grounded in evidence rather than guesswork. That combination - grouped, prioritized, evidence-backed - is what keeps decisions both quick and fair.
+Reports on the same post are merged into one row, so a moderator acts once per piece of content instead of clicking through five identical reports. Every row carries the reason, the first line of the reported content, and how many members reported it, so a decision is grounded in what was actually said rather than guesswork.
 
-## How it works (for moderators)
+## Who can open it
 
-The queue lives on its own Moderation page in your community. Only members with moderator permission can open it. Everyone else sees an Access Restricted panel.
-
-
-### Reading the queue
-
-The top of the page shows summary counters:
-
-| Counter | What it shows |
+| Who | Where they moderate |
 |---|---|
-| Urgent reports | Items reported by three or more members. |
-| Pending review | Reports waiting for a decision. |
-| Resolved today | Reports cleared so far today. |
-| Total all time | Every report ever filed. |
-| Suspended users | Members currently suspended. |
+| Site administrators and community moderators | **Community Admin > Moderation** - every report in the community. |
+| Space owners and space moderators | Their space's own **Moderation** tab - reports on that space's content only. See [Space Roles and Moderators](../spaces/05-roles-and-moderators.md). |
+| Site administrators only | **BuddyNext > Moderation** in wp-admin - the same reports as a full table (see below). |
 
-Below the counters is a filter strip and the list of reported items. Each row represents one reported item (with all of its reports merged) and shows the offender, a preview or excerpt of the content, the reason or reasons given, and how many members reported it.
+Members without moderation permission cannot open the Community Admin panel.
+
+## Reading the queue
+
+Each row is one reported item, with all of its reports merged:
+
+- **Reason** - the reason given, with a coloured dot for how urgent the item is (more reporters, stronger colour).
+- **What was reported** - the first line of the post or comment, or the member's or space's name.
+- **Reporters and age** - how many members reported it, and when.
+
+The list shows 20 items per page, with Previous and Next links underneath.
 
 ### Filtering and sorting
 
-Use the filter tabs to focus the list, and the sort control to order it:
+Above the list:
 
-- **Type tabs** - All, Urgent, Posts, Comments, DMs, Profiles. Urgent shows only items reported three or more times.
-- **Sort** - Newest first, or Most reported (the items with the highest report counts first).
+- **Type** - All types, Posts, Comments, Messages, Profiles, or Spaces.
+- **Sort** - Newest first, or Most reported (the items with the most reporters first).
 
-These let a moderator triage a large queue by going after the most-reported items first, or by handling the freshest reports as they arrive.
+Choose a type and sort, then select **Filter**. Paging keeps your choice.
 
-> **Note:** There is no Media tab, and that is on purpose. Reported photos and videos do not come here. They go to the media plugin's own review queue, under **WPMediaVerse > Media Moderation** in the WordPress admin, because that plugin owns the media. If your community allows photo and video uploads, put both queues on your moderators' rounds.
+> **Note:** Reported photos and videos do not come here. They go to the media plugin's own review queue, under **WPMediaVerse > Media Moderation** in the WordPress admin, because that plugin owns the media. If your community allows photo and video uploads, put both queues on your moderators' rounds.
 
-### Acting on a report
+## Acting on a report
 
-Each row has an action cluster. The actions available from the queue page are:
+Two actions sit on every row:
 
-- **View in context** - opens the reported post, comment, or profile so you can see it in full before deciding.
-- **Dismiss** - closes the report with no action. Use this when the content is fine and the report does not hold up. The report is marked dismissed and recorded against your account.
-- **Remove content** - takes the reported content down.
-- **Warn user** - sends the member a warning without removing their standing.
-- **Strike user** - records a moderation strike against the member.
-- **Suspend account** - suspends the member so they can no longer post.
+- **Dismiss** - closes the report with no action. Use it when the content is fine and the report does not hold up.
+- **Remove** - takes the reported post, comment, or message down and closes the report.
 
-Warning, striking, and suspending a member are actions against the person rather than the single item. For how strikes, suspensions, warnings, and appeals work, see User Moderation.
+Everything else is in the row's **More** menu:
 
-Two more outcomes exist for a report's lifecycle - **Escalate**, which flags a report as needing a more senior decision, and **Resolve**, which explicitly closes a report as handled. Community-page filter tabs (see below) already show Escalated and Resolved as states a report can be in.
+- **View reported item** - opens the post, comment (on its post), profile, or space in a new tab. Not offered for direct messages, and not offered once the item has been deleted.
+- **Resolve** - closes the report as handled.
+- **Escalate** - flags the report for a more senior decision. The row stays in the queue.
+- **Content warning** (posts only) - blurs the post behind a label instead of removing it. See Content Warnings.
+- **Warn author** - sends the author a warning without a penalty.
+- **Strike author** - records a moderation strike against the author.
+- **Reverse last strike** - undoes the author's most recent strike. Shown only while the author has an active strike, and only to moderators who may issue strikes.
+- **Suspend author** - suspends the account. An author who is already suspended shows an "Already suspended" badge instead.
 
-> **Note:** On this front-end community page, Escalate and Resolve are not yet surfaced as row buttons - Dismiss and Remove cover the everyday close-out paths here. Both actions ARE available as buttons today from the wp-admin mirror of this queue (**BuddyNext > Moderation > Reports**, see below), which a site administrator can use for the same reports.
+Warning, striking, and suspending act on the person rather than the single item. For how strikes, suspensions, warnings, and appeals work, see Moderating a Member.
+
+On a phone, each row stacks: the report on top, the actions underneath.
 
 ### Every action is logged
 
-Every moderation decision - dismiss, remove, warn, strike, suspend - is written to a permanent moderation log. The log is the audit trail of who did what and when, so a community can answer "why was this removed" and review its moderators' decisions over time.
+Every moderation decision - dismiss, remove, warn, strike, reverse, suspend - is written to a permanent moderation log. The log is the audit trail of who did what and when, so a community can answer "why was this removed" and review its moderators' decisions over time.
 
-You can filter the log and export it to CSV, for a compliance record or an outside review. The background jobs that maintain moderation report their status - and how long log entries are kept - in the admin hub's tools, where you can also run them on demand if you need the queue processed right now rather than waiting for the next scheduled pass.
+You can filter the log and export it to CSV. The background jobs that maintain moderation report their status - and how long log entries are kept - in the admin hub's tools.
 
-## The pending-content view
-
-The queue's default view is the pending list: items that have been reported and are waiting for a decision. As members flag content, new rows appear here. Working the pending list down to zero is the day-to-day job of moderation.
-
-When nothing matches the current filter, the queue shows a Nothing to review state confirming there are no pending reports for that filter. This is the normal, healthy state of a well-tended queue, not an error. New reports appear here as members flag content.
+When nothing matches the current filter, the queue says so. An empty queue is the normal, healthy state, not an error.
 
 ## The wp-admin mirror (for site administrators)
 
-The same reports also have a second home in the WordPress admin, under **BuddyNext > Moderation**. It reads and writes the same underlying reports as the community page above, but it is a separate screen, restricted to whoever can manage the site (not to promoted community moderators), and it groups the whole moderation workflow into four tabs:
+The same reports also appear in the WordPress admin, under **BuddyNext > Moderation**. It reads and writes the same reports as Community Admin, but it is restricted to whoever can manage the site, and it groups the whole moderation workflow into tabs:
 
 | Tab | What it shows |
 |---|---|
 | Pending | Posts held for approval before they went live. Empty on almost every site - see Content Safeguards for when this applies. |
-| Reports | The same report queue described on this page, with **Dismiss**, **Resolve**, **Escalate**, and **Remove content** all available as row buttons, plus the strike/suspend actions on the reported member. |
+| Reports | The same report queue, as a table with type, reason, and sort filters. |
 | Suspensions | Every active suspension, with a one-click lift. See Moderating a Member. |
 | Appeals | Pending appeals awaiting a decision. See Appeals. |
 
-Use this screen when you want Escalate or Resolve without waiting for those buttons to reach the community page, or when you would rather work reports from wp-admin than from inside the community itself. Both surfaces log to the same moderation log, so switching between them mid-session does not create a gap in the record.
+Site administrators also get a **View all** link from Community Admin to this table. Both surfaces write to the same moderation log.
 
 ## Good to know
 
-- **Access is restricted to moderators.** The page checks for moderator permission. Roles resolve both site-wide and per space, so a space moderator can review reports tied to their space. Members without the permission see an Access Restricted panel rather than the queue.
-- **Reports are grouped per item.** Multiple reports on the same post are merged into one row, with the reasons combined and the reporter count shown, so you act once instead of repeatedly.
-- **Urgency is automatic.** An item crosses into Urgent once three or more different members have reported it. The Urgent tab and the Urgent reports counter both use this threshold.
-- **Privacy on direct messages.** A reported direct message shows a privacy notice in place of its content, so a moderator can act on the report without reading the private message.
-- **Concurrency.** Because the queue is shared, an item another moderator already handled may have already changed state by the time you reach it. Reload the queue to see the current pending list.
-- **The wp-admin mirror needs full admin access, not just moderator permission.** A member promoted to community moderator uses this front-end page. **BuddyNext > Moderation** in wp-admin is gated on the ability to manage the site, so a promoted moderator without wp-admin access will not see that menu at all - only a site administrator can.
+- **Reports are grouped per item.** Multiple reports on the same post are merged into one row, with the reasons combined and the reporter count shown.
+- **Privacy on direct messages.** A reported direct message appears as "Message #id" with no "View reported item" link, so a moderator can act on the report without opening the private conversation.
+- **Concurrency.** The queue is shared. An item another moderator already handled may have changed state by the time you reach it. Reload to see the current list.
+- **Community moderators do not need wp-admin.** Everything a moderator does, including paging through the whole queue, happens in Community Admin.
 
 ## Free vs Pro
 

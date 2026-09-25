@@ -442,7 +442,7 @@ class ModerationQueue {
 				// muted reference below — never the only thing on screen. Falls back to
 				// the id label for types with no text body (a reported member, a
 				// media-only post).
-				$bn_excerpt = $this->object_excerpt( $object_type, $object_id );
+				$bn_excerpt = \BuddyNext\Core\ObjectLabels::excerpt( $object_type, $object_id );
 				$bn_author  = $author_id > 0 ? get_userdata( $author_id ) : null;
 
 				// false = we checked and it is gone; null = not ours to answer (a
@@ -453,7 +453,7 @@ class ModerationQueue {
 				// A "View content" link to something that no longer exists is a
 				// promise the page cannot keep — it lands on a 404 or, worse, on
 				// whatever now occupies that id.
-				$bn_view_url = $bn_missing ? '' : $this->object_view_url( $object_type, $object_id );
+				$bn_view_url = $bn_missing ? '' : \BuddyNext\Core\ObjectLabels::view_url( $object_type, $object_id );
 				?>
 				<strong><?php echo esc_html( '' !== $bn_excerpt ? $bn_excerpt : $bn_label ); ?></strong>
 				<?php if ( $bn_author instanceof \WP_User ) : ?>
@@ -530,8 +530,8 @@ class ModerationQueue {
 					$this->report_button( $report_id, 'dismiss', __( 'Dismiss', 'buddynext' ), 'secondary' );
 					// "Remove content" only applies to removable objects — remove_object()
 					// returns a 422 (bn_removal_unsupported) for user/space reports. Gate
-					// the button on the same object types the frontend queue does
-					// (templates/moderation/queue.php), so a moderator is never shown an
+					// the button on the same object types Community Admin does
+					// (templates/community-admin.php), so a moderator is never shown an
 					// action that always fails.
 					//
 					// Existence is the second half of the same rule. A report whose
@@ -1636,88 +1636,6 @@ class ModerationQueue {
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return 0;
-	}
-
-	/**
-	 * A short, plain-text first line of the reported content, so a moderator can
-	 * judge a row without opening every item. Returns '' for types with no text
-	 * body (a reported member, a media-only post), where the caller falls back to
-	 * the type label. Mirrors object_author()'s per-type lookup (card 10297106255).
-	 *
-	 * @param string $object_type Reported object type.
-	 * @param int    $object_id   Reported object ID.
-	 * @return string Truncated, tag-stripped first line, or '' when none.
-	 */
-	private function object_excerpt( string $object_type, int $object_id ): string {
-		if ( $object_id <= 0 ) {
-			return '';
-		}
-		global $wpdb;
-		$content = '';
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off admin queue render; prepared; not a hot path.
-		if ( 'post' === $object_type ) {
-			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
-		} elseif ( 'comment' === $object_type ) {
-			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_comments WHERE id = %d", $object_id ) );
-		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		if ( '' === $content ) {
-			return '';
-		}
-		$content = trim( (string) preg_replace( '/\s+/', ' ', wp_strip_all_tags( $content ) ) );
-		if ( '' === $content ) {
-			return '';
-		}
-		return (string) mb_strimwidth( $content, 0, 80, '…' );
-	}
-
-	/**
-	 * Resolve a front-end URL for the reported object so a moderator can open
-	 * and review the actual content (post permalink, the comment's parent post,
-	 * or the reported member's profile). Returns '' when no URL applies.
-	 *
-	 * Reports carry five object types (post, comment, user, space, message - see
-	 * ModerationService). This handled three, and the other two fell through to the
-	 * empty case, so the "View content" link was suppressed with no indication that
-	 * anything was missing. A moderator asked to judge a reported SPACE had no way
-	 * to open it short of guessing the URL or searching by name.
-	 *
-	 * @param string $object_type Reported object type (post|comment|user|space|message).
-	 * @param int    $object_id   Reported object ID.
-	 * @return string Front-end URL, or '' when the type has no viewable page.
-	 */
-	private function object_view_url( string $object_type, int $object_id ): string {
-		if ( $object_id <= 0 ) {
-			return '';
-		}
-
-		if ( 'post' === $object_type ) {
-			return \BuddyNext\Core\PageRouter::post_url( $object_id );
-		}
-		if ( 'user' === $object_type ) {
-			return \BuddyNext\Core\PageRouter::profile_url( $object_id );
-		}
-		if ( 'space' === $object_type ) {
-			return \BuddyNext\Core\PageRouter::space_url( $object_id );
-		}
-		if ( 'comment' === $object_type ) {
-			global $wpdb;
-			// A comment has no standalone page — deep-link to its parent post.
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off admin deep-link lookup; prepared; not a hot path.
-			$post_id = (int) $wpdb->get_var(
-				$wpdb->prepare( "SELECT object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d AND object_type = 'post'", $object_id )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			return $post_id > 0 ? \BuddyNext\Core\PageRouter::post_url( $post_id ) : '';
-		}
-
-		// 'message' returns '' deliberately, and this is the one type where that is
-		// the right answer rather than an oversight. A reported DM has no page a
-		// moderator can open, and manufacturing one would expose a private
-		// conversation - including the half the reporter did not report - to anyone
-		// with the moderation screen. The queue already shows the reported message's
-		// excerpt inline, which is the part that was actually reported.
-		return '';
 	}
 
 	/**

@@ -282,6 +282,88 @@ final class ObjectLabels {
 	}
 
 	/**
+	 * A short, plain-text first line of the reported content, so a moderator can
+	 * judge a row without opening every item. Returns '' for types with no text
+	 * body (a reported member, a media-only post), where the caller falls back to
+	 * the type label. Mirrors object_author()'s per-type lookup (card 10297106255).
+	 *
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object ID.
+	 * @return string Truncated, tag-stripped first line, or '' when none.
+	 */
+	public static function excerpt( string $object_type, int $object_id ): string {
+		if ( $object_id <= 0 ) {
+			return '';
+		}
+		global $wpdb;
+		$content = '';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One row per rendered report; prepared.
+		if ( 'post' === $object_type ) {
+			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+		} elseif ( 'comment' === $object_type ) {
+			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_comments WHERE id = %d", $object_id ) );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( '' === $content ) {
+			return '';
+		}
+		$content = trim( (string) preg_replace( '/\s+/', ' ', wp_strip_all_tags( $content ) ) );
+		if ( '' === $content ) {
+			return '';
+		}
+		return (string) mb_strimwidth( $content, 0, 80, '…' );
+	}
+
+	/**
+	 * Resolve a front-end URL for the reported object so a moderator can open
+	 * and review the actual content (post permalink, the comment's parent post,
+	 * or the reported member's profile). Returns '' when no URL applies.
+	 *
+	 * Reports carry five object types (post, comment, user, space, message - see
+	 * ModerationService). This handled three, and the other two fell through to the
+	 * empty case, so the "View content" link was suppressed with no indication that
+	 * anything was missing. A moderator asked to judge a reported SPACE had no way
+	 * to open it short of guessing the URL or searching by name.
+	 *
+	 * @param string $object_type Reported object type (post|comment|user|space|message).
+	 * @param int    $object_id   Reported object ID.
+	 * @return string Front-end URL, or '' when the type has no viewable page.
+	 */
+	public static function view_url( string $object_type, int $object_id ): string {
+		if ( $object_id <= 0 ) {
+			return '';
+		}
+
+		if ( 'post' === $object_type ) {
+			return PageRouter::post_url( $object_id );
+		}
+		if ( 'user' === $object_type ) {
+			return PageRouter::profile_url( $object_id );
+		}
+		if ( 'space' === $object_type ) {
+			return PageRouter::space_url( $object_id );
+		}
+		if ( 'comment' === $object_type ) {
+			global $wpdb;
+			// A comment has no standalone page — deep-link to its parent post.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One row per rendered report; prepared.
+			$post_id = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d AND object_type = 'post'", $object_id )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return $post_id > 0 ? PageRouter::post_url( $post_id ) : '';
+		}
+
+		// 'message' returns '' deliberately, and this is the one type where that is
+		// the right answer rather than an oversight. A reported DM has no page a
+		// moderator can open, and manufacturing one would expose a private
+		// conversation - including the half the reporter did not report - to anyone
+		// with the moderation screen. The queue already shows the reported message's
+		// excerpt inline, which is the part that was actually reported.
+		return '';
+	}
+
+	/**
 	 * Drop the per-request cache. Test seam.
 	 *
 	 * @return void

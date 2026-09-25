@@ -1,7 +1,7 @@
 /* BuddyNext — Moderation Interactivity API store.
  *
- * Powers both the site-wide moderation queue (moderation/queue.php) and
- * space-level moderation panel (spaces/moderation.php).
+ * Powers Community Admin > Moderation (community-admin.php), the space-level
+ * moderation panel (spaces/moderation.php) and the account-status appeal form.
  */
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
@@ -24,9 +24,8 @@ const moderationStore = store( 'buddynext/moderation', {
 	 *
 	 * Each queue row's context carries `strikes` — the offender's active
 	 * (non-reversed) strike count, seeded server-side by the queue's enrich pass.
-	 * strikeUser() and reverseStrike() write it back, so the strike dots, the
-	 * count label, and the Reverse control all track the real standing without a
-	 * reload. Interactivity directives cannot evaluate `!` or `>=` inline, so the
+	 * strikeUser() and reverseStrike() write it back, so the Reverse control
+	 * tracks the real standing without a reload. Interactivity directives cannot evaluate `!` or `>=` inline, so the
 	 * booleans are derived here; getContext() resolves to the row the directive
 	 * lives in. ────────────────────────────────────────────────────────────── */
 	state: {
@@ -34,49 +33,16 @@ const moderationStore = store( 'buddynext/moderation', {
 			const ctx = getContext();
 			return Math.max( 0, parseInt( ( ctx && ctx.strikes ) || 0, 10 ) || 0 );
 		},
-		// Hides the strike dots, the count label and the Reverse control for a
-		// member with a clean record. `hidden` is a real DOM property, so a plain
+		// Hides the Reverse control for a member with a clean record. `hidden` is a real DOM property, so a plain
 		// boolean is correct here.
 		get noStrikes() { return moderationStore.state.strikeCount < 1; },
-		/* The dot getters return true|null, NOT true|false. `data-active` is a
-		 * data-* attribute, and Preact only removes those when the bound value is
-		 * null/undefined — a literal `false` is written out as data-active="false",
-		 * which still matches the CSS [data-active] rule and would paint every dot
-		 * red. null is the only value that clears the attribute. */
-		get strikeDot1() { return moderationStore.state.strikeCount >= 1 || null; },
-		get strikeDot2() { return moderationStore.state.strikeCount >= 2 || null; },
-		get strikeDot3() { return moderationStore.state.strikeCount >= 3 || null; },
-		get strikeCountLabel() {
-			const n = moderationStore.state.strikeCount;
-			return fmt( 1 === n ? t( 'strikeCountOne', '%d strike' ) : t( 'strikeCountOther', '%d strikes' ), n );
-		},
 		get reverseStrikeAria() {
 			return fmt( t( 'reverseStrikeAria', 'Reverse the most recent strike (%d active)' ), moderationStore.state.strikeCount );
 		},
 	},
 
 	actions: {
-		/* ── Site-wide queue actions ────────────────────────────────── */
-
-		viewObject() {
-			const ctx = getContext();
-			const url = ctx.objectUrl || '#';
-			window.open( url, '_blank' );
-		},
-
-		viewInContext() {
-			const ctx = getContext();
-			window.location.href = ctx.contextUrl || '#';
-		},
-
-		applySort( event ) {
-			const val = event.target.value || event.target.dataset.sort;
-			if ( val ) {
-				const url = new URL( window.location.href );
-				url.searchParams.set( 'sort', val );
-				window.location.href = url.toString();
-			}
-		},
+		/* ── Report-row actions (Community Admin) ─────────────────────── */
 
 		* dismiss() {
 			const ctx = getContext();
@@ -260,7 +226,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				// Reflect the new standing so the row's strike dots/count update and
+				// Reflect the new standing so
 				// the Reverse control appears — the admin who just struck someone by
 				// mistake must be able to undo it without hunting for a reload.
 				ctx.strikes = ( parseInt( ctx.strikes || 0, 10 ) || 0 ) + 1;

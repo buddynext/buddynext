@@ -235,4 +235,46 @@ class ObjectLabelsTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'Listing: Blue Bicycle', buddynext_object_label( 'listing', 9 ) );
 	}
+
+	/**
+	 * The excerpt and view link both moderation surfaces show for a reported item.
+	 *
+	 * A comment has no page of its own, so it links to its parent post; a DM links
+	 * nowhere, so a moderator never opens a private conversation from a report.
+	 *
+	 * @return void
+	 */
+	public function test_view_url_and_excerpt_per_type(): void {
+		$author  = self::factory()->user->create();
+		$post_id = $this->insert(
+			'bn_posts',
+			array(
+				'user_id'    => $author,
+				'content'    => "<p>First   line\nof the post</p>",
+				'created_at' => current_time( 'mysql', true ),
+			)
+		);
+		$comment_id = $this->insert(
+			'bn_comments',
+			array(
+				'user_id'     => $author,
+				'object_type' => 'post',
+				'object_id'   => $post_id,
+				'content'     => 'A reply',
+				'created_at'  => current_time( 'mysql', true ),
+			)
+		);
+
+		$this->assertSame( 'First line of the post', ObjectLabels::excerpt( 'post', $post_id ) );
+		$this->assertSame( 'A reply', ObjectLabels::excerpt( 'comment', $comment_id ) );
+		$this->assertSame( '', ObjectLabels::excerpt( 'user', $author ) );
+
+		$post_url = \BuddyNext\Core\PageRouter::post_url( $post_id );
+		$this->assertNotSame( '', $post_url );
+		$this->assertSame( $post_url, ObjectLabels::view_url( 'post', $post_id ) );
+		$this->assertSame( $post_url, ObjectLabels::view_url( 'comment', $comment_id ) );
+		$this->assertSame( \BuddyNext\Core\PageRouter::profile_url( $author ), ObjectLabels::view_url( 'user', $author ) );
+		$this->assertSame( '', ObjectLabels::view_url( 'message', 5 ) );
+		$this->assertSame( '', ObjectLabels::view_url( 'post', 0 ) );
+	}
 }

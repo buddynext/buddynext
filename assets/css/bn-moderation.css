@@ -1,19 +1,15 @@
 /*
  * BuddyNext — Moderation (v2)
  *
- * Front-end moderation queue + community-admin aggregate surface. Composed
- * from the v2 primitive layer in bn-base.css:
- *   .bn-card[data-v2]           wraps the filter strip, report rows, and
- *                               community-admin sections.
- *   .bn-tabs / .bn-tab           Open / Resolved / Escalated and the
- *                               community-admin section switcher.
+ * Community Admin (the front-end moderation surface), the member's account
+ * status page, and the space moderation panel. Composed from the v2 primitive
+ * layer in bn-base.css:
+ *   .bn-tabs / .bn-tab           community-admin section switcher.
  *   .bn-tab__count              report count chip per tab.
- *   .bn-input / .bn-select      search + reason / sort filters.
  *   .bn-badge[data-tone]        severity + reason + status pills.
- *   .bn-avatar[data-size]       offender + reporter + signup avatars.
+ *   .bn-avatar[data-size]       signup avatars.
  *   .bn-btn[data-variant]       dismiss / remove / warn / strike / suspend.
- *   .bn-modal-backdrop / __panel destructive-action confirm shells.
- *   .bn-stat / .bn-stat-grid    queue-depth + resolution-time counters.
+ *   .bn-stat / .bn-stat-grid    queue-depth counters.
  *
  * No raw hex, no raw px in component selectors, no @media outside the
  * dedicated responsive block at the bottom.
@@ -23,7 +19,6 @@
    moderation avatar/icon dimensions and the shell/scroll max bounds. Hairline
    borders, dividers, and strike dots stay raw px (structural, sub-grid). */
 :root {
-	--bn-mod-avatar:      56px;
 	--bn-mod-avatar-icon: 28px;
 	--bn-mod-icon:        16px;
 	--bn-mod-icon-sm:     14px;
@@ -31,9 +26,8 @@
 	--bn-mod-scroll-max:  320px;
 }
 
-
 /* ──────────────────────────────────────────────────────────────────────
- * 1. Moderation queue — front-end (templates/moderation/queue.php)
+ * 1. Page shell — account status (templates/moderation/account-status.php)
  * ────────────────────────────────────────────────────────────────────── */
 
 /* Page shell + header */
@@ -80,323 +74,6 @@
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-3);
 }
-
-/* Stats — extends .bn-stat-grid primitive */
-.bn-mod-stat-grid {
-	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: var(--bn-s3);
-}
-
-/* Filter strip — composed inside a .bn-card */
-.bn-mod-filterbar {
-	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-lg);
-	padding: var(--bn-s3) var(--bn-s4);
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s4);
-	flex-wrap: wrap;
-}
-
-.bn-mod-filterbar__tabs {
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow-x: auto;
-	scrollbar-width: none;
-}
-
-.bn-mod-filterbar__tabs::-webkit-scrollbar { display: none; }
-
-.bn-mod-filterbar__controls {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	flex-shrink: 0;
-}
-
-.bn-mod-filterbar__sort {
-	min-width: 180px;
-}
-
-/* Report list — sequence of .bn-card[data-v2] report rows */
-.bn-mod-list {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s3);
-}
-
-.bn-report-row {
-	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-lg);
-	display: flex;
-	gap: var(--bn-s3);
-	padding: var(--bn-s4);
-	position: relative;
-	transition: border-color var(--bn-dur-fast) var(--bn-ease);
-}
-
-.bn-report-row:hover { border-color: var(--bn-line-strong); }
-
-.bn-report-row[data-severity="urgent"] {
-	border-inline-start: 3px solid var(--bn-danger);
-}
-
-.bn-report-row[data-severity="medium"] {
-	border-inline-start: 3px solid var(--bn-warn);
-}
-
-.bn-report-row[data-severity="low"] {
-	border-inline-start: 3px solid var(--bn-line-strong);
-}
-
-.bn-report-row__avatar { flex-shrink: 0; }
-
-.bn-report-row__body {
-	flex: 1;
-	min-width: 0;
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s2);
-}
-
-.bn-report-row__head {
-	display: flex;
-	align-items: baseline;
-	gap: var(--bn-s2);
-	flex-wrap: wrap;
-}
-
-.bn-report-row__name {
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-}
-
-.bn-report-row__verb {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-3);
-}
-
-.bn-report-row__meta {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-4);
-	flex-wrap: wrap;
-}
-
-.bn-report-row__meta-dot {
-	width: 3px;
-	height: 3px;
-	background: currentColor;
-	border-radius: 50%;
-	opacity: 0.5;
-}
-
-.bn-report-row__time {
-	font-family: var(--bn-font-mono);
-	font-size: var(--bn-text-2xs);
-	color: var(--bn-ink-4);
-}
-
-.bn-report-row__excerpt {
-	background: var(--bn-sunken);
-	border-inline-start: 2px solid var(--bn-line);
-	border-radius: var(--bn-r-sm);
-	padding: var(--bn-s2) var(--bn-s3);
-	font-size: var(--bn-text-sm);
-	line-height: var(--bn-leading-normal);
-	color: var(--bn-ink-2);
-}
-
-.bn-report-row__reason {
-	display: flex;
-	align-items: baseline;
-	gap: var(--bn-s2);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	flex-wrap: wrap;
-}
-
-.bn-report-row__reason-label {
-	color: var(--bn-ink-2);
-	font-weight: var(--bn-fw-semibold);
-	letter-spacing: var(--bn-ls-wide);
-	text-transform: uppercase;
-	font-size: var(--bn-text-2xs);
-}
-
-.bn-report-row__reporters {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	flex-wrap: wrap;
-}
-
-.bn-report-row__reporters-stack {
-	display: inline-flex;
-}
-
-.bn-report-row__reporters-stack > .bn-avatar {
-	margin-inline-start: -6px;
-	border: 2px solid var(--bn-surface);
-}
-
-.bn-report-row__reporters-stack > .bn-avatar:first-child {
-	margin-inline-start: 0;
-}
-
-.bn-report-row__context-link {
-	background: transparent;
-	border: none;
-	padding: 0;
-	font: inherit;
-	color: var(--bn-accent);
-	font-weight: var(--bn-fw-semibold);
-	cursor: pointer;
-	text-decoration: underline;
-	text-underline-offset: 2px;
-}
-
-.bn-report-row__context-link:focus-visible {
-	outline: 2px solid transparent;
-	outline-offset: 2px;
-	box-shadow: var(--bn-ring);
-	border-radius: var(--bn-r-sm);
-}
-
-.bn-report-row__actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bn-s2);
-	margin-top: var(--bn-s1);
-}
-
-/* Empty / restricted states — shared v2 pattern. */
-.bn-mod-empty {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: var(--bn-s3);
-	padding: var(--bn-s10) var(--bn-s5);
-	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-lg);
-	text-align: center;
-}
-
-.bn-mod-empty__icon {
-	width: var(--bn-mod-avatar);
-	height: var(--bn-mod-avatar);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 50%;
-	background: var(--bn-sunken);
-	color: var(--bn-ink-3);
-}
-
-.bn-mod-empty__icon svg {
-	width: var(--bn-mod-avatar-icon);
-	height: var(--bn-mod-avatar-icon);
-}
-
-.bn-mod-empty__title {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-lg);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-	letter-spacing: var(--bn-ls-tight);
-	margin: 0;
-}
-
-.bn-mod-empty__body {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-3);
-	max-width: 420px;
-	line-height: var(--bn-leading-normal);
-	margin: 0;
-}
-
-.bn-mod-restricted {
-	max-width: 540px;
-	margin: var(--bn-s10) auto;
-	padding: 0 var(--bn-s5);
-}
-
-.bn-mod-restricted__panel {
-	background: var(--bn-danger-bg);
-	border: 1px solid var(--bn-danger);
-	border-radius: var(--bn-r-lg);
-	padding: var(--bn-s8) var(--bn-s6);
-	text-align: center;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: var(--bn-s3);
-}
-
-.bn-mod-restricted__icon {
-	width: var(--bn-mod-avatar);
-	height: var(--bn-mod-avatar);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 50%;
-	background: var(--bn-surface);
-	color: var(--bn-danger);
-}
-
-.bn-mod-restricted__icon svg {
-	width: var(--bn-mod-avatar-icon);
-	height: var(--bn-mod-avatar-icon);
-}
-
-.bn-mod-restricted__title {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-xl);
-	font-weight: var(--bn-fw-bold);
-	color: var(--bn-ink);
-	margin: 0;
-}
-
-.bn-mod-restricted__body {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
-	line-height: var(--bn-leading-normal);
-	margin: 0;
-}
-
-/* Suspended pill in row header. */
-.bn-report-row__suspended {
-	color: var(--bn-danger);
-	font-weight: var(--bn-fw-bold);
-	font-size: var(--bn-text-2xs);
-	text-transform: uppercase;
-	letter-spacing: var(--bn-ls-wider);
-}
-
-/* Strike dots in the row header. */
-.bn-strike-dots {
-	display: inline-flex;
-	gap: 3px;
-	align-items: center;
-}
-
-.bn-strike-dots__dot {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: var(--bn-line-strong);
-}
-
-.bn-strike-dots__dot[data-active] { background: var(--bn-danger); }
 
 /* ──────────────────────────────────────────────────────────────────────
  * 2. Community admin (templates/community-admin.php)
@@ -557,12 +234,6 @@
 	font-family: var(--bn-font-mono);
 }
 
-.bn-ca-nav-divider {
-	height: 1px;
-	background: var(--bn-line-faint);
-	margin: var(--bn-s1) 0;
-}
-
 .bn-ca-sidebar__note {
 	padding: var(--bn-s2) var(--bn-s4) var(--bn-s4);
 	font-size: var(--bn-text-xs);
@@ -579,31 +250,6 @@
 }
 
 /* Section header — used above each card stack. */
-.bn-ca-section-head {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: var(--bn-s3);
-	font-family: var(--bn-font-mono);
-	font-size: var(--bn-text-2xs);
-	font-weight: var(--bn-fw-semibold);
-	letter-spacing: var(--bn-ls-wider);
-	text-transform: uppercase;
-	color: var(--bn-ink-4);
-	padding: 0 2px;
-}
-
-.bn-ca-section-head__action {
-	font-family: var(--bn-font-ui);
-	font-size: var(--bn-text-xs);
-	text-transform: none;
-	letter-spacing: var(--bn-ls-normal);
-	color: var(--bn-accent);
-	font-weight: var(--bn-fw-semibold);
-	text-decoration: none;
-}
-
-.bn-ca-section-head__action:hover { text-decoration: underline; }
 
 /* Card primitive used for every card body (signups / pending / activity). */
 .bn-ca-card {
@@ -689,39 +335,7 @@
 	text-align: center;
 }
 
-.bn-ca-card__section-title {
-	font-family: var(--bn-font-mono);
-	font-size: var(--bn-text-2xs);
-	font-weight: var(--bn-fw-bold);
-	color: var(--bn-ink-4);
-	text-transform: uppercase;
-	letter-spacing: var(--bn-ls-wider);
-	padding: var(--bn-s2) var(--bn-s4) var(--bn-s1);
-}
-
-.bn-ca-card__divider {
-	height: 1px;
-	background: var(--bn-line-faint);
-	margin: var(--bn-s1) 0;
-}
-
-.bn-ca-card__more {
-	display: block;
-	padding: var(--bn-s2) var(--bn-s4);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-accent);
-	text-decoration: none;
-	font-weight: var(--bn-fw-semibold);
-}
-
-.bn-ca-card__more:hover { text-decoration: underline; }
-
 /* Two-column row. */
-.bn-ca-two-col {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: var(--bn-s4);
-}
 
 /* Signup row. */
 .bn-ca-row {
@@ -848,6 +462,17 @@
 
 .bn-ca-more-menu-item:hover {
 	background: var(--bn-bg-hover);
+}
+
+/* "View reported item" is a link: keep it an item, not a theme-styled link. */
+a.bn-ca-more-menu-item,
+a.bn-ca-more-menu-item:visited,
+a.bn-ca-more-menu-item:hover,
+a.bn-ca-more-menu-item:focus {
+	display: flex;
+	align-items: center;
+	color: var(--bn-ink-1);
+	text-decoration: none;
 }
 
 .bn-ca-more-menu-item--danger {
@@ -995,6 +620,14 @@
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
+}
+
+.bn-ca-report-row__excerpt {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .bn-ca-report-row__meta {
@@ -1321,11 +954,8 @@
  * ────────────────────────────────────────────────────────────────────── */
 
 @media (forced-colors: active) {
-	.bn-report-row,
 	.bn-ca-card,
-	.bn-ca-sidebar__card,
-	.bn-mod-empty,
-	.bn-mod-restricted__panel {
+	.bn-ca-sidebar__card {
 		border: 1px solid CanvasText;
 	}
 }
@@ -1335,9 +965,6 @@
  * ────────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 1024px) {
-	.bn-mod-stat-grid {
-		grid-template-columns: repeat(3, 1fr);
-	}
 
 	.bn-ca-wrap {
 		flex-direction: column;
@@ -1359,8 +986,7 @@
 	.bn-ca-sidebar__card::-webkit-scrollbar { display: none; }
 
 	.bn-ca-sidebar__heading,
-	.bn-ca-sidebar__note,
-	.bn-ca-nav-divider {
+	.bn-ca-sidebar__note {
 		display: none;
 	}
 
@@ -1382,40 +1008,6 @@
 		gap: var(--bn-s4);
 	}
 
-	.bn-mod-stat-grid {
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--bn-s2);
-	}
-
-	.bn-mod-filterbar {
-		flex-direction: column;
-		align-items: stretch;
-	}
-
-	.bn-mod-filterbar__controls {
-		justify-content: flex-end;
-		flex-wrap: wrap;
-	}
-
-	.bn-mod-filterbar__sort {
-		min-width: 0;
-		width: 100%;
-	}
-
-	.bn-report-row {
-		flex-direction: column;
-		gap: var(--bn-s3);
-	}
-
-	.bn-report-row__actions {
-		flex-direction: column;
-	}
-
-	.bn-report-row__actions > .bn-btn {
-		width: 100%;
-		justify-content: center;
-	}
-
 	/* Community-admin report row: the body takes its own line, actions below.
 	   The time column repeats the meta line's "N ago", so it goes. */
 	.bn-ca-report-row {
@@ -1433,11 +1025,6 @@
 	/* Keep the actions (and the end-anchored menu) on the inline-end edge. */
 	.bn-ca-report-row > .bn-ca-row__actions {
 		margin-inline-start: auto;
-	}
-
-	.bn-ca-two-col {
-		grid-template-columns: 1fr;
-		gap: var(--bn-s3);
 	}
 
 	.bn-ca-subheader {
@@ -1463,38 +1050,8 @@
 }
 
 /* Moderation queue pagination — lets mods page past the first 50 reports. */
-.bn-mq-pagination {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--bn-s3);
-	margin-block: var(--bn-s5);
-	flex-wrap: wrap;
-}
-.bn-mq-pagination__status {
-	font-size: var(--bn-fs-sm, 0.875rem);
-	color: var(--bn-ink-2, inherit);
-}
 
 /* ── Already-actioned state ──────────────────────────────────────────────────
    A row whose offender is already suspended shows this instead of a Suspend
    button. Sized to sit on the same line as the sibling buttons so the action
    row does not reflow when one row is in this state. */
-.bn-mod-queue__state {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	padding: var(--bn-s2) var(--bn-s3);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md);
-	background: var(--bn-sunken);
-	color: var(--bn-ink-3);
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-medium);
-	line-height: var(--bn-leading-snug);
-}
-.bn-mod-queue__state svg { width: 16px; height: 16px; flex-shrink: 0; }
-.bn-mod-queue__state[data-state="suspended"] {
-	border-color: color-mix(in oklch, var(--bn-danger) 30%, var(--bn-line));
-	color: var(--bn-danger);
-}

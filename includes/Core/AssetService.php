@@ -1766,16 +1766,12 @@ class AssetService {
 					'warnUserFailed'        => __( 'Could not warn the user.', 'buddynext' ),
 					'strikeIssued'          => __( 'Strike issued.', 'buddynext' ),
 					'strikeUserFailed'      => __( 'Could not issue a strike.', 'buddynext' ),
-					// Reverse strike — the counterpart to the above. The queue row's
-					// strike dots and count re-render from these after every strike or
-					// reversal, so the admin can see what they are undoing.
+					// Reverse strike — the counterpart to the above. The report row's
+					// Reverse control shows/hides from the live count after every strike
+					// or reversal.
 					'strikeReversed'        => __( 'Strike reversed.', 'buddynext' ),
 					'reverseStrikeFailed'   => __( 'Could not reverse the strike. Try again.', 'buddynext' ),
 					'noActiveStrikes'       => __( 'This member has no active strikes.', 'buddynext' ),
-					/* translators: %d: number of strikes. */
-					'strikeCountOne'        => __( '%d strike', 'buddynext' ),
-					/* translators: %d: number of active strikes. */
-					'strikeCountOther'      => __( '%d strikes', 'buddynext' ),
 					/* translators: %d: number of active strikes. */
 					'reverseStrikeAria'     => __( 'Reverse the most recent strike (%d active)', 'buddynext' ),
 					'suspendUserTitle'      => __( 'Suspend this user?', 'buddynext' ),
