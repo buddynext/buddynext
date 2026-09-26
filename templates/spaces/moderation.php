@@ -346,7 +346,16 @@ $mod_privacy = array(
 												?>
 												<span aria-hidden="true">&middot;</span>
 											<?php endif; ?>
-											<span><?php esc_html_e( 'member of this space', 'buddynext' ); ?></span>
+											<?php
+											// The author's real standing in this space, from the same role lookup the
+											// row's actions use - never a blanket "member" (card 10343760182).
+											$r_standing = array(
+												'owner'     => __( 'owner of this space', 'buddynext' ),
+												'moderator' => __( 'moderator of this space', 'buddynext' ),
+												'member'    => __( 'member of this space', 'buddynext' ),
+											);
+											?>
+											<span><?php echo esc_html( $r_standing[ (string) $r_role ] ?? __( 'not a member', 'buddynext' ) ); ?></span>
 											<?php if ( $r_time ) : ?>
 												<span aria-hidden="true">&middot;</span>
 												<span><?php echo esc_html( $r_time ); ?></span>
@@ -468,12 +477,15 @@ $mod_privacy = array(
 										</div>
 									</div>
 
+									<?php if ( $r_is_member ) : ?>
 									<p class="bn-space-mod__report-note">
 										<?php
+										// Only where "Remove from space" is actually offered.
 										// translators: %s is the space name.
 										printf( esc_html__( '"Remove from space" removes this member from %s only; it does not suspend their platform account.', 'buddynext' ), '<strong>' . esc_html( $space->name ?? '' ) . '</strong>' );
 										?>
 									</p>
+									<?php endif; ?>
 								</div>
 							</article>
 						<?php endforeach; ?>
