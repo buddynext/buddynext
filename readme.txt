@@ -84,10 +84,15 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Folders in the Files list show a folder icon instead of "DIR".
 * Fix      - The "This space is archived" notice and the kudos result messages show as styled notices instead of plain text.
 * Fix      - Colours, sizes and shadows that pointed at design tokens which did not exist now use the real ones, so they follow your theme colour and dark mode.
+* Fix      - A document attached to a post is shared with that post's audience, so everyone who can see the post can open the file; in a space it is added to the space's Files.
+* Fix      - A document card in a space opens the file's page with a preview and Download when the space has Files turned on.
+* Fix      - Files linked into a space open from the space's Files tab instead of showing "File not found".
+* Fix      - Link a file accepts the address of a BuddyNext Files page.
 * Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.
 * Dev      - New buddynext_invite_link_dead_notice filter changes or removes the dead invite link notice.
+* Dev      - New buddynext_document_card_url filter changes where a feed document card links.
 * Dev      - Removed the buddynext_mod_queue_columns filter with the retired page; buddynext_mod_queue_row_actions and buddynext_moderation_queue_before now fire in Community Admin.
 
 = 1.2.1 - September 2026 =

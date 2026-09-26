@@ -274,7 +274,14 @@ function bindLink( box ) {
 	};
 
 	const run = async function () {
-		const ref = ( input.value || '' ).trim();
+		let ref = ( input.value || '' ).trim();
+		// A member copies the address BuddyNext shows them - a Files page
+		// (/files/{id}/) or an embed (?bn_doc={id}) - which MediaVerse does not
+		// know. Hand it the id instead.
+		const own = ref.match( /\/files\/(\d+)\/?(?:[?#].*)?$/ ) || ref.match( /[?&]bn_doc=(\d+)/ );
+		if ( own ) {
+			ref = own[ 1 ];
+		}
 		if ( ! ref ) {
 			say( t.empty || 'Paste a file link first.', true );
 			return;

@@ -153,6 +153,34 @@ final class SpaceNav {
 	}
 
 	/**
+	 * Whether the current viewer gets this space's Files tab.
+	 *
+	 * The tab's own condition, shared so anything that links INTO the tab (the
+	 * feed's document card) only does so when the page will actually be there.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	public static function files_tab_visible( int $space_id ): bool {
+		return \BuddyNext\Bridges\WPMediaVerseBridge::documents_available()
+			&& buddynext_integration_enabled( 'media', 'nav' )
+			&& (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' )
+			/**
+			 * Whether the space Files tab shows to a logged-out visitor.
+			 *
+			 * Default false: MediaVerse refuses anonymous document reads, so
+			 * the tab would render empty on a public space. Return true if
+			 * your MediaVerse serves them.
+			 *
+			 * @since 1.1.6
+			 *
+			 * @param bool $show     Whether to show the tab when logged out.
+			 * @param int  $space_id The space.
+			 */
+			&& ( is_user_logged_in() || (bool) apply_filters( 'buddynext_space_files_tab_for_guests', false, $space_id ) );
+	}
+
+	/**
 	 * Clean-URL builder for a space tab — /spaces/{slug}/{tab}/ (feed = the base).
 	 *
 	 * @param int    $space_id Space ID.
@@ -259,22 +287,7 @@ final class SpaceNav {
 				// show". A tab that structurally cannot hold content is worse than
 				// no tab. Filter it back on for a site whose MediaVerse serves
 				// anonymous reads.
-				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\WPMediaVerseBridge::documents_available()
-					&& buddynext_integration_enabled( 'media', 'nav' )
-					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_documents_tab' )
-					/**
-					 * Whether the space Files tab shows to a logged-out visitor.
-					 *
-					 * Default false: MediaVerse refuses anonymous document reads, so
-					 * the tab would render empty on a public space. Return true if
-					 * your MediaVerse serves them.
-					 *
-					 * @since 1.1.6
-					 *
-					 * @param bool $show     Whether to show the tab when logged out.
-					 * @param int  $space_id The space.
-					 */
-					&& ( is_user_logged_in() || (bool) apply_filters( 'buddynext_space_files_tab_for_guests', false, (int) $c->subject_id ) ),
+				'condition' => static fn( NavContext $c ): bool => self::files_tab_visible( (int) $c->subject_id ),
 				'render'    => function ( NavContext $c ): void {
 					$this->render_files_panel( $c->subject_id );
 				},

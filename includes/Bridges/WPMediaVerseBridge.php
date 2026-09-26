@@ -781,12 +781,26 @@ class WPMediaVerseBridge {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT privacy, media_ids FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				"SELECT user_id, space_id, type, privacy, media_ids, link_meta FROM {$wpdb->prefix}bn_posts WHERE id = %d",
 				$post_id
 			),
 			ARRAY_A
 		);
-		if ( ! is_array( $row ) || empty( $row['media_ids'] ) ) {
+		if ( ! is_array( $row ) ) {
+			return;
+		}
+
+		if ( 'document' === (string) $row['type'] ) {
+			$meta = json_decode( (string) $row['link_meta'], true );
+			self::share_document_with_post_audience(
+				(int) ( is_array( $meta ) ? ( $meta['doc_id'] ?? 0 ) : 0 ),
+				(int) $row['user_id'],
+				(int) $row['space_id'],
+				(string) ( $row['privacy'] ?? 'public' )
+			);
+		}
+
+		if ( empty( $row['media_ids'] ) ) {
 			return;
 		}
 
@@ -847,6 +861,75 @@ class WPMediaVerseBridge {
 					$repaired ? ' - applied directly instead' : ' - MEDIA MAY STILL BE READABLE'
 				)
 			);
+		}
+	}
+
+	/**
+	 * Give a composer document the audience of the post it was shared in.
+	 *
+	 * The composer uploads the file to the author's drive as private and the post
+	 * stores only its id, so everyone the post reached saw a card they could not
+	 * open (card 10343766573). A card in someone's feed says they may open it, so
+	 * the post is the moment the file's audience is decided, on create and edit:
+	 *
+	 * - Space post: the file is linked into the space (it shows in the space's
+	 *   Files, and the link is what lets space members read it). An open space
+	 *   treats its member posts as public (card 10313019984), so there the file
+	 *   is public too; anywhere else it stays private and the link does the work.
+	 * - Any other post: the file takes the post's privacy through the same map
+	 *   photos use.
+	 *
+	 * Runs as the author, because MediaVerse checks the actor owns the file and
+	 * may write to the space. A scheduled post publishes from cron with no user.
+	 *
+	 * @param int    $doc_id       Document (MediaVerse media id).
+	 * @param int    $author_id    Post author.
+	 * @param int    $space_id     Post space, or 0.
+	 * @param string $post_privacy BuddyNext post privacy.
+	 * @return void
+	 */
+	private static function share_document_with_post_audience( int $doc_id, int $author_id, int $space_id, string $post_privacy ): void {
+		if ( $doc_id <= 0 || $author_id <= 0 || ! self::documents_available() ) {
+			return;
+		}
+
+		$space   = $space_id > 0 ? buddynext_service( 'spaces' )->get( $space_id ) : null;
+		$privacy = self::media_privacy_for_post( $post_privacy );
+		if ( is_array( $space ) ) {
+			$privacy = 'open' === (string) ( $space['type'] ?? '' ) && in_array( $post_privacy, array( 'public', 'space_members' ), true ) ? 'public' : 'private';
+		}
+
+		$actor = get_current_user_id();
+		if ( $actor !== $author_id ) {
+			wp_set_current_user( $author_id );
+		}
+
+		$failed = array();
+		if ( is_array( $space ) ) {
+			$link = new \WP_REST_Request( 'POST', '/mvs-pro/v1/documents/' . $doc_id . '/spaces' );
+			$link->set_body_params( array( 'space_id' => $space_id ) );
+			$res = rest_do_request( $link );
+			// 409 = the file already lives in this space: nothing to link.
+			if ( $res->is_error() && 409 !== $res->get_status() ) {
+				$failed[] = 'link to space #' . $space_id . ' (' . ( $res->get_data()['code'] ?? $res->get_status() ) . ')';
+			}
+		}
+
+		$patch = new \WP_REST_Request( 'PATCH', '/mvs-pro/v1/documents/' . $doc_id );
+		$patch->set_body_params( array( 'privacy' => $privacy ) );
+		$res = rest_do_request( $patch );
+		if ( $res->is_error() ) {
+			$failed[] = 'privacy "' . $privacy . '" (' . ( $res->get_data()['code'] ?? $res->get_status() ) . ')';
+		}
+
+		if ( $actor !== $author_id ) {
+			wp_set_current_user( $actor );
+		}
+
+		// A failure leaves the file narrower than the post (the card then says it
+		// is unavailable) - never wider - but an owner should be able to find it.
+		if ( $failed ) {
+			error_log( sprintf( 'BuddyNext: sharing document #%d with its post audience failed: %s', $doc_id, implode( '; ', $failed ) ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
 	}
 
@@ -2217,10 +2300,35 @@ class WPMediaVerseBridge {
 		}
 		$doc   = (array) $res->get_data();
 		$drive = isset( $doc['drive'] ) && is_array( $doc['drive'] ) ? $doc['drive'] : array();
-		if ( ( $drive['type'] ?? '' ) !== $drive_type || (int) ( $drive['id'] ?? 0 ) !== $drive_id ) {
+		$home  = ( $drive['type'] ?? '' ) === $drive_type && (int) ( $drive['id'] ?? 0 ) === $drive_id;
+		// A file LINKED into a space (Link a file, or shared in a space post)
+		// belongs to its Files too: the list shows it, so its page must open.
+		if ( ! $home && ! ( 'space' === $drive_type && self::linked_to_space( $doc_id, $drive_id ) ) ) {
 			return null;
 		}
 		return $doc;
+	}
+
+	/**
+	 * Whether a document is linked into a space from another drive.
+	 *
+	 * One primary-key lookup on MediaVerse's link table; the bridge owns partner
+	 * table access. MediaVerse's REST has no per-document answer for this.
+	 *
+	 * @param int $doc_id   Document id.
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	private static function linked_to_space( int $doc_id, int $space_id ): bool {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1 FROM {$wpdb->prefix}mvs_media_spaces WHERE media_id = %d AND space_id = %d LIMIT 1",
+				$doc_id,
+				$space_id
+			)
+		);
 	}
 
 	/**
@@ -2393,6 +2501,30 @@ class WPMediaVerseBridge {
 		}
 		// A cookie-auth GET needs a nonce (same as the Files tab download links).
 		$url = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+
+		// A space post whose space shows this viewer its Files tab opens the
+		// file's page there (preview + Download). Anywhere else the tab is not
+		// guaranteed to exist for the viewer (a profile's Files tab is its owner's
+		// alone), so the download stays: every destination must open for whoever
+		// can see the card.
+		$post     = isset( $args['bn_post'] ) && is_array( $args['bn_post'] ) ? $args['bn_post'] : array();
+		$space_id = (int) ( $post['space_id'] ?? 0 );
+		if ( $space_id > 0 && \BuddyNext\Nav\Providers\SpaceNav::files_tab_visible( $space_id ) ) {
+			$url = trailingslashit( \BuddyNext\Core\PageRouter::space_url( $space_id ) ) . 'files/' . $doc_id . '/';
+		}
+
+		/**
+		 * Filters where a feed document card links to.
+		 *
+		 * Only called for a viewer allowed to open the document.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string              $url    Space file page or nonce'd download URL.
+		 * @param int                 $doc_id Document (MediaVerse media) ID.
+		 * @param array<string,mixed> $post   The post being rendered.
+		 */
+		$url = (string) apply_filters( 'buddynext_document_card_url', $url, $doc_id, $post );
 
 		// Reference, not embed: the card links OUT to the document; BuddyNext
 		// never renders its bytes. Build the preview fresh, per viewer.
