@@ -135,7 +135,7 @@
 	cursor: pointer;
 	color: inherit;
 	line-height: 0;
-	border-radius: var( --bn-radius-sm, 6px );
+	border-radius: var(--bn-r-sm);
 }
 .bn-media-tile__audio-open:focus-visible {
 	outline: 2px solid var( --bn-accent, currentColor );
@@ -557,7 +557,7 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-xs, 0.75rem );
 	line-height: 1;
 	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
-	border-radius: var( --bn-radius-xs, 3px );
+	border-radius: var(--bn-r-sm);
 	/* Keeps the hit area usable without inflating the visual box. */
 	padding: 4px 2px;
 }
@@ -582,7 +582,7 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-sm, 0.875rem );
 	padding: 4px 8px;
 	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
-	border-radius: var( --bn-radius-sm, 6px );
+	border-radius: var(--bn-r-sm);
 	background: var( --bn-surface, #fff );
 	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
 }
@@ -662,7 +662,7 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-sm, 0.875rem );
 	padding: 6px 8px;
 	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
-	border-radius: var( --bn-radius-sm, 6px );
+	border-radius: var(--bn-r-sm);
 	background: var( --bn-surface, #fff );
 	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
 	width: 100%;

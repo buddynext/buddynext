@@ -1674,7 +1674,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	padding: var(--bn-s3);
 	border: 1px solid var(--bn-border, var(--bn-line));
 	border-radius: var(--bn-r-md);
-	background: var(--bn-surface-2, var(--bn-canvas));
+	background: var(--bn-canvas);
 }
 
 .bn-wizard__sample-note {

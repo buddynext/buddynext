@@ -454,7 +454,7 @@
 	border: none;
 	padding: var(--bn-s2) var(--bn-s4);
 	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	cursor: pointer;
 	font-family: var(--bn-font-body);
 	line-height: var(--bn-leading-snug);
@@ -471,7 +471,7 @@ a.bn-ca-more-menu-item:hover,
 a.bn-ca-more-menu-item:focus {
 	display: flex;
 	align-items: center;
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	text-decoration: none;
 }
 
@@ -536,7 +536,7 @@ a.bn-ca-more-menu-item:focus {
 .bn-ca-appeal__name {
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	text-decoration: none;
 }
 
@@ -569,7 +569,7 @@ a.bn-ca-more-menu-item:focus {
 	background: var(--bn-sunken);
 	border-radius: var(--bn-r-sm);
 	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 }
 
 .bn-ca-appeal__actions {
@@ -759,7 +759,7 @@ a.bn-ca-more-menu-item:focus {
 .bn-acct-clean__title {
 	font-size: var(--bn-text-lg);
 	font-weight: var(--bn-fw-bold);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 }
 
 .bn-acct-clean__text {
@@ -805,7 +805,7 @@ a.bn-ca-more-menu-item:focus {
 .bn-acct-banner__title {
 	font-size: var(--bn-text-lg);
 	font-weight: var(--bn-fw-bold);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	margin: 0 0 var(--bn-s1);
 }
 
@@ -846,7 +846,7 @@ a.bn-ca-more-menu-item:focus {
 
 .bn-acct-details__val {
 	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	margin: 0;
 }
 
@@ -861,7 +861,7 @@ a.bn-ca-more-menu-item:focus {
 	gap: var(--bn-s2);
 	font-size: var(--bn-text-base);
 	font-weight: var(--bn-fw-bold);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	margin: 0 0 var(--bn-s3);
 }
 
@@ -907,7 +907,7 @@ a.bn-ca-more-menu-item:focus {
 
 .bn-acct-list__reason {
 	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 }
 
 .bn-acct-list__meta {
@@ -926,7 +926,7 @@ a.bn-ca-more-menu-item:focus {
 	display: block;
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	margin-bottom: var(--bn-s1);
 }
 

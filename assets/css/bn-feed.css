@@ -17,6 +17,11 @@
  * If a rule below references a legacy --bn-* name that no longer exists,
  * it should be updated to use the canonical --bn-* token from bn-base.css. */
 
+/* Component token: how far each reply level steps in. A theme may override it. */
+:root {
+	--bn-comment-indent: var(--bn-s8);
+}
+
 /* ── Feed page shell ────────────────────────────────────────────────────────── */
 .bn-feed-page {
 	font-family: var(--bn-font-body);
@@ -2049,11 +2054,11 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 
 .bn-comment-card[data-depth="1"] {
-	margin-inline-start: var(--bn-comment-indent, 32px);
+	margin-inline-start: var(--bn-comment-indent);
 }
 
 .bn-comment-card[data-depth="2"] {
-	margin-inline-start: calc(var(--bn-comment-indent, 32px) * 2);
+	margin-inline-start: calc(var(--bn-comment-indent) * 2);
 }
 
 .bn-comment-card--pinned {
@@ -2071,7 +2076,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
 	color: var(--bn-accent);
-	background: var(--bn-accent-soft, rgba(0, 0, 0, 0.05));
+	background: var(--bn-accent-50);
 	padding: 0 var(--bn-s2);
 	border-radius: var(--bn-r-sm);
 }
@@ -2090,8 +2095,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-comment__review-badge {
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
-	color: var(--bn-warning, #8a6d00);
-	background: var(--bn-warning-soft, rgba(180, 130, 0, 0.12));
+	color: var(--bn-warn);
+	background: var(--bn-warn-bg);
 	padding: 0 var(--bn-s2);
 	border-radius: var(--bn-r-sm);
 }
@@ -2350,7 +2355,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 
 .bn-post-card__edited {
-	color: var(--bn-text-subtle, var(--bn-muted, inherit));
+	color: var(--bn-ink-3);
 	font-size: 0.85em;
 }
 
@@ -2416,7 +2421,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 
 .bn-comment-loadmore:hover {
-	background: var(--bn-hover, var(--bn-sunken));
+	background: var(--bn-sunken);
 }
 
 .bn-comment-loadmore:disabled {
@@ -2557,7 +2562,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	margin-top: var(--bn-s2);
 	border-radius: var(--bn-r-md);
 	overflow: hidden;
-	background: var(--bn-surface-2, var(--bn-elev-1));
+	background: var(--bn-raised);
 	aspect-ratio: 16 / 9;
 	/* Same height cap the direct oembed and single-image media use: 32rem tall
 		at 16/9 => this max width. Without it, a reshare card on a wide content
@@ -4058,7 +4063,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	display: inline-block;
 	padding: var(--bn-s2) var(--bn-s4);
 	border-radius: var(--bn-r-md);
-	background: var(--bn-surface-2, var(--surface));
+	background: var(--bn-surface);
 	border: 1px solid var(--bn-border, var(--border));
 }
 .bn-load-more__spinner-text {
@@ -4114,7 +4119,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	text-underline-offset: 2px;
 }
 .bn-single-post__crumb-sep {
-	color: var(--bn-border-strong, var(--border));
+	color: var(--bn-line-strong);
 }
 .bn-single-post__thread {
 	margin-top: var(--bn-s4);

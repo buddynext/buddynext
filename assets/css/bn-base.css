@@ -1590,7 +1590,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 .bn-ep-save-status[hidden] { display: none !important; }
 
 .bn-ep-save-status--dirty {
-	color: var(--bn-warning, #b45309);
+	color: var(--bn-warn);
 	font-weight: 600;
 	font-size: var(--bn-text-sm);
 	display: inline-flex;
@@ -1619,7 +1619,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
-	background: var(--bn-warning, #f59e0b);
+	background: var(--bn-warn);
 	flex-shrink: 0;
 }
 

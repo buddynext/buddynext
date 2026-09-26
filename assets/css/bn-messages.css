@@ -2130,7 +2130,7 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	height: 64px;
 	border-radius: 50%;
 	object-fit: cover;
-	font-size: var(--bn-fs-lg, 1.125rem);
+	font-size: var(--bn-text-lg);
 }
 .bn-dm-info__name {
 	font-weight: 600;
@@ -2142,7 +2142,7 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 }
 .bn-dm-info__section-title {
 	margin: 0 0 var(--bn-s3);
-	font-size: var(--bn-fs-sm, 0.875rem);
+	font-size: var(--bn-text-sm);
 	font-weight: 600;
 	color: var(--bn-ink-2, inherit);
 }
@@ -2171,7 +2171,7 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 .bn-dm-info__media-empty {
 	grid-column: 1 / -1;
 	color: var(--bn-ink-2, inherit);
-	font-size: var(--bn-fs-sm, 0.875rem);
+	font-size: var(--bn-text-sm);
 }
 .bn-dm-info__actions {
 	display: flex;

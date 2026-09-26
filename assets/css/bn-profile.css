@@ -1409,7 +1409,7 @@
 }
 .bn-ep-relation__name {
 	font-weight: 500;
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -2846,11 +2846,11 @@ a.bn-space-row:hover .bn-space-name {
 .bn-ep-field-error[hidden] { display: none !important; }
 .bn-input--error {
 	border-color: var(--bn-danger) !important;
-	background-color: var(--bn-danger-50, rgba(220, 38, 38, 0.04));
+	background-color: var(--bn-danger-bg);
 }
 .bn-input--error:focus-visible {
 	outline-color: var(--bn-danger);
-	box-shadow: 0 0 0 3px var(--bn-danger-100, rgba(220, 38, 38, 0.12));
+	box-shadow: 0 0 0 3px var(--bn-danger-bg);
 }
 /* Field wrapper flagged invalid by the store (context.errors[ key ]). The
    dynamic FieldType controls don't carry .bn-input--error, so colour their
@@ -2859,7 +2859,7 @@ a.bn-space-row:hover .bn-space-name {
 .bn-ep-field--error .bn-textarea,
 .bn-ep-field--error .bn-field-textarea {
 	border-color: var(--bn-danger) !important;
-	background-color: var(--bn-danger-50, rgba(220, 38, 38, 0.04));
+	background-color: var(--bn-danger-bg);
 }
 /* The save-status pills, dirty dot and spinner moved to bn-base.css with the
    save bar they belong to. The bn-spin keyframes removed with them were a
@@ -3031,7 +3031,7 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-pf-detail__value {
 	margin: 0;
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	font-weight: var(--bn-fw-medium, 500);
 	overflow-wrap: anywhere;
 }
@@ -3111,7 +3111,7 @@ a.bn-space-row:hover .bn-space-name {
 	margin: 0;
 	font-size: var(--bn-text-md, 1.05rem);
 	font-weight: var(--bn-fw-semibold, 600);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	line-height: 1.3;
 }
 .bn-pf-entry__meta {
@@ -3225,7 +3225,7 @@ a.bn-space-row:hover .bn-space-name {
 	font-size: 1.05rem;
 	letter-spacing: 0.18em;
 	padding: var(--bn-s2) var(--bn-s3);
-	background: var(--bn-surface-2, var(--bn-canvas));
+	background: var(--bn-canvas);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
 	word-break: break-all;
@@ -3239,7 +3239,7 @@ a.bn-space-row:hover .bn-space-name {
 	display: grid;
 	grid-template-columns: repeat(2, 1fr);
 	gap: var(--bn-s2);
-	background: var(--bn-surface-2, var(--bn-canvas));
+	background: var(--bn-canvas);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
 }
@@ -3248,7 +3248,7 @@ a.bn-space-row:hover .bn-space-name {
 	font-family: var(--bn-font-mono);
 	font-size: 1rem;
 	letter-spacing: 0.08em;
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	text-align: center;
 }
 

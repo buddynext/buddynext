@@ -246,7 +246,7 @@
 }
 
 .bn-files__chip--dir {
-	background: var(--bn-accent-bg);
+	background: var(--bn-accent-50);
 	color: var(--bn-accent);
 }
 
@@ -335,7 +335,7 @@ a.bn-files__name:focus-visible {
 .bn-files__download:focus-visible,
 .bn-files__icon-btn:hover,
 .bn-files__icon-btn:focus-visible {
-	background: var(--bn-accent-bg);
+	background: var(--bn-accent-50);
 	color: var(--bn-accent);
 }
 
@@ -996,7 +996,7 @@ a.bn-files__name:focus-visible {
 	padding: var( --bn-s1, 4px ) var( --bn-s2, 8px );
 	border-radius: var( --bn-r-sm );
 	background: var( --bn-surface );
-	box-shadow: var( --bn-shadow-1, 0 1px 3px rgba( 0, 0, 0, 0.12 ) );
+	box-shadow: var(--bn-shadow-xs);
 	font-size: var( --bn-text-sm, 0.875rem );
 	color: var( --bn-ink-3 );
 	white-space: nowrap;
@@ -1033,7 +1033,7 @@ a.bn-files__name:focus-visible {
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
-	box-shadow: var(--bn-shadow-2, 0 4px 16px rgba(0, 0, 0, 0.14));
+	box-shadow: var(--bn-shadow-md);
 	z-index: 4;
 }
 

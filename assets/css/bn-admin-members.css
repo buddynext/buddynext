@@ -828,7 +828,7 @@
 }
 
 .bn-admin-hub select.bn-pf-head-select:hover {
-	border-color: var(--bn-a-border-strong, var(--bn-a-border));
+	border-color: var(--bn-a-border);
 	color: var(--bn-a-text-1);
 }
 
@@ -1526,8 +1526,8 @@
 .bn-av-dependent-note {
 	display: none;
 	font-size: var(--bn-a-text-xs);
-	color: var(--bn-a-warn, var(--bn-a-text-2));
-	background: var(--bn-a-warn-bg, var(--bn-a-bg-subtle));
+	color: var(--bn-a-amber);
+	background: var(--bn-a-amber-bg);
 	border-radius: var(--bn-a-r-sm);
 	padding: var(--bn-a-s2) var(--bn-a-s3);
 	margin: 0 0 var(--bn-a-s3);
@@ -1835,7 +1835,7 @@ dialog.bn-approval-details::backdrop {
 	max-height: min(80vh, 40rem);
 	background: var(--bn-surface, #fff);
 	border-radius: var(--bn-r-lg, 12px);
-	box-shadow: var(--bn-shadow-2, 0 10px 30px rgba(0, 0, 0, 0.18));
+	box-shadow: var(--bn-shadow-md);
 	overflow: hidden;
 }
 .bn-approval-details__head {

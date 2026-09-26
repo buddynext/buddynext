@@ -106,7 +106,7 @@
 	block-size: 18px;
 	border-radius: var(--bn-r-full);
 	/* Fallback tint when a category carries no colour pair (no inline style). */
-	background: var(--bn-surface-2, var(--bn-surface));
+	background: var(--bn-surface);
 	color: var(--bn-ink-2);
 	flex: 0 0 auto;
 }
@@ -740,7 +740,7 @@
 .bn-sd-pulse__value {
 	font-size: 18px;
 	font-weight: var(--bn-fw-bold, 700);
-	color: var(--bn-ink-1);
+	color: var(--bn-ink);
 	line-height: 1;
 	min-width: 2ch;
 }
@@ -1544,14 +1544,14 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-subspaces__capacity {
 	margin: 0 0 var(--bn-s1);
 	color: var(--bn-ink-3, #64748b);
-	font-size: var(--bn-fs-xs, 12px);
+	font-size: var(--bn-text-xs);
 }
 
 .bn-sh-side-spaces__full,
 .bn-space-subspaces__full {
 	margin: var(--bn-s1) 0 0;
 	color: var(--bn-ink-3, #64748b);
-	font-size: var(--bn-fs-xs, 12px);
+	font-size: var(--bn-text-xs);
 }
 
 .bn-sh-side-spaces__add {
@@ -2262,13 +2262,13 @@ a.bn-sh-statpill:focus-visible {
 /* The read-only explanation shown to a non-owner above a locked panel. */
 .bn-space-settings__hint--locked {
 	display: flex;
-	gap: var(--bn-space-2, 0.5rem);
-	margin-block-end: var(--bn-space-4, 1rem);
-	padding: var(--bn-space-3, 0.75rem);
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s4);
+	padding: var(--bn-s3);
 	border: 1px solid var(--bn-border);
 	border-radius: var(--bn-r-md);
-	background: var(--bn-surface-2, transparent);
-	color: var(--bn-text-muted);
+	background: transparent;
+	color: var(--bn-ink-3);
 }
 
 .bn-space-settings__save-row {
@@ -2956,7 +2956,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sd-sort__option:hover,
 .bn-sd-sort__option:focus-visible {
-	background: var(--bn-surface-soft, #f3f4f6);
+	background: var(--bn-sunken);
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 }
@@ -2983,7 +2983,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sd-skeleton__cover {
 	height: 80px;
-	background: linear-gradient(90deg, var(--bn-surface-soft, #f3f4f6) 0%, #e5e7eb 50%, var(--bn-surface-soft, #f3f4f6) 100%);
+	background: linear-gradient(90deg, var(--bn-sunken) 0%, var(--bn-line) 50%, var(--bn-sunken) 100%);
 	background-size: 200% 100%;
 	animation: bn-sd-shimmer 1.4s linear infinite;
 }
@@ -2992,7 +2992,7 @@ a.bn-sh-statpill:focus-visible {
 	height: 12px;
 	margin: var(--bn-s3) var(--bn-s3) var(--bn-s2);
 	border-radius: 4px;
-	background: linear-gradient(90deg, var(--bn-surface-soft, #f3f4f6) 0%, #e5e7eb 50%, var(--bn-surface-soft, #f3f4f6) 100%);
+	background: linear-gradient(90deg, var(--bn-sunken) 0%, var(--bn-line) 50%, var(--bn-sunken) 100%);
 	background-size: 200% 100%;
 	animation: bn-sd-shimmer 1.4s linear infinite;
 }
@@ -3012,7 +3012,7 @@ a.bn-sh-statpill:focus-visible {
 	align-items: center;
 	gap: var(--bn-s2);
 	padding: var(--bn-s5);
-	border: 1px solid var(--bn-danger-border, #fecaca);
+	border: 1px solid color-mix(in oklch, var(--bn-danger) 30%, var(--bn-surface));
 	background: var(--bn-danger-bg, #fef2f2);
 	border-radius: var(--bn-r-md);
 }
@@ -3089,7 +3089,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-create-space-form__error--global {
 	padding: var(--bn-s2) var(--bn-s3);
 	background: var(--bn-danger-bg, #fef2f2);
-	border: 1px solid var(--bn-danger-border, #fecaca);
+	border: 1px solid color-mix(in oklch, var(--bn-danger) 30%, var(--bn-surface));
 	border-radius: var(--bn-r-sm);
 }
 
@@ -3128,7 +3128,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sh-notif__option:hover,
 .bn-sh-notif__option:focus-visible {
-	background: var(--bn-surface-soft, #f3f4f6);
+	background: var(--bn-sunken);
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 }
@@ -3215,7 +3215,7 @@ a.bn-sh-statpill:focus-visible {
 	padding: var(--bn-s3) var(--bn-s4);
 	border: 1px solid var(--bn-border, #e5e7eb);
 	border-radius: var(--bn-r-md);
-	background: var(--bn-surface-soft, #f9fafb);
+	background: var(--bn-sunken);
 	text-decoration: none;
 	transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -3396,7 +3396,7 @@ a.bn-sh-statpill:focus-visible {
 	padding: var(--bn-s8) var(--bn-s5);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
-	background: var(--bn-surface-soft, var(--bn-surface));
+	background: var(--bn-surface);
 }
 
 /* Blurred/locked preview band — the spec's "blurred space preview". */
@@ -3884,7 +3884,7 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-invite-panel__field-label {
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink-2);
 }
@@ -3907,7 +3907,7 @@ a.bn-sh-statpill:focus-visible {
 	flex: 1 1 16rem;
 	min-width: 0;
 	font-family: var(--bn-font-mono);
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 }
 
 .bn-invite-panel__actions {
@@ -3935,7 +3935,7 @@ a.bn-sh-statpill:focus-visible {
 	align-items: center;
 	gap: var(--bn-s1);
 	color: var(--bn-ink-3);
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 }
 
 .bn-md-card__via-link svg {
@@ -3994,7 +3994,7 @@ a.bn-sh-statpill:focus-visible {
 		gap: var(--bn-s2);
 		padding: var(--bn-s3);
 		border: 1px solid var(--bn-border);
-		border-radius: var(--bn-radius, 8px);
+		border-radius: var(--bn-r-md);
 		background: var(--bn-surface, var(--bn-canvas));
 	}
 
@@ -4008,13 +4008,13 @@ a.bn-sh-statpill:focus-visible {
 
 	.bn-sd-featured-strip__name {
 		font-weight: var(--bn-fw-semibold);
-		color: var(--bn-ink-1);
+		color: var(--bn-ink);
 		font-size: var(--bn-text-sm);
 		line-height: var(--bn-leading-snug);
 	}
 
 	.bn-sd-featured-strip__count {
-		font-size: var(--bn-fs-xs);
+		font-size: var(--bn-text-xs);
 		color: var(--bn-ink-3);
 	}
 

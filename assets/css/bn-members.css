@@ -787,7 +787,7 @@
 	border-radius: var(--bn-r-full);
 	margin-inline-end: var(--bn-s2);
 	/* Fallback tint when a type carries no colour pair (no inline style). */
-	background: var(--bn-surface-2, var(--bn-surface));
+	background: var(--bn-surface);
 	flex: 0 0 auto;
 }
 

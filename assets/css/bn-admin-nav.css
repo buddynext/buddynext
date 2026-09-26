@@ -239,7 +239,7 @@
 	padding: 2px 10px;
 	font-size: 12px;
 	font-weight: 500;
-	color: var(--bn-a-text-muted, #646970);
+	color: var(--bn-a-text-3);
 	background: var(--bn-a-bg-subtle, #f0f0f1);
 	border-radius: 999px;
 	white-space: nowrap;

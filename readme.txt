@@ -83,6 +83,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Pressing Enter submits name prompts such as New folder, and an empty name shows an inline message instead of closing the dialog.
 * Fix      - Folders in the Files list show a folder icon instead of "DIR".
 * Fix      - The "This space is archived" notice and the kudos result messages show as styled notices instead of plain text.
+* Fix      - Colours, sizes and shadows that pointed at design tokens which did not exist now use the real ones, so they follow your theme colour and dark mode.
 * Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.

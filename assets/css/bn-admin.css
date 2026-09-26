@@ -511,7 +511,7 @@
 }
 .bn-color-hex {
 	max-width: 120px;
-	font-family: var(--bn-a-font-mono, monospace);
+	font-family: var(--bn-font-mono);
 }
 .bn-color-row .bn-field-hint {
 	margin: 0;
@@ -2803,7 +2803,7 @@ button.bn-btn-danger:hover {
 	padding: 5px 10px;
 	border: 1px solid var(--bn-a-border, #d1d5db);
 	border-radius: 6px;
-	background: var(--bn-a-surface, #fff);
+	background: var(--bn-a-bg);
 	color: var(--bn-ink, #1e293b);
 	font-size: 13px;
 	cursor: pointer;
@@ -3038,7 +3038,7 @@ button.bn-btn-danger:hover {
 
 .bn-social-card {
 	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-radius, 10px);
+	border-radius: var(--bn-a-r-md);
 	background: var(--bn-a-bg);
 	margin-bottom: var(--bn-a-s4);
 	overflow: hidden;
@@ -3093,7 +3093,7 @@ button.bn-btn-danger:hover {
 }
 .bn-copy-row .bn-input {
 	flex: 1;
-	font-family: var(--bn-a-font-mono, monospace);
+	font-family: var(--bn-font-mono);
 	font-size: var(--bn-a-text-xs);
 }
 .bn-copy-btn { white-space: nowrap; }
@@ -3809,8 +3809,8 @@ button.bn-btn-danger:hover {
 }
 
 .bn-table .toggle-row:hover {
-	background: var(--bn-a-bg-soft, var(--bn-sunken));
-	color: var(--bn-a-text, var(--bn-ink));
+	background: var(--bn-a-bg-subtle);
+	color: var(--bn-a-text-1);
 }
 
 .bn-table .toggle-row:focus-visible {
@@ -3861,8 +3861,8 @@ button.bn-btn-danger:hover {
 }
 
 .bn-admin-hub__content .wp-list-table .toggle-row:hover {
-	background: var(--bn-a-bg-soft, var(--bn-sunken));
-	color: var(--bn-a-text, var(--bn-ink));
+	background: var(--bn-a-bg-subtle);
+	color: var(--bn-a-text-1);
 }
 
 .bn-admin-hub__content .wp-list-table .is-expanded .toggle-row .bn-toggle-row__icon {

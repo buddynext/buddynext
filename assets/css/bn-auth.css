@@ -885,7 +885,7 @@ body.bn-hub-auth .bn-auth-page {
 /* Field invalid outline */
 .bn-input[aria-invalid="true"] {
 	border-color: var(--bn-danger);
-	box-shadow: 0 0 0 3px var(--bn-danger-100, rgba(220, 38, 38, 0.12));
+	box-shadow: 0 0 0 3px var(--bn-danger-bg);
 }
 
 /* Verify feedback chip — visible only when state.feedback set */

@@ -51,7 +51,7 @@
 	background: var(--bn-surface, var(--bn-canvas));
 	border: 1px solid var(--bn-line, var(--bn-border));
 	border-radius: var(--bn-r-md);
-	box-shadow: var(--bn-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.12));
+	box-shadow: var(--bn-shadow-md);
 }
 
 .bn-search-suggest[hidden] {
@@ -70,14 +70,14 @@
 	display: block;
 	padding: var(--bn-s2) var(--bn-s2);
 	border-radius: var(--bn-r-sm);
-	color: var(--bn-ink-1, var(--bn-ink));
+	color: var(--bn-ink);
 	text-decoration: none;
 }
 
 .bn-search-suggest__item:hover,
 .bn-search-suggest__item:focus {
 	background: color-mix(in oklch, var(--bn-accent) 12%, transparent);
-	color: var(--bn-ink-1, var(--bn-ink));
+	color: var(--bn-ink);
 }
 
 .bn-search-hero__icon {
