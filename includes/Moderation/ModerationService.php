@@ -300,6 +300,35 @@ class ModerationService {
 	}
 
 	/**
+	 * The space a reported object belongs to, or 0.
+	 *
+	 * A post is in its own space; a comment is in its post's space. Anything else
+	 * (a member, a message, a space itself) belongs to no space queue - a report
+	 * about a space goes to the community's moderators, not to its own owners.
+	 *
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 * @return int
+	 */
+	private function space_for_object( string $object_type, int $object_id ): int {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( 'post' === $object_type ) {
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+		}
+		if ( 'comment' === $object_type ) {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT p.space_id FROM {$wpdb->prefix}bn_comments c JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.id = %d AND c.object_type = 'post'",
+					$object_id
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return 0;
+	}
+
+	/**
 	 * Submit a report on an object.
 	 *
 	 * Each user may only report a given object once (UNIQUE KEY enforced at DB).
@@ -308,7 +337,7 @@ class ModerationService {
 	 * @param string $object_type Object type (e.g. 'post', 'comment', 'user').
 	 * @param int    $object_id   Object ID.
 	 * @param string $reason      Report reason (one of REASONS).
-	 * @param int    $space_id    Optional space context (0 = no space).
+	 * @param int    $space_id    Ignored: the space is derived from the object (kept for callers).
 	 * @param string $notes       Optional free-text notes.
 	 * @return int|WP_Error Inserted report ID or WP_Error on duplicate/validation.
 	 */
@@ -325,6 +354,12 @@ class ModerationService {
 		$notes = mb_substr( sanitize_textarea_field( $notes ), 0, self::NOTE_MAX_LENGTH );
 
 		$object_type = sanitize_key( $object_type );
+
+		// The space is a fact about the reported object, not something a client
+		// may choose: derive it here and ignore the argument (card 10343966478).
+		// A client-sent value used to decide which space queue saw the report,
+		// and comment reports never sent one.
+		$space_id = $this->space_for_object( $object_type, $object_id );
 
 		// The controller comment long claimed this method validated the target; it
 		// did not — only sanitize_key() ran, so a report against object_type 'zzz'

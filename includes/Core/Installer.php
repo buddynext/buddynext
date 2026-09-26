@@ -439,7 +439,7 @@ class Installer {
 	 *      string then fataled (card 10335421251). 1.2.1 fixed the write; this removes
 	 *      the rows already written, so no reader needs its own guard.
 	 */
-	private const SCHEMA_VERSION = 61;
+	private const SCHEMA_VERSION = 62;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -1205,6 +1205,10 @@ class Installer {
 		// v61: drop space-field rows that stored a WP_Error (unset -> field default).
 		self::purge_error_space_meta( $wpdb->prefix );
 
+		// v62: file every report on space content under its real space (it came
+		// from the client, and comment reports never sent one).
+		self::backfill_report_spaces( $wpdb->prefix );
+
 		// v49: plugin isolation now ships OFF. Preserve ON for a site that was
 		// already running the previous default-ON build and had configured it.
 		self::maybe_preserve_isolation_state();
@@ -1304,6 +1308,36 @@ class Installer {
 
 		$data['allowed'] = false;
 		update_option( $option, $data );
+	}
+
+	/**
+	 * Set each report's space_id from the object it reports (card 10343966478).
+	 *
+	 * report() stored whatever space_id the client sent, and comment reports sent
+	 * none, so reports on space content missed the space's moderation queue. Two
+	 * set-based UPDATEs, idempotent: a post takes its own space, a comment its
+	 * post's space.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function backfill_report_spaces( string $prefix ): void {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$prefix}bn_reports r
+			   JOIN {$prefix}bn_posts p ON r.object_type = 'post' AND p.id = r.object_id
+			    SET r.space_id = p.space_id
+			  WHERE NOT ( r.space_id <=> p.space_id )"
+		);
+		$wpdb->query(
+			"UPDATE {$prefix}bn_reports r
+			   JOIN {$prefix}bn_comments c ON r.object_type = 'comment' AND c.id = r.object_id AND c.object_type = 'post'
+			   JOIN {$prefix}bn_posts p ON p.id = c.object_id
+			    SET r.space_id = p.space_id
+			  WHERE NOT ( r.space_id <=> p.space_id )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**

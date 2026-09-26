@@ -95,6 +95,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - A file linked into an open space can be opened by everyone, like the files uploaded there.
 * Fix      - A discussion card whose discussion was deleted or made private no longer links to a missing page; it is withdrawn from the feed.
 * Fix      - A space's moderation queue shows each reported author's real standing (owner, moderator, member or not a member), and explains "Remove from space" only where it is offered.
+* Fix      - Reports on a space's posts and comments always reach that space's moderation queue, including comment reports and reports filed from the app; existing reports are re-filed on update.
 * Fix      - A space's moderation, settings and admin pages tell a visitor why they can't use them: community moderators are pointed to Community Admin, and people who never held the role are no longer told they "no longer" do.
 * Fix      - An archived space looks and acts archived: an Archived badge, no Invite, Join, Log in to join or Add sub-space, no contradictory posting panel, and invitations and new sub-spaces are refused.
 * Fix      - When a community page is the site's front page, the home tab reads "Page - Site name" and its canonical and og:url point at the site root; Activity sub-pages such as Leaderboard use their own canonical URL.
