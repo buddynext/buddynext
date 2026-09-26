@@ -3375,6 +3375,56 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	line-height: 1.5;
 }
 
+/* ── Notice (front end) ────────────────────────────────────────────────────
+ * One inline status box for member-facing surfaces: an archived space, a kudos
+ * result. Info by default; --success / --error tones; an optional
+ * .bn-notice__cta link. :where() keeps it out of wp-admin, whose own
+ * .bn-notice (bn-admin.css) also loads bn-base, at zero specificity. */
+:where(body:not(.wp-admin)) .bn-notice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--bn-s2) var(--bn-s3);
+	margin-block: 0 var(--bn-s4);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-info);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-info-bg);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
+}
+
+:where(body:not(.wp-admin)) .bn-notice--success {
+	border-inline-start-color: var(--bn-success);
+	background: var(--bn-success-bg);
+}
+
+:where(body:not(.wp-admin)) .bn-notice--error {
+	border-inline-start-color: var(--bn-danger);
+	background: var(--bn-danger-bg);
+}
+
+:where(body:not(.wp-admin)) .bn-notice__cta {
+	color: var(--bn-accent);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	white-space: nowrap;
+}
+
+:where(body:not(.wp-admin)) .bn-notice__cta:hover,
+:where(body:not(.wp-admin)) .bn-notice__cta:focus-visible {
+	text-decoration-thickness: 2px;
+}
+
+@media (max-width: 640px) {
+	:where(body:not(.wp-admin)) .bn-notice {
+		padding: var(--bn-s3);
+	}
+}
+
 /* Inline validation message under a modal field (bnPrompt, space modals). */
 .bn-modal__error {
 	margin: var(--bn-s2) 0 0;

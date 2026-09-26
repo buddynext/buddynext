@@ -491,23 +491,7 @@ a.bn-achievements__badge-link:focus-visible {
 	color: var(--bn-ink-2);
 }
 
-/* Kudos give-result notice (achievements.css loads on profiles; the shared
-   .bn-notice styles live in bn-spaces.css which this route does not enqueue). */
-.bn-gam-kudos .bn-notice {
-	padding: var(--bn-s2) var(--bn-s3);
-	border-radius: var(--bn-r-md);
-	font-size: var(--bn-text-sm);
-}
-
-.bn-gam-kudos .bn-notice--success {
-	background: var(--bn-accent-50);
-	color: var(--bn-accent);
-}
-
-.bn-gam-kudos .bn-notice--error {
-	background: var(--bn-danger-bg);
-	color: var(--bn-danger, var(--bn-ink-2));
-}
+/* Kudos give-result notice: the shared front-end .bn-notice in bn-base.css. */
 
 /* Jetonomy credential strip on the profile Discussions tab. The shared .bn-stat-grid
    lays out for many stats (leaves empty columns for just 3) and has no bottom margin,
