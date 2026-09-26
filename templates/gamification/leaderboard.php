@@ -191,6 +191,9 @@ foreach ( $leaderboard as $row ) {
 	}
 	$badges = wb_gam_get_user_badges( $uid );
 	if ( is_array( $badges ) && ! empty( $badges ) ) {
+		// The ribbon shows the member's LATEST four (owner decision). Sorted here
+		// because wb-gamification 1.6.5 returns ladder order.
+		usort( $badges, static fn( $a, $b ) => strcmp( (string) ( $b['earned_at'] ?? '' ), (string) ( $a['earned_at'] ?? '' ) ) );
 		$ribbon_by_user[ $uid ] = array_slice( $badges, 0, 4 );
 	}
 }

@@ -369,7 +369,7 @@ class GamificationAchievements {
 		usort(
 			$all,
 			static function ( array $a, array $b ): int {
-				// Earned first, then credentials, then name — a stable, goal-first order.
+				// Earned first, then credentials; a stable, goal-first order.
 				$ea = ! empty( $a['earned'] ) ? 1 : 0;
 				$eb = ! empty( $b['earned'] ) ? 1 : 0;
 				if ( $ea !== $eb ) {
@@ -377,10 +377,10 @@ class GamificationAchievements {
 				}
 				$ca = ! empty( $a['is_credential'] ) ? 1 : 0;
 				$cb = ! empty( $b['is_credential'] ) ? 1 : 0;
-				if ( $ca !== $cb ) {
-					return $cb <=> $ca;
-				}
-				return strcasecmp( (string) ( $a['name'] ?? '' ), (string) ( $b['name'] ?? '' ) );
+				// Within a group, keep the engine's ladder order (category, then
+				// threshold): a name sort put "10-Year" before "2-Year" (card
+				// 10343796762). usort is stable on PHP 8, so equal keys keep it.
+				return $cb <=> $ca;
 			}
 		);
 
