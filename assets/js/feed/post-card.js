@@ -15,7 +15,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
@@ -2326,8 +2326,7 @@ store( 'buddynext/post-card', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					bnToast( t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
-					window.location.reload();
+					bnReloadWithToast( t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
 				} else {
 					let message = t( 'postUnpinFailed', 'Could not unpin this post. Try again.' );
 					if ( res.data && res.data.message ) {

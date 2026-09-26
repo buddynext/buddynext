@@ -744,6 +744,7 @@ class AssetService {
 			'@buddynext/media-albums',
 			'@buddynext/community-admin',
 			'@buddynext/file-upload',
+			'@buddynext/spaces',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {

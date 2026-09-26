@@ -4,7 +4,7 @@
  * moderation panel (spaces/moderation.php) and the account-status appeal form.
  */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -348,9 +348,8 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( t( 'appealSubmitted', 'Your appeal has been submitted.' ), { tone: 'success' } );
 				// Reload so the banner re-renders in its "under review" state.
-				window.location.reload();
+				bnReloadWithToast( t( 'appealSubmitted', 'Your appeal has been submitted.' ), { tone: 'success' } );
 			} else {
 				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'appealSubmitFailed', 'Could not submit your appeal. Try again.' );
 				bnToast( emsg, { tone: 'danger' } );

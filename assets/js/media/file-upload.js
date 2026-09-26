@@ -22,7 +22,7 @@
  */
 
 import { onNavReady } from '@buddynext/nav-init';
-import { bnConfirm, bnPrompt, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnPrompt, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
 
 function parseStrings( root ) {
 	try {
@@ -114,10 +114,7 @@ function bind( root ) {
 
 		root.classList.remove( 'is-uploading' );
 		if ( ok > 0 ) {
-			if ( typeof bnToast === 'function' ) {
-				bnToast( t.done || 'Uploaded.', { tone: 'success' } );
-			}
-			window.location.reload();
+			bnReloadWithToast( t.done || 'Uploaded.', { tone: 'success' } );
 		} else {
 			setStatus( '' );
 			if ( typeof bnToast === 'function' ) {
@@ -227,10 +224,7 @@ function bindActions( root ) {
 					headers:     { 'X-WP-Nonce': nonce },
 				} );
 				if ( res.ok ) {
-					if ( typeof bnToast === 'function' ) {
-						bnToast( t.done || 'File removed.', { tone: 'success' } );
-					}
-					window.location.reload();
+					bnReloadWithToast( t.done || 'File removed.', { tone: 'success' } );
 					return;
 				}
 			} catch ( e ) {
@@ -296,10 +290,7 @@ function bindLink( box ) {
 				body:        JSON.stringify( { ref, space_id: spaceId } ),
 			} );
 			if ( res.ok ) {
-				if ( typeof bnToast === 'function' ) {
-					bnToast( t.done || 'File linked to this space.', { tone: 'success' } );
-				}
-				window.location.reload();
+				bnReloadWithToast( t.done || 'File linked to this space.', { tone: 'success' } );
 				return;
 			}
 			// A wrong or unreachable file gets the server's specific reason
@@ -379,8 +370,7 @@ function bindFolders( root ) {
 				body:        body ? JSON.stringify( body ) : undefined,
 			} );
 			if ( res.ok ) {
-				bnToast( done, { tone: 'success' } );
-				window.location.reload();
+				bnReloadWithToast( done, { tone: 'success' } );
 				return;
 			}
 			const data = await res.json().catch( () => ( {} ) );

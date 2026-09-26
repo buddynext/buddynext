@@ -705,6 +705,55 @@ export function bnToast( message, opts ) {
 	removeTimer = window.setTimeout( dismiss, timeout );
 }
 
+/**
+ * sessionStorage key for a toast that must survive a page reload.
+ *
+ * @type {string}
+ */
+const PENDING_TOAST_KEY = 'bnPendingToast';
+
+/**
+ * Reload the page and show a toast on the reloaded page.
+ *
+ * A toast shown right before `location.reload()` is destroyed with the page before
+ * it paints, so the member never learns the action worked. Park it in
+ * sessionStorage instead; this module shows it once when the reloaded page loads
+ * it. Blocked storage degrades to a plain reload.
+ *
+ * @param {string}        message Toast text.
+ * @param {string|Object} [opts]  Same as bnToast(): a tone string or { tone, timeout }.
+ * @return {void}
+ */
+export function bnReloadWithToast( message, opts ) {
+	try {
+		window.sessionStorage.setItem( PENDING_TOAST_KEY, JSON.stringify( { message, opts: opts || {} } ) );
+	} catch ( e ) {}
+	window.location.reload();
+}
+
+/**
+ * Show (once) a toast parked by bnReloadWithToast() before the last reload.
+ *
+ * @return {void}
+ */
+function showPendingToast() {
+	let pending = null;
+	try {
+		pending = JSON.parse( window.sessionStorage.getItem( PENDING_TOAST_KEY ) || 'null' );
+		window.sessionStorage.removeItem( PENDING_TOAST_KEY );
+	} catch ( e ) {
+		return;
+	}
+	if ( pending && 'string' === typeof pending.message && pending.message ) {
+		bnToast( pending.message, pending.opts );
+	}
+}
+
+if ( typeof window !== 'undefined' && typeof document !== 'undefined' ) {
+	// Modules run after parsing, so <body> exists for the toast container.
+	showPendingToast();
+}
+
 /*
  * The media lightbox is a classic script (it predates the module graph and is enqueued with
  * only wp-i18n), so it cannot import from here. Expose the report dialog on the window so it

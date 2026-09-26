@@ -4,6 +4,7 @@ import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
+import { bnReloadWithToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -788,8 +789,7 @@ async function saveInviteLink( spaceId, body, trigger ) {
 		if ( body ) { opts.body = body; }
 		var res = await restFetch( '/spaces/' + spaceId + '/invite-link', opts );
 		if ( res.ok && res.data && ( body ? res.data.invite_link : null === res.data.invite_link ) ) {
-			if ( window.bnToast ) { window.bnToast( body ? t( 'inviteSaved', 'Invite link ready.' ) : t( 'inviteRevoked', 'Invite link turned off.' ), 'success' ); }
-			window.location.reload();
+			bnReloadWithToast( body ? t( 'inviteSaved', 'Invite link ready.' ) : t( 'inviteRevoked', 'Invite link turned off.' ), 'success' );
 			return;
 		}
 		if ( btn ) { btn.disabled = false; }
@@ -996,8 +996,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				var data = res.data || {};
 
 				if ( res.ok && data.joined ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationAccepted', 'Invitation accepted.' ), 'success' ); }
-					window.location.reload();
+					bnReloadWithToast( t( 'invitationAccepted', 'Invitation accepted.' ), 'success' );
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
@@ -1030,8 +1029,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationDeclined', 'Invitation declined.' ), 'info' ); }
-					window.location.reload();
+					bnReloadWithToast( t( 'invitationDeclined', 'Invitation declined.' ), 'info' );
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
@@ -1535,9 +1533,8 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'ownershipTransferred', 'Ownership transferred.' ), 'success' ); }
 					closeAllSpaceModals();
-					setTimeout( function () { window.location.reload(); }, 600 );
+					bnReloadWithToast( t( 'ownershipTransferred', 'Ownership transferred.' ), 'success' );
 				} else {
 					var data = res.data || {};
 					var errEl = modal.querySelector( '[data-bn-transfer-error]' );
@@ -1724,8 +1721,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'spaceArchived', 'Space archived.' ), 'success' ); }
-					setTimeout( function () { window.location.reload(); }, 500 );
+					bnReloadWithToast( t( 'spaceArchived', 'Space archived.' ), 'success' );
 				} else {
 					btn.disabled = false;
 					if ( window.bnToast ) { window.bnToast( t( 'couldNotArchive', 'Could not archive the space. Try again.' ), 'danger' ); }
@@ -1761,8 +1757,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'spaceRestored', 'Space restored.' ), 'success' ); }
-					setTimeout( function () { window.location.reload(); }, 500 );
+					bnReloadWithToast( t( 'spaceRestored', 'Space restored.' ), 'success' );
 				} else {
 					btn.disabled = false;
 					if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
