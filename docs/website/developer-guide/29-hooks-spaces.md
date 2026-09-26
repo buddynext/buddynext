@@ -88,6 +88,8 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_user_banned` | action | A user is banned from a space | `int $space_id, int $user_id, int $actor_id` |
 | `buddynext_space_user_unbanned` | action | A space ban is lifted | `int $space_id, int $user_id` |
 | `buddynext_space_notification_pref_updated` | action | A member changes their per-space notification preference | `int $space_id, int $user_id, string $pref` (`'all'`, `'mentions_only'`, `'none'`) |
+| `buddynext_membership_rows` | filter | A member's "My spaces" rows are built for the rail flyout, the profile "Member of" list and the profile sidebar. Drop rows to hide spaces an add-on owns (each row carries `category_id`); the cap is applied after the filter, so the member still sees up to `$limit` spaces (1.2.0) | `array<int,object> $rows` (id, name, slug, category_id, role), `int $user_id, int $limit` |
+| `buddynext_cross_space_activity_rows` | filter | The cross-space activity list is built. Return extra rows in the same shape (`id, icon, avatar, text, occurred_at_utc`); the service merges, sorts and pages them. Return at most `$fetch` newest rows (1.2.0) | `array $extra, int[] $space_ids, int $fetch, int $offset, int $per_page` |
 
 > **Warning:** A ban removes the membership, so it fires `buddynext_space_member_removed` and `buddynext_space_user_banned` together. If you maintain a banned-users list, listen to `buddynext_space_user_banned` specifically; if you only need to react to "this user is no longer in the space" (for example, busting a sidebar cache), listen to `buddynext_space_member_removed` and you will cover both removals and bans.
 

@@ -82,6 +82,7 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 | `buddynext_report_created` | action | A member submits a report | `int $report_id, string $object_type, int $object_id, int $reporter_id` |
 | `buddynext_content_removed` | action | Reported content is removed (by a moderator or an auto-action) | `string $object_type, int $object_id, int $actor_id` |
 | `buddynext_post_auto_hidden` | action | A post reaches the report threshold and is put "Under review" (reversible; not a takedown) | `int $post_id` |
+| `buddynext_auto_hide_min_account_age_days` | filter | Counting reports toward the auto-hide threshold. Reports from accounts younger than this many days do not count, so a batch of new accounts cannot hide a post with no moderator involved. Default `7`; the system reporter (id `0`) always counts (1.2.0) | `int $days` |
 | `buddynext_post_restored` | action | An auto-hidden post is restored when its reports are cleared | `int $post_id, int $actor_id` |
 | `buddynext_comment_hidden` | action | A comment reaches the report threshold and is put "Under review" (the comment mirror of `buddynext_post_auto_hidden`) | `int $comment_id, int $actor_id` (actor `0` = the automatic threshold) |
 | `buddynext_comment_restored` | action | An auto-hidden comment is restored when its reports are cleared | `int $comment_id, int $actor_id` |
@@ -203,6 +204,7 @@ add_filter(
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_redirect_url` | filter | Resolving the login / logout / onboarding redirect URL, after the owner's Settings > Registration & Login value (or the built-in default) has already been applied - runs last, so it has the final say | `string $url, string $context, string $fallback` |
+| `buddynext_redirect_logged_in_from_auth` | filter | A signed-in member opens the login/signup hub. Default `true` (send them to the activity feed), `false` once a redirect loop is detected. Return `false` to keep signed-in members there, for example when a membership gate shows an upgrade prompt on that page (1.2.1) | `bool $redirect, int $user_id` |
 | `buddynext_content_removal_handled` | filter | Moderation asks whether reported content was actually taken down. Core answers for `post`, `comment` and `message`; return `true` for an object type you own | `bool $handled, string $object_type, int $object_id, int $actor_id` |
 | `buddynext_private_community_exempt_routes` | filter | The private-community gate resolves which route prefixes are exempt, for callers that are legitimately never logged in | `string[] $exempt, WP_REST_Request $request` |
 | `buddynext_terms_consent_recorded` | action | A member's terms consent is recorded. Hook it if you owe a stricter compliance duty, such as a written audit log or an external consent store | `int $user_id, int $terms_page, string $source` |

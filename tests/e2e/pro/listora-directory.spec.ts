@@ -10,7 +10,7 @@ import { urls } from '../_fixtures/selectors';
  * (guarded on `defined('WB_LISTORA_VERSION')`, so it is a total no-op when WB
  * Listora is not installed) hooks `transition_post_status` on the
  * `listora_listing` post type: going public publishes a feed card via the
- * shared bridge-card renderer (`.bn-post-card__bridge-card--listing`) and
+ * shared bridge-card renderer (`.bn-post-card__bridge-card`, source label "Listing") and
  * indexes it in `bn_search_index`, gated per-owner on the "Post to the activity
  * feed" / "Include in search" toggles at
  * Settings -> Integration Settings -> Integration Controls.
@@ -40,7 +40,11 @@ test.describe('pro / Listora directory listings bridge', () => {
         }
 
         await page.goto(urls.explore);
-        const listingCard = page.locator('.bn-post-card__bridge-card--listing').first();
+        // The type modifier class is built at runtime ('--' . $type), so anchor on
+        // the static card class and its source label, which is the same card.
+        const listingCard = page
+            .locator('.bn-post-card__bridge-card', { has: page.locator('.bn-post-card__bridge-source', { hasText: /listing/i }) })
+            .first();
         if (!(await listingCard.isVisible({ timeout: 8_000 }).catch(() => false))) {
             softSkip(testInfo, 'Listora is active but no published listing was found on Explore — seed one to exercise this effect.');
             return;

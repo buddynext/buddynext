@@ -1,25 +1,18 @@
 #!/usr/bin/env python3
 """docs/website/docs_config.json must match the pages on disk, exactly.
 
-`docs_config.json` is the hand-maintained index of the customer documentation: it
-names every page and the order they appear in. Nothing validated it, so it stayed
-correct only for as long as everyone remembered to edit it — and the failure is
-silent both ways.
+The config uses the Wbcom docs `sections[]` schema: one entry per section, each
+naming a FOLDER under docs/website/. Page order inside a folder comes from the
+numeric filename prefix, so pages are never listed one by one (the per-page list
+this replaced went stale every time a page was added or renumbered).
 
-  A page on disk that is NOT listed  -> written, committed, and invisible. It
-  simply never appears, and nobody finds out until a reader asks where it went.
+What can still go wrong silently, and what this checks:
 
-  A page listed that is NOT on disk  -> a dangling entry. Depending on the
-  consumer that is either a 404 or a build error, and it appears only at publish
-  time, long after the commit that caused it.
-
-Both happened during the 1.1.6 docs pass, which added pages (renewal reminders),
-renamed one (membership-tiers -> membership-plans) and renumbered a series
-(whats-new 1.1.3/1.1.4). Each of those is one forgotten line away from a silent
-break, which is exactly the shape of thing a gate should hold.
-
-Also checks that a listed path is not a duplicate, because a page listed twice
-renders twice and the second one wins the slug.
+  A folder of pages that is NOT a section -> every page in it is invisible.
+  A section whose folder is missing/empty -> a dangling section at publish time.
+  A section listed twice                  -> it renders twice.
+  A page loose in docs/website/ itself    -> belongs to no section, never appears.
+  A missing product/productType/shortId   -> the schema's required keys.
 
 Usage: python3 bin/check-docs-config.py     (exit 1 on any mismatch)
 """
@@ -34,6 +27,9 @@ WEBSITE = ROOT / "docs" / "website"
 CONFIG = WEBSITE / "docs_config.json"
 
 
+REQUIRED_KEYS = ("product", "productType", "shortId")
+
+
 def main() -> int:
     if not CONFIG.is_file():
         print(f"docs-config: {CONFIG.relative_to(ROOT)} not found", file=sys.stderr)
@@ -45,40 +41,48 @@ def main() -> int:
         print(f"docs-config: {CONFIG.relative_to(ROOT)} is not valid JSON — {exc}", file=sys.stderr)
         return 1
 
-    listed = []
-    for sub in cfg.get("subcategories", []):
-        listed.extend(sub.get("docs", []))
+    problems = []
 
-    on_disk = {
-        str(p.relative_to(WEBSITE))
+    absent = [k for k in REQUIRED_KEYS if not str(cfg.get(k, "")).strip()]
+    if absent:
+        problems.append(("missing required keys", absent))
+
+    folders = [str(sec.get("folder", "")).strip("/") for sec in cfg.get("sections", [])]
+    if not folders:
+        problems.append(("no sections[] entries", ["sections"]))
+
+    page_folders = {
+        str(p.relative_to(WEBSITE).parts[0])
         for p in WEBSITE.rglob("*.md")
+        if len(p.relative_to(WEBSITE).parts) > 1
     }
+    loose = sorted(str(p.relative_to(WEBSITE)) for p in WEBSITE.glob("*.md"))
 
-    listed_set = set(listed)
-    missing = sorted(listed_set - on_disk)   # listed, no file
-    unlisted = sorted(on_disk - listed_set)  # file, not listed
-    dupes = sorted(name for name, n in Counter(listed).items() if n > 1)
+    unlisted = sorted(page_folders - set(folders))
+    empty = sorted(f for f in set(folders) if f not in page_folders)
+    dupes = sorted(name for name, n in Counter(folders).items() if n > 1)
 
-    if not (missing or unlisted or dupes):
-        print(f"✓ docs config in sync — {len(listed)} pages listed, {len(on_disk)} on disk")
+    if unlisted:
+        problems.append(("folder of pages NOT a section (its pages would never appear)", unlisted))
+    if empty:
+        problems.append(("section folder missing or has no pages (dangling section)", empty))
+    if dupes:
+        problems.append(("section listed more than once", dupes))
+    if loose:
+        problems.append(("page outside any section folder", loose))
+
+    if not problems:
+        pages = sum(1 for _ in WEBSITE.rglob("*.md"))
+        print(f"✓ docs config in sync — {len(folders)} sections, {pages} pages")
         return 0
 
-    if missing:
-        print("✗ listed in docs_config.json but NOT on disk (dangling entry):", file=sys.stderr)
-        for m in missing:
-            print(f"    {m}", file=sys.stderr)
-    if unlisted:
-        print("✗ on disk but NOT listed in docs_config.json (page would never appear):", file=sys.stderr)
-        for u in unlisted:
-            print(f"    {u}", file=sys.stderr)
-    if dupes:
-        print("✗ listed more than once in docs_config.json:", file=sys.stderr)
-        for d in dupes:
-            print(f"    {d}", file=sys.stderr)
-
+    for title, items in problems:
+        print(f"✗ {title}:", file=sys.stderr)
+        for item in items:
+            print(f"    {item}", file=sys.stderr)
     print(
-        "\n  Fix docs/website/docs_config.json so it names exactly the .md files under "
-        "docs/website/ — every page, once each.",
+        "\n  Fix docs/website/docs_config.json so its sections[] name every page folder under "
+        "docs/website/, once each.",
         file=sys.stderr,
     )
     return 1

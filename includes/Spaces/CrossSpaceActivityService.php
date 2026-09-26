@@ -87,14 +87,9 @@ class CrossSpaceActivityService {
 		 * Contribute additional cross-space activity rows from another domain (e.g.
 		 * the Pro payments subsystem adds payment/renewal rows). Return the SAME
 		 * normalised shape { id, icon, avatar, text, occurred_at_utc }; this service
-		 * merges and sorts them with its own. Return at most $fetch recent rows so
-		 * the merge stays bounded.
-		 *
-		 * @since 1.2.0
-		 *
-		 * Return your newest rows up to $fetch (the service merges + sorts + slices
-		 * centrally); $offset and $per_page are passed so a contributor can bound its
-		 * own query, but returning the newest $fetch is always correct.
+		 * merges, sorts and slices them with its own. Return your newest rows up to
+		 * $fetch so the merge stays bounded; $offset and $per_page are passed so a
+		 * contributor can bound its own query, but the newest $fetch is always correct.
 		 *
 		 * @since 1.2.0
 		 *
