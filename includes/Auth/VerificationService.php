@@ -50,8 +50,9 @@ class VerificationService {
 				'token'      => $token,
 				'type'       => 'email_verify',
 				'expires_at' => gmdate( 'Y-m-d H:i:s', strtotime( '+48 hours' ) ),
+				'created_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s' )
 		);
 
 		$token_url = add_query_arg( array( 'bn_verify' => $token ), home_url( '/' ) );

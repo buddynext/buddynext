@@ -244,12 +244,12 @@ class ConnectionService {
 		);
 		$formats = array( '%d', '%d', '%s', '%s' );
 
-		// Importer seam: only include created_at when a backdate was supplied —
-		// otherwise the column's DEFAULT CURRENT_TIMESTAMP applies, unchanged.
-		if ( null !== $created_at && '' !== $created_at ) {
-			$row['created_at'] = \BuddyNext\Core\Backdate::resolve( $created_at );
-			$formats[]         = '%s';
-		}
+		// Importer seam: a supplied backdate wins; otherwise stamp UTC now (the
+		// column DEFAULT would use the DB server's local clock).
+		$row['created_at'] = ( null !== $created_at && '' !== $created_at )
+			? \BuddyNext\Core\Backdate::resolve( $created_at )
+			: current_time( 'mysql', true );
+		$formats[]         = '%s';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$inserted = $wpdb->insert( $wpdb->prefix . 'bn_connections', $row, $formats );

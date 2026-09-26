@@ -2641,7 +2641,7 @@ class WPMediaVerseBridge {
 		}
 
 		// Create the bn_comments entry.
-		$now = current_time( 'mysql' );
+		$now = current_time( 'mysql', true );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
@@ -2661,8 +2661,9 @@ class WPMediaVerseBridge {
 				// carry NULL here (they are about the post, not any one photo).
 				'media_id'    => $media_id,
 				'created_at'  => $now,
+				'updated_at'  => $now,
 			),
-			array( '%s', '%d', '%d', '%s', '%d', '%d', '%s' )
+			array( '%s', '%d', '%d', '%s', '%d', '%d', '%s', '%s' )
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

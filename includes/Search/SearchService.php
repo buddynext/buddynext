@@ -104,15 +104,15 @@ class SearchService {
 		$result = $wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
-				    (object_type, object_id, title, content, author_id, space_id, visibility)
-				 VALUES (%s, %d, %s, %s, %d, %d, %s)
+				    (object_type, object_id, title, content, author_id, space_id, visibility, created_at, updated_at)
+				 VALUES (%s, %d, %s, %s, %d, %d, %s, UTC_TIMESTAMP(), UTC_TIMESTAMP())
 				 ON DUPLICATE KEY UPDATE
 				    title = VALUES(title),
 				    content = VALUES(content),
 				    author_id = VALUES(author_id),
 				    space_id = VALUES(space_id),
 				    visibility = VALUES(visibility),
-				    updated_at = NOW()",
+				    updated_at = UTC_TIMESTAMP()",
 				$object_type,
 				$object_id,
 				$title,
@@ -423,7 +423,7 @@ class SearchService {
 		$changed = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_search_index
-				    SET visibility = 'private', updated_at = NOW()
+				    SET visibility = 'private', updated_at = UTC_TIMESTAMP()
 				  WHERE space_id = %d
 				    AND visibility = 'public'",
 				$space_id
@@ -933,13 +933,13 @@ class SearchService {
 		$date_key   = isset( $search_args['date'] ) ? sanitize_key( (string) $search_args['date'] ) : '';
 		switch ( $date_key ) {
 			case 'week':
-				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
+				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )';
 				break;
 			case 'month':
-				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
+				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 MONTH )';
 				break;
 			case 'year':
-				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
+				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 YEAR )';
 				break;
 		}
 		$sort_recent = isset( $search_args['sort'] ) && 'recent' === sanitize_key( (string) $search_args['sort'] );

@@ -566,13 +566,16 @@ class EmailEditor {
 			'preview_text' => $preview_text,
 			'body_html'    => $body_html,
 			'enabled'      => $enabled ? 1 : 0,
+			'updated_at'   => current_time( 'mysql', true ),
 		);
-		$formats  = array( '%s', '%s', '%s', '%s', '%d' );
+		$formats  = array( '%s', '%s', '%s', '%s', '%d', '%s' );
 
 		if ( $existing ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$result = $wpdb->update( $table, $data, array( 'type' => $type ), $formats, array( '%s' ) );
 		} else {
+			$data['created_at'] = $data['updated_at'];
+			$formats[]          = '%s';
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$result = $wpdb->insert( $table, $data, $formats );
 		}

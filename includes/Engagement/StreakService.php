@@ -139,25 +139,32 @@ class StreakService {
 			$dates = $dates_filter;
 		} else {
 			global $wpdb;
+			// created_at is UTC; shift it to site-local so the dates match the
+			// site-local "today" current_streak() compares against.
+			// ponytail: uses today's UTC offset for the whole window, so activity near a DST change can land on the adjacent day.
+			$offset = (int) wp_timezone()->getOffset( new \DateTimeImmutable( 'now' ) );
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$dates = (array) $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT activity_date FROM (
-					   SELECT DATE(created_at) AS activity_date
+					   SELECT DATE( DATE_ADD( created_at, INTERVAL %d SECOND ) ) AS activity_date
 					     FROM {$wpdb->prefix}bn_posts
-					    WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
+					    WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 31 DAY )
 					   UNION
-					   SELECT DATE(created_at) AS activity_date
+					   SELECT DATE( DATE_ADD( created_at, INTERVAL %d SECOND ) ) AS activity_date
 					     FROM {$wpdb->prefix}bn_comments
-					    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
+					    WHERE user_id = %d AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 31 DAY )
 					   UNION
-					   SELECT DATE(created_at) AS activity_date
+					   SELECT DATE( DATE_ADD( created_at, INTERVAL %d SECOND ) ) AS activity_date
 					     FROM {$wpdb->prefix}bn_reactions
-					    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
+					    WHERE user_id = %d AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 31 DAY )
 					 ) AS d
 					 ORDER BY activity_date DESC",
+					$offset,
 					$uid,
+					$offset,
 					$uid,
+					$offset,
 					$uid
 				)
 			);

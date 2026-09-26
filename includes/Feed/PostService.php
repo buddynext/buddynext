@@ -597,8 +597,9 @@ class PostService {
 				// sorts correctly in the "Active" feed before it receives any
 				// engagement. Bumped to NOW() on each reaction/comment/share.
 				'last_activity_at'     => $bn_last_activity,
+				'updated_at'           => $bn_created_at,
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1989,8 +1990,11 @@ class PostService {
 
 		global $wpdb;
 
-		$fields  = array( 'edited_at' => current_time( 'mysql', true ) );
-		$formats = array( '%s' );
+		$fields  = array(
+			'edited_at'  => current_time( 'mysql', true ),
+			'updated_at' => current_time( 'mysql', true ),
+		);
+		$formats = array( '%s', '%s' );
 
 		if ( isset( $data['content'] ) ) {
 			$fields['content'] = $data['content'];
@@ -2569,12 +2573,15 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'link_meta' => wp_json_encode( $meta ) ),
+			array(
+				'link_meta'  => wp_json_encode( $meta ),
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array(
 				'type'     => $type,
 				'link_url' => $link_url,
 			),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2613,13 +2620,16 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$moved = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'status' => $to ),
+			array(
+				'status'     => $to,
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array(
 				'type'     => $type,
 				'link_url' => $link_url,
 				'status'   => $from,
 			),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2655,7 +2665,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$moved = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = %s
+				"UPDATE {$wpdb->prefix}bn_posts SET status = %s, updated_at = UTC_TIMESTAMP()
 				 WHERE type = %s AND status = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
@@ -2895,9 +2905,12 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'is_pinned' => 1 ),
+			array(
+				'is_pinned'  => 1,
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%d' ),
+			array( '%d', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2938,9 +2951,12 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'is_pinned' => 0 ),
+			array(
+				'is_pinned'  => 0,
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%d' ),
+			array( '%d', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2999,7 +3015,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = %s WHERE id = %d",
+				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = %s, updated_at = UTC_TIMESTAMP() WHERE id = %d",
 				current_time( 'mysql', true ),
 				$post_id
 			)
@@ -3025,7 +3041,7 @@ class PostService {
 		// column (col - 1 when col is 0 wraps to a huge value on unsigned).
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
-			$wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET {$column} = GREATEST(1, {$column}) - 1 WHERE id = %d", $post_id )
+			$wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET {$column} = GREATEST(1, {$column}) - 1, updated_at = UTC_TIMESTAMP() WHERE id = %d", $post_id )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
@@ -3073,7 +3089,7 @@ class PostService {
 			      WHERE object_type = 'post'{$scope_inner}
 			      GROUP BY object_id
 			 ) r ON r.object_id = p.id
-			 SET p.reaction_count = COALESCE(r.cnt, 0)
+			 SET p.reaction_count = COALESCE(r.cnt, 0), p.updated_at = UTC_TIMESTAMP()
 			 WHERE p.reaction_count <> COALESCE(r.cnt, 0){$scope_outer}"
 		);
 
@@ -3088,7 +3104,7 @@ class PostService {
 			        AND object_type = 'post'{$scope_inner}
 			      GROUP BY object_id
 			 ) c ON c.object_id = p.id
-			 SET p.comment_count = COALESCE(c.cnt, 0)
+			 SET p.comment_count = COALESCE(c.cnt, 0), p.updated_at = UTC_TIMESTAMP()
 			 WHERE p.comment_count <> COALESCE(c.cnt, 0){$scope_outer}"
 		);
 
@@ -3103,7 +3119,7 @@ class PostService {
 			      WHERE 1 = 1{$scope_shares}
 			      GROUP BY post_id
 			 ) s ON s.post_id = p.id
-			 SET p.share_count = COALESCE(s.cnt, 0)
+			 SET p.share_count = COALESCE(s.cnt, 0), p.updated_at = UTC_TIMESTAMP()
 			 WHERE p.share_count <> COALESCE(s.cnt, 0){$scope_outer}"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -3172,9 +3188,10 @@ class PostService {
 			array(
 				'status'       => 'scheduled',
 				'scheduled_at' => $scheduled_at,
+				'updated_at'   => current_time( 'mysql', true ),
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3205,9 +3222,10 @@ class PostService {
 			array(
 				'status'       => 'draft',
 				'scheduled_at' => null,
+				'updated_at'   => current_time( 'mysql', true ),
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3245,9 +3263,10 @@ class PostService {
 				'status'           => 'published',
 				'created_at'       => $now,
 				'last_activity_at' => $now,
+				'updated_at'       => $now,
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3293,9 +3312,10 @@ class PostService {
 				'scheduled_at'     => null,
 				'created_at'       => $now,
 				'last_activity_at' => $now,
+				'updated_at'       => $now,
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3357,9 +3377,10 @@ class PostService {
 				'status'           => 'published',
 				'created_at'       => $now,
 				'last_activity_at' => $now,
+				'updated_at'       => $now,
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3422,9 +3443,12 @@ class PostService {
 
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'status' => 'deleted' ),
+			array(
+				'status'     => 'deleted',
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3779,12 +3803,13 @@ class PostService {
 			array(
 				'is_announcement'     => 0,
 				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
+				'updated_at'          => current_time( 'mysql', true ),
 			),
 			array(
 				'id'              => $post_id,
 				'is_announcement' => 1,
 			),
-			array( '%d', '%s' ),
+			array( '%d', '%s', '%s' ),
 			array( '%d', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3942,7 +3967,7 @@ class PostService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$changed = (int) $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = %s WHERE id = %d AND status = %s",
+				"UPDATE {$wpdb->prefix}bn_posts SET status = %s, updated_at = UTC_TIMESTAMP() WHERE id = %d AND status = %s",
 				$to,
 				$post_id,
 				$from
@@ -4312,9 +4337,12 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'link_meta' => wp_json_encode( $meta ) ),
+			array(
+				'link_meta'  => wp_json_encode( $meta ),
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

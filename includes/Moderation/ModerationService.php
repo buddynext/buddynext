@@ -756,7 +756,7 @@ class ModerationService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = 'under_review' WHERE id = %d AND status = 'published'",
+				"UPDATE {$wpdb->prefix}bn_posts SET status = 'under_review', updated_at = UTC_TIMESTAMP() WHERE id = %d AND status = 'published'",
 				$post_id
 			)
 		);
@@ -790,7 +790,7 @@ class ModerationService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 1 WHERE id = %d AND is_hidden = 0 AND is_deleted = 0",
+				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 1, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 0 AND is_deleted = 0",
 				$comment_id
 			)
 		);
@@ -1150,9 +1150,10 @@ class ModerationService {
 			array(
 				'content_warning'      => $has_warning ? 1 : 0,
 				'content_warning_type' => sanitize_key( $warning_type ),
+				'updated_at'           => current_time( 'mysql', true ),
 			),
 			array( 'id' => $post_id ),
-			array( '%d', '%s' ),
+			array( '%d', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1179,11 +1180,12 @@ class ModerationService {
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_user_strikes',
 			array(
-				'user_id'   => $user_id,
-				'issued_by' => $actor_id,
-				'reason'    => sanitize_textarea_field( $reason ),
+				'user_id'    => $user_id,
+				'issued_by'  => $actor_id,
+				'reason'     => sanitize_textarea_field( $reason ),
+				'created_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1327,7 +1329,7 @@ class ModerationService {
 			array(
 				'is_reversed' => 1,
 				'reversed_by' => $actor_id,
-				'reversed_at' => current_time( 'mysql' ),
+				'reversed_at' => current_time( 'mysql', true ),
 			),
 			array( 'id' => $strike_id ),
 			array( '%d', '%d', '%s' ),
@@ -1770,7 +1772,7 @@ class ModerationService {
 				$wpdb->prepare(
 					"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_user_suspensions
 					 WHERE lifted_at IS NULL
-					   AND ( expires_at IS NULL OR expires_at > NOW() )
+					   AND ( expires_at IS NULL OR expires_at > UTC_TIMESTAMP() )
 					   AND user_id IN ({$placeholders})",
 					...$user_ids
 				),
@@ -2129,8 +2131,9 @@ class ModerationService {
 				'duration_days' => $duration_days,
 				'hide_posts'    => $hide_posts,
 				'expires_at'    => $expires_at,
+				'created_at'    => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -2207,7 +2210,7 @@ class ModerationService {
 				 WHERE user_id = %d AND lifted_at IS NULL
 				 ORDER BY id DESC
 				 LIMIT 1",
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ),
 				$actor_id,
 				$user_id
 			)
@@ -2972,8 +2975,9 @@ class ModerationService {
 				'suspension_id' => $suspension_id,
 				'user_id'       => $user_id,
 				'message'       => sanitize_textarea_field( $message ),
+				'created_at'    => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -3258,7 +3262,7 @@ class ModerationService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$restored = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published' WHERE id = %d AND status = 'under_review'",
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published', updated_at = UTC_TIMESTAMP() WHERE id = %d AND status = 'under_review'",
 					$restore_post_id
 				)
 			);
@@ -3286,7 +3290,7 @@ class ModerationService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$restored = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 0 WHERE id = %d AND is_hidden = 1",
+					"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 0, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 1",
 					$restore_comment_id
 				)
 			);
@@ -3547,8 +3551,9 @@ class ModerationService {
 				'reason'       => sanitize_textarea_field( $reason ),
 				'expires_at'   => $expires_at,
 				'hide_posts'   => $hide_content ? 1 : 0,
+				'created_at'   => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%d' )
+			array( '%d', '%d', '%s', '%s', '%d', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -3629,7 +3634,7 @@ class ModerationService {
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
 				 WHERE user_id = %d AND lifted_at IS NULL",
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ),
 				0,
 				$user_id
 			)
@@ -3770,8 +3775,9 @@ class ModerationService {
 				'user_id'       => $user_id,
 				'message'       => sanitize_textarea_field( $message ),
 				'status'        => 'pending',
+				'created_at'    => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -3845,7 +3851,7 @@ class ModerationService {
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
 				 WHERE id = %d AND lifted_at IS NULL",
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ),
 				$actor_id > 0 ? $actor_id : 0,
 				$suspension_id
 			)

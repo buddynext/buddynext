@@ -1017,7 +1017,7 @@ class SpaceService {
 				 ON DUPLICATE KEY UPDATE role = 'owner', status = 'active'",
 				$space_id,
 				$new_owner_id,
-				current_time( 'mysql' )
+				current_time( 'mysql', true )
 			)
 		);
 

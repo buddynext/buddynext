@@ -82,8 +82,8 @@ class BookmarkService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_bookmarks (user_id, post_id)
-				 VALUES (%d, %d)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_bookmarks (user_id, post_id, created_at)
+				 VALUES (%d, %d, UTC_TIMESTAMP())",
 				$user_id,
 				$post_id
 			)

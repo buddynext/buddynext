@@ -206,8 +206,8 @@ class PollService {
 		// concurrent requests.
 		$inserted = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_poll_votes (post_id, option_id, user_id)
-				 VALUES (%d, %d, %d)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_poll_votes (post_id, option_id, user_id, voted_at)
+				 VALUES (%d, %d, %d, UTC_TIMESTAMP())",
 				$post_id,
 				$option_id,
 				$user_id

@@ -1417,7 +1417,7 @@ class Installer {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			"UPDATE {$prefix}bn_posts p
-			    SET p.status = 'under_review'
+			    SET p.status = 'under_review', p.updated_at = p.updated_at
 			  WHERE p.status = 'pending'
 			    AND EXISTS (
 			        SELECT 1 FROM {$prefix}bn_reports r
@@ -1500,7 +1500,7 @@ class Installer {
 			$wpdb->prepare(
 				"UPDATE {$prefix}bn_search_index si
 				 INNER JOIN {$prefix}bn_spaces s ON s.id = si.space_id
-				 SET si.visibility = 'private'
+				 SET si.visibility = 'private', si.updated_at = si.updated_at
 				 WHERE si.visibility = 'public'
 				   AND si.space_id > 0
 				   AND s.type NOT IN ( {$placeholders} )",
@@ -1707,7 +1707,7 @@ class Installer {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_email_templates SET subject = %s WHERE type = %s AND subject = %s",
+					"UPDATE {$wpdb->prefix}bn_email_templates SET subject = %s, updated_at = updated_at WHERE type = %s AND subject = %s",
 					$pair[1],
 					$type,
 					$pair[0]
@@ -3283,7 +3283,7 @@ class Installer {
 		// than re-seeded so an owner's edits to the copy survive.
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE IGNORE `{$p}bn_email_templates` SET type = %s WHERE type = %s",
+				"UPDATE IGNORE `{$p}bn_email_templates` SET type = %s, updated_at = updated_at WHERE type = %s",
 				'bn.user_unsuspended',
 				'bn.unsuspension_confirmation'
 			)
@@ -3292,8 +3292,8 @@ class Installer {
 		foreach ( $templates as $tpl ) {
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO `{$p}bn_email_templates` (type, subject, preview_text, body_html)
-					 VALUES (%s, %s, %s, %s)",
+					"INSERT IGNORE INTO `{$p}bn_email_templates` (type, subject, preview_text, body_html, created_at, updated_at)
+					 VALUES (%s, %s, %s, %s, UTC_TIMESTAMP(), UTC_TIMESTAMP())",
 					$tpl['type'],
 					$tpl['subject'],
 					$tpl['preview_text'],
@@ -3368,7 +3368,7 @@ class Installer {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$p}bn_member_types (slug, name, color, text_color, sort_order, show_in_dir, self_select) VALUES (%s, %s, %s, %s, %d, %d, %d)",
+					"INSERT IGNORE INTO {$p}bn_member_types (slug, name, color, text_color, sort_order, show_in_dir, self_select, created_at) VALUES (%s, %s, %s, %s, %d, %d, %d, UTC_TIMESTAMP())",
 					$type[0],
 					$type[1],
 					$type[2],

@@ -204,8 +204,9 @@ class MemberTypeService {
 				'sort_order'  => $validated['sort_order'],
 				'show_in_dir' => $validated['show_in_dir'] ? 1 : 0,
 				'self_select' => $validated['self_select'] ? 1 : 0,
+				'created_at'  => current_time( 'mysql', true ),
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -495,8 +496,9 @@ class MemberTypeService {
 				'user_id'     => $user_id,
 				'type_id'     => $type_id,
 				'assigned_by' => $assigned_by,
+				'assigned_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%d' )
+			array( '%d', '%d', '%d', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 

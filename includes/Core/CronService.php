@@ -539,7 +539,7 @@ class CronService {
 				   FROM {$wpdb->prefix}bn_notifications
 				  WHERE recipient_id = %d
 				    AND is_read      = 0
-				    AND created_at  >= DATE_SUB( NOW(), INTERVAL %d DAY )
+				    AND created_at  >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )
 				  ORDER BY created_at DESC",
 				$user_id,
 				$days
@@ -573,8 +573,8 @@ class CronService {
 		global $wpdb;
 
 		$date_cond = ( 'bn.daily_digest' === $type )
-			? 'digest_date = CURDATE()'
-			: 'YEARWEEK( digest_date, 1 ) = YEARWEEK( CURDATE(), 1 )';
+			? 'digest_date = UTC_DATE()'
+			: 'YEARWEEK( digest_date, 1 ) = YEARWEEK( UTC_DATE(), 1 )';
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$count = (int) $wpdb->get_var(
@@ -740,8 +740,9 @@ class CronService {
 				'type'        => $type,
 				'digest_date' => gmdate( 'Y-m-d' ),
 				'status'      => 'sent',
+				'sent_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
@@ -770,8 +771,9 @@ class CronService {
 				'digest_date' => null,
 				'status'      => 'failed',
 				'error'       => null !== EmailSender::last_error() ? mb_substr( (string) EmailSender::last_error(), 0, 2000 ) : null,
+				'sent_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}

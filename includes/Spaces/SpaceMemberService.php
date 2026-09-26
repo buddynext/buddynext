@@ -609,7 +609,7 @@ class SpaceMemberService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason) VALUES (%d, %d, %d, %s)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason, created_at) VALUES (%d, %d, %d, %s, UTC_TIMESTAMP())",
 				$space_id,
 				$user_id,
 				$actor_id,
@@ -2391,12 +2391,13 @@ class SpaceMemberService {
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_space_bans',
 			array(
-				'space_id'  => $space_id,
-				'user_id'   => $user_id,
-				'banned_by' => max( 0, $banned_by ),
-				'reason'    => sanitize_textarea_field( $reason ),
+				'space_id'   => $space_id,
+				'user_id'    => $user_id,
+				'banned_by'  => max( 0, $banned_by ),
+				'reason'     => sanitize_textarea_field( $reason ),
+				'created_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%d', '%s' )
+			array( '%d', '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 

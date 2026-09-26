@@ -272,7 +272,7 @@ class WidgetService {
 				$notifs_7d = apply_filters( 'buddynext_user_weekly_notifications_count', null, $user_id );
 				if ( null === $notifs_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$notifs_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+					$notifs_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 				$notifs_7d = (int) $notifs_7d;
@@ -280,7 +280,7 @@ class WidgetService {
 				$notifs_prev_7d = apply_filters( 'buddynext_user_weekly_notifications_prev_count', null, $user_id );
 				if ( null === $notifs_prev_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$notifs_prev_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 14 DAY ) AND created_at <  DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+					$notifs_prev_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 14 DAY ) AND created_at <  DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 				$notifs_prev_7d = (int) $notifs_prev_7d;
@@ -288,7 +288,7 @@ class WidgetService {
 				$read_7d = apply_filters( 'buddynext_user_weekly_notifications_read_count', null, $user_id );
 				if ( null === $read_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$read_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 1 AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+					$read_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 1 AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 				$read_7d = (int) $read_7d;
@@ -296,7 +296,7 @@ class WidgetService {
 				$new_followers_7d = apply_filters( 'buddynext_user_weekly_followers_gained', null, $user_id );
 				if ( null === $new_followers_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+					$new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 				$new_followers_7d = (int) $new_followers_7d;
@@ -304,8 +304,8 @@ class WidgetService {
 				$engagement_in_7d = apply_filters( 'buddynext_user_weekly_engagement_received', null, $user_id );
 				if ( null === $engagement_in_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$reactions_in_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id, $user_id ) );
-					$comments_in_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.object_type = 'post' AND p.user_id = %d AND c.user_id != %d AND c.is_deleted = 0 AND c.is_hidden = 0 AND c.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id, $user_id ) );
+					$reactions_in_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
+					$comments_in_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.object_type = 'post' AND p.user_id = %d AND c.user_id != %d AND c.is_deleted = 0 AND c.is_hidden = 0 AND c.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
 					$engagement_in_7d = $reactions_in_7d + $comments_in_7d;
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}

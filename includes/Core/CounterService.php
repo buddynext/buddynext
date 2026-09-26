@@ -222,7 +222,10 @@ class CounterService {
 
 		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prefix . 'bn_posts',
-			array( 'reaction_count' => $count ),
+			array(
+				'reaction_count' => $count,
+				'updated_at'     => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id )
 		);
 	}
@@ -252,7 +255,10 @@ class CounterService {
 
 		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prefix . 'bn_posts',
-			array( 'comment_count' => $count ),
+			array(
+				'comment_count' => $count,
+				'updated_at'    => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id )
 		);
 	}

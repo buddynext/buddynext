@@ -1468,12 +1468,15 @@ class FeedService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array(
+				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
+				'updated_at'          => current_time( 'mysql', true ),
+			),
 			array(
 				'id'              => $post_id,
 				'is_announcement' => 1,
 			),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

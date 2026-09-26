@@ -2804,9 +2804,9 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
-				    (object_type, object_id, title, content, content_members, author_id, visibility)
-				 VALUES ('user', %d, %s, %s, %s, %d, 'public')
-				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), content_members = VALUES(content_members), updated_at = NOW()",
+				    (object_type, object_id, title, content, content_members, author_id, visibility, created_at, updated_at)
+				 VALUES ('user', %d, %s, %s, %s, %d, 'public', UTC_TIMESTAMP(), UTC_TIMESTAMP())
+				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), content_members = VALUES(content_members), updated_at = UTC_TIMESTAMP()",
 				$user_id,
 				$wp_user->display_name,
 				$content,
@@ -4448,7 +4448,7 @@ class ProfileService {
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 				 WHERE user_id = %d AND status = 'published'
-				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				   AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )",
 				$user_id
 			)
 		);
@@ -4471,7 +4471,7 @@ class ProfileService {
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
 				 WHERE following_id = %d AND status = 'approved'
-				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				   AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )",
 				$user_id
 			)
 		);
@@ -4490,7 +4490,7 @@ class ProfileService {
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
 				 WHERE follower_id = %d AND status = 'approved'
-				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				   AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )",
 				$user_id
 			)
 		);
@@ -4509,7 +4509,7 @@ class ProfileService {
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections
 				 WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
-				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				   AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )",
 				$user_id,
 				$user_id
 			)

@@ -425,9 +425,12 @@ class ModerationListener implements ListenerInterface {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->update(
 				$wpdb->prefix . 'bn_posts',
-				array( 'status' => 'deleted' ),
+				array(
+					'status'     => 'deleted',
+					'updated_at' => current_time( 'mysql', true ),
+				),
 				array( 'id' => $object_id ),
-				array( '%s' ),
+				array( '%s', '%s' ),
 				array( '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -440,9 +443,12 @@ class ModerationListener implements ListenerInterface {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->update(
 				$wpdb->prefix . 'bn_comments',
-				array( 'is_deleted' => 1 ),
+				array(
+					'is_deleted' => 1,
+					'updated_at' => current_time( 'mysql', true ),
+				),
 				array( 'id' => $object_id ),
-				array( '%d' ),
+				array( '%d', '%s' ),
 				array( '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

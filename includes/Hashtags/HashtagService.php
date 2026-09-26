@@ -538,7 +538,7 @@ class HashtagService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$inserted = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_hashtag_follows (user_id, hashtag_id) VALUES (%d, %d)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_hashtag_follows (user_id, hashtag_id, created_at) VALUES (%d, %d, UTC_TIMESTAMP())",
 				$user_id,
 				$hashtag_id
 			)
@@ -1308,8 +1308,8 @@ class HashtagService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_hashtag_follows (user_id, hashtag_id)
-				 SELECT user_id, %d FROM {$wpdb->prefix}bn_hashtag_follows WHERE hashtag_id = %d",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_hashtag_follows (user_id, hashtag_id, created_at)
+				 SELECT user_id, %d, created_at FROM {$wpdb->prefix}bn_hashtag_follows WHERE hashtag_id = %d",
 				$new_id,
 				$old_id
 			)

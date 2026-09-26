@@ -75,8 +75,8 @@ class BlockService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
-				 VALUES (%d, %d, 'block')
+				"INSERT INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type, created_at)
+				 VALUES (%d, %d, 'block', UTC_TIMESTAMP())
 				 ON DUPLICATE KEY UPDATE type = 'block'",
 				$blocker_id,
 				$blocked_id
@@ -189,8 +189,8 @@ class BlockService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
-				 VALUES (%d, %d, 'mute')",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type, created_at)
+				 VALUES (%d, %d, 'mute', UTC_TIMESTAMP())",
 				$muter_id,
 				$muted_id
 			)
@@ -282,8 +282,8 @@ class BlockService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
-				 VALUES (%d, %d, 'restrict')",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type, created_at)
+				 VALUES (%d, %d, 'restrict', UTC_TIMESTAMP())",
 				$actor_id,
 				$target_id
 			)

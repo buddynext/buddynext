@@ -53,6 +53,8 @@ class EmailEditorTest extends \WP_UnitTestCase {
 				preview_text TEXT NOT NULL,
 				body_html    LONGTEXT NOT NULL,
 				enabled      TINYINT(1) NOT NULL DEFAULT 1,
+				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id)
 			) {$wpdb->get_charset_collate()}"
 		);

@@ -236,6 +236,7 @@ class CommentService {
 			}
 		}
 
+		$bn_stamp = \BuddyNext\Core\Backdate::resolve( $created_at );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
@@ -250,9 +251,10 @@ class CommentService {
 				// regardless of the MySQL/PHP timezone (see buddynext_time_ago()).
 				// Backdate::resolve() returns now unless a valid past timestamp
 				// was supplied (importer seam).
-				'created_at'  => \BuddyNext\Core\Backdate::resolve( $created_at ),
+				'created_at'  => $bn_stamp,
+				'updated_at'  => $bn_stamp,
 			),
-			array( '%d', '%s', '%d', '%d', '%s', '%s' )
+			array( '%d', '%s', '%d', '%d', '%s', '%s', '%s' )
 		);
 
 		$comment_id = (int) $wpdb->insert_id;
@@ -383,9 +385,12 @@ class CommentService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			"{$wpdb->prefix}bn_comments",
-			array( 'sync_reply_id' => $reply_id ),
+			array(
+				'sync_reply_id' => $reply_id,
+				'updated_at'    => current_time( 'mysql', true ),
+			),
 			array( 'id' => $comment_id ),
-			array( '%d' ),
+			array( '%d', '%s' ),
 			array( '%d' )
 		);
 	}
@@ -494,11 +499,12 @@ class CommentService {
 		$wpdb->update(
 			$wpdb->prefix . 'bn_comments',
 			array(
-				'content'   => $content,
-				'is_edited' => 1,
+				'content'    => $content,
+				'is_edited'  => 1,
+				'updated_at' => current_time( 'mysql', true ),
 			),
 			array( 'id' => $comment_id ),
-			array( '%s', '%d' ),
+			array( '%s', '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -549,9 +555,10 @@ class CommentService {
 			array(
 				'is_deleted' => 1,
 				'content'    => '',
+				'updated_at' => current_time( 'mysql', true ),
 			),
 			array( 'id' => $comment_id ),
-			array( '%d', '%s' ),
+			array( '%d', '%s', '%s' ),
 			array( '%d' )
 		);
 

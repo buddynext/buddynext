@@ -1148,7 +1148,8 @@ class ReactionService {
 				$wpdb->query(
 					$wpdb->prepare(
 						"UPDATE {$wpdb->prefix}bn_posts
-						 SET reaction_count = GREATEST( 0, CAST( reaction_count AS SIGNED ) - %d )
+						 SET reaction_count = GREATEST( 0, CAST( reaction_count AS SIGNED ) - %d ),
+						     updated_at = UTC_TIMESTAMP()
 						 WHERE id = %d",
 						$lost,
 						$object_id
