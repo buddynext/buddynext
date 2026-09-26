@@ -439,6 +439,22 @@ function bindFolders( root ) {
 	root.querySelectorAll( '[data-bn-folder-restore]' ).forEach( ( btn ) => btn.addEventListener( 'click', () => {
 		call( '/' + btn.getAttribute( 'data-bn-id' ) + '/restore', 'POST', null, t.restored, btn );
 	} ) );
+
+	// Trash view: Delete now empties one trashed folder for good (WPMediaVerse's
+	// force delete). A danger confirm, so focus starts on Cancel.
+	root.querySelectorAll( '[data-bn-folder-purge]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const items = parseInt( btn.getAttribute( 'data-bn-items' ) || '0', 10 ) || 0;
+		const ok    = await bnConfirm( {
+			title:        fmt( t.purgeTitle, btn.getAttribute( 'data-bn-name' ) || '' ),
+			body:         items ? fmt( t.purgeBody, fmt( 1 === items ? t.itemOne : t.itemMany, items ) ) : t.purgeEmpty,
+			confirmLabel: t.purgeConfirm,
+			cancelLabel:  t.cancel,
+			tone:         'danger',
+		} );
+		if ( ok ) {
+			call( '/' + btn.getAttribute( 'data-bn-id' ) + '?force=true', 'DELETE', null, t.purged, btn );
+		}
+	} ) );
 }
 
 onNavReady( function () {

@@ -1175,6 +1175,17 @@ function buddynext_drive_folder_strings(): array {
 		'renamed'      => __( 'Folder renamed.', 'buddynext' ),
 		'trashed'      => __( 'Folder moved to trash.', 'buddynext' ),
 		'restored'     => __( 'Folder restored.', 'buddynext' ),
+		// translators: %s: folder name.
+		'purgeTitle'   => __( 'Delete “%s” permanently?', 'buddynext' ),
+		// translators: %s: what it holds, e.g. "4 items".
+		'purgeBody'    => __( 'It holds %s. They are deleted with it. This can’t be undone.', 'buddynext' ),
+		'purgeEmpty'   => __( 'This can’t be undone.', 'buddynext' ),
+		// translators: %d: number of items.
+		'itemOne'      => __( '%d item', 'buddynext' ),
+		// translators: %d: number of items.
+		'itemMany'     => __( '%d items', 'buddynext' ),
+		'purgeConfirm' => __( 'Delete permanently', 'buddynext' ),
+		'purged'       => __( 'Folder deleted.', 'buddynext' ),
 		'nameRequired' => __( 'Enter a folder name.', 'buddynext' ),
 		'failed'       => __( 'That did not work. Try again.', 'buddynext' ),
 	);

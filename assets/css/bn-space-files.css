@@ -221,6 +221,36 @@
 	border-block-start: 1px solid var(--bn-line-faint);
 }
 
+/* Trash rows: name over the trash info, actions at the end (card 10343724177). */
+.bn-files__row.bn-files-trash__row {
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	grid-template-areas: none;
+}
+
+/* The name sits in a column with its trash info, not in the row grid. */
+.bn-files-trash__main .bn-files__name {
+	align-self: auto;
+}
+
+.bn-files-trash__main {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+}
+
+.bn-files-trash__info {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-files-trash__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	justify-content: flex-end;
+}
+
 .bn-files__row:first-child {
 	border-block-start: 0;
 }
@@ -397,6 +427,31 @@ a.bn-files__name:focus-visible {
 }
 
 /* ── Mobile: rows become cards (chip + name on top, meta below) ─────────── */
+@media (max-width: 640px) {
+	/* Chip beside name + info, actions underneath (its own areas, since the
+	   list rows' chip/name/meta/dl areas do not fit a trash row). */
+	.bn-files__row.bn-files-trash__row {
+		grid-template-columns: auto minmax(0, 1fr);
+		grid-template-areas:
+			"chip main"
+			".    actions";
+	}
+
+	.bn-files-trash__row > .bn-files__chip {
+		grid-area: chip;
+		align-self: start;
+	}
+
+	.bn-files-trash__main {
+		grid-area: main;
+	}
+
+	.bn-files-trash__actions {
+		grid-area: actions;
+		justify-content: flex-start;
+	}
+}
+
 @media (max-width: 640px) {
 	.bn-files__row {
 		grid-template-columns: auto minmax(0, 1fr) auto;

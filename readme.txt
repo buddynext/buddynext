@@ -71,6 +71,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Profile Achievements list badges in ladder order (1-Year, 2-Year, 5-Year, 10-Year), and the leaderboard ribbon shows each member's four latest badges.
 * Improve  - The Kudos tab follows WB Gamification 1.6.5: after you give kudos it shows "You gave X kudos" instead of the form, and the form is not offered when you have hit the daily ceiling.
 * Improve  - Folder controls in Files follow WPMediaVerse's own rules: space owners and moderators manage every folder, and a member can rename or trash the folders they created.
+* New      - The Files Trash shows who trashed each folder, when, how many items it holds and when it will be removed, with a Delete now action for people who can manage it.
 * Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.
 * Fix      - With WB Gamification active, the sidebar streak card's 7-day strip and best-this-month use the same activity as its streak number.
 * Fix      - A message whose photo was deleted shows "This attachment is no longer available." instead of an empty row.
