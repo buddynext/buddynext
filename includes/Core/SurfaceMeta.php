@@ -140,8 +140,11 @@ final class SurfaceMeta {
 			? __( 'Explore', 'buddynext' )
 			: __( 'Activity', 'buddynext' );
 
-		$url = 'explore' === $action
-			? PageRouter::activity_url() . 'explore/'
+		// A sub-page (explore, leaderboard, ...) is its own canonical. Pointing it at
+		// the hub root was wrong everywhere, and when the hub is the static front
+		// page that root 301s home (card 10343760220).
+		$url = '' !== $action
+			? PageRouter::activity_url() . rawurlencode( $action ) . '/'
 			: PageRouter::activity_url();
 
 		return self::describe_directory( $label, $url );

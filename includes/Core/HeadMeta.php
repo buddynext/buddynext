@@ -314,6 +314,11 @@ final class HeadMeta {
 	 */
 	private static function print_tags( array $d ): void {
 		$url     = (string) $d['url'];
+		// A hub set as the static front page lives at the site root; its own slug
+		// 301s back there, so the canonical must be the root (card 10343760220).
+		if ( is_front_page() ) {
+			$url = home_url( '/' );
+		}
 		$type    = (string) ( $d['type'] ?? 'website' );
 		$noindex = ! empty( $d['noindex'] );
 

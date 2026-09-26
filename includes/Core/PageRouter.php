@@ -1159,6 +1159,14 @@ class PageRouter {
 				'document_title_parts',
 				static function ( array $parts ) use ( $title_frozen ): array {
 					$parts['title'] = $title_frozen;
+					// As the static front page, WordPress titles the root "Site - Tagline";
+					// a hub there reads "Hub - Site" like every other community page
+					// (card 10343760220). The community name, if set, replaces the site
+					// part in apply_community_name_to_title().
+					if ( is_front_page() ) {
+						$parts['site'] = (string) get_bloginfo( 'name' );
+						unset( $parts['tagline'] );
+					}
 					return $parts;
 				}
 			);
