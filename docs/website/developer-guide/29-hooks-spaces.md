@@ -240,6 +240,26 @@ buddynext_render_drive_files(
 - Access stays MediaVerse's: a viewer who cannot read the drive sees "No files to show". `can_write` can only hide the write controls, never grant them.
 - `buddynext_render_drive_files_args` filters the options per drive: `( array $args, string $drive_type, int $drive_id )`.
 
+### Make space Files read-only for members
+
+By default a space's members may add files to its Files (upload and link). WPMediaVerse decides folder permissions: owners and moderators manage every folder, and a member manages folders they created that hold only their own files. There is no admin setting for this.
+
+BuddyNext answers WPMediaVerse's `mvs_document_drive_access` filter with `write` for space members. To make plain members read-only on every space drive, filter it after BuddyNext (priority 10):
+
+```php
+add_filter( 'mvs_document_drive_access', function ( $level, $drive_type, $drive_id, $user_id ) {
+    if ( 'space' === $drive_type && 'write' === $level ) {
+        $role = buddynext_service( 'space_members' )->get_role( (int) $drive_id, (int) $user_id );
+        if ( 'member' === $role ) {
+            return 'read';
+        }
+    }
+    return $level;
+}, 20, 4 );
+```
+
+Members then browse and download only. Upload, Link a file and New folder disappear for them on the space Files tab and on any `buddynext_render_drive_files()` embed, because both render from WPMediaVerse's answers.
+
 ## Notes / gotchas
 
 - **Free vs Pro.** Every hook here is fired by Free. `buddynext_can_join_space` plus `buddynext_space_join_denied_data` are the documented gated-spaces / paywall seam that Pro builds on; `buddynext_space_types` is the extension point for new space kinds.

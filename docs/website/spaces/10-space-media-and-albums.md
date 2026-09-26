@@ -69,15 +69,25 @@ A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and ot
 
 Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove **deletes** the document, with WPMediaVerse's 30-day restore window.)
 
+### Who can add files
+
+Members can upload and link files in a space's Files. The space owner and moderators manage every folder.
+
 ### Organising files into folders
 
-The space owner and moderators can shape the Files tab's folders (on a member's own Files tab, the member can):
-
-- **New folder** in the toolbar creates a folder in the folder you are looking at.
+- **New folder** in the toolbar creates a folder in the folder you are looking at. Any member who can add files can create one.
 - Each folder row has **Rename** and **Move to trash**. The confirm says what goes with it ("It holds 12 files and 2 folders"): everything inside moves to the trash too.
-- **Trash** in the toolbar lists trashed folders. **Restore** brings a folder back with everything that was inside it.
+- **Trash** in the toolbar lists trashed folders you may restore. **Restore** brings a folder back with everything that was inside it.
 
-Other members see the folders and browse them, but not these controls. They need WPMediaVerse Pro's documents feature with a valid license; without one, only site administrators can change folders.
+Who can rename, trash and restore a folder:
+
+| Who | Folders they can manage |
+|---|---|
+| Space owner and moderators | Every folder in the space |
+| A member | Folders they created that hold only their own files |
+| A member on their own profile Files | Every folder there |
+
+WPMediaVerse decides these permissions and BuddyNext shows the controls it allows, so a control never appears that would be refused. Folder changes need WPMediaVerse Pro's documents feature with a valid license. Without one, only site administrators can change folders.
 
 ## Privacy
 
