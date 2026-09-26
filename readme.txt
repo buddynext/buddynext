@@ -92,6 +92,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - A discussion card whose discussion was deleted or made private no longer links to a missing page; it is withdrawn from the feed.
 * Fix      - A space's moderation queue shows each reported author's real standing (owner, moderator, member or not a member), and explains "Remove from space" only where it is offered.
 * Fix      - A space's moderation, settings and admin pages tell a visitor why they can't use them: community moderators are pointed to Community Admin, and people who never held the role are no longer told they "no longer" do.
+* Fix      - An archived space looks and acts archived: an Archived badge, no Invite or Add sub-space, no contradictory posting panel, and invitations and new sub-spaces are refused.
 * Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.

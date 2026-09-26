@@ -346,11 +346,22 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): bool|WP_Error {
-		if ( empty( $this->load_space_row( $space_id ) ) ) {
+		$space = $this->load_space_row( $space_id );
+		if ( empty( $space ) ) {
 			return new WP_Error(
 				'space_not_found',
 				__( 'This space no longer exists.', 'buddynext' ),
 				array( 'status' => 404 )
+			);
+		}
+
+		// Same rule as join() and request_join(): an archived space takes no new
+		// members, so an invitation would be one nobody can accept.
+		if ( ! empty( $space['is_archived'] ) ) {
+			return new WP_Error(
+				'space_archived',
+				__( 'This space is archived and is not accepting new members.', 'buddynext' ),
+				array( 'status' => 403 )
 			);
 		}
 

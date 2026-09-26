@@ -380,7 +380,7 @@ class SpaceService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$parent_row = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id, parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+					"SELECT id, parent_id, is_archived FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
 					$parent_id
 				),
 				ARRAY_A
@@ -389,6 +389,14 @@ class SpaceService {
 				return new WP_Error(
 					'parent_not_found',
 					__( 'The selected parent space does not exist.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+			// An archived space is read-only: it takes no new sub-spaces either.
+			if ( ! empty( $parent_row['is_archived'] ) ) {
+				return new WP_Error(
+					'parent_archived',
+					__( 'This space is archived. Restore it before adding a sub-space.', 'buddynext' ),
 					array( 'status' => 422 )
 				);
 			}

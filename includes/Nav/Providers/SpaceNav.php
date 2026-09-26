@@ -597,9 +597,25 @@ final class SpaceNav {
 	 * @return bool True when the viewer may add a sub-space here.
 	 */
 	private function can_add_subspace( NavContext $context ): bool {
-		$space = ( new SpaceService() )->get( $context->subject_id );
+		return self::can_add_subspace_to( $context->subject_id, $context->viewer_id );
+	}
 
-		if ( null === $space || ! empty( $space['parent_id'] ) ) {
+	/**
+	 * Whether a viewer may add a sub-space under a space right now.
+	 *
+	 * The one rule every "Add sub-space" control reads (the Sub-spaces tab and the
+	 * space sidebar), so they can never disagree with each other or with
+	 * SpaceService::create().
+	 *
+	 * @param int $space_id  Parent space.
+	 * @param int $viewer_id Viewer.
+	 * @return bool
+	 */
+	public static function can_add_subspace_to( int $space_id, int $viewer_id ): bool {
+		$space = ( new SpaceService() )->get( $space_id );
+
+		// An archived space takes no new sub-spaces (SpaceService::create refuses).
+		if ( null === $space || ! empty( $space['parent_id'] ) || ! empty( $space['is_archived'] ) ) {
 			return false;
 		}
 
@@ -618,13 +634,13 @@ final class SpaceNav {
 		 * space owner who is not a site admin was shown "Add sub-space", clicked it, and got a 403.
 		 * The UI promised what the endpoint refuses.
 		 */
-		return $context->viewer_id > 0
+		return $viewer_id > 0
 			&& buddynext_can(
-				$context->viewer_id,
+				$viewer_id,
 				'buddynext-manage-space',
-				array( 'space_id' => $context->subject_id )
+				array( 'space_id' => $space_id )
 			)
-			&& buddynext_can( $context->viewer_id, 'buddynext-spaces/create' );
+			&& buddynext_can( $viewer_id, 'buddynext-spaces/create' );
 	}
 
 	/**

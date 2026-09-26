@@ -100,6 +100,7 @@ $bn_is_guest      = (bool) $args['is_guest'];
 $bn_privacy_label = (string) $args['privacy_label'];
 $bn_privacy_tone  = (string) $args['privacy_tone'];
 $bn_notif_pref    = (string) $args['notif_pref'];
+$bn_is_archived   = ! empty( $bn_space->is_archived );
 
 // Owner-set brand colour (the registered `color` space field). When present it
 // drives the hero accent through a CSS custom property; when empty the stylesheet
@@ -167,8 +168,12 @@ do_action( 'buddynext_part_space_hero_before', $args );
 
 		<div class="bn-sh-hero__info">
 			<h1 class="bn-sh-hero__name"
-				aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $bn_space->name, $bn_privacy_label ) ); ?>"
-			><?php echo esc_html( $bn_space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $bn_privacy_tone ); ?>"><?php echo esc_html( $bn_privacy_label ); ?></span></h1>
+				aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $bn_space->name, $bn_is_archived ? $bn_privacy_label . ', ' . __( 'Archived', 'buddynext' ) : $bn_privacy_label ) ); ?>"
+			><?php echo esc_html( $bn_space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $bn_privacy_tone ); ?>"><?php echo esc_html( $bn_privacy_label ); ?></span>
+			<?php if ( $bn_is_archived ) : ?>
+				<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
+			<?php endif; ?>
+		</h1>
 			<?php
 			// Breadcrumb — only on a sub-space, giving the parent context a member
 			// expects (Slack/Notion-style "Parent > This space"). Placed BELOW the
@@ -247,6 +252,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 				<?php // Guests already get the "Log in to join" CTA from the first chain above; show no join/request action here, otherwise both buttons render at once. ?>
 
 			<?php elseif ( $bn_is_owner ) : ?>
+				<?php if ( ! $bn_is_archived ) : // An archived space takes no new members. ?>
 				<button
 					type="button"
 					class="bn-btn"
@@ -254,6 +260,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-size="sm"
 					data-wp-on--click="actions.openInviteModal"
 				><?php buddynext_icon( 'user-plus' ); ?> <?php esc_html_e( 'Invite', 'buddynext' ); ?></button>
+				<?php endif; ?>
 				<a
 					href="<?php echo esc_url( buddynext_space_settings_url( $bn_space->slug ) ); ?>"
 					class="bn-btn"
