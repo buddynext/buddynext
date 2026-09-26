@@ -593,6 +593,9 @@ class MessagesData {
 				'reactions'         => $reactions,
 				'reply_to'          => $parent ? array( 'body' => (string) self::val( $parent, 'content', '' ) ) : null,
 				'media'             => $media,
+				// The message carried media that no longer resolves (deleted): the
+				// bubble says so instead of rendering an empty row.
+				'media_missing'     => null === $media && (int) self::val( $m, 'media_id', 0 ) > 0,
 				'read_by_recipient' => ( $sender_id === $viewer && $other_read && $created && $other_read >= $created ),
 			);
 		}

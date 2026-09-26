@@ -1480,6 +1480,7 @@ class AssetService {
 					'groupLeaveBody'            => __( 'You will stop receiving messages from this conversation.', 'buddynext' ),
 					'groupLeaveOk'              => __( 'Leave', 'buddynext' ),
 					'attachment'                => __( 'Attachment', 'buddynext' ),
+					'attachmentGone'            => __( 'This attachment is no longer available.', 'buddynext' ),
 					// DM attachment upload failed (too large, disallowed type, quota).
 					// Fallback only — the server's own reason is preferred when present.
 					'attachmentUploadFailed'    => __( 'Could not attach that file. Try a different one.', 'buddynext' ),

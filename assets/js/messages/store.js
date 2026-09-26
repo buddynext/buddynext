@@ -452,6 +452,12 @@ function buildMessageNode( msg, viewer ) {
 		if ( wrapM.firstChild ) {
 			content.appendChild( wrapM );
 		}
+	} else if ( msg.media_missing || ( parseInt( msg.media_id, 10 ) > 0 && ! msg.media_share ) ) {
+		// It carried media that no longer resolves: say so, like the server bubble.
+		const gone = document.createElement( 'div' );
+		gone.className = 'bn-dm-bubble bn-dm-bubble--gone' + ( isMine ? ' is-mine' : '' );
+		gone.textContent = t( 'attachmentGone', 'This attachment is no longer available.' );
+		content.appendChild( gone );
 	}
 
 	// Text bubble — emitted only when there is actual text (a media-only message

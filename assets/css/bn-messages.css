@@ -592,6 +592,15 @@
 	border-radius: 16px 16px 4px 16px;
 }
 
+/* A message whose media was deleted: a quiet placeholder, never an empty row. */
+.bn-dm-bubble--gone,
+.bn-dm-bubble--gone.is-mine {
+	background: transparent;
+	border: 1px dashed var(--bn-line);
+	color: var(--bn-ink-3);
+	font-style: italic;
+}
+
 .bn-dm-bubble__quoted {
 	margin-bottom: var(--bn-s2);
 	padding: var(--bn-s2) var(--bn-s3);

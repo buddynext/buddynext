@@ -154,6 +154,8 @@ do_action( 'buddynext_part_dm_message_before', $args );
 					</a>
 				<?php endif; ?>
 			</div>
+		<?php elseif ( ! empty( $msg['media_missing'] ) ) : ?>
+			<div class="bn-dm-bubble bn-dm-bubble--gone<?php echo $is_mine ? ' is-mine' : ''; ?>"><?php esc_html_e( 'This attachment is no longer available.', 'buddynext' ); ?></div>
 		<?php endif; ?>
 		<?php
 		$bn_has_quote = is_array( $reply_to ) && ! empty( $reply_to['body'] );
