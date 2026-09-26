@@ -2627,6 +2627,18 @@ class SpaceMemberService {
 	 */
 	public function can_join( array|object $space, int $user_id ): bool {
 		$space_row = is_object( $space ) ? (array) $space : $space;
+		$space_id  = (int) ( $space_row['id'] ?? 0 );
+
+		// An archived space takes no new members (join()/request_join()/invite()
+		// refuse it), so no surface may offer Join, Request or "Log in to join" -
+		// for anyone, guests included (card 10343780329). Rows that do not carry
+		// the column fall back to the cached lookup.
+		$archived = array_key_exists( 'is_archived', $space_row )
+			? ! empty( $space_row['is_archived'] )
+			: ( $space_id > 0 && buddynext_service( 'spaces' )->is_archived( $space_id ) );
+		if ( $archived ) {
+			return false;
+		}
 
 		// A suspended member reads spaces but cannot join one (POST /spaces/{id}/join
 		// 403s at RestHoldGate), so the Join / Request CTA must hide rather than 403
@@ -2634,7 +2646,7 @@ class SpaceMemberService {
 		// hides on; the space_id context also lets a space-banned member be refused
 		// here. Guests (user_id 0) are unaffected — they get the "Log in to join" CTA.
 		if ( $user_id > 0 && function_exists( 'buddynext_can' )
-			&& ! buddynext_can( $user_id, 'buddynext-spaces/join', array( 'space_id' => (int) ( $space_row['id'] ?? 0 ) ) ) ) {
+			&& ! buddynext_can( $user_id, 'buddynext-spaces/join', array( 'space_id' => $space_id ) ) ) {
 			return false;
 		}
 

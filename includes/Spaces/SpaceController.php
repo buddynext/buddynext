@@ -1544,8 +1544,11 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceService() )->create( $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$code   = $result->get_error_code();
-			$status = ( 'slug_taken' === $code ) ? 422 : 400;
+			$code = $result->get_error_code();
+			$data = $result->get_error_data();
+			// Keep a status the service already chose (parent_archived and
+			// parent_not_found are 422); add_data() would only append a second one.
+			$status = is_array( $data ) && ! empty( $data['status'] ) ? (int) $data['status'] : ( ( 'slug_taken' === $code ) ? 422 : 400 );
 			$result->add_data(
 				array(
 					'status' => $status,
@@ -2770,7 +2773,7 @@ class SpaceController extends BaseRestController {
 		if ( array() === $done && array() !== $failed ) {
 			$first = (string) ( $failed[0]['code'] ?? '' );
 			return new WP_Error(
-				$first !== '' ? $first : 'bulk_decision_failed',
+				'' !== $first ? $first : 'bulk_decision_failed',
 				'no_pending_request' === $first
 					? __( 'Those join requests are no longer pending.', 'buddynext' )
 					: __( 'You do not have permission to decide these requests.', 'buddynext' ),

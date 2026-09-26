@@ -262,7 +262,7 @@ printf(
 			<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Only the space owner and moderators can post here. You can still react and reply.', 'buddynext' ); ?></p>
 		</div>
 	</div>
-<?php elseif ( $bn_is_guest && (bool) apply_filters( 'buddynext_space_feed_show_guest_cta', true, $bn_space_id ) ) : ?>
+<?php elseif ( $bn_is_guest && ! $bn_is_archived && (bool) apply_filters( 'buddynext_space_feed_show_guest_cta', true, $bn_space_id ) ) : // Archived: the notice explains; nothing to join. ?>
 	<?php
 	/**
 	 * Filter whether the logged-out "Join to participate / Log in" card shows in
