@@ -56,6 +56,9 @@ $bn_sf_is_space    = 'user' !== ( isset( $bn_sf_drive_type ) ? (string) $bn_sf_d
 $bn_sf_can_write = isset( $bn_sf_can_write ) ? (bool) $bn_sf_can_write : false;
 // New folder / Rename / Trash / Restore: the drive's managers only (RendersDriveFiles).
 $bn_sf_can_manage_folders = ! empty( $bn_sf_can_manage_folders );
+// New folder follows MediaVerse's create answer; rows follow each folder's own
+// can_manage. Both fall back to the single flag when a caller does not pass them.
+$bn_sf_can_create_folder = isset( $bn_sf_can_create_folder ) ? (bool) $bn_sf_can_create_folder : $bn_sf_can_manage_folders;
 
 // Document-upload config (enabled / accept / max_size). The Files-tab uploader is
 // offered only to a contributor (can_write) when documents are enabled + writable.
@@ -270,10 +273,12 @@ if ( $bn_sf_is_space ) {
 		<div class="bn-files__tools">
 
 			<?php if ( $bn_sf_can_manage_folders && ! $bn_sf_is_search ) : ?>
+				<?php if ( $bn_sf_can_create_folder ) : ?>
 				<button type="button" class="bn-files__tool-btn" data-bn-folder-new>
 					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'folder-plus' ); ?></span>
 					<?php esc_html_e( 'New folder', 'buddynext' ); ?>
 				</button>
+				<?php endif; ?>
 				<a class="bn-files__tool-btn" href="<?php echo esc_url( add_query_arg( 'bn_trash', 1, $bn_sf_base_url ) ); ?>">
 					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'trash' ); ?></span>
 					<?php esc_html_e( 'Trash', 'buddynext' ); ?>
@@ -469,7 +474,7 @@ if ( $bn_sf_is_space ) {
 						<span class="bn-files__size"><?php esc_html_e( 'Folder', 'buddynext' ); ?></span>
 						<span class="bn-files__date"><?php echo esc_html( '' !== $bn_sf_fdate ? mysql2date( $bn_sf_date_fmt, $bn_sf_fdate ) : '' ); ?></span>
 					</span>
-					<?php if ( $bn_sf_can_manage_folders ) : ?>
+					<?php if ( isset( $bn_sf_f['can_manage'] ) ? (bool) $bn_sf_f['can_manage'] : $bn_sf_can_manage_folders ) : ?>
 						<span class="bn-files__actions">
 							<button type="button" class="bn-files__icon-btn" data-bn-folder-rename data-bn-id="<?php echo esc_attr( (string) $bn_sf_fid ); ?>" data-bn-name="<?php echo esc_attr( $bn_sf_fname ); ?>"
 								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: folder name. */ __( 'Rename %s', 'buddynext' ), $bn_sf_fname ) ); ?>"><?php buddynext_icon( 'edit' ); ?></button>

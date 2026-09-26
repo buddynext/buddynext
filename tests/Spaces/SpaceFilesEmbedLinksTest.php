@@ -98,6 +98,31 @@ class SpaceFilesEmbedLinksTest extends \WP_UnitTestCase {
 		$this->assertContains( '@buddynext/space-files', $queue->getValue( wp_script_modules() ) );
 	}
 
+	/** Per-row controls follow MediaVerse's can_manage; New folder follows its create answer (card 10343837359). */
+	public function test_folder_controls_follow_mediaverse_flags(): void {
+		wp_set_current_user( self::factory()->user->create() );
+		ob_start();
+		buddynext_get_template(
+			'partials/space-files-tab.php',
+			array(
+				'bn_sf_space_id'           => 7,
+				'bn_sf_drive_type'         => 'space',
+				'bn_sf_base_url'           => 'http://example.org/landing/',
+				'bn_sf_folders'            => array(
+					array( 'id' => 5, 'name' => 'Mine', 'can_manage' => true ),
+					array( 'id' => 6, 'name' => 'Theirs', 'can_manage' => false ),
+				),
+				'bn_sf_can_write'          => true,
+				'bn_sf_can_manage_folders' => true,
+				'bn_sf_can_create_folder'  => true,
+			)
+		);
+		$html = (string) ob_get_clean();
+		$this->assertStringContainsString( 'data-bn-folder-new', $html );
+		$this->assertMatchesRegularExpression( '/data-bn-folder-rename[^>]*data-bn-id="5"/', $html );
+		$this->assertDoesNotMatchRegularExpression( '/data-bn-folder-rename[^>]*data-bn-id="6"/', $html );
+	}
+
 	public function test_non_manager_gets_no_folder_controls(): void {
 		wp_set_current_user( self::factory()->user->create() );
 		$html = $this->render_folders( false );

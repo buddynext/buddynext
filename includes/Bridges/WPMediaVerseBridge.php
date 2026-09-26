@@ -2184,17 +2184,20 @@ class WPMediaVerseBridge {
 		}
 
 		return array(
-			'folders'      => $folders,
-			'documents'    => $documents,
-			'breadcrumbs'  => self::drive_breadcrumbs( $folder ),
-			'total'        => isset( $doc_headers['X-WP-Total'] ) ? (int) $doc_headers['X-WP-Total'] : count( $documents ),
-			'pages'        => isset( $doc_headers['X-WP-TotalPages'] ) ? (int) $doc_headers['X-WP-TotalPages'] : 1,
-			'page'         => $page,
-			'folder'       => $folder,
-			'folder_total' => isset( $fol_headers['X-WP-Total'] ) ? (int) $fol_headers['X-WP-Total'] : count( $folders ),
-			'folder_pages' => isset( $fol_headers['X-WP-TotalPages'] ) ? (int) $fol_headers['X-WP-TotalPages'] : 1,
-			'folder_page'  => $folder_page,
-			'can_write'    => in_array( $access, array( 'write', 'own' ), true ),
+			'folders'           => $folders,
+			'documents'         => $documents,
+			'breadcrumbs'       => self::drive_breadcrumbs( $folder ),
+			'total'             => isset( $doc_headers['X-WP-Total'] ) ? (int) $doc_headers['X-WP-Total'] : count( $documents ),
+			'pages'             => isset( $doc_headers['X-WP-TotalPages'] ) ? (int) $doc_headers['X-WP-TotalPages'] : 1,
+			'page'              => $page,
+			'folder'            => $folder,
+			'folder_total'      => isset( $fol_headers['X-WP-Total'] ) ? (int) $fol_headers['X-WP-Total'] : count( $folders ),
+			'folder_pages'      => isset( $fol_headers['X-WP-TotalPages'] ) ? (int) $fol_headers['X-WP-TotalPages'] : 1,
+			'folder_page'       => $folder_page,
+			'can_write'         => in_array( $access, array( 'write', 'own' ), true ),
+			// MediaVerse's own answer to "may this viewer create a folder here"
+			// (2.6.0+); null on an older MediaVerse that does not send it.
+			'can_create_folder' => isset( $fol_headers['X-MVS-Can-Create-Folder'] ) ? '1' === (string) $fol_headers['X-MVS-Can-Create-Folder'] : null,
 		);
 	}
 

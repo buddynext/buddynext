@@ -118,16 +118,32 @@ trait RendersDriveFiles {
 			return;
 		}
 
-		// Folder structure (new / rename / trash / restore) is shared, so it belongs
-		// to whoever manages the drive: the space's owner and moderators, or the
-		// member on their own drive - and only where MediaVerse allows writing.
-		$can_write          = $view['can_write'] && ( ! isset( $args['can_write'] ) || (bool) $args['can_write'] );
-		// The folder routes also enforce MediaVerse's license (an unlicensed site
-		// lets only administrators write); ask the same rule so no control is dead.
-		$can_manage_folders = $can_write
+		// The host page (an embed) may narrow writing but never widen it.
+		$can_write = $view['can_write'] && ( ! isset( $args['can_write'] ) || (bool) $args['can_write'] );
+
+		// Folder rules belong to MediaVerse (card 10343837359): it answers "may you
+		// create a folder here" and, per row, "may you manage this folder" (owners
+		// and moderators manage all; a member manages folders they created that
+		// hold only their own files). BuddyNext only renders those answers. An
+		// older MediaVerse sends neither, so fall back to the rule it used to
+		// enforce: the space's owner/moderators, or the member on their own drive,
+		// within MediaVerse's licence.
+		$legacy_manage = $can_write
 			&& ( 'space' === $drive_type ? $can_moderate : get_current_user_id() === $drive_id )
 			&& class_exists( '\\WPMediaVersePro\\Documents\\DocumentLicense' )
 			&& \WPMediaVersePro\Documents\DocumentLicense::can_write( get_current_user_id() );
+
+		$can_create_folder = $can_write && ( null !== ( $view['can_create_folder'] ?? null ) ? (bool) $view['can_create_folder'] : $legacy_manage );
+		$any_row_managed   = false;
+		foreach ( $view['folders'] as $i => $folder_row ) {
+			$row_manage                          = $can_write && ( isset( $folder_row['can_manage'] ) ? (bool) $folder_row['can_manage'] : $legacy_manage );
+			$view['folders'][ $i ]['can_manage'] = $row_manage;
+			$any_row_managed                     = $any_row_managed || $row_manage;
+		}
+		// Folder tools at all (the Trash view and the script hook-up): anyone who
+		// may create a folder or manage one. MediaVerse scopes the trash list to
+		// what the viewer may restore.
+		$can_manage_folders = $can_create_folder || $any_row_managed;
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view switch.
 		if ( $can_manage_folders && ! empty( $_GET['bn_trash'] ) ) {
@@ -156,32 +172,33 @@ trait RendersDriveFiles {
 		buddynext_get_template(
 			'partials/space-files-tab.php',
 			array(
-				'bn_sf_space_id'       => $drive_id,
-				'bn_sf_drive_type'     => $drive_type,
-				'bn_sf_base_url'       => $base_url,
-				'bn_sf_folders'        => $view['folders'],
-				'bn_sf_documents'      => $view['documents'],
-				'bn_sf_breadcrumbs'    => $view['breadcrumbs'],
-				'bn_sf_folder'         => $view['folder'],
-				'bn_sf_page'           => $view['page'],
-				'bn_sf_pages'          => $view['pages'],
-				'bn_sf_total'          => $view['total'],
-				'bn_sf_folder_page'    => $view['folder_page'],
-				'bn_sf_folder_pages'   => $view['folder_pages'],
-				'bn_sf_folder_total'   => $view['folder_total'],
+				'bn_sf_space_id'           => $drive_id,
+				'bn_sf_drive_type'         => $drive_type,
+				'bn_sf_base_url'           => $base_url,
+				'bn_sf_folders'            => $view['folders'],
+				'bn_sf_documents'          => $view['documents'],
+				'bn_sf_breadcrumbs'        => $view['breadcrumbs'],
+				'bn_sf_folder'             => $view['folder'],
+				'bn_sf_page'               => $view['page'],
+				'bn_sf_pages'              => $view['pages'],
+				'bn_sf_total'              => $view['total'],
+				'bn_sf_folder_page'        => $view['folder_page'],
+				'bn_sf_folder_pages'       => $view['folder_pages'],
+				'bn_sf_folder_total'       => $view['folder_total'],
 				// An embed may hide the write controls; it can never grant them.
-				'bn_sf_can_write'      => $can_write,
+				'bn_sf_can_write'          => $can_write,
 				'bn_sf_can_manage_folders' => $can_manage_folders,
-				'bn_sf_doc_query'      => $doc_query_links,
-				'bn_sf_can_moderate'   => $can_moderate,
+				'bn_sf_can_create_folder'  => $can_create_folder,
+				'bn_sf_doc_query'          => $doc_query_links,
+				'bn_sf_can_moderate'       => $can_moderate,
 				// Drives the Files-tab uploader the same way the activity composer's
 				// attach control is configured, so a contributor can add a file from
 				// the Files tab itself (into the current drive + folder).
-				'bn_sf_doc_config'     => $doc_config,
+				'bn_sf_doc_config'         => $doc_config,
 				// A member the drive grants write to, on a read-only (unlicensed)
 				// site, would otherwise meet a silent read-only Files tab. The
 				// template shows an explanatory notice instead (card 10256943808).
-				'bn_sf_docs_read_only' => $docs_read_only,
+				'bn_sf_docs_read_only'     => $docs_read_only,
 			)
 		);
 	}
