@@ -1,8 +1,9 @@
 <?php
 /**
- * A hub set as the static front page keeps its deeper routes: core's
- * "front page -> /" canonical redirect applies to the hub root only
- * (card 10342159620: /activity/leaderboard/ 301'd to "/").
+ * A hub set as the static front page: only its root is the front page. Deeper
+ * routes (/activity/leaderboard/, /members/alice/) are not - otherwise core
+ * 301s them home, titles drop the site name and the body gets .home
+ * (cards 10342159620, 10343096134).
  *
  * @package BuddyNext\Tests\Core
  */
@@ -15,56 +16,59 @@ use BuddyNext\Core\PageRouter;
 use WP_UnitTestCase;
 
 /**
- * @covers \BuddyNext\Core\PageRouter::keep_front_hub_subroutes
+ * @covers \BuddyNext\Core\PageRouter::detach_front_page_from_subroute
  */
 class FrontHubCanonicalTest extends WP_UnitTestCase {
 
 	private PageRouter $router;
+	private int $page = 0;
 
 	public function set_up(): void {
 		parent::set_up();
 		$this->router = new PageRouter();
-		$page         = self::factory()->post->create( array( 'post_type' => 'page', 'post_name' => 'activity' ) );
-		update_option( 'buddynext_page_activity', $page );
+		$this->page   = self::factory()->post->create( array( 'post_type' => 'page', 'post_name' => 'activity' ) );
+		update_option( 'buddynext_page_activity', $this->page );
 		update_option( 'show_on_front', 'page' );
-		update_option( 'page_on_front', $page );
-
-		global $wp_query;
-		$wp_query->queried_object_id = $page;
-		$wp_query->queried_object    = get_post( $page );
+		update_option( 'page_on_front', $this->page );
 		set_query_var( 'bn_hub', 'feed' );
 	}
 
+	public function tear_down(): void {
+		remove_filter( 'pre_option_page_on_front', '__return_zero' );
+		parent::tear_down();
+	}
+
 	/**
-	 * Run the filter as core would for a request path.
+	 * Run the detach step for a request path, as the `wp` action would.
 	 *
-	 * @param string       $request  $wp->request (path, no slashes).
-	 * @param string|false $redirect Where core wants to go.
-	 * @return string|false
+	 * @param string $request $wp->request (path, no slashes).
+	 * @return int page_on_front as the rest of the request would read it.
 	 */
-	private function filter( string $request, $redirect ) {
+	private function front_page_for( string $request ): int {
 		global $wp;
 		$wp->request = $request;
-		return $this->router->keep_front_hub_subroutes( $redirect );
+		remove_filter( 'pre_option_page_on_front', '__return_zero' );
+		$this->router->detach_front_page_from_subroute();
+		return (int) get_option( 'page_on_front' );
 	}
 
-	public function test_subroutes_of_the_front_hub_are_kept(): void {
-		$home = home_url( '/' );
-		$this->assertFalse( $this->filter( 'activity/leaderboard', $home ) );
-		$this->assertFalse( $this->filter( 'me/account-status', $home ) );
-		// Core carries the query string onto the redirect target.
-		$this->assertFalse( $this->filter( 'activity/search', add_query_arg( 'q', 'yoga', $home ) ) );
+	public function test_deeper_routes_are_not_the_front_page(): void {
+		$this->assertSame( 0, $this->front_page_for( 'activity/leaderboard' ) );
+		$this->assertSame( 0, $this->front_page_for( 'activity/search' ) );
+		$this->assertSame( 0, $this->front_page_for( 'me/account-status' ) );
 	}
 
-	public function test_the_hub_root_still_canonicalises_to_home(): void {
-		$home = home_url( '/' );
-		$this->assertSame( $home, $this->filter( 'activity', $home ) );
-		$this->assertSame( add_query_arg( 'tab', 'x', $home ), $this->filter( 'activity', add_query_arg( 'tab', 'x', $home ) ) );
+	public function test_the_hub_root_stays_the_front_page(): void {
+		$this->assertSame( $this->page, $this->front_page_for( 'activity' ) );
+		$this->assertSame( $this->page, $this->front_page_for( '' ) );
 	}
 
-	public function test_other_redirects_pass_through(): void {
-		$this->assertSame( 'http://example.org/activity/x/', $this->filter( 'activity/x', 'http://example.org/activity/x/' ) );
+	public function test_nothing_changes_when_the_hub_is_not_on_front(): void {
+		update_option( 'page_on_front', self::factory()->post->create( array( 'post_type' => 'page' ) ) );
+		$this->assertNotSame( 0, $this->front_page_for( 'activity/leaderboard' ) );
+
 		set_query_var( 'bn_hub', '' );
-		$this->assertSame( home_url( '/' ), $this->filter( 'some-page/child', home_url( '/' ) ) );
+		update_option( 'page_on_front', $this->page );
+		$this->assertSame( $this->page, $this->front_page_for( 'some-page/child' ) );
 	}
 }

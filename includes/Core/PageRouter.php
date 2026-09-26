@@ -108,7 +108,7 @@ class PageRouter {
 		// gate cannot recognise its own login target and redirects it to itself
 		// forever: ERR_TOO_MANY_REDIRECTS (card 10317628894).
 		add_action( 'wp', array( $this, 'align_hub_page_conditionals' ) );
-		add_filter( 'redirect_canonical', array( $this, 'keep_front_hub_subroutes' ) );
+		add_action( 'wp', array( $this, 'detach_front_page_from_subroute' ), 1 );
 
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
@@ -277,31 +277,48 @@ class PageRouter {
 	}
 
 	/**
-	 * Stop core sending a front-page hub's deeper routes to "/".
+	 * A front-page hub's deeper routes are not the front page.
 	 *
 	 * align_hub_page_conditionals() gives every route of a hub its mapped page as
-	 * the queried object. When that page is the static front page, core's
-	 * redirect_canonical() then treats /activity/leaderboard/, /activity/explore/
-	 * and /me/account-status/ as the front page and 301s them to "/". Only the
-	 * hub root itself (/activity/) is the front page, so only it keeps that redirect.
+	 * the queried object (themes read layout settings from it). When that page is
+	 * the static front page, WordPress then answers is_front_page() true on
+	 * /activity/leaderboard/, /me/account-status/ or /members/alice/ too: core
+	 * 301s them to "/" (redirect_canonical), titles drop the site name, the body
+	 * gets .home, and front-page-only theme/SEO output leaks onto every sub-route.
+	 * For the rest of such a request page_on_front reads 0, so only the hub root
+	 * is the front page while the queried object (and its layout meta) stays.
 	 *
-	 * @param string|false $redirect_url Where core would redirect.
-	 * @return string|false
+	 * @return void
 	 */
-	public function keep_front_hub_subroutes( $redirect_url ) {
-		$hub = (string) get_query_var( 'bn_hub', '' );
-		if ( ! is_string( $redirect_url ) || '' === $hub
-			|| untrailingslashit( strtok( $redirect_url, '?#' ) ) !== untrailingslashit( home_url( '/' ) )
-			|| get_queried_object_id() !== (int) get_option( 'page_on_front' ) ) {
-			return $redirect_url;
+	public function detach_front_page_from_subroute(): void {
+		if ( $this->is_front_hub_subroute() ) {
+			add_filter( 'pre_option_page_on_front', '__return_zero' );
 		}
+	}
 
+	/**
+	 * Whether this request is a route deeper than the root of the hub that is
+	 * set as the static front page.
+	 *
+	 * @return bool
+	 */
+	private function is_front_hub_subroute(): bool {
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		if ( '' === $hub || 'page' !== (string) get_option( 'show_on_front' ) ) {
+			return false;
+		}
+		$page_id = self::hub_page_id( $hub );
+		if ( $page_id <= 0 || (int) get_option( 'page_on_front' ) !== $page_id ) {
+			return false;
+		}
 		$descriptor = HubRegistry::instance()->get( $hub );
 		$root       = $descriptor instanceof HubDescriptor ? self::hub_slug( $descriptor->slug_option, $descriptor->default_slug ) : '';
 
 		global $wp;
-		return trim( (string) $wp->request, '/' ) === $root ? $redirect_url : false;
+		$path = trim( (string) $wp->request, '/' );
+		return '' !== $path && $path !== $root;
 	}
+
 
 	/**
 	 * Resolve the BuddyNext hub for this request and queue it for rendering.
