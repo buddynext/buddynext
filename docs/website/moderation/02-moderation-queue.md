@@ -25,8 +25,10 @@ Members without moderation permission cannot open the Community Admin panel.
 Each row is one reported item, with all of its reports merged:
 
 - **Reason** - the reason given, with a coloured dot for how urgent the item is (more reporters, stronger colour).
-- **What was reported** - the first line of the post or comment, or the member's or space's name.
+- **What was reported** - the first line of the post or comment (a shared discussion, event or listing shows its title), or the member's or space's name.
 - **Reporters and age** - how many members reported it, and when.
+
+On a reported **profile**, the More menu's member actions read Warn member, Strike member and Suspend member, and act on the reported member.
 
 The list shows 20 items per page, with Previous and Next links underneath.
 
@@ -87,7 +89,7 @@ Site administrators also get a **View all** link from Community Admin to this ta
 ## Good to know
 
 - **Reports are grouped per item.** Multiple reports on the same post are merged into one row, with the reasons combined and the reporter count shown.
-- **Privacy on direct messages.** A reported direct message appears as "Message #id" with no "View reported item" link, so a moderator can act on the report without opening the private conversation.
+- **Privacy on direct messages.** A reported direct message reads "Private message (content hidden)" and has no "View reported item" link, so a moderator can act on the report without opening the private conversation.
 - **Concurrency.** The queue is shared. An item another moderator already handled may have changed state by the time you reach it. Reload to see the current list.
 - **Community moderators do not need wp-admin.** Everything a moderator does, including paging through the whole queue, happens in Community Admin.
 

@@ -277,4 +277,20 @@ class ObjectLabelsTest extends \WP_UnitTestCase {
 		$this->assertSame( '', ObjectLabels::view_url( 'message', 5 ) );
 		$this->assertSame( '', ObjectLabels::view_url( 'post', 0 ) );
 	}
+
+	public function test_excerpt_uses_a_bridged_cards_title_and_hides_dm_text(): void {
+		$post_id = $this->insert(
+			'bn_posts',
+			array(
+				'user_id'    => self::factory()->user->create(),
+				'type'       => 'discussion',
+				'content'    => 'started a discussion',
+				'link_meta'  => wp_json_encode( array( 'title' => 'How do I export my posts?' ) ),
+				'created_at' => current_time( 'mysql', true ),
+			)
+		);
+
+		$this->assertSame( 'How do I export my posts?', ObjectLabels::excerpt( 'post', $post_id ) );
+		$this->assertSame( 'Private message (content hidden)', ObjectLabels::excerpt( 'message', 74 ) );
+	}
 }

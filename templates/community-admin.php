@@ -386,7 +386,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-nav-item__icon" aria-hidden="true"><?php buddynext_icon( $item['icon'] ); ?></span>
 						<?php echo esc_html( $item['label'] ); ?>
 						<?php if ( ! empty( $item['badge'] ) && (int) $item['badge'] > 0 ) : ?>
-							<span class="bn-ca-nav-item__badge"><?php echo esc_html( number_format_i18n( (int) $item['badge'] ) ); ?></span>
+							<span class="bn-ca-nav-item__badge"<?php echo 'moderation' === $key ? ' data-bn-open-reports' : ''; ?>><?php echo esc_html( number_format_i18n( (int) $item['badge'] ) ); ?></span>
 						<?php endif; ?>
 					</a>
 				<?php endforeach; ?>
@@ -884,7 +884,7 @@ $posts_pct_abs = abs( $posts_pct );
 						aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
 					>
 						<?php echo esc_html( $sdata['label'] ); ?>
-						<span class="bn-tab__count"><?php echo esc_html( number_format_i18n( (int) $sdata['count'] ) ); ?></span>
+						<span class="bn-tab__count"<?php echo 'reports' === $skey ? ' data-bn-open-reports' : ''; ?>><?php echo esc_html( number_format_i18n( (int) $sdata['count'] ) ); ?></span>
 					</a>
 				<?php endforeach; ?>
 			</nav>
@@ -897,7 +897,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span id="bn-ca-reports-title" class="bn-ca-card__title">
 							<?php buddynext_icon( 'shield' ); ?>
 							<?php esc_html_e( 'Open reports', 'buddynext' ); ?>
-							<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $open_reports ) ); ?></span>
+							<span class="bn-ca-card__count" data-bn-open-reports><?php echo esc_html( number_format_i18n( (int) $open_reports ) ); ?></span>
 						</span>
 						<?php if ( current_user_can( 'manage_options' ) ) : ?>
 							<a href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>" class="bn-ca-card__link">
@@ -998,14 +998,11 @@ $posts_pct_abs = abs( $posts_pct );
 											/* translators: 1: number of reporters, 2: time-ago string. */
 											esc_html( _n( '%1$s reporter - %2$s', '%1$s reporters - %2$s', (int) $rpt_count, 'buddynext' ) ),
 											esc_html( number_format_i18n( $rpt_count ) ),
-											esc_html( $rpt_time )
+											'<time datetime="' . esc_attr( $rpt_iso ) . '">' . esc_html( $rpt_time ) . '</time>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped piecewise.
 										);
 										?>
 									</div>
 								</div>
-								<?php if ( $rpt_iso ) : ?>
-									<time class="bn-ca-row__time" datetime="<?php echo esc_attr( $rpt_iso ); ?>"><?php echo esc_html( $rpt_time ); ?></time>
-								<?php endif; ?>
 								<div class="bn-ca-row__actions">
 									<?php
 									/**
@@ -1083,12 +1080,14 @@ $posts_pct_abs = abs( $posts_pct );
 													?>
 												</div>
 											<?php endif; ?>
-											<?php if ( $rpt_offender > 0 && 'user' !== $rpt_obj_type ) : ?>
+											<?php // On a profile report the offender IS the reported member (get_queue enrich), as in the wp-admin row. ?>
+											<?php if ( $rpt_offender > 0 ) : ?>
+												<?php $rpt_is_profile = 'user' === $rpt_obj_type; ?>
 												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.warnUser">
-													<?php esc_html_e( 'Warn author', 'buddynext' ); ?>
+													<?php echo esc_html( $rpt_is_profile ? __( 'Warn member', 'buddynext' ) : __( 'Warn author', 'buddynext' ) ); ?>
 												</button>
 												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.strikeUser">
-													<?php esc_html_e( 'Strike author', 'buddynext' ); ?>
+													<?php echo esc_html( $rpt_is_profile ? __( 'Strike member', 'buddynext' ) : __( 'Strike author', 'buddynext' ) ); ?>
 												</button>
 												<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/issue-strike' ) ) : ?>
 													<?php // Undo a mis-issued strike. Hidden while the record is clean; state.noStrikes tracks strikeUser() live. ?>
@@ -1100,7 +1099,7 @@ $posts_pct_abs = abs( $posts_pct );
 													<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Already suspended', 'buddynext' ); ?></span>
 												<?php else : ?>
 													<button type="button" class="bn-ca-more-menu-item bn-ca-more-menu-item--danger" role="menuitem" data-wp-on--click="actions.suspendUser">
-														<?php esc_html_e( 'Suspend author', 'buddynext' ); ?>
+														<?php echo esc_html( $rpt_is_profile ? __( 'Suspend member', 'buddynext' ) : __( 'Suspend author', 'buddynext' ) ); ?>
 													</button>
 												<?php endif; ?>
 											<?php endif; ?>

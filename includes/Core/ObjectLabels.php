@@ -298,8 +298,16 @@ final class ObjectLabels {
 		global $wpdb;
 		$content = '';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One row per rendered report; prepared.
+		if ( 'message' === $object_type ) {
+			// A DM's text is withheld from moderators on purpose (view_url() below),
+			// so the row says that instead of a bare "Message #74".
+			return __( 'Private message (content hidden)', 'buddynext' );
+		}
 		if ( 'post' === $object_type ) {
-			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+			$row = $wpdb->get_row( $wpdb->prepare( "SELECT content, JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.title' ) ) AS title FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ), ARRAY_A );
+			// A bridged card (discussion, event, job ...) stores boilerplate content
+			// ("started a discussion") and its real title in link_meta.
+			$content = (string) ( ! empty( $row['title'] ) && 'null' !== $row['title'] ? $row['title'] : ( $row['content'] ?? '' ) );
 		} elseif ( 'comment' === $object_type ) {
 			$content = (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_comments WHERE id = %d", $object_id ) );
 		}

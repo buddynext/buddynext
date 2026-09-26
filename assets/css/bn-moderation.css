@@ -1008,18 +1008,13 @@ a.bn-ca-more-menu-item:focus {
 		gap: var(--bn-s4);
 	}
 
-	/* Community-admin report row: the body takes its own line, actions below.
-	   The time column repeats the meta line's "N ago", so it goes. */
+	/* Community-admin report row: the body takes its own line, actions below. */
 	.bn-ca-report-row {
 		flex-wrap: wrap;
 	}
 
 	.bn-ca-report-row__body {
 		flex-basis: 100%;
-	}
-
-	.bn-ca-report-row > .bn-ca-row__time {
-		display: none;
 	}
 
 	/* Keep the actions (and the end-anchored menu) on the inline-end edge. */

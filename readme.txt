@@ -70,6 +70,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - When a community page is the site's front page, its deeper pages (Leaderboard, Explore, Account status, member profiles) open instead of redirecting to the home page.
 * Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.
 * Fix      - A message sent or received while a conversation is open now shows the same time as after a reload, in the site's timezone and time format.
+* Fix      - Moderation queues: open-report counts drop as you act, Warn and Remove from space only show for members they can act on, profile reports offer member actions, and rows show a shared discussion's title.
 * Fix      - Community Admin report rows stack on phones, and the row's More menu is no longer cut off by the card or the screen edge.
 * Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
 * Fix      - The drag handle in the Featured spaces picker shows again (its icon was missing).

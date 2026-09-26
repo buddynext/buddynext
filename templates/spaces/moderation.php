@@ -54,6 +54,8 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate', array(
 $bn_mod_svc     = new ModerationService();
 $bn_mod_log_svc = new ModerationLogService();
 $bn_member_svc  = new SpaceMemberService();
+// A site moderator may warn anyone; a space-only moderator only this space's members.
+$bn_mod_site_mod = buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' );
 $bn_space_row   = ( new SpaceService() )->get( $space_id );
 
 if ( null === $bn_space_row ) {
@@ -242,7 +244,7 @@ $mod_privacy = array(
 		<div class="bn-stat-grid bn-space-mod__stats" role="list">
 			<div class="bn-stat" role="listitem">
 				<div class="bn-stat__label"><?php esc_html_e( 'Open reports', 'buddynext' ); ?></div>
-				<div class="bn-stat__value"><?php echo esc_html( (string) $open_reports_count ); ?></div>
+				<div class="bn-stat__value" data-bn-open-reports><?php echo esc_html( (string) $open_reports_count ); ?></div>
 			</div>
 			<div class="bn-stat" role="listitem">
 				<div class="bn-stat__label"><?php esc_html_e( 'Pending member requests', 'buddynext' ); ?></div>
@@ -301,6 +303,13 @@ $mod_privacy = array(
 							$r_tone       = bn_report_priority( $r_count );
 							$r_id         = (int) ( $report['id'] ?? 0 );
 							// Content-warning state (post reports only) for the shared CW control.
+							// Member actions only where the server will accept them: a space-only
+							// moderator may warn / remove MEMBERS of this space (ModerationService::warn),
+							// a site moderator may warn anyone; nobody removes the owner or themselves.
+							// ponytail: one role lookup per row, bounded by the 20-report page.
+							$r_role        = $reported_uid > 0 ? (string) $bn_member_svc->get_role( $space_id, $reported_uid ) : '';
+							$r_is_member   = in_array( $r_role, array( 'member', 'moderator' ), true ) && get_current_user_id() !== $reported_uid;
+							$r_can_warn    = $reported_uid > 0 && get_current_user_id() !== $reported_uid && ( $r_is_member || 'owner' === $r_role || $bn_mod_site_mod );
 							$r_obj_type = (string) ( $report['object_type'] ?? '' );
 							$r_obj_id   = (int) ( $report['object_id'] ?? 0 );
 							$r_cw       = ( 'post' === $r_obj_type && $r_obj_id > 0 ) ? $bn_space_cw->get_post_content_warning( $r_obj_id ) : null;
@@ -430,7 +439,7 @@ $mod_privacy = array(
 													<a class="bn-ca-more-menu-item" role="menuitem" href="<?php echo esc_url( $r_view_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View reported item', 'buddynext' ); ?></a>
 												<?php endif; ?>
 												<?php // Member-level actions only exist when the report has a resolvable offender - never a control bound to user id 0, where the store's handlers early-return. ?>
-												<?php if ( $reported_uid > 0 ) : ?>
+												<?php if ( $r_can_warn ) : ?>
 													<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.warnMember" data-report-id="<?php echo esc_attr( (string) $r_id ); ?>" data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"><?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
 												<?php endif; ?>
 												<?php if ( 'post' === $r_obj_type ) : ?>
@@ -446,7 +455,7 @@ $mod_privacy = array(
 														?>
 													</div>
 												<?php endif; ?>
-												<?php if ( $reported_uid > 0 ) : ?>
+												<?php if ( $r_is_member ) : ?>
 													<button type="button" class="bn-ca-more-menu-item bn-ca-more-menu-item--danger" role="menuitem"
 														data-wp-on--click="actions.removeFromSpace"
 														data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
