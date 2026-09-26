@@ -88,6 +88,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - A document card in a space opens the file's page with a preview and Download when the space has Files turned on.
 * Fix      - Files linked into a space open from the space's Files tab instead of showing "File not found".
 * Fix      - Link a file accepts the address of a BuddyNext Files page.
+* Fix      - A file linked into an open space can be opened by everyone, like the files uploaded there.
 * Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.

@@ -329,6 +329,9 @@ class WPMediaVerseBridge {
 		// linger after its document was gone; remove it here by id.
 		add_action( 'mvs_document_trashed', array( $this, 'on_document_trashed' ), 10, 1 );
 
+		// A file linked into an OPEN space reads like one uploaded there: public.
+		add_action( 'mvs_document_linked_to_space', array( $this, 'on_document_linked_to_space' ), 10, 3 );
+
 		// The MEDIA half of the same lifecycle. WPMediaVerse fires mvs_media_trashed
 		// / mvs_media_restored with the SAME three args as mvs_media_deleted, built
 		// so this bridge can withdraw the mirrored 'media' feed card on trash and
@@ -861,6 +864,43 @@ class WPMediaVerseBridge {
 					$repaired ? ' - applied directly instead' : ' - MEDIA MAY STILL BE READABLE'
 				)
 			);
+		}
+	}
+
+	/**
+	 * Open a file linked into an open space to everyone, as the space's own
+	 * uploads already are.
+	 *
+	 * MediaVerse grants a LINKED file to space members only, while a file
+	 * uploaded into the same open space is public - so a visitor browsing an open
+	 * space's Files found some files opening and others refusing. An open space's
+	 * content is public in BuddyNext, and linking a file there is sharing it
+	 * there. Private and secret spaces are left to the link's member-only grant.
+	 *
+	 * @param int $media_id Linked document.
+	 * @param int $space_id Space it was linked into.
+	 * @param int $user_id  Member who linked it (the file's owner).
+	 * @return void
+	 */
+	public function on_document_linked_to_space( $media_id, $space_id, $user_id ): void {
+		$space = (int) $space_id > 0 ? buddynext_service( 'spaces' )->get( (int) $space_id ) : null;
+		if ( ! is_array( $space ) || 'open' !== (string) ( $space['type'] ?? '' ) ) {
+			return;
+		}
+
+		$actor = get_current_user_id();
+		if ( $actor !== (int) $user_id ) {
+			wp_set_current_user( (int) $user_id );
+		}
+		$patch = new \WP_REST_Request( 'PATCH', '/mvs-pro/v1/documents/' . (int) $media_id );
+		$patch->set_body_params( array( 'privacy' => 'public' ) );
+		$res = rest_do_request( $patch );
+		if ( $actor !== (int) $user_id ) {
+			wp_set_current_user( $actor );
+		}
+
+		if ( $res->is_error() ) {
+			error_log( sprintf( 'BuddyNext: opening document #%d linked into open space #%d failed (%s)', (int) $media_id, (int) $space_id, $res->get_data()['code'] ?? $res->get_status() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
 	}
 
