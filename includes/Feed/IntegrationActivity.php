@@ -48,6 +48,40 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * How many bridge mirror writes are in flight (nesting-safe).
+	 *
+	 * @var int
+	 */
+	private static int $mirror_depth = 0;
+
+	/**
+	 * Whether the current write copies an action a partner plugin already
+	 * recorded (a MediaVerse follow or lightbox comment, a Jetonomy reply, or
+	 * the reverse). Listeners that reward or count actions check this so one
+	 * member action is never paid twice, once per plugin.
+	 *
+	 * @return bool
+	 */
+	public static function is_mirror(): bool {
+		return self::$mirror_depth > 0;
+	}
+
+	/**
+	 * Run a bridge mirror write with is_mirror() true for its duration.
+	 *
+	 * @param callable $write The cross-plugin write.
+	 * @return mixed Whatever $write returns.
+	 */
+	public static function as_mirror( callable $write ) {
+		++self::$mirror_depth;
+		try {
+			return $write();
+		} finally {
+			--self::$mirror_depth;
+		}
+	}
+
+	/**
 	 * Publish a link-card activity for content a member just created.
 	 *
 	 * Rendered as a standard feed link card pointing at the partner's own page

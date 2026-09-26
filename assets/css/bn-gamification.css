@@ -155,11 +155,6 @@
 	color: var(--bn-ink);
 }
 
-.bn-lb-level__remaining {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-}
-
 /* ── Filter strip — tabs + select ───────────────────────────────────────── */
 
 .bn-lb-filters {
@@ -457,7 +452,7 @@
 
 /* ── Your-stats widgets (uses .bn-widget defined in bn-feed.css) ─────────── */
 
-/* The three widgets (badges · streak · milestone) flow in a responsive row so
+/* The three widgets (badges · streak) flow in a responsive row so
    they fill the width instead of stacking full-width with dead space beside them. */
 .bn-lb-widgets {
 	display: grid;
@@ -594,40 +589,6 @@
 
 .bn-lb-points-total strong {
 	color: var(--bn-ink);
-}
-
-/* Milestone widget */
-
-.bn-lb-milestone__name {
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-	margin-bottom: var(--bn-s1);
-}
-
-.bn-lb-milestone__desc {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-2);
-	line-height: 1.5;
-	margin-bottom: var(--bn-s3);
-}
-
-.bn-lb-milestone__row {
-	display: flex;
-	justify-content: space-between;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	margin-top: var(--bn-s2);
-	font-variant-numeric: tabular-nums;
-}
-
-.bn-lb-milestone__hint {
-	margin-top: var(--bn-s3);
-	padding-top: var(--bn-s3);
-	border-top: 1px solid var(--bn-line-faint);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-2);
-	line-height: 1.5;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */

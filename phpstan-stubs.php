@@ -43,4 +43,42 @@ namespace WBGam\Engine {
 			}
 		}
 	}
+
+	if ( ! class_exists( 'WBGam\\Engine\\KudosEngine' ) ) {
+		/**
+		 * Stub for the optional wb-gamification kudos engine (signatures from 1.6.5).
+		 * Every call site is behind an is_callable() guard.
+		 */
+		class KudosEngine {
+			public static function send( int $giver_id, int $receiver_id, string $message = '' ): bool|\WP_Error { // phpcs:ignore
+				return true;
+			}
+			public static function can_send( int $giver_id ): bool { // phpcs:ignore
+				return true;
+			}
+			public static function has_recent_kudos_to_receiver( int $giver_id, int $receiver_id, int $cooldown_seconds ): bool { // phpcs:ignore
+				return false;
+			}
+			public static function get_received_count( int $user_id ): int { // phpcs:ignore
+				return 0;
+			}
+			/**
+			 * @return array<int,array<string,mixed>>
+			 */
+			public static function get_received( int $user_id, int $limit = 20 ): array { // phpcs:ignore
+				return array();
+			}
+		}
+	}
+
+	if ( ! class_exists( 'WBGam\\Engine\\Registry' ) ) {
+		/**
+		 * Stub for the wb-gamification action registry (1.6.5 category labels).
+		 */
+		class Registry {
+			public static function category_label( string $slug ): string { // phpcs:ignore
+				return $slug;
+			}
+		}
+	}
 }

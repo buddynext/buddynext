@@ -52,9 +52,10 @@ class NotificationMessageService {
 	 * @return array<string,mixed>
 	 */
 	public function compose( array $row ): array {
-		$type        = isset( $row['type'] ) ? (string) $row['type'] : '';
-		$actor_id    = isset( $row['sender_id'] ) ? (int) $row['sender_id'] : 0;
-		$object_id   = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
+		$type      = isset( $row['type'] ) ? (string) $row['type'] : '';
+		$actor_id  = isset( $row['sender_id'] ) ? (int) $row['sender_id'] : 0;
+		$object_id = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
+
 		/*
 		 * Two counts can describe "how many", and the bigger one is the honest one.
 		 *
@@ -413,11 +414,12 @@ class NotificationMessageService {
 				return __( 'You earned a new badge.', 'buddynext' );
 
 			case 'bn.level_up':
-				$level = isset( $data['level'] ) ? (int) $data['level'] : 0;
-				if ( $level > 0 ) {
+				// data.level is the level's row id, not a rank, so it is never shown.
+				$level = isset( $data['level_name'] ) ? trim( (string) $data['level_name'] ) : '';
+				if ( '' !== $level ) {
 					return sprintf(
-						/* translators: %d: new level number. */
-						__( 'You reached level %d.', 'buddynext' ),
+						/* translators: %s: new level name, e.g. "Contributor". */
+						__( 'You reached %s.', 'buddynext' ),
 						$level
 					);
 				}

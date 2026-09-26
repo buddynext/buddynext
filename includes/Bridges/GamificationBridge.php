@@ -25,6 +25,30 @@ use BuddyNext\Feed\IntegrationActivity;
 class GamificationBridge {
 
 	/**
+	 * The site's name for points ("Points" unless the owner renamed the default
+	 * point type, e.g. "Coins"), so every BuddyNext surface says what the
+	 * gamification plugin says (card 10343975769).
+	 *
+	 * @return string
+	 */
+	public static function points_label(): string {
+		static $label = null;
+		if ( null === $label ) {
+			$label = '';
+			if ( class_exists( '\\WBGam\\Services\\PointTypeService' ) ) {
+				$types  = new \WBGam\Services\PointTypeService();
+				$record = $types->get( $types->default_slug() );
+				$label  = is_array( $record ) ? trim( (string) ( $record['label'] ?? '' ) ) : '';
+			}
+			if ( '' === $label ) {
+				$label = __( 'Points', 'buddynext' );
+			}
+		}
+		return $label;
+	}
+
+
+	/**
 	 * Attach hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.

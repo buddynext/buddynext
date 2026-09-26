@@ -360,6 +360,8 @@ A theme bridge, always wired because it self-guards on `'buddyx' === get_templat
 
 ## Notes / gotchas
 
+- **Mirrored writes are flagged.** When a bridge copies an action a partner already recorded (a MediaVerse follow or lightbox comment, a Jetonomy reply, or the reverse), it runs the write inside `IntegrationActivity::as_mirror()`. A listener that rewards or counts actions should return early when `\BuddyNext\Feed\IntegrationActivity::is_mirror()` is true, so one member action is never paid twice. Guard the call with `is_callable()` for older BuddyNext versions.
+
 - **Bridges never call companion code directly outside a guard.** Every companion class/function reference is wrapped in a `class_exists` / `function_exists` / `method_exists` check, so a partial or older companion build degrades instead of fataling.
 - **Feature toggle vs companion presence are independent gates.** A bridge runs only when both its feature toggle is on (`buddynext_feature_enabled`) and its companion is active. Disabling the toggle removes the bridge even if the companion is installed.
 - **Companion table access is the bridge's job.** Jetonomy `jt_*` reads and the WPMediaVerse follow-graph access live inside the bridge classes; downstream templates and services consume bridge methods (for example `JetonomyBridge::user_discussions()`), never the companion schema.

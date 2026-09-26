@@ -1463,7 +1463,7 @@ class WPMediaVerseBridge {
 		// follow mirroring for the rest of the request.
 		$this->mirroring_follow = true;
 		try {
-			$bn->follow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->follow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1490,7 +1490,7 @@ class WPMediaVerseBridge {
 		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
 		try {
-			$bn->unfollow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->unfollow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1517,7 +1517,7 @@ class WPMediaVerseBridge {
 		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
 		try {
-			$mvs->follow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $mvs->follow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1544,7 +1544,7 @@ class WPMediaVerseBridge {
 		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
 		try {
-			$mvs->unfollow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $mvs->unfollow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -2857,7 +2857,13 @@ class WPMediaVerseBridge {
 		// form would ArgumentCountError-fatal the 4-arg listeners.
 		$new_comment_id = (int) $wpdb->insert_id;
 		if ( $new_comment_id > 0 ) {
-			do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
+			// A mirror of a comment MediaVerse already recorded: flag it so reward
+			// listeners do not pay the same comment twice.
+			\BuddyNext\Feed\IntegrationActivity::as_mirror(
+				static function () use ( $new_comment_id, $bn_post_id, $user_id ) {
+					do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
+				}
+			);
 		}
 	}
 	/**

@@ -25,8 +25,7 @@ namespace BuddyNext\Profile;
  */
 class GamificationAchievements {
 
-	private const TAB_SLUG   = 'achievements';
-	private const MAX_BADGES = 24;
+	private const TAB_SLUG = 'achievements';
 
 	/**
 	 * Parent primary-tab id that houses the three gamification sub-tabs
@@ -296,7 +295,7 @@ class GamificationAchievements {
 		if ( function_exists( 'buddynext_icon' ) ) {
 			buddynext_icon( 'trending-up' );
 		}
-		echo ' ' . esc_html__( 'Points history', 'buddynext' );
+		echo ' ' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( '%s history', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) );
 		echo '</h3>';
 		echo '</header>';
 		echo $history; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
@@ -333,7 +332,7 @@ class GamificationAchievements {
 			}
 		);
 
-		return array_slice( $badges, 0, self::MAX_BADGES );
+		return $badges;
 	}
 
 	/**
@@ -432,7 +431,7 @@ class GamificationAchievements {
 		if ( function_exists( 'wb_gam_get_user_points' ) ) {
 			$tiles[] = array(
 				'icon'  => 'star',
-				'label' => __( 'Points', 'buddynext' ),
+				'label' => \BuddyNext\Bridges\GamificationBridge::points_label(),
 				'value' => number_format_i18n( (int) wb_gam_get_user_points( $member_id ) ),
 			);
 		}
@@ -440,7 +439,9 @@ class GamificationAchievements {
 		if ( $rank > 0 ) {
 			$tiles[] = array(
 				'icon'  => 'crown',
-				'label' => __( 'Rank', 'buddynext' ),
+				// The tile is the all-time rank; the leaderboard defaults to monthly,
+				// so the period is named (card 10343975769).
+				'label' => __( 'All-time rank', 'buddynext' ),
 				'value' => '#' . number_format_i18n( $rank ),
 			);
 		}

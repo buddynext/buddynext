@@ -72,6 +72,11 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - The Kudos tab follows WB Gamification 1.6.5: after you give kudos it shows "You gave X kudos" instead of the form, and the form is not offered when you have hit the daily ceiling.
 * Improve  - Folder controls in Files follow WPMediaVerse's own rules: space owners and moderators manage every folder, and a member can rename or trash the folders they created.
 * New      - The Files Trash shows who trashed each folder, when, how many items it holds and when it will be removed, with a Delete now action for people who can manage it.
+* Improve  - Gamification screens use your site's own name for points (Points tab, Achievements, Leaderboard), the Achievements rank is labelled All-time rank, and the leaderboard no longer shows an invented next-milestone widget.
+* Improve  - Earning categories on the Points tab use WB Gamification's own labels, so new categories read correctly without a BuddyNext update.
+* Fix      - The level-up notification names the level you reached instead of an internal number.
+* Fix      - The Achievements badge count is no longer capped at 24.
+* Dev      - Mirrored follows, lightbox comments and forum replies run inside IntegrationActivity::as_mirror(), so reward listeners can skip them with IntegrationActivity::is_mirror() and never pay one action twice.
 * Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.
 * Fix      - With WB Gamification active, the sidebar streak card's 7-day strip and best-this-month use the same activity as its streak number.
 * Fix      - A message whose photo was deleted shows "This attachment is no longer available." instead of an empty row.

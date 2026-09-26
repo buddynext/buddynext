@@ -150,6 +150,17 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The level-up line names the level; data.level is a row id and never shows.
+	 */
+	public function test_level_up_names_the_level(): void {
+		$named = $this->service->compose( $this->row( 'bn.level_up', array( 'object_id' => 7, 'data' => array( 'level' => 7, 'level_name' => 'Contributor' ) ) ) );
+		$this->assertSame( 'You reached Contributor.', $named['message'] );
+
+		$bare = $this->service->compose( $this->row( 'bn.level_up', array( 'object_id' => 7, 'data' => array( 'level' => 7 ) ) ) );
+		$this->assertSame( 'You levelled up.', $bare['message'] );
+	}
+
+	/**
 	 * Every type must expose an icon, tone, and label.
 	 *
 	 * @dataProvider provide_types

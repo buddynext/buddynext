@@ -26,12 +26,13 @@ Every kudos you receive appears in your own Kudos tab as a feed: the giver's nam
 
 ### Limits on giving kudos
 
-To keep kudos meaningful rather than automatic, a few limits apply to the giver:
+Kudos is never refused for being "too many" in normal use. The limits only decide whether a kudos earns points:
 
-- **A daily sending limit.** Each member can give a limited number of kudos per day (5 by default, set by the owner in WB Gamification). Once you reach it, sending another kudos is refused until the next day with a message telling you the limit.
-- **A per-receiver cooldown.** You cannot send kudos to the same member again within a short window after your last one to them (one hour by default). This stops a member from repeatedly kudos-ing the same person back to back; the message tells you to try again later.
+- **A daily points limit.** Each member's first few kudos of the day earn points (5 by default, set by the owner in WB Gamification). Kudos sent after that still arrive; they just earn no points.
+- **A per-receiver window.** After you give a member kudos, their Kudos tab shows "You gave them kudos" with the time instead of the form, for one hour by default. When the hour has passed the form comes back.
+- **A spam ceiling.** Past a high daily ceiling (50 by default) the form is simply not shown until the next day. An ordinary member never reaches it.
 
-Both limits protect the receiving side of the feature too: without them, a member could inflate a friend's kudos count (and the points that come with it) in a burst.
+Together these stop a member from inflating a friend's points in a burst, without ever turning away a genuine thank-you.
 
 ### Points
 
@@ -41,15 +42,15 @@ Sending and receiving kudos both award points through the same gamification engi
 
 Kudos needs no BuddyNext setting of its own. It appears automatically once the WB Gamification companion is active, because it is part of the same Achievements area as points and badges. See Gamification: points, badges, and levels for installing the companion.
 
-The numbers that shape kudos - the daily sending limit and the points each side earns - are set in WB Gamification, not in BuddyNext:
+The numbers that shape kudos - the daily points limit and the points each side earns - are set in WB Gamification, not in BuddyNext:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Daily kudos limit | The most kudos one member can give in a day. | 5 |
+| Daily kudos points limit | How many kudos a member can give per day that earn points. Kudos past it still arrive. | 5 |
 | Points to the receiver | Points awarded to the member who receives kudos. | 5 |
 | Points to the giver | Points awarded to the member who sends kudos. | 2 |
 
-> **Tip:** The per-receiver cooldown (one hour by default) is a developer-level setting rather than an admin screen field. If your community needs a different value, it can be adjusted through a filter in WB Gamification.
+> **Tip:** The per-receiver window (one hour) and the spam ceiling (50 a day) are developer-level values, not admin screen fields. Change them with the `wb_gam_kudos_per_receiver_cooldown_seconds` and `wb_gam_kudos_daily_ceiling` filters in WB Gamification.
 
 ### Moderating kudos
 
@@ -60,7 +61,7 @@ Kudos is member-authored content, so it can be misused - a member being pestered
 - **Kudos is separate from reactions.** A reaction is a one-tap emoji on a post or comment; kudos is a deliberate, addressed note from one member to another, sent from a profile rather than from a piece of content.
 - **A revoked kudos stays visible in the log but not to members.** Once a moderator revokes a kudos, it drops out of the receiver's Kudos feed and its points are reversed on both sides, but the record itself is kept (not deleted) so there is a history of what happened.
 - **The Kudos tab is where a member with nothing else lands.** If a member has no badges and no points yet, opening their Achievements area goes straight to Kudos rather than to an empty Achievements sub-tab, since anyone - even a brand-new member - can already have kudos to give or receive.
-- **Works over the API too.** Giving kudos is also available as a REST action (`POST /buddynext/v1/kudos`) for the mobile app, enforcing the same self-kudos, daily-limit, and cooldown rules as the web form.
+- **Works over the API too.** Giving kudos is also available as a REST action (`POST /buddynext/v1/kudos`) for the mobile app, enforcing the same rules as the web form: no self-kudos, points only within the daily points limit and outside the per-receiver window, and a refusal past the spam ceiling.
 
 ## Free vs Pro
 

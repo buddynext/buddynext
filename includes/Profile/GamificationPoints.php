@@ -52,7 +52,7 @@ class GamificationPoints {
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'parent'    => GamificationAchievements::PARENT_SLUG,
-				'label'     => __( 'Points', 'buddynext' ),
+				'label'     => \BuddyNext\Bridges\GamificationBridge::points_label(),
 				'icon'      => 'zap',
 				'priority'  => 20,
 				// Own profile only — a member's point ledger is personal.
@@ -86,7 +86,7 @@ class GamificationPoints {
 
 		echo '<div class="bn-card bn-gam-points__total">';
 		echo '<span class="bn-gam-points__total-value">' . esc_html( number_format_i18n( $total ) ) . '</span>';
-		echo '<span class="bn-gam-points__total-label">' . esc_html__( 'Total points', 'buddynext' ) . '</span>';
+		echo '<span class="bn-gam-points__total-label">' . esc_html( sprintf( /* translators: %s: the site's name for points, e.g. "Points". */ __( 'Total %s', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) ) . '</span>';
 		echo '</div>';
 
 		$this->render_history( $member_id );
@@ -115,7 +115,7 @@ class GamificationPoints {
 		echo '</div>';
 
 		if ( empty( $rows ) ) {
-			echo '<p class="bn-achievements__empty">' . esc_html__( 'No points yet: start contributing to earn your first points.', 'buddynext' ) . '</p>';
+			echo '<p class="bn-achievements__empty">' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( 'No %s yet: start contributing to earn your first.', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) ) . '</p>';
 			echo '</div>';
 			return;
 		}
@@ -149,9 +149,10 @@ class GamificationPoints {
 			echo '</span>';
 			echo '<span class="bn-gam-ledger__points' . ( $points < 0 ? ' is-negative' : '' ) . '">' . esc_html(
 				sprintf(
-					/* translators: %s: signed point amount, e.g. "+10". */
-					__( '%s pts', 'buddynext' ),
-					( $points >= 0 ? '+' : '' ) . number_format_i18n( $points )
+					/* translators: 1: signed amount, e.g. "+10"; 2: the site's name for points. */
+					__( '%1$s %2$s', 'buddynext' ),
+					( $points >= 0 ? '+' : '' ) . number_format_i18n( $points ),
+					\BuddyNext\Bridges\GamificationBridge::points_label()
 				)
 			) . '</span>';
 			echo '</li>';
@@ -173,7 +174,7 @@ class GamificationPoints {
 		if ( function_exists( 'buddynext_icon' ) ) {
 			buddynext_icon( 'target' );
 		}
-		echo ' ' . esc_html__( 'How to earn points', 'buddynext' );
+		echo ' ' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( 'How to earn %s', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) );
 		echo '</div>';
 
 		if ( empty( $grouped ) ) {
@@ -195,9 +196,10 @@ class GamificationPoints {
 				}
 				echo '<span class="bn-gam-earn__pts">' . esc_html(
 					sprintf(
-						/* translators: %s: point amount, e.g. "+10". */
-						__( '+%s pts', 'buddynext' ),
-						number_format_i18n( (int) $action['points'] )
+						/* translators: 1: amount, e.g. "10"; 2: the site's name for points. */
+						__( '+%1$s %2$s', 'buddynext' ),
+						number_format_i18n( (int) $action['points'] ),
+						\BuddyNext\Bridges\GamificationBridge::points_label()
 					)
 				) . '</span>';
 				echo '</span>';
@@ -276,27 +278,24 @@ class GamificationPoints {
 	/**
 	 * Community-friendly label for an earning category.
 	 *
-	 * The engine's category slugs are developer-facing (the core-actions slug in
-	 * particular reads as jargon); map the known ones to words a member understands,
-	 * and title-case anything unmapped.
+	 * WB Gamification owns the category labels; only the core-actions slug is
+	 * reworded, since "WordPress" means nothing to a member. Older engines without
+	 * Registry::category_label() get the slug title-cased.
 	 *
 	 * @param string $slug Category slug.
 	 * @return string
 	 */
 	private function category_label( string $slug ): string {
-		$labels = array(
-			'content'   => __( 'Content', 'buddynext' ),
-			'social'    => __( 'Social', 'buddynext' ),
-			'community' => __( 'Community', 'buddynext' ),
-			'wordpress' => __( 'Getting started', 'buddynext' ),
-			'media'     => __( 'Media', 'buddynext' ),
-			'listings'  => __( 'Listings', 'buddynext' ),
-			'careers'   => __( 'Careers', 'buddynext' ),
-			'learning'  => __( 'Learning', 'buddynext' ),
-			'general'   => __( 'General', 'buddynext' ),
-		);
-
-		return $labels[ strtolower( $slug ) ] ?? $this->humanize( $slug );
+		$slug = strtolower( $slug );
+		// The core-actions category reads as jargon to a member ("WordPress").
+		if ( 'wordpress' === $slug ) { // phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- the engine's category slug.
+			return __( 'Getting started', 'buddynext' );
+		}
+		// wb-gamification 1.6.5+ owns the labels (and the wb_gam_category_label filter).
+		if ( is_callable( array( '\\WBGam\\Engine\\Registry', 'category_label' ) ) ) {
+			return \WBGam\Engine\Registry::category_label( $slug );
+		}
+		return $this->humanize( $slug );
 	}
 
 	/**

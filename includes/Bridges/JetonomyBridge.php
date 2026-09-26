@@ -93,7 +93,7 @@ class JetonomyBridge {
 	private static function mirror( callable $write ): void {
 		self::$syncing = true;
 		try {
-			$write();
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( $write );
 		} finally {
 			self::$syncing = false;
 		}

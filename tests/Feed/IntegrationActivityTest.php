@@ -431,4 +431,32 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $comment_left, 'the comment is cascaded, not orphaned' );
 		$this->assertSame( 0, $react_left, 'the comment reaction is cascaded, not orphaned' );
 	}
+
+	/**
+	 * is_mirror() is true only inside as_mirror(), survives nesting, and resets
+	 * when the write throws.
+	 */
+	public function test_mirror_flag_is_scoped_to_the_write(): void {
+		$this->assertFalse( IntegrationActivity::is_mirror() );
+
+		$seen = IntegrationActivity::as_mirror(
+			static function (): array {
+				$inner = IntegrationActivity::as_mirror( static fn() => IntegrationActivity::is_mirror() );
+				return array( $inner, IntegrationActivity::is_mirror() );
+			}
+		);
+		$this->assertSame( array( true, true ), $seen, 'true inside, and still true after a nested mirror returns' );
+		$this->assertFalse( IntegrationActivity::is_mirror() );
+
+		try {
+			IntegrationActivity::as_mirror(
+				static function (): void {
+					throw new \RuntimeException( 'boom' );
+				}
+			);
+		} catch ( \RuntimeException $e ) {
+			unset( $e );
+		}
+		$this->assertFalse( IntegrationActivity::is_mirror(), 'a throwing write does not leave the flag stuck' );
+	}
 }

@@ -115,9 +115,8 @@ class GamificationBridgeListener implements ListenerInterface {
 				'object_type'  => 'level',
 				'object_id'    => $new_level_id,
 				'group_key'    => null,
-				// 'level' is the key NotificationMessageService::resolve_message()
-				// reads to render "You reached level <n>." Keep the named/threshold
-				// fields alongside for app/REST consumers and email rendering.
+				// NotificationMessageService renders "You reached <level_name>."; the
+				// ids and threshold stay for app/REST consumers.
 				'data'         => array(
 					'level'          => $new_level_id,
 					'level_id'       => $new_level_id,

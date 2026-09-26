@@ -59,7 +59,7 @@ A few rules keep scoring fair:
   - **Kudos** - the peer-recognition surface described in Kudos: peer recognition below.
 
   The tab only appears once WB Gamification is active, and each sub-tab only shows once there is something to show (the parent tab still appears - and lands on Kudos - even for a member with no points or badges yet, since anyone can be given kudos).
-- **Leaderboard.** The ranked board lists top members with their points and badges, and shows the viewer their own rank, level, streak, and next milestone. See The community leaderboard for the full walkthrough. A "Leaderboard" link is also added to the main community navigation rail when gamification is active.
+- **Leaderboard.** The ranked board lists top members with their points and badges, and shows the viewer their own rank, level (and how far to the next), and streak. See The community leaderboard for the full walkthrough. A "Leaderboard" link is also added to the main community navigation rail when gamification is active.
 - **Notifications.** When WB Gamification awards a badge or moves a member up a level, BuddyNext drops a notification in the member's bell so the win does not pass unnoticed.
 - **Activity feed.** When a member chooses to share a credential badge (not every small participation badge, only the ones marked as credentials), a card announcing it appears in the feed, crediting the member and linking to the badge on their Achievements tab. Un-sharing a badge withdraws the card; sharing it again brings the same card back rather than posting a duplicate.
 

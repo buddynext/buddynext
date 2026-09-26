@@ -96,24 +96,6 @@ parameters:
 			path: includes/Profile/GamificationAchievements.php
 
 		-
-			message: '#^Call to static method get_received\(\) on an unknown class WBGam\\Engine\\KudosEngine\.$#'
-			identifier: class.notFound
-			count: 1
-			path: includes/Profile/GamificationKudos.php
-
-		-
-			message: '#^Call to static method get_received_count\(\) on an unknown class WBGam\\Engine\\KudosEngine\.$#'
-			identifier: class.notFound
-			count: 1
-			path: includes/Profile/GamificationKudos.php
-
-		-
-			message: '#^Call to static method send\(\) on an unknown class WBGam\\Engine\\KudosEngine\.$#'
-			identifier: class.notFound
-			count: 1
-			path: includes/Profile/GamificationKudos.php
-
-		-
 			message: '#^Call to static method get_history\(\) on an unknown class WBGam\\Engine\\PointsEngine\.$#'
 			identifier: class.notFound
 			count: 1
