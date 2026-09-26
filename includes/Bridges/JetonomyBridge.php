@@ -33,6 +33,14 @@ use BuddyNext\Feed\PostService;
 class JetonomyBridge {
 
 	/**
+	 * Per-request answers of verify_discussion_card(), keyed by card URL.
+	 *
+	 * @var array<string, string>
+	 */
+	private array $verified_cards = array();
+
+
+	/**
 	 * Object-cache group for the bridge's per-view count/list reads.
 	 */
 	private const CACHE_GROUP = 'buddynext_jetonomy';
@@ -117,6 +125,12 @@ class JetonomyBridge {
 		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
 		// the reply side already hooks.
 		add_action( 'jetonomy_after_delete_post', array( $this, 'on_post_hard_deleted' ), 10, 1 );
+
+		// A card must never link to a discussion the viewer cannot open. Checked as
+		// it renders, because some causes fire no hook: a forum switched private in
+		// Jetonomy, or a card published before post_id was stamped (2026-09-19) whose
+		// discussion was later deleted. See verify_discussion_card().
+		add_filter( 'buddynext_discussion_card_url', array( $this, 'verify_discussion_card' ), 10, 2 );
 
 		// Inject a Discussions link into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
@@ -758,6 +772,66 @@ class JetonomyBridge {
 		}
 		wp_cache_delete( 'jt_scount_' . $forum_id, self::CACHE_GROUP );
 		wp_cache_delete( 'jt_slist_' . $forum_id, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Keep a discussion card's link only while the discussion is public.
+	 *
+	 * One indexed lookup per card, memoised per request. When the discussion is
+	 * gone or no longer public the card is withdrawn (hidden from every feed,
+	 * restored in place if the discussion is republished) and '' tells the
+	 * template to show a neutral line instead of a link that would 404. An older
+	 * card without a stamped post_id is matched by its URL and stamped, so the
+	 * normal delete path finds it from then on.
+	 *
+	 * @param string               $url  Card URL.
+	 * @param array<string, mixed> $meta Card link_meta.
+	 * @return string The URL, or '' when the discussion cannot be opened.
+	 */
+	public function verify_discussion_card( string $url, array $meta ): string {
+		if ( '' === $url ) {
+			return $url;
+		}
+		if ( array_key_exists( $url, $this->verified_cards ) ) {
+			return $this->verified_cards[ $url ];
+		}
+
+		global $wpdb;
+		$topic_id = (int) ( $meta['post_id'] ?? 0 );
+		$topic    = null;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $topic_id > 0 ) {
+			$topic = $wpdb->get_row( $wpdb->prepare( "SELECT id, space_id, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d", $topic_id ) );
+		} else {
+			// No stamp: the topic slug is the URL's last segment; confirm the match
+			// by rebuilding the URL, since a slug is only unique within its forum.
+			$slug = basename( untrailingslashit( (string) wp_parse_url( $url, PHP_URL_PATH ) ) );
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT p.id, p.space_id, p.is_private, p.status, p.slug, s.slug AS space_slug FROM {$wpdb->prefix}jt_posts p JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE p.slug = %s",
+					$slug
+				)
+			);
+			foreach ( (array) $rows as $row ) {
+				if ( untrailingslashit( $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug ) ) === untrailingslashit( $url ) ) {
+					$topic = $row;
+					break;
+				}
+			}
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $topic && $this->is_public_discussion( (int) $topic->space_id, (int) $topic->is_private, (string) $topic->status ) ) {
+			if ( $topic_id <= 0 ) {
+				IntegrationActivity::refresh( $url, 'discussion', array( 'post_id' => (int) $topic->id ) );
+			}
+			$this->verified_cards[ $url ] = $url;
+			return $url;
+		}
+
+		IntegrationActivity::withdraw( $url, 'discussion' );
+		$this->verified_cards[ $url ] = '';
+		return '';
 	}
 
 	/**

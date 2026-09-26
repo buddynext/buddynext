@@ -33,6 +33,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$wpdb->query(
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}jt_posts (
 				id BIGINT UNSIGNED NOT NULL,
+				space_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 				author_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 				slug VARCHAR(200) NOT NULL DEFAULT '',
 				title TEXT NULL,
@@ -219,6 +220,41 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $card_left, 'the card is permanently removed on a hard delete' );
 		$this->assertSame( 0, $comment_left, 'the comment is cascaded, not orphaned' );
 		$this->assertSame( 0, $search_left, 'the search entry is dropped' );
+	}
+
+	/**
+	 * A discussion card never links to a discussion the viewer cannot open
+	 * (card 10343776298). Checked at render, because some causes fire no hook:
+	 * a card published before post_id was stamped whose discussion was deleted,
+	 * or a forum switched private in Jetonomy.
+	 *
+	 * @return void
+	 */
+	public function test_card_link_is_verified_at_render(): void {
+		global $wpdb;
+		$this->seed_jt_space( 9, 'forum' );
+		$this->seed_jt_post( 50, $this->author_id, 'Old', 'Body', 'old-thread' );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 9 ), array( 'id' => 50 ) );
+		do_action( 'jetonomy_after_create_post', 50, 9 );
+
+		$url  = home_url( '/community' ) . '/s/forum/t/old-thread/';
+		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT status, link_meta FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
+
+		// A card from before the post_id stamp: matched by URL and stamped.
+		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'link_meta' => wp_json_encode( array( 'url' => $url, 'title' => 'Old' ) ) ), array( 'link_url' => $url ) );
+		$this->assertSame( $url, $this->bridge->verify_discussion_card( $url, array() ) );
+		$this->assertSame( 50, (int) ( json_decode( $card()->link_meta, true )['post_id'] ?? 0 ), 'an unstamped card is stamped' );
+
+		// The forum goes private in Jetonomy (no hook): the card is withdrawn.
+		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => 9 ) );
+		$fresh = new JetonomyBridge();
+		$this->assertSame( '', $fresh->verify_discussion_card( $url, array( 'post_id' => 50 ) ) );
+
+		// Deleted outright with no hook: gone, and withdrawn from every feed.
+		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'public' ), array( 'id' => 9 ) );
+		$wpdb->delete( $wpdb->prefix . 'jt_posts', array( 'id' => 50 ) );
+		$this->assertSame( '', ( new JetonomyBridge() )->verify_discussion_card( $url, array( 'post_id' => 50 ) ) );
+		$this->assertSame( 'draft', $card()->status, 'the dead card leaves every feed' );
 	}
 
 	public function test_discussion_activity_can_be_filtered_off(): void {

@@ -89,11 +89,13 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Files linked into a space open from the space's Files tab instead of showing "File not found".
 * Fix      - Link a file accepts the address of a BuddyNext Files page.
 * Fix      - A file linked into an open space can be opened by everyone, like the files uploaded there.
+* Fix      - A discussion card whose discussion was deleted or made private no longer links to a missing page; it is withdrawn from the feed.
 * Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.
 * Dev      - New buddynext_invite_link_dead_notice filter changes or removes the dead invite link notice.
 * Dev      - New buddynext_document_card_url filter changes where a feed document card links.
+* Dev      - New buddynext_discussion_card_url filter lets a bridge confirm a discussion card's link as it renders.
 * Dev      - Removed the buddynext_mod_queue_columns filter with the retired page; buddynext_mod_queue_row_actions and buddynext_moderation_queue_before now fire in Community Admin.
 
 = 1.2.1 - September 2026 =

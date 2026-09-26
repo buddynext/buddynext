@@ -117,6 +117,8 @@ On create, the bridge reads the discussion row from `{prefix}jt_posts` (Jetonomy
 
 Feed sync is on by default whenever Jetonomy is active (the bridge only loads then). The owner can flip it off under Integrations -> Jetonomy Feed Sync; when off, discussions are still indexed for search but no feed activity is published. Per-discussion control is also available through the `buddynext_jetonomy_discussion_activity` filter (return `false` to skip a specific post).
 
+A discussion card is checked as it renders, through the `buddynext_discussion_card_url` filter (`string $url, array $link_meta`). The bridge keeps the link only while the discussion exists and is public. Otherwise the card shows "This discussion is no longer available." and is withdrawn from every feed, and it is restored in place if the discussion is republished. This covers deletes and forum visibility changes that fire no hook. Return `''` from the filter to mark a card unavailable yourself.
+
 ### Outbound (what it provides)
 
 | Hook / surface | Purpose |
