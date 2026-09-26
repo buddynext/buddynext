@@ -250,6 +250,12 @@
 	color: var(--bn-accent);
 }
 
+/* Folders show the folder icon, sized to the text chips beside them. */
+.bn-files__chip--dir svg {
+	width: var(--bn-text-md);
+	height: var(--bn-text-md);
+}
+
 .bn-files__chip--pdf {
 	background: var(--bn-danger-bg);
 	color: var(--bn-danger);

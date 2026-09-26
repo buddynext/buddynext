@@ -72,6 +72,7 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_join_denied_data` | filter | A gated join/request is denied, to build the error payload | `array $data, int $space_id, int $user_id, array $space, string $action` |
 | `buddynext_space_joined_via_link` | action | A member joins a space through its shareable invite link (see REST: Spaces, Invite links) | `int $space_id, int $user_id` |
 | `buddynext_space_can_invite` | filter | After the per-space `who_can_invite` gate, whether a user may invite others to a space | `bool $can, int $space_id, int $inviter_id, string $inviter_role` |
+| `buddynext_invite_link_dead_notice` | filter | The line a space page shows to someone who opened it through a revoked, expired or used-up invite link. Return `''` to show nothing | `string $notice, int $space_id` |
 | `buddynext_space_can_post` | filter | After the per-space `who_can_post` gate, whether a user may post in a space. Lets an add-on apply conditional rules, e.g. require an active membership tier to post | `bool $can, int $space_id, int $user_id, string $role` (`role` is `owner`\|`moderator`\|`member`) |
 
 > **Note:** When a request is approved, both `buddynext_space_join_approved` and `buddynext_space_member_joined` fire (in that order). The first is the moderation event; the second is the "this user is now an active member" event, identical to the one fired on a direct join.

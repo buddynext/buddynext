@@ -338,6 +338,30 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	</div>
 
 	<?php
+	// Arrived on a revoked, expired or used-up invite link: say so, or the
+	// ordinary join button reads as a rejection. Same line for every reason.
+	if ( ! $bn_is_member && ! $bn_is_owner && \BuddyNext\Spaces\SpaceInviteLinkService::dead_link_for( $bn_space_id ) ) :
+		/**
+		 * Filters the notice shown on a space opened through a dead invite link.
+		 *
+		 * Return an empty string to show nothing.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string $notice   Notice text.
+		 * @param int    $space_id Space ID.
+		 */
+		$bn_dead_invite_notice = (string) apply_filters( 'buddynext_invite_link_dead_notice', __( 'This invite link is no longer valid. Ask the space for a new one.', 'buddynext' ), $bn_space_id );
+		if ( '' !== $bn_dead_invite_notice ) :
+			?>
+		<p class="bn-sh-hero__notice" role="status">
+			<?php buddynext_icon( 'info' ); ?>
+			<span><?php echo esc_html( $bn_dead_invite_notice ); ?></span>
+		</p>
+			<?php
+		endif;
+	endif;
+
 	buddynext_get_template(
 		'parts/space-stats-strip.php',
 		array(

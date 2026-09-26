@@ -78,9 +78,14 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The drag handle in the Featured spaces picker shows again (its icon was missing).
 * Fix      - The Files tab's Link a file panel closes on Escape or a click outside it, instead of staying open over the file list.
 * Fix      - Confirmation messages for actions that refresh the page (invite link, space archive, restore and transfer, invitations, file uploads, unpinning, appeals) now show after the refresh instead of vanishing.
+* Fix      - Opening a space through a revoked, expired or used-up invite link now says the link is no longer valid, instead of showing a join button with no explanation.
+* Fix      - Delete, revoke and trash confirmations focus Cancel, so a stray Enter never removes anything.
+* Fix      - Pressing Enter submits name prompts such as New folder, and an empty name shows an inline message instead of closing the dialog.
+* Fix      - Folders in the Files list show a folder icon instead of "DIR".
 * Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.
+* Dev      - New buddynext_invite_link_dead_notice filter changes or removes the dead invite link notice.
 * Dev      - Removed the buddynext_mod_queue_columns filter with the retired page; buddynext_mod_queue_row_actions and buddynext_moderation_queue_before now fire in Community Admin.
 
 = 1.2.1 - September 2026 =

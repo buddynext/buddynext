@@ -108,6 +108,25 @@ class SpaceInviteLinkService {
 	private const MAX_USES = array( 0, 1, 10, 100 );
 
 	/**
+	 * Space whose ?invite= token failed validation on this request, or 0.
+	 *
+	 * @var int
+	 */
+	private static int $dead_link_space = 0;
+
+	/**
+	 * Whether this request arrived on a dead (revoked, expired or used-up) invite
+	 * link for the space, so its page can say so instead of looking like a
+	 * refusal. One answer for every dead reason, so it reveals nothing.
+	 *
+	 * @param int $space_id Space being rendered.
+	 * @return bool
+	 */
+	public static function dead_link_for( int $space_id ): bool {
+		return $space_id > 0 && self::$dead_link_space === $space_id;
+	}
+
+	/**
 	 * Inspect the current front-end request for a valid ?invite= token.
 	 *
 	 * Hooked early on template_redirect (before the onboarding gate and the space
@@ -115,8 +134,9 @@ class SpaceInviteLinkService {
 	 * it unlocks that space's home page for the request, and — for a signed-in
 	 * member who still owes onboarding — remembers the invite so completing the
 	 * wizard returns them to the space (the wizard redirect otherwise drops the
-	 * URL). An invalid/expired/used-up token is ignored here; the visibility gate
-	 * then shows the "no longer valid" page (200, never 404) for hidden spaces.
+	 * URL). An invalid/expired/used-up token unlocks nothing; the visibility gate
+	 * then shows the "no longer valid" page (200, never 404) for hidden spaces,
+	 * and a viewable space's hero says so via dead_link_for().
 	 *
 	 * Persists for a GUEST too now (a short-lived cookie, since there is no
 	 * user yet to attach usermeta to) — claim_guest_pending() reads it once,
@@ -156,6 +176,7 @@ class SpaceInviteLinkService {
 
 		$service = new self();
 		if ( is_wp_error( $service->validate( $space_id, $token ) ) ) {
+			self::$dead_link_space = $space_id;
 			return;
 		}
 

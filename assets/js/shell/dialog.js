@@ -226,8 +226,11 @@ export function bnConfirm( opts, legacyOpts ) {
 
 		document.body.appendChild( frame.backdrop );
 
-		// Focus the confirm button after paint so screen readers announce the dialog first.
-		window.requestAnimationFrame( function () { frame.confirmBtn.focus(); } );
+		// Focus after paint so screen readers announce the dialog first. A danger
+		// dialog focuses Cancel (WAI-ARIA APG alertdialog: the least destructive
+		// action), so a stray Enter never deletes, revokes or trashes anything.
+		const initialFocus = 'danger' === cfg.tone ? frame.cancelBtn : frame.confirmBtn;
+		window.requestAnimationFrame( function () { initialFocus.focus(); } );
 	} );
 }
 
@@ -249,6 +252,9 @@ export function bnConfirm( opts, legacyOpts ) {
  *                                   re-auth asks for 'password' here rather than
  *                                   growing its own dialog.
  * @param {string} [opts.autocomplete] autocomplete hint for the input.
+ * @param {Function} [opts.validate] ( value ) => error string, or '' when valid.
+ *                                   An error shows under the input and the
+ *                                   dialog stays open, so nothing typed is lost.
  * @return {Promise<string|null>}
  */
 export function bnPrompt( opts ) {
@@ -269,7 +275,16 @@ export function bnPrompt( opts ) {
 	input.style.marginTop = '12px';
 	input.style.width = '100%';
 
-	cfg.extraNode = input;
+	const field = document.createElement( 'div' );
+	field.appendChild( input );
+	const errorEl = document.createElement( 'p' );
+	errorEl.className = 'bn-modal__error';
+	errorEl.id = 'bn-prompt-error-' + Math.random().toString( 36 ).slice( 2, 10 );
+	errorEl.setAttribute( 'role', 'alert' );
+	errorEl.hidden = true;
+	field.appendChild( errorEl );
+
+	cfg.extraNode = field;
 
 	return new Promise( function ( resolve ) {
 		const trigger = document.activeElement;
@@ -294,7 +309,35 @@ export function bnPrompt( opts ) {
 			}
 		}
 
-		frame.confirmBtn.addEventListener( 'click', function () { close( input.value ); } );
+		function submit() {
+			const error = 'function' === typeof cfg.validate ? String( cfg.validate( input.value ) || '' ) : '';
+			if ( error ) {
+				errorEl.textContent = error;
+				errorEl.hidden = false;
+				input.setAttribute( 'aria-invalid', 'true' );
+				input.setAttribute( 'aria-describedby', errorEl.id );
+				input.focus();
+				return;
+			}
+			close( input.value );
+		}
+
+		// Enter submits a single-line field; a textarea keeps Enter for new lines
+		// and submits on Ctrl/Cmd+Enter.
+		input.addEventListener( 'keydown', function ( ev ) {
+			if ( 'Enter' === ev.key && ! ev.isComposing && ( ! isTextarea || ev.metaKey || ev.ctrlKey ) ) {
+				ev.preventDefault();
+				submit();
+			}
+		} );
+		input.addEventListener( 'input', function () {
+			if ( ! errorEl.hidden ) {
+				errorEl.hidden = true;
+				input.removeAttribute( 'aria-invalid' );
+			}
+		} );
+
+		frame.confirmBtn.addEventListener( 'click', submit );
 		frame.cancelBtn.addEventListener( 'click', function () { close( null ); } );
 		frame.closeBtn.addEventListener( 'click', function () { close( null ); } );
 		frame.backdrop.addEventListener( 'click', function ( ev ) {

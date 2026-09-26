@@ -382,15 +382,16 @@ function bindFolders( root ) {
 	}
 
 	async function askName( title, confirmLabel, current ) {
-		const name = await bnPrompt( { title, confirmLabel, cancelLabel: t.cancel, inputType: 'text', placeholder: t.placeholder, defaultValue: current || '' } );
-		if ( null === name ) {
-			return null;
-		}
-		if ( '' === name.trim() ) {
-			bnToast( t.nameRequired || 'Enter a folder name.', { tone: 'error' } );
-			return null;
-		}
-		return name.trim();
+		const name = await bnPrompt( {
+			title,
+			confirmLabel,
+			cancelLabel:  t.cancel,
+			inputType:    'text',
+			placeholder:  t.placeholder,
+			defaultValue: current || '',
+			validate:     ( value ) => ( '' === value.trim() ? ( t.nameRequired || 'Enter a folder name.' ) : '' ),
+		} );
+		return null === name ? null : name.trim();
 	}
 
 	root.querySelectorAll( '[data-bn-folder-new]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {

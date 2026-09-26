@@ -56,6 +56,36 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		);
 	}
 
+	/**
+	 * Run the template_redirect step for a request carrying ?invite=.
+	 *
+	 * @param string $token Token presented in the URL.
+	 * @return bool Whether the space page will say the link is dead.
+	 */
+	private function arrive_with( string $token ): bool {
+		$dead = new \ReflectionProperty( SpaceInviteLinkService::class, 'dead_link_space' );
+		$dead->setAccessible( true );
+		$dead->setValue( null, 0 );
+
+		$_GET['invite'] = $token;
+		set_query_var( 'bn_space_slug', 'invite-space' );
+		SpaceInviteLinkService::prime_from_request();
+		unset( $_GET['invite'] );
+
+		return SpaceInviteLinkService::dead_link_for( $this->space_id );
+	}
+
+	/** A dead link is named on the space page, one answer for every reason (card 10343711010). */
+	public function test_dead_invite_link_is_flagged_for_the_space_page(): void {
+		$link = $this->make_link();
+		$this->assertFalse( $this->arrive_with( $link['token'] ), 'a live link is not dead' );
+		$this->assertTrue( $this->arrive_with( 'not-a-token' ), 'a wrong token is dead' );
+
+		$this->links->revoke( $this->space_id );
+		$this->assertTrue( $this->arrive_with( $link['token'] ), 'a revoked token is dead' );
+		$this->assertFalse( SpaceInviteLinkService::dead_link_for( $this->space_id + 1 ), 'only for the space it was opened on' );
+	}
+
 	private function make_link( string $expires = '7d', int $max = 0 ): array {
 		return $this->links->create( $this->space_id, $this->owner_id, $expires, $max );
 	}

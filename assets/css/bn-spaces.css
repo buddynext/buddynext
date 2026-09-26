@@ -830,6 +830,26 @@
 	flex-wrap: wrap;
 }
 
+/* Dead invite link: one muted line under the head, aligned with its content. */
+.bn-sh-hero__notice {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s2);
+	margin: 0;
+	padding-block: 0 var(--bn-s4);
+	padding-inline: var(--bn-s6);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
+}
+
+.bn-sh-hero__notice svg {
+	flex: none;
+	width: 1em;
+	height: 1em;
+	margin-block-start: 0.2em;
+}
+
 .bn-sh-hero__emblem {
 	width: 96px;
 	height: 96px;
@@ -2763,6 +2783,10 @@ a.bn-sh-statpill:focus-visible {
 		gap: var(--bn-s3);
 	}
 
+	.bn-sh-hero__notice {
+		padding-inline: var(--bn-s4);
+	}
+
 	.bn-sh-hero__emblem {
 		width: 72px;
 		height: 72px;
@@ -2812,6 +2836,10 @@ a.bn-sh-statpill:focus-visible {
 	}
 
 	.bn-sh-hero__head {
+		padding-inline: var(--bn-s3);
+	}
+
+	.bn-sh-hero__notice {
 		padding-inline: var(--bn-s3);
 	}
 
@@ -3250,12 +3278,6 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-settings__upsell-desc {
 	margin: 0 0 var(--bn-s3);
 	color: var(--bn-ink-3);
-}
-
-.bn-modal__error {
-	margin: var(--bn-s2) 0 0;
-	color: var(--bn-danger, #b91c1c);
-	font-size: 13px;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

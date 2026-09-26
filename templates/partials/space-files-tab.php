@@ -463,7 +463,7 @@ if ( $bn_sf_is_space ) {
 				}
 				?>
 				<li class="bn-files__row bn-files__row--folder">
-					<span class="bn-files__chip bn-files__chip--dir" aria-hidden="true"><?php esc_html_e( 'DIR', 'buddynext' ); ?></span>
+					<span class="bn-files__chip bn-files__chip--dir" aria-hidden="true"><?php buddynext_icon( 'folder' ); ?></span>
 					<a class="bn-files__name" href="<?php echo esc_url( $bn_sf_folder_url( $bn_sf_fid ) ); ?>"><?php echo esc_html( $bn_sf_fname ); ?></a>
 					<span class="bn-files__meta">
 						<span class="bn-files__size"><?php esc_html_e( 'Folder', 'buddynext' ); ?></span>

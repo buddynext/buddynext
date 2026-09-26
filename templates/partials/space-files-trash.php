@@ -56,7 +56,7 @@ $bn_sft_back  = remove_query_arg( array( 'bn_trash', 'bn_files_page' ), (string)
 				}
 				?>
 				<li class="bn-files__row bn-files__row--folder">
-					<span class="bn-files__chip bn-files__chip--dir" aria-hidden="true"><?php esc_html_e( 'DIR', 'buddynext' ); ?></span>
+					<span class="bn-files__chip bn-files__chip--dir" aria-hidden="true"><?php buddynext_icon( 'folder' ); ?></span>
 					<span class="bn-files__name"><?php echo esc_html( (string) ( $bn_sft_f['name'] ?? '' ) ); ?></span>
 					<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-folder-restore data-bn-id="<?php echo esc_attr( (string) $bn_sft_id ); ?>">
 						<?php buddynext_icon( 'rotate-ccw' ); ?> <?php esc_html_e( 'Restore', 'buddynext' ); ?>

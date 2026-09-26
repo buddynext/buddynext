@@ -3375,6 +3375,17 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	line-height: 1.5;
 }
 
+/* Inline validation message under a modal field (bnPrompt, space modals). */
+.bn-modal__error {
+	margin: var(--bn-s2) 0 0;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-modal__error[hidden] {
+	display: none;
+}
+
 /* Stacked body — even row spacing for modals that lay out a help line + form
 	fields. Use on bodies whose children would otherwise have no row gap (e.g. the
 	report modal, which reuses the profile-edit .bn-ep-field--full grid cell where
