@@ -434,6 +434,26 @@ a.bn-achievements__badge-link:focus-visible {
 	align-items: flex-start;
 }
 
+.bn-gam-kudos__given {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s4);
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+}
+
+.bn-gam-kudos__given svg {
+	flex: none;
+	width: 1.1em;
+	height: 1.1em;
+	color: var(--bn-danger);
+}
+
+.bn-gam-kudos__given .bn-gam-kudos__time {
+	font-weight: var(--bn-fw-normal);
+}
+
 .bn-gam-kudos__form-label {
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
