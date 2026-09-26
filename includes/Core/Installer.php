@@ -1313,7 +1313,7 @@ class Installer {
 	/**
 	 * Set each report's space_id from the object it reports (card 10343966478).
 	 *
-	 * report() stored whatever space_id the client sent, and comment reports sent
+	 * Reports kept whatever space_id the client sent, and comment reports sent
 	 * none, so reports on space content missed the space's moderation queue. Two
 	 * set-based UPDATEs, idempotent: a post takes its own space, a comment its
 	 * post's space.
@@ -1348,8 +1348,10 @@ class Installer {
 	 */
 	private static function purge_error_space_meta( string $prefix ): void {
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		if ( $wpdb->query( "DELETE FROM {$prefix}bn_space_meta WHERE meta_value LIKE 'O:8:\"WP_Error\"%'" ) ) {
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$deleted = $wpdb->query( $wpdb->prepare( "DELETE FROM {$prefix}bn_space_meta WHERE meta_value LIKE %s", 'O:8:"WP_Error"%' ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $deleted ) {
 			wp_cache_flush(); // One-shot; the meta cache still holds the deleted objects.
 		}
 	}
