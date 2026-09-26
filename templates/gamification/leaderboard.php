@@ -183,7 +183,8 @@ $longest_streak = is_array( $user_streak ) ? (int) ( $user_streak['longest_strea
 
 // Build a per-user badge ribbon for the leaderboard rows (top earned badges).
 // Sourced exclusively from the read API — no direct table access.
-$ribbon_by_user = array();
+$ribbon_by_user  = array();
+$ribbon_total_by = array(); // Full earned count, so "+N" is not capped by the slice.
 foreach ( $leaderboard as $row ) {
 	$uid = (int) ( $row['user_id'] ?? 0 );
 	if ( $uid <= 0 ) {
@@ -194,7 +195,8 @@ foreach ( $leaderboard as $row ) {
 		// The ribbon shows the member's LATEST four (owner decision). Sorted here
 		// because wb-gamification 1.6.5 returns ladder order.
 		usort( $badges, static fn( $a, $b ) => strcmp( (string) ( $b['earned_at'] ?? '' ), (string) ( $a['earned_at'] ?? '' ) ) );
-		$ribbon_by_user[ $uid ] = array_slice( $badges, 0, 4 );
+		$ribbon_by_user[ $uid ]  = array_slice( $badges, 0, 4 );
+		$ribbon_total_by[ $uid ] = count( $badges );
 	}
 }
 
@@ -505,6 +507,7 @@ $updated_iso = gmdate( 'c' );
 				$delta         = (int) ( $rank_changes[ $uid ] ?? 0 );
 				$trend         = ( 0 === $delta ) ? 'flat' : ( $delta > 0 ? 'up' : 'down' );
 				$ribbon        = $ribbon_by_user[ $uid ] ?? array();
+				$ribbon_total  = (int) ( $ribbon_total_by[ $uid ] ?? 0 );
 				$initials      = \BuddyNext\Profile\AvatarService::initials_for( $display );
 				?>
 				<li>
@@ -586,7 +589,8 @@ $updated_iso = gmdate( 'c' );
 							<div class="bn-lb-ribbon" aria-label="<?php esc_attr_e( 'Earned badges', 'buddynext' ); ?>">
 								<?php
 								$ribbon_shown = array_slice( $ribbon, 0, 3 );
-								$ribbon_extra = max( 0, count( $ribbon ) - count( $ribbon_shown ) );
+								// From the member's full count: counting the 4-badge slice capped it at +1 (card 10343973232).
+								$ribbon_extra = max( 0, $ribbon_total - count( $ribbon_shown ) );
 								foreach ( $ribbon_shown as $b ) :
 									$bname = isset( $b['name'] ) ? (string) $b['name'] : '';
 									?>
@@ -605,7 +609,7 @@ $updated_iso = gmdate( 'c' );
 									</span>
 								<?php endforeach; ?>
 								<?php if ( $ribbon_extra > 0 ) : ?>
-									<span class="bn-lb-ribbon__more">
+									<span class="bn-lb-ribbon__more" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: number of badges not shown. */ _n( '%d more badge', '%d more badges', $ribbon_extra, 'buddynext' ), $ribbon_extra ) ); ?>">
 										<?php
 										// translators: %d: number of additional badges not shown.
 										echo esc_html( sprintf( __( '+%d', 'buddynext' ), $ribbon_extra ) );

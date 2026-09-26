@@ -68,7 +68,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - A space's Moderation tab keeps Dismiss and Remove on each report and moves the rest into a More menu, with a working View reported item link.
 * Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.
 * Fix      - When a community page is the site's front page, its deeper pages (Leaderboard, Explore, Account status, member profiles) open normally, with their own title and no home-page styling.
-* Fix      - Profile Achievements list badges in ladder order (1-Year, 2-Year, 5-Year, 10-Year), and the leaderboard ribbon shows each member's four latest badges.
+* Fix      - Profile Achievements list badges in ladder order (1-Year, 2-Year, 5-Year, 10-Year), and the leaderboard ribbon shows each member's latest badges with a correct "+N more" count.
 * Improve  - The Kudos tab follows WB Gamification 1.6.5: after you give kudos it shows "You gave X kudos" instead of the form, and the form is not offered when you have hit the daily ceiling.
 * Improve  - Folder controls in Files follow WPMediaVerse's own rules: space owners and moderators manage every folder, and a member can rename or trash the folders they created.
 * New      - The Files Trash shows who trashed each folder, when, how many items it holds and when it will be removed, with a Delete now action for people who can manage it.
