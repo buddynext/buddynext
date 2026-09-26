@@ -72,6 +72,11 @@ class GamificationBridge {
 		// this purpose and nothing was hooking it, so BN was answering a question it
 		// should have been forwarding.
 		add_filter( 'buddynext_user_activity_streak', array( $this, 'canonical_streak' ), 10, 2 );
+		// ...and for the active days behind it: the greeting card's 7-day strip and
+		// "best this month" read this date list. Left unhooked, the number came from
+		// gamification and the strip from BN post dates, so one card disagreed with
+		// itself (card 10343081902).
+		add_filter( 'buddynext_user_active_dates', array( $this, 'canonical_active_dates' ), 10, 3 );
 
 		// BuddyNext is the master community. When wb-gamification can't show a badge
 		// on its own share page (un-earned / un-published), it would redirect to its
@@ -132,12 +137,32 @@ class GamificationBridge {
 	}
 
 	/**
+	 * Source the member's active days from wb-gamification: every site-local day
+	 * with any points in the window. The greeting card's 7-day strip and "best
+	 * this month" are computed from this list, so they agree with the streak
+	 * number canonical_streak() takes from the same engine.
+	 *
+	 * @param mixed $dates   Null (BuddyNext computes) or a date list from another filter.
+	 * @param int   $user_id Member.
+	 * @param int   $window  Lookback in days.
+	 * @return mixed List of 'Y-m-d' dates, or the incoming value when the engine is absent.
+	 */
+	public function canonical_active_dates( $dates, int $user_id, int $window = 30 ) {
+		if ( $user_id <= 0 || ! class_exists( '\\WBGam\\Engine\\StreakEngine' ) ) {
+			return $dates;
+		}
+		// Days with any points in the window, site-local like StreakService's "today".
+		return array_keys( \WBGam\Engine\StreakEngine::get_contribution_data( $user_id, $window ) );
+	}
+
+	/**
 	 * Defer the member's current streak to wb-gamification.
 	 *
 	 * Only the CURRENT streak is mapped. wb-gamification's `longest_streak` is an
 	 * all-time record, which is not what `buddynext_user_activity_best_month_streak`
 	 * asks for (the best run within a month) -- mapping it would trade one wrong
-	 * number for another, so that filter is deliberately left alone.
+	 * number for another, so that filter is deliberately left alone. "Best this
+	 * month" still agrees, because it is computed from canonical_active_dates().
 	 *
 	 * @param int $streak  BuddyNext's inline-computed streak.
 	 * @param int $user_id Member whose streak is being resolved.

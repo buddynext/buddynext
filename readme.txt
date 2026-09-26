@@ -69,6 +69,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.
 * Fix      - When a community page is the site's front page, its deeper pages (Leaderboard, Explore, Account status, member profiles) open normally, with their own title and no home-page styling.
 * Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.
+* Fix      - With WB Gamification active, the sidebar streak card's 7-day strip and best-this-month use the same activity as its streak number.
 * Fix      - A message whose photo was deleted shows "This attachment is no longer available." instead of an empty row.
 * Fix      - A message sent or received while a conversation is open now shows the same time as after a reload, in the site's timezone and time format.
 * Fix      - Moderation queues: open-report counts drop as you act, Warn and Remove from space only show for members they can act on, profile reports offer member actions, and rows show a shared discussion's title.
