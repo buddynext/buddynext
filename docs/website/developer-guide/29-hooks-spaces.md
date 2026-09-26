@@ -234,7 +234,7 @@ buddynext_render_drive_files(
 );
 ```
 
-- It loads its own styles and scripts. Folder, page and search links are query args on your page URL, and a file opens at `?bn_doc={id}`.
+- It loads its own styles and scripts. Folder, page and search links are query args on your page URL, and a file opens at `?bn_doc={id}`. Your page's own query args (for example `?id=5`) are kept on every link and through a search.
 - Access stays MediaVerse's: a viewer who cannot read the drive sees "No files to show". `can_write` can only hide the write controls, never grant them.
 - `buddynext_render_drive_files_args` filters the options per drive: `( array $args, string $drive_type, int $drive_id )`.
 

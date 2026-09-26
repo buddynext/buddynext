@@ -1196,7 +1196,7 @@ function buddynext_drive_folder_strings(): array {
  *                           links are query args on it; a file opens at ?bn_doc={id}.
  * @param int    $doc_id     File to show, or 0 for the list. Pass
  *                           absint( $_GET['bn_doc'] ?? 0 ) to honour file links.
- * @param array  $args       { @type bool $can_write False hides Upload / Link. }
+ * @param array  $args       Options: bool can_write (false hides Upload / Link).
  * @return void
  */
 function buddynext_render_drive_files( string $drive_type, int $drive_id, string $base_url, int $doc_id = 0, array $args = array() ): void {
@@ -1216,7 +1216,6 @@ function buddynext_render_drive_files( string $drive_type, int $drive_id, string
 	$args                    = (array) apply_filters( 'buddynext_render_drive_files_args', $args, $drive_type, $drive_id );
 	$args['doc_query_links'] = true;
 
-	buddynext_service( 'assets' )->enqueue( 'space-files' );
 	( new class() {
 		use \BuddyNext\Nav\Providers\RendersDriveFiles {
 			render_drive_files as public;

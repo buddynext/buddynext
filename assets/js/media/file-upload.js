@@ -325,6 +325,24 @@ function bindLink( box ) {
 			run();
 		}
 	} );
+
+	// The panel is a <details> popover over the file list. Like any dropdown it
+	// closes on Escape (focus back to its toggle) and on a click outside it,
+	// otherwise it sits over the rows and swallows their Rename / Trash clicks.
+	const details = box.closest( 'details' );
+	if ( details ) {
+		details.addEventListener( 'keydown', function ( e ) {
+			if ( 'Escape' === e.key && details.open ) {
+				details.open = false;
+				details.querySelector( 'summary' )?.focus();
+			}
+		} );
+		document.addEventListener( 'click', function ( e ) {
+			if ( details.open && ! details.contains( e.target ) ) {
+				details.open = false;
+			}
+		} );
+	}
 }
 
 /**

@@ -46,6 +46,14 @@ trait RendersDriveFiles {
 	protected function render_drive_files( string $drive_type, int $drive_id, string $base_url, int $doc_id = 0, array $args = array() ): void {
 		$doc_query_links = ! empty( $args['doc_query_links'] );
 
+		// The drive UI needs its reader island AND its uploader/folder module on
+		// every surface it renders on. Loading them here, where every caller
+		// routes through, means an embed can never ship with dead controls.
+		// Idempotent: the tabs also enqueue early so the CSS lands in <head>.
+		$assets = buddynext_service( 'assets' );
+		$assets->enqueue( 'space-files' );
+		$assets->enqueue( 'file-upload' );
+
 		// Single-file view — a real deep-linkable page, not a modal.
 		if ( $doc_id > 0 ) {
 			$this->render_drive_file_single( $drive_type, $drive_id, $doc_id, $base_url );

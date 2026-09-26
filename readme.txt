@@ -76,6 +76,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Community Admin report rows stack on phones, and the row's More menu is no longer cut off by the card or the screen edge.
 * Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
 * Fix      - The drag handle in the Featured spaces picker shows again (its icon was missing).
+* Fix      - The Files tab's Link a file panel closes on Escape or a click outside it, instead of staying open over the file list.
 * Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.

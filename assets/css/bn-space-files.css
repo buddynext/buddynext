@@ -12,6 +12,16 @@
 	--bn-files-row-min: var(--bn-s12);
 }
 
+/* The Files UI also renders outside the .bn-wrap shell (buddynext_render_drive_files()
+ * on any page), where the base reset does not reach. Width caps below assume
+ * padding and border fit inside them, so the drive carries its own reset. */
+.bn-space-files,
+.bn-space-files *,
+.bn-space-files *::before,
+.bn-space-files *::after {
+	box-sizing: border-box;
+}
+
 /* ── Toolbar: search + upload + link on one row ─────────────────────────────
  * Search grows; Upload and Link a file are compact buttons beside it. Wraps to
  * stacked, full-width controls under 640px so nothing is cramped on a phone. */

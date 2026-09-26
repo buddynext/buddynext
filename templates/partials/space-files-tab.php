@@ -249,6 +249,19 @@ if ( $bn_sf_is_space ) {
 	<div class="bn-files__toolbar">
 		<form class="bn-files__search" method="get" action="<?php echo esc_url( $bn_sf_base_url ); ?>" role="search">
 			<label class="screen-reader-text" for="bn-files-q"><?php echo esc_html( $bn_sf_is_space ? __( 'Search files in this space', 'buddynext' ) : __( 'Search your files', 'buddynext' ) ); ?></label>
+			<?php
+			// A GET form drops its action's query string, so carry the host page's
+			// own args (e.g. /circle/?id=5) as hidden fields. The drive's own view
+			// args are left out: a new search starts at page 1 of the whole drive.
+			wp_parse_str( (string) wp_parse_url( $bn_sf_base_url, PHP_URL_QUERY ), $bn_sf_host_args );
+			foreach ( array_diff_key( $bn_sf_host_args, array_flip( array( 'bn_q', 'bn_folder', 'bn_files_page', 'bn_folder_page', 'bn_doc' ) ) ) as $bn_sf_arg => $bn_sf_val ) :
+				if ( is_scalar( $bn_sf_val ) ) :
+					?>
+				<input type="hidden" name="<?php echo esc_attr( $bn_sf_arg ); ?>" value="<?php echo esc_attr( (string) $bn_sf_val ); ?>">
+					<?php
+				endif;
+			endforeach;
+			?>
 			<input type="search" id="bn-files-q" name="bn_q" class="bn-files__search-input" value="<?php echo esc_attr( $bn_sf_search_q ); ?>" placeholder="<?php esc_attr_e( 'Search files…', 'buddynext' ); ?>" autocomplete="off">
 			<button type="submit" class="bn-files__search-btn"><?php esc_html_e( 'Search', 'buddynext' ); ?></button>
 		</form>
