@@ -4,7 +4,7 @@
  *
  * These are not our code and not bugs — they are external symbols PHPStan cannot
  * see: WP-CLI's namespaced helpers (only loaded in a `wp` process) and the
- * optional wb-gamification and Jetonomy plugins (soft integrations we call only
+ * optional wb-gamification, Jetonomy and WPMediaVerse plugins (soft integrations we call only
  * behind a function_exists() guard). Stubbing them here is the correct root fix
  * — never an @phpstan-ignore on the call site, which would also hide a real typo.
  *

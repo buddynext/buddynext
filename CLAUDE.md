@@ -181,7 +181,7 @@ wp_register_ability( 'buddynext-post-in-feed', [ 'label' => 'Post in Feed' ] );
 |-------|-------|
 | `bn_activity_log` | Core |
 | `bn_follows`, `bn_connections`, `bn_blocks` | Social Graph |
-| `bn_posts`, `bn_poll_options`, `bn_poll_votes`, `bn_bookmarks`, `bn_shares` | Activity Feed |
+| `bn_posts`, `bn_post_media`, `bn_poll_options`, `bn_poll_votes`, `bn_bookmarks`, `bn_shares` | Activity Feed |
 | `bn_profile_groups`, `bn_profile_fields`, `bn_profile_values` | Profiles |
 | `bn_member_types`, `bn_member_type_assignments` | Member Types |
 | `bn_presence` | Presence / last-active |

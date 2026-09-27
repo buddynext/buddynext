@@ -125,6 +125,7 @@ class Installer {
 		'bn_poll_options',
 		'bn_poll_votes',
 		'bn_post_hashtags',
+		'bn_post_media',
 		'bn_posts',
 		'bn_presence',
 		'bn_profile_fields',
@@ -438,8 +439,13 @@ class Installer {
 	 *      invalid value and WordPress stored the object; every reader that cast it to
 	 *      string then fataled (card 10335421251). 1.2.1 fixed the write; this removes
 	 *      the rows already written, so no reader needs its own guard.
+	 *  63: bn_post_media (post_id, media_id) indexes bn_posts.media_ids. A media
+	 *      trash / restore / delete used to find its posts with JSON_CONTAINS over
+	 *      every post, a full scan run once per status (card 10344434252). The
+	 *      upgrade backfills it from existing posts; new writes go through
+	 *      PostService::index_media().
 	 */
-	private const SCHEMA_VERSION = 62;
+	private const SCHEMA_VERSION = 63;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -1209,6 +1215,9 @@ class Installer {
 		// from the client, and comment reports never sent one).
 		self::backfill_report_spaces( $wpdb->prefix );
 
+		// v63: index the media every existing post carries.
+		self::backfill_post_media( $wpdb->prefix );
+
 		// v49: plugin isolation now ships OFF. Preserve ON for a site that was
 		// already running the previous default-ON build and had configured it.
 		self::maybe_preserve_isolation_state();
@@ -1234,6 +1243,31 @@ class Installer {
 		if ( false === get_option( self::SCHEMA_FAILURE_OPTION, false ) ) {
 			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 		}
+	}
+
+	/**
+	 * Fill bn_post_media from the posts that already carry media (v63).
+	 *
+	 * Keyset batches of 500 posts, INSERT IGNORE, so it is idempotent and safe
+	 * to re-run after an interrupted upgrade.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function backfill_post_media( string $prefix ): void {
+		global $wpdb;
+		$posts = new \BuddyNext\Feed\PostService();
+		$after = 0;
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- prefix is the site prefix.
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, media_ids FROM {$prefix}bn_posts WHERE id > %d AND media_ids IS NOT NULL ORDER BY id ASC LIMIT 500", $after ), ARRAY_A );
+			$rows = (array) $rows;
+			foreach ( $rows as $row ) {
+				$after = (int) $row['id'];
+				$posts->index_media( $after, (array) json_decode( (string) $row['media_ids'], true ) );
+			}
+			$batch = count( $rows );
+		} while ( 500 === $batch );
 	}
 
 	/**
@@ -4331,6 +4365,16 @@ class Installer {
 				PRIMARY KEY (post_id, object_type, hashtag_id),
 				KEY         hashtag_feed (hashtag_id, created_at),
 				KEY         trending_window (created_at)
+			) {$cs};",
+
+			// Which posts carry which media file: an index of bn_posts.media_ids,
+			// written by PostService::index_media(), so a media trash / restore /
+			// delete finds its posts without scanning every post's JSON.
+			"CREATE TABLE {$p}bn_post_media (
+				post_id BIGINT(20) UNSIGNED NOT NULL,
+				media_id BIGINT(20) UNSIGNED NOT NULL,
+				PRIMARY KEY (post_id, media_id),
+				KEY         media_posts (media_id, post_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_hashtag_follows (

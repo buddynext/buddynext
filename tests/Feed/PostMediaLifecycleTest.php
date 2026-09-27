@@ -36,7 +36,9 @@ class PostMediaLifecycleTest extends \WP_UnitTestCase {
 			$wpdb->prefix . 'bn_posts',
 			array( 'user_id' => $this->author, 'type' => 'photo', 'content' => '', 'status' => $status, 'privacy' => 'public', 'media_ids' => wp_json_encode( $media_ids ) )
 		);
-		return (int) $wpdb->insert_id;
+		$id = (int) $wpdb->insert_id;
+		$this->posts->index_media( $id, $media_ids );
+		return $id;
 	}
 
 	private function status( int $post_id ): string {
@@ -57,6 +59,20 @@ class PostMediaLifecycleTest extends \WP_UnitTestCase {
 		}
 		$this->assertSame( 'published', $this->status( $bridge_post ), 'the withdrawn post comes back' );
 		$this->assertSame( 'draft', $this->status( $member_draft ), "a member's own draft is never published by a restore" );
+	}
+
+	public function test_one_lookup_covers_every_status_and_skips_deleted_posts(): void {
+		global $wpdb;
+		$published = $this->photo_post( array( 921 ) );
+		$pending   = $this->photo_post( array( 921, 922 ), 'pending' );
+		$gone      = $this->photo_post( array( 921 ) );
+		$wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $gone ) );
+
+		$found = $this->posts->ids_with_media( 921, 'published', 'draft', 'pending', 'scheduled', 'under_review' );
+		sort( $found );
+		$this->assertSame( array( $published, $pending ), $found, 'all statuses in one query; a deleted post is not returned' );
+		$this->assertSame( array( $pending ), $this->posts->ids_with_media( 922, 'pending' ) );
+		$this->assertSame( array(), $this->posts->ids_with_media( 921, 'draft' ) );
 	}
 
 	public function test_remove_media_id_keeps_the_others(): void {

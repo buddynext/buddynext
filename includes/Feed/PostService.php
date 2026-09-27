@@ -631,6 +631,7 @@ class PostService {
 		// can resolve a post's media. The bn_posts.media_ids JSON stays the
 		// canonical read for now; this is an additive, best-effort mirror.
 		if ( ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] ) ) {
+			$this->index_media( $post_id, $data['media_ids'] );
 			\BuddyNext\Media\ObjectMediaLink::set(
 				\BuddyNext\Media\ObjectMediaLink::POST,
 				$post_id,
@@ -2326,6 +2327,7 @@ class PostService {
 			$del( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_post_media WHERE post_id IN ({$in})" );
 			$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" ) );
 			$del( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
@@ -2683,32 +2685,58 @@ class PostService {
 	}
 
 	/**
-	 * Posts whose media_ids include a WPMediaVerse media id, in one status.
+	 * The posts carrying a media file, in the given statuses.
 	 *
-	 * For the media bridge: a member's photo post holds media ids, so when a file
-	 * is trashed, restored or deleted in WPMediaVerse the posts showing it must
-	 * follow. ponytail: JSON_CONTAINS cannot use an index; it runs only on a media
-	 * lifecycle event and is scoped by status. Add a post-media join table if media
-	 * lifecycle ever runs in bulk.
+	 * One indexed lookup through bn_post_media, whatever the number of statuses
+	 * (card 10344434252).
 	 *
-	 * @param int    $media_id Media id.
-	 * @param string $status   Post status to match.
+	 * @param int    $media_id    Media id.
+	 * @param string ...$statuses Post statuses to match.
 	 * @return int[] Post ids.
 	 */
-	public function ids_with_media( int $media_id, string $status ): array {
-		if ( $media_id <= 0 || '' === $status ) {
+	public function ids_with_media( int $media_id, string ...$statuses ): array {
+		$statuses = array_values( array_filter( $statuses, static fn( string $status ): bool => '' !== $status ) );
+		if ( $media_id <= 0 || empty( $statuses ) ) {
 			return array();
 		}
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$in = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is a placeholder list.
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE status = %s AND media_ids IS NOT NULL AND JSON_VALID( media_ids ) AND JSON_CONTAINS( media_ids, %s )",
-				$status,
-				(string) wp_json_encode( $media_id )
+				"SELECT p.id FROM {$wpdb->prefix}bn_post_media pm INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = pm.post_id WHERE pm.media_id = %d AND p.status IN ({$in})",
+				array_merge( array( $media_id ), $statuses )
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Record which media a post carries in bn_post_media.
+	 *
+	 * Called wherever bn_posts.media_ids is written: post create, the v63
+	 * backfill, and remove_media_id() through its own delete.
+	 *
+	 * @param int   $post_id   Post id.
+	 * @param int[] $media_ids Media ids the post carries.
+	 * @return void
+	 */
+	public function index_media( int $post_id, array $media_ids ): void {
+		$media_ids = array_values( array_unique( array_filter( array_map( 'absint', $media_ids ) ) ) );
+		if ( $post_id <= 0 || empty( $media_ids ) ) {
+			return;
+		}
+		global $wpdb;
+		$rows = implode( ',', array_fill( 0, count( $media_ids ), '(%d,%d)' ) );
+		$args = array();
+		foreach ( $media_ids as $media_id ) {
+			$args[] = $post_id;
+			$args[] = $media_id;
+		}
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $rows is a (%d,%d) placeholder list.
+		$wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->prefix}bn_post_media (post_id, media_id) VALUES {$rows}", $args ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**
@@ -2735,6 +2763,15 @@ class PostService {
 					'updated_at' => current_time( 'mysql', true ),
 				),
 				array( 'id' => $post_id )
+			);
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_post_media',
+				array(
+					'post_id'  => $post_id,
+					'media_id' => $media_id,
+				),
+				array( '%d', '%d' )
 			);
 			wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 		}

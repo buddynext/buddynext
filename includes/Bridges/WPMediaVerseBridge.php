@@ -704,11 +704,9 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		foreach ( array( 'published', 'draft', 'pending', 'scheduled', 'under_review' ) as $status ) {
-			foreach ( $posts->ids_with_media( $media_id, $status ) as $post_id ) {
-				if ( empty( $posts->remove_media_id( $post_id, $media_id ) ) ) {
-					$posts->delete( $post_id, $posts->get_author_id( $post_id ) );
-				}
+		foreach ( $posts->ids_with_media( $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' ) as $post_id ) {
+			if ( empty( $posts->remove_media_id( $post_id, $media_id ) ) ) {
+				$posts->delete( $post_id, $posts->get_author_id( $post_id ) );
 			}
 		}
 	}
