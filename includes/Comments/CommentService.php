@@ -589,6 +589,46 @@ class CommentService {
 	}
 
 	/**
+	 * Undo delete(): bring a soft-deleted comment back with the given content.
+	 *
+	 * Same id, date, thread position and reactions. Used when the forum reply a
+	 * comment mirrors is restored or approved again. Fires no created hook, so
+	 * nobody is notified a second time.
+	 *
+	 * @param int    $comment_id Soft-deleted comment.
+	 * @param string $content    Content to restore (delete() blanks it).
+	 * @return bool True when the comment was restored.
+	 */
+	public function restore( int $comment_id, string $content ): bool {
+		$comment = $this->get( $comment_id );
+		$content = wp_kses_post( trim( $content ) );
+		if ( null === $comment || empty( $comment['is_deleted'] ) || '' === $content ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_comments',
+			array(
+				'is_deleted' => 0,
+				'content'    => $content,
+				'updated_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $comment_id ),
+			array( '%d', '%s', '%s' ),
+			array( '%d' )
+		);
+
+		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
+		if ( 'post' === $comment['object_type'] ) {
+			buddynext_service( 'post_service' )->increment_counter( (int) $comment['object_id'], 'comment_count' );
+		}
+
+		return true;
+	}
+
+	/**
 	 * Edit a comment's content (spec-named alias for update()).
 	 *
 	 * @param int    $comment_id Comment to edit.

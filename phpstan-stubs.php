@@ -51,4 +51,18 @@ namespace Jetonomy {
 			return '';
 		}
 	}
+
+	if ( ! function_exists( 'Jetonomy\\notification_targets_visible' ) ) {
+		/**
+		 * Stub for Jetonomy's notification visibility rule for mirrored rows.
+		 * JetonomyBridgeListener::filter_visible_rows() checks it exists first.
+		 *
+		 * @param int                                   $viewer_id Recipient.
+		 * @param array<int|string,array<string,mixed>> $targets   Keyed targets.
+		 * @return array<int|string,bool>
+		 */
+		function notification_targets_visible( int $viewer_id, array $targets ): array { // phpcs:ignore
+			return array();
+		}
+	}
 }

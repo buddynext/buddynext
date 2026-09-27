@@ -129,4 +129,57 @@ class JetonomyBridgeListenerTest extends \WP_UnitTestCase {
 			'Jetonomy owns its emails — BN must only collect/display'
 		);
 	}
+
+	public function test_rows_are_namespaced_and_keep_the_jetonomy_subtype(): void {
+		global $wpdb;
+		do_action( 'jetonomy_notification_created', 0, $this->author_id, 'reply_to_post', 'post', 5, 'Replied.', 'http://x/' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT object_type, data FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d", $this->author_id ) );
+		$this->assertSame( 'jt_post', $row->object_type, 'a Jetonomy post id is never read as a BuddyNext post id' );
+		$this->assertSame( 'reply_to_post', json_decode( (string) $row->data, true )['jt_type'] ?? '' );
+	}
+
+	public function test_purge_removes_only_the_forum_rows(): void {
+		global $wpdb;
+		do_action( 'jetonomy_notification_created', 0, $this->author_id, 'reply', 'post', 5, 'Forum.', 'http://x/' );
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $this->author_id,
+				'type'         => 'bn.post_commented',
+				'object_type'  => 'post',
+				'object_id'    => 5,
+			)
+		);
+
+		do_action( 'jetonomy_after_delete_post', 5 );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$types = $wpdb->get_col( $wpdb->prepare( "SELECT type FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d", $this->author_id ) );
+		$this->assertSame( array( 'bn.post_commented' ), $types, 'BuddyNext post 5 keeps its notification; forum topic 5 loses its own' );
+	}
+
+	public function test_bell_asks_jetonomy_who_may_see_a_row(): void {
+		do_action( 'jetonomy_notification_created', 0, $this->author_id, 'reply', 'post', 666, 'Hidden by Jetonomy.', 'http://x/h' );
+		do_action( 'jetonomy_notification_created', 0, $this->author_id, 'reply', 'post', 667, 'Visible.', 'http://x/v' );
+
+		$items = ( new \BuddyNext\Notifications\NotificationService() )->list_for_user( $this->author_id )['items'] ?? array();
+		$ids   = array_map( static fn( $n ) => (int) ( $n['object_id'] ?? 0 ), $items );
+		$this->assertNotContains( 666, $ids, 'Jetonomy hides this target' );
+		$this->assertContains( 667, $ids );
+	}
+}
+
+namespace Jetonomy;
+
+if ( ! function_exists( __NAMESPACE__ . '\\notification_targets_visible' ) ) {
+	/**
+	 * Test double for Jetonomy's visibility rule: target 666 is hidden.
+	 *
+	 * @param int                               $viewer_id Recipient.
+	 * @param array<int|string,array<string,mixed>> $targets Targets.
+	 * @return array<int|string,bool>
+	 */
+	function notification_targets_visible( int $viewer_id, array $targets ): array {
+		return array_map( static fn( $t ) => 666 !== (int) $t['object_id'], $targets );
+	}
 }

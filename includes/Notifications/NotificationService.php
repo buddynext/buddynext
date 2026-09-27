@@ -171,7 +171,7 @@ class NotificationService {
 			}
 		}
 
-		return array_values(
+		$rows = array_values(
 			array_filter(
 				$rows,
 				static function ( $bn_row ): bool {
@@ -186,6 +186,20 @@ class NotificationService {
 				}
 			)
 		);
+
+		/**
+		 * Filter a page of bell rows down to those the recipient may see.
+		 *
+		 * For partner notifications mirrored into the bell: the partner that owns
+		 * the content owns who may see it (a banned author, trashed content, a
+		 * block), so its bridge removes its own rows here. Rows of other types
+		 * must be returned untouched.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param array<int,array<string,mixed>> $rows Raw rows (recipient_id, type, object_type, object_id, sender_id, data).
+		 */
+		return array_values( (array) apply_filters( 'buddynext_notification_visible_rows', $rows ) );
 	}
 
 	/**

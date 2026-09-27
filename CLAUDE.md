@@ -870,9 +870,10 @@ mvs_message_sent( $message_id, $conv_id, $sender_id, $recipient_ids )
 mvs_buddynext_active → return true  // BuddyNext hooks this filter
 mvs_can_send_message → checks bn_blocks
 
-// Jetonomy
-jetonomy_after_create_post( $post_id, ... )
-jetonomy_after_create_reply( $reply_id, ... )
+// Jetonomy - feed card, search row and reply comments follow the publish transitions
+jetonomy_post_publish_transition( $post_id, $delta, $created_at )
+jetonomy_reply_publish_transition( $reply_id, $delta, $created_at )
+jetonomy_notification_created( ... )  // mirrored into the bell as jt.notification
 
 // WBGamification
 wb_gamification_badge_awarded( $user_id, $badge_id )

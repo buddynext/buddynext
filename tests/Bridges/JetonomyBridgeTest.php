@@ -51,6 +51,17 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
 		);
+		$wpdb->query(
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}jt_replies (
+				id BIGINT UNSIGNED NOT NULL,
+				post_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				author_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				content LONGTEXT NULL,
+				content_plain LONGTEXT NULL,
+				status VARCHAR(20) NOT NULL DEFAULT 'publish',
+				PRIMARY KEY (id)
+			) DEFAULT CHARSET=utf8mb4"
+		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		// Plugin class stub is registered in tests/bootstrap.php.
@@ -65,6 +76,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_posts" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_spaces" );
+		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_replies" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		parent::tear_down();
 	}
@@ -104,13 +116,33 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		);
 	}
 
+	/**
+	 * Move a seeded discussion into publish the way Jetonomy does: Post::create()
+	 * and Post::update() fire jetonomy_post_publish_transition( id, +1, created_at ).
+	 */
+	private function publish_jt_post( int $post_id, int $space_id = 0 ): void {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $space_id, 'status' => 'publish' ), array( 'id' => $post_id ) );
+		do_action( 'jetonomy_post_publish_transition', $post_id, 1, '' );
+	}
+
+	/**
+	 * Move a discussion out of publish (trash, unapprove), as Post::update() does.
+	 */
+	private function unpublish_jt_post( int $post_id, string $status = 'trash' ): void {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'status' => $status ), array( 'id' => $post_id ) );
+		do_action( 'jetonomy_post_publish_transition', $post_id, -1, '' );
+	}
+
 	public function test_discussion_indexed_with_correct_author(): void {
 		global $wpdb;
 
 		$this->seed_jt_post( 99, $this->author_id, 'Another Discussion', 'Content body.' );
 
-		// jetonomy_after_create_post fires ($post_id, $space_id) — 2 args only.
-		do_action( 'jetonomy_after_create_post', 99, 0 );
+		$this->publish_jt_post( 99, 0 );
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
@@ -129,7 +161,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$this->seed_jt_post( 20, $this->user_id, 'Test Discussion Title', 'Body content here.' );
 
-		do_action( 'jetonomy_after_create_post', 20, 0 );
+		$this->publish_jt_post( 20, 0 );
 
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -148,7 +180,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 5, 'general' );
 		$this->seed_jt_post( 30, $this->author_id, 'Welcome', 'Body', 'welcome-thread' );
 
-		do_action( 'jetonomy_after_create_post', 30, 5 );
+		$this->publish_jt_post( 30, 5 );
 
 		$expected_url = home_url( '/community' ) . '/s/general/t/welcome-thread/';
 		$activity     = (int) $wpdb->get_var(
@@ -166,7 +198,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// moved to 'draft' so it leaves every feed, and a restore brings the same
 		// card back with its comments (card 10320560928). jt_posts/jt_spaces rows
 		// still present, so the URL still resolves.
-		do_action( 'jetonomy_post_deleted', 30, 5, $this->author_id );
+		$this->unpublish_jt_post( 30 );
 		$still_there = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE link_url = %s", $expected_url )
 		);
@@ -175,6 +207,73 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( 1, $still_there, 'the card row is preserved on a soft delete (withdrawn, not removed)' );
 		$this->assertSame( 0, $published, 'the withdrawn card leaves every feed' );
+	}
+
+	/**
+	 * Approve and Restore go through Moderation_Service, which fires only the
+	 * publish transition (card 10344390418): an approved topic gets its first
+	 * card, and a restored one gets the SAME card back.
+	 *
+	 * @return void
+	 */
+	public function test_approve_creates_and_restore_brings_back_the_same_card(): void {
+		global $wpdb;
+		$this->seed_jt_space( 11, 'approvals' );
+		$this->seed_jt_post( 60, $this->author_id, 'Pending', 'Body', 'pending-thread' );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 11, 'status' => 'pending' ), array( 'id' => 60 ) );
+		$url  = home_url( '/community' ) . '/s/approvals/t/pending-thread/';
+		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, status FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
+
+		$this->assertNull( $card(), 'a pending topic has no card' );
+
+		$this->publish_jt_post( 60, 11 ); // Approve.
+		$first = $card();
+		$this->assertNotNull( $first, 'approving creates the card' );
+		$this->assertSame( 'published', $first->status );
+
+		$this->unpublish_jt_post( 60 ); // Trash.
+		$this->assertSame( 'draft', $card()->status, 'trash withdraws the card' );
+
+		$this->publish_jt_post( 60, 11 ); // Restore.
+		$this->assertSame( (int) $first->id, (int) $card()->id, 'restore brings back the same card' );
+		$this->assertSame( 'published', $card()->status );
+	}
+
+	/**
+	 * A forum reply's comment on the card follows the reply in and out of publish,
+	 * and a restore brings back the same comment (card 10344390418). The mirror
+	 * never notifies: Jetonomy sends the one notification (card 10344414409).
+	 *
+	 * @return void
+	 */
+	public function test_reply_mirror_follows_publish_state_and_never_notifies(): void {
+		global $wpdb;
+		$this->seed_jt_space( 12, 'replies' );
+		$this->seed_jt_post( 70, $this->author_id, 'Thread', 'Body', 'reply-thread' );
+		$this->publish_jt_post( 70, 12 );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_replies',
+			array( 'id' => 700, 'post_id' => 70, 'author_id' => $this->user_id, 'content' => '<p>A forum reply</p>', 'content_plain' => 'A forum reply' ),
+			array( '%d', '%d', '%d', '%s', '%s' )
+		);
+		$comment = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT id, is_deleted, content FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d", 700 ) );
+		$bell    = fn() => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'bn.post_commented'", $this->author_id ) );
+
+		do_action( 'jetonomy_reply_publish_transition', 700, 1, '2026-09-01 10:00:00' );
+		$first = $comment();
+		$this->assertNotNull( $first, 'a published reply is mirrored onto the card' );
+		$this->assertSame( 0, $bell(), 'the mirrored comment does not notify the card owner' );
+
+		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'status' => 'trash' ), array( 'id' => 700 ) );
+		do_action( 'jetonomy_reply_publish_transition', 700, -1, '' );
+		$this->assertSame( 1, (int) $comment()->is_deleted, 'a trashed reply loses its comment' );
+
+		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'status' => 'publish' ), array( 'id' => 700 ) );
+		do_action( 'jetonomy_reply_publish_transition', 700, 1, '' );
+		$this->assertSame( (int) $first->id, (int) $comment()->id, 'restore brings back the same comment' );
+		$this->assertSame( 0, (int) $comment()->is_deleted );
+		$this->assertSame( 'A forum reply', (string) $comment()->content, 'the comment carries the plain text, never the reply HTML' );
+		$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d", 700 ) ), 'no second comment' );
 	}
 
 	/**
@@ -191,7 +290,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$this->seed_jt_space( 7, 'purge' );
 		$this->seed_jt_post( 40, $this->author_id, 'Doomed', 'Body', 'doomed-thread' );
-		do_action( 'jetonomy_after_create_post', 40, 7 );
+		$this->publish_jt_post( 40, 7 );
 
 		$card_id = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.post_id' ) ) AS UNSIGNED ) = %d", 40 )
@@ -234,8 +333,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$this->seed_jt_space( 9, 'forum' );
 		$this->seed_jt_post( 50, $this->author_id, 'Old', 'Body', 'old-thread' );
-		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 9 ), array( 'id' => 50 ) );
-		do_action( 'jetonomy_after_create_post', 50, 9 );
+		$this->publish_jt_post( 50, 9 );
 
 		$url  = home_url( '/community' ) . '/s/forum/t/old-thread/';
 		$card = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT status, link_meta FROM {$wpdb->prefix}bn_posts WHERE type = 'discussion' AND link_url = %s", $url ) );
@@ -264,7 +362,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->seed_jt_space( 6, 'team' );
 		$this->seed_jt_post( 31, $this->author_id, 'Quiet', 'Body', 'quiet-thread' );
 
-		do_action( 'jetonomy_after_create_post', 31, 6 );
+		$this->publish_jt_post( 31, 6 );
 
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'link'", $this->author_id )
@@ -339,9 +437,9 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$this->seed_jt_post( 101, $this->user_id, 'Dupe Test', 'Body.' );
 
-		// Indexing the same object_id twice should not duplicate rows (INSERT IGNORE).
-		do_action( 'jetonomy_after_create_post', 101, 0 );
-		do_action( 'jetonomy_after_create_post', 101, 0 );
+		// Syncing the same discussion twice must not duplicate rows.
+		$this->publish_jt_post( 101, 0 );
+		$this->publish_jt_post( 101, 0 );
 
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(

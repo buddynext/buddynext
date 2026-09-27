@@ -101,23 +101,28 @@ Routes Jetonomy forum events into BuddyNext search, the activity feed, the navig
 
 | Hook | Type | Fired when | Bridge handler |
 |---|---|---|---|
-| `jetonomy_after_create_post` | action (2 args: `$post_id`, `$space_id`) | A discussion is created | `on_post_created` |
-| `jetonomy_post_deleted` | action (3 args) | A discussion is soft-deleted | `on_post_deleted` |
-| `jetonomy_after_create_reply` | action (2 args) | A reply is posted | `notify_discussion_reply` |
+| `jetonomy_post_publish_transition` | action (`$post_id`, `$delta`, `$created_at`) | A discussion enters or leaves `publish`: create, approve, restore, trash, scheduled publish, purge | `sync_discussion` |
+| `jetonomy_post_updated` | action (`$post_id`, `$space_id`, `$user_id`) | A discussion is edited | `sync_discussion` |
+| `jetonomy_after_create_post` | action (`$post_id`, `$space_id`) | A discussion is created | `on_post_created` (cache refresh + `buddynext_jetonomy_post_indexed`) |
+| `jetonomy_after_delete_post` | action (`$post_id`) | A discussion is purged | `on_post_hard_deleted` |
+| `jetonomy_reply_publish_transition` | action (`$reply_id`, `$delta`, `$created_at`) | A reply enters or leaves `publish` | `sync_reply_mirror` |
+| `jetonomy_reply_updated` | action (`$reply_id`, ...) | A reply is edited | `sync_reply_edit_to_feed` |
 
-On create, the bridge reads the discussion row from `{prefix}jt_posts` (Jetonomy fires the hook with IDs only), indexes it into `bn_search_index` as `object_type = 'discussion'`, parses `@username` mentions (firing `buddynext_user_mentioned`), and - for a published, non-private topic in a `public` space - publishes a `discussion` activity into the feed via `Feed\IntegrationActivity`. The discussion URL is rebuilt from the `jt_posts` / `jt_spaces` slugs as `{base}/s/{space}/t/{post}/`.
+`sync_discussion()` reads the discussion as it is now, so every path gives the same answer. A published topic is indexed into `bn_search_index` as `object_type = 'discussion'` (visibility `public`, or `private` for a private topic). A published topic in a public forum gets a `discussion` feed card via `Feed\IntegrationActivity`: a withdrawn card is restored with its date, reactions and comments, an existing card is refreshed, and a topic with no card (for example one just approved) gets its first. Anything not published loses its search row and its card is withdrawn (hidden, not deleted), so a restore brings the same card back. A purge removes the card and its comments. The discussion URL is rebuilt from the `jt_posts` / `jt_spaces` slugs as `{base}/s/{space}/t/{post}/`.
+
+A reply's comment on the card follows the reply the same way: a new or approved reply is copied onto the card (as Jetonomy's plain-text copy, dated when the reply was written), a trashed or unapproved reply's comment is removed, and a restore brings back the same comment. Edits sync both ways.
 
 > **Note:** The privacy gate is strict. A private/secret space or a private topic never produces a public feed activity - only the search index entry, which respects its own visibility.
 
-### Feed sync option
+### Feed control
 
-| Option key | Type | Default | Used by |
-|---|---|---|---|
-| `buddynext_jetonomy_feed_sync` | string (`'1'` / `'0'`) | `'1'` (on) | `JetonomyBridge::on_post_created` |
-
-Feed sync is on by default whenever Jetonomy is active (the bridge only loads then). The owner can flip it off under Integrations -> Jetonomy Feed Sync; when off, discussions are still indexed for search but no feed activity is published. Per-discussion control is also available through the `buddynext_jetonomy_discussion_activity` filter (return `false` to skip a specific post).
+Discussion cards follow the Integrations toggle (`buddynext_integration_enabled( 'jetonomy', 'feed' )`, on by default). When it is off, discussions are still indexed for search but no feed card is published. Per-discussion control is available through the `buddynext_jetonomy_discussion_activity` filter (return `false` to skip a specific post).
 
 A discussion card is checked as it renders, through the `buddynext_discussion_card_url` filter (`string $url, array $link_meta`). The bridge keeps the link only while the discussion exists and is public. Otherwise the card shows "This discussion is no longer available." and is withdrawn from every feed, and it is restored in place if the discussion is republished. This covers deletes and forum visibility changes that fire no hook. Return `''` from the filter to mark a card unavailable yourself.
+
+### Profile hand-over
+
+BuddyNext owns the member profile. Opening Jetonomy's own profile directly (`{base}/u/{name}/`) redirects (301) to the BuddyNext profile; its `activity`, `replies` and `votes` pages go to the profile too, `posts` goes to the profile's Discussions tab, and `edit` goes to the BuddyNext profile editor. The owner-only `bookmarks` and `drafts` pages and Jetonomy's `badges` page stay on Jetonomy.
 
 ### Outbound (what it provides)
 
@@ -148,8 +153,6 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/spaces/42/forum" \
 
 When BuddyNext messaging is available, the bridge filters `option_jetonomy_pro_extensions` at read time to drop Jetonomy Pro's `private-messaging` extension, so BuddyNext owns the `/messages/` route. Nothing is persisted (the filter only changes the value front-end at read time) and it reverts automatically if BN messaging is disabled. The setting is left untouched in wp-admin so the Jetonomy extensions screen still reflects and saves the real value.
 
-> **Note:** A docblock at the top of `JetonomyBridge` references suppressing Jetonomy's own community nav via `jetonomy_show_community_nav -> false`. The current code does **not** register that filter - per the owner rule that BuddyNext must not touch Jetonomy's own pages. The link *into* discussions lives on BuddyNext's own rail instead. Treat the manifest/docblock mention as stale; the live behavior is no suppression.
-
 ## JetonomyBridgeListener
 
 Mirrors every Jetonomy notification (replies, mentions, accepted answers, join requests, votes) into BuddyNext's central notification center, so a member sees forum activity at `/notifications/` alongside everything else.
@@ -163,9 +166,14 @@ do_action( 'jetonomy_notification_created', int $notification_id, int $user_id,
 
 The listener subscribes with `acceptedArgs = 7` but defaults `$message` and `$url` so older five-argument firings cannot trigger an `ArgumentCountError`. Each event is mirrored into a single BuddyNext notification type, `jt.notification`, with `group_key = jt_{subtype}_{object_id}` for dedup. The stored `message` and `url` are rendered straight through the three Free notification seams (`buddynext_notification_message`, `buddynext_notification_url`, `buddynext_notification_meta`), so there is no per-type copy to maintain.
 
-Two cross-cutting rules:
+Rows are stored with a namespaced `object_type` (`jt_post`, `jt_reply`, `jt_user`, ...), because a Jetonomy post id is not a BuddyNext post id, and the Jetonomy subtype is kept in the row data as `jt_type`.
 
+Cross-cutting rules:
+
+- **One notification per action.** A member's action notifies once, from the plugin it happened in. A forum reply is Jetonomy's notification (mirrored here); the comment BuddyNext copies onto the discussion card never notifies, and neither do @mentions in a forum topic. BuddyNext mutes its own notifications while the bridge writes a mirror (`buddynext_notification_should_send`).
 - **Blocks honored.** If the actor is resolvable from the object (`jt_replies` / `jt_posts` author) and either party has blocked the other (`bn_blocks`), the notification is suppressed.
+- **Jetonomy decides visibility.** Each page of the bell passes through `buddynext_notification_visible_rows`; the listener removes the forum rows Jetonomy would not show the recipient (banned author, trashed content) by asking `\Jetonomy\notification_targets_visible()`. Until Jetonomy provides that function every row is kept.
+- **Purge cleans up.** A purged topic or reply (`jetonomy_after_delete_post` / `jetonomy_after_delete_reply`) deletes its bell rows.
 - **Collect-only / no double email.** The prefs-catalogue entry registers `can_email = false`. Jetonomy owns its own emails; BuddyNext only displays the mirror and never emails it.
 
 ## WPMediaVerseBridge

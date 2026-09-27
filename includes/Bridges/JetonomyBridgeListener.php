@@ -52,6 +52,14 @@ class JetonomyBridgeListener implements ListenerInterface {
 
 		add_action( 'jetonomy_notification_created', array( $this, 'on_notification' ), 10, 7 );
 
+		// Jetonomy decides who may see its notifications (banned author, trashed
+		// content, blocks); the bell asks it per page (card 10344414409).
+		add_filter( 'buddynext_notification_visible_rows', array( $this, 'filter_visible_rows' ) );
+
+		// A purged topic or reply takes its bell rows with it, as it does in Jetonomy.
+		add_action( 'jetonomy_after_delete_post', array( $this, 'on_post_purged' ), 10, 1 );
+		add_action( 'jetonomy_after_delete_reply', array( $this, 'on_reply_purged' ), 10, 1 );
+
 		// Render the mirrored type straight from its stored message/url.
 		add_filter( 'buddynext_notification_message', array( $this, 'filter_message' ), 10, 5 );
 		add_filter( 'buddynext_notification_url', array( $this, 'filter_url' ), 10, 5 );
@@ -114,7 +122,9 @@ class JetonomyBridgeListener implements ListenerInterface {
 				'recipient_id' => $user_id,
 				'sender_id'    => $actor_id > 0 ? $actor_id : null,
 				'type'         => self::TYPE,
-				'object_type'  => '' !== $object_type ? $object_type : 'jetonomy',
+				// Namespaced: a Jetonomy post id is not a BuddyNext post id, and the
+				// bell's shared object checks and deletes key on (object_type, object_id).
+				'object_type'  => self::bell_object_type( $object_type ),
 				'object_id'    => $object_id,
 				// Dedupe re-fired events (keep the Jetonomy subtype so distinct
 				// events on the same object never collapse).
@@ -122,9 +132,83 @@ class JetonomyBridgeListener implements ListenerInterface {
 				'data'         => array(
 					'message' => $message,
 					'url'     => $url,
+					'jt_type' => $slug,
 				),
 			)
 		);
+	}
+
+	/**
+	 * Remove mirrored rows Jetonomy would not show this recipient.
+	 *
+	 * Asks Jetonomy's own rule (\Jetonomy\notification_targets_visible()) for the
+	 * page's jt.notification rows; other rows pass through. Until Jetonomy ships
+	 * that helper every row is kept.
+	 *
+	 * @param array<int,array<string,mixed>> $rows Raw bell rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function filter_visible_rows( array $rows ): array {
+		if ( empty( $rows ) || ! function_exists( '\\Jetonomy\\notification_targets_visible' ) ) {
+			return $rows;
+		}
+
+		$targets = array();
+		foreach ( $rows as $i => $row ) {
+			if ( ! $this->is_jetonomy( (string) ( $row['type'] ?? '' ) ) ) {
+				continue;
+			}
+			$data          = is_array( $row['data'] ?? null ) ? $row['data'] : (array) json_decode( (string) ( $row['data'] ?? '' ), true );
+			$targets[ $i ] = array(
+				'type'        => (string) ( $data['jt_type'] ?? '' ),
+				'object_type' => (string) preg_replace( '/^jt_/', '', (string) ( $row['object_type'] ?? '' ) ),
+				'object_id'   => (int) ( $row['object_id'] ?? 0 ),
+				'actor_id'    => (int) ( $row['sender_id'] ?? 0 ),
+			);
+		}
+		if ( empty( $targets ) ) {
+			return $rows;
+		}
+
+		$first   = reset( $rows );
+		$visible = (array) \Jetonomy\notification_targets_visible( (int) ( $first['recipient_id'] ?? 0 ), $targets );
+		foreach ( array_keys( $targets ) as $i ) {
+			if ( array_key_exists( $i, $visible ) && ! $visible[ $i ] ) {
+				unset( $rows[ $i ] );
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	 * Delete the bell rows of a purged Jetonomy topic.
+	 *
+	 * @param int $post_id Purged jt_posts id.
+	 * @return void
+	 */
+	public function on_post_purged( int $post_id ): void {
+		buddynext_service( 'notifications' )->delete_for_object( self::bell_object_type( 'post' ), $post_id );
+	}
+
+	/**
+	 * Delete the bell rows of a purged Jetonomy reply.
+	 *
+	 * @param int $reply_id Purged jt_replies id.
+	 * @return void
+	 */
+	public function on_reply_purged( int $reply_id ): void {
+		buddynext_service( 'notifications' )->delete_for_object( self::bell_object_type( 'reply' ), $reply_id );
+	}
+
+	/**
+	 * The bell's object_type for a Jetonomy object: 'jt_post', 'jt_reply', …
+	 *
+	 * @param string $object_type Jetonomy object type ('post', 'reply', 'user', 'space', '').
+	 * @return string
+	 */
+	private static function bell_object_type( string $object_type ): string {
+		$object_type = sanitize_key( $object_type );
+		return '' !== $object_type ? 'jt_' . $object_type : 'jetonomy';
 	}
 
 	/**

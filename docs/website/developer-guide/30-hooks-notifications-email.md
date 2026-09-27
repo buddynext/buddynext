@@ -36,6 +36,7 @@ Key contract rules:
 | `buddynext_transactional_notification_types` | filter | Resolving which notification types are **transactional**, meaning they bypass the member's email preferences entirely and always send. The core set is `email_verify` and `welcome`. Add a type here only when the member genuinely cannot opt out of it - the case this was opened for is Pro's upcoming-renewal notice, where EU and California auto-renewal rules require advance notice before a card is charged. The returned array is cast to strings, de-duplicated and emptied of blanks. | `string[] $types` |
 | `buddynext_notification_created` | action | After a notification row is inserted or merged into an unread group | `int $notification_id, int $recipient_id, array $data` |
 | `buddynext_notification_ungroupable_types` | filter | Resolving which notification types must never collapse into a grouped row | `string[] $types` |
+| `buddynext_notification_visible_rows` | filter | Reading a page of a member's notifications, after rows whose object is gone are dropped | `array[] $rows` |
 
 Details:
 
@@ -48,6 +49,16 @@ Details:
   add_filter( 'buddynext_notification_ungroupable_types', function ( array $types ): array {
       $types[] = 'my_plugin_approval_request'; // each one needs its own decision
       return $types;
+  } );
+  ```
+
+- `buddynext_notification_visible_rows` receives the raw rows of one page (each has `recipient_id`, `type`, `object_type`, `object_id`, `sender_id` and the JSON `data`). It is for a plugin whose notifications are mirrored into the bell: that plugin owns who may see its content, so it removes its own rows the recipient should not see (a banned author, trashed content). Return every other row untouched. It filters the list only; unread counts are not recalculated.
+
+  ```php
+  add_filter( 'buddynext_notification_visible_rows', function ( array $rows ): array {
+      return array_filter( $rows, function ( array $row ): bool {
+          return 'my_plugin.notice' !== $row['type'] || my_plugin_can_see( (int) $row['recipient_id'], (int) $row['object_id'] );
+      } );
   } );
   ```
 
