@@ -52,6 +52,10 @@ The numbers that shape kudos - the daily points limit and the points each side e
 
 > **Tip:** The per-receiver window (one hour) and the spam ceiling (50 a day) are developer-level values, not admin screen fields. Change them with the `wb_gam_kudos_per_receiver_cooldown_seconds` and `wb_gam_kudos_daily_ceiling` filters in WB Gamification.
 
+### Turning kudos off
+
+Kudos follows WB Gamification's own switch (**Settings > Modules > Kudos**). Turn it off and the Kudos tab disappears from every profile, the give form and the app's give route stop, and a member with no points or badges no longer gets an Achievements tab that would have opened on Kudos. Turn it back on and everything returns, including the kudos already received.
+
 ### Moderating kudos
 
 Kudos is member-authored content, so it can be misused - a member being pestered with unwanted kudos, or two members trading kudos back and forth to inflate their points. WB Gamification's own admin screens let a moderator review the kudos log, filter it by giver, receiver, or date, and revoke a specific kudos. Revoking reverses the points it awarded on both sides and keeps a record of the action for the audit trail; it does not delete the underlying row.

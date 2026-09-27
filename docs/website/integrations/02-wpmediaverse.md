@@ -30,6 +30,8 @@ With the companion active, members can attach photos and other media to their ac
 
 As of BuddyNext 1.0.1, a standalone upload made directly in WPMediaVerse also posts a shared-media card to the activity feed. It is deferred by a couple of minutes and de-duplicated, so a photo added through the BuddyNext composer never posts twice.
 
+Feed posts follow their photos. Trash a photo in WPMediaVerse and a post with nothing left to show leaves the feed; restore it and the same post comes back with its reactions and comments; delete it permanently and the post is removed rather than left empty. A post with several photos keeps the ones that remain.
+
 ### Reporting media, and blocking an uploader
 
 The media viewer (the full-screen lightbox a member gets when they click a photo or video) carries two safety controls alongside Favorite, Share, and Download:

@@ -89,6 +89,7 @@ WB Gamification publishes a hub page that hosts the leaderboard and badge views.
 - **Self-reactions do not earn points.** Reacting to your own content awards nothing, so members cannot farm points by reacting to themselves.
 - **The owner controls the numbers.** The point values above are BuddyNext's defaults. Every value, cap, cooldown, badge, and level threshold is editable in WB Gamification, so your community's economy is yours to balance.
 - **Nothing to back-fill.** Points accrue from the moment the companion is active. Actions taken before install are not retroactively scored.
+- **Profile privacy covers standing too.** Who can see a member's points, badges, rank and kudos follows their BuddyNext profile privacy (including blocks, followers-only and connections-only), everywhere: the Achievements tabs, the leaderboard (a hidden member keeps their rank and points but shows no badges), and WB Gamification's own blocks and API. WB Gamification's own public-profile switch is replaced by a note saying the community plugin decides.
 - **A read-only achievements endpoint exists for the app.** `GET /buddynext/v1/users/{id}/achievements` returns the same badges and standing tiles the Achievements tab renders, gated by the same profile-visibility rules a viewer would hit on the tab itself (a blocked or private viewer gets an empty result, not an error).
 
 ## Free vs Pro
