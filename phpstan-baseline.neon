@@ -78,30 +78,6 @@ parameters:
 			path: includes/Profile/FieldType.php
 
 		-
-			message: '#^Call to static method get_all_badges_for_user\(\) on an unknown class WBGam\\Engine\\BadgeEngine\.$#'
-			identifier: class.notFound
-			count: 1
-			path: includes/Profile/GamificationAchievements.php
-
-		-
-			message: '#^Call to static method get_share_url\(\) on an unknown class WBGam\\Engine\\BadgeSharePage\.$#'
-			identifier: class.notFound
-			count: 2
-			path: includes/Profile/GamificationAchievements.php
-
-		-
-			message: '#^Call to static method get_user_rank\(\) on an unknown class WBGam\\Engine\\LeaderboardEngine\.$#'
-			identifier: class.notFound
-			count: 1
-			path: includes/Profile/GamificationAchievements.php
-
-		-
-			message: '#^Call to static method get_history\(\) on an unknown class WBGam\\Engine\\PointsEngine\.$#'
-			identifier: class.notFound
-			count: 1
-			path: includes/Profile/GamificationPoints.php
-
-		-
 			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
 			identifier: argument.type
 			count: 1

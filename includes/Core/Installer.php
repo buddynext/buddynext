@@ -3196,18 +3196,6 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
 			),
 			array(
-				'type'         => 'bn.badge_awarded',
-				'subject'      => 'You earned a badge on {{site_name}}',
-				'preview_text' => 'Congratulations on your new badge',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{action_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
-				'type'         => 'bn.level_up',
-				'subject'      => 'You levelled up on {{site_name}}',
-				'preview_text' => 'Your community level increased',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{action_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
 				'type'         => 'bn.strike_warning',
 				'subject'      => 'Your {{site_name}} account has received multiple strikes',
 				'preview_text' => 'You have received multiple moderation strikes',

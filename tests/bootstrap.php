@@ -212,6 +212,23 @@ if ( ! function_exists( 'wb_gam_get_user_streak' ) ) {
 		);
 	}
 }
+if ( ! function_exists( 'wb_gam_get_user_rank' ) ) {
+	/**
+	 * Stub: a member's rank, from the $GLOBALS['wb_gam_test'] store.
+	 *
+	 * @param int    $user_id    User.
+	 * @param string $period     Period.
+	 * @param string $point_type Point type.
+	 * @return array
+	 */
+	function wb_gam_get_user_rank( int $user_id, string $period = 'all', string $point_type = '' ): array {
+		return array(
+			'rank'           => (int) ( $GLOBALS['wb_gam_test']['rank'][ $user_id ] ?? 0 ),
+			'points'         => 0,
+			'points_to_next' => null,
+		);
+	}
+}
 // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 
 // Career Board stubs removed — CareerBoardBridge moved to BuddyNext Pro.

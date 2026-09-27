@@ -108,12 +108,26 @@ final class Dates {
 	 * @return string ISO-8601 UTC ('...Z'), or '' when empty/zero/invalid.
 	 */
 	public static function iso8601( string $mysql_utc ): string {
+		$ts = self::utc_timestamp( $mysql_utc );
+		return 0 === $ts ? '' : gmdate( 'Y-m-d\TH:i:s\Z', $ts );
+	}
+
+	/**
+	 * Unix timestamp of a stored UTC "Y-m-d H:i:s" value.
+	 *
+	 * A bare strtotime() reads the string in the server's timezone, so on a
+	 * non-UTC server every relative time ("3 hours ago") is off by the offset.
+	 *
+	 * @param string $mysql_utc UTC datetime as stored (no timezone marker).
+	 * @return int Timestamp, or 0 when empty/zero/invalid.
+	 */
+	public static function utc_timestamp( string $mysql_utc ): int {
 		$mysql_utc = trim( $mysql_utc );
 		if ( '' === $mysql_utc || 0 === strpos( $mysql_utc, '0000-00-00' ) ) {
-			return '';
+			return 0;
 		}
 		$ts = strtotime( $mysql_utc . ' UTC' );
-		return false === $ts ? '' : gmdate( 'Y-m-d\TH:i:s\Z', $ts );
+		return false === $ts ? 0 : (int) $ts;
 	}
 
 	/**

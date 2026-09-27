@@ -9,10 +9,11 @@
  *   via Feed\IntegrationActivity; filter buddynext_jetonomy_discussion_activity)
  * - Discussion deleted → removes the search entry + the feed activity
  * - Reply / mention / accepted-answer notifications are mirrored for display only by
- *   JetonomyBridgeListener (from jetonomy_notification_created); Jetonomy owns the row
- *   text and the email, so BN never creates a second row or emails on its behalf
- * - Unified nav: BuddyNext subnav injected on all Jetonomy pages (jetonomy_before_content);
- *   Jetonomy's own community nav suppressed (jetonomy_show_community_nav → false)
+ *   JetonomyBridgeListener (from jetonomy_notification_created) as a display-only
+ *   bn_notifications row; Jetonomy owns the text and the email, so BN never emails
+ *   on its behalf
+ * - Nav: a Discussions rail item (buddynext_rail_items) and a discussion context nav
+ *   (buddynext_context_nav)
  * - Space Discussions tab (linked or on-demand forum) + profile Discussions count
  *
  * @package BuddyNext\Bridges

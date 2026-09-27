@@ -32,7 +32,7 @@ class GamificationKudos {
 	 * @return void
 	 */
 	public function register(): void {
-		if ( ! is_callable( array( '\WBGam\Engine\KudosEngine', 'send' ) ) ) {
+		if ( ! function_exists( 'wb_gam_send_kudos' ) ) {
 			return;
 		}
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
@@ -50,8 +50,7 @@ class GamificationKudos {
 	 * @return bool
 	 */
 	public static function enabled(): bool {
-		return ! is_callable( array( '\\WBGam\\Engine\\ModuleToggles', 'enabled' ) )
-			|| \WBGam\Engine\ModuleToggles::enabled( 'kudos' );
+		return ! function_exists( 'wb_gam_is_module_enabled' ) || wb_gam_is_module_enabled( 'kudos' );
 	}
 
 	/**
@@ -75,8 +74,8 @@ class GamificationKudos {
 				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string =>
 					trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . self::TAB_SLUG . '/',
 				'count'     => static fn( \BuddyNext\Nav\NavContext $c ): int =>
-					is_callable( array( '\WBGam\Engine\KudosEngine', 'get_received_count' ) )
-						? (int) \WBGam\Engine\KudosEngine::get_received_count( $c->subject_id )
+					function_exists( 'wb_gam_get_kudos_received_count' )
+						? (int) wb_gam_get_kudos_received_count( $c->subject_id )
 						: 0,
 				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
 					$this->render_panel( $c->subject_id );
@@ -102,7 +101,7 @@ class GamificationKudos {
 		// wb-gamification 1.6.5+ never refuses appreciation; the one refusal left is
 		// its spam ceiling. When that applies the form cannot succeed, so it is not
 		// offered at all - no dead form, no notice (card 10343809008).
-		if ( $can_give && is_callable( array( '\WBGam\Engine\KudosEngine', 'can_send' ) ) && ! \WBGam\Engine\KudosEngine::can_send( $viewer ) ) {
+		if ( $can_give && function_exists( 'wb_gam_can_send_kudos' ) && ! wb_gam_can_send_kudos( $viewer ) ) {
 			$can_give = false;
 		}
 
@@ -142,17 +141,17 @@ class GamificationKudos {
 	 * @return int Timestamp; -1 when recent but not in the latest received rows; 0 when none.
 	 */
 	private function recent_kudos_time( int $viewer, int $member_id ): int {
-		if ( ! is_callable( array( '\WBGam\Engine\KudosEngine', 'has_recent_kudos_to_receiver' ) ) ) {
+		if ( ! function_exists( 'wb_gam_has_recent_kudos' ) ) {
 			return 0;
 		}
 		$window = (int) apply_filters( 'wb_gam_kudos_per_receiver_cooldown_seconds', HOUR_IN_SECONDS, $viewer, $member_id );
-		if ( $window <= 0 || ! \WBGam\Engine\KudosEngine::has_recent_kudos_to_receiver( $viewer, $member_id, $window ) ) {
+		if ( $window <= 0 || ! wb_gam_has_recent_kudos( $viewer, $member_id, $window ) ) {
 			return 0;
 		}
-		$rows = is_callable( array( '\WBGam\Engine\KudosEngine', 'get_received' ) ) ? (array) \WBGam\Engine\KudosEngine::get_received( $member_id, 20 ) : array();
+		$rows = function_exists( 'wb_gam_get_kudos_received' ) ? (array) wb_gam_get_kudos_received( $member_id, 20 ) : array();
 		foreach ( $rows as $row ) {
 			if ( (int) ( $row['giver_id'] ?? 0 ) === $viewer && ! empty( $row['created_at'] ) ) {
-				return max( 1, (int) strtotime( (string) $row['created_at'] ) );
+				return max( 1, \BuddyNext\Core\Dates::utc_timestamp( (string) $row['created_at'] ) );
 			}
 		}
 		return -1;
@@ -225,8 +224,8 @@ class GamificationKudos {
 	 * @return void
 	 */
 	private function render_received( int $member_id, bool $is_self ): void {
-		$rows = is_callable( array( '\WBGam\Engine\KudosEngine', 'get_received' ) )
-			? \WBGam\Engine\KudosEngine::get_received( $member_id, 20 )
+		$rows = function_exists( 'wb_gam_get_kudos_received' )
+			? wb_gam_get_kudos_received( $member_id, 20 )
 			: array();
 
 		echo '<div class="bn-card bn-gam-points__panel">';
@@ -252,7 +251,7 @@ class GamificationKudos {
 			$giver_id   = (int) ( $row['giver_id'] ?? 0 );
 			$giver_name = (string) ( $row['giver_name'] ?? __( 'Someone', 'buddynext' ) );
 			$message    = isset( $row['message'] ) ? (string) $row['message'] : '';
-			$when       = ! empty( $row['created_at'] ) ? (int) strtotime( (string) $row['created_at'] ) : 0;
+			$when       = ! empty( $row['created_at'] ) ? \BuddyNext\Core\Dates::utc_timestamp( (string) $row['created_at'] ) : 0;
 
 			echo '<li class="bn-gam-kudos__item">';
 			echo '<img class="bn-gam-kudos__avatar" src="' . esc_url( get_avatar_url( $giver_id, array( 'size' => 72 ) ) ) . '" alt="" loading="lazy" width="36" height="36" />';
@@ -378,7 +377,7 @@ class GamificationKudos {
 			return new \WP_Error( 'invalid_receiver', __( 'You cannot send kudos to that member.', 'buddynext' ) );
 		}
 
-		$result = \WBGam\Engine\KudosEngine::send( $giver, $receiver, $message );
+		$result = wb_gam_send_kudos( $giver, $receiver, $message );
 		return is_wp_error( $result ) ? $result : true;
 	}
 

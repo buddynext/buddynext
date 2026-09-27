@@ -214,30 +214,3 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'Rank', $this->render() );
 	}
 }
-
-namespace WBGam\Engine;
-
-if ( ! class_exists( 'WBGam\\Engine\\LeaderboardEngine' ) ) {
-	/**
-	 * Test stub for WB Gamification's leaderboard engine — the plugin is not
-	 * loaded in the BN harness. Reads rank from the $GLOBALS['wb_gam_test'] store.
-	 */
-	class LeaderboardEngine {
-		/**
-		 * @param int    $user_id    User.
-		 * @param string $period     Period.
-		 * @param string $scope_type Scope type.
-		 * @param int    $scope_id   Scope id.
-		 * @param string $point_type Point type.
-		 * @return array<string,mixed>
-		 */
-		public static function get_user_rank( int $user_id, string $period = 'all', string $scope_type = '', int $scope_id = 0, string $point_type = '' ): array {
-			$rank = (int) ( $GLOBALS['wb_gam_test']['rank'][ $user_id ] ?? 0 );
-			return array(
-				'rank'           => $rank,
-				'points'         => 0,
-				'points_to_next' => null,
-			);
-		}
-	}
-}

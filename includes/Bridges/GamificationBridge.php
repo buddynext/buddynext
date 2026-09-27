@@ -34,12 +34,8 @@ class GamificationBridge {
 	public static function points_label(): string {
 		static $label = null;
 		if ( null === $label ) {
-			$label = '';
-			if ( class_exists( '\\WBGam\\Services\\PointTypeService' ) ) {
-				$types  = new \WBGam\Services\PointTypeService();
-				$record = $types->get( $types->default_slug() );
-				$label  = is_array( $record ) ? trim( (string) ( $record['label'] ?? '' ) ) : '';
-			}
+			// WB Gamification's public helper (1.6.5+), never its internal classes.
+			$label = function_exists( 'wb_gam_get_point_type_label' ) ? trim( wb_gam_get_point_type_label() ) : '';
 			if ( '' === $label ) {
 				$label = __( 'Points', 'buddynext' );
 			}
@@ -115,6 +111,14 @@ class GamificationBridge {
 		// the bridge fills it.
 		add_filter( 'wb_gam_profile_redirect_url', array( $this, 'profile_redirect_url' ), 10, 2 );
 
+		// Every member name WB Gamification links (leaderboard, kudos feed, badge
+		// share page) goes to the BuddyNext profile too (card 10344441205).
+		add_filter( 'wb_gam_member_url', array( $this, 'profile_redirect_url' ), 10, 2 );
+
+		// WB Gamification owns category labels; BuddyNext only renames the
+		// core-actions category, since "WordPress" means nothing to a member.
+		add_filter( 'wb_gam_category_label', array( $this, 'category_label' ), 10, 2 );
+
 		// On a BuddyNext site the member's BuddyNext profile privacy decides who sees
 		// their points, badges, rank and kudos, everywhere wb-gamification shows them
 		// (blocks, REST, leaderboard). Hooking this also tells wb-gamification to stop
@@ -164,6 +168,47 @@ class GamificationBridge {
 			return false;
 		}
 		return $privacy->can_view_profile( $viewer_id, $member_id );
+	}
+
+	/**
+	 * Whether the owner handed the community leaderboard to Jetonomy
+	 * (WB Gamification > Settings > Appearance > Community Leaderboard).
+	 *
+	 * Then BuddyNext shows no leaderboard of its own: no rail item, no menu
+	 * entry, and /activity/leaderboard/ goes to Jetonomy's board, so members
+	 * never see two competing rankings (card 10344451935).
+	 *
+	 * @return bool
+	 */
+	public static function leaderboard_deferred(): bool {
+		return '' !== self::deferred_leaderboard_url();
+	}
+
+	/**
+	 * Jetonomy's leaderboard URL when the leaderboard is handed to Jetonomy,
+	 * otherwise an empty string.
+	 *
+	 * @return string
+	 */
+	public static function deferred_leaderboard_url(): string {
+		if ( ! function_exists( 'wb_gam_leaderboard_deferred_to_jetonomy' )
+			|| ! function_exists( '\\Jetonomy\\route_url' )
+			|| ! wb_gam_leaderboard_deferred_to_jetonomy()
+		) {
+			return '';
+		}
+		return (string) \Jetonomy\route_url( 'leaderboard' );
+	}
+
+	/**
+	 * Rename WB Gamification's core-actions category for members.
+	 *
+	 * @param string $label Label from WB Gamification.
+	 * @param string $slug  Category slug.
+	 * @return string
+	 */
+	public function category_label( $label, $slug ): string {
+		return 'wordpress' === strtolower( (string) $slug ) ? __( 'Getting started', 'buddynext' ) : (string) $label; // phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- the engine's category slug.
 	}
 
 	/**
@@ -222,11 +267,11 @@ class GamificationBridge {
 	 * @return mixed List of 'Y-m-d' dates, or the incoming value when the engine is absent.
 	 */
 	public function canonical_active_dates( $dates, int $user_id, int $window = 30 ) {
-		if ( $user_id <= 0 || ! class_exists( '\\WBGam\\Engine\\StreakEngine' ) ) {
+		if ( $user_id <= 0 || ! function_exists( 'wb_gam_get_contribution_data' ) ) {
 			return $dates;
 		}
 		// Days with any points in the window, site-local like StreakService's "today".
-		return array_keys( \WBGam\Engine\StreakEngine::get_contribution_data( $user_id, $window ) );
+		return array_keys( wb_gam_get_contribution_data( $user_id, $window ) );
 	}
 
 	/**

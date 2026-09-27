@@ -112,8 +112,8 @@ class GamificationAchievements {
 		// Badge share/verify pages live under WB Gamification's own rewrite base
 		// (independent of the hub page slug). Derive it from the canonical builder
 		// so it tracks the plugin, then trim to the leading segment as a prefix.
-		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
-			$share = (string) \WBGam\Engine\BadgeSharePage::get_share_url( '_', 0 );
+		if ( function_exists( 'wb_gam_get_badge_share_url' ) ) {
+			$share = (string) wb_gam_get_badge_share_url( '_', 0 );
 			$spath = (string) wp_parse_url( $share, PHP_URL_PATH );
 			$seg   = explode( '/', trim( $spath, '/' ) );
 			if ( ! empty( $seg[0] ) ) {
@@ -161,7 +161,7 @@ class GamificationAchievements {
 	 * @return array<int, array<string,mixed>>
 	 */
 	public function inject_leaderboard_nav_item( array $items ): array {
-		if ( ! buddynext_integration_enabled( 'gamification', 'nav' ) ) {
+		if ( ! buddynext_integration_enabled( 'gamification', 'nav' ) || \BuddyNext\Bridges\GamificationBridge::leaderboard_deferred() ) {
 			return $items;
 		}
 
@@ -363,7 +363,7 @@ class GamificationAchievements {
 	 *               is_credential, category, earned (bool), earned_at.
 	 */
 	private function all_badges( int $member_id ): array {
-		if ( ! is_callable( array( '\WBGam\Engine\BadgeEngine', 'get_all_badges_for_user' ) ) ) {
+		if ( ! function_exists( 'wb_gam_get_all_badges_for_user' ) ) {
 			// Engine catalogue unavailable — degrade to earned-only, flagged earned.
 			return array_map(
 				static function ( array $badge ): array {
@@ -374,7 +374,7 @@ class GamificationAchievements {
 			);
 		}
 
-		$all = \WBGam\Engine\BadgeEngine::get_all_badges_for_user( $member_id );
+		$all = wb_gam_get_all_badges_for_user( $member_id );
 		if ( ! is_array( $all ) ) {
 			return array();
 		}
@@ -624,8 +624,8 @@ class GamificationAchievements {
 		// One query for the published set rather than one per tile.
 		$viewer        = get_current_user_id();
 		$sees_all      = $viewer > 0 && ( $viewer === $member_id || user_can( $viewer, 'manage_options' ) );
-		$can_check     = is_callable( array( '\WBGam\Engine\BadgeShare', 'shared_badges' ) );
-		$published_ids = ( ! $sees_all && $can_check ) ? array_flip( \WBGam\Engine\BadgeShare::shared_badges( $member_id ) ) : array();
+		$can_check     = function_exists( 'wb_gam_get_shared_badges' );
+		$published_ids = ( ! $sees_all && $can_check ) ? array_flip( wb_gam_get_shared_badges( $member_id ) ) : array();
 
 		echo '<ul class="bn-achievements__grid" role="list">';
 		foreach ( $all as $badge ) {
@@ -635,7 +635,7 @@ class GamificationAchievements {
 			$desc      = isset( $badge['description'] ) ? (string) $badge['description'] : '';
 			$image     = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
 			$is_cr     = ! empty( $badge['is_credential'] );
-			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? date_i18n( $date_format, (int) strtotime( (string) $badge['earned_at'] ) ) : '';
+			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? get_date_from_gmt( (string) $badge['earned_at'], $date_format ) : '';
 			// Only earned badges the viewer can open get a link; the rest are static.
 			$can_open = $is_earned && '' !== $id && ( $sees_all || ! $can_check || isset( $published_ids[ $id ] ) );
 			$url      = $can_open ? $this->badge_share_url( $id, $member_id ) : '';
@@ -702,11 +702,11 @@ class GamificationAchievements {
 			return $ranks[ $member_id ];
 		}
 
-		if ( ! is_callable( array( '\WBGam\Engine\LeaderboardEngine', 'get_user_rank' ) ) ) {
+		if ( ! function_exists( 'wb_gam_get_user_rank' ) ) {
 			$ranks[ $member_id ] = 0;
 			return 0;
 		}
-		$data                = \WBGam\Engine\LeaderboardEngine::get_user_rank( $member_id, 'all' );
+		$data                = wb_gam_get_user_rank( $member_id, 'all' );
 		$ranks[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
 
 		return $ranks[ $member_id ];
@@ -728,7 +728,7 @@ class GamificationAchievements {
 	/**
 	 * Public share URL for a badge.
 	 *
-	 * Defers to WB Gamification's canonical `\WBGam\Engine\BadgeSharePage::get_share_url()`
+	 * Defers to WB Gamification's public `wb_gam_get_badge_share_url()`
 	 * so the link can never drift from the plugin's own share-page rewrite. The
 	 * hand-built fallback (`gamification/badge/{id}/{uid}/share/`) only runs on an
 	 * older WB Gamification that predates the helper.
@@ -738,8 +738,8 @@ class GamificationAchievements {
 	 * @return string
 	 */
 	private function badge_share_url( string $badge_id, int $user_id ): string {
-		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
-			return (string) \WBGam\Engine\BadgeSharePage::get_share_url( $badge_id, $user_id );
+		if ( function_exists( 'wb_gam_get_badge_share_url' ) ) {
+			return (string) wb_gam_get_badge_share_url( $badge_id, $user_id );
 		}
 		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' ); // bn-route-ok: wb-gam's fixed share rewrite, fallback only.
 	}

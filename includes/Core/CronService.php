@@ -552,12 +552,27 @@ class CronService {
 			return array();
 		}
 
-		return array_map(
-			static fn( array $r ) => array(
-				'type'        => (string) $r['type'],
-				'group_count' => (int) $r['group_count'],
-			),
-			$rows
+		// Only types BuddyNext may email. A partner plugin sends its own emails
+		// (badge and level-up belong to WB Gamification), so a notification that
+		// is collect-only for email never reaches a digest either (card
+		// 10344441224). A digest left with nothing is skipped by the callers.
+		// Built once per digest: the catalogue is filterable and not cheap per row.
+		$emailable = array();
+		foreach ( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all() as $type => $entry ) {
+			if ( ! empty( $entry['can_email'] ) ) {
+				$emailable[ (string) $type ] = true;
+			}
+		}
+		$rows = array_filter( $rows, static fn( array $r ): bool => isset( $emailable[ (string) $r['type'] ] ) );
+
+		return array_values(
+			array_map(
+				static fn( array $r ) => array(
+					'type'        => (string) $r['type'],
+					'group_count' => (int) $r['group_count'],
+				),
+				$rows
+			)
 		);
 	}
 
@@ -641,8 +656,6 @@ class CronService {
 			'bn.space_request_approved'   => 'Your space join request was approved',
 			'bn.space_ownership_received' => 'You became the owner of a space',
 			'bn.strike_issued'            => 'A moderation action was taken on your account',
-			'bn.badge_awarded'            => 'You earned a new badge',
-			'bn.level_up'                 => 'You reached a new community level',
 		);
 
 		$items = '';

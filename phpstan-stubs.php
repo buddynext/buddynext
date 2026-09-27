@@ -4,8 +4,8 @@
  *
  * These are not our code and not bugs — they are external symbols PHPStan cannot
  * see: WP-CLI's namespaced helpers (only loaded in a `wp` process) and the
- * optional wb-gamification plugin (a soft integration we call only behind an
- * is_callable()/class_exists() guard). Stubbing them here is the correct root fix
+ * optional wb-gamification and Jetonomy plugins (soft integrations we call only
+ * behind a function_exists() guard). Stubbing them here is the correct root fix
  * — never an @phpstan-ignore on the call site, which would also hide a real typo.
  *
  * Loaded via phpstan.neon `bootstrapFiles`. Braced namespaces because this file
@@ -27,69 +27,28 @@ namespace WP_CLI\Utils {
 	}
 }
 
-namespace WBGam\Engine {
-	if ( ! class_exists( 'WBGam\\Engine\\BadgeShare' ) ) {
+namespace {
+	if ( ! function_exists( 'wb_gam_send_kudos' ) ) {
 		/**
-		 * Stub for the optional wb-gamification badge-share engine. BuddyNext calls
-		 * it only behind is_callable( [ '\WBGam\Engine\BadgeShare', 'shared_badges' ] ).
+		 * Stub for the wb-gamification public helper. GamificationKudos::register()
+		 * wires the send path only when the real function exists.
+		 *
+		 * @return true|\WP_Error
 		 */
-		class BadgeShare {
-			/**
-			 * @param int $user_id Member whose shared badges to return.
-			 * @return array<int,int> Post ids of the member's publicly shared badges.
-			 */
-			public static function shared_badges( $user_id ) { // phpcs:ignore
-				return array();
-			}
+		function wb_gam_send_kudos( int $giver_id, int $receiver_id, string $message = '' ) { // phpcs:ignore
+			return true;
 		}
 	}
+}
 
-	if ( ! class_exists( 'WBGam\\Engine\\KudosEngine' ) ) {
+namespace Jetonomy {
+	if ( ! function_exists( 'Jetonomy\\route_url' ) ) {
 		/**
-		 * Stub for the optional wb-gamification kudos engine (signatures from 1.6.5).
-		 * Every call site is behind an is_callable() guard.
+		 * Stub for Jetonomy's route helper. BuddyNext calls it only after
+		 * GamificationBridge::leaderboard_deferred(), which checks it exists.
 		 */
-		class KudosEngine {
-			public static function send( int $giver_id, int $receiver_id, string $message = '' ): bool|\WP_Error { // phpcs:ignore
-				return true;
-			}
-			public static function can_send( int $giver_id ): bool { // phpcs:ignore
-				return true;
-			}
-			public static function has_recent_kudos_to_receiver( int $giver_id, int $receiver_id, int $cooldown_seconds ): bool { // phpcs:ignore
-				return false;
-			}
-			public static function get_received_count( int $user_id ): int { // phpcs:ignore
-				return 0;
-			}
-			/**
-			 * @return array<int,array<string,mixed>>
-			 */
-			public static function get_received( int $user_id, int $limit = 20 ): array { // phpcs:ignore
-				return array();
-			}
-		}
-	}
-
-	if ( ! class_exists( 'WBGam\\Engine\\ModuleToggles' ) ) {
-		/**
-		 * Stub for the wb-gamification module switches (Settings > Modules).
-		 */
-		class ModuleToggles {
-			public static function enabled( string $slug ): bool { // phpcs:ignore
-				return true;
-			}
-		}
-	}
-
-	if ( ! class_exists( 'WBGam\\Engine\\Registry' ) ) {
-		/**
-		 * Stub for the wb-gamification action registry (1.6.5 category labels).
-		 */
-		class Registry {
-			public static function category_label( string $slug ): string { // phpcs:ignore
-				return $slug;
-			}
+		function route_url( string $route, ...$args ): string { // phpcs:ignore
+			return '';
 		}
 	}
 }

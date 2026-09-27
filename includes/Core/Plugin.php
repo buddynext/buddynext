@@ -902,11 +902,14 @@ class Plugin {
 				'title' => __( 'Search', 'buddynext' ),
 				'url'   => PageRouter::search_url(),
 			),
-			array(
+		);
+		// No Leaderboard entry when the owner handed the leaderboard to Jetonomy.
+		if ( ! \BuddyNext\Bridges\GamificationBridge::leaderboard_deferred() ) {
+			$pages[] = array(
 				'title' => __( 'Leaderboard', 'buddynext' ),
 				'url'   => PageRouter::leaderboard_url(),
-			),
-		);
+			);
+		}
 		// Offer Messages only while messaging is on, so a new menu item is never a dead end.
 		if ( \BuddyNext\Messages\MessagesData::entry_enabled() ) {
 			array_splice(

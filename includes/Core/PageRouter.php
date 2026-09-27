@@ -724,6 +724,16 @@ class PageRouter {
 		// DONOTCACHEPAGE above still keeps member pages out of the cache.
 		add_filter( 'rocket_disable_url_validation', '__return_true' );
 
+		// The owner handed the leaderboard to Jetonomy: send the BuddyNext route
+		// to Jetonomy's board rather than showing a second ranking.
+		if ( 'feed' === $hub && 'leaderboard' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+			$jetonomy_board = \BuddyNext\Bridges\GamificationBridge::deferred_leaderboard_url();
+			if ( '' !== $jetonomy_board ) {
+				wp_safe_redirect( $jetonomy_board, 302 );
+				exit;
+			}
+		}
+
 		// ── Space visibility gate ─────────────────────────────────────────
 		// A hidden (secret) space must answer with a REAL 404 status header, not a
 		// 200 carrying a not-found body. The gate used to live inside

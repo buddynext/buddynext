@@ -159,8 +159,8 @@ if ( $current_user_id ) {
 		}
 	}
 
-	if ( 0 === $current_user_rank && is_callable( array( '\WBGam\Engine\LeaderboardEngine', 'get_user_rank' ) ) ) {
-		$rank_data = \WBGam\Engine\LeaderboardEngine::get_user_rank( $current_user_id, $api_period );
+	if ( 0 === $current_user_rank && function_exists( 'wb_gam_get_user_rank' ) ) {
+		$rank_data = wb_gam_get_user_rank( $current_user_id, $api_period );
 		if ( is_array( $rank_data ) && isset( $rank_data['rank'] ) && $current_user_pts > 0 ) {
 			$current_user_rank = (int) $rank_data['rank'];
 			$bn_self_pts       = (int) ( $rank_data['points'] ?? 0 );
@@ -229,8 +229,8 @@ if ( function_exists( 'wb_gam_get_user_level' ) ) {
 
 // Next level (null = the member is already at the top level).
 $bn_next_level = null;
-if ( is_callable( array( '\WBGam\Engine\LevelEngine', 'get_next_level' ) ) ) {
-	$bn_nl         = \WBGam\Engine\LevelEngine::get_next_level( $current_user_id );
+if ( function_exists( 'wb_gam_get_next_level' ) ) {
+	$bn_nl         = wb_gam_get_next_level( $current_user_id );
 	$bn_next_level = is_array( $bn_nl ) ? $bn_nl : null;
 }
 $next_level_name = $bn_next_level ? (string) ( $bn_next_level['name'] ?? '' ) : '';
