@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Page-cache compatibility check for BuddyNext. Usage: ./check.sh <cache>
-#   cache: none | wp-super-cache | w3-total-cache | litespeed-cache
+#   cache: none | wp-super-cache | w3-total-cache | wp-rocket | litespeed-cache
+#   (wp-rocket is commercial: drop your licensed wp-rocket.zip into zips/ and re-run ./setup.sh)
 #   (litespeed-cache runs on the OpenLiteSpeed site: `docker compose --profile litespeed up -d`, then ./setup.sh litespeed)
 # Each cache is switched on in its WORST case for a community: caching
 # logged-in visitors too. Exit 1 on any FAIL.
 set -uo pipefail
 cd "$(dirname "$0")"
-CACHE="${1:?usage: ./check.sh <none|wp-super-cache|w3-total-cache|litespeed-cache>}"
+CACHE="${1:?usage: ./check.sh <none|wp-super-cache|w3-total-cache|wp-rocket|litespeed-cache>}"
 if [ "$CACHE" = litespeed-cache ]; then
 	CLI=cli-ols; WEB=ols; DOCROOT=/var/www/vhosts/localhost/html
 	BASE="http://127.0.0.1:${BN_CACHE_OLS_PORT:-8092}"
@@ -24,9 +25,11 @@ fail() { printf '  FAIL  %s\n' "$1"; FAILS=$((FAILS + 1)); }
 cache_off() {
 	# Optimisers too: each run starts from a clean site (JS optimisation is
 	# checked separately in a browser, see README).
-	wp plugin deactivate wp-super-cache w3-total-cache litespeed-cache autoptimize >/dev/null 2>&1
+	wp plugin deactivate wp-super-cache w3-total-cache wp-rocket litespeed-cache autoptimize >/dev/null 2>&1
 	wp config set WP_CACHE false --raw >/dev/null 2>&1
 	docker compose exec -T "$WEB" sh -c "rm -rf $DOCROOT/wp-content/advanced-cache.php $DOCROOT/wp-content/cache/*" >/dev/null 2>&1
+	# WP Rocket writes into these on the next request; recreate them empty.
+	docker compose exec -T "$CLI" sh -c "mkdir -p /var/www/html/wp-content/cache/wp-rocket /var/www/html/wp-content/cache/busting" >/dev/null 2>&1
 }
 
 cache_on() {
@@ -47,6 +50,14 @@ cache_on() {
 		wp config set WP_CACHE true --raw >/dev/null
 		wp w3-total-cache fix_environment >/dev/null
 		;;
+	wp-rocket)
+		wp plugin is-installed wp-rocket 2>/dev/null || { echo "wp-rocket not installed: put wp-rocket.zip in zips/ and re-run ./setup.sh" >&2; exit 2; }
+		wp plugin activate wp-rocket >/dev/null 2>&1
+		wp config set WP_CACHE true --raw >/dev/null
+		# Defaults come from WP Rocket's own installer (admin-only file), then
+		# "Enable caching for logged-in WordPress users" on.
+		wp eval 'require_once WP_ROCKET_PATH . "inc/admin/upgrader.php"; if ( ! get_option( WP_ROCKET_SLUG ) ) { rocket_first_install(); } $o = get_option( WP_ROCKET_SLUG ); $o["cache_logged_user"] = 1; update_option( WP_ROCKET_SLUG, $o ); rocket_generate_config_file(); rocket_generate_advanced_cache_file(); flush_rocket_htaccess();' >/dev/null
+		;;
 	litespeed-cache)
 		wp plugin activate litespeed-cache >/dev/null 2>&1
 		# Public cache on, and "Cache Logged-in Users" (private cache) on.
@@ -60,7 +71,12 @@ cache_on() {
 }
 
 purge() {
-	docker compose exec -T "$WEB" sh -c "rm -rf $DOCROOT/wp-content/cache/*" >/dev/null 2>&1
+	if [ "$CACHE" = wp-rocket ]; then
+		# WP Rocket needs its own cache folders to exist; clear through its API.
+		wp eval 'rocket_clean_domain();' >/dev/null 2>&1
+	else
+		docker compose exec -T "$WEB" sh -c "rm -rf $DOCROOT/wp-content/cache/*" >/dev/null 2>&1
+	fi
 	# LiteSpeed's cache lives in the server, and `wp litespeed-purge` cannot
 	# reach it from the CLI container, so clear the store directly.
 	[ "$CACHE" = litespeed-cache ] && docker compose exec -T ols sh -c 'rm -rf /usr/local/lsws/cachedata/*' >/dev/null 2>&1
@@ -107,9 +123,10 @@ for path in /activity/ /activity/explore/ /members/ /members/admin/ /spaces/ /no
 done
 
 # 3. Guests still get cached public pages (a page cache must keep working),
-#    and never a cached login page (it carries per-request tokens).
+#    including hub sub-routes (explore, leaderboard, a profile), and never a
+#    cached login page (it carries per-request tokens).
 purge
-for path in /activity/explore/ /spaces/ /login/; do
+for path in /spaces/ /activity/explore/ /activity/leaderboard/ /members/admin/ /login/; do
 	# Warm first: some caches (LiteSpeed with JS/CSS combine on) store a page
 	# only once its optimised assets exist, not on the very first request.
 	curl -s "$BASE$path" >/dev/null; sleep 1

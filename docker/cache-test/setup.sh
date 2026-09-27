@@ -49,6 +49,11 @@ wp plugin activate buddynext >/dev/null 2>&1
 for p in redis-cache wp-super-cache w3-total-cache litespeed-cache autoptimize; do
 	wp plugin is-installed "$p" 2>/dev/null || wp plugin install "/zips/$p.zip" >/dev/null
 done
+# WP Rocket is commercial and never downloaded or committed: installed only
+# when a licensed zip has been placed in zips/ by hand.
+if [ -s zips/wp-rocket.zip ] && ! wp plugin is-installed wp-rocket 2>/dev/null; then
+	wp plugin install /zips/wp-rocket.zip >/dev/null
+fi
 wp plugin activate redis-cache >/dev/null 2>&1
 wp redis enable >/dev/null 2>&1 || true
 

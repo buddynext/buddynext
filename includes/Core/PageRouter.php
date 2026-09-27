@@ -706,14 +706,23 @@ class PageRouter {
 		// onboarding wizard's reload from cache, so Next after Interests bounced
 		// back to step 1 (card 10344282503). Guest views of public hubs stay
 		// cacheable, which is where a page cache earns its keep. Proven against
-		// WP Super Cache, W3 Total Cache and LiteSpeed Cache (all honour
-		// DONOTCACHEPAGE alone) by docker/cache-test/check.sh.
+		// WP Super Cache, W3 Total Cache, WP Rocket and LiteSpeed Cache (all
+		// honour DONOTCACHEPAGE alone) by docker/cache-test/check.sh.
 		if ( 'auth' === $hub || is_user_logged_in() ) {
 			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 				define( 'DONOTCACHEPAGE', true ); // Honoured by WP Rocket, W3TC, WP Super Cache, LiteSpeed, Batcache.
 			}
 			nocache_headers(); // Cache-Control: no-store … — reverse proxies (Varnish, Cloudflare) and browsers.
 		}
+
+		// Every route of a hub reports its mapped page as the queried object (see
+		// align_hub_page_conditionals()), so /activity/explore/ or /members/alice/
+		// never equals get_permalink() of that page. WP Rocket reads that mismatch
+		// as a junk URL and neither caches nor optimises the page, so guests never
+		// got a cached profile, post or sub-route. These are BuddyNext's own
+		// routes, valid by construction: skip the check for this request only.
+		// DONOTCACHEPAGE above still keeps member pages out of the cache.
+		add_filter( 'rocket_disable_url_validation', '__return_true' );
 
 		// ── Space visibility gate ─────────────────────────────────────────
 		// A hidden (secret) space must answer with a REAL 404 status header, not a
