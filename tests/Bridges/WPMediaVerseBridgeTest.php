@@ -205,6 +205,41 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $after, 'the card is withdrawn with its source' );
 	}
 
+	/**
+	 * A composer document card is withdrawn with its trashed document and comes
+	 * back, the same card, when the document is restored.
+	 *
+	 * @return void
+	 */
+	public function test_document_card_follows_trash_and_restore(): void {
+		global $wpdb;
+		\BuddyNext\Feed\IntegrationActivity::publish( $this->sender_id, 'shared a file', home_url( '/files/q3-report/' ), 'Q3', 'document', '', 0, array( 'doc_id' => 77 ) );
+		$card   = ( new \BuddyNext\Feed\PostService() )->get_id_by_link( 'document', home_url( '/files/q3-report/' ) );
+		$status = static fn() => (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $card ) );
+		$this->assertSame( 'published', $status() );
+
+		$this->bridge->on_media_trashed( 77, $this->sender_id, '' );
+		$this->assertSame( 'draft', $status(), 'a trashed document withdraws its card' );
+
+		$this->bridge->on_media_restored( 77, 0, '' );
+		$this->assertSame( 'published', $status(), 'restore brings back the same card' );
+	}
+
+	/**
+	 * WPMediaVerse skips the notifications BuddyNext sends itself, and keeps its
+	 * own reactions and mentions.
+	 *
+	 * @return void
+	 */
+	public function test_mediaverse_skips_notifications_buddynext_sends(): void {
+		foreach ( array( 'new_follower', 'media_comment', 'media_favorite', 'new_message' ) as $type ) {
+			$this->assertFalse( $this->bridge->skip_duplicate_mvs_notification( true, 1, $type ), $type );
+		}
+		foreach ( array( 'media_reaction', 'media_mention' ) as $type ) {
+			$this->assertTrue( $this->bridge->skip_duplicate_mvs_notification( true, 1, $type ), $type );
+		}
+	}
+
 	public function test_media_delete_without_permalink_is_a_noop(): void {
 		// A legacy 2-arg dispatch (no permalink) must not throw or wipe anything.
 		$this->bridge->on_media_deleted( 55, $this->sender_id, '' );

@@ -2619,24 +2619,18 @@ class PostService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$moved = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'status'     => $to,
-				'updated_at' => current_time( 'mysql', true ),
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s AND status = %s",
+				$type,
+				$link_url,
+				$from
 			),
-			array(
-				'type'     => $type,
-				'link_url' => $link_url,
-				'status'   => $from,
-			),
-			array( '%s', '%s' ),
-			array( '%s', '%s', '%s' )
+			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_int( $moved ) ? $moved : 0;
+		return $this->move_status( (array) $rows, $from, $to );
 	}
 
 	/**
@@ -2664,22 +2658,63 @@ class PostService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$moved = $wpdb->query(
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = %s, updated_at = UTC_TIMESTAMP()
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
 				 WHERE type = %s AND status = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
 				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
-				$to,
 				$type,
 				$from,
 				'$.' . $meta_key,
 				$value
-			)
+			),
+			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $this->move_status( (array) $rows, $from, $to );
+	}
+
+	/**
+	 * Move the given cards from one status to another and tell every reader.
+	 *
+	 * Shared by the two transitions above. The update is guarded on $from again, so
+	 * a card a moderator moved in between is left alone. Each moved card's cached
+	 * row is dropped and its space's feed is told it changed, as a delete does;
+	 * without that a withdrawn or restored card kept its old status for the cache's
+	 * life.
+	 *
+	 * @param array<int,array{id:string|int,space_id:string|int|null}> $rows Cards to move.
+	 * @param string                                                   $from Status they must still be in.
+	 * @param string                                                   $to   Status to move them to.
+	 * @return int Rows moved.
+	 */
+	private function move_status( array $rows, string $from, string $to ): int {
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], $rows ) ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+		$moved = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET status = %s, updated_at = UTC_TIMESTAMP() WHERE id IN ({$in}) AND status = %s", $to, $from ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$spaces = array();
+		foreach ( $rows as $row ) {
+			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
+			if ( ! empty( $row['space_id'] ) ) {
+				$spaces[ (int) $row['space_id'] ] = true;
+			}
+		}
+		foreach ( array_keys( $spaces ) as $space_id ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $space_id );
+		}
 
 		return is_int( $moved ) ? $moved : 0;
 	}

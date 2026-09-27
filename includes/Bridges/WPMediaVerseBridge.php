@@ -74,25 +74,14 @@ class WPMediaVerseBridge {
 	/**
 	 * Attach the DM safety gates.
 	 *
-	 * Registered independently of the Platform → Features toggle, and of this
+	 * Registered independently of the Platform > Features toggle and of this
 	 * bridge's display half, because BuddyNext's DM surface does not depend on
-	 * either. `MessagesData::available()` asks `MediaClient`, which resolves the
-	 * engine's own container directly — so `/messages/`, the shell-nav item and
-	 * the messages store stay live whenever the engine is present and
-	 * the 'messages' capability is on, regardless of this bridge.
-	 *
-	 * Gating these three filters on the Features toggle therefore did not disable
-	 * DM; it disabled only the checks on it. Turning the integration off left
-	 * BuddyNext serving its own DM UI while `bn_blocks` and the recipient's
-	 * DM-privacy preference silently stopped applying — a member who had blocked
-	 * someone still received their messages, and the Block control went on
-	 * promising otherwise.
-	 *
-	 * The owner keeps both switches that mean something: Features → WPMediaVerse
-	 * still controls the integration's display, and Settings → General → Direct
-	 * Messaging (the 'messages' capability) still turns DM off outright. What an owner
-	 * cannot do is leave DM on while its safety gates are off, because that is not
-	 * a preference — it is the Block button lying.
+	 * either: `MessagesData::available()` resolves the engine directly, so
+	 * `/messages/` stays live whenever the engine is present and WPMediaVerse's
+	 * Messages switch is on. Gating these filters on the Features toggle would
+	 * leave BuddyNext serving DM while `bn_blocks` and auto-moderation stopped
+	 * applying - the Block button lying. "Who can message you" is WPMediaVerse's
+	 * own rule and needs nothing from here.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges, before init().
 	 */
@@ -101,7 +90,7 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
+		// Gate DMs on bn_blocks.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
 
 		// Run DM text through auto-moderation (banned words + Pro rules) so a member
@@ -245,6 +234,15 @@ class WPMediaVerseBridge {
 		// feed. Gated inside on the 'media' integration/feed toggle.
 		add_filter( 'buddynext_render_post_body_document', array( $this, 'render_document_card' ), 10, 2 );
 
+		// One notification per action (owner decision 2026-09-27): for the types
+		// BuddyNext notifies itself - follows, media comments, favorites and direct
+		// messages - WPMediaVerse skips its own copy, so a member gets one bell row,
+		// one email and one push. Reactions and mentions stay WPMediaVerse's.
+		add_filter( 'mvs_should_send_notification', array( $this, 'skip_duplicate_mvs_notification' ), 10, 3 );
+
+		// Media bell rows follow WPMediaVerse's own "who may see this media" rule.
+		add_filter( 'buddynext_notification_visible_rows', array( $this, 'filter_visible_media_rows' ) );
+
 		// Keep the WPMediaVerse follow graph (mvs_follows) and BuddyNext's
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
 		// show divergent follow state for the same pair. A re-entrancy guard plus
@@ -318,12 +316,6 @@ class WPMediaVerseBridge {
 		// hook carries the pre-delete permalink (the slug row is already gone by
 		// the time it fires), which is the exact link_url the card was keyed on.
 		add_action( 'mvs_media_deleted', array( $this, 'on_media_deleted' ), 10, 3 );
-
-		// A document TRASHED (not permanently deleted) now fires its own hook
-		// (WPMediaVerse Pro 2.4.0, added for us). Trash is the normal delete from
-		// the app + UI and used to fire nothing, so a composer document card would
-		// linger after its document was gone; remove it here by id.
-		add_action( 'mvs_document_trashed', array( $this, 'on_document_trashed' ), 10, 1 );
 
 		// A file linked into an OPEN space reads like one uploaded there: public.
 		add_action( 'mvs_document_linked_to_space', array( $this, 'on_document_linked_to_space' ), 10, 3 );
@@ -650,10 +642,14 @@ class WPMediaVerseBridge {
 		// A permanently deleted document is a media row too, so this same hook
 		// carries its id. Remove any composer document card keyed on it — by id,
 		// not URL, because the card stores only the id (privacy) and the source
-		// row is already gone. Trash is handled separately by on_document_trashed().
+		// row is already gone. Trash withdraws it instead (on_media_trashed()).
 		$media_id = (int) $media_id;
 		if ( $media_id > 0 ) {
 			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
+			// The media's reactions, favorites and mentions leave the bell with it.
+			if ( function_exists( 'buddynext_service' ) ) {
+				buddynext_service( 'notifications' )->delete_for_object( self::BELL_MEDIA_TYPE, $media_id );
+			}
 		}
 
 		$this->sync_photo_posts( $media_id, 'deleted' );
@@ -712,29 +708,14 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Remove a composer document card when its document is TRASHED.
-	 *
-	 * The permanent-delete hook above covers destroy; this covers trash — the
-	 * normal delete path — now that WPMediaVerse fires `mvs_document_trashed`.
-	 * Keyed by id, the only thing the card stores.
-	 *
-	 * @param int $media_id The trashed document id.
-	 * @return void
-	 */
-	public function on_document_trashed( $media_id ): void {
-		$media_id = (int) $media_id;
-		if ( $media_id > 0 ) {
-			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
-		}
-	}
-
-	/**
 	 * Withdraw the media feed card when its source is TRASHED (soft delete).
 	 *
 	 * Same withdrawal as on_media_deleted's URL path, but reversible: the card
 	 * comes back through on_media_restored(). The 'media' card (video / audio)
 	 * is keyed on the permalink; photos are native posts keyed on media id and go
-	 * through sync_photo_posts(); documents are handled by on_document_trashed().
+	 * through sync_photo_posts(); a composer document card is keyed on its doc_id.
+	 * Every trash, member or admin, goes through the repository's trash(), which
+	 * fires this hook.
 	 * The permalink is carried on the hook because the row is already trashed by
 	 * the time it fires.
 	 *
@@ -745,6 +726,7 @@ class WPMediaVerseBridge {
 	 */
 	public function on_media_trashed( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
 		$this->sync_photo_posts( (int) $media_id, 'trashed' );
+		IntegrationActivity::withdraw_by_meta( 'document', 'doc_id', (int) $media_id );
 
 		$permalink = (string) $permalink;
 		if ( '' !== $permalink ) {
@@ -774,7 +756,14 @@ class WPMediaVerseBridge {
 	public function on_media_restored( $media_id, $author_id = 0, $permalink = '' ): void {
 		$media_id  = (int) $media_id;
 		$author_id = (int) $author_id;
-		if ( $media_id <= 0 || $author_id <= 0 ) {
+		if ( $media_id <= 0 ) {
+			return;
+		}
+
+		// A composer document card withdrawn on trash comes back in place.
+		IntegrationActivity::restore_by_meta( 'document', 'doc_id', $media_id );
+
+		if ( $author_id <= 0 ) {
 			return;
 		}
 
@@ -1276,6 +1265,54 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * WPMediaVerse notification types BuddyNext already sends as its own.
+	 *
+	 * @var string[]
+	 */
+	private const BN_OWNED_MVS_NOTIFICATIONS = array( 'new_follower', 'media_comment', 'media_favorite', 'new_message' );
+
+	/**
+	 * The bell's object_type for a WPMediaVerse media id (namespaced, so it is
+	 * never read as a BuddyNext object).
+	 */
+	private const BELL_MEDIA_TYPE = 'mvs_media';
+
+	/**
+	 * Drop media bell rows the recipient may no longer see (private, trashed,
+	 * moved into a space they are not in), by WPMediaVerse's PrivacyService.
+	 *
+	 * @param array<int,array<string,mixed>> $rows Raw bell rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function filter_visible_media_rows( array $rows ): array {
+		$privacy = MediaClient::privacy();
+		if ( ! is_object( $privacy ) || ! method_exists( $privacy, 'can_view' ) ) {
+			return $rows;
+		}
+		foreach ( $rows as $i => $row ) {
+			if ( self::BELL_MEDIA_TYPE === (string) ( $row['object_type'] ?? '' )
+				&& ! $privacy->can_view( (int) ( $row['object_id'] ?? 0 ), (int) ( $row['recipient_id'] ?? 0 ) ) ) {
+				unset( $rows[ $i ] );
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	 * Tell WPMediaVerse to skip a notification BuddyNext sends itself.
+	 *
+	 * Hooked on: mvs_should_send_notification ( bool $send, int $user_id, string $type, ... ).
+	 *
+	 * @param bool   $send    Whether WPMediaVerse sends it.
+	 * @param int    $user_id Recipient.
+	 * @param string $type    WPMediaVerse notification type.
+	 * @return bool
+	 */
+	public function skip_duplicate_mvs_notification( $send, $user_id, $type ): bool {
+		return (bool) $send && ! in_array( (string) $type, self::BN_OWNED_MVS_NOTIFICATIONS, true );
+	}
+
+	/**
 	 * Gate a DM send on BuddyNext's block list.
 	 *
 	 * "Who can message you" is WPMediaVerse's rule (its site ceiling and the
@@ -1585,7 +1622,7 @@ class WPMediaVerseBridge {
 				'recipient_id' => $owner_id,
 				'sender_id'    => $user_id,
 				'type'         => 'bn.media_favorited',
-				'object_type'  => 'media',
+				'object_type'  => self::BELL_MEDIA_TYPE,
 				'object_id'    => $media_id,
 				'group_key'    => "mvs_fav_{$media_id}",
 				'data'         => array( 'media_id' => $media_id ),
@@ -1624,7 +1661,7 @@ class WPMediaVerseBridge {
 				'recipient_id' => $owner_id,
 				'sender_id'    => $user_id,
 				'type'         => 'bn.media_reaction',
-				'object_type'  => 'media',
+				'object_type'  => self::BELL_MEDIA_TYPE,
 				'object_id'    => $media_id,
 				'group_key'    => "mvs_reaction_{$media_id}",
 				'data'         => array(
@@ -1665,7 +1702,7 @@ class WPMediaVerseBridge {
 					'recipient_id' => $recipient_id,
 					'sender_id'    => $actor_id,
 					'type'         => 'bn.media_mention',
-					'object_type'  => 'media',
+					'object_type'  => self::BELL_MEDIA_TYPE,
 					'object_id'    => $media_id,
 					'group_key'    => "mvs_mention_{$media_id}_{$recipient_id}",
 					'data'         => array(

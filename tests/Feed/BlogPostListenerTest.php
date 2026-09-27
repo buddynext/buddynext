@@ -62,6 +62,50 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Unpublish, trash or a password withdraws the card; republish brings back
+	 * the same card (its comments survive); a permanent delete removes it.
+	 *
+	 * @return void
+	 */
+	public function test_card_is_withdrawn_and_restored_not_recreated(): void {
+		$author  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$post_id = (int) wp_insert_post(
+			array(
+				'post_title'   => 'Cycle',
+				'post_content' => 'Body.',
+				'post_status'  => 'publish',
+				'post_author'  => $author,
+			)
+		);
+		$card    = BlogPostListener::card_id_for_post( $post_id );
+		$service = new PostService();
+		$status  = static fn() => (string) ( $service->get( $card )['status'] ?? '' );
+		$this->assertGreaterThan( 0, $card );
+
+		wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ) );
+		$this->assertSame( 'draft', $status(), 'unpublish withdraws the card' );
+
+		wp_update_post( array( 'ID' => $post_id, 'post_status' => 'publish' ) );
+		$this->assertSame( $card, BlogPostListener::card_id_for_post( $post_id ), 'republish brings back the same card' );
+		$this->assertSame( 'published', $status() );
+
+		wp_update_post( array( 'ID' => $post_id, 'post_password' => 'secret' ) );
+		$this->assertSame( 'draft', $status(), 'a password withdraws the card' );
+		wp_update_post( array( 'ID' => $post_id, 'post_password' => '' ) );
+		$this->assertSame( 'published', $status() );
+
+		wp_trash_post( $post_id );
+		$this->assertSame( 'draft', $status(), 'trash withdraws the card' );
+		wp_untrash_post( $post_id );
+		wp_publish_post( $post_id );
+		$this->assertSame( $card, BlogPostListener::card_id_for_post( $post_id ) );
+		$this->assertSame( 'published', $status(), 'restore from trash brings it back' );
+
+		wp_delete_post( $post_id, true );
+		$this->assertNull( $service->get( $card ), 'a permanent delete removes the card' );
+	}
+
+	/**
 	 * With the source post gone, the stored copy is kept.
 	 *
 	 * @return void

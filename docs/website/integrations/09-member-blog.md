@@ -24,6 +24,8 @@ Everything else stays where it belongs. BuddyNext does not render an editor, doe
 
 The feed side needs no integration at all. BuddyNext's site tracking publishes an article card whenever a member publishes a post, so member writing has always reached the community feed. That is generic too - it does not know or care whether the post was written through Member Blog, through wp-admin, or through anything else.
 
+The card follows the post. If the post is unpublished, trashed, made private or given a password, its card leaves the feed; publishing it again brings back the same card, with its reactions and comments. Deleting the post permanently removes the card.
+
 ## Setting it up
 
 1. Install and activate **WB Member Blog**.

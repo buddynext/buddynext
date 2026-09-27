@@ -142,7 +142,14 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
-	 * Publish a card when a post becomes public; retract it when it stops being.
+	 * Keep a post's card matching whether the post can be shown to everyone.
+	 *
+	 * Runs only for a post that is or was published, so draft autosaves cost
+	 * nothing. Shareable (published, no password): restore a card an earlier
+	 * unpublish withdrew - same card, date, reactions and comments - or publish
+	 * the first one. Not shareable (unpublished, trashed, private, or a password
+	 * added): withdraw the card, reversibly. A permanent delete removes it
+	 * (on_delete()).
 	 *
 	 * @param int           $post_id     Post id.
 	 * @param \WP_Post|null $post        The post after the write.
@@ -156,18 +163,20 @@ class BlogPostListener implements ListenerInterface {
 		}
 
 		$was_published = $post_before instanceof \WP_Post && 'publish' === $post_before->post_status;
-		$is_published  = 'publish' === $post->post_status;
-
-		// Unpublished, trashed, or made private: the card must go with it.
-		if ( $was_published && ! $is_published ) {
-			$this->retract( $post );
+		if ( ! $was_published && 'publish' !== $post->post_status ) {
 			return;
 		}
 
-		// Only the moment it becomes public. Editing a published post must not
-		// post a second card - IntegrationActivity::publish() is idempotent per
-		// link, but bailing here means an edit does not even reach it.
-		if ( ! $is_published || $was_published ) {
+		if ( ! $this->is_shareable( $post ) ) {
+			IntegrationActivity::withdraw_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID );
+			return;
+		}
+
+		if ( ! buddynext_integration_enabled( 'blog', 'feed' ) ) {
+			return;
+		}
+
+		if ( IntegrationActivity::restore_by_meta( self::TYPE, self::META_POST_ID, (int) $post->ID ) > 0 ) {
 			return;
 		}
 
@@ -227,10 +236,8 @@ class BlogPostListener implements ListenerInterface {
 		// edits the slug and re-publishes would otherwise get a second card for
 		// the same piece under its new permalink.
 		//
-		// This is a "never two" rule, not a "never again" rule, and the
-		// difference is a real workflow: publish, spot a typo, unpublish, fix,
-		// publish. The card was retracted with the unpublish, so restoring it is
-		// right - what must not happen is ending up with two.
+		// An unpublished post's card is withdrawn, not deleted, and comes back
+		// through on_after_insert() on republish; this check stops a second card.
 		if ( self::card_id_for_post( (int) $post->ID ) > 0 ) {
 			return;
 		}
@@ -372,7 +379,7 @@ class BlogPostListener implements ListenerInterface {
 	}
 
 	/**
-	 * Remove the activity card for a post.
+	 * Remove the activity card for a permanently deleted post.
 	 *
 	 * @param \WP_Post $post Source post.
 	 * @return void
@@ -424,7 +431,7 @@ class BlogPostListener implements ListenerInterface {
 	 * @return string
 	 */
 	private static function excerpt_for( \WP_Post $post ): string {
-		$excerpt = (string) $post->post_excerpt;
+		$excerpt = wp_strip_all_tags( (string) $post->post_excerpt );
 
 		if ( '' === trim( $excerpt ) ) {
 			$excerpt = wp_strip_all_tags( strip_shortcodes( (string) $post->post_content ) );

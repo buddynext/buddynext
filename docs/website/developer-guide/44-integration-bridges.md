@@ -222,7 +222,7 @@ A non-photo media upload (video / audio) becomes a `'media'` integration feed ca
 
 **Photo posts** are native `photo` posts holding media ids, not permalink cards, so `sync_photo_posts()` (called from the three media hooks above) keeps them in step. On trash, a post with no photo left to show goes to `draft` stamped `link_meta.media_withdrawn` (a post that still shows other photos stays; the renderer skips the trashed one). On restore, only stamped drafts come back, in place, so a member's own draft holding the same photo is never published. On permanent delete, the id is dropped from every post and a post left with no media is deleted through the normal cascade. The upload's own photo post is created inside `IntegrationActivity::as_mirror()`, so reward listeners do not pay the upload twice.
 
-Documents have their own trash hook (`mvs_document_trashed` -> `on_document_trashed`), which removes the shared document card. There is deliberately **no** document-restore mirror: `mvs_document_restored` is left unhooked (owner decision 2026-09-17). Trashing a document removes its share, and a member who wants it back re-shares it - simpler than re-adding a card whose original post text is already gone.
+A **composer document card** follows its document the same way, keyed on `link_meta.doc_id`: every trash (member or admin) goes through the repository's `trash()`, which fires `mvs_media_trashed`, so `on_media_trashed()` withdraws the card; `on_media_restored()` brings the same card back with its text, reactions and comments; a permanent delete removes it. (Before 1.2.2 a trashed document's card was deleted and never restored; withdrawing keeps the post text, so restore is now safe.)
 
 ### Media rail item
 
