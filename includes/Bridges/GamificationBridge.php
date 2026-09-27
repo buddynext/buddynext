@@ -43,6 +43,33 @@ class GamificationBridge {
 		return $label;
 	}
 
+	/**
+	 * An amount of points as WB Gamification writes it: "1 Point", "250 Karma",
+	 * "+10 Points" when $signed. Plain text; escape on output (card 10344451935).
+	 *
+	 * @param int  $amount Amount.
+	 * @param bool $signed Prefix a positive amount with "+".
+	 * @return string
+	 */
+	public static function format_points( int $amount, bool $signed = false ): string {
+		if ( function_exists( 'wb_gam_format_points' ) ) {
+			return (string) wb_gam_format_points( $amount, '', $signed );
+		}
+		return ( $signed && $amount > 0 ? '+' : '' ) . number_format_i18n( $amount ) . ' ' . self::points_label();
+	}
+
+	/**
+	 * The points name that goes with an amount shown on its own ("Point" under a
+	 * 1, "Points" under a 2), for tiles that print the number and the name apart.
+	 *
+	 * @param int $amount Amount the name sits beside.
+	 * @return string
+	 */
+	public static function points_unit( int $amount ): string {
+		$unit = trim( str_replace( number_format_i18n( $amount ), '', self::format_points( $amount ) ) );
+		return '' !== $unit ? $unit : self::points_label();
+	}
+
 
 	/**
 	 * Attach hooks.
@@ -67,6 +94,8 @@ class GamificationBridge {
 		// same card — id, date, reactions, comments — back rather than minting a new one.
 		add_action( 'wb_gam_badge_shared', array( $this, 'on_badge_shared_activity' ), 10, 2 );
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// A deleted badge definition takes every holder's shared-badge card with it.
+		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
@@ -168,6 +197,19 @@ class GamificationBridge {
 			return false;
 		}
 		return $privacy->can_view_profile( $viewer_id, $member_id );
+	}
+
+	/**
+	 * WB Gamification's hub page (leaderboard, rewards), or '' when unset.
+	 *
+	 * @return string
+	 */
+	public static function hub_url(): string {
+		$page_id = (int) get_option( 'wb_gam_hub_page_id', 0 );
+		if ( $page_id <= 0 || 'publish' !== get_post_status( $page_id ) ) {
+			return '';
+		}
+		return (string) get_permalink( $page_id );
 	}
 
 	/**
@@ -411,6 +453,28 @@ class GamificationBridge {
 			$name,
 			'badge'
 		);
+	}
+
+	/**
+	 * Remove the shared-badge cards of a badge definition that was deleted.
+	 *
+	 * Real hook: `wb_gam_badge_deleted( string $badge_id, int[] $user_ids, array $def )`,
+	 * fired after WB Gamification deletes the definition and every earned copy.
+	 * A real delete, so the cards are removed, not withdrawn.
+	 *
+	 * @param string $badge_id Badge slug.
+	 * @param int[]  $user_ids Members who had earned it.
+	 * @return void
+	 */
+	public function on_badge_deleted( string $badge_id, array $user_ids = array() ): void {
+		if ( '' === $badge_id ) {
+			return;
+		}
+		foreach ( array_unique( array_map( 'intval', $user_ids ) ) as $user_id ) {
+			if ( $user_id > 0 ) {
+				IntegrationActivity::remove( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+			}
+		}
 	}
 
 	/**

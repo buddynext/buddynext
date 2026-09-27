@@ -238,10 +238,13 @@ $next_level_min  = $bn_next_level ? (int) ( $bn_next_level['min_points'] ?? 0 ) 
 $is_max_level    = ( null === $bn_next_level );
 
 // Progress WITHIN the current level band (this level's floor → next level's floor).
+// A level follows points EARNED, not the spendable balance: redeeming a reward
+// must not move the bar backwards (card 10344451935).
+$bn_earned_pts   = ( $current_user_id && function_exists( 'wb_gam_get_earned_points' ) ) ? (int) wb_gam_get_earned_points( $current_user_id ) : $current_user_pts;
 $level_span      = max( 1, $next_level_min - $current_level_min );
-$level_into      = max( 0, $current_user_pts - $current_level_min );
+$level_into      = max( 0, $bn_earned_pts - $current_level_min );
 $level_progress  = $is_max_level ? 100 : (int) min( 100, round( $level_into / $level_span * 100 ) );
-$level_remaining = $is_max_level ? 0 : max( 0, $next_level_min - $current_user_pts );
+$level_remaining = $is_max_level ? 0 : max( 0, $next_level_min - $bn_earned_pts );
 
 // Rank pill tone for a given rank position.
 $rank_tone = static function ( int $rank ): string {
@@ -352,7 +355,7 @@ $updated_iso = gmdate( 'c' );
 				<div class="bn-stat">
 					<span class="bn-stat__label">
 						<span class="bn-lb-stat__icon" aria-hidden="true"><?php buddynext_icon( 'zap' ); ?></span>
-						<?php echo esc_html( $bn_points_label ); ?>
+						<?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( $current_user_pts ) ); ?>
 					</span>
 					<span class="bn-stat__value">
 						<?php echo esc_html( number_format_i18n( $current_user_pts ) ); ?>
@@ -381,8 +384,8 @@ $updated_iso = gmdate( 'c' );
 						if ( $is_max_level ) {
 							esc_html_e( 'Top level reached', 'buddynext' );
 						} else {
-							/* translators: 1: points remaining, 2: the site's name for points, 3: next level name. */
-							echo esc_html( sprintf( __( '%1$s %2$s to %3$s', 'buddynext' ), number_format_i18n( $level_remaining ), $bn_points_label, $next_level_name ) );
+							/* translators: 1: points remaining with the site's name for points, e.g. "40 Points", 2: next level name. */
+							echo esc_html( sprintf( __( '%1$s to %2$s', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::format_points( $level_remaining ), $next_level_name ) );
 						}
 						?>
 					</span>
@@ -395,11 +398,11 @@ $updated_iso = gmdate( 'c' );
 					<span class="bn-lb-level__label">
 						<?php
 						if ( $is_max_level ) {
-							/* translators: 1: level name, 2: current points, 3: the site's name for points. */
-							echo esc_html( sprintf( __( '%1$s · %2$s %3$s (top level)', 'buddynext' ), $current_level_name, number_format_i18n( $current_user_pts ), $bn_points_label ) );
+							/* translators: 1: level name, 2: current points with the site's name for points, e.g. "1,200 Points". */
+							echo esc_html( sprintf( __( '%1$s · %2$s (top level)', 'buddynext' ), $current_level_name, \BuddyNext\Bridges\GamificationBridge::format_points( $current_user_pts ) ) );
 						} else {
-							/* translators: 1: current level name, 2: next level name, 3: current points, 4: next-level points, 5: the site's name for points. */
-							echo esc_html( sprintf( __( '%1$s → %2$s: %3$s / %4$s %5$s', 'buddynext' ), $current_level_name, $next_level_name, number_format_i18n( $current_user_pts ), number_format_i18n( $next_level_min ), $bn_points_label ) );
+							/* translators: 1: current level name, 2: next level name, 3: points earned, 4: next-level points with the site's name for points, e.g. "500 Points". */
+							echo esc_html( sprintf( __( '%1$s → %2$s: %3$s / %4$s', 'buddynext' ), $current_level_name, $next_level_name, number_format_i18n( $bn_earned_pts ), \BuddyNext\Bridges\GamificationBridge::format_points( $next_level_min ) ) );
 						}
 						?>
 					</span>
@@ -616,7 +619,7 @@ $updated_iso = gmdate( 'c' );
 
 						<div class="bn-lb-row__points">
 							<span class="bn-lb-row__points-val"><?php echo esc_html( $pts_formatted ); ?></span>
-							<span class="bn-lb-row__points-unit"><?php echo esc_html( $bn_points_label ); ?></span>
+							<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( (int) ( $row['points'] ?? 0 ) ) ); ?></span>
 						</div>
 
 						<?php if ( $is_self ) : ?>
@@ -710,7 +713,7 @@ $updated_iso = gmdate( 'c' );
 							<span aria-hidden="true"></span>
 							<div class="bn-lb-row__points">
 								<span class="bn-lb-row__points-val"><?php echo esc_html( number_format_i18n( $bn_self_pts ) ); ?></span>
-								<span class="bn-lb-row__points-unit"><?php echo esc_html( $bn_points_label ); ?></span>
+								<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( $bn_self_pts ) ); ?></span>
 							</div>
 							<span aria-hidden="true"></span>
 						</article>

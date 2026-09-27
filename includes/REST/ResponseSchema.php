@@ -923,7 +923,10 @@ final class ResponseSchema {
 				),
 				'rules'             => array( 'type' => 'string' ),
 				'required_ability'  => array( 'type' => 'string' ),
-				'gate_plans'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+				'gate_plans'        => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'string' ),
+				),
 				'is_gated'          => array( 'type' => 'boolean' ),
 				'is_archived'       => array( 'type' => 'boolean' ),
 				'archived_at'       => array( 'type' => array( 'string', 'null' ) ),
@@ -959,52 +962,55 @@ final class ResponseSchema {
 			'title'      => 'space',
 			'type'       => 'object',
 			'properties' => array(
-				'id'                => array( 'type' => 'integer' ),
-				'name'              => array( 'type' => 'string' ),
-				'slug'              => array( 'type' => 'string' ),
-				'description'       => array( 'type' => 'string' ),
-				'category_id'       => array( 'type' => 'integer' ),
-				'parent_id'         => array( 'type' => array( 'integer', 'null' ) ),
-				'type'              => array( 'type' => 'string' ),
-				'owner_id'          => array( 'type' => 'integer' ),
-				'member_count'      => array( 'type' => 'integer' ),
-				'avatar_url'        => array(
+				'id'                 => array( 'type' => 'integer' ),
+				'name'               => array( 'type' => 'string' ),
+				'slug'               => array( 'type' => 'string' ),
+				'description'        => array( 'type' => 'string' ),
+				'category_id'        => array( 'type' => 'integer' ),
+				'parent_id'          => array( 'type' => array( 'integer', 'null' ) ),
+				'type'               => array( 'type' => 'string' ),
+				'owner_id'           => array( 'type' => 'integer' ),
+				'member_count'       => array( 'type' => 'integer' ),
+				'avatar_url'         => array(
 					'type'   => 'string',
 					'format' => 'uri',
 				),
-				'cover_image_url'   => array(
+				'cover_image_url'    => array(
 					'type'   => 'string',
 					'format' => 'uri',
 				),
-				'rules'             => array( 'type' => 'string' ),
-				'required_ability'  => array( 'type' => 'string' ),
-				'gate_plans'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
-				'is_gated'          => array( 'type' => 'boolean' ),
-				'is_archived'       => array( 'type' => 'boolean' ),
-				'archived_at'       => array( 'type' => array( 'string', 'null' ) ),
-				'created_at'        => array( 'type' => 'string' ),
-				'created_at_gmt'    => array(
+				'rules'              => array( 'type' => 'string' ),
+				'required_ability'   => array( 'type' => 'string' ),
+				'gate_plans'         => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'string' ),
+				),
+				'is_gated'           => array( 'type' => 'boolean' ),
+				'is_archived'        => array( 'type' => 'boolean' ),
+				'archived_at'        => array( 'type' => array( 'string', 'null' ) ),
+				'created_at'         => array( 'type' => 'string' ),
+				'created_at_gmt'     => array(
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
-				'viewer_role'       => array( 'type' => 'string' ),
+				'viewer_role'        => array( 'type' => 'string' ),
 				'last_active_at'     => array( 'type' => array( 'string', 'null' ) ),
 				'last_active_at_gmt' => array(
 					'type'   => array( 'string', 'null' ),
 					'format' => 'date-time',
 				),
-				'category_name'     => array( 'type' => 'string' ),
-				'category_slug'     => array( 'type' => 'string' ),
-				'subspace_count'    => array( 'type' => 'integer' ),
-				'cover_tone'        => array( 'type' => 'string' ),
-				'type_label'        => array( 'type' => 'string' ),
-				'type_tone'         => array( 'type' => 'string' ),
-				'join_method'       => array( 'type' => 'string' ),
-				'membership_role'   => array( 'type' => array( 'string', 'null' ) ),
-				'membership_status' => array( 'type' => array( 'string', 'null' ) ),
-				'can_invite'        => array( 'type' => 'boolean' ),
-				'can_manage'        => array( 'type' => 'boolean' ),
-				'can_edit_space'    => array( 'type' => 'boolean' ),
+				'category_name'      => array( 'type' => 'string' ),
+				'category_slug'      => array( 'type' => 'string' ),
+				'subspace_count'     => array( 'type' => 'integer' ),
+				'cover_tone'         => array( 'type' => 'string' ),
+				'type_label'         => array( 'type' => 'string' ),
+				'type_tone'          => array( 'type' => 'string' ),
+				'join_method'        => array( 'type' => 'string' ),
+				'membership_role'    => array( 'type' => array( 'string', 'null' ) ),
+				'membership_status'  => array( 'type' => array( 'string', 'null' ) ),
+				'can_invite'         => array( 'type' => 'boolean' ),
+				'can_manage'         => array( 'type' => 'boolean' ),
+				'can_edit_space'     => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -3735,6 +3741,162 @@ final class ResponseSchema {
 							),
 						),
 						'bn.level_up'                      => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
+						'bn.kudos_received'                => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
+						'bn.challenge_completed'           => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
+						'bn.reward_fulfilled'              => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
+						'bn.credential_expired'            => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
+						'bn.personal_record'               => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
+						'bn.streak_milestone'              => array(
 							'type'       => 'object',
 							'properties' => array(
 								'on_site'     => array(

@@ -99,6 +99,29 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A deleted badge definition removes every holder's shared-badge card.
+	 *
+	 * @return void
+	 */
+	public function test_deleted_badge_removes_the_shared_cards(): void {
+		global $wpdb;
+		$user = self::factory()->user->create();
+		$GLOBALS['wb_gam_test']['badges'][ $user ] = array(
+			array(
+				'id'            => 'veteran',
+				'name'          => 'Veteran',
+				'is_credential' => true,
+			),
+		);
+		do_action( 'wb_gam_badge_shared', $user, 'veteran' );
+		$count = static fn() => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge'", $user ) );
+		$this->assertSame( 1, $count() );
+
+		do_action( 'wb_gam_badge_deleted', 'veteran', array( $user ), array() );
+		$this->assertSame( 0, $count(), 'the card of a deleted badge is removed' );
+	}
+
+	/**
 	 * A non-credential badge does not broadcast to the feed, even when shared.
 	 */
 	public function test_non_credential_shared_badge_posts_no_activity(): void {

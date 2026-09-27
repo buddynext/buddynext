@@ -212,6 +212,18 @@ if ( ! function_exists( 'wb_gam_get_user_streak' ) ) {
 		);
 	}
 }
+if ( ! function_exists( 'wb_gam_is_level_climb' ) ) {
+	/**
+	 * Stub: a climb is a move to a higher threshold.
+	 *
+	 * @param array|null $new_level New level.
+	 * @param array|null $old_level Old level.
+	 * @return bool
+	 */
+	function wb_gam_is_level_climb( ?array $new_level, ?array $old_level ): bool {
+		return null === $old_level || (int) ( $new_level['min_points'] ?? 0 ) > (int) ( $old_level['min_points'] ?? 0 );
+	}
+}
 if ( ! function_exists( 'wb_gam_get_user_rank' ) ) {
 	/**
 	 * Stub: a member's rank, from the $GLOBALS['wb_gam_test'] store.

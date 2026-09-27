@@ -101,7 +101,7 @@ class GamificationAchievements {
 		$deny  = (array) $deny;
 		$paths = array();
 
-		$hub = $this->hub_url();
+		$hub = \BuddyNext\Bridges\GamificationBridge::hub_url();
 		if ( '' !== $hub ) {
 			$path = (string) wp_parse_url( $hub, PHP_URL_PATH );
 			if ( '' !== $path ) {
@@ -397,10 +397,11 @@ class GamificationAchievements {
 		$tiles = array();
 
 		if ( function_exists( 'wb_gam_get_user_points' ) ) {
+			$points  = (int) wb_gam_get_user_points( $member_id );
 			$tiles[] = array(
 				'icon'  => 'star',
-				'label' => \BuddyNext\Bridges\GamificationBridge::points_label(),
-				'value' => number_format_i18n( (int) wb_gam_get_user_points( $member_id ) ),
+				'label' => \BuddyNext\Bridges\GamificationBridge::points_unit( $points ),
+				'value' => number_format_i18n( $points ),
 			);
 		}
 		$rank = $this->leaderboard_rank( $member_id );
@@ -664,19 +665,6 @@ class GamificationAchievements {
 		$ranks[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
 
 		return $ranks[ $member_id ];
-	}
-
-	/**
-	 * The wb-gamification hub page URL (leaderboard), or '' when unset.
-	 *
-	 * @return string
-	 */
-	private function hub_url(): string {
-		$page_id = (int) get_option( 'wb_gam_hub_page_id', 0 );
-		if ( $page_id <= 0 || 'publish' !== get_post_status( $page_id ) ) {
-			return '';
-		}
-		return (string) get_permalink( $page_id );
 	}
 
 	/**
