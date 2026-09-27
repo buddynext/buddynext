@@ -498,31 +498,6 @@ class GamificationAchievements {
 	}
 
 	/**
-	 * Whether the current viewer may see this member's profile at all.
-	 *
-	 * Fails CLOSED. If the privacy service cannot be resolved there is no honest
-	 * answer available, and the safe direction for a visibility check is to refuse:
-	 * a boot-order regression must not silently turn a gated route back into an
-	 * open one. (PortfolioController's equivalent fails open — worth aligning, but
-	 * not by copying the weaker half.)
-	 *
-	 * @param int $member_id The profile being read.
-	 * @return bool
-	 */
-	private function viewer_can_see( int $member_id ): bool {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return false;
-		}
-
-		$privacy = buddynext_service( 'privacy' );
-		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
-			return false;
-		}
-
-		return $privacy->can_view_profile( get_current_user_id(), $member_id );
-	}
-
-	/**
 	 * REST: a member's badges + standing — the same data the SSR Achievements tab
 	 * renders, so the native app can draw the badge grid and standing strip.
 	 *
@@ -547,7 +522,7 @@ class GamificationAchievements {
 		// Return the neutral empty shape rather than a 403, so the answer for "you
 		// may not see this" is identical to the answer for "there is nothing here" —
 		// a 403 would confirm the member exists and has standing worth hiding.
-		if ( ! $this->viewer_can_see( $member_id ) ) {
+		if ( ! \BuddyNext\Bridges\GamificationBridge::can_view_standing( $member_id ) ) {
 			return new \WP_REST_Response(
 				array(
 					'has_standing' => false,

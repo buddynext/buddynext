@@ -2683,6 +2683,104 @@ class PostService {
 	}
 
 	/**
+	 * Posts whose media_ids include a WPMediaVerse media id, in one status.
+	 *
+	 * For the media bridge: a member's photo post holds media ids, so when a file
+	 * is trashed, restored or deleted in WPMediaVerse the posts showing it must
+	 * follow. ponytail: JSON_CONTAINS cannot use an index; it runs only on a media
+	 * lifecycle event and is scoped by status. Add a post-media join table if media
+	 * lifecycle ever runs in bulk.
+	 *
+	 * @param int    $media_id Media id.
+	 * @param string $status   Post status to match.
+	 * @return int[] Post ids.
+	 */
+	public function ids_with_media( int $media_id, string $status ): array {
+		if ( $media_id <= 0 || '' === $status ) {
+			return array();
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE status = %s AND media_ids IS NOT NULL AND JSON_VALID( media_ids ) AND JSON_CONTAINS( media_ids, %s )",
+				$status,
+				(string) wp_json_encode( $media_id )
+			)
+		);
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Drop one media id from a post's media_ids.
+	 *
+	 * @param int $post_id  Post id.
+	 * @param int $media_id Media id to drop.
+	 * @return int[] The media ids the post still holds.
+	 */
+	public function remove_media_id( int $post_id, int $media_id ): array {
+		$post = $this->get( $post_id );
+		if ( null === $post ) {
+			return array();
+		}
+		$ids       = array_map( 'intval', (array) ( $post['media_ids'] ?? array() ) );
+		$remaining = array_values( array_diff( $ids, array( $media_id ) ) );
+		if ( count( $remaining ) !== count( $ids ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'media_ids'  => empty( $remaining ) ? null : wp_json_encode( $remaining ),
+					'updated_at' => current_time( 'mysql', true ),
+				),
+				array( 'id' => $post_id )
+			);
+			wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+		}
+		return $remaining;
+	}
+
+	/**
+	 * Withdraw a post whose media are all gone, or bring it back.
+	 *
+	 * Withdraw flips published -> draft and stamps link_meta.media_withdrawn, so
+	 * restore only republishes posts this withdrew, never a member's own draft (a
+	 * cancelled schedule is also 'draft'). Same id, date, reactions and comments.
+	 *
+	 * @param int  $post_id   Post id.
+	 * @param bool $withdrawn True to withdraw, false to restore.
+	 * @return bool Whether the post moved.
+	 */
+	public function set_media_withdrawn( int $post_id, bool $withdrawn ): bool {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$moved = $withdrawn
+			? $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'draft', updated_at = UTC_TIMESTAMP(),
+					 link_meta = JSON_SET( IF( link_meta IS NOT NULL AND JSON_VALID( link_meta ), link_meta, '{}' ), '$.media_withdrawn', 1 )
+					 WHERE id = %d AND status = 'published'",
+					$post_id
+				)
+			)
+			: $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published', updated_at = UTC_TIMESTAMP(),
+					 link_meta = NULLIF( JSON_REMOVE( link_meta, '$.media_withdrawn' ), JSON_OBJECT() )
+					 WHERE id = %d AND status = 'draft' AND link_meta IS NOT NULL AND JSON_VALID( link_meta )
+					   AND JSON_EXTRACT( link_meta, '$.media_withdrawn' ) IS NOT NULL",
+					$post_id
+				)
+			);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $moved > 0 ) {
+			wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+		}
+		return $moved > 0;
+	}
+
+	/**
 	 * Delete every post of a type whose `link_meta` carries an integer field equal
 	 * to a value — e.g. remove all of an integration's cards for one source entity
 	 * by the id it stamped on them.
@@ -3729,7 +3827,7 @@ class PostService {
 
 		$where_sql = implode( ' AND ', $where );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- placeholders are built dynamically with $params.
 		$count_sql = "SELECT COUNT(*) FROM {$table} p WHERE {$where_sql}";
 		$total     = (int) ( $params
 			? $wpdb->get_var( $wpdb->prepare( $count_sql, $params ) )
@@ -3747,7 +3845,7 @@ class PostService {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return array(
 			'items' => is_array( $rows ) ? $rows : array(),

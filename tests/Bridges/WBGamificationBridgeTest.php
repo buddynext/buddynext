@@ -200,4 +200,24 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 
 		remove_filter( 'buddynext_gamification_show_skip_toast', $only_caps, 10 );
 	}
+
+	/**
+	 * BuddyNext profile privacy decides who sees a member's standing, through
+	 * wb_gam_can_view_public_profile, whatever gamification's own switches say.
+	 */
+	public function test_profile_privacy_decides_standing_visibility(): void {
+		$owner   = self::factory()->user->create();
+		$viewer  = self::factory()->user->create();
+		$privacy = buddynext_service( 'privacy' );
+
+		$privacy->set_preference( $owner, 'profile_visibility', 'public' );
+		$this->assertTrue( apply_filters( 'wb_gam_can_view_public_profile', false, $owner, $viewer ), 'public profile: visible even when gamification said no' );
+		$this->assertTrue( GamificationBridge::can_view_standing( $owner, 0 ), 'public profile: visible to a visitor' );
+
+		$privacy->set_preference( $owner, 'profile_visibility', 'private' );
+		$this->assertFalse( apply_filters( 'wb_gam_can_view_public_profile', true, $owner, $viewer ), 'private profile: hidden even when gamification said yes' );
+		$this->assertFalse( GamificationBridge::can_view_standing( $owner, 0 ), 'private profile: hidden from a visitor' );
+		$this->assertTrue( GamificationBridge::can_view_standing( $owner, $owner ), 'a member always sees their own standing' );
+		$this->assertFalse( GamificationBridge::can_view_standing( 0, $viewer ), 'no member, nothing to show' );
+	}
 }

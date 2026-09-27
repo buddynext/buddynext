@@ -114,6 +114,56 @@ class GamificationBridge {
 		// point its /u/ page at the BN profile. wb-gamification exposes the filter;
 		// the bridge fills it.
 		add_filter( 'wb_gam_profile_redirect_url', array( $this, 'profile_redirect_url' ), 10, 2 );
+
+		// On a BuddyNext site the member's BuddyNext profile privacy decides who sees
+		// their points, badges, rank and kudos, everywhere wb-gamification shows them
+		// (blocks, REST, leaderboard). Hooking this also tells wb-gamification to stop
+		// offering its own public-profile switches, which BuddyNext members cannot
+		// reach: its /u/ page redirects to the BuddyNext profile (card 10343975769).
+		add_filter( 'wb_gam_can_view_public_profile', array( $this, 'can_view_public_profile' ), 10, 3 );
+	}
+
+	/**
+	 * Answer wb_gam_can_view_public_profile with BuddyNext's profile privacy.
+	 *
+	 * Gamification's own answer ($allowed) comes from switches a BuddyNext member
+	 * never sees, so it is replaced, not combined. Self and administrators are
+	 * allowed by wb-gamification before this filter runs.
+	 *
+	 * @param bool $allowed   Gamification's own answer (unused on BuddyNext sites).
+	 * @param int  $target_id Member whose data would be shown.
+	 * @param int  $viewer_id Viewer (0 for a visitor).
+	 * @return bool
+	 */
+	public function can_view_public_profile( $allowed, $target_id, $viewer_id = 0 ): bool { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed
+		return self::can_view_standing( (int) $target_id, (int) $viewer_id );
+	}
+
+	/**
+	 * Whether a viewer may see a member's gamification standing (points, badges,
+	 * rank, kudos). The one answer every BuddyNext gamification surface uses: the
+	 * member's BuddyNext profile privacy, which also honours blocks.
+	 *
+	 * Fails CLOSED: without the privacy service there is no honest answer, and a
+	 * boot-order regression must not turn a hidden profile public.
+	 *
+	 * @param int      $member_id Member whose standing would be shown.
+	 * @param int|null $viewer_id Viewer; defaults to the current user.
+	 * @return bool
+	 */
+	public static function can_view_standing( int $member_id, ?int $viewer_id = null ): bool {
+		$viewer_id = $viewer_id ?? get_current_user_id();
+		if ( $member_id <= 0 ) {
+			return false;
+		}
+		if ( $viewer_id === $member_id ) {
+			return true;
+		}
+		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
+			return false;
+		}
+		return $privacy->can_view_profile( $viewer_id, $member_id );
 	}
 
 	/**

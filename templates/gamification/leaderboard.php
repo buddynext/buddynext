@@ -188,7 +188,10 @@ $ribbon_by_user  = array();
 $ribbon_total_by = array(); // Full earned count, so "+N" is not capped by the slice.
 foreach ( $leaderboard as $row ) {
 	$uid = (int) ( $row['user_id'] ?? 0 );
-	if ( $uid <= 0 ) {
+	// Badges are profile data: a member whose profile this viewer cannot see keeps
+	// their rank and points on the board but shows no badges (as wb-gamification's
+	// own leaderboard does).
+	if ( $uid <= 0 || ! \BuddyNext\Bridges\GamificationBridge::can_view_standing( $uid, $current_user_id ) ) {
 		continue;
 	}
 	$badges = wb_gam_get_user_badges( $uid );

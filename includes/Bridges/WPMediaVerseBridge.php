@@ -463,12 +463,16 @@ class WPMediaVerseBridge {
 		}
 
 		if ( in_array( (string) $media_type, array( 'photo', 'image' ), true ) ) {
-			( new PostService() )->create(
-				$user_id,
-				array(
-					'type'      => 'photo',
-					'content'   => '',
-					'media_ids' => array( $media_id ),
+			// A copy of an upload WPMediaVerse already recorded: flagged so reward
+			// listeners do not pay the same upload twice (card 10343975769).
+			IntegrationActivity::as_mirror(
+				static fn() => ( new PostService() )->create(
+					$user_id,
+					array(
+						'type'      => 'photo',
+						'content'   => '',
+						'media_ids' => array( $media_id ),
+					)
 				)
 			);
 			return;
@@ -656,11 +660,61 @@ class WPMediaVerseBridge {
 			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
 		}
 
+		$this->sync_photo_posts( $media_id, 'deleted' );
+
 		$permalink = (string) $permalink;
 		if ( '' === $permalink ) {
 			return;
 		}
 		IntegrationActivity::remove( $permalink, 'media' );
+	}
+
+	/**
+	 * Keep the feed posts that show a media file in step with it.
+	 *
+	 * Photos are native posts holding media ids, not bridge cards, so the
+	 * permalink-keyed card handlers never reach them (card 10344032853):
+	 * - trashed:  a post with no photo left to show is withdrawn (reversible);
+	 *             one that still shows other photos stays, the renderer skips
+	 *             the trashed one.
+	 * - restored: posts withdrawn that way come back in place.
+	 * - deleted:  the id is dropped; a post left with no media is deleted.
+	 *
+	 * @param int    $media_id Media id.
+	 * @param string $event    'trashed', 'restored' or 'deleted'.
+	 * @return void
+	 */
+	private function sync_photo_posts( int $media_id, string $event ): void {
+		if ( $media_id <= 0 ) {
+			return;
+		}
+		$posts = new PostService();
+
+		if ( 'restored' === $event ) {
+			foreach ( $posts->ids_with_media( $media_id, 'draft' ) as $post_id ) {
+				$posts->set_media_withdrawn( $post_id, false );
+			}
+			return;
+		}
+
+		if ( 'trashed' === $event ) {
+			foreach ( $posts->ids_with_media( $media_id, 'published' ) as $post_id ) {
+				$post   = $posts->get( $post_id );
+				$others = array_values( array_diff( array_map( 'intval', (array) ( $post['media_ids'] ?? array() ) ), array( $media_id ) ) );
+				if ( empty( $others ) || empty( \BuddyNext\Media\MediaUrlResolver::descriptors( $others ) ) ) {
+					$posts->set_media_withdrawn( $post_id, true );
+				}
+			}
+			return;
+		}
+
+		foreach ( array( 'published', 'draft', 'pending', 'scheduled', 'under_review' ) as $status ) {
+			foreach ( $posts->ids_with_media( $media_id, $status ) as $post_id ) {
+				if ( empty( $posts->remove_media_id( $post_id, $media_id ) ) ) {
+					$posts->delete( $post_id, $posts->get_author_id( $post_id ) );
+				}
+			}
+		}
 	}
 
 	/**
@@ -684,18 +738,20 @@ class WPMediaVerseBridge {
 	 * Withdraw the media feed card when its source is TRASHED (soft delete).
 	 *
 	 * Same withdrawal as on_media_deleted's URL path, but reversible: the card
-	 * comes back through on_media_restored(). Only the 'media' card (video /
-	 * audio) is keyed on the permalink - documents are handled by
-	 * on_document_trashed(), and photos are native posts, not bridge cards, so a
-	 * remove() keyed on the media permalink is a no-op for both. The permalink is
-	 * carried on the hook because the row is already trashed by the time it fires.
+	 * comes back through on_media_restored(). The 'media' card (video / audio)
+	 * is keyed on the permalink; photos are native posts keyed on media id and go
+	 * through sync_photo_posts(); documents are handled by on_document_trashed().
+	 * The permalink is carried on the hook because the row is already trashed by
+	 * the time it fires.
 	 *
-	 * @param int    $media_id  Trashed media id (unused; the card is keyed on URL).
+	 * @param int    $media_id  Trashed media id.
 	 * @param int    $author_id Author (unused here).
 	 * @param string $permalink The media's public permalink, as posted.
 	 * @return void
 	 */
 	public function on_media_trashed( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		$this->sync_photo_posts( (int) $media_id, 'trashed' );
+
 		$permalink = (string) $permalink;
 		if ( '' !== $permalink ) {
 			// Withdraw, not delete: trash is reversible (on_media_restored), so the
@@ -733,6 +789,9 @@ class WPMediaVerseBridge {
 		// card to restore (e.g. the media/feed toggle was off when it was trashed, so
 		// a card was never created), where publish_media_activity re-applies every
 		// gate the original publish had.
+		// Photo posts withdrawn on trash come back in place, with their comments.
+		$this->sync_photo_posts( $media_id, 'restored' );
+
 		$permalink = (string) $permalink;
 		if ( '' !== $permalink && IntegrationActivity::restore( $permalink, 'media' ) ) {
 			return;

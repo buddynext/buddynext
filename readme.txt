@@ -75,6 +75,9 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - Gamification screens use your site's own name for points (Points tab, Achievements, Leaderboard), the Achievements rank is labelled All-time rank, and the leaderboard no longer shows an invented next-milestone widget.
 * Improve  - Earning categories on the Points tab use WB Gamification's own labels, so new categories read correctly without a BuddyNext update.
 * Fix      - The level-up notification names the level you reached instead of an internal number.
+* Fix      - A member's profile privacy now also hides their points, badges, rank and kudos from people who cannot see their profile, including on the leaderboard.
+* Fix      - Uploading a photo in WPMediaVerse earns its upload points once; the feed post it creates no longer pays again.
+* Fix      - A photo trashed in WPMediaVerse takes its feed post with it, restoring the photo brings the same post back, and deleting it permanently removes the post instead of leaving an empty one.
 * Fix      - The Achievements badge count is no longer capped at 24.
 * Dev      - Mirrored follows, lightbox comments and forum replies run inside IntegrationActivity::as_mirror(), so reward listeners can skip them with IntegrationActivity::is_mirror() and never pay one action twice.
 * Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.
