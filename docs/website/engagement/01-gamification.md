@@ -54,8 +54,8 @@ A few rules keep scoring fair:
 ### Where badges and levels show
 
 - **Profile.** Gamification occupies one top-level profile tab, **Achievements**, with three sub-tabs:
-  - **Achievements** - the badge grid (earned badges plus the locked ones still to earn, so a member can see what to aim for next), a standing strip of points, leaderboard rank, level, and current streak, and a recent points history for the profile owner.
-  - **Points** - the member's own running point ledger (each entry labelled by the action that earned it) and a "How to earn points" guide listing every enabled action, grouped by category, with its point value and any cooldown or daily cap. Visible only to the member on their own profile.
+  - **Achievements** - the badge grid (earned badges plus the locked ones still to earn, so a member can see what to aim for next), a standing strip of points, leaderboard rank, level, and current streak.
+  - **Points** - the member's own points history (WB Gamification's history, labelled the same way as its point toasts) and its "How to earn points" guide listing every enabled action, grouped by category, with its point value and any cooldown or daily cap. Visible only to the member on their own profile.
   - **Kudos** - the peer-recognition surface described in Kudos: peer recognition below.
 
   The tab only appears once WB Gamification is active, and each sub-tab only shows once there is something to show (the parent tab still appears - and lands on Kudos - even for a member with no points or badges yet, since anyone can be given kudos).

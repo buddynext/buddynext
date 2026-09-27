@@ -96,68 +96,30 @@ class GamificationPoints {
 	}
 
 	/**
-	 * Recent point ledger — labelled + timestamped, newest first.
+	 * Recent point history: WB Gamification's own history block, inside
+	 * BuddyNext's panel, so labels match its toasts (card 10344428395).
 	 *
 	 * @param int $member_id Member.
 	 * @return void
 	 */
 	private function render_history( int $member_id ): void {
-		$rows = function_exists( 'wb_gam_get_points_history' )
-			? wb_gam_get_points_history( $member_id, 20 )
-			: array();
+		$history = shortcode_exists( 'wb_gam_points_history' )
+			? do_shortcode( sprintf( '[wb_gam_points_history user_id="%d" limit="20"]', $member_id ) )
+			: '';
 
 		echo '<div class="bn-card bn-gam-points__panel">';
 		echo '<div class="bn-widget-title">';
 		if ( function_exists( 'buddynext_icon' ) ) {
-			buddynext_icon( 'zap' );
+			buddynext_icon( 'trending-up' );
 		}
-		echo ' ' . esc_html__( 'Your recent activity', 'buddynext' );
+		echo ' ' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( '%s history', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) );
 		echo '</div>';
 
-		if ( empty( $rows ) ) {
+		if ( '' === trim( wp_strip_all_tags( $history ) ) ) {
 			echo '<p class="bn-achievements__empty">' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( 'No %s yet: start contributing to earn your first.', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) ) . '</p>';
-			echo '</div>';
-			return;
+		} else {
+			echo $history; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
 		}
-
-		echo '<ul class="bn-gam-ledger" role="list">';
-		foreach ( $rows as $row ) {
-			$action = isset( $row['action_id'] ) ? (string) $row['action_id'] : '';
-			// WB Gamification names every award (registered or not) the same way its
-			// toast does (card 10344428395).
-			$label  = function_exists( 'wb_gam_get_action_label' ) ? wb_gam_get_action_label( $action ) : $this->humanize( $action );
-			$points = (int) ( $row['points'] ?? 0 );
-			$when   = ! empty( $row['created_at'] ) ? \BuddyNext\Core\Dates::utc_timestamp( (string) $row['created_at'] ) : 0;
-
-			echo '<li class="bn-gam-ledger__row">';
-			echo '<span class="bn-gam-ledger__icon" aria-hidden="true">';
-			if ( function_exists( 'buddynext_icon' ) ) {
-				buddynext_icon( 'sparkles' );
-			}
-			echo '</span>';
-			echo '<span class="bn-gam-ledger__body">';
-			echo '<span class="bn-gam-ledger__label">' . esc_html( $label ) . '</span>';
-			if ( $when > 0 ) {
-				echo '<span class="bn-gam-ledger__time">' . esc_html(
-					sprintf(
-						/* translators: %s: human-readable time difference, e.g. "3 hours". */
-						__( '%s ago', 'buddynext' ),
-						human_time_diff( $when )
-					)
-				) . '</span>';
-			}
-			echo '</span>';
-			echo '<span class="bn-gam-ledger__points' . ( $points < 0 ? ' is-negative' : '' ) . '">' . esc_html(
-				sprintf(
-					/* translators: 1: signed amount, e.g. "+10"; 2: the site's name for points. */
-					__( '%1$s %2$s', 'buddynext' ),
-					( $points >= 0 ? '+' : '' ) . number_format_i18n( $points ),
-					\BuddyNext\Bridges\GamificationBridge::points_label()
-				)
-			) . '</span>';
-			echo '</li>';
-		}
-		echo '</ul>';
 		echo '</div>';
 	}
 
@@ -180,15 +142,5 @@ class GamificationPoints {
 		echo '</div>';
 		echo do_shortcode( '[wb_gam_earning_guide]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
 		echo '</div>';
-	}
-
-	/**
-	 * Title-case an action id for display when WB Gamification is too old to label it.
-	 *
-	 * @param string $slug Slug.
-	 * @return string
-	 */
-	private function humanize( string $slug ): string {
-		return ucwords( str_replace( array( '-', '_' ), ' ', $slug ) );
 	}
 }
