@@ -198,10 +198,9 @@ class GamificationAchievements {
 	public function register_nav( \BuddyNext\Nav\NavRegistry $registry ): void {
 		// Parent container: one "Achievements" top-level tab that houses the
 		// gamification sub-tabs so Achievements / Points / Kudos don't each take a
-		// primary slot. Owns no panel — landing deep-links to the first available
-		// child (Achievements when the member has standing, else Kudos, which is
-		// always present). Shown whenever gamification nav is on (Kudos guarantees
-		// at least one child, so the parent never renders empty).
+		// primary slot. Owns no panel — landing deep-links to the first child that
+		// exists for this viewer, and the parent hides when none does (Kudos can be
+		// switched off, card 10344054799), so it never opens an empty tab.
 		$registry->register(
 			array(
 				'id'        => self::PARENT_SLUG,
@@ -209,11 +208,8 @@ class GamificationAchievements {
 				'layer'     => 'primary',
 				'label'     => __( 'Achievements', 'buddynext' ),
 				'priority'  => 70,
-				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0,
-				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
-					$base = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) );
-					return $base . ( $this->has_standing( $c->subject_id ) ? self::TAB_SLUG . '/' : 'kudos/' );
-				},
+				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0 && '' !== $this->landing_slug( $c->subject_id ),
+				'url'       => fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . $this->landing_slug( $c->subject_id ) . '/',
 			)
 		);
 
@@ -300,6 +296,24 @@ class GamificationAchievements {
 		echo '</header>';
 		echo $history; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
 		echo '</div>';
+	}
+
+	/**
+	 * The first gamification sub-tab that exists for this viewer, in tab order:
+	 * Achievements (member has standing), Kudos (switched on), Points (own
+	 * profile only). Empty when none does.
+	 *
+	 * @param int $member_id Profile being viewed.
+	 * @return string Tab slug, or ''.
+	 */
+	private function landing_slug( int $member_id ): string {
+		if ( $this->has_standing( $member_id ) ) {
+			return self::TAB_SLUG;
+		}
+		if ( GamificationKudos::enabled() ) {
+			return 'kudos';
+		}
+		return get_current_user_id() === $member_id ? 'points' : '';
 	}
 
 	/**

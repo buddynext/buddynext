@@ -77,6 +77,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The level-up notification names the level you reached instead of an internal number.
 * Fix      - A member's profile privacy now also hides their points, badges, rank and kudos from people who cannot see their profile, including on the leaderboard.
 * Fix      - Uploading a photo in WPMediaVerse earns its upload points once; the feed post it creates no longer pays again.
+* Fix      - Switching Kudos off in WB Gamification removes the profile Kudos tab, and the Achievements tab no longer points at it.
 * Fix      - A photo trashed in WPMediaVerse takes its feed post with it, restoring the photo brings the same post back, and deleting it permanently removes the post instead of leaving an empty one.
 * Fix      - The Achievements badge count is no longer capped at 24.
 * Dev      - Mirrored follows, lightbox comments and forum replies run inside IntegrationActivity::as_mirror(), so reward listeners can skip them with IntegrationActivity::is_mirror() and never pay one action twice.

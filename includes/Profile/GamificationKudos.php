@@ -41,6 +41,20 @@ class GamificationKudos {
 	}
 
 	/**
+	 * Whether Kudos is switched on in WB Gamification (Settings > Modules).
+	 *
+	 * The engine owns the switch; BuddyNext only follows it, so a site that turns
+	 * Kudos off loses the tab and the give paths everywhere (card 10344054799).
+	 * Engines without ModuleToggles have no switch, so Kudos is on.
+	 *
+	 * @return bool
+	 */
+	public static function enabled(): bool {
+		return ! is_callable( array( '\\WBGam\\Engine\\ModuleToggles', 'enabled' ) )
+			|| \WBGam\Engine\ModuleToggles::enabled( 'kudos' );
+	}
+
+	/**
 	 * Register the Kudos tab (shown on every member profile).
 	 *
 	 * @param \BuddyNext\Nav\NavRegistry $registry Shared nav registry.
@@ -57,7 +71,7 @@ class GamificationKudos {
 				'icon'      => 'heart',
 				'priority'  => 30,
 				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool =>
-					buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0,
+					buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0 && self::enabled(),
 				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string =>
 					trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . self::TAB_SLUG . '/',
 				'count'     => static fn( \BuddyNext\Nav\NavContext $c ): int =>
@@ -337,7 +351,11 @@ class GamificationKudos {
 			(string) ( $request['message'] ?? '' )
 		);
 		if ( is_wp_error( $result ) ) {
-			$status = 'invalid_receiver' === $result->get_error_code() ? 400 : 429;
+			$codes  = array(
+				'invalid_receiver' => 400,
+				'kudos_off'        => 403,
+			);
+			$status = $codes[ $result->get_error_code() ] ?? 429;
 			$result->add_data( array( 'status' => $status ) );
 			return $result;
 		}
@@ -353,6 +371,9 @@ class GamificationKudos {
 	 * @return true|\WP_Error
 	 */
 	private function give( int $giver, int $receiver, string $message ) {
+		if ( ! self::enabled() ) {
+			return new \WP_Error( 'kudos_off', __( 'Kudos is turned off on this community.', 'buddynext' ) );
+		}
 		if ( $giver <= 0 || $receiver <= 0 || $giver === $receiver || ! get_userdata( $receiver ) ) {
 			return new \WP_Error( 'invalid_receiver', __( 'You cannot send kudos to that member.', 'buddynext' ) );
 		}
@@ -373,6 +394,9 @@ class GamificationKudos {
 			case 'wb_gam_kudos_self':
 			case 'wb_gam_kudos_invalid_user':
 				return __( 'You cannot send kudos to that member.', 'buddynext' );
+			case 'kudos_off':
+			case 'wb_gam_module_disabled':
+				return __( 'Kudos is turned off on this community.', 'buddynext' );
 			case 'wb_gam_kudos_daily_ceiling':
 				return __( 'You have given a lot of kudos today. Try again tomorrow.', 'buddynext' );
 			case 'wb_gam_kudos_busy':

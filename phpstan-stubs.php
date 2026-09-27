@@ -71,6 +71,17 @@ namespace WBGam\Engine {
 		}
 	}
 
+	if ( ! class_exists( 'WBGam\\Engine\\ModuleToggles' ) ) {
+		/**
+		 * Stub for the wb-gamification module switches (Settings > Modules).
+		 */
+		class ModuleToggles {
+			public static function enabled( string $slug ): bool { // phpcs:ignore
+				return true;
+			}
+		}
+	}
+
 	if ( ! class_exists( 'WBGam\\Engine\\Registry' ) ) {
 		/**
 		 * Stub for the wb-gamification action registry (1.6.5 category labels).
