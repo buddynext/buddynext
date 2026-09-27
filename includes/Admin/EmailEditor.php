@@ -184,6 +184,14 @@ class EmailEditor {
 					'preview' => 'You have a new reply',
 					'body'    => "Hi {{user_name}},\n\n{{actor_name}} replied to your comment on <strong>{{site_name}}</strong>.\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Read the reply →</a>",
 				),
+				'bn.media_commented'      => array(
+					'name'    => __( 'Media Comment', 'buddynext' ),
+					'trigger' => __( 'When someone comments on your photo or video', 'buddynext' ),
+					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'subject' => '{{actor_name}} commented on your media on {{site_name}}',
+					'preview' => '{{actor_name}} commented on your media.',
+					'body'    => "Hi {{recipient_name}},\n\n<strong>{{actor_name}}</strong> commented on your media on {{site_name}}.\n\n<a href=\"{{action_url}}\">View the comment →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+				),
 				'bn.media_favorited'      => array(
 					'name'    => __( 'Media Favorited', 'buddynext' ),
 					'trigger' => __( 'When someone favorites your media', 'buddynext' ),

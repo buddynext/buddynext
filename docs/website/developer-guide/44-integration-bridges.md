@@ -202,8 +202,14 @@ This tells WPMediaVerse to suppress its own floating chat panel, standalone mess
 |---|---|---|
 | `mvs_message_sent` | action (4 args) | Fires `buddynext_dm_sent` (sender perspective, once) and `buddynext_dm_received` (per recipient, sender stripped), then creates `bn.new_message` notifications. Restrict/mute on the recipient side suppresses the bell without blocking the message. |
 | `mvs_favorite_toggled` | action (3 args) | On `'added'` only, notifies the media owner with `bn.media_favorited`. |
-| `mvs_comment_created` | action | Syncs a lightbox photo comment into a `bn_comments` row threaded under the BuddyNext post holding the media, then fires `buddynext_comment_created` (canonical 4-arg). Deduped against re-fires. |
+| `mvs_comment_created` | action | Notifies the media owner with `bn.media_commented` (object `mvs_media`, grouped per media, block-aware, never the commenter), from the comment itself, so it works before the photo has a feed card and for media that never gets one. Then copies the comment onto the newest published post showing the media (found through `bn_post_media`), dated when it was written, and fires `buddynext_comment_created` (canonical 4-arg) with notifications muted, so the copy never notifies twice. Deduped against re-fires. |
 | `mvs_user_profile_url` | filter | Repoints WPMediaVerse author links at the BuddyNext member profile (`PageRouter::profile_url`). |
+
+### One notification per action
+
+For follows, media comments, favorites and direct messages, BuddyNext sends the notification (bell, email, push) and tells WPMediaVerse to skip its own copy (`mvs_should_send_notification`). Reactions and mentions stay WPMediaVerse's; BuddyNext only shows them. A media notification opens the post the media is in, or the media's own page when it has no post (`buddynext_media_notification_url`).
+
+A photo's feed card is created by an Action Scheduler job (`buddynext_mvs_media_activity`) two minutes after the upload, so a composer post can claim the photo first. When that job creates the card it copies the comments already written onto it, inside the job, so the member's request never pays for it.
 
 ### Two-way follow mirror
 

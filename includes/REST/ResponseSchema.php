@@ -4026,6 +4026,32 @@ final class ResponseSchema {
 								),
 							),
 						),
+						'bn.media_commented'               => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
 						'bn.media_favorited'               => array(
 							'type'       => 'object',
 							'properties' => array(

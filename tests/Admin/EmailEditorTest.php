@@ -122,7 +122,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 38, $total );
+		$this->assertSame( 39, $total );
 	}
 
 	/**

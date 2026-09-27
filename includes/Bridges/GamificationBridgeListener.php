@@ -258,27 +258,75 @@ class GamificationBridgeListener implements ListenerInterface {
 	}
 
 	/**
-	 * Personal record: WB Gamification's own sentence, as sent.
+	 * Personal record: one row per member per period, kept current, alerting once.
 	 *
 	 * Hooked on: wb_gam_personal_record( int $user_id, string $period, int $current, int $previous, string $message ).
+	 * WB Gamification fires it on every award that lifts a running total past the
+	 * previous best, so an active member's record fires many times a day (card
+	 * 10344637999). The bell treats a record as news, not a ticker:
+	 * - one row per member per period bucket (site-calendar day, Monday-start
+	 *   week, month - WB Gamification's own buckets); the first record in a bucket
+	 *   alerts once, later ones only update the number, silently;
+	 * - by default only week and month records are announced (a daily best
+	 *   happens most days for an active member), and a first record over a
+	 *   trivial previous best (under 10) is skipped.
+	 * Filter `buddynext_personal_record_notify` changes that per site.
 	 *
 	 * @param int    $user_id  Member.
-	 * @param string $period   Period (week, month, ...).
+	 * @param string $period   'day' | 'week' | 'month'.
 	 * @param int    $current  New best.
 	 * @param int    $previous Previous best.
-	 * @param string $message  Ready-to-show sentence.
+	 * @param string $message  WB Gamification's sentence.
 	 * @return void
 	 */
 	public function on_personal_record( int $user_id, string $period = '', int $current = 0, int $previous = 0, string $message = '' ): void {
-		$this->notify(
-			$user_id,
-			'bn.personal_record',
-			'',
-			0,
+		$buckets = array(
+			'day'   => 'Y-m-d',
+			'week'  => 'o-\WW',
+			'month' => 'Y-m',
+		);
+		if ( $user_id <= 0 || ! isset( $buckets[ $period ] ) || ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		/**
+		 * Filter whether a WB Gamification personal record reaches the member's inbox.
+		 *
+		 * Default: week and month records whose previous best was at least 10.
+		 * Return true for 'day' to announce daily bests too, or false to turn
+		 * personal-record notifications off for the site.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param bool   $notify   Whether to notify.
+		 * @param int    $user_id  Member.
+		 * @param string $period   'day' | 'week' | 'month'.
+		 * @param int    $current  New best.
+		 * @param int    $previous Previous best.
+		 */
+		$notify = (bool) apply_filters( 'buddynext_personal_record_notify', 'day' !== $period && $previous >= 10, $user_id, $period, $current, $previous );
+		if ( ! $notify ) {
+			return;
+		}
+
+		$group_key = 'wbgam_pr_' . $period . '_' . wp_date( $buckets[ $period ] );
+		$data      = array(
+			'message' => $message,
+			'period'  => $period,
+			'current' => $current,
+		);
+
+		// Already announced in this bucket: keep the number current, alert nothing.
+		if ( buddynext_service( 'notifications' )->update_data_by_group( $user_id, $group_key, $data ) > 0 ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
 			array(
-				'message' => $message,
-				'period'  => $period,
-				'current' => $current,
+				'recipient_id' => $user_id,
+				'type'         => 'bn.personal_record',
+				'group_key'    => $group_key,
+				'data'         => $data,
 			)
 		);
 	}

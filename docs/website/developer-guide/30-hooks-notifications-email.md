@@ -36,6 +36,8 @@ Key contract rules:
 | `buddynext_transactional_notification_types` | filter | Resolving which notification types are **transactional**, meaning they bypass the member's email preferences entirely and always send. The core set is `email_verify` and `welcome`. Add a type here only when the member genuinely cannot opt out of it - the case this was opened for is Pro's upcoming-renewal notice, where EU and California auto-renewal rules require advance notice before a card is charged. The returned array is cast to strings, de-duplicated and emptied of blanks. | `string[] $types` |
 | `buddynext_notification_created` | action | After a notification row is inserted or merged into an unread group | `int $notification_id, int $recipient_id, array $data` |
 | `buddynext_notification_ungroupable_types` | filter | Resolving which notification types must never collapse into a grouped row | `string[] $types` |
+| `buddynext_media_notification_url` | filter | Resolving where a media notification (comment, favorite, reaction, mention) opens | `string $url, int $media_id` |
+| `buddynext_personal_record_notify` | filter | Deciding whether a WB Gamification personal record reaches the member's inbox | `bool $notify, int $user_id, string $period, int $current, int $previous` |
 | `buddynext_notification_visible_rows` | filter | Reading a page of a member's notifications, after rows whose object is gone are dropped | `array[] $rows` |
 
 Details:
@@ -50,6 +52,13 @@ Details:
       $types[] = 'my_plugin_approval_request'; // each one needs its own decision
       return $types;
   } );
+  ```
+
+- `buddynext_media_notification_url` defaults to `''`, which falls back to the activity feed. The WPMediaVerse bridge answers with the post the media is in, or the media's own page.
+- `buddynext_personal_record_notify` defaults to true for `week` and `month` records whose previous best was at least 10. A record is announced once per period (one row per member per site-calendar week or month); later records in the same period update that row's number without a new alert. Return true for `'day'` to announce daily bests, or false to turn records off.
+
+  ```php
+  add_filter( 'buddynext_personal_record_notify', '__return_false' ); // No personal-record notifications.
   ```
 
 - `buddynext_notification_visible_rows` receives the raw rows of one page (each has `recipient_id`, `type`, `object_type`, `object_id`, `sender_id` and the JSON `data`). It is for a plugin whose notifications are mirrored into the bell: that plugin owns who may see its content, so it removes its own rows the recipient should not see (a banned author, trashed content). Return every other row untouched. It filters the list only; unread counts are not recalculated.

@@ -56,20 +56,11 @@ class WPMediaVerseBridge {
 	private string $pending_dm_flag = '';
 
 	/**
-	 * Object-cache group + TTL for the media -> source-activity lookup. The lookup
-	 * scans bn_posts (JSON_CONTAINS on media_ids is not indexable), so the result
-	 * is cached: a media's source post never changes once created.
+	 * True while a media comment is being mirrored onto its feed card.
 	 *
-	 * @var string
+	 * @var bool
 	 */
-	private const CACHE_GROUP = 'buddynext_media';
-
-	/**
-	 * Cache TTL for the media -> source-activity lookup, in seconds.
-	 *
-	 * @var int
-	 */
-	private const CACHE_TTL = 3600;
+	private static bool $mirroring_comment = false;
 
 	/**
 	 * Attach the DM safety gates.
@@ -287,7 +278,15 @@ class WPMediaVerseBridge {
 		// Sync MVS lightbox comments → BuddyNext activity comments.
 		// When a user comments on a photo via the lightbox, create a matching
 		// bn_comments entry threaded under the BuddyNext post that holds the media.
+		// A media comment notifies the owner from the comment itself, whether or not
+		// the photo has a feed card yet (its card is created two minutes after the
+		// upload, by Action Scheduler). The copy on the card is display only and
+		// notifies nobody (card 10344509261).
+		add_action( 'mvs_comment_created', array( $this, 'notify_media_comment' ), 10, 3 );
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
+		add_filter( 'buddynext_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
+		// Media notifications open the post the media is in, or the media page.
+		add_filter( 'buddynext_media_notification_url', array( $this, 'media_notification_url' ), 10, 2 );
 
 		// Surface standalone WPMediaVerse uploads in the activity feed. The
 		// upload itself fired no feed entry before, so media shared from the
@@ -438,15 +437,8 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$attached = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE media_ids IS NOT NULL AND JSON_CONTAINS(media_ids, %s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				(string) wp_json_encode( $media_id )
-			)
-		);
-		if ( $attached > 0 ) {
+		// Already surfaced by a post (the composer, or an earlier run of this job).
+		if ( array() !== ( new PostService() )->ids_with_media( $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' ) ) {
 			return;
 		}
 
@@ -463,6 +455,9 @@ class WPMediaVerseBridge {
 					)
 				)
 			);
+			// Comments made before the card existed (this job runs two minutes after
+			// the upload) are carried onto it, with their own times.
+			$this->carry_comments_onto_card( $media_id );
 			return;
 		}
 
@@ -1150,10 +1145,8 @@ class WPMediaVerseBridge {
 	/**
 	 * Find the BuddyNext post a media item was surfaced in (photo post or media card).
 	 *
-	 * Photo uploads store the media id in `bn_posts.media_ids` (JSON); non-photo
-	 * uploads become a media card whose `link_url` is the media's /media/ permalink.
-	 * Cached because JSON_CONTAINS can't use an index and a media's source post is
-	 * stable once created.
+	 * Photo uploads are found through the bn_post_media index; non-photo uploads
+	 * become a media card whose `link_url` is the media's /media/ permalink.
 	 *
 	 * @param int $media_id Media id.
 	 * @return int Source post id, or 0 when the media has no BuddyNext activity.
@@ -1163,33 +1156,18 @@ class WPMediaVerseBridge {
 			return 0;
 		}
 
-		$cache_key = 'src_post_' . $media_id;
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
-		if ( false !== $cached ) {
-			return (int) $cached;
+		// A photo is found through the bn_post_media index; a video or audio card
+		// by its /media/ permalink (indexed type + link_url).
+		$ids     = ( new PostService() )->ids_with_media( $media_id, 'published' );
+		$post_id = empty( $ids ) ? 0 : max( $ids );
+		if ( 0 === $post_id ) {
+			$repo      = MediaClient::repo();
+			$media_url = ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) ? (string) $repo->get_permalink( $media_id ) : '';
+			$post_id   = '' !== $media_url ? ( new PostService() )->get_id_by_link( 'media', $media_url ) : 0;
 		}
 
-		$media_url = '';
-		$repo      = MediaClient::repo();
-		if ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) {
-			$media_url = (string) $repo->get_permalink( $media_id );
-		}
-
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$post_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts
-				 WHERE ( media_ids IS NOT NULL AND JSON_CONTAINS( media_ids, %s ) )
-				    OR ( link_url = %s AND link_url <> '' )
-				 ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				(string) wp_json_encode( $media_id ),
-				$media_url
-			)
-		);
-
-		// cache-ttl-only: a media->post attachment is immutable once made. There is no event that could invalidate it, because there is no change that can happen.
-		wp_cache_set( $cache_key, $post_id, self::CACHE_GROUP, self::CACHE_TTL );
+		// Not cached: both lookups are indexed, and a cache would go stale when the
+		// card is created (two minutes after upload) or deleted.
 		return $post_id;
 	}
 
@@ -2786,23 +2764,11 @@ class WPMediaVerseBridge {
 
 		global $wpdb;
 
-		// Find the BuddyNext post that has this media_id in its media_ids JSON
-		// array. JSON_CONTAINS does an exact array-element match — a LIKE '%5%'
-		// matched 5, 50, 51, 15… (false positives). JSON_VALID guards rows whose
-		// media_ids is NULL/empty/non-JSON so the function can't error on them.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$bn_post_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts
-				 WHERE media_ids IS NOT NULL AND media_ids <> ''
-				   AND JSON_VALID(media_ids) AND JSON_CONTAINS(media_ids, %s)
-				   AND status = 'published'
-				 ORDER BY created_at DESC LIMIT 1",
-				(string) $media_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
+		// The newest published post showing this media, through the bn_post_media
+		// index (card 10344434252). None yet: publish_media_activity() carries the
+		// comment over when it creates the card.
+		$bn_post_ids = ( new PostService() )->ids_with_media( $media_id, 'published' );
+		$bn_post_id  = empty( $bn_post_ids ) ? 0 : max( $bn_post_ids );
 		if ( ! $bn_post_id ) {
 			return;
 		}
@@ -2830,8 +2796,10 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Create the bn_comments entry.
-		$now = current_time( 'mysql', true );
+		// Create the bn_comments entry, dated when the member wrote it (a comment
+		// carried onto a card created later keeps its own time).
+		$now     = current_time( 'mysql', true );
+		$written = '' !== (string) $comment->comment_date_gmt && '0000-00-00 00:00:00' !== (string) $comment->comment_date_gmt ? (string) $comment->comment_date_gmt : $now;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
@@ -2850,7 +2818,7 @@ class WPMediaVerseBridge {
 				// render "on photo N of M" attribution. Post-level feed comments
 				// carry NULL here (they are about the post, not any one photo).
 				'media_id'    => $media_id,
-				'created_at'  => $now,
+				'created_at'  => $written,
 				'updated_at'  => $now,
 			),
 			array( '%s', '%d', '%d', '%s', '%d', '%d', '%s', '%s' )
@@ -2873,13 +2841,123 @@ class WPMediaVerseBridge {
 		$new_comment_id = (int) $wpdb->insert_id;
 		if ( $new_comment_id > 0 ) {
 			// A mirror of a comment MediaVerse already recorded: flag it so reward
-			// listeners do not pay the same comment twice.
-			\BuddyNext\Feed\IntegrationActivity::as_mirror(
-				static function () use ( $new_comment_id, $bn_post_id, $user_id ) {
-					do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
-				}
-			);
+			// listeners do not pay the same comment twice, and mute notifications -
+			// notify_media_comment() already told the owner (card 10344509261).
+			self::$mirroring_comment = true;
+			try {
+				\BuddyNext\Feed\IntegrationActivity::as_mirror(
+					static function () use ( $new_comment_id, $bn_post_id, $user_id ) {
+						do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
+					}
+				);
+			} finally {
+				self::$mirroring_comment = false;
+			}
 		}
+	}
+
+	/**
+	 * Tell the media owner about a comment on their media.
+	 *
+	 * Hooked on: mvs_comment_created ( $media_id, $user_id, $comment_id, ... ).
+	 * BuddyNext owns this notification on a BuddyNext site (WPMediaVerse skips
+	 * its media_comment, owner decision 2026-09-27), so it is sent here, from the
+	 * comment, not from its copy on the feed card: a photo has no card for its
+	 * first two minutes, and media outside the feed never gets one. Never to the
+	 * commenter themself, and dropped when either member has blocked the other.
+	 *
+	 * @param int $media_id   Media id.
+	 * @param int $user_id    Commenter (re-read from the comment).
+	 * @param int $comment_id WP comment id.
+	 * @return void
+	 */
+	public function notify_media_comment( int $media_id, int $user_id, int $comment_id ): void {
+		$comment   = get_comment( $comment_id );
+		$commenter = $comment ? (int) $comment->user_id : 0;
+		$repo      = MediaClient::repo();
+		$owner_id  = ( $repo && $media_id > 0 ) ? (int) $repo->get( $media_id, 'post_author' ) : 0;
+		if ( $commenter <= 0 || $owner_id <= 0 || $owner_id === $commenter ) {
+			return;
+		}
+		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
+		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
+			&& ( $blocks->has_blocked( $owner_id, $commenter ) || $blocks->has_blocked( $commenter, $owner_id ) ) ) {
+			return;
+		}
+
+		( new NotificationService() )->create(
+			array(
+				'recipient_id' => $owner_id,
+				'sender_id'    => $commenter,
+				'type'         => 'bn.media_commented',
+				'object_type'  => self::BELL_MEDIA_TYPE,
+				'object_id'    => $media_id,
+				'group_key'    => "mvs_comment_{$media_id}",
+				'data'         => array(
+					'media_id'   => $media_id,
+					'comment_id' => $comment_id,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Copy a media item's existing comments onto the card just created for it.
+	 *
+	 * Runs inside the Action Scheduler job that creates a photo's card, so it adds
+	 * nothing to the member's request. Deduplicated by sync_lightbox_comment() and
+	 * silent (the owner was told when each comment was written).
+	 *
+	 * @param int $media_id Media id.
+	 * @return void
+	 */
+	private function carry_comments_onto_card( int $media_id ): void {
+		$service = MediaClient::comments();
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_for_media' ) ) {
+			return;
+		}
+		// ponytail: the first 200 top-level comments; the card is two minutes old, so
+		// more than that before it exists is not a real case.
+		$page = (array) $service->get_for_media( $media_id, 200, 1 );
+		foreach ( (array) ( $page['comments'] ?? array() ) as $row ) {
+			$comment_id = (int) ( $row['id'] ?? 0 );
+			if ( $comment_id > 0 ) {
+				$this->sync_lightbox_comment( $media_id, 0, $comment_id );
+			}
+		}
+	}
+
+	/**
+	 * Suppress BuddyNext notifications while a media comment is mirrored.
+	 *
+	 * @param bool $should Whether to send.
+	 * @return bool
+	 */
+	public function mute_mirror_notifications( $should ) {
+		return self::$mirroring_comment ? false : (bool) $should;
+	}
+
+	/**
+	 * Where a media notification opens: the post the media is in, else its page.
+	 *
+	 * Hooked on: buddynext_media_notification_url.
+	 *
+	 * @param string $url      URL so far.
+	 * @param int    $media_id Media id.
+	 * @return string
+	 */
+	public function media_notification_url( $url, $media_id ): string {
+		$media_id = (int) $media_id;
+		if ( $media_id <= 0 ) {
+			return (string) $url;
+		}
+		$post_id = $this->source_post_for_media( $media_id );
+		if ( $post_id > 0 ) {
+			return \BuddyNext\Core\PageRouter::post_url( $post_id );
+		}
+		$repo = MediaClient::repo();
+		$link = ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) ? (string) $repo->get_permalink( $media_id ) : '';
+		return '' !== $link ? $link : (string) $url;
 	}
 	/**
 	 * Tell MediaVerse a member HAS a custom avatar when BuddyNext holds one.

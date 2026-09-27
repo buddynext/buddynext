@@ -97,4 +97,36 @@ class GamificationBridgeListenerTest extends \WP_UnitTestCase {
 		$this->assertArrayNotHasKey( 'bn.badge_awarded', $this->rows( $this->member ), 'the deleted badge leaves the inbox' );
 		$this->assertSame( 1, $this->rows( $this->other )['bn.badge_awarded'] ?? 0, 'another badge is untouched' );
 	}
+
+	public function test_personal_records_alert_once_per_period_and_stay_current(): void {
+		global $wpdb;
+		$alerts = 0;
+		$count  = static function () use ( &$alerts ) {
+			++$alerts;
+		};
+		add_action( 'buddynext_notification_created', $count );
+
+		// Five awards in a row, each beating day, week and month.
+		for ( $i = 1; $i <= 5; $i++ ) {
+			foreach ( array( 'day', 'week', 'month' ) as $period ) {
+				$this->listener->on_personal_record( $this->member, $period, 40 + $i, 30, "Best {$period}: " . ( 40 + $i ) );
+			}
+		}
+		remove_action( 'buddynext_notification_created', $count );
+
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT data FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'bn.personal_record' ORDER BY id", $this->member ), ARRAY_A );
+		$this->assertCount( 2, $rows, 'one row each for week and month; daily bests are not announced by default' );
+		$this->assertSame( 2, $alerts, 'each period alerts once' );
+		foreach ( $rows as $row ) {
+			$this->assertSame( 45, (int) json_decode( $row['data'], true )['current'], 'the row shows the latest value' );
+		}
+	}
+
+	public function test_trivial_first_records_and_a_site_opt_out_send_nothing(): void {
+		$this->listener->on_personal_record( $this->member, 'week', 8, 0, 'First week' );
+		add_filter( 'buddynext_personal_record_notify', '__return_false' );
+		$this->listener->on_personal_record( $this->member, 'month', 500, 300, 'Big month' );
+		remove_filter( 'buddynext_personal_record_notify', '__return_false' );
+		$this->assertArrayNotHasKey( 'bn.personal_record', $this->rows( $this->member ) );
+	}
 }

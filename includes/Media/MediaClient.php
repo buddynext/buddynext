@@ -89,6 +89,15 @@ class MediaClient {
 	}
 
 	/**
+	 * The media comment service (lightbox comments on a media item).
+	 *
+	 * @return object|null
+	 */
+	public static function comments() {
+		return self::service( 'comments' );
+	}
+
+	/**
 	 * The provider-neutral object↔media linkage service (engine 1.6.0).
 	 *
 	 * @return object|null

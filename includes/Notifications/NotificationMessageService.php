@@ -479,6 +479,13 @@ class NotificationMessageService {
 			case 'bn.weekly_digest':
 				return __( 'Your weekly digest is ready.', 'buddynext' );
 
+			case 'bn.media_commented':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s commented on your media.', 'buddynext' ),
+					$actor_name
+				);
+
 			case 'bn.media_favorited':
 				return sprintf(
 					/* translators: %s: actor display name. */
@@ -622,6 +629,14 @@ class NotificationMessageService {
 				return sprintf(
 					/* translators: 1: actor display name, 2: number of other actors. */
 					_n( '%1$s and %2$d other sent you a message.', '%1$s and %2$d others sent you a message.', $others, 'buddynext' ),
+					$actor_name,
+					$others
+				);
+
+			case 'bn.media_commented':
+				return sprintf(
+					/* translators: 1: actor display name, 2: number of other actors. */
+					_n( '%1$s and %2$d other commented on your media.', '%1$s and %2$d others commented on your media.', $others, 'buddynext' ),
 					$actor_name,
 					$others
 				);
@@ -878,6 +893,11 @@ class NotificationMessageService {
 					'tone'  => 'info',
 					'label' => __( 'Weekly digest', 'buddynext' ),
 				),
+				'bn.media_commented'          => array(
+					'icon'  => 'message-circle',
+					'tone'  => 'accent',
+					'label' => __( 'Media comment', 'buddynext' ),
+				),
 				'bn.media_favorited'          => array(
 					'icon'  => 'heart',
 					'tone'  => 'warn',
@@ -1054,12 +1074,23 @@ class NotificationMessageService {
 					? PageRouter::conversation_url( $conv_id )
 					: PageRouter::messages_url();
 
+			case 'bn.media_commented':
 			case 'bn.media_favorited':
 			case 'bn.media_reaction':
 			case 'bn.media_mention':
-				return $object_id > 0
-					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
-					: PageRouter::activity_url();
+				/**
+				 * Where a media notification opens, given the media id it is about.
+				 *
+				 * The media plugin's bridge answers: the post the media is in, or the
+				 * media's own page. An empty answer falls back to the activity feed.
+				 *
+				 * @since 1.2.2
+				 *
+				 * @param string $url      URL so far ('' by default).
+				 * @param int    $media_id Media id.
+				 */
+				$media_url = (string) apply_filters( 'buddynext_media_notification_url', '', $object_id );
+				return '' !== $media_url ? $media_url : PageRouter::activity_url();
 
 			case 'bn.user_warned':
 			case 'bn.strike_warning':
@@ -1191,6 +1222,7 @@ class NotificationMessageService {
 				'bn.space_join',
 				'bn.space_new_post',
 				'bn.new_message',
+				'bn.media_commented',
 				'bn.media_favorited',
 				'bn.media_reaction',
 			),

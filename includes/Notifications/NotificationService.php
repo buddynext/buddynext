@@ -138,6 +138,47 @@ class NotificationService {
 	}
 
 	/**
+	 * Update the data of a member's row with this group key, in place and quietly.
+	 *
+	 * For a notification that keeps one row per member per bucket and only needs
+	 * its content refreshed (a personal record that keeps growing through the
+	 * week): the row keeps its read state and its date, and nothing is re-sent -
+	 * unlike create()'s group merge, which re-surfaces the row and fires the
+	 * created action (bell, email, push) again.
+	 *
+	 * @param int                 $recipient_id Recipient.
+	 * @param string              $group_key    Group key the row was created with.
+	 * @param array<string,mixed> $data         New data (replaces the stored data).
+	 * @return int Updated row id, or 0 when the member has no such row.
+	 */
+	public function update_data_by_group( int $recipient_id, string $group_key, array $data ): int {
+		if ( $recipient_id <= 0 || '' === $group_key ) {
+			return 0;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND group_key = %s ORDER BY id DESC LIMIT 1",
+				$recipient_id,
+				$group_key
+			)
+		);
+		if ( $id <= 0 ) {
+			return 0;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_notifications',
+			array( 'data' => (string) wp_json_encode( $data ) ),
+			array( 'id' => $id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		return $id;
+	}
+
+	/**
 	 * Delete a type's notifications whose data carries a given key/value, for
 	 * the given recipients only.
 	 *

@@ -534,6 +534,17 @@ class NotificationPrefCatalogue {
 				'can_email'          => false,
 				'email_only'         => true,
 			),
+			// BuddyNext owns media comments on a BuddyNext site (WPMediaVerse skips
+			// its own, owner decision 2026-09-27), so this one emails like a post
+			// comment does.
+			'bn.media_commented'          => array(
+				'label'              => __( 'Comments on your media', 'buddynext' ),
+				'description'        => __( 'Someone commented on a photo or video you posted.', 'buddynext' ),
+				'group'              => self::GROUP_FEED,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
 			'bn.media_favorited'          => array(
 				'label'              => __( 'Media favourited', 'buddynext' ),
 				'description'        => __( 'Someone favourited media you posted.', 'buddynext' ),

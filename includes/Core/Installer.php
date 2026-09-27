@@ -444,8 +444,11 @@ class Installer {
 	 *      every post, a full scan run once per status (card 10344434252). The
 	 *      upgrade backfills it from existing posts; new writes go through
 	 *      PostService::index_media().
+	 *  64: seed the bn.media_commented email template (BuddyNext now sends the
+	 *      media-comment notification itself, card 10344509261). run() seeds it on
+	 *      upgrade; no data touched.
 	 */
-	private const SCHEMA_VERSION = 63;
+	private const SCHEMA_VERSION = 64;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3282,6 +3285,12 @@ class Installer {
 				'subject'      => 'New message on {{site_name}}',
 				'preview_text' => 'You have a new direct message',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.media_commented',
+				'subject'      => 'New comment on your media on {{site_name}}',
+				'preview_text' => 'Someone commented on your media',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Someone commented on your media on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.media_favorited',

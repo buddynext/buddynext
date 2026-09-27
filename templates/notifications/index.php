@@ -52,7 +52,7 @@ if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 // "which types belong to which tab" mapping stays declarative).
 $filter_type_map = array(
 	'reaction' => array( 'bn.post_reacted', 'bn.media_reaction' ),
-	'comment'  => array( 'bn.post_commented' ),
+	'comment'  => array( 'bn.post_commented', 'bn.media_commented' ),
 	'mention'  => array( 'bn.mention', 'bn.media_mention' ),
 	'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
 	'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
