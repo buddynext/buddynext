@@ -82,6 +82,8 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - With Messages off, the member directory, space member lists, the notifications Messages filter and the Add to Menu box no longer offer a Message link that leads nowhere, and message notifications are left out of the bell until Messages are on again.
 * Fix      - The Messages page tells an administrator that Messages are switched off in WPMediaVerse (with a link) instead of asking them to install a plugin they already have, and tells members plainly that Messages are turned off.
 * Fix      - The Message button on a space's member list opens a conversation with that member instead of the inbox.
+* Fix      - Every community page a member is logged in on is now marked uncacheable, so a page cache that caches logged-in visitors no longer sends onboarding back to step 1 after Continue. Tested with WP Super Cache, W3 Total Cache and LiteSpeed Cache; guest views of public pages stay cached.
+* New      - Page cache and optimisation guide for site owners: what BuddyNext handles automatically, what was tested, and what to do after updates.
 * Fix      - A photo trashed in WPMediaVerse takes its feed post with it, restoring the photo brings the same post back, and deleting it permanently removes the post instead of leaving an empty one.
 * Fix      - The Achievements badge count is no longer capped at 24.
 * Dev      - Mirrored follows, lightbox comments and forum replies run inside IntegrationActivity::as_mirror(), so reward listeners can skip them with IntegrationActivity::is_mirror() and never pay one action twice.

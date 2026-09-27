@@ -279,9 +279,10 @@ class PageRouter {
 	/**
 	 * A front-page hub's deeper routes are not the front page.
 	 *
-	 * align_hub_page_conditionals() gives every route of a hub its mapped page as
-	 * the queried object (themes read layout settings from it). When that page is
-	 * the static front page, WordPress then answers is_front_page() true on
+	 * The align_hub_page_conditionals() method gives every route of a hub its
+	 * mapped page as the queried object (themes read layout settings from it).
+	 * When that page is the static front page, WordPress then answers
+	 * is_front_page() true on
 	 * /activity/leaderboard/, /me/account-status/ or /members/alice/ too: core
 	 * 301s them to "/" (redirect_canonical), titles drop the site name, the body
 	 * gets .home, and front-page-only theme/SEO output leaks onto every sub-route.
@@ -697,7 +698,17 @@ class PageRouter {
 		// automated and rejected — a site-wide registration outage. Mark the whole
 		// hub uncacheable before any output: the general rule for any
 		// nonce/token-bearing form page, not just signup.
-		if ( 'auth' === $hub ) {
+		//
+		// The same holds for EVERY hub a member is logged in on: their feed,
+		// inbox, notifications, profile and onboarding step are rendered for them
+		// and carry their nonce. A page cache that also caches logged-in visitors
+		// (LiteSpeed private cache, WP Super Cache for known users) served the
+		// onboarding wizard's reload from cache, so Next after Interests bounced
+		// back to step 1 (card 10344282503). Guest views of public hubs stay
+		// cacheable, which is where a page cache earns its keep. Proven against
+		// WP Super Cache, W3 Total Cache and LiteSpeed Cache (all honour
+		// DONOTCACHEPAGE alone) by docker/cache-test/check.sh.
+		if ( 'auth' === $hub || is_user_logged_in() ) {
 			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 				define( 'DONOTCACHEPAGE', true ); // Honoured by WP Rocket, W3TC, WP Super Cache, LiteSpeed, Batcache.
 			}
