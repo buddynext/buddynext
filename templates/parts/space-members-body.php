@@ -446,9 +446,9 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 									printf( esc_attr__( 'View %s', 'buddynext' ), esc_attr( $member_name ) );
 								?>
 							"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
-							<?php if ( $current_user_id > 0 && $current_user_id !== $member_id ) : ?>
+							<?php if ( $current_user_id > 0 && $current_user_id !== $member_id && \BuddyNext\Messages\MessagesData::entry_enabled() ) : ?>
 								<a
-									href="<?php echo esc_url( PageRouter::messages_url() ); ?>"
+									href="<?php echo esc_url( add_query_arg( 'to', $member_id, PageRouter::messages_url() ) ); ?>"
 									class="bn-btn"
 									data-variant="secondary"
 									data-size="sm"

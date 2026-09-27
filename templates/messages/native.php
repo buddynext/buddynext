@@ -26,22 +26,17 @@ $active_tab     = isset( $active_tab ) ? (string) $active_tab : 'all';
  * Messaging unavailable — the route now ARRIVES here instead of redirecting to
  * the activity hub, so this notice is what the visitor sees (PageRouter).
  *
- * The guard widened from available() to entry_enabled() deliberately. There are
- * two ways messaging can be off and they are not the same thing:
+ * There are two ways messaging can be off and they are not the same thing:
  *
- *   - the WPMediaVerse engine is absent  -> nothing can deliver a message
- *   - the owner switched DMs off         -> Platform → Features, 'messages'
+ *   - WPMediaVerse is absent                 -> the owner must install it
+ *   - WPMediaVerse's Messages switch is off  -> the owner turned it off there
  *
- * available() only covered the first. With the redirect removed, the second
- * would have fallen straight through this guard and rendered the whole
- * messaging UI on a site whose owner had deliberately turned it off.
- *
- * The admin copy names the actual cause, because "install WPMediaVerse" is
- * wrong and confusing advice to an owner who simply unticked a box. Members see
- * the same neutral line either way — which of the two it is, is not their
- * problem.
+ * WPMediaVerse owns the one switch (card 10344001598), so the admin copy names
+ * the actual cause and links to it; "install WPMediaVerse" is wrong advice to an
+ * owner who switched Messages off. Members get a plain statement, not an outage
+ * ("check back later") - which of the two it is, is not their problem.
  */
-$bn_dm_engine_missing = ! MessagesData::available();
+$bn_dm_switched_off = MessagesData::switched_off();
 
 if ( ! MessagesData::entry_enabled() ) :
 	?>
@@ -49,22 +44,23 @@ if ( ! MessagesData::entry_enabled() ) :
 		<div class="bn-card bn-dm-dep-notice" role="status">
 			<div class="bn-dm-dep-notice__head">
 				<span class="bn-dm-dep-notice__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
-				<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Unavailable', 'buddynext' ); ?></span>
+				<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'Off', 'buddynext' ); ?></span>
 			</div>
-			<?php if ( current_user_can( 'manage_options' ) && $bn_dm_engine_missing ) : ?>
+			<?php if ( current_user_can( 'manage_options' ) && $bn_dm_switched_off ) : ?>
+				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Messages are turned off', 'buddynext' ); ?></h2>
+				<p class="bn-dm-dep-notice__body">
+					<?php esc_html_e( 'Messages are switched off in WPMediaVerse. Existing conversations are kept and come back when you turn it on. (This notice is only shown to administrators.)', 'buddynext' ); ?>
+				</p>
+				<p class="bn-dm-dep-notice__body"><a class="bn-btn" data-variant="primary" href="<?php echo esc_url( MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Open WPMediaVerse Messages settings', 'buddynext' ); ?></a></p>
+			<?php elseif ( current_user_can( 'manage_options' ) ) : ?>
 				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></h2>
 				<p class="bn-dm-dep-notice__body">
 					<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext. (This notice is only shown to administrators.)', 'buddynext' ); ?>
 				</p>
-			<?php elseif ( current_user_can( 'manage_options' ) ) : ?>
-				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging is turned off', 'buddynext' ); ?></h2>
-				<p class="bn-dm-dep-notice__body">
-					<?php esc_html_e( 'Messages are disabled for this community. Turn them back on under Platform → Features. (This notice is only shown to administrators.)', 'buddynext' ); ?>
-				</p>
 			<?php else : ?>
-				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Messaging isn’t available right now', 'buddynext' ); ?></h2>
+				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Messages are turned off', 'buddynext' ); ?></h2>
 				<p class="bn-dm-dep-notice__body">
-					<?php esc_html_e( 'Direct messaging is currently unavailable on this community. Please check back later.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Messages are turned off on this community.', 'buddynext' ); ?>
 				</p>
 			<?php endif; ?>
 		</div>

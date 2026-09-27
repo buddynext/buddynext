@@ -38,7 +38,11 @@ $current_user_id = get_current_user_id();
 
 // Resolve active filter tab (sanitized).
 $allowed_filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
-$active_filter   = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// No Messages filter while messaging is off in WPMediaVerse (card 10344001598).
+if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+	$allowed_filters = array_values( array_diff( $allowed_filters, array( 'message' ) ) );
+}
+$active_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 	$active_filter = 'all';
 }
@@ -402,6 +406,9 @@ $initial_context = wp_json_encode(
 			'count' => $message_unread,
 		),
 	);
+	// A tab exists only for a filter the page accepts (Messages drops out while
+	// messaging is off), so the bar never offers a filter that falls back to All.
+	$notif_tabs = array_values( array_filter( $notif_tabs, static fn( array $t ): bool => in_array( (string) $t['key'], $allowed_filters, true ) ) );
 
 	buddynext_get_template(
 		'parts/notifications-filter-bar.php',

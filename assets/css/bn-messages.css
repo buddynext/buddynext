@@ -1448,10 +1448,11 @@
 	flex-shrink: 0;
 }
 
-/* ── Dependency notice (WPMediaVerse not installed) ──────────────────────── */
+/* ── Messages-off notice (WPMediaVerse absent, or its Messages switch off) ── */
+/* The messages container is full-bleed, so the card keeps its own gutter. */
 .bn-dm-dep-notice {
-	max-width: 540px;
-	margin-inline: auto;
+	max-width: min(540px, calc(100% - 2 * var(--bn-s4)));
+	margin: var(--bn-s6) auto;
 	padding: var(--bn-s6);
 	text-align: start;
 	display: flex;
@@ -1470,8 +1471,8 @@
 	width: 40px;
 	height: 40px;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-warn-bg);
-	color: var(--bn-warn);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
 	align-items: center;
 	justify-content: center;
 }

@@ -533,7 +533,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND is_read = 0",
+				 WHERE recipient_id = %d AND is_read = 0" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id
 			)
 		);
@@ -599,7 +599,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND created_at > %s",
+				 WHERE recipient_id = %d AND created_at > %s" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id,
 				$last_seen
 			)
@@ -991,8 +991,7 @@ class NotificationService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT type, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND is_read = 0
-				 GROUP BY type",
+				 WHERE recipient_id = %d AND is_read = 0" . $this->hidden_types_sql() . ' GROUP BY type', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id
 			),
 			ARRAY_A
@@ -1064,12 +1063,33 @@ class NotificationService {
 	private function filter_where( string $filter ): string {
 		switch ( $filter ) {
 			case 'unread':
-				return 'AND is_read = 0';
+				return 'AND is_read = 0' . $this->hidden_types_sql();
 			case 'read':
-				return 'AND is_read = 1';
+				return 'AND is_read = 1' . $this->hidden_types_sql();
 			default:
-				return '';
+				return $this->hidden_types_sql();
 		}
+	}
+
+	/**
+	 * SQL clause leaving out notification types whose feature is switched off.
+	 *
+	 * With messaging off in WPMediaVerse, "sent you a message" rows would open the
+	 * unavailable Messages page, so they are left out of the list and every count
+	 * while it is off, and come back untouched when it is on (card 10344001598).
+	 * Counts are cached for CACHE_TTL seconds, so they follow a switch within it.
+	 *
+	 * @return string '' or " AND type NOT IN (...)".
+	 */
+	private function hidden_types_sql(): string {
+		$types = array();
+		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+			$types[] = 'bn.new_message';
+		}
+		if ( empty( $types ) ) {
+			return '';
+		}
+		return " AND type NOT IN ('" . implode( "','", array_map( 'esc_sql', $types ) ) . "')";
 	}
 
 	/**

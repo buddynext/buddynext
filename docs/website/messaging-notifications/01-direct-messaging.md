@@ -43,11 +43,11 @@ The composer accepts more than text. A member can attach media to a message so t
 
 ## Setting it up (for owners)
 
-Direct messaging has two controls, in two places. The **Enable direct messaging** switch is the *Direct messages* feature toggle under **Platform > Features**. The **Who can DM me** default lives under **Settings > General**, in the Direct Messaging section.
+Direct messaging has two controls, in two places. Messages are switched on or off in **WPMediaVerse > Settings > Social > Messages**, because WPMediaVerse runs messaging. **Platform > Features** shows whether Messages is on, with a link to that switch. The **Who can DM me** default lives under **Settings > General**, in the Direct Messaging section.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Enable direct messaging | Turns private 1:1 messaging on or off for the whole community. When off, every messaging entry point (the inbox, the profile and directory "Message" buttons, the header icon, and the Messages nav item) is hidden. This setting requires the WPMediaVerse plugin to be active; while WPMediaVerse is not active the toggle is disabled and cannot be turned on. | On |
+| Messages (in WPMediaVerse) | Turns private messaging on or off for the whole community, on the web, in the app and over the API. When off, every messaging entry point (the inbox, the profile, directory and space "Message" buttons, the header icon, the Messages nav item and the Messages notification filter) is hidden, and "sent you a message" notifications are left out of the bell until it is on again. Conversations are kept. Visiting the Messages page shows members "Messages are turned off on this community", and shows administrators a link to the switch. | On |
 | Who can DM me (default) | The default privacy applied to new accounts: who is allowed to start a message with a member. Options are Everyone, Members only, Connections only, and No one. Members can override this in their own privacy settings. | Everyone |
 
 > **Tip:** "Who can DM me (default)" only sets the starting value for new members. Each member can change their own preference afterward, so this controls the community default, not a hard rule.

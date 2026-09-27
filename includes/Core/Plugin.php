@@ -899,10 +899,6 @@ class Plugin {
 				'url'   => PageRouter::notifications_url(),
 			),
 			array(
-				'title' => __( 'Messages', 'buddynext' ),
-				'url'   => PageRouter::messages_url(),
-			),
-			array(
 				'title' => __( 'Search', 'buddynext' ),
 				'url'   => PageRouter::search_url(),
 			),
@@ -911,6 +907,20 @@ class Plugin {
 				'url'   => PageRouter::leaderboard_url(),
 			),
 		);
+		// Offer Messages only while messaging is on, so a new menu item is never a dead end.
+		if ( \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+			array_splice(
+				$pages,
+				5,
+				0,
+				array(
+					array(
+						'title' => __( 'Messages', 'buddynext' ),
+						'url'   => PageRouter::messages_url(),
+					),
+				)
+			);
+		}
 
 		// Add Jetonomy pages if active.
 		if ( class_exists( 'Jetonomy\Jetonomy' ) && function_exists( 'Jetonomy\base_url' ) ) {

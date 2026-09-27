@@ -431,7 +431,10 @@ class MemberDirectoryController extends BaseRestController {
 		if ( $can_interact ) {
 			$is_following = isset( $following_set[ $uid ] );
 			$conn_status  = $connection_map[ $uid ] ?? null;
-			$messages_url = add_query_arg( array( 'recipient' => $uid ), PageRouter::messages_url() );
+			// Only while messaging is on, so the directory never offers a dead end.
+			$messages_url = \BuddyNext\Messages\MessagesData::entry_enabled()
+				? add_query_arg( array( 'recipient' => $uid ), PageRouter::messages_url() )
+				: '';
 		}
 
 		// Skip rows where viewer has blocked the user or vice-versa.

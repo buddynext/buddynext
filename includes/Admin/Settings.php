@@ -2522,6 +2522,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					);
 				$badge_tone  = $is_mandatory ? 'accent' : ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier ? 'success' : 'info' );
 
+				// A feature switched in the plugin that runs it: the badge is its
+				// live state and the control is a link there, not a toggle.
+				$managed_url = ( isset( $feature['managed_url'] ) && is_callable( $feature['managed_url'] ) ) ? (string) call_user_func( $feature['managed_url'] ) : '';
+				if ( '' !== $managed_url ) {
+					$badge_label = $current ? __( 'On', 'buddynext' ) : __( 'Off', 'buddynext' );
+					$badge_tone  = $current ? 'success' : 'info';
+				}
+
 				?>
 				<div class="bn-feature-row" data-tier="<?php echo esc_attr( $tier ); ?>">
 					<div class="bn-feature-row__copy">
@@ -2558,7 +2566,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<?php endif; ?>
 					</div>
 					<div class="bn-feature-row__toggle">
-						<?php if ( $is_locked ) : ?>
+						<?php if ( '' !== $managed_url ) : ?>
+							<?php if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) : ?>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+							<?php else : ?>
+								<span class="bn-feature-row__deps"><?php esc_html_e( 'Requires the WPMediaVerse plugin.', 'buddynext' ); ?></span>
+							<?php endif; ?>
+						<?php elseif ( $is_locked ) : ?>
 							<span class="bn-feature-row__locked" aria-label="<?php esc_attr_e( 'This feature is always on and cannot be disabled.', 'buddynext' ); ?>">
 								<?php buddynext_icon( 'lock' ); ?>
 							</span>
