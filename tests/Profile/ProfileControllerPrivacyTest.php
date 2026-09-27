@@ -60,14 +60,12 @@ class ProfileControllerPrivacyTest extends \WP_Test_REST_TestCase {
 	public function test_privacy_audience_persists(): void {
 		$response = $this->authed_put(
 			array(
-				'bn_privacy_dm'      => 'members',
-				'bn_privacy_mention' => 'everyone',
+				'bn_privacy_mention' => 'members',
 			)
 		);
 
 		$this->assertSame( 200, $response->get_status() );
-		$this->assertSame( 'members', get_user_meta( $this->user_id, 'bn_privacy_dm', true ) );
-		$this->assertSame( 'everyone', get_user_meta( $this->user_id, 'bn_privacy_mention', true ) );
+		$this->assertSame( 'members', get_user_meta( $this->user_id, 'bn_privacy_mention', true ) );
 	}
 
 	/**
@@ -77,14 +75,14 @@ class ProfileControllerPrivacyTest extends \WP_Test_REST_TestCase {
 	 */
 	public function test_invalid_audience_returns_422(): void {
 		$response = $this->authed_put(
-			array( 'bn_privacy_dm' => 'somewhere-else' )
+			array( 'bn_privacy_mention' => 'somewhere-else' )
 		);
 
 		$this->assertSame( 422, $response->get_status() );
 		$body = $response->get_data();
 		$this->assertIsArray( $body );
 		$this->assertArrayHasKey( 'errors', $body );
-		$this->assertArrayHasKey( 'bn_privacy_dm', $body['errors'] );
+		$this->assertArrayHasKey( 'bn_privacy_mention', $body['errors'] );
 		$this->assertFalse( $body['saved'] );
 	}
 

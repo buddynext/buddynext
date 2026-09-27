@@ -191,9 +191,6 @@ class RegistrationService {
 		$this->redeem_invite( $user_id, $invite );
 		$this->redeem_pending_space_invites( $user_id );
 
-		// Reuse the canonical seeder rather than duplicating the audience list.
-		AuthController::seed_default_dm_access( $user_id );
-
 		$this->record_terms_consent( $user_id, $data, $policy );
 		$this->save_fields( $user_id, $values, $policy );
 		$this->link_social( $user_id, $data );

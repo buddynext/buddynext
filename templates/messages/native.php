@@ -130,8 +130,10 @@ if ( $active_conv_id <= 0 ) {
 // back button — which navigates to /messages/ with no conversation — would land
 // on the auto-reopened newest thread and trap the member away from the rail.
 // A compose-pending recipient is an explicit open too — the member asked to
-// message someone, so on mobile the composer pane must take over the rail.
-$bn_explicit_conv = ( $active_conv_id > 0 || $bn_pending_recipient > 0 );
+// message someone, so on mobile the composer pane must take over the rail. So is
+// a refused recipient: its reason notice lives in the thread pane, and showing
+// the rail instead would drop the member's tap with no explanation.
+$bn_explicit_conv = ( $active_conv_id > 0 || $bn_pending_recipient > 0 || $bn_blocked_recipient > 0 );
 
 // When the inbox is opened with no explicit conversation (and the member is not
 // trying to reach a blocked/unreachable recipient), auto-open the most recent
@@ -234,7 +236,7 @@ $bn_ctx = wp_json_encode(
 );
 ?>
 <div
-	class="bn-messages-content bn-split bn-dm<?php echo ( ( $thread || $bn_pending ) && $bn_explicit_conv ) ? ' is-thread-open' : ''; ?>"
+	class="bn-messages-content bn-split bn-dm<?php echo ( ( $thread || $bn_pending || $bn_blocked_recipient > 0 ) && $bn_explicit_conv ) ? ' is-thread-open' : ''; ?>"
 	data-bn-main-edge="true"
 	data-wp-interactive="buddynext/messages"
 	data-wp-context='<?php echo esc_attr( (string) $bn_ctx ); ?>'
@@ -376,10 +378,9 @@ $bn_ctx = wp_json_encode(
 					);
 					break;
 				case 'mutual_follow_required':
-				case 'connections_only':
 					$bn_block_message = sprintf(
 						/* translators: %s: member display name. */
-						__( '%s only accepts messages from people they are connected with.', 'buddynext' ),
+						__( '%s only accepts messages from people they follow back.', 'buddynext' ),
 						$bn_blocked_name
 					);
 					break;

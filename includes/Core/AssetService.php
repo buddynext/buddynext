@@ -1490,7 +1490,7 @@ class AssetService {
 					'emojiPickerClose'          => __( 'Close emoji picker', 'buddynext' ),
 					'sendDeniedBlocked'         => __( 'You can no longer message this person.', 'buddynext' ),
 					'sendDeniedDmsDisabled'     => __( 'This person isn’t accepting messages right now.', 'buddynext' ),
-					'sendDeniedConnectionsOnly' => __( 'This person only accepts messages from their connections.', 'buddynext' ),
+					'sendDeniedMutualFollow'    => __( 'This person only accepts messages from people they follow back.', 'buddynext' ),
 					'sendDeniedRateLimited'     => __( 'You’re sending messages too quickly: please wait a moment.', 'buddynext' ),
 					'sendDeniedTooLong'         => __( 'That message is too long to send.', 'buddynext' ),
 					'sendDeniedNotParticipant'  => __( 'You can no longer post to this conversation.', 'buddynext' ),

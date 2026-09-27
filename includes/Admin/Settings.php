@@ -1009,17 +1009,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_default_dm_access',
-							'type'    => 'select',
-							'label'   => __( 'Who can DM me (default)', 'buddynext' ),
-							'default' => 'everyone',
-							'choices' => array(
-								'everyone'    => __( 'Everyone', 'buddynext' ),
-								'members'     => __( 'Members only', 'buddynext' ),
-								'connections' => __( 'Connections only', 'buddynext' ),
-								'nobody'      => __( 'No one', 'buddynext' ),
-							),
-							'hint'    => __( 'Default privacy applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' ),
+							// WPMediaVerse owns "who can message you" (card 10344455521):
+							// this row shows its setting and links there.
+							'key'             => 'buddynext_dm_access_managed',
+							'type'            => 'custom',
+							'render_callback' => array( $this, 'render_dm_access_row' ),
 						)
 					),
 				)
@@ -1204,6 +1198,36 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				)
 			),
 		);
+	}
+
+	/**
+	 * "Who can message members": WPMediaVerse's setting, shown read-only.
+	 *
+	 * @return void
+	 */
+	public function render_dm_access_row(): void {
+		$bn_options = is_callable( array( '\\WPMediaVerse\\Services\\ProfileService', 'dm_access_options' ) )
+			? (array) \WPMediaVerse\Services\ProfileService::dm_access_options()
+			: array();
+		?>
+		<div class="bn-field">
+			<span class="bn-tl-title"><?php esc_html_e( 'Who can message members', 'buddynext' ); ?></span>
+			<?php if ( empty( $bn_options ) ) : ?>
+				<span class="bn-tl-desc"><?php esc_html_e( 'Direct messages need WPMediaVerse. Activate it to set who can message members.', 'buddynext' ); ?></span>
+			<?php else : ?>
+				<span class="bn-tl-desc">
+					<?php
+					printf(
+						/* translators: %s: the site-wide "who can message you" level, e.g. "Everyone". */
+						esc_html__( 'Set in WPMediaVerse: %s. Members can choose this or stricter in their privacy settings.', 'buddynext' ),
+						esc_html( (string) reset( $bn_options ) )
+					);
+					?>
+				</span>
+				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Messages\MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**

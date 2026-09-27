@@ -867,9 +867,8 @@ const messagesStore = store( 'buddynext/messages', {
 						case 'dms_disabled':
 							dMsg = t( 'sendDeniedDmsDisabled', 'This person isn’t accepting messages right now.' );
 							break;
-						case 'connections_only':
 						case 'mutual_follow_required':
-							dMsg = t( 'sendDeniedConnectionsOnly', 'This person only accepts messages from their connections.' );
+							dMsg = t( 'sendDeniedMutualFollow', 'This person only accepts messages from people they follow back.' );
 							break;
 						case 'rate_limited':
 							dMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
@@ -968,9 +967,8 @@ const messagesStore = store( 'buddynext/messages', {
 					case 'dms_disabled':
 						denyMsg = t( 'sendDeniedDmsDisabled', 'This person isn’t accepting messages right now.' );
 						break;
-					case 'connections_only':
 					case 'mutual_follow_required':
-						denyMsg = t( 'sendDeniedConnectionsOnly', 'This person only accepts messages from their connections.' );
+						denyMsg = t( 'sendDeniedMutualFollow', 'This person only accepts messages from people they follow back.' );
 						break;
 					case 'rate_limited':
 						denyMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );

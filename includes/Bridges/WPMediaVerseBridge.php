@@ -108,10 +108,6 @@ class WPMediaVerseBridge {
 		// can't plant blocked content in a direct message — posts/comments/profile
 		// are guarded; DMs were not.
 		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 3 );
-
-		// When that gate denies, report WHY (block vs privacy preference) so the
-		// sender sees an accurate notice instead of a generic "blocked".
-		add_filter( 'mvs_dm_denial_reason', array( $this, 'dm_denial_reason' ), 10, 3 );
 	}
 
 	/**
@@ -1282,16 +1278,12 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Gate a DM send against the recipient's block list AND DM-access preference.
+	 * Gate a DM send on BuddyNext's block list.
 	 *
-	 * BuddyNext layers this on top of MediaVerse's own DM controls via the same
-	 * mvs_can_send_message filter — either side can deny, neither overrides the
-	 * other. Enforces:
-	 *   - recipient has blocked the sender → deny;
-	 *   - recipient's "who can DM me" preference (bn_privacy_dm, seeded on
-	 *     registration from buddynext_default_dm_access, falling back to that
-	 *     option when unset): everyone | members | connections | nobody.
-	 * Site admins (manage_options) bypass so staff can always reach members.
+	 * "Who can message you" is WPMediaVerse's rule (its site ceiling and the
+	 * member's choice, card 10344455521); BuddyNext only adds its blocks, via the
+	 * same mvs_can_send_message filter. Site admins (manage_options) bypass the
+	 * block so staff can always reach members.
 	 *
 	 * Hooked on: mvs_can_send_message (int $sender_id, int $recipient_id)
 	 *
@@ -1304,40 +1296,14 @@ class WPMediaVerseBridge {
 		if ( ! $allowed ) {
 			return false;
 		}
-
-		// Staff can always reach anyone.
 		if ( user_can( $sender_id, 'manage_options' ) ) {
 			return true;
 		}
-
-		// Recipient blocked sender → deny. Routed through the BlockService model
-		// (the data-access API), never a raw query from this bridge.
+		// WPMediaVerse reports a refused send as 'blocked' by default, which is the
+		// right reason here: this gate only ever refuses for a block.
 		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
-		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
-			&& $blocks->has_blocked( $recipient_id, $sender_id ) ) {
-			return false;
-		}
-
-		// Recipient's DM-access preference. Empty = inherit the site default.
-		$pref = (string) get_user_meta( $recipient_id, 'bn_privacy_dm', true );
-		if ( '' === $pref ) {
-			$pref = (string) get_option( 'buddynext_default_dm_access', 'everyone' );
-		}
-
-		switch ( $pref ) {
-			case 'nobody':
-				return false;
-			case 'connections':
-				$conn = function_exists( 'buddynext_service' ) ? buddynext_service( 'connections' ) : null;
-				return is_object( $conn )
-					&& method_exists( $conn, 'are_connected' )
-					&& $conn->are_connected( $sender_id, $recipient_id );
-			case 'members':
-				return $sender_id > 0;
-			case 'everyone':
-			default:
-				return true;
-		}
+		return ! ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
+			&& $blocks->has_blocked( $recipient_id, $sender_id ) );
 	}
 
 	/**
@@ -1375,51 +1341,6 @@ class WPMediaVerseBridge {
 		}
 
 		return $result;
-	}
-
-	/**
-	 * Translate a check_block() denial into a specific reason code.
-	 *
-	 * The check_block() gate is boolean, so a denial otherwise surfaces as the
-	 * generic 'blocked'. This mirrors its logic to report the real cause — an
-	 * actual block stays 'blocked', a "nobody" preference becomes 'dms_disabled',
-	 * and a "connections-only" preference becomes 'connections_only' — so the
-	 * sender's notice is accurate. Other causes keep the incoming default.
-	 *
-	 * Hooked on: mvs_dm_denial_reason ( string $reason, int $sender_id, int $recipient_id ).
-	 *
-	 * @param string $reason       Reason resolved so far (default 'blocked').
-	 * @param int    $sender_id    Sender user ID.
-	 * @param int    $recipient_id Recipient user ID.
-	 * @return string
-	 */
-	public function dm_denial_reason( string $reason, int $sender_id, int $recipient_id ): string {
-		// Staff are never denied by check_block, so there is nothing to translate.
-		if ( user_can( $sender_id, 'manage_options' ) ) {
-			return $reason;
-		}
-
-		// A real block keeps the generic 'blocked' reason (same check as check_block).
-		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
-		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
-			&& $blocks->has_blocked( $recipient_id, $sender_id ) ) {
-			return 'blocked';
-		}
-
-		// Otherwise the denial is the recipient's DM-privacy preference.
-		$pref = (string) get_user_meta( $recipient_id, 'bn_privacy_dm', true );
-		if ( '' === $pref ) {
-			$pref = (string) get_option( 'buddynext_default_dm_access', 'everyone' );
-		}
-
-		switch ( $pref ) {
-			case 'nobody':
-				return 'dms_disabled';
-			case 'connections':
-				return 'connections_only';
-			default:
-				return $reason;
-		}
 	}
 
 	/**

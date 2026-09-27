@@ -72,10 +72,14 @@ $privacy_connect_options    = array(
 //
 // If a future feature ever surfaces member emails, the control comes back WITH its gate —
 // see the Basecamp card. Not before.
-$privacy_dm = (string) get_user_meta( $user_id, 'bn_privacy_dm', true );
-if ( '' === $privacy_dm ) {
-	$privacy_dm = 'members';
-}
+// "Who can message me" is WPMediaVerse's setting (card 10344455521): its choices
+// (the site's level or stricter), its labels and the member's effective value.
+// Shown only while messaging is on.
+$bn_dm_service = '\\WPMediaVerse\\Services\\ProfileService';
+$bn_dm_options = ( \BuddyNext\Messages\MessagesData::entry_enabled() && is_callable( array( $bn_dm_service, 'dm_access_options' ) ) )
+	? (array) call_user_func( array( $bn_dm_service, 'dm_access_options' ) )
+	: array();
+$bn_dm_value   = $bn_dm_options ? (string) call_user_func( array( $bn_dm_service, 'effective_dm_access' ), (int) $user_id ) : '';
 $privacy_mention = (string) get_user_meta( $user_id, 'bn_privacy_mention', true );
 if ( '' === $privacy_mention ) {
 	$privacy_mention = 'everyone';
@@ -136,12 +140,15 @@ $privacy_rows = array(
 	array( 'select', 'bn_privacy_profile_visibility', __( 'Who can see my profile', 'buddynext' ), $privacy_profile_visibility, 'bn-ep-privacy-visibility', '', $privacy_visibility_options ),
 	array( 'select', 'bn_privacy_who_can_follow', __( 'Who can follow me', 'buddynext' ), $privacy_who_can_follow, 'bn-ep-privacy-follow', '', $privacy_follow_options ),
 	array( 'select', 'bn_privacy_who_can_connect', __( 'Who can send me connection requests', 'buddynext' ), $privacy_who_can_connect, 'bn-ep-privacy-connect', '', $privacy_connect_options ),
-	array( 'select', 'bn_privacy_dm', __( 'Who can direct-message me', 'buddynext' ), $privacy_dm, 'bn-ep-privacy-dm', '', $privacy_audiences ),
 	array( 'select', 'bn_privacy_mention', __( 'Who can @mention me in posts', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', '', $privacy_audiences ),
 	array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( 'Only approved followers see your posts. New follows arrive as requests you can accept or decline.', 'buddynext' ), array() ),
 	array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to keep your profile out of the Members directory.', 'buddynext' ), array() ),
 	array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', $bn_search_hint, array(), ! $bn_profiles_indexable ),
 );
+
+if ( $bn_dm_options ) {
+	array_splice( $privacy_rows, 3, 0, array( array( 'select', 'dm_access', __( 'Who can message me', 'buddynext' ), $bn_dm_value, 'bn-ep-privacy-dm', '', $bn_dm_options ) ) );
+}
 
 // "Hide my profile views" only does something when Pro's profile-view tracking
 // is active (Pro P5.3 reads bn_pro_hide_profile_views). Surfacing it in a

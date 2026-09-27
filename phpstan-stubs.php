@@ -66,3 +66,36 @@ namespace Jetonomy {
 		}
 	}
 }
+
+namespace WPMediaVerse\Services {
+	if ( ! class_exists( 'WPMediaVerse\\Services\\ProfileService' ) ) {
+		/**
+		 * Stub for WPMediaVerse's profile service ("who can message you", 2.6.0).
+		 * BuddyNext calls it only behind is_callable()/class_exists() guards.
+		 */
+		class ProfileService {
+			/**
+			 * @return string[]
+			 */
+			public static function dm_access_choices(): array { // phpcs:ignore
+				return array();
+			}
+			/**
+			 * @return array<string,string>
+			 */
+			public static function dm_access_options(): array { // phpcs:ignore
+				return array();
+			}
+			public static function effective_dm_access( int $user_id ): string { // phpcs:ignore
+				return 'everyone';
+			}
+			/**
+			 * @param array<string,mixed> $fields Fields.
+			 * @return true|\WP_Error
+			 */
+			public function update_profile( int $user_id, array $fields ) { // phpcs:ignore
+				return true;
+			}
+		}
+	}
+}

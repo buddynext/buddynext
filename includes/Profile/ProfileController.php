@@ -57,7 +57,15 @@ class ProfileController extends BaseRestController {
 	 *
 	 * @var string[]
 	 */
-	private const PROFILE_META_AUDIENCE = array( 'bn_privacy_dm', 'bn_privacy_mention' );
+	private const PROFILE_META_AUDIENCE = array( 'bn_privacy_mention' );
+
+	/**
+	 * "Who can message me": WPMediaVerse's own setting, written through its
+	 * ProfileService so its site ceiling applies (card 10344455521).
+	 *
+	 * @since 1.2.2
+	 */
+	private const PROFILE_DM_KEY = 'dm_access';
 
 	/**
 	 * Gate metas accepted by a profile write, each with its own vocabulary.
@@ -127,6 +135,7 @@ class ProfileController extends BaseRestController {
 		$keys = array_merge(
 			self::PROFILE_CONTROL_KEYS,
 			self::PROFILE_META_AUDIENCE,
+			array( self::PROFILE_DM_KEY ),
 			array_keys( self::PROFILE_META_GATES ),
 			self::PROFILE_META_BOOLS
 		);
@@ -1266,6 +1275,12 @@ class ProfileController extends BaseRestController {
 				unset( $data[ $aud_key ] );
 			}
 		}
+		if ( array_key_exists( self::PROFILE_DM_KEY, $data ) ) {
+			if ( class_exists( '\\WPMediaVerse\\Services\\ProfileService' ) ) {
+				( new \WPMediaVerse\Services\ProfileService() )->update_profile( $user_id, array( 'dm_access' => sanitize_key( (string) $data[ self::PROFILE_DM_KEY ] ) ) );
+			}
+			unset( $data[ self::PROFILE_DM_KEY ] );
+		}
 		$privacy = buddynext_service( 'privacy' );
 		foreach ( $gate_keys as $gate_key => $allowed ) {
 			if ( array_key_exists( $gate_key, $data ) ) {
@@ -1509,15 +1524,24 @@ class ProfileController extends BaseRestController {
 		}
 
 		// Audience enums: must match the canonical four-value vocabulary.
-		$audiences     = array( 'everyone', 'members', 'connections', 'nobody' );
-		$audience_keys = array( 'bn_privacy_dm', 'bn_privacy_mention' );
-		foreach ( $audience_keys as $aud_key ) {
+		$audiences = array( 'everyone', 'members', 'connections', 'nobody' );
+		foreach ( self::PROFILE_META_AUDIENCE as $aud_key ) {
 			if ( ! array_key_exists( $aud_key, $data ) ) {
 				continue;
 			}
 			$val = sanitize_key( (string) $data[ $aud_key ] );
 			if ( ! in_array( $val, $audiences, true ) ) {
 				$errors[ $aud_key ] = __( 'Choose a valid audience.', 'buddynext' );
+			}
+		}
+
+		// "Who can message me": only the choices WPMediaVerse allows on this site.
+		if ( array_key_exists( self::PROFILE_DM_KEY, $data ) ) {
+			$dm_choices = is_callable( array( '\\WPMediaVerse\\Services\\ProfileService', 'dm_access_choices' ) )
+				? (array) \WPMediaVerse\Services\ProfileService::dm_access_choices()
+				: array();
+			if ( ! in_array( sanitize_key( (string) $data[ self::PROFILE_DM_KEY ] ), $dm_choices, true ) ) {
+				$errors[ self::PROFILE_DM_KEY ] = __( 'Choose one of the options this community allows.', 'buddynext' );
 			}
 		}
 

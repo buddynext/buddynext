@@ -192,13 +192,9 @@ This tells WPMediaVerse to suppress its own floating chat panel, standalone mess
 
 ### DM gating
 
-`check_block()` layers BuddyNext's access rules on top of WPMediaVerse's own DM controls through `mvs_can_send_message` (either side can deny; neither overrides the other):
+"Who can message you" is WPMediaVerse's rule: its site ceiling `mvs_dm_access` and the member's `_mvs_dm_access` (`everyone` / `followers` / `mutual` / `nobody`), enforced in `MessagingService::can_message()`, which reports its own reasons (`dms_disabled`, `mutual_follow_required`). BuddyNext keeps no copy of it. The BuddyNext privacy screen offers `ProfileService::dm_access_options()`, shows `effective_dm_access()`, and saves the `dm_access` key through `ProfileService::update_profile()`, so the ceiling always applies.
 
-- Site admins (`manage_options`) always pass.
-- A recipient who has blocked the sender (`bn_blocks`, via the `blocks` service `has_blocked()`) denies the send.
-- The recipient's "who can DM me" preference (`bn_privacy_dm` user meta, falling back to the `buddynext_default_dm_access` option) is enforced: `everyone` / `members` / `connections` / `nobody`.
-
-`dm_denial_reason()` mirrors that logic on `mvs_dm_denial_reason` so the sender sees an accurate cause - `blocked`, `dms_disabled` (the `nobody` preference), or `connections_only` - instead of a generic "blocked".
+`check_block()` adds BuddyNext's one rule through `mvs_can_send_message`: a recipient who has blocked the sender (`bn_blocks`, via the `blocks` service `has_blocked()`) denies the send, reported as WPMediaVerse's default `blocked` reason. Site admins (`manage_options`) pass the block.
 
 ### Message + favorite events
 

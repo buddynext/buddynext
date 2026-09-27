@@ -66,7 +66,7 @@ If the plugin is already installed but switched off, the same row shows an **Act
 
 The moment WPMediaVerse is active alongside BuddyNext, the bridge between them attaches automatically. There is nothing further to configure for basic messaging - the engine's own chat panel, standalone messages page, and notifications step aside so BuddyNext owns the experience. Members get direct messaging, media in posts, and the Media sidebar link with no extra setup.
 
-There are no BuddyNext settings to fill in for this companion. Who can message whom is controlled by your existing BuddyNext privacy and moderation rules (see Direct Messaging and Blocking and Muting), not by a separate WPMediaVerse panel.
+There are no BuddyNext settings to fill in for this companion. Who can message whom is WPMediaVerse's "who can message you" setting (Settings > Social), which members adjust from their BuddyNext privacy settings, plus BuddyNext's blocks (see Direct Messaging and Blocking and Muting).
 
 One BuddyNext setting does apply to media, on **Settings > General**:
 

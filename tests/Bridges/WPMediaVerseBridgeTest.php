@@ -68,10 +68,6 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 			has_filter( 'mvs_message_content_check', array( $display_off, 'moderate_dm_content' ) ),
 			'DM auto-moderation must survive the display toggle.'
 		);
-		$this->assertNotFalse(
-			has_filter( 'mvs_dm_denial_reason', array( $display_off, 'dm_denial_reason' ) ),
-			'The denial reason must survive the display toggle, or a denial reads as a generic error.'
-		);
 	}
 
 	/**
