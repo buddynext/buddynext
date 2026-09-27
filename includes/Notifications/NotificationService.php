@@ -138,6 +138,48 @@ class NotificationService {
 	}
 
 	/**
+	 * Delete a type's notifications whose data carries a given key/value, for
+	 * the given recipients only.
+	 *
+	 * For partner objects keyed by a text id stored in the row's data (a WB
+	 * Gamification badge slug), which delete_for_object() cannot match. Scoped to
+	 * the recipients so the (recipient) index serves it.
+	 *
+	 * @param string $type          Notification type.
+	 * @param string $key           Top-level data key.
+	 * @param string $value         Value to match.
+	 * @param int[]  $recipient_ids Members whose rows to check.
+	 * @return int Rows deleted.
+	 */
+	public function delete_for_data( string $type, string $key, string $value, array $recipient_ids ): int {
+		$recipient_ids = array_values( array_unique( array_filter( array_map( 'intval', $recipient_ids ) ) ) );
+		if ( '' === $type || '' === $key || '' === $value || empty( $recipient_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+		$deleted = 0;
+		foreach ( array_chunk( $recipient_ids, 500 ) as $chunk ) {
+			$in = implode( ',', $chunk );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+			$deleted += (int) $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_notifications
+					 WHERE recipient_id IN ({$in}) AND type = %s
+					   AND JSON_VALID( data ) AND JSON_UNQUOTE( JSON_EXTRACT( data, %s ) ) = %s",
+					$type,
+					'$.' . $key,
+					$value
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$this->forget_counts_for( $chunk );
+		}
+
+		return $deleted;
+	}
+
+	/**
 	 * Drop notification rows whose target object no longer exists.
 	 *
 	 * The defensive read side: a bell row that opens a 404 is worse than a missing

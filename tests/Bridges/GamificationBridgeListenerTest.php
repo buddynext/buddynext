@@ -87,4 +87,14 @@ class GamificationBridgeListenerTest extends \WP_UnitTestCase {
 		}
 		$this->assertSame( array(), $this->rows( $this->other ), 'no row leaks to another member' );
 	}
+
+	public function test_deleted_badge_leaves_its_holders_inboxes(): void {
+		$this->listener->on_badge_awarded( $this->member, array( 'name' => 'Veteran' ), 'veteran' );
+		$this->listener->on_badge_awarded( $this->other, array( 'name' => 'Helper' ), 'helper' );
+
+		$this->listener->on_badge_deleted( 'veteran', array( $this->member, $this->other ) );
+
+		$this->assertArrayNotHasKey( 'bn.badge_awarded', $this->rows( $this->member ), 'the deleted badge leaves the inbox' );
+		$this->assertSame( 1, $this->rows( $this->other )['bn.badge_awarded'] ?? 0, 'another badge is untouched' );
+	}
 }

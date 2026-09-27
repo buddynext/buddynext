@@ -58,6 +58,9 @@ class GamificationBridgeListener implements ListenerInterface {
 		add_action( 'wb_gam_credential_expired', array( $this, 'on_credential_expired' ), 10, 2 );
 		add_action( 'wb_gam_personal_record', array( $this, 'on_personal_record' ), 10, 5 );
 		add_action( 'wb_gam_streak_milestone', array( $this, 'on_streak_milestone' ), 10, 2 );
+
+		// A deleted badge definition takes its inbox rows with it.
+		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 	}
 
 	/**
@@ -291,6 +294,28 @@ class GamificationBridgeListener implements ListenerInterface {
 	 */
 	public function on_streak_milestone( int $user_id, int $streak_days ): void {
 		$this->notify( $user_id, 'bn.streak_milestone', '', 0, array( 'days' => $streak_days ) );
+	}
+
+	/**
+	 * Remove the badge's notifications from its former holders' inboxes.
+	 *
+	 * Hooked on: wb_gam_badge_deleted( string $badge_id, int[] $user_ids, array $def ).
+	 * "You earned a new badge" and "credential expired" rows would otherwise name
+	 * a badge that no longer exists. The shared-badge feed cards are removed by
+	 * GamificationBridge::on_badge_deleted().
+	 *
+	 * @param string $badge_id Badge slug.
+	 * @param int[]  $user_ids Members who had earned it.
+	 * @return void
+	 */
+	public function on_badge_deleted( string $badge_id, array $user_ids = array() ): void {
+		if ( '' === $badge_id || empty( $user_ids ) || ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$service = buddynext_service( 'notifications' );
+		foreach ( array( 'bn.badge_awarded', 'bn.credential_expired' ) as $type ) {
+			$service->delete_for_data( $type, 'badge_id', $badge_id, $user_ids );
+		}
 	}
 
 	/**

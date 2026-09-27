@@ -470,6 +470,9 @@ class GamificationBridge {
 		if ( '' === $badge_id ) {
 			return;
 		}
+		// ponytail: one indexed card lookup per holder, in a rare admin action where
+		// WB Gamification has just deleted as many rows itself. A text-id
+		// remove_by_meta() would make it one query if badges ever get very large.
 		foreach ( array_unique( array_map( 'intval', $user_ids ) ) as $user_id ) {
 			if ( $user_id > 0 ) {
 				IntegrationActivity::remove( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
