@@ -92,6 +92,7 @@ The composer partial exposes wrapper hooks for adding tools and modals to the po
 | `buddynext_part_composer_after` | action | Immediately after the composer markup | `array $args` |
 | `buddynext_comment_descendant_cap` | filter | One page of a comment thread is loaded, bounding how many descendant rows come with it | `int $cap, string $object_type, int $object_id` |
 | `buddynext_explore_all_deck` | filter | The blended Explore first-page deck is assembled, so an add-on can inject its own cards among the posts | `array $items, array $post_cards` |
+| `buddynext_explore_excluded_post_types` | filter | Explore's deck and its pulse count are queried. Post types listed here are left off. Default `array( 'document' )`: a document post stays in its space feed, the space Files tab and the author's profile. Return `array()` to show documents on Explore. Reshares are always left off and cannot be re-added (1.2.2) | `string[] $types` |
 | `buddynext_post_link_meta_resolved` | action | A queued link preview finished resolving and was stored on the post. The post was already visible without it, so anything that renders the preview should refresh here | `int $post_id` |
 | `buddynext_scheduled_post_published` | action | A scheduled post is published ahead of its schedule | `int $post_id` |
 

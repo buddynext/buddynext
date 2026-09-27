@@ -2064,15 +2064,36 @@ class FeedService {
 	 *
 	 * Excludes reshares (amplification, not original discovery content; the Explore
 	 * card cannot dereference shared_post_id), authorless rows (a deleted account
-	 * otherwise renders as "Community member"), and rows with nothing to show (no
-	 * text, media, poll, or link). Static fragment — only table/column names, no
-	 * user input — safe to interpolate.
+	 * otherwise renders as "Community member"), rows with nothing to show (no
+	 * text, media, poll, or link), and document posts by default: Explore is the
+	 * public discovery deck, a file has nothing to look at there, and it belongs
+	 * next to its space (space feed and Files tab), where it still shows (owner
+	 * decision 2026-09-27, card 10344283332).
 	 *
-	 * @return string A leading-" AND " WHERE fragment.
+	 * @return string A leading-" AND " WHERE fragment (excluded types bound via prepare).
 	 */
 	public function explore_renderable_where(): string {
 		global $wpdb;
-		return " AND type <> 'share'
+
+		/**
+		 * Post types left off the public Explore deck and its pulse count.
+		 *
+		 * Reshares are always left off (a correctness rule, not a preference) and
+		 * cannot be re-added here. Return an empty array to show document posts on
+		 * Explore.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string[] $types Post types to leave off. Default array( 'document' ).
+		 */
+		$excluded     = array_values( array_filter( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_explore_excluded_post_types', array( 'document' ) ) ) ) );
+		$excluded_sql = '';
+		if ( $excluded ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders built from the count of sanitized keys.
+			$excluded_sql = $wpdb->prepare( ' AND type NOT IN (' . implode( ',', array_fill( 0, count( $excluded ), '%s' ) ) . ')', $excluded );
+		}
+
+		return " AND type <> 'share'{$excluded_sql}
 			   AND user_id IN ( SELECT ID FROM {$wpdb->users} )
 			   AND (
 			       TRIM( COALESCE( content, '' ) ) <> ''
