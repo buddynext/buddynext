@@ -1301,9 +1301,11 @@ class JetonomyBridge {
 	 *
 	 * The bare profile and its public activity pages redirect, so a bookmark or a
 	 * search result never opens a second profile outside BuddyNext privacy; posts
-	 * land on the Discussions tab. The owner-only pages (bookmarks, drafts) and
-	 * Jetonomy's own badges stay on Jetonomy, matching
-	 * filter_jetonomy_profile_action_url().
+	 * land on the Discussions tab. Bookmarks, drafts and Jetonomy's own badges are
+	 * the member's private tools: they stay on Jetonomy for that member only, and
+	 * anyone else is handed to the BuddyNext profile, where its privacy and blocks
+	 * apply. That hand-over depends on the viewer, so it is a 302 a browser never
+	 * caches for the owner.
 	 *
 	 * @return void
 	 */
@@ -1342,7 +1344,12 @@ class JetonomyBridge {
 					$url = trailingslashit( $profile ) . 'discussions/';
 					break;
 				default:
-					return; // bookmarks, drafts, badges: Jetonomy's own pages.
+					// bookmarks, drafts, badges: the member's own pages.
+					if ( get_current_user_id() === $uid ) {
+						return;
+					}
+					wp_safe_redirect( $profile, 302 );
+					exit;
 			}
 		}
 
