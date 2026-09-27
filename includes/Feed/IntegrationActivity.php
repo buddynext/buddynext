@@ -383,6 +383,28 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Move every card of a partner id into the partner's current space.
+	 *
+	 * For a partner object that can change home (an event moved to another
+	 * space): the cards keep their ids, dates and comments, and take the new
+	 * space and the privacy publish() gives a card there (a space card follows
+	 * the space's audience; a card with no space is public). Call it on every
+	 * partner save; cards already in that space are untouched.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to move.
+	 * @param int    $space_id BuddyNext space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	public static function set_space_by_meta( string $type, string $meta_key, int $value, int $space_id ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 || $space_id < 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->move_link_meta_space( $type, $meta_key, $value, $space_id );
+	}
+
+	/**
 	 * Render the uniform integration feed card for a typed bridge post.
 	 *
 	 * The single card style every bridge shares: an icon + a source label + the

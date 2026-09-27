@@ -2679,6 +2679,71 @@ class PostService {
 	}
 
 	/**
+	 * Put every card of a type whose link_meta id matches into another space.
+	 *
+	 * The space-move counterpart of transition_link_meta_status(), used through
+	 * IntegrationActivity::set_space_by_meta(). Privacy follows the rule publish()
+	 * uses: 'space_members' inside a space, 'public' outside one. Each moved card's
+	 * cache is dropped and both the old and the new space feeds are told.
+	 *
+	 * @param string $type     Post type marker (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int    $value    Value to match.
+	 * @param int    $space_id Target BuddyNext space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	public function move_link_meta_space( string $type, string $meta_key, int $value, int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s AND COALESCE( space_id, 0 ) <> %d
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$type,
+				$space_id,
+				'$.' . $meta_key,
+				$value
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], (array) $rows ) ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+		$moved = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET space_id = NULLIF( %d, 0 ), privacy = %s, updated_at = UTC_TIMESTAMP() WHERE id IN ({$in})",
+				$space_id,
+				$space_id > 0 ? 'space_members' : 'public'
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$spaces = $space_id > 0 ? array( $space_id => true ) : array();
+		foreach ( (array) $rows as $row ) {
+			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
+			if ( ! empty( $row['space_id'] ) ) {
+				$spaces[ (int) $row['space_id'] ] = true;
+			}
+		}
+		foreach ( array_keys( $spaces ) as $sid ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $sid );
+		}
+
+		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
 	 * Move the given cards from one status to another and tell every reader.
 	 *
 	 * Shared by the two transitions above. The update is guarded on $from again, so
