@@ -71,7 +71,8 @@ const BLOCK_ITEM = 'button[data-wp-on--click="actions.toggleBlock"]';
 const REPORT_ITEM = 'button[data-wp-on--click="actions.openReport"]';
 // Block and report use the shared dialogs (bnBlockConfirm / bnReportDialog): one modal
 // panel, the confirm action is the last button in its footer.
-const DIALOG = '.bn-modal__panel[role="dialog"]';
+// :visible because the profile page also carries the (closed) share modal's panel.
+const DIALOG = '.bn-modal__panel[role="dialog"]:visible';
 const DIALOG_CONFIRM = `${DIALOG} .bn-modal__foot .bn-btn:last-child`;
 
 const memberUrl = (login: string) => `/members/${login}/`;
