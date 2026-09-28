@@ -76,8 +76,7 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @param string $badge_id Badge identifier (string slug).
 	 */
 	public function on_badge_awarded( int $user_id, array $def, string $badge_id ): void {
-		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
-		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+		if ( self::sent_by_plugin() ) {
 			return;
 		}
 		if ( ! function_exists( 'buddynext_service' ) ) {
@@ -124,8 +123,7 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @param array|null $old_level Previous level data, or null when none.
 	 */
 	public function on_level_changed( int $user_id, array $new_level, ?array $old_level = null ): void {
-		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
-		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+		if ( self::sent_by_plugin() ) {
 			return;
 		}
 		if ( ! function_exists( 'buddynext_service' ) ) {
@@ -289,8 +287,7 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_personal_record( int $user_id, string $period = '', int $current = 0, int $previous = 0, string $message = '' ): void {
-		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
-		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+		if ( self::sent_by_plugin() ) {
 			return;
 		}
 		$buckets = array(
@@ -380,6 +377,19 @@ class GamificationBridgeListener implements ListenerInterface {
 	}
 
 	/**
+	 * Whether WB Gamification now sends its own notifications through the
+	 * notification contract (IntegrationNotificationListener), so every builder
+	 * here stands down. Old route: delete these builders once WB Gamification's
+	 * contract release is the minimum version BuddyNext supports (integration
+	 * standard 2.4).
+	 *
+	 * @return bool
+	 */
+	private static function sent_by_plugin(): bool {
+		return IntegrationNotificationListener::adopted( 'wb_gamification' );
+	}
+
+	/**
 	 * Create one inbox row for a WB Gamification moment.
 	 *
 	 * @param int                 $user_id     Recipient.
@@ -391,8 +401,7 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @return void
 	 */
 	private function notify( int $user_id, string $type, string $object_type, int $object_id, array $data, int $sender_id = 0 ): void {
-		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
-		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+		if ( self::sent_by_plugin() ) {
 			return;
 		}
 		if ( $user_id <= 0 || ! function_exists( 'buddynext_service' ) ) {

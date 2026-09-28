@@ -1626,7 +1626,9 @@ class WPMediaVerseBridge {
 	 * @param string $reaction_type Reaction slug (e.g. 'like', 'love').
 	 */
 	public function on_media_reaction( int $media_id, int $user_id, string $reaction_type = '' ): void {
-		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		// Old route: the plugin sends this through the notification contract now
+		// (IntegrationNotificationListener). Delete this route once the plugin's contract
+		// release is the minimum version BuddyNext supports (integration standard 2.4).
 		if ( IntegrationNotificationListener::adopted( 'mediaverse' ) ) {
 			return;
 		}

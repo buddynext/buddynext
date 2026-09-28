@@ -101,7 +101,9 @@ class JetonomyBridgeListener implements ListenerInterface {
 	 * @param string $url             Deep link to the content.
 	 */
 	public function on_notification( int $notification_id, int $user_id, string $type, string $object_type, int $object_id, string $message = '', string $url = '' ): void {
-		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		// Old route: the plugin sends this through the notification contract now
+		// (IntegrationNotificationListener). Delete this route once the plugin's contract
+		// release is the minimum version BuddyNext supports (integration standard 2.4).
 		if ( IntegrationNotificationListener::adopted( 'jetonomy' ) ) {
 			return;
 		}

@@ -9,9 +9,9 @@
  * untouched. Whenever it creates a notification a member should see,
  * BuddyNext shows it in the bell (grouped, with the plugin's words, link, icon
  * and a settings switch per type) and push sends it, while the plugin keeps
- * sending its own email. The contract, with the payload, the types / visibility
- * / removal hooks and the per-plugin checklist, is the spec
- * INTEGRATION-NOTIFICATIONS.md on the Pro internal shelf.
+ * sending its own email. The contract (payload, types / visibility / removal
+ * hooks, per-plugin checklist) is section 4 of the Wbcom integration standard,
+ * docs/standards/integration.md in each plugin.
  *
  * @package BuddyNext\Notifications
  */
