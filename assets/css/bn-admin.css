@@ -2448,7 +2448,7 @@ button.bn-btn-danger:hover {
 .bn-modal-backdrop {
 	position: fixed;
 	inset: 0;
-	background: color-mix(in oklch, var(--bn-ink) 55%, transparent);
+	background: var(--bn-overlay);
 	display: flex;
 	align-items: center;
 	justify-content: center;

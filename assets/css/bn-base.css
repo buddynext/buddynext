@@ -178,6 +178,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	   the lightbox (Remove from space, Edit, Report) was painted underneath it
 	   and its buttons could not be clicked. Anything new that stacks on the
 	   front end should use these tokens, not a fresh literal. */
+	--bn-z-menu:     99000;    /* dropdowns and popovers: under the lightbox, over page content */
 	--bn-z-lightbox: 100000;
 	--bn-z-modal:    100100;   /* above the lightbox — a modal is the top surface */
 	--bn-z-toast:    100200;   /* above the modal — confirms what a modal just did */
@@ -192,7 +193,12 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	/* Scrim/backdrop behind modals and overlays. Mode-aware: a plain dark
 		rgba scrim is nearly invisible over an already-dark page, so the dark
 		block below raises the opacity. */
-	--bn-overlay: oklch(0% 0 0 / 0.45);
+	--bn-overlay: color-mix(in oklch, var(--bn-ink) 55%, transparent);
+
+	/* Buttons: one height and one radius for every .bn-btn, so a dialog, a card and
+		a partner plugin read the same two tokens instead of guessing a number. */
+	--bn-btn-h: 40px;
+	--bn-btn-r: var(--bn-r-md);
 
 	/* Motion */
 	--bn-ease:     cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -742,11 +748,22 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 /* ── Toast notifications ─────────────────────────────────────────────────── */
 .bn-toast-container {
+	/* A manual popover (top layer) so a toast raised over a native dialog is visible;
+	   the resets below cancel the browser's popover defaults (centred box, border, fill).
+	   Without popover support the fixed position and --bn-z-toast still apply. */
 	position: fixed;
+	inset: auto;
 	bottom: var(--bn-s6);
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: var(--bn-z-toast);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	overflow: visible;
+	width: max-content;
+	max-width: min(380px, calc(100vw - var(--bn-s8)));
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
@@ -803,17 +820,85 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	}
 }
 .bn-toast {
-	background: var(--text-1);
-	color: var(--bg);
-	padding: var(--bn-s2) var(--bn-s5);
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	max-width: 100%;
+	padding: var(--bn-s2) var(--bn-s4) var(--bn-s2) var(--bn-s2);
+	/* Inverted surface: the same on every page and every plugin. Status is carried by
+	   the disc alone, never by a coloured fill (a fill fails contrast and reads as a
+	   different product on the next toast). */
+	background: var(--bn-ink);
+	color: var(--bn-bg);
 	border-radius: var(--bn-r-full);
-	font-size: var(--text-sm);
-	font-weight: var(--fw-medium);
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	line-height: var(--bn-leading-snug);
+	box-shadow: var(--bn-shadow-md);
 	pointer-events: auto;
 	cursor: pointer;
-	animation: bn-toast-in 0.25s ease;
+	animation: bn-toast-in 0.25s var(--bn-ease-out);
 }
+/* Two lines (title + body) get the large radius: a pill cannot hold them. */
+.bn-toast--rich {
+	align-items: flex-start;
+	padding: var(--bn-s3) var(--bn-s4) var(--bn-s3) var(--bn-s3);
+	border-radius: var(--bn-r-lg);
+}
+.bn-toast__icon {
+	flex: 0 0 30px;
+	width: 30px;
+	height: 30px;
+	display: grid;
+	place-items: center;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+}
+.bn-toast__icon svg { width: 16px; height: 16px; }
+.bn-toast--success .bn-toast__icon { background: var(--bn-success); }
+.bn-toast--error .bn-toast__icon { background: var(--bn-danger); }
+.bn-toast--info .bn-toast__icon { background: var(--bn-info); }
+.bn-toast__text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.bn-toast__body {
+	font-weight: var(--bn-fw-normal);
+	opacity: 0.8;
+}
+.bn-toast__close {
+	flex: 0 0 auto;
+	display: grid;
+	place-items: center;
+	/* 40px hit area without inflating the toast: the negative margins hand the extra back. */
+	width: 40px;
+	height: 40px;
+	margin-block: calc(-1 * var(--bn-s2));
+	margin-inline: 0 calc(-1 * var(--bn-s3));
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-r-full);
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.bn-toast__close svg { width: 16px; height: 16px; }
+.bn-toast__close:hover { background: color-mix(in oklch, currentColor 14%, transparent); }
+.bn-toast__close:focus-visible,
+.bn-toast__action:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bn-toast { animation: bn-toast-fade var(--bn-dur-fast) linear; }
+	.bn-toast--leaving { animation: bn-toast-fade-out var(--bn-dur-fast) linear forwards; }
+}
+@keyframes bn-toast-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bn-toast-fade-out { from { opacity: 1; } to { opacity: 0; } }
 /* The exit fade is JS-driven: bnToast owns each toast's dwell (longer for errors
    so a validation message can be read, and click-to-dismiss), then adds this
    class to fade it out. It must NOT auto-play on a fixed delay — that hid error
@@ -830,6 +915,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	text-decoration: underline;
 	white-space: nowrap;
 }
+.bn-toast__action { align-self: center; }
 .bn-toast__action:hover,
 .bn-toast__action:focus-visible {
 	color: inherit;
@@ -845,8 +931,6 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	opacity: 0.7;
 	font-variant-numeric: tabular-nums;
 }
-.bn-toast--success { background: var(--green); color: var(--text-on-brand); }
-.bn-toast--error   { background: var(--red); color: var(--text-on-brand); }
 @keyframes bn-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bn-toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
 
@@ -1692,7 +1776,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s2);
-	min-height: 40px;
+	min-height: var(--bn-btn-h);
 	/* Geometry through tokens, never a literal, so the theme-bleed lock can
 	   re-apply the TOKEN on every interactive state. A lock that re-applied a
 	   literal would be 0,3,0 and out-specify every variant below — a small
@@ -1703,7 +1787,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-btn-px: var(--bn-s4);
 	padding: var(--bn-btn-py) var(--bn-btn-px);
 	border: 1px solid transparent;
-	border-radius: var(--bn-r-md);
+	border-radius: var(--bn-btn-r);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-medium);
@@ -3297,7 +3381,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	position: fixed;
 	inset: 0;
 	z-index: var(--bn-z-modal);
-	background: color-mix(in oklch, var(--bn-ink) 55%, transparent);
+	background: var(--bn-overlay);
 	-webkit-backdrop-filter: blur(2px);
 	backdrop-filter: blur(2px);
 	display: flex;

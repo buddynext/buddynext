@@ -606,7 +606,7 @@ export function bnResolveConnectNote( opts ) {
  *
  * @type {number}
  */
-const MAX_TOASTS = 4;
+const MAX_TOASTS = 3;
 
 /**
  * Identity of a toast: two toasts are "the same" when they say the same thing in the
@@ -625,127 +625,269 @@ function toastKey( message, tone ) {
 	return `t${ Math.abs( hash ) }`;
 }
 
-export function bnToast( message, opts ) {
-	// Accept either a tone string — bnToast(msg, 'success') — or an options
-	// object — bnToast(msg, { tone, timeout }). Both call styles exist across
-	// the app, so normalise here instead of forcing one at every call site.
-	const cfg     = ( 'string' === typeof opts ) ? { tone: opts } : ( opts || {} );
-	const tone    = cfg.tone || 'info';
-	// Errors and warnings carry information the user must read (a validation rule,
-	// a failure reason), so they dwell longer than a transient success/info
-	// confirmation. An explicit timeout still wins.
-	const isAlert = ( 'danger' === tone || 'error' === tone || 'warn' === tone || 'warning' === tone );
-	const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : ( isAlert ? 7000 : 3000 );
+/**
+ * Status icons drawn in a toast's disc. Lucide, the same paths as assets/icons/, so the
+ * toast needs no request and no server-rendered markup. The strings are constants: no
+ * caller input ever reaches innerHTML.
+ *
+ * @type {Object<string,string>}
+ */
+const TOAST_ICONS = {
+	success:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+	error:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+	info:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+	achievement: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
+};
 
-	let container = document.querySelector( '.bn-toast-container' );
-	if ( ! container ) {
-		container = document.createElement( 'div' );
-		container.className = 'bn-toast-container';
-		document.body.appendChild( container );
+const TOAST_CLOSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
+/**
+ * The four toast statuses. Everything else a caller passes ('warn', 'warning', 'danger',
+ * 'type') is folded onto one of them, so a toast is never drawn without an icon and there is
+ * no fifth look to maintain.
+ *
+ * @param {string} tone Caller's tone.
+ * @return {('success'|'error'|'info'|'achievement')}
+ */
+function toastStatus( tone ) {
+	if ( 'success' === tone || 'achievement' === tone ) {
+		return tone;
 	}
+	return ( 'danger' === tone || 'error' === tone ) ? 'error' : 'info';
+}
 
-	// COLLAPSE A REPEAT instead of stacking another copy of it.
-	//
-	// Every call used to append a new node, unconditionally. So an action the server
-	// keeps refusing — a rate limit, a plan limit, a permission denial — produced one
-	// toast per attempt, and they piled up until they filled the screen. It is also an
-	// accessibility failure: each toast is an assertive role="alert", so a screen
-	// reader interrupts the user once per copy to read out the SAME sentence.
-	//
-	// The user does not need to be told twelve times. Refresh the existing toast's
-	// dwell timer and count the repeats on it.
-	const existing = container.querySelector( `.bn-toast[data-bn-toast-key="${ toastKey( message, tone ) }"]` );
-	if ( existing ) {
-		const count = ( parseInt( existing.getAttribute( 'data-bn-toast-count' ), 10 ) || 1 ) + 1;
-		existing.setAttribute( 'data-bn-toast-count', String( count ) );
-
-		let badge = existing.querySelector( '.bn-toast__count' );
-		if ( ! badge ) {
-			badge = document.createElement( 'span' );
-			badge.className = 'bn-toast__count';
-			existing.appendChild( badge );
-		}
-		badge.textContent = `×${ count }`;
-
-		// Restart the dwell so the message stays while it is still happening, and
-		// re-announce nothing: the text has not changed, so the live region is quiet.
-		if ( 'function' === typeof existing._bnResetTimer ) {
-			existing._bnResetTimer();
-		}
-		return;
-	}
-
-	// Hard cap on the stack. Distinct messages can still pile up (a page can fail in
-	// several different ways at once), so drop the oldest rather than let the column
-	// grow past the viewport and bury the page.
-	while ( container.children.length >= MAX_TOASTS ) {
-		container.firstElementChild.remove();
-	}
-
-	const toast = document.createElement( 'div' );
-	toast.className = 'bn-toast';
-	toast.setAttribute( 'data-bn-toast-key', toastKey( message, tone ) );
-	toast.setAttribute( 'data-bn-toast-count', '1' );
-	// Map tone to one of the four real toast classes (error/success/info/warning).
-	if ( 'success' === tone ) {
-		toast.classList.add( 'bn-toast--success' );
-	} else if ( 'danger' === tone || 'error' === tone ) {
-		toast.classList.add( 'bn-toast--error' );
-	} else if ( 'warn' === tone || 'warning' === tone ) {
-		toast.classList.add( 'bn-toast--warning' );
-	} else if ( 'info' === tone ) {
-		toast.classList.add( 'bn-toast--info' );
-	}
-	// Alerts announce assertively so a screen reader interrupts with the reason.
-	toast.setAttribute( 'role', isAlert ? 'alert' : 'status' );
-	toast.setAttribute( 'aria-live', isAlert ? 'assertive' : 'polite' );
-	toast.textContent = message;
-
-	// Optional action link.
-	//
-	// Some refusals are not retryable and the member needs somewhere to GO - a
-	// suspension is the case this was added for: the server says why and ships
-	// the appeal URL, and a toast that can only say "Try again" is worse than
-	// useless, because retrying can never succeed.
+/**
+ * Normalise every accepted call shape into one options object.
+ *
+ *   bnToast( 'Saved', 'success' )
+ *   bnToast( 'Saved', { tone: 'success', timeout: 4000, action: { href, label } } )
+ *   bnToast( { key, title, body, type, icon, href, linkLabel, persist } )
+ *
+ * @param {(string|Object)} message Text, or the options object itself.
+ * @param {(string|Object)} [opts]  Tone string or options.
+ * @return {Object} { title, body, status, icon, action, persist, timeout, key }
+ */
+function toastOptions( message, opts ) {
+	const cfg   = ( message && 'object' === typeof message ) ? message : ( ( 'string' === typeof opts ) ? { tone: opts } : ( opts || {} ) );
+	const title = ( message && 'object' === typeof message ) ? String( cfg.title || cfg.message || '' ) : String( message );
+	const tone  = cfg.tone || cfg.type || 'info';
+	const status = toastStatus( tone );
+	let action  = null;
 	if ( cfg.action && cfg.action.href && cfg.action.label ) {
+		action = cfg.action;
+	} else if ( cfg.href ) {
+		action = { href: cfg.href, label: cfg.linkLabel || si( 'view', 'View' ) };
+	}
+	// Errors carry information the member must read (a validation rule, a failure
+	// reason), so they dwell longer than a confirmation. An explicit timeout wins. A toast
+	// that carries a link stays until dismissed: a member cannot follow a link that leaves.
+	const explicit = 'number' === typeof cfg.timeout;
+	return {
+		title,
+		body: cfg.body ? String( cfg.body ) : '',
+		status,
+		icon: TOAST_ICONS[ cfg.icon ] ? cfg.icon : status,
+		action,
+		persist: ( 'boolean' === typeof cfg.persist ) ? cfg.persist : ( !! action && ! explicit ),
+		timeout: explicit ? cfg.timeout : ( 'error' === status ? 7000 : 3000 ),
+		key: cfg.key ? `k${ String( cfg.key ) }` : '',
+	};
+}
+
+/**
+ * Draw (or redraw) a toast's content from normalised options. Used for the first paint and
+ * for an in-place update, so there is one place that knows what a toast looks like.
+ *
+ * @param {HTMLElement} toast Toast element.
+ * @param {Object}      o     Options from toastOptions().
+ * @param {Function}    dismiss Dismiss handler for the close control.
+ */
+function paintToast( toast, o, dismiss ) {
+	toast.className = `bn-toast bn-toast--${ o.status }${ o.body ? ' bn-toast--rich' : '' }`;
+	// An error announces assertively so a screen reader interrupts with the reason;
+	// everything else is polite so a confirmation never talks over the member.
+	toast.setAttribute( 'role', 'error' === o.status ? 'alert' : 'status' );
+	toast.setAttribute( 'aria-live', 'error' === o.status ? 'assertive' : 'polite' );
+	toast.textContent = '';
+
+	const icon = document.createElement( 'span' );
+	icon.className = 'bn-toast__icon';
+	icon.innerHTML = TOAST_ICONS[ o.icon ]; // Constant markup above, never caller input.
+	toast.appendChild( icon );
+
+	const text = document.createElement( 'span' );
+	text.className = 'bn-toast__text';
+	const title = document.createElement( 'span' );
+	title.className = 'bn-toast__title';
+	title.textContent = o.title;
+	text.appendChild( title );
+	if ( o.body ) {
+		const body = document.createElement( 'span' );
+		body.className = 'bn-toast__body';
+		body.textContent = o.body;
+		text.appendChild( body );
+	}
+	toast.appendChild( text );
+
+	// Some refusals are not retryable and the member needs somewhere to GO: a suspension
+	// says why and ships the appeal URL, and a toast that can only say "Try again" is worse
+	// than useless because retrying can never succeed.
+	if ( o.action ) {
 		const link = document.createElement( 'a' );
 		link.className = 'bn-toast__action';
-		link.href = cfg.action.href;
-		link.textContent = cfg.action.label;
-		// The toast dismisses on click; let the link navigate instead of being
-		// swallowed by that handler.
+		link.href = o.action.href;
+		link.textContent = o.action.label;
+		// A click on the toast dismisses it; let the link navigate instead of being swallowed.
 		link.addEventListener( 'click', function ( e ) {
 			e.stopPropagation();
 		} );
 		toast.appendChild( link );
 	}
 
-	container.appendChild( toast );
+	if ( o.persist ) {
+		const close = document.createElement( 'button' );
+		close.type = 'button';
+		close.className = 'bn-toast__close';
+		close.setAttribute( 'aria-label', si( 'dismiss', 'Dismiss' ) );
+		close.innerHTML = TOAST_CLOSE_ICON; // Constant markup above.
+		close.addEventListener( 'click', function ( e ) {
+			e.stopPropagation();
+			dismiss();
+		} );
+		toast.appendChild( close );
+	}
+}
 
-	// JS owns the lifetime: fade out via the --leaving class, then remove. Clicking
-	// the toast dismisses it early so a lingering error can be cleared on demand.
+/**
+ * Show a toast.
+ *
+ * Every plugin on a BuddyNext page calls this one function, so a member sees one toast
+ * language: bottom-centre, inverted surface, a status disc, never a coloured fill.
+ * Returns a handle so a caller can update the toast in place (merged points), dismiss it,
+ * or reach the element (to add a celebration to it).
+ *
+ * @param {(string|Object)} message Text, or an options object (see toastOptions()).
+ * @param {(string|Object)} [opts]  Tone string or options.
+ * @return {{el: HTMLElement, update: Function, dismiss: Function}} Handle.
+ */
+export function bnToast( message, opts ) {
+	let o = toastOptions( message, opts );
+
+	let container = document.querySelector( '.bn-toast-container' );
+	if ( ! container ) {
+		container = document.createElement( 'div' );
+		container.className = 'bn-toast-container';
+		// A manual popover lives in the browser's top layer, so a toast raised while a
+		// native <dialog> is open (a partner's confirm) is not painted underneath it.
+		container.setAttribute( 'popover', 'manual' );
+		document.body.appendChild( container );
+	}
+
+	// The same thing said again (a rate limit the server keeps refusing) collapses onto the
+	// toast already showing and counts the repeats, instead of stacking a copy per attempt
+	// that a screen reader would read out once each. A caller-supplied key means "update
+	// this toast": same handling, but the content is repainted rather than counted.
+	const key      = o.key || toastKey( o.title, o.status );
+	const existing = container.querySelector( `.bn-toast[data-bn-toast-key="${ key }"]` );
+	if ( existing && existing._bnHandle ) {
+		if ( o.key ) {
+			existing._bnHandle.update( o );
+		} else {
+			const count = ( parseInt( existing.getAttribute( 'data-bn-toast-count' ), 10 ) || 1 ) + 1;
+			existing.setAttribute( 'data-bn-toast-count', String( count ) );
+			let badge = existing.querySelector( '.bn-toast__count' );
+			if ( ! badge ) {
+				badge = document.createElement( 'span' );
+				badge.className = 'bn-toast__count';
+				existing.appendChild( badge );
+			}
+			badge.textContent = `×${ count }`;
+			existing._bnResetTimer();
+		}
+		return existing._bnHandle;
+	}
+
+	// Distinct messages can still pile up (a page failing several ways at once), so drop
+	// the oldest rather than let the column grow past the viewport.
+	while ( container.children.length >= MAX_TOASTS ) {
+		container.firstElementChild._bnHandle.dismiss( true );
+	}
+
+	const toast = document.createElement( 'div' );
+	toast.setAttribute( 'data-bn-toast-key', key );
+	toast.setAttribute( 'data-bn-toast-count', '1' );
+
 	let removeTimer;
-	const dismiss = function () {
+	const dismiss = function ( immediate ) {
 		window.clearTimeout( removeTimer );
-		toast.classList.add( 'bn-toast--leaving' );
-		window.setTimeout( function () {
+		const gone = function () {
 			toast.remove();
 			if ( container && ! container.children.length ) {
+				try {
+					container.hidePopover();
+				} catch ( e ) { /* Not a popover, or already closed. */ }
 				container.remove();
 			}
-		}, 250 );
+		};
+		if ( true === immediate ) {
+			gone();
+			return;
+		}
+		toast.classList.add( 'bn-toast--leaving' );
+		window.setTimeout( gone, 250 );
 	};
 
-	// Exposed so a collapsed repeat can restart the dwell: the message is still
-	// current, so it should not vanish just because the first copy is timing out.
-	toast._bnResetTimer = function () {
+	// JS owns the lifetime so a message stays while it is still relevant. A persistent
+	// toast (it carries a link) has no timer; the rest pause while the pointer or focus is
+	// on them, so a member reading one is never cut off.
+	const startTimer = function () {
 		window.clearTimeout( removeTimer );
+		if ( ! o.persist ) {
+			removeTimer = window.setTimeout( dismiss, o.timeout );
+		}
+	};
+	const stopTimer = function () {
+		window.clearTimeout( removeTimer );
+	};
+	toast._bnResetTimer = function () {
 		toast.classList.remove( 'bn-toast--leaving' );
-		removeTimer = window.setTimeout( dismiss, timeout );
+		startTimer();
 	};
 
-	toast.addEventListener( 'click', dismiss );
-	removeTimer = window.setTimeout( dismiss, timeout );
+	toast._bnHandle = {
+		el: toast,
+		dismiss,
+		update( next ) {
+			o = Object.assign( {}, o, next.title !== undefined ? next : toastOptions( next ) );
+			paintToast( toast, o, dismiss );
+			toast._bnResetTimer();
+		},
+	};
+
+	paintToast( toast, o, dismiss );
+	toast.addEventListener( 'mouseenter', stopTimer );
+	toast.addEventListener( 'focusin', stopTimer );
+	toast.addEventListener( 'mouseleave', startTimer );
+	toast.addEventListener( 'focusout', startTimer );
+	// Clicking a plain toast dismisses it so a lingering error can be cleared on demand.
+	toast.addEventListener( 'click', function () {
+		if ( ! o.persist ) {
+			dismiss();
+		}
+	} );
+
+	container.appendChild( toast );
+	// Re-open the popover on every toast: top-layer order follows the moment of opening, so
+	// this puts the stack above any dialog opened since the last one.
+	try {
+		if ( container.matches( ':popover-open' ) ) {
+			container.hidePopover();
+		}
+		container.showPopover();
+	} catch ( e ) { /* No popover support: the fixed container and --bn-z-toast still apply. */ }
+
+	startTimer();
+	return toast._bnHandle;
 }
 
 /**
@@ -813,4 +955,12 @@ if ( typeof window !== 'undefined' ) {
 	// dialog instead of falling back to the browser primitive.
 	window.bnConfirm = bnConfirm;
 	window.bnPrompt  = bnPrompt;
+	// One toast for every classic script and every plugin. shell/extras.js queues calls made
+	// before this module has run; replay them now that the real function exists.
+	const queued = window.__bnToastQueue || [];
+	window.bnToast = bnToast;
+	delete window.__bnToastQueue;
+	queued.forEach( function ( args ) {
+		bnToast( args[ 0 ], args[ 1 ] );
+	} );
 }

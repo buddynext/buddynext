@@ -1678,6 +1678,9 @@ class PageRouter {
 		wp_enqueue_style( 'bn-shell' );
 		wp_enqueue_script( 'bn-shell-font-scale' );
 		wp_enqueue_script( 'bn-shell-extras' );
+		// The one toast (bnToast) lives in this module; it replaces the queueing stub
+		// in shell/extras.js as soon as it runs, so every hub has a real toast.
+		wp_enqueue_script_module( '@buddynext/shell-dialog' );
 
 		// Social-buttons store powers the standalone Follow + Connect partials
 		// (sidebar widgets, block-rendered buttons, etc.) on every BN hub.
@@ -1732,6 +1735,9 @@ class PageRouter {
 				'close'                  => __( 'Close', 'buddynext' ),
 				'confirm'                => __( 'Confirm', 'buddynext' ),
 				'cancel'                 => __( 'Cancel', 'buddynext' ),
+				// Toast: the close control on a toast that stays, and the default link label.
+				'dismiss'                => __( 'Dismiss', 'buddynext' ),
+				'view'                   => __( 'View', 'buddynext' ),
 				// Report dialog.
 				'reportTitle'            => __( 'Report', 'buddynext' ),
 				'reportBody'             => __( 'Reports are reviewed by moderators. The person you report is not notified.', 'buddynext' ),

@@ -218,8 +218,14 @@
 	flex-wrap: wrap;
 }
 
-/* Button primitives */
-.bn-btn {
+/* Button primitives. Scoped to the profile's own pill variants: a bare `.bn-btn`
+   rule here restyled every plain button on the page (a dialog's Cancel lost its
+   border and gained a heavier weight), so a dialog looked different on a profile
+   than anywhere else. Plain buttons take bn-base.css and its --bn-btn-h/--bn-btn-r. */
+.bn-btn--sm,
+.bn-btn--primary,
+.bn-btn--secondary,
+.bn-btn--icon {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-p-s1);
