@@ -80,6 +80,16 @@ A matching `buddynext_css_vars_dark` filter overrides the dark-mode token map (`
 
 > **Warning:** Do not add a stylesheet that hardcodes hex/px to restyle BuddyNext. Override the tokens. Hardcoded values break dark mode and RTL, which the token path handles automatically. The plugin's own `bin/ux-audit.sh` (gate F3) rejects raw hex/px in BuddyNext CSS for the same reason.
 
+## Partner plugins: matching the community brand
+
+A plugin that draws its own UI on BuddyNext pages (a popup, a badge, a celebration effect) should take its colour from the community's brand instead of a colour of its own, so it looks native on every site. The accent ramp is the public seam for that: `--bn-accent` and `--bn-accent-50` ... `--bn-accent-900` are generated from the one `--bn-hue`, are defined on `:root` by `bn-base` (which loads on every BuddyNext page), and are re-derived for dark mode, so a value read through `var()` follows the community's colour and the theme with no colour maths in JavaScript. Read them with a fallback for pages where BuddyNext is not loaded:
+
+```css
+.my-plugin-accent { background: var( --bn-accent-500, var( --my-plugin-accent ) ); }
+```
+
+Take shades from the ramp (for example `--bn-accent-300`, `--bn-accent-500`, `--bn-accent-700`) rather than converting the accent in script. Do not redefine any `--bn-*` variable from a plugin.
+
 ## Component primitives
 
 BuddyNext composes its UI from a small primitive vocabulary. Variants are expressed as `data-*` attributes, not extra classes, so you re-skin by styling the base class plus its attribute selectors.
