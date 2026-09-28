@@ -42,6 +42,23 @@ The tab lists the member's posts in the standard WordPress `post` type, newest f
 
 Visitors and other members see published posts only. You see your own drafts, pending review and scheduled posts as well, each labelled.
 
+## Author links
+
+While the Articles tab is on, every author link on your site goes to the member's BuddyNext profile instead of the WordPress author archive. That covers the byline and author box under a post, category and search results, and any theme or plugin that builds its link with `get_author_posts_url()`. The `/author/` address itself is not touched and still opens.
+
+The link stays on the WordPress address in these cases:
+
+- the viewer is not allowed to see that member's profile (a private or followers-only profile), so a byline never leads to a wall;
+- the request is not a page a visitor reads: wp-admin, ajax, cron, the REST API, feeds and the sitemap.
+
+To keep WordPress author archives, return `false` from the `buddynext_author_link_to_profile` filter. It receives the author's user ID:
+
+```php
+add_filter( 'buddynext_author_link_to_profile', '__return_false' );
+```
+
+Turning off the **nav** aspect of the **Blog posts** integration, or deactivating Member Blog, also returns author links to the WordPress address.
+
 ## Pro
 
 Neither BuddyNext Pro nor WB Member Blog Pro is required. The Articles tab works with BuddyNext free and Member Blog free. Both Pro plugins add their own features on their own surfaces; none of them are involved in this tab.
