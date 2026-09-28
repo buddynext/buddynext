@@ -1735,6 +1735,16 @@ class PageRouter {
 				'close'                  => __( 'Close', 'buddynext' ),
 				'confirm'                => __( 'Confirm', 'buddynext' ),
 				'cancel'                 => __( 'Cancel', 'buddynext' ),
+				// Block confirmation (bnBlockConfirm).
+				/* translators: %s: the member's display name */
+				'blockTitleNamed'        => __( 'Block %s?', 'buddynext' ),
+				'blockTitleGeneric'      => __( 'Block this member?', 'buddynext' ),
+				'blockIntro'             => __( 'Blocking this person will:', 'buddynext' ),
+				'blockHidePosts'         => __( 'Hide their posts and replies from your feed.', 'buddynext' ),
+				'blockStopContact'       => __( 'Stop them from following you or sending you messages.', 'buddynext' ),
+				'blockRemoveLinks'       => __( 'Remove any existing connection or follow between you.', 'buddynext' ),
+				'blockHelp'              => __( 'You can unblock from your settings at any time.', 'buddynext' ),
+				'block'                  => __( 'Block', 'buddynext' ),
 				// Toast: the close control on a toast that stays, and the default link label.
 				'dismiss'                => __( 'Dismiss', 'buddynext' ),
 				'view'                   => __( 'View', 'buddynext' ),

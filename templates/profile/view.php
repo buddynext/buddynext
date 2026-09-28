@@ -369,11 +369,7 @@ $bn_pf_ctx = array(
 	'isRestricted'       => $is_restricted,
 	'moreMenuOpen'       => false,
 	'moreMenuFlip'       => false,
-	'reportOpen'         => false,
-	'reportReason'       => 'spam',
-	'reportNotes'        => '',
 	'reportSubmitting'   => false,
-	'blockConfirmOpen'   => false,
 	'blockSubmitting'    => false,
 );
 ?>
@@ -458,15 +454,6 @@ $bn_pf_ctx = array(
 		?>
 	</div>
 	<?php
-
-	// Report + block-confirm modals: only the non-owner viewer needs them.
-	if ( ! $is_own_profile && $current_user_id ) :
-		buddynext_get_template( 'partials/report-modal.php', array() );
-		buddynext_get_template(
-			'partials/block-confirm-modal.php',
-			array( 'display_name' => $display_name )
-		);
-	endif;
 
 	// Share modal: any logged-in viewer can share posts shown in the profile
 	// feed, so the modal must be present here too (mirrors home.php and

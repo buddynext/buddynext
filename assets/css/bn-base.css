@@ -3474,6 +3474,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	outline: 2px solid var(--bn-accent);
 	outline-offset: 2px;
 }
+/* The block dialog's list and closing line sit close to the intro, not a paragraph apart. */
+.bn-modal__body ul { margin: var(--bn-s2) 0; padding-inline-start: var(--bn-s5); }
+.bn-modal__body ul + p { margin-block: var(--bn-s2) 0; }
 .bn-modal__body {
 	flex: 1;
 	padding: var(--bn-s5);

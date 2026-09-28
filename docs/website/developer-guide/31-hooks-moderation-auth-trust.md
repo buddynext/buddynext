@@ -132,8 +132,6 @@ The Community Admin moderation queue and the member-facing report modal expose t
 | `buddynext_moderation_queue_before` | action | Before the Community Admin report list renders | - |
 
 `buddynext_mod_queue_columns` was removed in 1.2.2 along with the standalone `/moderation/` page whose table it filtered; the report list in Community Admin is not a table.
-| `buddynext_part_member_report_modal_before` / `_after` | action | Around the member report modal markup | `array $args` |
-| `buddynext_part_member_report_modal_args` / `_classes` | filter | Shape the report modal's args / wrapper classes | `array $args` / `array $classes, array $args` |
 | `buddynext_part_space_settings_panel_moderation_before` / `_after` | action | Around the space moderation settings panel | `array $args` |
 
 > **Tip:** The `_part_*` modal and panel seams follow the same four-hook contract as every other BuddyNext template part (`_before`, `_after`, `_args`, `_classes`). For the full convention, see Hooks: Template Parts.

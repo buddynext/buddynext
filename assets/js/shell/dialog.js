@@ -239,6 +239,40 @@ export function bnConfirm( opts, legacyOpts ) {
 }
 
 /**
+ * The one "Block this member?" confirmation. The profile page, the member directory card
+ * and the message thread all call this, so the wording, the list of what a block does and
+ * the button live in one place instead of three.
+ *
+ * @param {string} [displayName] Who is being blocked; the title names them when given.
+ * @return {Promise<boolean>} true when the member confirmed.
+ */
+export function bnBlockConfirm( displayName ) {
+	const details = document.createElement( 'div' );
+	const list    = document.createElement( 'ul' );
+	[
+		si( 'blockHidePosts', 'Hide their posts and replies from your feed.' ),
+		si( 'blockStopContact', 'Stop them from following you or sending you messages.' ),
+		si( 'blockRemoveLinks', 'Remove any existing connection or follow between you.' ),
+	].forEach( function ( line ) {
+		const li = document.createElement( 'li' );
+		li.textContent = line;
+		list.appendChild( li );
+	} );
+	const help = document.createElement( 'p' );
+	help.textContent = si( 'blockHelp', 'You can unblock from your settings at any time.' );
+	details.appendChild( list );
+	details.appendChild( help );
+
+	return bnConfirm( {
+		title:        displayName ? si( 'blockTitleNamed', 'Block %s?' ).replace( '%s', displayName ) : si( 'blockTitleGeneric', 'Block this member?' ),
+		body:         si( 'blockIntro', 'Blocking this person will:' ),
+		extraNode:    details,
+		confirmLabel: si( 'block', 'Block' ),
+		tone:         'danger',
+	} );
+}
+
+/**
  * Present a prompt dialog with a text input. Resolves the entered string
  * on confirm (possibly empty), null on cancel.
  *
@@ -958,6 +992,7 @@ if ( typeof window !== 'undefined' ) {
 	// them so the lightbox (and any other classic script) can reach the real
 	// dialog instead of falling back to the browser primitive.
 	window.bnConfirm = bnConfirm;
+	window.bnBlockConfirm = bnBlockConfirm;
 	window.bnPrompt  = bnPrompt;
 	// One toast for every classic script and every plugin. shell/extras.js queues calls made
 	// before this module has run; replay them now that the real function exists.

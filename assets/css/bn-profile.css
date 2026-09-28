@@ -3160,9 +3160,6 @@ a.bn-space-row:hover .bn-space-name {
 	transform: translateY(-1px);
 }
 
-/* F8 - Report + block confirm modals: extend bn-modal primitive. */
-.bn-pf-report-backdrop[hidden],
-.bn-pf-block-backdrop[hidden] { display: none !important; }
 .bn-modal__list {
 	margin: var(--bn-s2) 0 var(--bn-s3);
 	padding-inline-start: var(--bn-s5);

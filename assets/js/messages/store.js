@@ -16,7 +16,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnBlockConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 // Shared client-side thumbnail only — DM upload stays on MediaVerse's own
 // conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
@@ -1229,12 +1229,7 @@ const messagesStore = store( 'buddynext/messages', {
 				return;
 			}
 			const name = ctx.recipientName || t( 'thisMember', 'this member' );
-			const ok = await bnConfirm( {
-				title:        fmt( t( 'blockTitle', 'Block %s?' ), name ),
-				body:         t( 'blockBody', 'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.' ),
-				confirmLabel: t( 'blockConfirm', 'Block' ),
-				tone:         'danger',
-			} );
+			const ok = await bnBlockConfirm( name );
 			if ( ! ok ) {
 				return;
 			}
@@ -1242,7 +1237,7 @@ const messagesStore = store( 'buddynext/messages', {
 			try {
 				const res = await restFetch( '/users/' + uid + '/block', { method: 'POST', toastOnError: false } );
 				if ( res.ok || res.status === 201 ) {
-					bnToast( fmt( t( 'blockSuccess', '%s blocked.' ), name ), { tone: 'success' } );
+					bnToast( fmt( t( 'blockSuccess', '%s blocked' ), name ), { tone: 'success' } );
 					ctx.infoPanelOpen = false;
 					// You can no longer message a blocked member — leave the thread.
 					if ( ctx.messagesUrl ) {

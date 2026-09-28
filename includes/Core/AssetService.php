@@ -1274,7 +1274,7 @@ class AssetService {
 					'blockTitleNamed'               => __( 'Block %s?', 'buddynext' ),
 					'blockTitleGeneric'             => __( 'Block this member?', 'buddynext' ),
 					/* translators: %s: member display name. */
-					'toastBlocked'                  => __( '@%s blocked', 'buddynext' ),
+					'toastBlocked'                  => __( '%s blocked', 'buddynext' ),
 					'toastCouldNotBlock'            => __( 'Could not block. Try again.', 'buddynext' ),
 					'toastReportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'toastCouldNotReport'           => __( 'Could not submit report. Try again.', 'buddynext' ),
@@ -1353,6 +1353,7 @@ class AssetService {
 					'apply'                           => __( 'Apply', 'buddynext' ),
 					'reportPost'                      => __( 'Report post', 'buddynext' ),
 					'reportSubmitted'                 => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
+					'reportProfileTitle'              => __( 'Report this profile', 'buddynext' ),
 					'couldNotSubmitReport'            => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'shared'                          => __( 'Shared!', 'buddynext' ),
 					'roleUpdated'                     => __( 'Role updated.', 'buddynext' ),
@@ -1504,7 +1505,7 @@ class AssetService {
 					'blockBody'                 => __( 'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.', 'buddynext' ),
 					'blockConfirm'              => __( 'Block', 'buddynext' ),
 					/* translators: %s: member display name. */
-					'blockSuccess'              => __( '%s blocked.', 'buddynext' ),
+					'blockSuccess'              => __( '%s blocked', 'buddynext' ),
 					/* translators: %s: member display name. */
 					'blockFailed'               => __( 'Could not block %s. Try again.', 'buddynext' ),
 					'reportConversationTitle'   => __( 'Report this conversation', 'buddynext' ),
@@ -1692,6 +1693,7 @@ class AssetService {
 					'memberBlockedNamed'               => __( '%s blocked', 'buddynext' ),
 					'memberBlocked'                    => __( 'Member blocked', 'buddynext' ),
 					'blockFailed'                      => __( 'Could not block. Try again.', 'buddynext' ),
+					'reportProfileTitle'               => __( 'Report this profile', 'buddynext' ),
 					'reportFailed'                     => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'reportSubmitted'                  => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'checkInboxConfirm'                => __( 'Check your inbox to confirm.', 'buddynext' ),
