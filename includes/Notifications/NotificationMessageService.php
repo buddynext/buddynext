@@ -88,6 +88,10 @@ class NotificationMessageService {
 					),
 				)
 			);
+		} elseif ( '' !== (string) ( $data['message_single'] ?? '' ) ) {
+			// A row that carries its own one-person sentence: the person shown is whoever
+			// is left in the row, not the person the first event named.
+			$message = strtr( (string) $data['message_single'], array( '{actor}' => $actor_name ) );
 		} elseif ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {
 			$message = $this->compose_grouped( $type, $actor_name, $group_count, $object_id, $data );
 		} else {

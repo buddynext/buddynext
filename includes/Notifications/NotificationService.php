@@ -291,8 +291,8 @@ class NotificationService {
 	 * If $data contains a non-empty group_key and an unread notification with
 	 * that key already exists for the recipient, the existing row is updated
 	 * (sender_id and group_count refreshed) rather than inserting a new one. On a row that
-	 * reads "X and N others" the count is people, so the same sender merging in again
-	 * straight after themselves does not raise it.
+	 * reads "X and N others" the count is distinct people and the row keeps each event
+	 * (see GroupedItems); `$data['item']` ( type, id ) names the thing the sender did.
 	 *
 	 * @param array $data Notification data: recipient_id (required), sender_id,
 	 *                    type (required), object_type, object_id, group_key, data.
@@ -375,7 +375,7 @@ class NotificationService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id, sender_id FROM {$wpdb->prefix}bn_notifications
+					"SELECT id, sender_id, data FROM {$wpdb->prefix}bn_notifications
 					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
 					   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
 					 LIMIT 1",
@@ -389,29 +389,41 @@ class NotificationService {
 				$existing_id = (int) $existing['id'];
 				$sender_id   = (int) ( $data['sender_id'] ?? 0 );
 
-				// "X and N others" counts people. One member merging in again straight
-				// after themselves is not another person, so the tally stays put: a
-				// row that says "Bob and 1 other" for Bob alone reads as wrong. Only a
-				// people row does this (a native collapse type, or a partner row that
-				// carries its own grouped sentence); a tally of events keeps counting
-				// every one, or a moderator's "3 reports waiting" would shrink.
-				// ponytail: compares with the latest sender only, so A-B-A still counts
-				// A twice; exact distinct counts need per-actor rows.
-				$people    = NotificationMessageService::supports_group_collapse( (string) ( $data['type'] ?? '' ) )
-					|| '' !== (string) ( $data['data']['message_grouped'] ?? '' );
-				$increment = ( $people && $sender_id > 0 && (int) $existing['sender_id'] === $sender_id ) ? 0 : 1;
-
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$updated = $wpdb->query(
-					$wpdb->prepare(
-						"UPDATE {$wpdb->prefix}bn_notifications
-						 SET sender_id = %d, group_count = group_count + %d, created_at = UTC_TIMESTAMP()
-						 WHERE id = %d",
+				if ( $sender_id > 0 && GroupedItems::is_people_row( $type, $data ) ) {
+					// "X and N others" counts people: the row keeps who did what, and the
+					// count is the distinct people in it, however the events interleave.
+					$stored = GroupedItems::add(
+						(array) json_decode( (string) $existing['data'], true ),
+						(int) $existing['sender_id'],
 						$sender_id,
-						$increment,
-						$existing_id
-					)
-				);
+						(string) ( $data['item']['type'] ?? '' ),
+						(int) ( $data['item']['id'] ?? 0 )
+					);
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$updated = $wpdb->query(
+						$wpdb->prepare(
+							"UPDATE {$wpdb->prefix}bn_notifications
+							 SET sender_id = %d, group_count = %d, data = %s, created_at = UTC_TIMESTAMP()
+							 WHERE id = %d",
+							$sender_id,
+							GroupedItems::people( $stored ),
+							(string) wp_json_encode( $stored ),
+							$existing_id
+						)
+					);
+				} else {
+					// A tally of events (reports waiting), or an event with no person.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$updated = $wpdb->query(
+						$wpdb->prepare(
+							"UPDATE {$wpdb->prefix}bn_notifications
+							 SET sender_id = %d, group_count = group_count + 1, created_at = UTC_TIMESTAMP()
+							 WHERE id = %d",
+							$sender_id,
+							$existing_id
+						)
+					);
+				}
 
 				// A failed merge UPDATE must not bust the cache or fire the hook for
 				// a row we did not actually touch.
@@ -426,6 +438,18 @@ class NotificationService {
 
 				return $existing_id;
 			}
+		}
+
+		// A new people row starts its list with its first event.
+		$first_sender = (int) ( $data['sender_id'] ?? 0 );
+		if ( $first_sender > 0 && GroupedItems::is_people_row( $type, $data ) ) {
+			$data['data'] = GroupedItems::add(
+				(array) ( $data['data'] ?? array() ),
+				0,
+				$first_sender,
+				(string) ( $data['item']['type'] ?? '' ),
+				(int) ( $data['item']['id'] ?? 0 )
+			);
 		}
 
 		// Insert a new notification row.

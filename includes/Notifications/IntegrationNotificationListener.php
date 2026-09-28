@@ -222,6 +222,7 @@ class IntegrationNotificationListener implements ListenerInterface {
 			'subtype'         => $type,
 			'message'         => $message,
 			'message_grouped' => trim( wp_strip_all_tags( (string) ( $payload['message_grouped'] ?? '' ) ) ),
+			'message_single'  => trim( wp_strip_all_tags( (string) ( $payload['message_single'] ?? '' ) ) ),
 			'url'             => $url,
 			'context'         => array(
 				'type'  => sanitize_key( (string) ( $context['type'] ?? '' ) ),
@@ -251,6 +252,12 @@ class IntegrationNotificationListener implements ListenerInterface {
 				'object_id'    => (int) ( $payload['object_id'] ?? 0 ),
 				'group_key'    => '' !== $group_key ? $group_key : null,
 				'data'         => $data,
+				// The thing this event is about, when the row's object is a container
+				// (the reply inside a topic): kept per person, checked per person.
+				'item'         => array(
+					'type' => sanitize_key( (string) ( $payload['item_type'] ?? '' ) ),
+					'id'   => (int) ( $payload['item_id'] ?? 0 ),
+				),
 			)
 		);
 	}
@@ -355,23 +362,43 @@ class IntegrationNotificationListener implements ListenerInterface {
 	/**
 	 * Ask each plugin which of its rows the recipient may still see.
 	 *
+	 * The plugin is asked about the row's object, and, for a grouped row, about each
+	 * event in it (`item => true` on the target, with the person who did it as
+	 * `actor_id`). A row whose object is hidden goes; a row loses the events the
+	 * plugin hides (a trashed reply, a banned replier) and goes when none is left. The
+	 * name and the count then follow the events that remain.
+	 *
 	 * @param array<int,array<string,mixed>> $rows One bell page (one recipient).
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function filter_visible_rows( array $rows ): array {
 		$by_source = array();
+		$decoded   = array();
 		foreach ( $rows as $i => $row ) {
 			$source = self::source_of( (string) ( $row['type'] ?? '' ) );
 			if ( '' === $source ) {
 				continue;
 			}
 			$data                       = is_array( $row['data'] ?? null ) ? $row['data'] : (array) json_decode( (string) ( $row['data'] ?? '' ), true );
+			$decoded[ $i ]              = $data;
+			$subtype                    = (string) ( $data['subtype'] ?? '' );
 			$by_source[ $source ][ $i ] = array(
-				'type'        => (string) ( $data['subtype'] ?? '' ),
+				'type'        => $subtype,
 				'object_type' => (string) preg_replace( '/^' . preg_quote( $source, '/' ) . '_/', '', (string) ( $row['object_type'] ?? '' ) ),
 				'object_id'   => (int) ( $row['object_id'] ?? 0 ),
 				'actor_id'    => (int) ( $row['sender_id'] ?? 0 ),
 			);
+			foreach ( (array) ( $data['items'] ?? array() ) as $n => $item ) {
+				if ( (int) ( $item['i'] ?? 0 ) > 0 && '' !== (string) ( $item['t'] ?? '' ) ) {
+					$by_source[ $source ][ $i . ':' . $n ] = array(
+						'type'        => $subtype,
+						'object_type' => (string) $item['t'],
+						'object_id'   => (int) $item['i'],
+						'actor_id'    => (int) ( $item['a'] ?? 0 ),
+						'item'        => true,
+					);
+				}
+			}
 		}
 		if ( empty( $by_source ) ) {
 			return $rows;
@@ -380,17 +407,44 @@ class IntegrationNotificationListener implements ListenerInterface {
 		$first   = reset( $rows );
 		$viewer  = (int) ( $first['recipient_id'] ?? 0 );
 		$sources = self::sources();
+		$hidden  = array();
 		foreach ( $by_source as $source => $targets ) {
 			/**
 			 * The plugin answers for its own objects: `{prefix}_community_notification_visible`
 			 * ( array $visible key => true, int $viewer_id, array $targets ): key => bool.
+			 * A target with `item => true` is one event inside a grouped row; answer false
+			 * when that event is gone, trashed or from someone the viewer should not see.
 			 */
 			$visible = (array) apply_filters( $sources[ $source ]['prefix'] . '_community_notification_visible', array_fill_keys( array_keys( $targets ), true ), $viewer, $targets );
-			foreach ( array_keys( $targets ) as $i ) {
-				if ( array_key_exists( $i, $visible ) && ! $visible[ $i ] ) {
-					unset( $rows[ $i ] );
+			foreach ( array_keys( $targets ) as $key ) {
+				if ( ! array_key_exists( $key, $visible ) || $visible[ $key ] ) {
+					continue;
+				}
+				if ( is_int( $key ) ) {
+					unset( $rows[ $key ] );
+				} else {
+					list( $i, $n )      = array_map( 'intval', explode( ':', (string) $key ) );
+					$hidden[ $i ][ $n ] = true;
 				}
 			}
+		}
+
+		foreach ( $hidden as $i => $gone ) {
+			if ( ! isset( $rows[ $i ] ) ) {
+				continue;
+			}
+			$kept = array();
+			foreach ( (array) ( $decoded[ $i ]['items'] ?? array() ) as $n => $item ) {
+				if ( empty( $gone[ $n ] ) ) {
+					$kept[] = $item;
+				}
+			}
+			if ( empty( $kept ) ) {
+				unset( $rows[ $i ] );
+				continue;
+			}
+			$rows[ $i ]['group_count'] = GroupedItems::people( array_merge( $decoded[ $i ], array( 'items' => $kept ) ) );
+			$rows[ $i ]['sender_id']   = (int) $kept[0]['a'];
 		}
 		return $rows;
 	}
