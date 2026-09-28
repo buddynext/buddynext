@@ -30,8 +30,8 @@ class IntegrationNotificationListener implements ListenerInterface {
 	/**
 	 * The integrations that speak the contract: source slug => the plugin's own
 	 * notification hook, its key in the owner's Integrations switches, the prefix
-	 * of its types / visible / removed hooks, the
-	 * label of its settings section and bell rows, and its icon.
+	 * of its types / visible / removed hooks, the label of its settings section
+	 * and bell rows, and its icon.
 	 *
 	 * @var array<string,array{hook:string,integration?:string,prefix:string,label:string,icon:string}>
 	 */
@@ -91,15 +91,35 @@ class IntegrationNotificationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function register(): void {
+		// Sources carry translated labels (and a third party's filter may translate
+		// too), so they are read on init, never at plugins_loaded.
+		add_action( 'init', array( $this, 'register_sources' ), 1 );
+
+		add_filter( 'buddynext_notification_prefs_catalogue', array( $this, 'filter_catalogue' ) );
+		add_filter( 'buddynext_notification_message', array( $this, 'filter_message' ), 10, 5 );
+		add_filter( 'buddynext_notification_url', array( $this, 'filter_url' ), 10, 5 );
+		add_filter( 'buddynext_notification_meta', array( $this, 'filter_meta' ), 10, 2 );
+		add_filter( 'buddynext_notification_visible_rows', array( $this, 'filter_visible_rows' ) );
+		add_filter( 'buddynext_notification_group_label', array( $this, 'filter_group_label' ), 10, 2 );
+	}
+
+	/**
+	 * Listen on each source's notification hook and removal hook.
+	 *
+	 * @return void
+	 */
+	public function register_sources(): void {
 		foreach ( self::sources() as $source => $info ) {
 			$prefix = $info['prefix'];
-			// The payload is the hook's LAST argument; firings without one (a plugin
-			// that has not adopted the contract yet) are left to the older route.
+			// The payload is the hook's LAST argument. It is read only once the
+			// plugin has adopted the contract (declared its types): that one switch
+			// moves the plugin from its older route to this one, so a plugin that
+			// passes the payload early never produces two rows.
 			add_action(
 				$info['hook'],
 				function ( ...$args ) use ( $source ): void {
 					$payload = end( $args );
-					if ( is_array( $payload ) && isset( $payload['recipient_id'], $payload['type'], $payload['message'] ) ) {
+					if ( is_array( $payload ) && isset( $payload['recipient_id'], $payload['type'], $payload['message'] ) && self::adopted( $source ) ) {
 						$this->receive( $source, $payload );
 					}
 				},
@@ -115,13 +135,6 @@ class IntegrationNotificationListener implements ListenerInterface {
 				2
 			);
 		}
-
-		add_filter( 'buddynext_notification_prefs_catalogue', array( $this, 'filter_catalogue' ) );
-		add_filter( 'buddynext_notification_message', array( $this, 'filter_message' ), 10, 5 );
-		add_filter( 'buddynext_notification_url', array( $this, 'filter_url' ), 10, 5 );
-		add_filter( 'buddynext_notification_meta', array( $this, 'filter_meta' ), 10, 2 );
-		add_filter( 'buddynext_notification_visible_rows', array( $this, 'filter_visible_rows' ) );
-		add_filter( 'buddynext_notification_group_label', array( $this, 'filter_group_label' ), 10, 2 );
 	}
 
 	/**

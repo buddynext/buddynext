@@ -81,7 +81,11 @@ class NotificationMessageService {
 				$grouped_template,
 				array(
 					'{actor}'  => $actor_name,
-					'{others}' => number_format_i18n( $group_count - 1 ),
+					'{others}' => sprintf(
+						/* translators: %s: number of other people. */
+						_n( '%s other', '%s others', $group_count - 1, 'buddynext' ),
+						number_format_i18n( $group_count - 1 )
+					),
 				)
 			);
 		} elseif ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {

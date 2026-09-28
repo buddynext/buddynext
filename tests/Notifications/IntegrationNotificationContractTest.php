@@ -28,6 +28,21 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		Installer::run();
 		$this->recipient = self::factory()->user->create();
 		$this->actor     = self::factory()->user->create( array( 'display_name' => 'Aisha' ) );
+		add_filter( 'jetonomy_community_notification_types', array( $this, 'declare_types' ) );
+	}
+
+	/**
+	 * Jetonomy has adopted the contract.
+	 *
+	 * @param array<string,mixed> $types Types.
+	 * @return array<string,mixed>
+	 */
+	public function declare_types( array $types ): array {
+		$types['reply_to_post'] = array(
+			'label'      => 'Replies to your topics',
+			'default_on' => true,
+		);
+		return $types;
 	}
 
 	public function tear_down(): void {
@@ -51,7 +66,7 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 				'object_type'     => 'post',
 				'object_id'       => 1153,
 				'message'         => 'Aisha replied to "Welcome thread".',
-				'message_grouped' => '{actor} and {others} others replied to "Welcome thread".',
+				'message_grouped' => '{actor} and {others} replied to "Welcome thread".',
 				'url'             => 'https://example.org/t/welcome/#reply-88',
 				'group_key'       => 'reply_to_post_1153',
 			),
@@ -95,7 +110,7 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertCount( 1, $rows );
 		$this->assertSame( 2, (int) $rows[0]['group_count'] );
 		$composed = ( new NotificationMessageService() )->compose( $rows[0] );
-		$this->assertSame( 'Ben and 1 others replied to "Welcome thread".', $composed['message'] );
+		$this->assertSame( 'Ben and 1 other replied to "Welcome thread".', $composed['message'] );
 	}
 
 	public function test_dropped_for_self_block_and_switched_off_integration(): void {
@@ -133,17 +148,6 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 	}
 
 	public function test_declared_types_get_a_section_and_stand_down_the_old_route(): void {
-		$this->assertFalse( IntegrationNotificationListener::adopted( 'jetonomy' ) );
-		add_filter(
-			'jetonomy_community_notification_types',
-			static function ( array $types ): array {
-				$types['reply_to_post'] = array(
-					'label'      => 'Replies to your topics',
-					'default_on' => true,
-				);
-				return $types;
-			}
-		);
 		$this->assertTrue( IntegrationNotificationListener::adopted( 'jetonomy' ) );
 
 		$catalogue = new NotificationPrefCatalogue();
@@ -152,12 +156,24 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertFalse( $all['jetonomy.reply_to_post']['can_email'] );
 		$this->assertSame( 'Forums', $catalogue->group_label( 'jetonomy' ) );
 
-		// The legacy Jetonomy route writes nothing once the plugin has adopted.
+		// One firing, one row: the legacy route writes nothing once adopted.
+		$this->fire();
+		$this->assertCount( 1, $this->rows() );
+		$this->assertSame( 0, $this->legacy_rows() );
+	}
+
+	public function test_payload_before_adoption_stays_on_the_old_route_only(): void {
+		remove_all_filters( 'jetonomy_community_notification_types' );
+		$this->assertFalse( IntegrationNotificationListener::adopted( 'jetonomy' ) );
+		$this->fire();
+		$this->assertCount( 0, $this->rows() );
+		$this->assertSame( 1, $this->legacy_rows() );
+	}
+
+	private function legacy_rows(): int {
 		global $wpdb;
-		do_action( 'jetonomy_notification_created', 991, $this->recipient, 'reply_to_post', 'post', 1153, 'legacy', 'https://example.org/legacy' );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$legacy = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jt.notification'", $this->recipient ) );
-		$this->assertSame( 0, $legacy );
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jt.notification'", $this->recipient ) );
 	}
 
 	/**
