@@ -4836,7 +4836,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink);
 	box-shadow: var(--bn-shadow-lg);
 	font-size: var(--bn-text-sm);
-	z-index: 1200;
+	z-index: var(--bn-z-menu);
 }
 .bn-unsub-notice--success { border-inline-start-color: var(--bn-success); }
 .bn-unsub-notice--error { border-inline-start-color: var(--bn-danger); }
@@ -4921,7 +4921,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background: color-mix(in oklch, var(--brand) 8%, var(--surface));
 	color: var(--text-1);
 	border: 1px solid color-mix(in oklch, var(--brand) 22%, var(--border));
-	border-radius: var(--bn-r-lg);
+	border-radius: var(--bn-r-md);
 	padding: var(--bn-s5);
 	margin-bottom: var(--bn-s5);
 }

@@ -31,7 +31,7 @@
 .bn-lb-notice {
 	background: var(--bn-warn-bg);
 	border: 1px solid var(--bn-warn);
-	border-radius: var(--bn-r-lg);
+	border-radius: var(--bn-r-md);
 	padding: var(--bn-s6);
 	text-align: center;
 	color: var(--bn-ink);

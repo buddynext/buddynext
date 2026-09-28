@@ -296,7 +296,7 @@
 .bn-ca-notice {
 	margin: var(--bn-s3) var(--bn-s4) 0;
 	padding: var(--bn-s2) var(--bn-s3);
-	border-radius: var(--bn-r-sm);
+	border-radius: var(--bn-r-md);
 	font-size: var(--bn-text-sm);
 	background: color-mix( in oklch, var(--bn-accent) 10%, var(--bn-surface) );
 	color: var(--bn-ink);
@@ -775,7 +775,7 @@ a.bn-ca-more-menu-item:focus {
 	padding: var(--bn-s5);
 	border: 1px solid var(--bn-danger);
 	border-inline-start-width: 3px;
-	border-radius: var(--bn-r-lg);
+	border-radius: var(--bn-r-md);
 	background: var(--bn-danger-bg);
 	margin-bottom: var(--bn-s5);
 }
