@@ -1410,7 +1410,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 .bn-search-overlay {
 	position: fixed;
 	inset: 0;
-	z-index: 10000;
+	z-index: var(--bn-z-modal);
 	background: var(--bn-overlay);
 	display: flex;
 	align-items: flex-start;
@@ -1422,9 +1422,10 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 .bn-search-overlay__inner {
 	width: 100%;
 	max-width: 580px;
-	background: var(--bg);
-	border-radius: var(--bn-r-xl);
-	box-shadow: 0 16px 64px rgba(0, 0, 0, 0.2);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-md);
 	overflow: hidden;
 	animation: bn-dropdown-in 0.2s ease;
 }
@@ -1436,10 +1437,12 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	border-bottom: 1px solid var(--bn-line-faint);
 }
 .bn-search-overlay__icon {
-	font-size: 20px;
-	color: var(--text-3);
+	display: grid;
+	place-items: center;
+	color: var(--bn-ink-3);
 	flex-shrink: 0;
 }
+.bn-search-overlay__icon svg { width: 20px; height: 20px; }
 .bn-search-overlay__input {
 	flex: 1;
 	border: none;
@@ -1450,11 +1453,21 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	background: transparent;
 }
 .bn-search-overlay__input::placeholder { color: var(--text-3); }
+/* The whole row is the field, so the focus indicator lives on the row (an accent
+   underline) instead of a second ring drawn around the bare input inside it. */
+.bn-search-overlay .bn-search-overlay__input:focus,
+.bn-search-overlay .bn-search-overlay__input:focus-visible {
+	outline: none;
+	box-shadow: none;
+	border: none;
+	background: transparent;
+}
+.bn-search-overlay__input-wrap:focus-within { border-bottom-color: var(--bn-accent); }
 .bn-search-overlay__kbd {
-	font-size: 11px;
+	font-size: var(--bn-text-xs);
 	padding: 2px 6px;
-	border: 1px solid var(--border);
-	border-radius: 4px;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-sm);
 	color: var(--text-3);
 	font-family: var(--font-body);
 }
@@ -1497,12 +1510,12 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 /* ── User hover card ──────────────────────────────────────────────────── */
 .bn-hover-card {
 	position: fixed;
-	z-index: 9000;
+	z-index: var(--bn-z-menu);
 	width: 280px;
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--bn-r-lg);
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-md);
 	padding: var(--bn-s4);
 	pointer-events: auto;
 	animation: bn-dropdown-in 0.15s ease;
@@ -4105,7 +4118,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 /* ── Tooltip ────────────────────────────────────────────────────────── */
 .bn-tooltip {
 	position: absolute;
-	z-index: 9999;
+	z-index: calc(var(--bn-z-menu) + 1);
 	padding: var(--bn-s1) var(--bn-s2);
 	border-radius: var(--bn-r-sm);
 	background: var(--bn-ink);

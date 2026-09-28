@@ -738,7 +738,7 @@ a.bn-files__name:focus-visible {
 .bn-share {
 	position: fixed;
 	inset: 0;
-	z-index: 1000;
+	z-index: var(--bn-z-modal);
 	display: flex;
 	align-items: center;
 	justify-content: center;

@@ -417,48 +417,6 @@
 	object-fit: cover;
 }
 
-/* ── Bell dropdown (nav partial) ─────────────────────────────────────── */
-
-.bn-bell-wrap { position: relative; }
-
-.bn-bell-dropdown {
-	position: absolute;
-	top: calc(100% + var(--bn-s2));
-	inset-inline-end: 0;
-	width: 360px;
-	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-lg);
-	box-shadow: var(--bn-shadow-lg);
-	z-index: 999;
-	overflow: hidden;
-}
-
-.bn-bell-dropdown__header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: var(--bn-s3) var(--bn-s4);
-	border-bottom: 1px solid var(--bn-line-faint);
-}
-
-.bn-bell-dropdown__title {
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-}
-
-.bn-bell-dropdown__list {
-	max-height: 400px;
-	overflow-y: auto;
-}
-
-.bn-bell-dropdown__footer {
-	padding: var(--bn-s3) var(--bn-s4);
-	border-top: 1px solid var(--bn-line-faint);
-	text-align: center;
-}
-
 /* Unread chip used by the bell button - still consumes the badge primitive
    colour but with a smaller fixed footprint. */
 .bn-notif-badge {
@@ -539,10 +497,6 @@
 	.bn-notif-pagination {
 		justify-content: space-between;
 		gap: var(--bn-s2);
-	}
-	.bn-bell-dropdown {
-		width: calc(100vw - var(--bn-s8));
-		inset-inline-end: calc(var(--bn-s4) * -1);
 	}
 }
 

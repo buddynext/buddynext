@@ -592,12 +592,12 @@
 	position: absolute;
 	inset-inline-end: 0;
 	top: calc(100% + var(--bn-p-s1));
-	background: var(--bn-p-surface);
-	border: 1px solid var(--bn-p-border);
-	border-radius: var(--bn-p-r-lg);
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-md);
 	min-width: 160px;
-	z-index: 200;
+	z-index: var(--bn-z-menu);
 	overflow: hidden;
 }
 

@@ -756,8 +756,6 @@
 	display: inline-block;
 }
 
-/* Uses .bn-bell-wrap + .bn-bell-dropdown from bn-notifications.css */
-
 /* ── Search bar block ───────────────────────────────────────────────── */
 
 /* The form is the block's own row; it was emitted with no rule at all, so the

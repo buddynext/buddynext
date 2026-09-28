@@ -431,11 +431,11 @@ body.bn-lightbox-open { overflow: hidden; }
 	min-inline-size: 11rem;
 	max-inline-size: 16rem;
 	padding: var( --bn-s1, 4px );
-	background: var( --bn-surface, oklch( 100% 0 0 ) );
-	border: 1px solid var( --bn-line, oklch( 90% 0.006 0 ) );
-	border-radius: var( --bn-r-md, 8px );
-	box-shadow: var( --bn-shadow-md, 0 8px 24px oklch( 0% 0 0 / 0.12 ) );
-	z-index: 20;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-md);
+	z-index: var(--bn-z-menu);
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
