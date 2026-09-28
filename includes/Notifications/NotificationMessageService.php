@@ -1224,7 +1224,7 @@ class NotificationMessageService {
 	 *
 	 * @param string $type Notification type slug.
 	 */
-	private function supports_group_collapse( string $type ): bool {
+	public static function supports_group_collapse( string $type ): bool {
 		return in_array(
 			$type,
 			array(

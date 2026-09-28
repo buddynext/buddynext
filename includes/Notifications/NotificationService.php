@@ -290,7 +290,9 @@ class NotificationService {
 	 *
 	 * If $data contains a non-empty group_key and an unread notification with
 	 * that key already exists for the recipient, the existing row is updated
-	 * (sender_id and group_count refreshed) rather than inserting a new one.
+	 * (sender_id and group_count refreshed) rather than inserting a new one. On a row that
+	 * reads "X and N others" the count is people, so the same sender merging in again
+	 * straight after themselves does not raise it.
 	 *
 	 * @param array $data Notification data: recipient_id (required), sender_id,
 	 *                    type (required), object_type, object_id, group_key, data.
@@ -371,26 +373,43 @@ class NotificationService {
 		// Attempt to merge into an existing unread group row within the 24-hour window.
 		if ( null !== $group_key && '' !== $group_key ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$existing_id = $wpdb->get_var(
+			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}bn_notifications
+					"SELECT id, sender_id FROM {$wpdb->prefix}bn_notifications
 					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
 					   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
 					 LIMIT 1",
 					$recipient_id,
 					$group_key
-				)
+				),
+				ARRAY_A
 			);
 
-			if ( null !== $existing_id ) {
+			if ( null !== $existing ) {
+				$existing_id = (int) $existing['id'];
+				$sender_id   = (int) ( $data['sender_id'] ?? 0 );
+
+				// "X and N others" counts people. One member merging in again straight
+				// after themselves is not another person, so the tally stays put: a
+				// row that says "Bob and 1 other" for Bob alone reads as wrong. Only a
+				// people row does this (a native collapse type, or a partner row that
+				// carries its own grouped sentence); a tally of events keeps counting
+				// every one, or a moderator's "3 reports waiting" would shrink.
+				// ponytail: compares with the latest sender only, so A-B-A still counts
+				// A twice; exact distinct counts need per-actor rows.
+				$people    = NotificationMessageService::supports_group_collapse( (string) ( $data['type'] ?? '' ) )
+					|| '' !== (string) ( $data['data']['message_grouped'] ?? '' );
+				$increment = ( $people && $sender_id > 0 && (int) $existing['sender_id'] === $sender_id ) ? 0 : 1;
+
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$updated = $wpdb->query(
 					$wpdb->prepare(
 						"UPDATE {$wpdb->prefix}bn_notifications
-						 SET sender_id = %d, group_count = group_count + 1, created_at = UTC_TIMESTAMP()
+						 SET sender_id = %d, group_count = group_count + %d, created_at = UTC_TIMESTAMP()
 						 WHERE id = %d",
-						(int) ( $data['sender_id'] ?? 0 ),
-						(int) $existing_id
+						$sender_id,
+						$increment,
+						$existing_id
 					)
 				);
 
@@ -403,9 +422,9 @@ class NotificationService {
 				$this->forget_counts( $recipient_id );
 
 				/** This action is documented in includes/Notifications/NotificationService.php */
-				do_action( 'buddynext_notification_created', (int) $existing_id, $recipient_id, $data );
+				do_action( 'buddynext_notification_created', $existing_id, $recipient_id, $data );
 
-				return (int) $existing_id;
+				return $existing_id;
 			}
 		}
 
