@@ -175,7 +175,7 @@ do_action( 'buddynext_part_space_settings_panel_invite_before', $args );
 					data-size="md"
 					data-tone="danger"
 					data-wp-on--click="actions.revokeInviteLink"
-				><?php buddynext_icon( 'x-circle' ); ?> <?php esc_html_e( 'Revoke link', 'buddynext' ); ?></button>
+				><?php buddynext_icon( 'x-circle' ); ?> <?php esc_html_e( 'Turn off link', 'buddynext' ); ?></button>
 			</div>
 		</div>
 	<?php endif; ?>

@@ -3512,7 +3512,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	justify-content: space-between;
 	gap: var(--bn-s2);
 }
-.bn-composer__poll-question {
+.bn-composer__poll-question,
+.bn-composer__poll-end-label {
 	font-size: var(--text-sm);
 	font-weight: 600;
 	color: var(--text-2);
@@ -3647,7 +3648,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	   Downward keeps the full menu in the content area, clear of the header. */
 	top: calc(100% + 6px);
 	inset-inline-end: 0;
-	z-index: 60;
+	z-index: var(--bn-z-menu);
 	min-width: 260px;
 	margin: 0;
 	padding: 6px;

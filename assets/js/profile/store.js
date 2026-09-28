@@ -1150,6 +1150,13 @@ const profileStore = store( 'buddynext/profile', {
 		get slugStatusHidden() { const c = getContext(); return c.slugChecking || c.slugAvailable === null; },
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
+		// Field error flags for the account forms. The Interactivity expression parser
+		// honours ONE leading "!", so "!!context.errors.x" in markup always evaluated true
+		// and every field opened in its error state; a getter returns a real boolean.
+		get emailInvalid()           { return !! getContext().errors.email; },
+		get currentPasswordInvalid() { return !! getContext().errors.current_password; },
+		get newPasswordInvalid()     { return !! getContext().errors.new_password; },
+		get confirmPasswordInvalid() { return !! getContext().errors.confirm_password; },
 		// The field controls the @mention handle as well as the URL. Showing the
 		// result is the cheapest way to say so — a member typing a new handle sees
 		// what they will be called, rather than reading that it will change.

@@ -4,7 +4,7 @@ import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
-import { bnReloadWithToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnReloadWithToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1107,6 +1107,8 @@ var storeInstance = store( 'buddynext/spaces', {
 				message: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ),
 				ok:      t( 'leaveSpaceOk', 'Leave' ),
 				cancel:  t( 'cancel', 'Cancel' ),
+				// Leaving is reversible (the member can join again), so it is not a danger dialog.
+				tone:    'default',
 			} );
 			if ( ! confirmed ) { return; }
 
@@ -3015,8 +3017,22 @@ function openSpaceModal( name ) {
 	var modal = document.querySelector( '[data-bn-modal="' + name + '"]' );
 	if ( ! modal ) { return; }
 	modal.hidden = false;
-	var focusable = modal.querySelector( 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])' );
-	if ( focusable ) { focusable.focus(); }
+	focusModalStart( modal );
+}
+
+/**
+ * Put initial focus where the member starts: the first form field when the modal has
+ * one, otherwise the first control. Landing on the header's close button (the first
+ * focusable in DOM order) drew a heavy ring on an "x" and made a form modal feel
+ * unfocused.
+ *
+ * @param {HTMLElement} modal Modal backdrop.
+ */
+function focusModalStart( modal ) {
+	var target = modal.querySelector( 'input:not([type="hidden"]), select, textarea' ) ||
+		modal.querySelector( 'button:not(.bn-modal__close), [href], [tabindex]:not([tabindex="-1"])' ) ||
+		modal.querySelector( 'button' );
+	if ( target ) { target.focus(); }
 }
 
 /**
@@ -3030,8 +3046,7 @@ function focusFirstInModal( name ) {
 	requestAnimationFrame( function () {
 		var modal = document.querySelector( '[data-bn-modal="' + name + '"]' );
 		if ( ! modal || modal.hidden ) { return; }
-		var focusable = modal.querySelector( 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])' );
-		if ( focusable ) { focusable.focus(); }
+		focusModalStart( modal );
 	} );
 }
 
@@ -3060,197 +3075,54 @@ function closeAllSpaceModals() {
 	}
 }
 
-/* ── Confirm modal ─────────────────────────────────────────────────────
+/* ── Confirm ───────────────────────────────────────────────────────────
  *
- * `data-bn-confirm="<message>"` on any button opens a v2 modal dialog
- * with the supplied message. If the user confirms, the original click
- * is re-dispatched on the same element with an acknowledged flag so
- * the underlying click pipeline (forms, wp Interactivity actions,
- * native links) runs unchanged.
+ * The shared bnConfirm is the one confirm dialog (same shell, focus handling, Escape
+ * and dark styling as every other). `data-bn-confirm="<message>"` on a button gates its
+ * click behind it: on confirm the click is replayed on the same element with an
+ * acknowledged flag, so the underlying pipeline (forms, Interactivity actions, links)
+ * runs unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 
 var BN_CONFIRM_FLAG = 'data-bn-confirm-acknowledged';
-var bnConfirmBackdrop = null;
-var bnConfirmRefs = null;
-// When a promise-based confirm (bnConfirmDialog) is open, this holds its resolver.
-// It lets an action `await` a confirmation at the SEAM every control shares, instead
-// of relying on a per-template data-bn-confirm attribute one route can forget (or,
-// as on the space hero, one where the markup gate swallowed the click but never
-// showed a modal — card 10294398101 item 1).
-var bnConfirmResolve = null;
-
-function buildConfirmModal() {
-	var backdrop = document.createElement( 'div' );
-	backdrop.className = 'bn-modal-backdrop';
-	backdrop.setAttribute( 'role', 'dialog' );
-	backdrop.setAttribute( 'aria-modal', 'true' );
-	backdrop.setAttribute( 'data-bn-confirm-modal', '' );
-	backdrop.hidden = true;
-
-	var panel = document.createElement( 'div' );
-	panel.className = 'bn-modal__panel';
-	panel.setAttribute( 'data-tone', 'danger' );
-	panel.setAttribute( 'data-size', 'sm' );
-
-	var head = document.createElement( 'header' );
-	head.className = 'bn-modal__head';
-	var title = document.createElement( 'h2' );
-	title.className = 'bn-modal__title';
-	var closeBtn = document.createElement( 'button' );
-	closeBtn.type = 'button';
-	closeBtn.className = 'bn-modal__close';
-	closeBtn.setAttribute( 'data-bn-confirm-cancel', '' );
-	closeBtn.setAttribute( 'aria-label', t( 'confirmClose', 'Close' ) );
-	closeBtn.textContent = '×';
-	head.appendChild( title );
-	head.appendChild( closeBtn );
-
-	var body = document.createElement( 'div' );
-	body.className = 'bn-modal__body';
-	var message = document.createElement( 'p' );
-	body.appendChild( message );
-
-	var foot = document.createElement( 'div' );
-	foot.className = 'bn-modal__foot';
-	var cancelBtn = document.createElement( 'button' );
-	cancelBtn.type = 'button';
-	cancelBtn.className = 'bn-btn';
-	cancelBtn.setAttribute( 'data-variant', 'ghost' );
-	cancelBtn.setAttribute( 'data-size', 'md' );
-	cancelBtn.setAttribute( 'data-bn-confirm-cancel', '' );
-	var okBtn = document.createElement( 'button' );
-	okBtn.type = 'button';
-	okBtn.className = 'bn-btn';
-	okBtn.setAttribute( 'data-variant', 'danger' );
-	okBtn.setAttribute( 'data-size', 'md' );
-	okBtn.setAttribute( 'data-bn-confirm-ok', '' );
-	foot.appendChild( cancelBtn );
-	foot.appendChild( okBtn );
-
-	panel.appendChild( head );
-	panel.appendChild( body );
-	panel.appendChild( foot );
-	backdrop.appendChild( panel );
-	document.body.appendChild( backdrop );
-
-	return {
-		backdrop: backdrop,
-		title:    title,
-		message:  message,
-		ok:       okBtn,
-		cancel:   cancelBtn,
-		close:    closeBtn,
-	};
-}
-
-function ensureConfirmModal() {
-	if ( bnConfirmRefs ) { return bnConfirmRefs; }
-	bnConfirmRefs    = buildConfirmModal();
-	bnConfirmBackdrop = bnConfirmRefs.backdrop;
-	return bnConfirmRefs;
-}
-
-function openConfirmModal( triggerEl ) {
-	var refs = ensureConfirmModal();
-	refs.title.textContent   = triggerEl.dataset.bnConfirmTitle || t( 'pleaseConfirm', 'Please confirm' );
-	refs.message.textContent = triggerEl.dataset.bnConfirm || '';
-	refs.ok.textContent      = triggerEl.dataset.bnConfirmOk || t( 'confirm', 'Confirm' );
-	refs.cancel.textContent  = triggerEl.dataset.bnConfirmCancel || t( 'cancel', 'Cancel' );
-
-	if ( ! triggerEl.id ) {
-		triggerEl.dataset.bnConfirmAutoId = 'bn-confirm-' + Math.random().toString( 36 ).slice( 2 );
-	}
-	refs.backdrop.dataset.bnConfirmTriggerId = triggerEl.id || triggerEl.dataset.bnConfirmAutoId;
-
-	refs.backdrop.hidden = false;
-	refs.ok.focus();
-}
-
-function closeConfirmModal() {
-	if ( bnConfirmBackdrop ) {
-		bnConfirmBackdrop.hidden = true;
-	}
-}
 
 /**
- * Programmatic confirm: open the shared modal and resolve true/false on the
- * owner's choice. Any action can `await bnConfirmDialog(...)` before a
- * destructive step, so every control that dispatches to that action is guarded
- * by construction — no per-template attribute to forget.
+ * Confirm before a step. Any action can `await bnConfirmDialog(...)`, so every control
+ * that dispatches to it is guarded by construction, with no per-template attribute to
+ * forget.
  *
- * @param {Object} opts title/message/ok/cancel text.
- * @return {Promise<boolean>} Resolves true when confirmed, false otherwise.
+ * @param {Object} opts title, message, ok and cancel text; tone ('danger' by default).
+ * @return {Promise<boolean>} Resolves true when confirmed.
  */
 function bnConfirmDialog( opts ) {
 	opts = opts || {};
-	// If a previous programmatic confirm is somehow still open, decline it.
-	if ( bnConfirmResolve ) { settleConfirmDialog( false ); }
-
-	var refs = ensureConfirmModal();
-	refs.title.textContent   = opts.title || t( 'pleaseConfirm', 'Please confirm' );
-	refs.message.textContent = opts.message || '';
-	refs.ok.textContent      = opts.ok || t( 'confirm', 'Confirm' );
-	refs.cancel.textContent  = opts.cancel || t( 'cancel', 'Cancel' );
-	// Not a click-replay confirm — clear any trigger id so the OK handler resolves
-	// the promise below instead of re-clicking a markup trigger.
-	delete refs.backdrop.dataset.bnConfirmTriggerId;
-
-	refs.backdrop.hidden = false;
-	refs.ok.focus();
-
-	return new Promise( function ( resolve ) { bnConfirmResolve = resolve; } );
-}
-
-/**
- * Resolve a pending programmatic confirm and close the modal.
- *
- * @param {boolean} confirmed Whether the owner confirmed.
- * @return {boolean} True when a programmatic confirm was pending (and handled).
- */
-function settleConfirmDialog( confirmed ) {
-	if ( ! bnConfirmResolve ) { return false; }
-	var resolve = bnConfirmResolve;
-	bnConfirmResolve = null;
-	closeConfirmModal();
-	resolve( !! confirmed );
-	return true;
-}
-
-function resumeConfirmedClick() {
-	if ( ! bnConfirmBackdrop ) { return; }
-	var triggerId = bnConfirmBackdrop.dataset.bnConfirmTriggerId;
-	closeConfirmModal();
-	if ( ! triggerId ) { return; }
-	var trigger = document.getElementById( triggerId ) ||
-		document.querySelector( '[data-bn-confirm-auto-id="' + triggerId + '"]' );
-	if ( ! trigger ) { return; }
-	trigger.setAttribute( BN_CONFIRM_FLAG, '1' );
-	trigger.click();
-	trigger.removeAttribute( BN_CONFIRM_FLAG );
+	return bnConfirm( {
+		title:        opts.title || t( 'pleaseConfirm', 'Please confirm' ),
+		body:         opts.message || '',
+		confirmLabel: opts.ok || t( 'confirm', 'Confirm' ),
+		cancelLabel:  opts.cancel || t( 'cancel', 'Cancel' ),
+		tone:         opts.tone || 'danger',
+	} );
 }
 
 document.addEventListener( 'click', function ( event ) {
-	// Confirm modal interactions take priority.
-	if ( event.target.closest( '[data-bn-confirm-ok]' ) ) {
-		event.preventDefault();
-		event.stopImmediatePropagation();
-		// A programmatic confirm resolves its promise; a markup confirm replays.
-		if ( ! settleConfirmDialog( true ) ) { resumeConfirmedClick(); }
-		return;
-	}
-	if ( event.target.closest( '[data-bn-confirm-cancel]' ) ) {
-		event.preventDefault();
-		event.stopImmediatePropagation();
-		if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
-		return;
-	}
-
-	// Gate — buttons with data-bn-confirm open a modal instead of running.
+	// Gate: a button with data-bn-confirm asks first, then replays its click.
 	var confirmEl = event.target.closest( '[data-bn-confirm]' );
 	if ( confirmEl && ! confirmEl.hasAttribute( BN_CONFIRM_FLAG ) ) {
 		event.preventDefault();
 		event.stopImmediatePropagation();
-		openConfirmModal( confirmEl );
+		// A button can name its action: data-bn-confirm-title and data-bn-confirm-ok. Without
+		// them the dialog falls back to the generic "Please confirm" / "Confirm".
+		bnConfirmDialog( {
+			title:   confirmEl.getAttribute( 'data-bn-confirm-title' ) || '',
+			message: confirmEl.getAttribute( 'data-bn-confirm' ),
+			ok:      confirmEl.getAttribute( 'data-bn-confirm-ok' ) || '',
+		} ).then( function ( ok ) {
+			if ( ! ok ) { return; }
+			confirmEl.setAttribute( BN_CONFIRM_FLAG, '1' );
+			confirmEl.click();
+			confirmEl.removeAttribute( BN_CONFIRM_FLAG );
+		} );
 		return;
 	}
 
@@ -3268,21 +3140,12 @@ document.addEventListener( 'click', function ( event ) {
 		closeAllSpaceModals();
 		return;
 	}
-	var confirmBackdrop = event.target.closest( '.bn-modal-backdrop[data-bn-confirm-modal]' );
-	if ( confirmBackdrop && event.target === confirmBackdrop ) {
-		// Backdrop click = cancel; resolve a pending programmatic confirm as false.
-		if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
-	}
 }, true );
 
 document.addEventListener( 'keydown', function ( event ) {
 	if ( 'Escape' === event.key ) {
 		var openBackdrop = document.querySelector( '[data-bn-modal]:not([hidden])' );
 		if ( openBackdrop ) { closeAllSpaceModals(); }
-		if ( bnConfirmBackdrop && ! bnConfirmBackdrop.hidden ) {
-			// Escape = cancel; resolve a pending programmatic confirm as false.
-			if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
-		}
 	}
 } );
 

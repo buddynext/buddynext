@@ -365,6 +365,8 @@ const moderationStore = store( 'buddynext/moderation', {
 				title: t( 'approveAppealTitle', 'Approve this appeal?' ),
 				body: t( 'approveAppealBody', 'The member’s suspension will be lifted and they will be notified.' ),
 				confirmLabel: t( 'approveLabel', 'Approve' ),
+				// Approving an appeal lifts a suspension; it is not a destructive action.
+				tone: 'default',
 			} );
 			if ( ! ok ) { return; }
 			// Real route: POST /appeals/{id}/resolve { decision }.

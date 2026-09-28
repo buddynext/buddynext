@@ -54,7 +54,7 @@ $bn_mod_log_svc = new ModerationLogService();
 $bn_member_svc  = new SpaceMemberService();
 // A site moderator may warn anyone; a space-only moderator only this space's members.
 $bn_mod_site_mod = buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' );
-$bn_space_row   = ( new SpaceService() )->get( $space_id );
+$bn_space_row    = ( new SpaceService() )->get( $space_id );
 
 if ( null === $bn_space_row ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
@@ -305,14 +305,14 @@ $mod_privacy = array(
 							// moderator may warn / remove MEMBERS of this space (ModerationService::warn),
 							// a site moderator may warn anyone; nobody removes the owner or themselves.
 							// ponytail: one role lookup per row, bounded by the 20-report page.
-							$r_role        = $reported_uid > 0 ? (string) $bn_member_svc->get_role( $space_id, $reported_uid ) : '';
-							$r_is_member   = in_array( $r_role, array( 'member', 'moderator' ), true ) && get_current_user_id() !== $reported_uid;
-							$r_can_warn    = $reported_uid > 0 && get_current_user_id() !== $reported_uid && ( $r_is_member || 'owner' === $r_role || $bn_mod_site_mod );
-							$r_obj_type = (string) ( $report['object_type'] ?? '' );
-							$r_obj_id   = (int) ( $report['object_id'] ?? 0 );
-							$r_cw       = ( 'post' === $r_obj_type && $r_obj_id > 0 ) ? $bn_space_cw->get_post_content_warning( $r_obj_id ) : null;
-							$r_cw_has   = (bool) ( $r_cw['has_warning'] ?? false );
-							$r_cw_type  = (string) ( $r_cw['warning_type'] ?? '' );
+							$r_role      = $reported_uid > 0 ? (string) $bn_member_svc->get_role( $space_id, $reported_uid ) : '';
+							$r_is_member = in_array( $r_role, array( 'member', 'moderator' ), true ) && get_current_user_id() !== $reported_uid;
+							$r_can_warn  = $reported_uid > 0 && get_current_user_id() !== $reported_uid && ( $r_is_member || 'owner' === $r_role || $bn_mod_site_mod );
+							$r_obj_type  = (string) ( $report['object_type'] ?? '' );
+							$r_obj_id    = (int) ( $report['object_id'] ?? 0 );
+							$r_cw        = ( 'post' === $r_obj_type && $r_obj_id > 0 ) ? $bn_space_cw->get_post_content_warning( $r_obj_id ) : null;
+							$r_cw_has    = (bool) ( $r_cw['has_warning'] ?? false );
+							$r_cw_type   = (string) ( $r_cw['warning_type'] ?? '' );
 							if ( '' === $r_cw_type ) {
 								$r_cw_type = 'nsfw';
 							}
@@ -348,9 +348,9 @@ $mod_privacy = array(
 											// The author's real standing in this space, from the same role lookup the
 											// row's actions use - never a blanket "member" (card 10343760182).
 											$r_standing = array(
-												'owner'     => __( 'owner of this space', 'buddynext' ),
+												'owner'  => __( 'owner of this space', 'buddynext' ),
 												'moderator' => __( 'moderator of this space', 'buddynext' ),
-												'member'    => __( 'member of this space', 'buddynext' ),
+												'member' => __( 'member of this space', 'buddynext' ),
 											);
 											?>
 											<span><?php echo esc_html( $r_standing[ (string) $r_role ] ?? __( 'not a member', 'buddynext' ) ); ?></span>
@@ -426,7 +426,9 @@ $mod_privacy = array(
 											data-size="sm"
 											data-wp-on--click="actions.removeContent"
 											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
-											data-bn-confirm="<?php echo esc_attr( __( 'Remove this content? It will be hidden from the space.', 'buddynext' ) ); ?>"
+											data-bn-confirm-title="<?php echo esc_attr( __( 'Remove this content?', 'buddynext' ) ); ?>"
+											data-bn-confirm="<?php echo esc_attr( __( 'It will be hidden from the space.', 'buddynext' ) ); ?>"
+											data-bn-confirm-ok="<?php echo esc_attr( __( 'Remove', 'buddynext' ) ); ?>"
 										><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
 
 										<div class="bn-ca-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-on-document--click="actions.closeMoreMenuOnOutside">
@@ -468,7 +470,9 @@ $mod_privacy = array(
 														data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 														data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
 														data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-														data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space? This does not suspend their platform account.', 'buddynext' ) ); ?>"
+														data-bn-confirm-title="<?php echo esc_attr( __( 'Remove this member from the space?', 'buddynext' ) ); ?>"
+														data-bn-confirm="<?php echo esc_attr( __( 'This does not suspend their platform account.', 'buddynext' ) ); ?>"
+														data-bn-confirm-ok="<?php echo esc_attr( __( 'Remove', 'buddynext' ) ); ?>"
 													><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
 												<?php endif; ?>
 											</div>

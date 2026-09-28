@@ -2181,10 +2181,13 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	border-top: 1px solid var(--bn-line, #e5e7eb);
 	padding-top: var(--bn-s4);
 }
-.bn-dm-info__actions .bn-dm-info__danger {
+.bn-dm-info__actions .bn-btn {
+	/* Every action reads from the start edge; Mute used to centre while the red ones did not. */
 	justify-content: flex-start;
 	gap: var(--bn-s2);
-	color: var(--bn-danger, #dc2626);
+}
+.bn-dm-info__actions .bn-dm-info__danger {
+	color: var(--bn-danger);
 }
 @media (max-width: 480px) {
 	.bn-dm-info__media {

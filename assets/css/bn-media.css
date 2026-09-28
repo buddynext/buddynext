@@ -653,13 +653,17 @@ body.bn-lightbox-open { overflow: hidden; }
 	border-block-end: 1px solid var( --bn-line-faint, oklch( 92% 0.005 0 ) );
 }
 .bn-lightbox__field { display: flex; flex-direction: column; gap: 4px; }
+/* Labels read at the size and weight of every other BuddyNext form label; they were the
+   smallest text in the panel and looked like a caption to the field, not its name. */
 .bn-lightbox__field-label {
-	font-size: var( --bn-text-xs, 0.75rem );
-	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-2);
 }
 .bn-lightbox__field-input {
 	font: inherit;
 	font-size: var( --bn-text-sm, 0.875rem );
+	min-block-size: 36px;
 	padding: 6px 8px;
 	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
 	border-radius: var(--bn-r-sm);
@@ -673,7 +677,8 @@ body.bn-lightbox-open { overflow: hidden; }
 	outline-offset: 2px;
 	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
 }
-.bn-lightbox__field-check { inline-size: 16px; block-size: 16px; }
+.bn-lightbox__field-check { inline-size: 16px; block-size: 16px; min-block-size: 0; }
+textarea.bn-lightbox__field-input { min-block-size: 72px; }
 
 /* A checkbox field reads as "[✓] Allow downloads" on one row, not a label with a
    lone checkbox stranded beneath it. */
