@@ -484,8 +484,7 @@
 	gap: var(--bn-s3);
 	margin-block-end: var(--bn-s4);
 	padding: var(--bn-s3) var(--bn-s4);
-	border: 1px solid var(--bn-line);
-	border-inline-start: 3px solid var(--bn-info);
+	border: 1px solid var(--bn-info);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-info-bg);
 }

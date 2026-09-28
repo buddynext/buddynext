@@ -1326,22 +1326,22 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	.bn-mobile-more-backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: 9600;
-		background: rgba(0, 0, 0, 0.4);
-		animation: bn-more-fade 0.18s ease;
+		z-index: var(--bn-z-modal);
+		background: var(--bn-overlay);
+		animation: bn-more-fade var(--bn-dur) var(--bn-ease);
 	}
 	.bn-mobile-more-backdrop[hidden] { display: none; }
 	.bn-mobile-more {
 		position: fixed;
 		inset-inline: 0;
 		bottom: 0;
-		z-index: 9700;
-		background: var(--surface);
+		z-index: var(--bn-z-modal);
+		background: var(--bn-surface);
 		border-top-left-radius: var(--bn-r-lg);
 		border-top-right-radius: var(--bn-r-lg);
-		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.18);
+		box-shadow: var(--bn-shadow-lg);
 		padding: var(--bn-s2) var(--bn-s4) calc(var(--bn-s4) + env(safe-area-inset-bottom, 0px));
-		animation: bn-more-slide-up 0.22s ease;
+		animation: bn-more-slide-up var(--bn-dur-slow) var(--bn-ease-out);
 	}
 	.bn-mobile-more[hidden] { display: none; }
 	.bn-mobile-more__head {
@@ -1361,8 +1361,10 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 32px;
-		height: 32px;
+		/* 40px hit area like every close control; the negative margin keeps the header height. */
+		width: var(--bn-btn-h);
+		height: var(--bn-btn-h);
+		margin-block: -4px;
 		border: none;
 		border-radius: var(--bn-r-full);
 		background: var(--bg-subtle);

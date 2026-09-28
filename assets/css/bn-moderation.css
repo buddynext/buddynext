@@ -296,6 +296,7 @@
 .bn-ca-notice {
 	margin: var(--bn-s3) var(--bn-s4) 0;
 	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-accent);
 	border-radius: var(--bn-r-md);
 	font-size: var(--bn-text-sm);
 	background: color-mix( in oklch, var(--bn-accent) 10%, var(--bn-surface) );

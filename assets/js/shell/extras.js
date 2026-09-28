@@ -208,21 +208,36 @@
 
 			var groups = payload.results && payload.results.types;
 			if ( Array.isArray( groups ) ) {
-				groups.forEach( function ( group ) {
-					( group.results || [] ).forEach( function ( item ) {
-						out.push( {
-							type: group.type,
-							title: item.title || item.content || '',
-							url: item.url || item.permalink || '#'
-						} );
+				// One result per group per pass, so the first group (jobs) cannot fill
+				// all eight rows and hide people, spaces and posts.
+				for ( var i = 0; i < 3; i++ ) {
+					groups.forEach( function ( group ) {
+						var item = ( group.results || [] )[ i ];
+						if ( item ) {
+							out.push( {
+								type: group.type,
+								title: item.title || item.content || '',
+								url: item.url || item.permalink || '#'
+							} );
+						}
 					} );
-				} );
+				}
 				return out.slice( 0, 8 );
 			}
 
 			// Typed-search fallback shape: a flat items[] array.
 			var items = payload.items || payload.results || payload;
 			return Array.isArray( items ) ? items.slice( 0, 8 ) : out;
+		},
+		typeLabel: function ( type ) {
+			var labels = {
+				post: __( 'Post', 'buddynext' ),
+				user: __( 'Member', 'buddynext' ),
+				space: __( 'Space', 'buddynext' ),
+				job: __( 'Job', 'buddynext' ),
+				listing: __( 'Listing', 'buddynext' )
+			};
+			return labels[ type ] || ( type.charAt( 0 ).toUpperCase() + type.slice( 1 ) );
 		},
 		search: function ( q, resultsEl ) {
 			if ( ! data.restSearchUrl ) return;
@@ -257,7 +272,7 @@
 						title.textContent = item.title || item.content || '';
 						var meta = document.createElement( 'div' );
 						meta.className = 'bn-search-overlay__result-meta';
-						meta.textContent = ( item.type || 'post' ) + ( item.author_name ? ' by ' + item.author_name : '' );
+						meta.textContent = self.typeLabel( item.type || 'post' ) + ( item.author_name ? ' by ' + item.author_name : '' );
 						a.appendChild( title );
 						a.appendChild( meta );
 						resultsEl.appendChild( a );
