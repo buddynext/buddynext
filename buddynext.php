@@ -1599,6 +1599,20 @@ function buddynext_header_messages_bell(): void {
 }
 
 /**
+ * Echo the BuddyNext search icon → the community search palette.
+ *
+ * Header chrome for any theme. A link to the community search page that opens the
+ * palette in place on BuddyNext pages; on any other page it simply navigates to the
+ * search page. Renders for guests too. Use where a theme's header search icon belongs.
+ *
+ * @return void
+ */
+function buddynext_header_search(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::search_link();
+}
+
+/**
  * Echo the BuddyNext avatar + profile dropdown (quick links + log out).
  *
  * The avatar links to the member's profile; a CSS-only dropdown exposes the

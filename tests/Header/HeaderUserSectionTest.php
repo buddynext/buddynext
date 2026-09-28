@@ -57,6 +57,23 @@ class HeaderUserSectionTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The search icon is a real link to the community search page, for guests too, and
+	 * carries the hook the palette script upgrades it with.
+	 */
+	public function test_search_link_is_a_real_link_for_guests_and_members(): void {
+		foreach ( array( 0, self::factory()->user->create() ) as $user_id ) {
+			wp_set_current_user( $user_id );
+			$html = HeaderUserSection::search_link();
+
+			$this->assertStringContainsString( 'href="' . esc_url( \BuddyNext\Core\PageRouter::search_url() ) . '"', $html );
+			$this->assertStringContainsString( 'data-bn-search-open', $html );
+			$this->assertStringContainsString( 'aria-label="Search"', $html );
+			$this->assertStringContainsString( '<svg', $html );
+		}
+		$this->assertTrue( function_exists( 'buddynext_header_search' ) );
+	}
+
+	/**
 	 * A logged-in member gets the full section: bell + avatar + dropdown.
 	 */
 	public function test_render_emits_section_with_bell_and_user_menu(): void {

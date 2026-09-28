@@ -121,12 +121,12 @@ class AssetService {
 		if ( ! is_admin() ) {
 			wp_enqueue_style( 'bn-base' );
 
-			// Header user section (bell + messages + avatar dropdown) is chrome
-			// that can render in ANY theme's header — via the block, the shortcode,
-			// or a per-theme auto-place shim — so its CSS loads site-wide, but
-			// only for logged-in visitors (the section renders nothing otherwise).
+			// Header chrome (search icon, guest Log In / Register, and for members the
+			// bell + messages + avatar dropdown) can render in ANY theme's header — via
+			// the block, the shortcode, or a per-theme auto-place shim — so its CSS
+			// loads site-wide, for guests too.
+			wp_enqueue_style( 'bn-header' );
 			if ( is_user_logged_in() ) {
-				wp_enqueue_style( 'bn-header' );
 				// The account menu's open state is a real toggle, so its script
 				// travels with the section's CSS rather than with a hub bundle.
 				wp_enqueue_script( 'bn-header-user-menu' );

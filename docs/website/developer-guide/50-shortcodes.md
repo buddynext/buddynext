@@ -71,6 +71,19 @@ The logged-in header user section: the notification bell, the messages icon, and
 - **Attributes:** none.
 - **Use vs block:** This is the classic-theme way to drop the header chrome into a PHP header template or a page-builder header. The exact equivalent is the `buddynext/header-user-menu` block (a block-based widget for block themes). Both render the same component from `HeaderUserSection`.
 
+### Header functions for theme templates
+
+A theme that draws its own header icons places the pieces one at a time with these functions, each of which echoes markup and is safe to call inside `if ( function_exists( ... ) )`:
+
+| Function | Renders |
+|---|---|
+| `buddynext_header_search()` | Search icon. A link to the community search page that opens the search palette in place on BuddyNext pages and simply navigates to the search page anywhere else. Shown to guests too. |
+| `buddynext_header_notification_bell()` | Notification bell with the unread badge (members only). |
+| `buddynext_header_messages_bell()` | Messages icon with the unread count (members only). |
+| `buddynext_header_user_menu()` | Avatar and profile dropdown (members only). |
+
+`buddynext_header_user_section()` returns the bell, messages icon and avatar menu together (Log In and Register for guests); it does not include the search icon. Call the functions instead of writing your own markup, so the icons look and behave the same in every theme. A theme keeps its own search markup only until it calls `buddynext_header_search()`.
+
 ### `[buddynext_search]`
 
 A community search bar: a GET form that opens the BuddyNext search results page (members, spaces, posts, hashtags). Chrome, not a hub - drop it in a header, a sidebar, or page content. It does **not** replace WordPress or WooCommerce `?s=` search; it is a first-class entry point into *community* search that themes should use instead of hand-building a form against the search URL.

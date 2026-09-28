@@ -56,7 +56,8 @@
    identically whether rendered as the wrapped block/shortcode or dropped into a
    theme header one piece at a time (e.g. Reign's per-icon template parts). */
 .bn-block-notification-bell,
-.bn-header-msg {
+.bn-header-msg,
+.bn-header-search {
 	position: relative;
 	display: inline-flex;
 	/* Centre on the host header's cross axis regardless of how the theme aligns
@@ -69,7 +70,8 @@
 }
 
 .bn-notification-bell-link,
-.bn-header-msg {
+.bn-header-msg,
+.bn-header-search {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -90,19 +92,23 @@
 .bn-notification-bell-link:hover,
 .bn-notification-bell-link:focus-visible,
 .bn-header-msg:hover,
-.bn-header-msg:focus-visible {
+.bn-header-msg:focus-visible,
+.bn-header-search:hover,
+.bn-header-search:focus-visible {
 	/* A tint of the inherited header colour, so the hover surface adapts to a
 	   light OR dark header instead of a fixed light --bn-sunken. */
 	background: color-mix( in oklab, currentColor 12%, transparent );
 }
 
 .bn-notification-bell-icon,
-.bn-header-msg__icon {
+.bn-header-msg__icon,
+.bn-header-search__icon {
 	display: inline-flex;
 }
 
 .bn-notification-bell-icon svg,
 .bn-header-msg__icon svg,
+.bn-header-search__icon svg,
 .bn-header-user__item-icon svg,
 .bn-header-user__caret svg {
 	width: 20px;

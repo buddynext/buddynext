@@ -190,14 +190,20 @@
 				timer = setTimeout( function () { self.search( q, results ); }, 300 );
 			} );
 		},
-		open: function () {
+		open: function ( opener ) {
 			this.init();
+			this.opener = opener || null;
 			this.el.hidden = false;
 			this.el.querySelector( 'input' ).value = '';
 			this.el.querySelector( 'input' ).focus();
 			document.getElementById( 'bn-search-results' ).textContent = '';
 		},
-		close: function () { if ( this.el ) this.el.hidden = true; },
+		close: function () {
+			if ( ! this.el ) return;
+			this.el.hidden = true;
+			if ( this.opener && document.contains( this.opener ) ) this.opener.focus();
+			this.opener = null;
+		},
 		// Normalise the search REST response into a flat, capped list of
 		// { type, title, url } items. The default (no-type) request returns the
 		// grouped shape { grouped:true, results:{ types:[ { type, results[] } ] } };
@@ -318,6 +324,15 @@
 		}
 		return null;
 	}
+
+	// A header search link (buddynext_header_search) opens the palette in place. A
+	// modified click or middle click keeps the link's own behaviour (new tab).
+	document.addEventListener( 'click', function ( e ) {
+		var link = e.target.closest && e.target.closest( '[data-bn-search-open]' );
+		if ( ! link || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey ) return;
+		e.preventDefault();
+		window.bnSearchOverlay.open( link );
+	} );
 
 	document.addEventListener( 'keydown', function ( e ) {
 		var inInput = e.target.closest && e.target.closest( 'input,textarea,[contenteditable]' );
