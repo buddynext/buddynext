@@ -345,7 +345,7 @@ class Spaces extends AdminPageBase {
 					'per_page'          => count( $bn_featured_ids ),
 				)
 			);
-			$bn_fs_by = array();
+			$bn_fs_by   = array();
 			foreach ( $bn_fs_list as $bn_fs_r ) {
 				$bn_fs_by[ (int) $bn_fs_r['id'] ] = $bn_fs_r;
 			}
@@ -454,7 +454,15 @@ class Spaces extends AdminPageBase {
 							<span class="bn-segment__count">(<?php echo esc_html( (string) ( $counts[ $t_slug ] ?? 0 ) ); ?>)</span>
 						</a>
 					<?php endforeach; ?>
-						<?php $bn_featured_url = add_query_arg( array( 'type' => 'featured', 's' => $search ), $base_url ); ?>
+						<?php
+						$bn_featured_url = add_query_arg(
+							array(
+								'type' => 'featured',
+								's'    => $search,
+							),
+							$base_url
+						);
+						?>
 						<a href="<?php echo esc_url( $bn_featured_url ); ?>"
 							class="bn-segment__item<?php echo 'featured' === $type ? ' is-active' : ''; ?>"
 							aria-selected="<?php echo 'featured' === $type ? 'true' : 'false'; ?>">
@@ -1261,7 +1269,7 @@ class Spaces extends AdminPageBase {
 					if ( count( $current ) >= \BuddyNext\Spaces\FeaturedSpaces::limit() ) {
 						$args['feature_error'] = 'limit';
 					} else {
-						$current[]         = $space_id;
+						$current[] = $space_id;
 						\BuddyNext\Spaces\FeaturedSpaces::set_ids( $current );
 						$args['featured'] = '1';
 					}

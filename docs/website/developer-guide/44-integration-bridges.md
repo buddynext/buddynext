@@ -31,7 +31,6 @@ add_action( 'buddynext_load_bridges', function (): void {
     }
     if ( buddynext_feature_enabled( 'gamification' ) ) {
         ( new GamificationBridge() )->init();
-        ( new GamificationBridgeListener() )->register();
         ( new \BuddyNext\Profile\GamificationAchievements() )->register();
     }
     if ( buddynext_feature_enabled( 'jetonomy' ) ) {
@@ -49,7 +48,6 @@ A third-party bridge attaches the same way - hook `buddynext_load_bridges` and w
 | `JetonomyBridge` | Jetonomy (forums) | `class_exists( 'Jetonomy\Jetonomy' )` | `jetonomy` | `jetonomy_after_create_post`, `jetonomy_post_deleted`, `jetonomy_after_create_reply` (consume); `buddynext_rail_items`, `buddynext_register_nav`, `buddynext_context_nav`, `buddynext_hashtag_related_discussions` (provide); REST `POST /spaces/{id}/forum` |
 | `WPMediaVerseBridge` | WPMediaVerse (media + DM engine) | `class_exists( 'WPMediaVerse\Core\Plugin' )` | `wpmediaverse` | `mvs_buddynext_active`, `mvs_can_send_message`, `mvs_dm_denial_reason`, `mvs_user_profile_url`, `mvs_message_sent`, `mvs_favorite_toggled`, `mvs_comment_created`, `mvs_user_followed/unfollowed` (consume); fires `buddynext_dm_sent` / `buddynext_dm_received` |
 | `GamificationBridge` | wb-gamification | `function_exists( 'wb_gam_submit_event' )` | `gamification` | Consumes `wb_gam_badge_awarded` to post a credential-badge feed activity. Point awards for BuddyNext activity are owned by the wb-gamification plugin's own `integrations/buddynext.php` manifest, not this bridge. |
-| `GamificationBridgeListener` | wb-gamification | `function_exists( 'wb_gam_submit_event' )` | `gamification` | `wb_gam_badge_awarded`, `wb_gam_level_changed` (consume) -> BN notifications `bn.badge_awarded` / `bn.level_up` |
 | `CareerBoardBridge` (registered in Pro) | Career Board (`wp-career-board`) | `defined( 'WCB_VERSION' )` guard inside the bridge | `career_board` | `wcb_job_created`, `wcb_job_expired`, `wcbp_resume_published`, `wcb_notification_created` (consume) -> `bn_search_index` (`object_type='job'`) + `bn_notifications`; pure inbound listener |
 | `ListoraBridge` (registered in Pro) | WB Listora (business listings) | `defined( 'WB_LISTORA_VERSION' )` guard inside the bridge | `listora` | `transition_post_status`, `before_delete_post` (consume) -> `bn_search_index` (`object_type='listing'`) + feed `listing` cards via `IntegrationActivity`; no notification mirror yet (Listora has no creation hook to mirror from) |
 | `MemberBlogBridge` | WB Member Blog (front-end publishing) | `defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' )`, checked lazily per surface, not at hook time | `blog` (shares the `feed` aspect Free's `BlogPostListener` already registers) | Merges the `nav` aspect onto the shared `blog` registry entry; adds an "Articles" profile tab + REST via `MemberBlogRestController`; consumes no companion hook - the feed side is generic site tracking, not this bridge |
@@ -151,7 +149,7 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/spaces/42/forum" \
 
 When BuddyNext messaging is available, the bridge filters `option_jetonomy_pro_extensions` at read time to drop Jetonomy Pro's `private-messaging` extension, so BuddyNext owns the `/messages/` route. Nothing is persisted (the filter only changes the value front-end at read time) and it reverts automatically if BN messaging is disabled. The setting is left untouched in wp-admin so the Jetonomy extensions screen still reflects and saves the real value.
 
-## Notifications from Jetonomy, MediaVerse and Career Board
+## Notifications from Jetonomy, MediaVerse, Career Board and WB Gamification
 
 These plugins send their notifications through the community notification contract, so BuddyNext has no listener of its own for them. Each plugin passes one payload as the last argument of its own notification hook (`jetonomy_notification_created`, `mvs_notification_created`, `wcb_notification_created`) and declares its types; `IntegrationNotificationListener` shows the row in the bell with the plugin's words, link and icon, never emails it, and drops it when the member has blocked the actor or the owner has switched the integration off. The full contract (payload, `{prefix}_community_notification_types`, `_visible`, `_removed`, grouped rows, quiet refresh) is in [Hooks: Notifications and Email](30-hooks-notifications-email.md).
 
@@ -240,12 +238,12 @@ Linking grants that space's members **view** access to the file (`PermissionServ
 
 Pro REST (all under `mvs-pro/v1`): `POST /documents/{id}/spaces` and `POST /documents/link` (`{ ref, space_id }`, where `ref` is a URL, slug, or id) attach; `DELETE /documents/{id}/spaces/{space_id}` detaches. The BuddyNext space Files tab renders a "Link a file" control and marks linked rows with a `Linked` badge; a linked row's Remove drops the link (the original file stays put), while a native space file's Remove re-homes it to the owner's drive.
 
-## GamificationBridge and GamificationBridgeListener
+## GamificationBridge
 
-The gamification integration is split into a write-side bridge (BuddyNext events -> engine), an inbound listener (engine events -> BuddyNext notifications), and an Achievements profile tab. BuddyNext ships zero gamification logic. It surfaces credential badges in the feed, mirrors badge and level events into notifications, and renders the engine's public read API for the Achievements tab. Point awards for BuddyNext activity are defined in the wb-gamification plugin's own BuddyNext manifest. The full contract is documented on the **Gamification Engine Seam** page; in summary:
+The gamification integration is split into a write-side bridge (BuddyNext events -> engine) and an Achievements profile tab. BuddyNext ships zero gamification logic. It surfaces credential badges in the feed, and renders the engine's public read API for the Achievements tab. Point awards for BuddyNext activity are defined in the wb-gamification plugin's own BuddyNext manifest. The full contract is documented on the **Gamification Engine Seam** page; in summary:
 
 - `GamificationBridge` posts a feed activity (`on_badge_awarded_activity` on `wb_gam_badge_awarded`) when a member earns a credential badge. Point awards for BuddyNext activity (follow, connection accepted, post created, space joined, reaction received, comment created, profile completion, strike issued) are defined in the wb-gamification plugin's `integrations/buddynext.php` manifest, not in this bridge.
-- `GamificationBridgeListener` consumes `wb_gam_badge_awarded` and `wb_gam_level_changed` (inbound only - it never submits an award, so it cannot double-count) and creates `bn.badge_awarded` / `bn.level_up` notifications.
+- WB Gamification sends its notifications (badges, level-ups, kudos, challenges, rewards, expired credentials, personal records, streaks) through its own notification contract, so BuddyNext has no listener for them; the bridge only points each bell row at the matching profile tab (`buddynext_notification_url`). See [Hooks: Notifications and Email](30-hooks-notifications-email.md).
 - `BuddyNext\Profile\GamificationAchievements` registers an "Achievements" profile tab (badge grid + points/level/streak standing strip) read purely from `wb_gam_*` functions. The tab is data-gated - it appears only once the member has a badge or any points.
 
 > **Note:** The conformance record `docs/conformance/contract-gamification-seam.md` describes profile gamification being surfaced via `buddynext_profile_extra_data`. The current implementation surfaces it through the dedicated `GamificationAchievements` profile tab instead (registered on `buddynext_register_nav`); the `profile_extra_data` injection is not present in `GamificationBridge`. Document the Achievements tab as the live surface.

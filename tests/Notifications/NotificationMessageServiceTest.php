@@ -111,14 +111,6 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 			'appeal_submitted'       => array( 'bn.appeal_submitted', 'appeal' ),
 			'appeal_resolved'        => array( 'bn.appeal_resolved', 'appeal' ),
 			'report_resolved'        => array( 'bn.report_resolved', 'report' ),
-			'badge_awarded'          => array( 'bn.badge_awarded', 'badge' ),
-			'level_up'               => array( 'bn.level_up', 'level' ),
-			'kudos_received'         => array( 'bn.kudos_received', 'kudos' ),
-			'challenge_completed'    => array( 'bn.challenge_completed', 'completed' ),
-			'reward_fulfilled'       => array( 'bn.reward_fulfilled', 'reward' ),
-			'credential_expired'     => array( 'bn.credential_expired', 'expired' ),
-			'personal_record'        => array( 'bn.personal_record', 'personal best' ),
-			'streak_milestone'       => array( 'bn.streak_milestone', 'streak' ),
 			'onboarding_nudge'       => array( 'bn.onboarding_nudge', 'profile' ),
 			'daily_digest'           => array( 'bn.daily_digest', 'daily digest' ),
 			'weekly_digest'          => array( 'bn.weekly_digest', 'weekly digest' ),
@@ -154,17 +146,6 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 			$payload['message'],
 			"Type {$type} did not contain expected phrase \"{$needle}\""
 		);
-	}
-
-	/**
-	 * The level-up line names the level; data.level is a row id and never shows.
-	 */
-	public function test_level_up_names_the_level(): void {
-		$named = $this->service->compose( $this->row( 'bn.level_up', array( 'object_id' => 7, 'data' => array( 'level' => 7, 'level_name' => 'Contributor' ) ) ) );
-		$this->assertSame( 'You reached Contributor.', $named['message'] );
-
-		$bare = $this->service->compose( $this->row( 'bn.level_up', array( 'object_id' => 7, 'data' => array( 'level' => 7 ) ) ) );
-		$this->assertSame( 'You levelled up.', $bare['message'] );
 	}
 
 	/**

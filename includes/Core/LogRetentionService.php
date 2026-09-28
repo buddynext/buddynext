@@ -223,9 +223,9 @@ class LogRetentionService {
 		// Email invitations (bn_invites) hold an invited person's email + first
 		// name. Nothing aged these out, so an invitee's PII lingered forever (GDPR
 		// data-minimisation gap). Two terminal cases carry no further purpose:
-		//   - registered/bounced older than the window — the invite is spent, and a
-		//     registered invitee's email now lives on their user account instead.
-		//   - pending past its own expires_at — a dead, unusable token.
+		// - registered/bounced older than the window — the invite is spent, and a
+		// registered invitee's email now lives on their user account instead.
+		// - pending past its own expires_at — a dead, unusable token.
 		// The status_expires index covers both predicates. A member's own invite
 		// row (they were invited, then joined) is also cleared on GDPR erase, via
 		// the email-keyed eraser in PrivacyTools.

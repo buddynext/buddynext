@@ -37,7 +37,6 @@ Key contract rules:
 | `buddynext_notification_created` | action | After a notification row is inserted or merged into an unread group | `int $notification_id, int $recipient_id, array $data` |
 | `buddynext_notification_ungroupable_types` | filter | Resolving which notification types must never collapse into a grouped row | `string[] $types` |
 | `buddynext_media_notification_url` | filter | Resolving where a media notification (comment, favorite, reaction, mention) opens | `string $url, int $media_id` |
-| `buddynext_personal_record_notify` | filter | Deciding whether a WB Gamification personal record reaches the member's inbox | `bool $notify, int $user_id, string $period, int $current, int $previous` |
 | `buddynext_notification_visible_rows` | filter | Reading a page of a member's notifications, after rows whose object is gone are dropped | `array[] $rows` |
 | `buddynext_notification_sources` | filter | Listing the integrations whose notification hook carries the shared payload | `array $sources` |
 | `buddynext_notification_group_label` | filter | Naming a settings section BuddyNext does not own (an integration's) | `string $label, string $group` |
@@ -57,11 +56,7 @@ Details:
   ```
 
 - `buddynext_media_notification_url` defaults to `''`, which falls back to the activity feed. The WPMediaVerse bridge answers with the post the media is in, or the media's own page.
-- `buddynext_personal_record_notify` defaults to true for `week` and `month` records whose previous best was at least 10. A record is announced once per period (one row per member per site-calendar week or month); later records in the same period update that row's number without a new alert. Return true for `'day'` to announce daily bests, or false to turn records off.
-
-  ```php
-  add_filter( 'buddynext_personal_record_notify', '__return_false' ); // No personal-record notifications.
-  ```
+- WB Gamification decides which personal records reach the inbox with its own `wb_gam_personal_record_notify` filter (default: `week` and `month` records whose previous best was at least 10). A record is announced once per period (one row per member per site-calendar week or month); later records in the same period refresh that row's number without a new alert.
 
 - `buddynext_notification_visible_rows` receives the raw rows of one page (each has `recipient_id`, `type`, `object_type`, `object_id`, `sender_id` and the JSON `data`). It is for a plugin whose notifications are mirrored into the bell: that plugin owns who may see its content, so it removes its own rows the recipient should not see (a banned author, trashed content). Return every other row untouched. It filters the list only; unread counts are not recalculated.
 

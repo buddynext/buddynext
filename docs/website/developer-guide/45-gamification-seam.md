@@ -15,7 +15,7 @@ The seam has four parts:
 3. **Recipient-perspective engagement events** - mirrors that fire for the *recipient* of engagement (the person whose work was liked/commented/followed), which is who gamification usually awards.
 4. **Read-side rendering** - the leaderboard template and the sidebar/profile data filters consume the engine's public read API only; BuddyNext never reads engine tables.
 
-As of 1.0.1 the BuddyNext-side `GamificationBridge` (`includes/Bridges/GamificationBridge.php`) is consume-only: it posts a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (never on award - see Inbound below) and withdraws it on `wb_gam_badge_unshared`. The write-side submissions are owned by the engine's own BuddyNext manifest. The inbound listener is `GamificationBridgeListener`; the profile surface is `BuddyNext\Profile\GamificationAchievements`. These self-guard on the `wb_gam_*` API and are wired on `buddynext_load_bridges` behind the `gamification` feature toggle.
+As of 1.0.1 the BuddyNext-side `GamificationBridge` (`includes/Bridges/GamificationBridge.php`) is consume-only: it posts a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (never on award - see Inbound below) and withdraws it on `wb_gam_badge_unshared`. The write-side submissions are owned by the engine's own BuddyNext manifest. Its notifications come through the plugin's own contract (see Inbound below); the profile surface is `BuddyNext\Profile\GamificationAchievements`. These self-guard on the `wb_gam_*` API and are wired on `buddynext_load_bridges` behind the `gamification` feature toggle.
 
 ### Engine API BuddyNext calls
 
@@ -149,21 +149,11 @@ As a safety net, Free also backstops the known overlay containers that hold only
 
 ## Inbound: engine events -> BuddyNext notifications + feed
 
-`GamificationBridgeListener` consumes the engine's outbound signals (inbound to BuddyNext) and never submits an award, so it can never double-count alongside the bridge:
+WB Gamification sends its member notifications through the community notification contract (payload as the last argument of `wb_gam_notification_created`, types declared on `wb_gam_community_notification_types`), so BuddyNext has no listener that turns engine events into notifications. Eight types reach the bell as `wb_gamification.<type>`: `badge_awarded`, `level_up`, `kudos_received`, `challenge_completed`, `reward_fulfilled`, `credential_expired`, `personal_record` and `streak_milestone`. The plugin writes each sentence, decides visibility, and removes a row when its kudos is revoked or its badge is deleted. A personal record is one quiet row per period that refreshes its number without alerting again (`renotify => false`).
 
-| Engine hook (args) | Listener handler | Result |
-|---|---|---|
-| `wb_gam_badge_awarded` (3: `int $user_id`, `array $def`, `string $badge_id`) | `on_badge_awarded` | `bn.badge_awarded` notification (reads `$def['name']`) |
-| `wb_gam_level_changed` (3: `int $user_id`, `array $new_level`, `array|null $old_level`) | `on_level_changed` | `bn.level_up` notification (reads `id` / `name` / `min_points`), only when `wb_gam_is_level_climb()` says the member moved up; a drop (deduction, decay, reversal) is not announced |
-| `wb_gam_kudos_given` (4: `int $giver_id`, `int $receiver_id`, `string $message`, `int $kudos_id`) | `on_kudos_given` | `bn.kudos_received` for the receiver, from the giver (dropped when either has blocked the other); links to the receiver's Kudos tab |
-| `wb_gam_kudos_revoked` (5: `int $kudos_id`, ...) | `on_kudos_revoked` | deletes that kudos' notification |
-| `wb_gam_challenge_completed` (2: `int $user_id`, `array $challenge`) | `on_challenge_completed` | `bn.challenge_completed` ("You completed {title}.") |
-| `wb_gam_redemption_fulfilled` (2: `int $redemption_id`, `int $user_id`) | `on_redemption_fulfilled` | `bn.reward_fulfilled`; links to WB Gamification's hub page (Points tab when none) |
-| `wb_gam_credential_expired` (3: `int $user_id`, `string $badge_id`, `string $expires_at`) | `on_credential_expired` | `bn.credential_expired` (badge name from `wb_gam_get_all_badges_for_user()`) |
-| `wb_gam_personal_record` (5: `int $user_id`, `string $period`, `int $current`, `int $previous`, `string $message`) | `on_personal_record` | `bn.personal_record`, showing WB Gamification's `$message`; one row per member per period bucket that alerts once and then updates its number silently (`NotificationService::update_data_by_group()`); week and month only by default (`buddynext_personal_record_notify`); links to the Points tab |
-| `wb_gam_streak_milestone` (2: `int $user_id`, `int $streak_days`) | `on_streak_milestone` | `bn.streak_milestone` ("{n}-day streak.") |
+Every one of these types is collect-only (`can_email => false`): WB Gamification sends its own emails, so BuddyNext only shows them in the inbox, and the digest leaves them out. Members can switch each off under notification preferences.
 
-Every one of these types is collect-only (`can_email => false`): WB Gamification sends its own emails, so BuddyNext only shows them in the inbox, and the digest leaves them out. Members can switch each off under notification preferences. Their bell rows use namespaced object types (`wbgam_badge`, `wbgam_level`, `wbgam_kudos`, ...), never a BuddyNext object type. WB Gamification skips these hooks while replaying an import, so a migration sends nothing.
+The plugin links each row to the member's profile front page. BuddyNext owns the profile tabs, so `GamificationBridge::filter_notification_url()` (on `buddynext_notification_url`) opens Achievements for badges, level-ups, challenges, expired credentials and streaks, Kudos for kudos, and Points for personal records; a reward keeps the plugin's own hub link.
 
 Points amounts BuddyNext prints go through `GamificationBridge::format_points()` (WB Gamification's `wb_gam_format_points()`: "1 Point", "250 Karma", "+10 Points"); a tile that prints the number and the name apart uses `GamificationBridge::points_unit( $amount )`. Level progress on the leaderboard follows points earned (`wb_gam_get_earned_points()`), not the spendable balance, so redeeming a reward never moves the bar backwards.
 

@@ -420,74 +420,6 @@ class NotificationMessageService {
 						return __( 'Something you posted was removed by a moderator.', 'buddynext' );
 				}
 
-			case 'bn.badge_awarded':
-				$badge = isset( $data['badge'] ) ? (string) $data['badge'] : '';
-				if ( '' !== $badge ) {
-					return sprintf(
-						/* translators: %s: badge name. */
-						__( 'You earned a new badge: %s.', 'buddynext' ),
-						$badge
-					);
-				}
-				return __( 'You earned a new badge.', 'buddynext' );
-
-			case 'bn.level_up':
-				// data.level is the level's row id, not a rank, so it is never shown.
-				$level = isset( $data['level_name'] ) ? trim( (string) $data['level_name'] ) : '';
-				if ( '' !== $level ) {
-					return sprintf(
-						/* translators: %s: new level name, e.g. "Contributor". */
-						__( 'You reached %s.', 'buddynext' ),
-						$level
-					);
-				}
-				return __( 'You levelled up.', 'buddynext' );
-
-			case 'bn.kudos_received':
-				return sprintf(
-					/* translators: %s: name of the member who gave kudos. */
-					__( '%s gave you kudos.', 'buddynext' ),
-					$actor_name
-				);
-
-			case 'bn.challenge_completed':
-				$challenge = isset( $data['title'] ) ? trim( (string) $data['title'] ) : '';
-				if ( '' !== $challenge ) {
-					return sprintf(
-						/* translators: %s: challenge title. */
-						__( 'You completed %s.', 'buddynext' ),
-						$challenge
-					);
-				}
-				return __( 'You completed a challenge.', 'buddynext' );
-
-			case 'bn.reward_fulfilled':
-				return __( 'Your reward is ready.', 'buddynext' );
-
-			case 'bn.credential_expired':
-				$credential = isset( $data['badge'] ) ? trim( (string) $data['badge'] ) : '';
-				if ( '' !== $credential ) {
-					return sprintf(
-						/* translators: %s: badge name. */
-						__( 'Your %s credential has expired.', 'buddynext' ),
-						$credential
-					);
-				}
-				return __( 'A badge credential of yours has expired.', 'buddynext' );
-
-			case 'bn.personal_record':
-				// WB Gamification writes the sentence; it is shown as sent.
-				$record = isset( $data['message'] ) ? trim( (string) $data['message'] ) : '';
-				return '' !== $record ? $record : __( 'You set a new personal best.', 'buddynext' );
-
-			case 'bn.streak_milestone':
-				$days = isset( $data['days'] ) ? (int) $data['days'] : 0;
-				return sprintf(
-					/* translators: %s: number of days in the streak. */
-					_n( '%s-day streak. Keep it going!', '%s-day streak. Keep it going!', $days, 'buddynext' ),
-					number_format_i18n( $days )
-				);
-
 			case 'bn.onboarding_nudge':
 				return __( 'Finish setting up your profile to get the most out of the community.', 'buddynext' );
 
@@ -834,46 +766,6 @@ class NotificationMessageService {
 					'tone'  => 'warning',
 					'label' => __( 'New report', 'buddynext' ),
 				),
-				'bn.badge_awarded'            => array(
-					'icon'  => 'award',
-					'tone'  => 'warn',
-					'label' => __( 'Badge', 'buddynext' ),
-				),
-				'bn.level_up'                 => array(
-					'icon'  => 'trending-up',
-					'tone'  => 'success',
-					'label' => __( 'Level up', 'buddynext' ),
-				),
-				'bn.kudos_received'           => array(
-					'icon'  => 'heart',
-					'tone'  => 'accent',
-					'label' => __( 'Kudos', 'buddynext' ),
-				),
-				'bn.challenge_completed'      => array(
-					'icon'  => 'target',
-					'tone'  => 'success',
-					'label' => __( 'Challenge', 'buddynext' ),
-				),
-				'bn.reward_fulfilled'         => array(
-					'icon'  => 'sparkles',
-					'tone'  => 'success',
-					'label' => __( 'Reward', 'buddynext' ),
-				),
-				'bn.credential_expired'       => array(
-					'icon'  => 'clock',
-					'tone'  => 'warn',
-					'label' => __( 'Credential', 'buddynext' ),
-				),
-				'bn.personal_record'          => array(
-					'icon'  => 'star',
-					'tone'  => 'success',
-					'label' => __( 'Personal record', 'buddynext' ),
-				),
-				'bn.streak_milestone'         => array(
-					'icon'  => 'zap',
-					'tone'  => 'warn',
-					'label' => __( 'Streak', 'buddynext' ),
-				),
 				'bn.onboarding_nudge'         => array(
 					'icon'  => 'sparkles',
 					'tone'  => 'accent',
@@ -1127,31 +1019,6 @@ class NotificationMessageService {
 					}
 				}
 				return PageRouter::community_admin_url();
-
-			case 'bn.badge_awarded':
-			case 'bn.level_up':
-			case 'bn.challenge_completed':
-			case 'bn.credential_expired':
-			case 'bn.streak_milestone':
-				// Deep-link to the member's own Achievements tab (badge grid +
-				// points/level standing strip), not the general profile, so the
-				// notification lands where the earned badge / new level is shown.
-				$me = $viewer_id;
-				return $me > 0 ? trailingslashit( PageRouter::profile_url( $me ) ) . 'achievements/' : '';
-
-			case 'bn.kudos_received':
-				return $viewer_id > 0 ? trailingslashit( PageRouter::profile_url( $viewer_id ) ) . 'kudos/' : '';
-
-			case 'bn.personal_record':
-				return $viewer_id > 0 ? trailingslashit( PageRouter::profile_url( $viewer_id ) ) . 'points/' : '';
-
-			case 'bn.reward_fulfilled':
-				// Rewards live on WB Gamification's hub; the Points tab when no hub is set.
-				$hub = \BuddyNext\Bridges\GamificationBridge::hub_url();
-				if ( '' !== $hub ) {
-					return $hub;
-				}
-				return $viewer_id > 0 ? trailingslashit( PageRouter::profile_url( $viewer_id ) ) . 'points/' : '';
 
 			case 'bn.onboarding_nudge':
 				return PageRouter::onboarding_url();

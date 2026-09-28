@@ -40,7 +40,6 @@ use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\BuddyXBridge;
 use BuddyNext\Bridges\GamificationBridge;
-use BuddyNext\Bridges\GamificationBridgeListener;
 use BuddyNext\Bridges\JetonomyBridge;
 use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Bridges\WPMediaVerseBridge;
@@ -782,7 +781,6 @@ class Plugin {
 				$wpmediaverse->init();
 
 				( new GamificationBridge() )->init();
-				( new GamificationBridgeListener() )->register();
 				// Gamification's Achievements profile tab (badge grid + standing).
 				( new \BuddyNext\Profile\GamificationAchievements() )->register();
 				// Gamification's Points tab (recent ledger + how-to-earn guide).

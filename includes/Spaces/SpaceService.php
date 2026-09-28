@@ -1572,8 +1572,8 @@ class SpaceService {
 	public function featured_spaces( int $viewer_id, int $limit = 0, string $surface = 'sidebar' ): array {
 		$limit = $limit > 0 ? $limit : FeaturedSpaces::limit();
 
-		$curated  = true;
-		$ids      = FeaturedSpaces::get_ids();
+		$curated = true;
+		$ids     = FeaturedSpaces::get_ids();
 		if ( empty( $ids ) ) {
 			$curated = false;
 			$ids     = ( new AutoJoinService() )->spaces_for_signup();

@@ -84,7 +84,7 @@ class GamificationBridge {
 		// the LinkedIn-minimum home for standing).
 
 		// Broadcast credential badges to the feed (social proof). The user-facing
-		// notification is handled separately by GamificationBridgeListener; this is
+		// notification comes from the plugin's own notification contract; this is
 		// the public engagement surface. Broadcast on the member's explicit SHARE, not
 		// on award: wb-gamification 1.6.4 made badges private until the member presses
 		// Share (wb_gam_badge_shared / _unshared). Broadcasting on award published a
@@ -96,6 +96,11 @@ class GamificationBridge {
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
+
+		// WB Gamification sends its bell rows through the notification contract with a
+		// link to the member's profile front page. Where a row opens inside the
+		// community is BuddyNext's profile tabs, so the row is pointed at the right one.
+		add_filter( 'buddynext_notification_url', array( $this, 'filter_notification_url' ), 20, 5 );
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
@@ -197,6 +202,38 @@ class GamificationBridge {
 			return false;
 		}
 		return $privacy->can_view_profile( $viewer_id, $member_id );
+	}
+
+	/**
+	 * Open a WB Gamification bell row on the member's own profile tab for it.
+	 *
+	 * The plugin links every row to the profile front page; BuddyNext owns the tabs
+	 * (Achievements, Kudos, Points), so the tab is chosen here by type. A reward row
+	 * keeps the plugin's own link (its rewards hub).
+	 *
+	 * @param string              $url       URL so far.
+	 * @param string              $type      Notification type.
+	 * @param int                 $actor_id  Actor (unused).
+	 * @param int                 $object_id Object id (unused).
+	 * @param array<string,mixed> $data      Row data (unused).
+	 * @return string
+	 */
+	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data ): string {
+		unset( $actor_id, $object_id, $data );
+		static $tabs = array(
+			'wb_gamification.badge_awarded'       => 'achievements',
+			'wb_gamification.level_up'            => 'achievements',
+			'wb_gamification.challenge_completed' => 'achievements',
+			'wb_gamification.credential_expired'  => 'achievements',
+			'wb_gamification.streak_milestone'    => 'achievements',
+			'wb_gamification.kudos_received'      => 'kudos',
+			'wb_gamification.personal_record'     => 'points',
+		);
+		$viewer      = get_current_user_id();
+		if ( ! isset( $tabs[ $type ] ) || $viewer <= 0 ) {
+			return (string) $url;
+		}
+		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . $tabs[ $type ] . '/';
 	}
 
 	/**

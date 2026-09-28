@@ -231,7 +231,6 @@ Otherwise pick the domain whose responsibility best matches.
 | Content moderation logic (banned words, rate limits, safeguards) | `Moderation/` | `SafeguardService` |
 | REST controller for a domain | Same folder as its Service | `MemberTypeController` → `MemberTypes/` |
 | Bridge adapter classes | `Bridges/` with `Bridge` suffix | `JetonomyBridge.php` |
-| Bridge listener classes | `Bridges/` with `BridgeListener` suffix | `GamificationBridgeListener.php` |
 | Admin-only UI helpers | `Admin/{SubPage}/` not `Admin/Helpers/` | `MemberDisplay` → `Admin/Members/` |
 | Directory/listing service | `Profile/` if it queries `WP_User_Query`; `Search/` only if it queries `bn_search_index` | `MemberDirectoryService` → `Profile/` |
 | Cron job runner | `Core/CronService.php` — no `Handlers` suffix | — |
@@ -249,8 +248,7 @@ Never use `init()` on a listener. Only Services and Admin registrars use `init()
 ### Bridge Naming Convention
 
 ```
-Bridges/GamificationBridge.php          class GamificationBridge          ← adapter
-Bridges/GamificationBridgeListener.php  class GamificationBridgeListener  ← hook registrar
+Bridges/JetonomyBridge.php   class JetonomyBridge   ← adapter
 ```
 
 Never name a bridge adapter `class Jetonomy` — it reads like the external plugin class.
@@ -294,10 +292,9 @@ that surfaces partner content into the community) MUST:
      catalogue entry, grouped rows count people). Register a new source on the
      `buddynext_notification_sources` filter.
 
-   The old per-bridge routes (`GamificationBridgeListener` builders, the Pro
-   Learnomy and Eventonomy mirrors on `SuiteNotifications`) stand down once their
-   plugin declares its types and are deleted when that release is merged. Do not
-   add a new one. (Exception, documented: WPMediaVerse DM, favourite and comment
+   The old Pro Learnomy and Eventonomy mirrors on `SuiteNotifications` stand down
+   once their plugin declares its types and are deleted when that release is
+   merged. Do not add a new per-bridge route. (Exception, documented: WPMediaVerse DM, favourite and comment
    types are BN-native - BN owns those and their email. Do not widen it:
    MediaVerse reactions and mentions are the partner's and use the contract.)
 5. **Profile presence.** Portfolio-ish content (jobs / listings / courses) → a

@@ -243,4 +243,33 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 		$this->assertTrue( GamificationBridge::can_view_standing( $owner, $owner ), 'a member always sees their own standing' );
 		$this->assertFalse( GamificationBridge::can_view_standing( 0, $viewer ), 'no member, nothing to show' );
 	}
+
+	/**
+	 * A WB Gamification bell row opens on the member's own profile tab for it; the plugin
+	 * links every row to the profile front page, and a reward keeps its own hub link.
+	 */
+	public function test_gamification_bell_rows_open_the_matching_profile_tab(): void {
+		$member = self::factory()->user->create();
+		wp_set_current_user( $member );
+		$profile = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $member ) );
+		$plugin  = 'http://example.org/members/somebody/';
+
+		foreach ( array(
+			'wb_gamification.badge_awarded'       => 'achievements/',
+			'wb_gamification.level_up'            => 'achievements/',
+			'wb_gamification.challenge_completed' => 'achievements/',
+			'wb_gamification.credential_expired'  => 'achievements/',
+			'wb_gamification.streak_milestone'    => 'achievements/',
+			'wb_gamification.kudos_received'      => 'kudos/',
+			'wb_gamification.personal_record'     => 'points/',
+		) as $type => $tab ) {
+			$this->assertSame( $profile . $tab, $this->bridge->filter_notification_url( $plugin, $type, 0, 0, array() ), $type );
+		}
+
+		$this->assertSame( $plugin, $this->bridge->filter_notification_url( $plugin, 'wb_gamification.reward_fulfilled', 0, 0, array() ), 'A reward keeps the plugin hub link.' );
+		$this->assertSame( $plugin, $this->bridge->filter_notification_url( $plugin, 'jetonomy.reply_to_post', 0, 0, array() ), 'Another plugin is left alone.' );
+
+		wp_set_current_user( 0 );
+		$this->assertSame( $plugin, $this->bridge->filter_notification_url( $plugin, 'wb_gamification.kudos_received', 0, 0, array() ), 'No member, no tab.' );
+	}
 }
