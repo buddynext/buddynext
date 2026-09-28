@@ -22,6 +22,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Notifications\IntegrationNotificationListener;
 use BuddyNext\Contracts\ListenerInterface;
 
 /**
@@ -100,6 +101,10 @@ class JetonomyBridgeListener implements ListenerInterface {
 	 * @param string $url             Deep link to the content.
 	 */
 	public function on_notification( int $notification_id, int $user_id, string $type, string $object_type, int $object_id, string $message = '', string $url = '' ): void {
+		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		if ( IntegrationNotificationListener::adopted( 'jetonomy' ) ) {
+			return;
+		}
 		// $message and $url are optional: current Jetonomy fires this hook with 7
 		// args (message + deep link appended), but older/other firing sites pass
 		// only 5. Defaulting them avoids the ArgumentCountError that 500'd reply

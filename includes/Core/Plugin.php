@@ -53,6 +53,7 @@ use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Notifications\EmailDispatchListener;
 use BuddyNext\Notifications\EmailSender;
+use BuddyNext\Notifications\IntegrationNotificationListener;
 use BuddyNext\Notifications\NotificationListener;
 use BuddyNext\Notifications\NotificationMessageService;
 use BuddyNext\Notifications\NotificationPrefService;
@@ -379,6 +380,7 @@ class Plugin {
 
 		// Wire social-event hooks to in-app notification routing.
 		( new NotificationListener() )->register();
+		( new IntegrationNotificationListener() )->register();
 
 		// Wire email verification hooks.
 		( new VerificationListener( $container->get( 'verification' ) ) )->register();
@@ -770,8 +772,8 @@ class Plugin {
 				// behind an integration toggle: BuddyNext's own /messages/ hub reaches
 				// the engine through MessagesData -> MediaClient -> the engine's
 				// container, never through this bridge, so gating the checks would
-				// disable bn_blocks and DM-privacy while members kept sending. The
-				// owner's real DM switch is Settings -> General -> Direct Messaging.
+				// disable bn_blocks and DM-privacy while members kept sending. Who may
+				// message whom is WPMediaVerse's setting (BuddyNext only shows it).
 				$wpmediaverse->init_dm_gates();
 
 				$wpmediaverse->init();

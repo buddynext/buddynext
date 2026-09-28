@@ -695,7 +695,16 @@ class NotificationPrefCatalogue {
 			case self::GROUP_GROWTH:
 				return __( 'Growth and digests', 'buddynext' );
 			default:
-				return ucfirst( $group );
+				/**
+				 * Filter the settings-section label of a group BuddyNext does not own
+				 * (an integration's section, for example 'jetonomy' => 'Forums').
+				 *
+				 * @since 1.2.2
+				 *
+				 * @param string $label Label (the group key, capitalised).
+				 * @param string $group Group key.
+				 */
+				return (string) apply_filters( 'buddynext_notification_group_label', ucfirst( $group ), $group );
 		}
 	}
 

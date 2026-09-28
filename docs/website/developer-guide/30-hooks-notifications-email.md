@@ -39,6 +39,8 @@ Key contract rules:
 | `buddynext_media_notification_url` | filter | Resolving where a media notification (comment, favorite, reaction, mention) opens | `string $url, int $media_id` |
 | `buddynext_personal_record_notify` | filter | Deciding whether a WB Gamification personal record reaches the member's inbox | `bool $notify, int $user_id, string $period, int $current, int $previous` |
 | `buddynext_notification_visible_rows` | filter | Reading a page of a member's notifications, after rows whose object is gone are dropped | `array[] $rows` |
+| `buddynext_notification_sources` | filter | Listing the integrations whose notification hook carries the shared payload | `array $sources` |
+| `buddynext_notification_group_label` | filter | Naming a settings section BuddyNext does not own (an integration's) | `string $label, string $group` |
 
 Details:
 
@@ -72,6 +74,35 @@ Details:
   ```
 
 - `buddynext_notification_created` is the canonical "a notification happened" signal. The `$type` lives at `$data['type']`. Note the parameter order: `$notification_id, $recipient_id, $data` (the data array, not a bare type string).
+
+- `buddynext_notification_sources` lists the integrations that send notifications to the bell through one shared payload. Each plugin passes that payload as the LAST argument of its own notification hook, so its other listeners are untouched; BuddyNext reads it, shows it in the bell with the plugin's words, link and icon, and never emails it (the plugin sends its own email). Our plugins are registered already. Add yours to take part:
+
+  ```php
+  add_filter( 'buddynext_notification_sources', function ( array $sources ): array {
+      $sources['my_plugin'] = array(
+          'hook'   => 'my_plugin_notification_created', // your existing hook
+          'prefix' => 'my_plugin',                      // for my_plugin_community_notification_types / _visible / _removed
+          'label'  => __( 'My plugin', 'my-plugin' ),
+          'icon'   => 'bell',
+      );
+      return $sources;
+  } );
+
+  // Wherever you notify a member: your existing arguments, then the payload.
+  do_action( 'my_plugin_notification_created', $notification_id, array(
+      'recipient_id' => $user_id,
+      'type'         => 'item_approved',
+      'actor_id'     => 0,
+      'object_type'  => 'item',
+      'object_id'    => $item_id,
+      'message'      => __( 'Your item was approved.', 'my-plugin' ), // plain text
+      'url'          => get_permalink( $item_id ),
+      'group_key'    => '', // same key = unread rows merge ("Aisha and 3 others...")
+  ) );
+  ```
+
+  Declare your types on `{prefix}_community_notification_types` (slug => `label`, `description`, `default_on`) to give members a switch per type; answer `{prefix}_community_notification_visible` (`array $visible, int $viewer_id, array $targets`, return key => bool) to hide rows the viewer may no longer see; fire `{prefix}_community_notification_removed( $object_type, $object_id )` when an object is permanently deleted. A payload may carry `message_grouped`, with `{actor}` and `{others}` placeholders, for merged rows.
+- `buddynext_notification_group_label` names a settings section by its group key when BuddyNext does not own the group. Integration sections are named already.
 
 ## Preference hooks
 

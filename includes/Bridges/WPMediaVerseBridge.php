@@ -20,6 +20,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Notifications\IntegrationNotificationListener;
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
@@ -1625,6 +1626,10 @@ class WPMediaVerseBridge {
 	 * @param string $reaction_type Reaction slug (e.g. 'like', 'love').
 	 */
 	public function on_media_reaction( int $media_id, int $user_id, string $reaction_type = '' ): void {
+		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		if ( IntegrationNotificationListener::adopted( 'mediaverse' ) ) {
+			return;
+		}
 		// MVS media live in wp_mvs_media_index, not wp_posts, so get_post_field()
 		// returns 0 and would silently drop every reaction notification. Resolve
 		// the owner through the media repo (the same lookup used at line ~529).

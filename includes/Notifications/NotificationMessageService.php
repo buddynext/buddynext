@@ -74,7 +74,17 @@ class NotificationMessageService {
 		$meta       = $this->meta_for( $type );
 		$url        = $this->url_for( $type, $actor_id, $object_id, $data );
 
-		if ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {
+		$grouped_template = (string) ( $data['message_grouped'] ?? '' );
+		if ( $group_count > 1 && '' !== $grouped_template ) {
+			// A row that carries its own grouped sentence (integration contract rows).
+			$message = strtr(
+				$grouped_template,
+				array(
+					'{actor}'  => $actor_name,
+					'{others}' => number_format_i18n( $group_count - 1 ),
+				)
+			);
+		} elseif ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {
 			$message = $this->compose_grouped( $type, $actor_name, $group_count, $object_id, $data );
 		} else {
 			$message = $this->compose_single( $type, $actor_name, $object_id, $data );

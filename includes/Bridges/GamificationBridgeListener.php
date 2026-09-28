@@ -11,6 +11,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Notifications\IntegrationNotificationListener;
 use BuddyNext\Contracts\ListenerInterface;
 
 /**
@@ -75,6 +76,10 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @param string $badge_id Badge identifier (string slug).
 	 */
 	public function on_badge_awarded( int $user_id, array $def, string $badge_id ): void {
+		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+			return;
+		}
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
@@ -119,6 +124,10 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @param array|null $old_level Previous level data, or null when none.
 	 */
 	public function on_level_changed( int $user_id, array $new_level, ?array $old_level = null ): void {
+		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+			return;
+		}
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
@@ -280,6 +289,10 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_personal_record( int $user_id, string $period = '', int $current = 0, int $previous = 0, string $message = '' ): void {
+		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+			return;
+		}
 		$buckets = array(
 			'day'   => 'Y-m-d',
 			'week'  => 'o-\WW',
@@ -378,6 +391,10 @@ class GamificationBridgeListener implements ListenerInterface {
 	 * @return void
 	 */
 	private function notify( int $user_id, string $type, string $object_type, int $object_id, array $data, int $sender_id = 0 ): void {
+		// The plugin sends this through the notification contract now (IntegrationNotificationListener).
+		if ( IntegrationNotificationListener::adopted( 'wb_gamification' ) ) {
+			return;
+		}
 		if ( $user_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
