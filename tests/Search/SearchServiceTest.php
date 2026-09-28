@@ -121,6 +121,36 @@ class SearchServiceTest extends \WP_UnitTestCase {
 		$this->assertContains( 1, $object_ids );
 	}
 
+	/**
+	 * Run the private grouped-row decorator on one raw index row.
+	 *
+	 * @param array<string,mixed> $item Raw row.
+	 * @return array<string,mixed>
+	 */
+	private function decorate( array $item ): array {
+		$method = new \ReflectionMethod( $this->service, 'decorate_grouped_item' );
+		$method->setAccessible( true );
+
+		return $method->invoke( $this->service, $item, 'post' );
+	}
+
+	public function test_untitled_feed_post_is_titled_by_its_opening_words(): void {
+		$row = $this->decorate(
+			array(
+				'object_id' => 5,
+				'title'     => '',
+				'content'   => '<p>Shipped a new prototype today &amp; spent way too long polishing the onboarding flow copy</p>',
+			)
+		);
+
+		$this->assertSame( "Shipped a new prototype today & spent way too long\xE2\x80\xA6", $row['title'] );
+	}
+
+	public function test_row_with_no_text_stays_untitled_and_a_real_title_is_kept(): void {
+		$this->assertSame( 'Untitled', $this->decorate( array( 'object_id' => 6, 'title' => '', 'content' => '  ' ) )['title'] );
+		$this->assertSame( 'My title', $this->decorate( array( 'object_id' => 7, 'title' => 'My title', 'content' => 'Body text' ) )['title'] );
+	}
+
 	public function test_search_filters_by_type(): void {
 		$this->service->index( 'post', 5, 'Post about PHP', '', $this->author_id );
 		$this->service->index( 'user', 6, 'PHP Developer', '', $this->author_id );

@@ -551,7 +551,10 @@ class SearchService {
 			$user          = get_userdata( $object_id );
 			$item['title'] = $user ? $user->display_name : __( 'Unknown', 'buddynext' );
 		} elseif ( '' === (string) ( $item['title'] ?? '' ) ) {
-			$item['title'] = __( 'Untitled', 'buddynext' );
+			// A feed post has no title of its own; its opening words identify it, as on
+			// any social platform. Untitled is only for a row with no text at all.
+			$excerpt       = trim( wp_specialchars_decode( wp_strip_all_tags( (string) ( $item['content'] ?? '' ) ), ENT_QUOTES ) );
+			$item['title'] = '' !== $excerpt ? wp_trim_words( $excerpt, 10, "\xE2\x80\xA6" ) : __( 'Untitled', 'buddynext' );
 		}
 
 		$item['url']      = $this->resolve_item_url( $type, $object_id );
