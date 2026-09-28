@@ -4078,58 +4078,6 @@ final class ResponseSchema {
 								),
 							),
 						),
-						'bn.media_reaction'                => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
-						'bn.media_mention'                 => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
 						'suite.learnomy'                   => array(
 							'type'       => 'object',
 							'properties' => array(
@@ -4339,32 +4287,6 @@ final class ResponseSchema {
 							),
 						),
 						'bn.subscription_granted'          => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
-						'jt.notification'                  => array(
 							'type'       => 'object',
 							'properties' => array(
 								'on_site'     => array(

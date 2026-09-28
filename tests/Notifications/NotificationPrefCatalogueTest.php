@@ -114,9 +114,9 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 	public function test_partner_sourced_notifications_are_collect_only(): void {
 		$catalogue = ( new NotificationPrefCatalogue() )->all();
 
-		foreach ( array( 'bn.badge_awarded', 'bn.level_up', 'bn.kudos_received', 'bn.challenge_completed', 'bn.reward_fulfilled', 'bn.credential_expired', 'bn.personal_record', 'bn.streak_milestone', 'jt.notification' ) as $slug ) {
+		foreach ( array( 'bn.badge_awarded', 'bn.level_up', 'bn.kudos_received', 'bn.challenge_completed', 'bn.reward_fulfilled', 'bn.credential_expired', 'bn.personal_record', 'bn.streak_milestone' ) as $slug ) {
 			if ( ! isset( $catalogue[ $slug ] ) ) {
-				continue; // jt.notification is registered by the Jetonomy listener, may be absent here.
+				continue; // A partner-sourced type may be absent here.
 			}
 			$this->assertFalse(
 				$catalogue[ $slug ]['can_email'],

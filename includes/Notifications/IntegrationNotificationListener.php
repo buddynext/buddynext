@@ -166,10 +166,12 @@ class IntegrationNotificationListener implements ListenerInterface {
 
 	/**
 	 * Whether a plugin has adopted the contract: it declares its types on
-	 * `{prefix}_community_notification_types`. BuddyNext's older routes for that
-	 * plugin (JetonomyBridgeListener, the Pro suite bridges, BuddyNext's own
-	 * WB Gamification and MediaVerse builders) stand down once it has, so a
-	 * member never gets two rows for one event while plugins switch over.
+	 * `{prefix}_community_notification_types`. It is the one switch: a payload is
+	 * read only once it is declared, and the older route BuddyNext still keeps for a
+	 * plugin that has not merged yet (WB Gamification builders, the Pro Learnomy and
+	 * Eventonomy mirrors) stands down once it is, so a member never gets two rows
+	 * for one event while plugins switch over. Each old route is deleted when its
+	 * plugin's contract release is merged.
 	 *
 	 * @param string $source Source slug.
 	 * @return bool

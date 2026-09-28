@@ -97,7 +97,7 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Forums', $composed['label'] );
 	}
 
-	public function test_hook_without_payload_is_left_to_the_old_route(): void {
+	public function test_hook_without_payload_writes_nothing(): void {
 		do_action( 'jetonomy_notification_created', 991, $this->recipient, 'reply_to_post', 'post', 1153, 'legacy', 'https://example.org/legacy' );
 		$this->assertCount( 0, $this->rows() );
 	}
@@ -147,7 +147,7 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertCount( 0, $this->rows() );
 	}
 
-	public function test_declared_types_get_a_section_and_stand_down_the_old_route(): void {
+	public function test_declared_types_get_a_section(): void {
 		$this->assertTrue( IntegrationNotificationListener::adopted( 'jetonomy' ) );
 
 		$catalogue = new NotificationPrefCatalogue();
@@ -156,24 +156,15 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertFalse( $all['jetonomy.reply_to_post']['can_email'] );
 		$this->assertSame( 'Forums', $catalogue->group_label( 'jetonomy' ) );
 
-		// One firing, one row: the legacy route writes nothing once adopted.
 		$this->fire();
 		$this->assertCount( 1, $this->rows() );
-		$this->assertSame( 0, $this->legacy_rows() );
 	}
 
-	public function test_payload_before_adoption_stays_on_the_old_route_only(): void {
+	public function test_a_payload_is_ignored_until_the_plugin_declares_its_types(): void {
 		remove_all_filters( 'jetonomy_community_notification_types' );
 		$this->assertFalse( IntegrationNotificationListener::adopted( 'jetonomy' ) );
 		$this->fire();
 		$this->assertCount( 0, $this->rows() );
-		$this->assertSame( 1, $this->legacy_rows() );
-	}
-
-	private function legacy_rows(): int {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jt.notification'", $this->recipient ) );
 	}
 
 	public function test_renotify_false_refreshes_the_row_quietly(): void {
@@ -194,25 +185,6 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, (int) $rows[0]['group_count'] );
 		$this->assertSame( 1, (int) $rows[0]['is_read'], 'The repeat keeps the read state.' );
 		$this->assertSame( 'Best week: 30 points.', json_decode( $rows[0]['data'], true )['message'] );
-	}
-
-	public function test_media_mention_old_route_stands_down_once_mediaverse_adopts(): void {
-		global $wpdb;
-		$bridge = new \BuddyNext\Bridges\WPMediaVerseBridge();
-		$count  = function (): int {
-			global $wpdb;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'bn.media_mention'", $this->recipient ) );
-		};
-
-		wp_set_current_user( $this->actor );
-		$bridge->on_media_mention( 77, array( $this->recipient ) );
-		$this->assertSame( 1, $count() );
-
-		add_filter( 'mvs_community_notification_types', array( $this, 'declare_types' ) );
-		$bridge->on_media_mention( 78, array( $this->recipient ) );
-		remove_filter( 'mvs_community_notification_types', array( $this, 'declare_types' ) );
-		$this->assertSame( 1, $count() );
 	}
 
 	/**

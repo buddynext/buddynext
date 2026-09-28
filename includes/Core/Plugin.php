@@ -42,7 +42,6 @@ use BuddyNext\Bridges\BuddyXBridge;
 use BuddyNext\Bridges\GamificationBridge;
 use BuddyNext\Bridges\GamificationBridgeListener;
 use BuddyNext\Bridges\JetonomyBridge;
-use BuddyNext\Bridges\JetonomyBridgeListener;
 use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Bridges\WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
@@ -792,7 +791,6 @@ class Plugin {
 				( new \BuddyNext\Profile\GamificationKudos() )->register();
 
 				( new JetonomyBridge() )->init();
-				( new JetonomyBridgeListener() )->register();
 
 				// WB Member Blog: the member's published WordPress posts as an
 				// Articles profile tab. The FEED half needs no bridge — BlogPostListener

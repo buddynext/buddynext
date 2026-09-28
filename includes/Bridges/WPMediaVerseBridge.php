@@ -20,7 +20,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
-use BuddyNext\Notifications\IntegrationNotificationListener;
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
@@ -151,17 +150,8 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
-		// Notify the media owner when someone reacts to their content, and notify
-		// mention targets when they are @mentioned in a media comment. MediaVerse
-		// already renders both categories (media_reaction, media_mention) and owns
-		// their email; these mirror the events into the BuddyNext notification
-		// centre only (can_email=false), so a member sees reactions and mentions in
-		// one place — with the centre's Reactions and Mentions tabs, which had the
-		// UI but never a feed — without a second email. Reactions come from the
-		// service hook (mvs_reaction_added), not the REST toggle, so a reaction made
-		// through any path is caught once.
-		add_action( 'mvs_reaction_added', array( $this, 'on_media_reaction' ), 10, 3 );
-		add_action( 'mvs_mentions_created', array( $this, 'on_media_mention' ), 10, 4 );
+		// Media reactions and mentions reach the bell through WPMediaVerse's own
+		// notification contract (IntegrationNotificationListener), not from here.
 
 		// Space document drives (MVS Pro 2.4.0). MVS holds an opaque drive id and
 		// asks US who may see and write a space:<id> drive — it never reads bn_*
@@ -1588,8 +1578,7 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Same media-owner resolution as on_media_reaction(): the id is a
-		// wp_mvs_media_index row, not a post, so get_post_field() returns 0.
+		// The id is a wp_mvs_media_index row, not a post, so get_post_field() returns 0.
 		$repo     = MediaClient::repo();
 		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
@@ -1607,103 +1596,6 @@ class WPMediaVerseBridge {
 				'data'         => array( 'media_id' => $media_id ),
 			)
 		);
-	}
-
-	/**
-	 * Notify the media owner when someone reacts to their content.
-	 *
-	 * Mirrors MediaVerse's own media_reaction into the BuddyNext centre (Reactions
-	 * tab), collect-only: the catalogue marks bn.media_reaction can_email=false, so
-	 * MediaVerse stays the single emailer. Self-reactions are skipped and reactions
-	 * on the same media collapse via the group key.
-	 *
-	 * Hooked on: mvs_reaction_added ($media_id, $user_id, $reaction_type) — the
-	 * service hook, so a reaction made through any path (REST toggle or direct) is
-	 * caught exactly once.
-	 *
-	 * @param int    $media_id      Media item ID.
-	 * @param int    $user_id       User who reacted.
-	 * @param string $reaction_type Reaction slug (e.g. 'like', 'love').
-	 */
-	public function on_media_reaction( int $media_id, int $user_id, string $reaction_type = '' ): void {
-		// Old route: the plugin sends this through the notification contract now
-		// (IntegrationNotificationListener). Delete this route once the plugin's contract
-		// release is the minimum version BuddyNext supports (integration standard 2.4).
-		if ( IntegrationNotificationListener::adopted( 'mediaverse' ) ) {
-			return;
-		}
-		// MVS media live in wp_mvs_media_index, not wp_posts, so get_post_field()
-		// returns 0 and would silently drop every reaction notification. Resolve
-		// the owner through the media repo (the same lookup used at line ~529).
-		$repo     = MediaClient::repo();
-		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
-		if ( 0 === $owner_id || $owner_id === $user_id ) {
-			return;
-		}
-
-		( new NotificationService() )->create(
-			array(
-				'recipient_id' => $owner_id,
-				'sender_id'    => $user_id,
-				'type'         => 'bn.media_reaction',
-				'object_type'  => self::BELL_MEDIA_TYPE,
-				'object_id'    => $media_id,
-				'group_key'    => "mvs_reaction_{$media_id}",
-				'data'         => array(
-					'media_id'      => $media_id,
-					'reaction_type' => sanitize_key( $reaction_type ),
-				),
-			)
-		);
-	}
-
-	/**
-	 * Notify each mentioned member when they are @mentioned in a media comment.
-	 *
-	 * Mirrors MediaVerse's own media_mention into the BuddyNext centre (Mentions
-	 * tab), collect-only. The mentioner is the acting user (the comment author);
-	 * self-mentions are skipped.
-	 *
-	 * Hooked on: mvs_mentions_created ($media_id, $mentioned_ids, $context, $comment_id).
-	 *
-	 * @param int    $media_id      Media item ID.
-	 * @param int[]  $mentioned_ids Users named in the comment.
-	 * @param string $context       Where the mention was made (e.g. 'comment').
-	 * @param int    $comment_id    The comment carrying the mention.
-	 */
-	public function on_media_mention( int $media_id, array $mentioned_ids, string $context = '', int $comment_id = 0 ): void {
-		// Old route, same as on_media_reaction(): MediaVerse sends media_mention through
-		// the notification contract once it declares its types.
-		if ( IntegrationNotificationListener::adopted( 'mediaverse' ) ) {
-			return;
-		}
-
-		$actor_id = get_current_user_id();
-		if ( $actor_id <= 0 || $media_id <= 0 ) {
-			return;
-		}
-
-		$service = new NotificationService();
-		foreach ( array_unique( array_map( 'absint', $mentioned_ids ) ) as $recipient_id ) {
-			if ( $recipient_id <= 0 || $recipient_id === $actor_id ) {
-				continue;
-			}
-			$service->create(
-				array(
-					'recipient_id' => $recipient_id,
-					'sender_id'    => $actor_id,
-					'type'         => 'bn.media_mention',
-					'object_type'  => self::BELL_MEDIA_TYPE,
-					'object_id'    => $media_id,
-					'group_key'    => "mvs_mention_{$media_id}_{$recipient_id}",
-					'data'         => array(
-						'media_id'   => $media_id,
-						'comment_id' => (int) $comment_id,
-						'context'    => sanitize_key( $context ),
-					),
-				)
-			);
-		}
 	}
 
 	/**

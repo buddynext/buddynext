@@ -8,10 +8,9 @@
  * - Discussion created → BN feed activity (engagement; link card to Jetonomy,
  *   via Feed\IntegrationActivity; filter buddynext_jetonomy_discussion_activity)
  * - Discussion deleted → removes the search entry + the feed activity
- * - Reply / mention / accepted-answer notifications are mirrored for display only by
- *   JetonomyBridgeListener (from jetonomy_notification_created) as a display-only
- *   bn_notifications row; Jetonomy owns the text and the email, so BN never emails
- *   on its behalf
+ * - Reply / mention / accepted-answer notifications reach the bell through Jetonomy's
+ *   community notification contract (IntegrationNotificationListener); Jetonomy owns
+ *   the text, the visibility rule and the email, so BN never emails on its behalf
  * - Nav: a Discussions rail item (buddynext_rail_items) and a discussion context nav
  *   (buddynext_context_nav)
  * - Space Discussions tab (linked or on-demand forum) + profile Discussions count
@@ -383,7 +382,7 @@ class JetonomyBridge {
 	 * The feed card and search row are not made here: Post::create() fires
 	 * jetonomy_post_publish_transition first, and sync_discussion() handles it.
 	 * Mentions are not notified here either: Jetonomy notifies its own, and
-	 * JetonomyBridgeListener mirrors that one row into the bell.
+	 * the contract shows that one row in the bell.
 	 *
 	 * @param int $post_id  Jetonomy discussion ID (jt_posts.id).
 	 * @param int $space_id Jetonomy space ID the discussion belongs to.

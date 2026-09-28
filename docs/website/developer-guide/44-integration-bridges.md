@@ -36,7 +36,6 @@ add_action( 'buddynext_load_bridges', function (): void {
     }
     if ( buddynext_feature_enabled( 'jetonomy' ) ) {
         ( new JetonomyBridge() )->init();
-        ( new JetonomyBridgeListener() )->register();
     }
 } );
 ```
@@ -48,7 +47,6 @@ A third-party bridge attaches the same way - hook `buddynext_load_bridges` and w
 | Bridge | Companion | Guard (active when) | Feature toggle | Key seams |
 |---|---|---|---|---|
 | `JetonomyBridge` | Jetonomy (forums) | `class_exists( 'Jetonomy\Jetonomy' )` | `jetonomy` | `jetonomy_after_create_post`, `jetonomy_post_deleted`, `jetonomy_after_create_reply` (consume); `buddynext_rail_items`, `buddynext_register_nav`, `buddynext_context_nav`, `buddynext_hashtag_related_discussions` (provide); REST `POST /spaces/{id}/forum` |
-| `JetonomyBridgeListener` | Jetonomy | `class_exists( 'Jetonomy\Jetonomy' )` | `jetonomy` | `jetonomy_notification_created` (consume); mirrors into one BN type `jt.notification` via the three notification render filters |
 | `WPMediaVerseBridge` | WPMediaVerse (media + DM engine) | `class_exists( 'WPMediaVerse\Core\Plugin' )` | `wpmediaverse` | `mvs_buddynext_active`, `mvs_can_send_message`, `mvs_dm_denial_reason`, `mvs_user_profile_url`, `mvs_message_sent`, `mvs_favorite_toggled`, `mvs_comment_created`, `mvs_user_followed/unfollowed` (consume); fires `buddynext_dm_sent` / `buddynext_dm_received` |
 | `GamificationBridge` | wb-gamification | `function_exists( 'wb_gam_submit_event' )` | `gamification` | Consumes `wb_gam_badge_awarded` to post a credential-badge feed activity. Point awards for BuddyNext activity are owned by the wb-gamification plugin's own `integrations/buddynext.php` manifest, not this bridge. |
 | `GamificationBridgeListener` | wb-gamification | `function_exists( 'wb_gam_submit_event' )` | `gamification` | `wb_gam_badge_awarded`, `wb_gam_level_changed` (consume) -> BN notifications `bn.badge_awarded` / `bn.level_up` |
@@ -153,28 +151,17 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/spaces/42/forum" \
 
 When BuddyNext messaging is available, the bridge filters `option_jetonomy_pro_extensions` at read time to drop Jetonomy Pro's `private-messaging` extension, so BuddyNext owns the `/messages/` route. Nothing is persisted (the filter only changes the value front-end at read time) and it reverts automatically if BN messaging is disabled. The setting is left untouched in wp-admin so the Jetonomy extensions screen still reflects and saves the real value.
 
-## JetonomyBridgeListener
+## Notifications from Jetonomy, MediaVerse and Career Board
 
-Mirrors every Jetonomy notification (replies, mentions, accepted answers, join requests, votes) into BuddyNext's central notification center, so a member sees forum activity at `/notifications/` alongside everything else.
-
-Jetonomy 1.5.0 fires one central hook for all of its notifications:
-
-```php
-do_action( 'jetonomy_notification_created', int $notification_id, int $user_id,
-    string $type, string $object_type, int $object_id, string $message, string $url );
-```
-
-The listener subscribes with `acceptedArgs = 7` but defaults `$message` and `$url` so older five-argument firings cannot trigger an `ArgumentCountError`. Each event is mirrored into a single BuddyNext notification type, `jt.notification`, with `group_key = jt_{subtype}_{object_id}` for dedup. The stored `message` and `url` are rendered straight through the three Free notification seams (`buddynext_notification_message`, `buddynext_notification_url`, `buddynext_notification_meta`), so there is no per-type copy to maintain.
-
-Rows are stored with a namespaced `object_type` (`jt_post`, `jt_reply`, `jt_user`, ...), because a Jetonomy post id is not a BuddyNext post id, and the Jetonomy subtype is kept in the row data as `jt_type`.
+These plugins send their notifications through the community notification contract, so BuddyNext has no listener of its own for them. Each plugin passes one payload as the last argument of its own notification hook (`jetonomy_notification_created`, `mvs_notification_created`, `wcb_notification_created`) and declares its types; `IntegrationNotificationListener` shows the row in the bell with the plugin's words, link and icon, never emails it, and drops it when the member has blocked the actor or the owner has switched the integration off. The full contract (payload, `{prefix}_community_notification_types`, `_visible`, `_removed`, grouped rows, quiet refresh) is in [Hooks: Notifications and Email](30-hooks-notifications-email.md).
 
 Cross-cutting rules:
 
-- **One notification per action.** A member's action notifies once, from the plugin it happened in. A forum reply is Jetonomy's notification (mirrored here); the comment BuddyNext copies onto the discussion card never notifies, and neither do @mentions in a forum topic. BuddyNext mutes its own notifications while the bridge writes a mirror (`buddynext_notification_should_send`).
-- **Blocks honored.** If the actor is resolvable from the object (`jt_replies` / `jt_posts` author) and either party has blocked the other (`bn_blocks`), the notification is suppressed.
-- **Jetonomy decides visibility.** Each page of the bell passes through `buddynext_notification_visible_rows`; the listener removes the forum rows Jetonomy would not show the recipient (banned author, trashed content) by asking `\Jetonomy\notification_targets_visible()`. Until Jetonomy provides that function every row is kept.
-- **Purge cleans up.** A purged topic or reply (`jetonomy_after_delete_post` / `jetonomy_after_delete_reply`) deletes its bell rows.
-- **Collect-only / no double email.** The prefs-catalogue entry registers `can_email = false`. Jetonomy owns its own emails; BuddyNext only displays the mirror and never emails it.
+- **One notification per action.** A member's action notifies once, from the plugin it happened in. A forum reply is Jetonomy's notification; the comment BuddyNext copies onto the discussion card never notifies, and neither do @mentions in a forum topic. BuddyNext mutes its own notifications while a bridge writes a mirrored comment (`buddynext_notification_should_send`).
+- **The plugin decides visibility.** Each page of the bell asks the plugin which of its rows the viewer may still see (banned author, trashed content, private media).
+- **Deleting cleans up.** A permanently deleted object removes its bell rows through the plugin's `_removed` action.
+- **Collect-only.** The plugin sends its own email; BuddyNext never emails these types.
+- **Minimum version.** A plugin release without the contract sends nothing to the bell, so the release that adds it is the minimum BuddyNext supports.
 
 ## WPMediaVerseBridge
 

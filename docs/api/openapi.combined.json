@@ -26297,6 +26297,162 @@
                                     }
                                 }
                             },
+                            "bn.kudos_received": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "bn.challenge_completed": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "bn.reward_fulfilled": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "bn.credential_expired": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "bn.personal_record": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "bn.streak_milestone": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
                             "bn.onboarding_nudge": {
                                 "type": "object",
                                 "properties": {
@@ -26401,59 +26557,33 @@
                                     }
                                 }
                             },
+                            "bn.media_commented": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
                             "bn.media_favorited": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.media_reaction": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.media_mention": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {
@@ -26688,32 +26818,6 @@
                                 }
                             },
                             "bn.subscription_granted": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "jt.notification": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {

@@ -231,7 +231,7 @@ Otherwise pick the domain whose responsibility best matches.
 | Content moderation logic (banned words, rate limits, safeguards) | `Moderation/` | `SafeguardService` |
 | REST controller for a domain | Same folder as its Service | `MemberTypeController` → `MemberTypes/` |
 | Bridge adapter classes | `Bridges/` with `Bridge` suffix | `JetonomyBridge.php` |
-| Bridge listener classes | `Bridges/` with `BridgeListener` suffix | `JetonomyBridgeListener.php` |
+| Bridge listener classes | `Bridges/` with `BridgeListener` suffix | `GamificationBridgeListener.php` |
 | Admin-only UI helpers | `Admin/{SubPage}/` not `Admin/Helpers/` | `MemberDisplay` → `Admin/Members/` |
 | Directory/listing service | `Profile/` if it queries `WP_User_Query`; `Search/` only if it queries `bn_search_index` | `MemberDirectoryService` → `Profile/` |
 | Cron job runner | `Core/CronService.php` — no `Handlers` suffix | — |
@@ -249,8 +249,8 @@ Never use `init()` on a listener. Only Services and Admin registrars use `init()
 ### Bridge Naming Convention
 
 ```
-Bridges/JetonomyBridge.php          class JetonomyBridge          ← adapter
-Bridges/JetonomyBridgeListener.php  class JetonomyBridgeListener  ← hook registrar
+Bridges/GamificationBridge.php          class GamificationBridge          ← adapter
+Bridges/GamificationBridgeListener.php  class GamificationBridgeListener  ← hook registrar
 ```
 
 Never name a bridge adapter `class Jetonomy` — it reads like the external plugin class.
@@ -276,42 +276,30 @@ that surfaces partner content into the community) MUST:
    `IntegrationActivity::render_bridge_card( $args, $icon, $label )` — one uniform
    card (icon + source label + linked title) for every integration. Pass the SAME
    `$type` to `IntegrationActivity::remove()` on delete, or the card orphans.
-4. **Notifications: collect-only.** **BN never emails on a partner's behalf** —
-   the integration owns its own email templates; BN's center is a collective
-   display so members see everything in one place without double emails. There is
-   **one route per tier**, and every integration uses it. Do not hand-roll a
-   third.
+4. **Notifications: one contract, collect-only.** **BN never emails on a partner's
+   behalf** - the integration owns its text, its visibility rule and its email; BN's
+   center is a collective display so members see everything in one place without
+   double emails. There is **one route**, the community notification contract
+   (developer guide `30-hooks-notifications-email.md`), and a bridge writes no
+   notification of its own for a partner event:
 
-   **Pro bridges → `SuiteNotifications`** (`buddynext-pro/includes/Suite/SuiteNotifications.php`):
+   - The plugin passes one payload as the LAST argument of its existing
+     notification hook and declares its types on `{prefix}_community_notification_types`.
+     Declaring is the one switch: a payload is read only after it.
+   - It answers `{prefix}_community_notification_visible` (who may still see a row)
+     and fires `{prefix}_community_notification_removed( $object_type, $object_id )`
+     when an object is permanently deleted.
+   - `Notifications\IntegrationNotificationListener` stores the row (namespaced
+     type and object, block-aware, integration-toggle gated, `can_email = false`
+     catalogue entry, grouped rows count people). Register a new source on the
+     `buddynext_notification_sources` filter.
 
-   ```php
-   SuiteNotifications::register_source( 'events', __( 'Events' ), 'calendar', 'social' ); // once, toggle-gated
-   SuiteNotifications::push( $recipient_id, 'events', array(
-       'message' => $message, 'url' => $url, 'group_key' => $key, 'sender_id' => $actor,
-   ) );
-   ```
-
-   Types are prefixed `suite.` and `filter_catalogue()` hard-sets
-   `can_email => false` for all of them, so a Pro bridge **cannot** send a BN
-   email even by mistake. Used by Eventonomy, CareerBoard, Learnomy.
-
-   **Free bridges → the `JetonomyBridgeListener` pattern** (`includes/Bridges/JetonomyBridgeListener.php`).
-   Four obligations, none optional:
-   1. Register the type via `buddynext_notification_prefs_catalogue` with
-      `'can_email' => false` and `'default_email_freq' => 'off'`.
-   2. `buddynext_service( 'notifications' )->create( … )` with a `group_key` that
-      **keeps the partner subtype**, so re-fires dedupe but distinct events on one
-      object never collapse.
-   3. **Block-aware** — resolve the actor and drop the notification when the
-      recipient has blocked them.
-   4. **Default every optional hook arg.** A partner that fires 5 args where you
-      typed 7 is an `ArgumentCountError` in the partner's own write path; this
-      already 500'd Jetonomy reply creation once.
-
-   Both routes are integration-toggle gated. (Exception, documented: WPMediaVerse
-   DM/favorite types are BN-native — BN owns those and their email. Do not widen
-   it: MediaVerse reactions and mentions are the partner's, and go through the
-   free route with `can_email = false`.)
+   The old per-bridge routes (`GamificationBridgeListener` builders, the Pro
+   Learnomy and Eventonomy mirrors on `SuiteNotifications`) stand down once their
+   plugin declares its types and are deleted when that release is merged. Do not
+   add a new one. (Exception, documented: WPMediaVerse DM, favourite and comment
+   types are BN-native - BN owns those and their email. Do not widen it:
+   MediaVerse reactions and mentions are the partner's and use the contract.)
 5. **Profile presence.** Portfolio-ish content (jobs / listings / courses) → a
    `SuiteProfile` **panel** under the shared Portfolio tab. High-traffic social
    surfaces (Discussions, Achievements) → a top-level profile tab. Events keeps
@@ -873,7 +861,7 @@ mvs_can_send_message → checks bn_blocks
 // Jetonomy - feed card, search row and reply comments follow the publish transitions
 jetonomy_post_publish_transition( $post_id, $delta, $created_at )
 jetonomy_reply_publish_transition( $reply_id, $delta, $created_at )
-jetonomy_notification_created( ... )  // mirrored into the bell as jt.notification
+jetonomy_notification_created( ..., $payload )  // contract payload as the last argument; shown in the bell as jetonomy.*
 
 // WBGamification
 wb_gamification_badge_awarded( $user_id, $badge_id )
