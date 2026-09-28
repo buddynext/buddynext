@@ -3423,7 +3423,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	from { opacity: 0; transform: translateY(8px) scale(0.98); }
 	to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
-.bn-modal__panel[data-size="sm"] { max-width: 360px; }
+.bn-modal__panel[data-size="sm"] { max-width: 420px; }
 .bn-modal__panel[data-size="lg"] { max-width: 640px; }
 .bn-modal__panel[data-size="xl"] { max-width: 880px; }
 
@@ -3447,9 +3447,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 28px;
-	/* Explicit 0 so the close stays a clean 28x28 icon button even where a theme
+	/* 40px hit area (the shared control size); the negative margins hand the extra back
+		so the header keeps its height and the icon stays on the panel's padding line. */
+	width: 40px;
+	height: 40px;
+	margin-block: calc(-1 * var(--bn-s2));
+	margin-inline-end: calc(-1 * var(--bn-s2));
+	/* Explicit 0 so the close stays a clean icon button even where a theme
 		or composer button rule would otherwise leak padding onto the <button>. */
 	padding: 0;
 	border-radius: var(--bn-r-sm);
@@ -3459,9 +3463,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	cursor: pointer;
 	transition: background var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
 }
+.bn-modal__close svg { width: 18px; height: 18px; }
 .bn-modal__close:hover {
 	background: var(--bn-sunken);
 	color: var(--bn-ink);
+}
+.bn-modal__close:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
 }
 .bn-modal__body {
 	flex: 1;
@@ -3555,6 +3564,11 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	gap: var(--bn-s2);
 	padding: var(--bn-s3) var(--bn-s5) var(--bn-s5);
 	border-top: 1px solid var(--bn-line-faint);
+	/* The panel does not clip (a dropdown inside a modal must not be cut off), so the
+	   footer carries the panel's bottom radius itself or its square corners poke out. */
+	background: transparent;
+	border-end-start-radius: var(--bn-r-lg);
+	border-end-end-radius: var(--bn-r-lg);
 }
 .bn-modal[hidden],
 .bn-modal-backdrop[hidden],

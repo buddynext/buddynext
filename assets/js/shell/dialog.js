@@ -68,6 +68,10 @@ function buildModalFrame( opts ) {
 	if ( tone === 'danger' ) {
 		panel.setAttribute( 'data-tone', 'danger' );
 	}
+	// A confirm or prompt is the compact tier (420px); a form keeps the default 480px.
+	if ( opts.size ) {
+		panel.setAttribute( 'data-size', opts.size );
+	}
 
 	// Head.
 	const head = document.createElement( 'div' );
@@ -83,7 +87,7 @@ function buildModalFrame( opts ) {
 	closeBtn.type = 'button';
 	closeBtn.className = 'bn-modal__close';
 	closeBtn.setAttribute( 'aria-label', si( 'close', 'Close' ) );
-	closeBtn.textContent = '×';
+	closeBtn.innerHTML = CLOSE_ICON; // Lucide x, constant markup (declared below with the toast icons).
 	head.appendChild( closeBtn );
 
 	panel.appendChild( head );
@@ -189,7 +193,7 @@ export function bnConfirm( opts, legacyOpts ) {
 	if ( 'string' === typeof opts ) {
 		opts = Object.assign( { body: opts }, legacyOpts || {} );
 	}
-	const cfg = Object.assign( { tone: 'danger' }, opts || {} );
+	const cfg = Object.assign( { tone: 'danger', size: 'sm' }, opts || {} );
 
 	return new Promise( function ( resolve ) {
 		const trigger = document.activeElement;
@@ -258,7 +262,7 @@ export function bnConfirm( opts, legacyOpts ) {
  * @return {Promise<string|null>}
  */
 export function bnPrompt( opts ) {
-	const cfg = Object.assign( { tone: 'default' }, opts || {} );
+	const cfg = Object.assign( { tone: 'default', size: 'sm' }, opts || {} );
 
 	const isTextarea = 'textarea' === ( cfg.inputType || 'textarea' );
 	const input = document.createElement( isTextarea ? 'textarea' : 'input' );
@@ -639,7 +643,7 @@ const TOAST_ICONS = {
 	achievement: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
 };
 
-const TOAST_CLOSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+const CLOSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
 /**
  * The four toast statuses. Everything else a caller passes ('warn', 'warning', 'danger',
@@ -749,7 +753,7 @@ function paintToast( toast, o, dismiss ) {
 		close.type = 'button';
 		close.className = 'bn-toast__close';
 		close.setAttribute( 'aria-label', si( 'dismiss', 'Dismiss' ) );
-		close.innerHTML = TOAST_CLOSE_ICON; // Constant markup above.
+		close.innerHTML = CLOSE_ICON; // Constant markup above.
 		close.addEventListener( 'click', function ( e ) {
 			e.stopPropagation();
 			dismiss();
