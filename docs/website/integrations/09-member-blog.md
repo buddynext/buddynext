@@ -32,7 +32,7 @@ The card follows the post. If the post is unpublished, trashed, made private or 
 2. In Member Blog's settings, map its **dashboard page** - the front-end page where members write and manage their posts. BuddyNext reads this to build the "Write a new article" link.
 3. That is all. The Articles tab appears on member profiles automatically.
 
-To hide the tab across the site, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Platform > Integration Settings**. That control also governs the article cards in the feed, because both surfaces show the same thing: the member's WordPress posts.
+To hide the tab across the site, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Platform > Integration Settings**. That control also governs the article cards in the feed, because both surfaces show the same thing: the member's WordPress posts. It also decides whether author links open the member's profile; see [Member Profiles](../members/01-member-profiles.md).
 
 > **Note:** The tab appears only when Member Blog is active. Without it, members have no front-end way to write, so the tab would be empty for everyone except administrators - and the "Write a new article" link would have nowhere to point.
 
@@ -41,23 +41,6 @@ To hide the tab across the site, turn off the **nav** aspect of the **Blog posts
 The tab lists the member's posts in the standard WordPress `post` type, newest first, paginated. If your site teaches BuddyNext about additional post types through the `buddynext_site_tracking_post_types` filter, those appear on the tab and in the feed together - one change, both surfaces.
 
 Visitors and other members see published posts only. You see your own drafts, pending review and scheduled posts as well, each labelled.
-
-## Author links
-
-While the Articles tab is on, every author link on your site goes to the member's BuddyNext profile instead of the WordPress author archive. That covers the byline and author box under a post, category and search results, and any theme or plugin that builds its link with `get_author_posts_url()`. The `/author/` address itself is not touched and still opens.
-
-The link stays on the WordPress address in these cases:
-
-- the viewer is not allowed to see that member's profile (a private or followers-only profile), so a byline never leads to a wall;
-- the request is not a page a visitor reads: wp-admin, ajax, cron, the REST API, feeds and the sitemap.
-
-To keep WordPress author archives, return `false` from the `buddynext_author_link_to_profile` filter. It receives the author's user ID:
-
-```php
-add_filter( 'buddynext_author_link_to_profile', '__return_false' );
-```
-
-Turning off the **nav** aspect of the **Blog posts** integration, or deactivating Member Blog, also returns author links to the WordPress address.
 
 ## Pro
 

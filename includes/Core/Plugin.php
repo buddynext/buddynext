@@ -647,6 +647,9 @@ class Plugin {
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
 
+		// Author links (bylines, author boxes, archive headers) go to the member's profile.
+		( new \BuddyNext\Profile\AuthorLinkListener() )->register();
+
 		// Explore decks — busted on a block (the deck hides blocked members, and a block
 		// must bite immediately) and on new content.
 		( new \BuddyNext\Feed\ExploreListener() )->register();

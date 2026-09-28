@@ -51,13 +51,6 @@ class MemberBlogBridge {
 	private const INTEGRATION = 'blog';
 
 	/**
-	 * Per-request answers to "may this viewer see this author's profile", keyed viewer:author.
-	 *
-	 * @var array<string,bool>
-	 */
-	private array $profile_visible = array();
-
-	/**
 	 * Attach hooks. Called via the `buddynext_load_bridges` action (priority 25).
 	 *
 	 * Hooks are attached unconditionally and every surface self-guards at hook time,
@@ -68,7 +61,6 @@ class MemberBlogBridge {
 	public function init(): void {
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
-		add_filter( 'author_link', array( $this, 'filter_author_link' ), 10, 2 );
 
 		// REST read model for the member's articles so the app + developers render
 		// the Articles panel from data, not HTML. The handler self-reports
@@ -97,71 +89,6 @@ class MemberBlogBridge {
 	 */
 	public static function available(): bool {
 		return defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' );
-	}
-
-	/**
-	 * Whether the Articles profile tab is on: Member Blog is active and the owner has
-	 * left the blog integration's `nav` aspect enabled.
-	 *
-	 * One answer for everything that treats the profile as the member's article
-	 * archive - the tab itself and {@see self::filter_author_link()}.
-	 */
-	public static function profile_tab_enabled(): bool {
-		return self::available() && buddynext_integration_enabled( self::INTEGRATION, 'nav' );
-	}
-
-	/**
-	 * Send a WordPress author link to the member's BuddyNext profile.
-	 *
-	 * Bylines, author boxes and archive headers on any theme build their link with
-	 * get_author_posts_url(), which lands on `author_link`. The profile's Articles tab
-	 * is the member's article archive, so the link goes there instead of to a WordPress
-	 * archive the community does not style. The /author/ route is left alone; only the
-	 * link a visitor is handed changes.
-	 *
-	 * Stays out of everything that is not a front-end page: admin, ajax, cron, REST,
-	 * feeds and the users sitemap keep the WordPress URL. A viewer who may not see the
-	 * profile also keeps it, so a byline never leads to a wall. Sites that want the
-	 * WordPress URL back return false from `buddynext_author_link_to_profile`.
-	 *
-	 * @param string $link      Author archive URL.
-	 * @param int    $author_id Author user ID.
-	 * @return string
-	 */
-	public function filter_author_link( $link, $author_id ) {
-		$author_id = (int) $author_id;
-		if ( $author_id <= 0 || is_admin() || wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || is_feed() || '' !== (string) get_query_var( 'sitemap' ) ) {
-			return $link;
-		}
-		if ( ! self::profile_tab_enabled() ) {
-			return $link;
-		}
-
-		/**
-		 * Whether an author link should point at the member's BuddyNext profile.
-		 *
-		 * @param bool $to_profile True to use the profile URL (default).
-		 * @param int  $author_id  Author user ID.
-		 */
-		if ( ! apply_filters( 'buddynext_author_link_to_profile', true, $author_id ) ) {
-			return $link;
-		}
-
-		// A byline list repeats the same author; ask the privacy service once each.
-		$viewer = get_current_user_id();
-		$key    = $viewer . ':' . $author_id;
-		if ( ! isset( $this->profile_visible[ $key ] ) ) {
-			$privacy                       = buddynext_service( 'privacy' );
-			$this->profile_visible[ $key ] = $privacy instanceof \BuddyNext\SocialGraph\PrivacyService
-				&& $privacy->can_view_profile( $viewer, $author_id );
-		}
-		if ( ! $this->profile_visible[ $key ] ) {
-			return $link;
-		}
-
-		$profile = buddynext_member_url( $author_id );
-
-		return '' !== $profile ? $profile : $link;
 	}
 
 	/**
@@ -216,7 +143,8 @@ class MemberBlogBridge {
 	 * @param NavRegistry $registry Nav registry.
 	 */
 	public function register_nav_items( NavRegistry $registry ): void {
-		$enabled = static fn(): bool => self::profile_tab_enabled();
+		$enabled = static fn(): bool => self::available()
+			&& buddynext_integration_enabled( self::INTEGRATION, 'nav' );
 
 		$registry->register(
 			array(

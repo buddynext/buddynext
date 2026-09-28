@@ -7,17 +7,17 @@
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\Bridges;
+namespace BuddyNext\Tests\Profile;
 
-use BuddyNext\Bridges\MemberBlogBridge;
+use BuddyNext\Profile\AuthorLinkListener;
 use WP_UnitTestCase;
 
 /**
- * The profile's Articles tab is the member's article archive, so every author link a
- * theme builds with get_author_posts_url() is handed the profile instead - but only
- * where the profile can actually be opened by that viewer and only on the front end.
+ * Every author link a theme builds with get_author_posts_url() is handed the member's
+ * profile instead - but only where that viewer can open the profile and only on the
+ * front end. Member Blog is not involved: the rule holds with or without it.
  */
-class MemberBlogAuthorLinkTest extends WP_UnitTestCase {
+class AuthorLinkListenerTest extends WP_UnitTestCase {
 
 	/**
 	 * Author under test.
@@ -27,19 +27,16 @@ class MemberBlogAuthorLinkTest extends WP_UnitTestCase {
 	private int $author_id;
 
 	/**
-	 * Set up: an author, Member Blog "active", the filter attached to a fresh bridge.
+	 * Set up: an author and the filter attached to a fresh listener.
 	 *
 	 * @return void
 	 */
 	public function set_up(): void {
 		parent::set_up();
-		if ( ! defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ) ) {
-			define( 'BUDDYPRESS_MEMBER_BLOG_VERSION', '4.3.0' );
-		}
 		$this->author_id = self::factory()->user->create( array( 'user_login' => 'byline_author' ) );
 		wp_set_current_user( 0 );
 		remove_all_filters( 'author_link' );
-		( new MemberBlogBridge() )->init();
+		( new AuthorLinkListener() )->register();
 	}
 
 	/**
@@ -115,7 +112,7 @@ class MemberBlogAuthorLinkTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * The owner's blog Integrations nav switch turns the rewrite off with the tab.
+	 * The owner's blog Integrations nav switch turns the rewrite off with the Articles tab.
 	 *
 	 * @return void
 	 */
