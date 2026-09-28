@@ -176,6 +176,25 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jt.notification'", $this->recipient ) );
 	}
 
+	public function test_media_mention_old_route_stands_down_once_mediaverse_adopts(): void {
+		global $wpdb;
+		$bridge = new \BuddyNext\Bridges\WPMediaVerseBridge();
+		$count  = function (): int {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'bn.media_mention'", $this->recipient ) );
+		};
+
+		wp_set_current_user( $this->actor );
+		$bridge->on_media_mention( 77, array( $this->recipient ) );
+		$this->assertSame( 1, $count() );
+
+		add_filter( 'mvs_community_notification_types', array( $this, 'declare_types' ) );
+		$bridge->on_media_mention( 78, array( $this->recipient ) );
+		remove_filter( 'mvs_community_notification_types', array( $this, 'declare_types' ) );
+		$this->assertSame( 1, $count() );
+	}
+
 	/**
 	 * @param array<string,mixed> $page list_for_user() result.
 	 * @return array<int,array<string,mixed>>

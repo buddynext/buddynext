@@ -1672,6 +1672,12 @@ class WPMediaVerseBridge {
 	 * @param int    $comment_id    The comment carrying the mention.
 	 */
 	public function on_media_mention( int $media_id, array $mentioned_ids, string $context = '', int $comment_id = 0 ): void {
+		// Old route, same as on_media_reaction(): MediaVerse sends media_mention through
+		// the notification contract once it declares its types.
+		if ( IntegrationNotificationListener::adopted( 'mediaverse' ) ) {
+			return;
+		}
+
 		$actor_id = get_current_user_id();
 		if ( $actor_id <= 0 || $media_id <= 0 ) {
 			return;
