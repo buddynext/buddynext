@@ -176,6 +176,26 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jt.notification'", $this->recipient ) );
 	}
 
+	public function test_renotify_false_refreshes_the_row_quietly(): void {
+		$sent = 0;
+		$spy  = static function () use ( &$sent ): void {
+			++$sent;
+		};
+		add_action( 'buddynext_notification_created', $spy );
+		$this->fire( array( 'renotify' => false, 'message' => 'Best week: 12 points.' ) );
+		$service = buddynext_service( 'notifications' );
+		$service->mark_all_read( $this->recipient );
+		$this->fire( array( 'renotify' => false, 'message' => 'Best week: 30 points.' ) );
+		remove_action( 'buddynext_notification_created', $spy );
+
+		$rows = $this->rows();
+		$this->assertCount( 1, $rows );
+		$this->assertSame( 1, $sent, 'The repeat must not alert again.' );
+		$this->assertSame( 1, (int) $rows[0]['group_count'] );
+		$this->assertSame( 1, (int) $rows[0]['is_read'], 'The repeat keeps the read state.' );
+		$this->assertSame( 'Best week: 30 points.', json_decode( $rows[0]['data'], true )['message'] );
+	}
+
 	public function test_media_mention_old_route_stands_down_once_mediaverse_adopts(): void {
 		global $wpdb;
 		$bridge = new \BuddyNext\Bridges\WPMediaVerseBridge();

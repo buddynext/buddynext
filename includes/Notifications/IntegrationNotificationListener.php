@@ -214,6 +214,31 @@ class IntegrationNotificationListener implements ListenerInterface {
 		$group_key   = sanitize_key( (string) ( $payload['group_key'] ?? '' ) );
 		$context     = is_array( $payload['context'] ?? null ) ? $payload['context'] : array();
 
+		$group_key = '' !== $group_key ? $source . '_' . $group_key : '';
+		$data      = array(
+			'source'          => $source,
+			'subtype'         => $type,
+			'message'         => $message,
+			'message_grouped' => trim( wp_strip_all_tags( (string) ( $payload['message_grouped'] ?? '' ) ) ),
+			'url'             => $url,
+			'context'         => array(
+				'type'  => sanitize_key( (string) ( $context['type'] ?? '' ) ),
+				'id'    => (int) ( $context['id'] ?? 0 ),
+				'label' => sanitize_text_field( (string) ( $context['label'] ?? '' ) ),
+			),
+			'notification_id' => (int) ( $payload['notification_id'] ?? 0 ),
+		);
+
+		// A running notice (a personal record that keeps growing through the week)
+		// says renotify => false: repeats refresh the member's existing row quietly
+		// instead of re-surfacing it and pushing again.
+		if ( '' !== $group_key && false === ( $payload['renotify'] ?? true ) ) {
+			$existing = buddynext_service( 'notifications' )->update_data_by_group( $recipient, $group_key, $data );
+			if ( $existing > 0 ) {
+				return $existing;
+			}
+		}
+
 		return (int) buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $recipient,
@@ -222,20 +247,8 @@ class IntegrationNotificationListener implements ListenerInterface {
 				// Namespaced: a plugin's id is never read as a BuddyNext object.
 				'object_type'  => '' !== $object_type ? $source . '_' . $object_type : $source,
 				'object_id'    => (int) ( $payload['object_id'] ?? 0 ),
-				'group_key'    => '' !== $group_key ? $source . '_' . $group_key : null,
-				'data'         => array(
-					'source'          => $source,
-					'subtype'         => $type,
-					'message'         => $message,
-					'message_grouped' => trim( wp_strip_all_tags( (string) ( $payload['message_grouped'] ?? '' ) ) ),
-					'url'             => $url,
-					'context'         => array(
-						'type'  => sanitize_key( (string) ( $context['type'] ?? '' ) ),
-						'id'    => (int) ( $context['id'] ?? 0 ),
-						'label' => sanitize_text_field( (string) ( $context['label'] ?? '' ) ),
-					),
-					'notification_id' => (int) ( $payload['notification_id'] ?? 0 ),
-				),
+				'group_key'    => '' !== $group_key ? $group_key : null,
+				'data'         => $data,
 			)
 		);
 	}

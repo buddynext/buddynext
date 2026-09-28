@@ -101,7 +101,7 @@ Details:
   ) );
   ```
 
-  Declare your types on `{prefix}_community_notification_types` (slug => `label`, `description`, `default_on`) to give members a switch per type; answer `{prefix}_community_notification_visible` (`array $visible, int $viewer_id, array $targets`, return key => bool) to hide rows the viewer may no longer see; fire `{prefix}_community_notification_removed( $object_type, $object_id )` when an object is permanently deleted. A payload may carry `message_grouped`, with `{actor}` and `{others}` placeholders, for merged rows (`{others}` becomes a translated "1 other" / "3 others"). BuddyNext reads the payload only once your types are declared.
+  Declare your types on `{prefix}_community_notification_types` (slug => `label`, `description`, `default_on`) to give members a switch per type; answer `{prefix}_community_notification_visible` (`array $visible, int $viewer_id, array $targets`, return key => bool) to hide rows the viewer may no longer see; fire `{prefix}_community_notification_removed( $object_type, $object_id )` when an object is permanently deleted. A payload may carry `message_grouped`, with `{actor}` and `{others}` placeholders, for merged rows (`{others}` becomes a translated "1 other" / "3 others"). BuddyNext reads the payload only once your types are declared. For a running notice whose number only grows (a weekly best), add `'renotify' => false` with a `group_key` per period: repeats then refresh the existing row quietly instead of alerting again.
 - `buddynext_notification_group_label` names a settings section by its group key when BuddyNext does not own the group. Integration sections are named already.
 
 ## Preference hooks
