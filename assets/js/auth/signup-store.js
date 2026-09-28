@@ -429,7 +429,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 				toast( t( 'accountCreated', 'Account created. Welcome aboard!' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || '/onboarding/';
 			} catch ( _e ) {
-				c.error = t( 'genericError', 'Something went wrong. Please try again.' );
+				c.error = t( 'genericError', 'Something went wrong. Try again.' );
 				c.submitting = false;
 			}
 		},
@@ -495,7 +495,7 @@ const signupStore = store( 'buddynext/auth-signup', {
 				toast( t( 'accountCreated', 'Account created. Welcome aboard!' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || '/onboarding/';
 			} catch ( _e ) {
-				c.error = t( 'genericError', 'Something went wrong. Please try again.' );
+				c.error = t( 'genericError', 'Something went wrong. Try again.' );
 				c.submitting = false;
 			}
 		},

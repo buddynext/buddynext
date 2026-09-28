@@ -2523,7 +2523,7 @@ store( 'buddynext/post-card', {
 				)?.remove();
 			} else {
 				bnToast(
-					t( 'announcementDismissFailed', 'Could not dismiss this announcement. Please try again.' ),
+					t( 'announcementDismissFailed', 'Could not dismiss this announcement. Try again.' ),
 					{ tone: 'danger' }
 				);
 			}

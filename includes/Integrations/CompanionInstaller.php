@@ -141,7 +141,7 @@ final class CompanionInstaller {
 
 		return is_wp_error( $last )
 			? $last
-			: new WP_Error( 'buddynext_store_unreachable', __( 'The store did not respond after a retry. Please try again.', 'buddynext' ) );
+			: new WP_Error( 'buddynext_store_unreachable', __( 'The store did not respond after a retry. Try again.', 'buddynext' ) );
 	}
 
 	/**
@@ -165,7 +165,7 @@ final class CompanionInstaller {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store to activate the license. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store to activate the license. Try again.', 'buddynext' ) );
 		}
 
 		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
@@ -210,7 +210,7 @@ final class CompanionInstaller {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store. Try again.', 'buddynext' ) );
 		}
 
 		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );

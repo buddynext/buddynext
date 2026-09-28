@@ -98,7 +98,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			} );
 			if ( res.ok ) {
 				dropReportRow( ctx.reportId );
-				bnToast( t( 'contentRemoved', 'Content removed.' ), { tone: 'success' } );
+				bnToast( t( 'contentRemoved', 'Content removed' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'removeContentFailed', 'Could not remove the content. Try again.' ), { tone: 'danger' } );
 			}
@@ -117,7 +117,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			} );
 			if ( res.ok ) {
 				dropReportRow( ctx.reportId );
-				bnToast( t( 'reportResolved', 'Report resolved.' ), { tone: 'success' } );
+				bnToast( t( 'reportResolved', 'Report resolved' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'resolveFailed', 'Could not resolve the report. Try again.' ), { tone: 'danger' } );
 			}
@@ -137,7 +137,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				ctx.escalated      = true;
 				ctx.moreMenuOpen   = false;
-				bnToast( t( 'reportEscalated', 'Report escalated.' ), { tone: 'success' } );
+				bnToast( t( 'reportEscalated', 'Report escalated' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'escalateFailed', 'Could not escalate the report. Try again.' ), { tone: 'danger' } );
 			}
@@ -186,7 +186,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			} );
 			if ( res.ok ) {
 				ctx.cwHasWarning = true;
-				bnToast( t( 'cwAdded', 'Content warning applied.' ), { tone: 'success' } );
+				bnToast( t( 'cwAdded', 'Content warning applied' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
 			}
@@ -204,7 +204,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			} );
 			if ( res.ok ) {
 				ctx.cwHasWarning = false;
-				bnToast( t( 'cwCleared', 'Content warning cleared.' ), { tone: 'success' } );
+				bnToast( t( 'cwCleared', 'Content warning cleared' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
 			}
@@ -298,7 +298,7 @@ const moderationStore = store( 'buddynext/moderation', {
 
 			if ( res.ok ) {
 				ctx.strikes = Math.max( 0, strikes.length - 1 );
-				bnToast( t( 'strikeReversed', 'Strike reversed.' ), { tone: 'success' } );
+				bnToast( t( 'strikeReversed', 'Strike reversed' ), { tone: 'success' } );
 			} else {
 				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' );
 				bnToast( emsg, { tone: 'danger' } );
@@ -335,7 +335,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			const message = field ? field.value.trim() : '';
 			if ( ! ctx.suspensionId || ! ctx.restNonce ) { return; }
 			if ( message.length < 10 ) {
-				bnToast( t( 'appealTooShort', 'Please describe why you are appealing (at least 10 characters).' ), { tone: 'danger' } );
+				bnToast( t( 'appealTooShort', 'Describe why you are appealing (at least 10 characters).' ), { tone: 'danger' } );
 				if ( field ) { field.focus(); }
 				return;
 			}
@@ -376,7 +376,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( t( 'appealApproved', 'Appeal approved — suspension lifted.' ), { tone: 'success' } );
+				bnToast( t( 'appealApproved', 'Appeal approved. Suspension lifted' ), { tone: 'success' } );
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
@@ -403,7 +403,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( t( 'appealDenied', 'Appeal denied.' ), { tone: 'success' } );
+				bnToast( t( 'appealDenied', 'Appeal denied' ), { tone: 'success' } );
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {

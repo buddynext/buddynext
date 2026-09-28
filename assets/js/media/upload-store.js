@@ -435,7 +435,7 @@ function bindRegionDelete() {
 			if ( cell ) {
 				cell.remove();
 			}
-			bnToast( t( 'removed', 'Media removed.' ), { tone: 'success' } );
+			bnToast( t( 'removed', 'Media removed' ), { tone: 'success' } );
 		} else {
 			bnToast( t( 'removeFailed', 'Could not remove.' ), { tone: 'danger' } );
 		}

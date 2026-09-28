@@ -401,7 +401,7 @@ class GamificationKudos {
 			case 'wb_gam_kudos_busy':
 				return __( 'Kudos is busy right now. Please try again in a moment.', 'buddynext' );
 			default:
-				return __( 'Could not send kudos right now. Please try again.', 'buddynext' );
+				return __( 'Could not send kudos right now. Try again.', 'buddynext' );
 		}
 	}
 }

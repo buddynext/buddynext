@@ -844,10 +844,10 @@ async function doSave( ctx ) {
 			surfaceFieldErrors( json.errors );
 			bnToast( t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 		} else {
-			bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+			bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
 		}
 	} catch ( _e ) {
-		bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+		bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
 	} finally {
 		ctx.saving = false;
 	}
@@ -1214,7 +1214,7 @@ const profileStore = store( 'buddynext/profile', {
 				URL.revokeObjectURL( url );
 				bnToast( t( 'dataExportDownloaded', 'Your data export has downloaded.' ), 'success' );
 			} catch ( _e ) {
-				bnToast( t( 'dataExportFailed', 'Could not export your data. Please try again.' ), 'danger' );
+				bnToast( t( 'dataExportFailed', 'Could not export your data. Try again.' ), 'danger' );
 			} finally {
 				if ( btn ) { btn.disabled = false; }
 			}
@@ -1228,7 +1228,7 @@ const profileStore = store( 'buddynext/profile', {
 			// action's synchronous portion; reading it after `await bnConfirm()`
 			// has resolved throws, and because that throw happens before
 			// restFetch() is ever called, the catch below fired and showed
-			// "Could not delete your account. Please try again." while NO DELETE
+			// "Could not delete your account. Try again." while NO DELETE
 			// request was sent. The account was never deleted and the member had
 			// no way to tell the difference from a server refusal.
 			var ctx = getContext();
@@ -1275,7 +1275,7 @@ const profileStore = store( 'buddynext/profile', {
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.disabled = false; }
-				bnToast( t( 'deleteAccountFailedRetry', 'Could not delete your account. Please try again.' ), 'danger' );
+				bnToast( t( 'deleteAccountFailedRetry', 'Could not delete your account. Try again.' ), 'danger' );
 			}
 		},
 
@@ -1360,7 +1360,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
 				bnToast( t( 'prefSaved', 'Preference saved' ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+				bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1453,7 +1453,7 @@ const profileStore = store( 'buddynext/profile', {
 			} catch ( _e ) {
 				btn.setAttribute( 'aria-checked', prev ? 'true' : 'false' );
 				bnToast(
-					t( 'saveFailed', 'Could not save. Please try again.' ),
+					t( 'saveFailed', 'Could not save. Try again.' ),
 					{ tone: 'danger' }
 				);
 			}
@@ -2356,7 +2356,7 @@ const profileStore = store( 'buddynext/profile', {
 					if ( conInput ) { conInput.value = ''; }
 					ctx.passwordStrength = 0;
 					ctx.passwordStrengthLabel = '';
-					bnToast( t( 'passwordUpdated', 'Password updated.' ), { tone: 'success' } );
+					bnToast( t( 'passwordUpdated', 'Password updated' ), { tone: 'success' } );
 				} else if ( res.status === 422 && json && json.errors ) {
 					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
 				} else {
@@ -2381,7 +2381,7 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				bnToast( t( 'signedOutEverywhere', 'Signed out of every other session.' ), { tone: 'success' } );
+				bnToast( t( 'signedOutEverywhere', 'Signed out of every other session' ), { tone: 'success' } );
 			} catch ( _e ) {
 				bnToast( t( 'signOutFailed', 'Could not sign out everywhere. Try again.' ), { tone: 'danger' } );
 			} finally {

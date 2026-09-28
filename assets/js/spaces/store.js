@@ -562,7 +562,7 @@ async function moderateJoinRequest( event, action ) {
 	} catch ( _e ) {
 		if ( row ) { row.style.opacity = '1'; }
 		for ( var k = 0; k < rowBtns.length; k++ ) { rowBtns[ k ].disabled = false; }
-		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 	}
 }
 
@@ -796,7 +796,7 @@ async function saveInviteLink( spaceId, body, trigger ) {
 		if ( window.bnToast ) { window.bnToast( ( res.data && res.data.message ) || t( 'inviteSaveFailed', 'Could not save the invite link.' ), 'danger' ); }
 	} catch ( _e ) {
 		if ( btn ) { btn.disabled = false; }
-		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 	}
 }
 
@@ -883,7 +883,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 			}
 		},
 
@@ -936,7 +936,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					tone:         'danger',
 					title:        t( 'inviteRevokeTitle', 'Turn off the invite link?' ),
 					body:         t( 'inviteRevokeBody', 'The current link stops working immediately and can’t be restored. People who already joined stay members.' ),
-					confirmLabel: t( 'inviteRevokeConfirm', 'Revoke link' ),
+					confirmLabel: t( 'inviteRevokeConfirm', 'Turn off link' ),
 				} );
 				if ( ! ok ) { return; }
 			}
@@ -1082,7 +1082,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 			}
 		},
 
@@ -1973,7 +1973,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent' ), 'success' ); }
 					closeAllSpaceModals();
 				} else {
 					var data = res.data || {};
@@ -2191,7 +2191,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					showCreateSpaceError( form, '_global', t( 'couldNotCreateSpace', 'Could not create the space.' ) );
 				}
 			} catch ( _e ) {
-				showCreateSpaceError( form, '_global', t( 'networkErrorRetry', 'Network error. Please try again.' ) );
+				showCreateSpaceError( form, '_global', t( 'networkErrorRetry', 'Network error. Try again.' ) );
 			} finally {
 				if ( btn ) {
 					btn.disabled    = false;
@@ -3562,7 +3562,7 @@ document.addEventListener( 'keydown', function ( event ) {
 					} ).then( function ( data ) {
 						paint( data.cover_image_url || '', focal );
 						paintSpaceHeader( 'cover', data.cover_image_url || '', undefined, focal );
-						if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated.' ), 'success' ); }
+						if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated' ), 'success' ); }
 					} ).catch( function ( err ) {
 						if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotUploadCover', 'Could not upload cover.' ), 'danger' ); }
 					} ).finally( function () {

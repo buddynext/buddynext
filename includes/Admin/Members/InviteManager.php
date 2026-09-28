@@ -251,7 +251,7 @@ class InviteManager {
 						esc_html_e( 'Could not resend the invite: it may no longer exist.', 'buddynext' );
 						break;
 					case 'invited_one':
-						esc_html_e( 'Invitation sent.', 'buddynext' );
+						esc_html_e( 'Invitation sent', 'buddynext' );
 						break;
 					case 'invite_dupe':
 						esc_html_e( 'That email already has a pending invite or an account.', 'buddynext' );

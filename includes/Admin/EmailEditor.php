@@ -884,7 +884,7 @@ class EmailEditor {
 			);
 			?>
 		<?php elseif ( 0 === $updated ) : ?>
-			<?php AdminPageBase::render_notice( __( 'Save failed. Please try again.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'updated' ) ); ?>
+			<?php AdminPageBase::render_notice( __( 'Save failed. Try again.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'updated' ) ); ?>
 		<?php endif; ?>
 
 		<?php if ( 1 === $tested ) : ?>

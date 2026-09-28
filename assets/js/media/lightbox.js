@@ -354,7 +354,7 @@
 		var msg = I18N.unlinkConfirm || 'Remove this from the space?';
 		Promise.resolve(
 			typeof window.bnConfirm === 'function'
-				? window.bnConfirm( { title: msg, tone: 'danger' } )
+				? window.bnConfirm( { title: msg, body: I18N.unlinkBody || '', confirmLabel: I18N.unlinkAction || 'Remove', tone: 'danger' } )
 				// The accessible bnConfirm is exposed on window by shell/dialog.js.
 				// If it is somehow not loaded we do NOT fall back to a native
 				// window.confirm on a member-facing surface - skip the action, the
@@ -366,10 +366,10 @@
 				nonce: cfg.nonce || '', method: 'POST', toastOnError: false,
 			} ).then( function ( res ) {
 				if ( res && res.ok ) {
-					if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.unlinkDone || 'Removed from the space.', { tone: 'success' } ); }
+					if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.unlinkDone || 'Removed from the space', { tone: 'success' } ); }
 					close();
 				} else if ( typeof window.bnToast === 'function' ) {
-					window.bnToast( I18N.unlinkFail || 'Could not remove it from the space.', { tone: 'danger' } );
+					window.bnToast( I18N.unlinkFail || 'Could not remove it from the space. Try again.', { tone: 'danger' } );
 				}
 			} );
 		} );

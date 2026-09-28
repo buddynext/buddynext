@@ -150,6 +150,8 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 				title: t( 'unbanMemberTitle', 'Unban this member?' ),
 				body: t( 'unbanMemberBody', 'They will be able to request or join this space again.' ),
 				confirmLabel: t( 'unban', 'Unban' ),
+				// Lifting a ban restores access; nothing is lost, so it is not a danger dialog.
+				tone: 'default',
 			} );
 			if ( ! ok ) { return; }
 			try {
@@ -191,7 +193,7 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					bnToast( t( 'inviteSent', 'Invitation sent.' ), { tone: 'success' } );
+					bnToast( t( 'inviteSent', 'Invitation sent' ), { tone: 'success' } );
 					if ( input ) { input.value = ''; }
 				} else {
 					const msg = ( res.data && res.data.message ) ? res.data.message : t( 'inviteFailed', 'Could not send the invitation.' );

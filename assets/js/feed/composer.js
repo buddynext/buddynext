@@ -1047,7 +1047,7 @@ store( 'buddynext/post-composer', {
 					} catch ( _e ) {
 						ctx.documentId   = 0;
 						ctx.documentName = '';
-						bnToast( t( 'documentUploadFailed', 'That document could not be uploaded. Please try again.' ), { tone: 'error' } );
+						bnToast( t( 'documentUploadFailed', 'That document could not be uploaded. Try again.' ), { tone: 'error' } );
 					} finally {
 						ctx.documentUploading = false;
 						docInput.value        = '';

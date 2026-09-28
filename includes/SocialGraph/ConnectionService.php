@@ -217,7 +217,7 @@ class ConnectionService {
 			if ( false === $reopened ) {
 				return new WP_Error(
 					'db_error',
-					__( 'The connection request could not be saved. Please try again.', 'buddynext' )
+					__( 'The connection request could not be saved. Try again.', 'buddynext' )
 				);
 			}
 
@@ -260,7 +260,7 @@ class ConnectionService {
 		if ( false === $inserted ) {
 			return new WP_Error(
 				'db_error',
-				__( 'The connection request could not be saved. Please try again.', 'buddynext' )
+				__( 'The connection request could not be saved. Try again.', 'buddynext' )
 			);
 		}
 

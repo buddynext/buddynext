@@ -50,7 +50,7 @@ class IntegrationControlsAdmin {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_flag = isset( $_GET['bn_intctl'] ) ? sanitize_key( wp_unslash( $_GET['bn_intctl'] ) ) : '';
 		if ( 'error' === $bn_flag ) {
-			AdminPageBase::render_notice( __( 'Could not save integration settings. Please try again.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( __( 'Could not save integration settings. Try again.', 'buddynext' ), 'error' );
 		} elseif ( '' !== $bn_flag ) {
 			AdminPageBase::render_notice( __( 'Integration settings saved.', 'buddynext' ), 'success' );
 		}

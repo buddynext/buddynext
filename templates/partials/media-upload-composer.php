@@ -58,7 +58,7 @@ $bn_mu_ctx = array(
 		'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
 		/* translators: %s: comma-separated list of space album names. */
 		'confirmDeleteInSpaces' => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
-		'removed'               => __( 'Media removed.', 'buddynext' ),
+		'removed'               => __( 'Media removed', 'buddynext' ),
 		'removeFailed'          => __( 'Could not remove.', 'buddynext' ),
 	),
 );

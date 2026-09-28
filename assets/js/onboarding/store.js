@@ -324,7 +324,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 							} )
 							.catch( ( err ) => {
 								c.saving = false;
-								c.error  = ( err && err.message ) || t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' );
+								c.error  = ( err && err.message ) || t( 'toastInterestsSaveFailed', 'Could not save your interests. Try again.' );
 								toast( c.error, 'danger' );
 							} );
 					} else {
@@ -333,7 +333,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 				} )
 				.catch( ( err ) => {
 					c.saving = false;
-					c.error  = ( err && err.message ) || t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' );
+					c.error  = ( err && err.message ) || t( 'toastInterestsSaveFailed', 'Could not save your interests. Try again.' );
 					toast( c.error, 'danger' );
 				} );
 		},
@@ -442,7 +442,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 						btn.setAttribute( 'aria-pressed', 'true' );
 					}
 					c.joinedSpaces = rollback;
-					toast( ( err && err.message ) || t( 'toastSpaceUpdateFailed', 'Could not update space. Please try again.' ), 'danger' );
+					toast( ( err && err.message ) || t( 'toastSpaceUpdateFailed', 'Could not update space. Try again.' ), 'danger' );
 				} );
 		},
 		followSuggestedUser( event ) {
@@ -492,7 +492,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 						btn.classList.add( 'is-following' );
 					}
 					c.followingUsers = rollback;
-					toast( ( err && err.message ) || t( 'toastFollowUpdateFailed', 'Could not update follow. Please try again.' ), 'danger' );
+					toast( ( err && err.message ) || t( 'toastFollowUpdateFailed', 'Could not update follow. Try again.' ), 'danger' );
 				} );
 		},
 		triggerAvatarUpload() {
@@ -539,7 +539,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 							// Surface the server's specific reason (avatar_too_large /
 							// avatar_dimensions / avatar_invalid_type) instead of a
 							// generic failure, so the user knows what to change.
-							const msg = r.data && r.data.message ? r.data.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Please try again.' );
+							const msg = r.data && r.data.message ? r.data.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Try again.' );
 							throw new Error( msg );
 						}
 						return r.data;
@@ -554,7 +554,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 						toast( t( 'toastPhotoUpdated', 'Profile photo updated.' ), 'success' );
 					} )
 					.catch( ( err ) => {
-						toast( err && err.message ? err.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Please try again.' ), 'danger' );
+						toast( err && err.message ? err.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Try again.' ), 'danger' );
 					} )
 					.finally( () => {
 						c.avatarUploading = false;
@@ -682,7 +682,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 				if ( ! channelRes.ok ) {
 					// Channel prefs live on the last step — leave the member where they
 					// are rather than bouncing them backwards for an unrelated failure.
-					stop( 0, reason( channelRes, t( 'errorChannelsSaveFailed', 'Your notification settings could not be saved. Please try again.' ) ) );
+					stop( 0, reason( channelRes, t( 'errorChannelsSaveFailed', 'Your notification settings could not be saved. Try again.' ) ) );
 					return;
 				}
 
@@ -695,7 +695,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 					},
 				} );
 				if ( ! doneRes.ok ) {
-					stop( 0, reason( doneRes, t( 'toastFinishFailed', 'Could not finish onboarding. Please try again.' ) ) );
+					stop( 0, reason( doneRes, t( 'toastFinishFailed', 'Could not finish onboarding. Try again.' ) ) );
 					return;
 				}
 
@@ -705,7 +705,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			} catch ( _e ) {
 				// Network/transport failure — restFetch resolves rather than throws, so
 				// this is the truly unexpected path.
-				stop( 0, t( 'errorGeneric', 'Something went wrong. Please try again.' ) );
+				stop( 0, t( 'errorGeneric', 'Something went wrong. Try again.' ) );
 			}
 		},
 	},

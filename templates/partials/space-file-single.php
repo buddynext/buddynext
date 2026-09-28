@@ -113,7 +113,7 @@ if ( $bn_fs_can_share ) {
 			'remove'   => __( 'Remove', 'buddynext' ),
 			'noShares' => __( 'Not shared with anyone yet.', 'buddynext' ),
 			'link'     => __( 'Anyone with the link', 'buddynext' ),
-			'error'    => __( 'Something went wrong. Please try again.', 'buddynext' ),
+			'error'    => __( 'Something went wrong. Try again.', 'buddynext' ),
 		),
 	);
 }

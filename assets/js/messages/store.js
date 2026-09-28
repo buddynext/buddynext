@@ -874,7 +874,7 @@ const messagesStore = store( 'buddynext/messages', {
 							dMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
 							break;
 						default:
-							dMsg = t( 'sendFailed', 'Could not send. Please try again.' );
+							dMsg = t( 'sendFailed', 'Could not send. Try again.' );
 							break;
 					}
 					bnToast( dMsg, { tone: 'danger' } );
@@ -983,7 +983,7 @@ const messagesStore = store( 'buddynext/messages', {
 						denyMsg = '';
 						break; // dedupe guard — the message already went through.
 					default:
-						denyMsg = t( 'sendDeniedGeneric', 'Your message couldn’t be sent. Please try again.' );
+						denyMsg = t( 'sendDeniedGeneric', 'Your message couldn’t be sent. Try again.' );
 						break;
 				}
 				if ( denyMsg ) {
@@ -1770,7 +1770,7 @@ const messagesStore = store( 'buddynext/messages', {
 			try {
 				const r = yield actions.groupApi( 'PUT', '', { title: String( ctx.activeGroupName || '' ).trim() } );
 				ctx.groupBusy = false;
-				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( t( 'groupRenamed', 'Group renamed.' ), { tone: 'success' } ); }
+				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( t( 'groupRenamed', 'Group renamed' ), { tone: 'success' } ); }
 				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;

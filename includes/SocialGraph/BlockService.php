@@ -86,7 +86,7 @@ class BlockService {
 		// A failed write must surface as an error, not a false success — otherwise
 		// we would bust the cache and fire buddynext_block while no row was stored.
 		if ( false === $result ) {
-			return new WP_Error( 'block_failed', __( 'Could not block this user. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'block_failed', __( 'Could not block this user. Try again.', 'buddynext' ) );
 		}
 
 		// Capture the insert's affected-row count NOW: the unfollow / connection
@@ -198,7 +198,7 @@ class BlockService {
 
 		// Surface a failed write instead of reporting a false success.
 		if ( false === $result ) {
-			return new WP_Error( 'mute_failed', __( 'Could not mute this user. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'mute_failed', __( 'Could not mute this user. Try again.', 'buddynext' ) );
 		}
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
@@ -291,7 +291,7 @@ class BlockService {
 
 		// Surface a failed write instead of reporting a false success.
 		if ( false === $result ) {
-			return new WP_Error( 'restrict_failed', __( 'Could not restrict this user. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'restrict_failed', __( 'Could not restrict this user. Try again.', 'buddynext' ) );
 		}
 
 		$this->invalidate_block_cache( $actor_id, $target_id );

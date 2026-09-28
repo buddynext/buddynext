@@ -1375,7 +1375,7 @@ class ModerationService {
 		if ( false === $updated ) {
 			return new WP_Error(
 				'strike_reverse_failed',
-				__( 'Could not reverse the strike. Please try again.', 'buddynext' ),
+				__( 'Could not reverse the strike. Try again.', 'buddynext' ),
 				array( 'status' => 500 )
 			);
 		}

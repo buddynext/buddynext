@@ -109,7 +109,7 @@ class IsolationAdmin {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_flag = isset( $_GET['bn_isolation'] ) ? sanitize_key( wp_unslash( $_GET['bn_isolation'] ) ) : '';
 		if ( 'error' === $bn_flag ) {
-			AdminPageBase::render_notice( __( 'Could not save the isolation allow-list. Please try again.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( __( 'Could not save the isolation allow-list. Try again.', 'buddynext' ), 'error' );
 		} elseif ( '' !== $bn_flag ) {
 			AdminPageBase::render_notice( __( 'Plugin isolation settings saved.', 'buddynext' ), 'success' );
 		}

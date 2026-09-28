@@ -115,7 +115,7 @@ class RolesTab {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_roles_flag = isset( $_GET['bn_roles'] ) ? sanitize_key( wp_unslash( $_GET['bn_roles'] ) ) : '';
 		if ( 'error' === $bn_roles_flag ) {
-			AdminPageBase::render_notice( __( 'Could not save role permissions. Please try again.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( __( 'Could not save role permissions. Try again.', 'buddynext' ), 'error' );
 		} elseif ( '' !== $bn_roles_flag ) {
 			AdminPageBase::render_notice( __( 'Role permissions saved.', 'buddynext' ), 'success' );
 		}

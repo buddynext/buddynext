@@ -73,7 +73,7 @@ const spaceFieldsStore = store( 'buddynext/space-fields', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					bnToast( t( 'saved', 'Fields saved.' ), { tone: 'success' } );
+					bnToast( t( 'saved', 'Fields saved' ), { tone: 'success' } );
 				} else {
 					const errs = ( res.data && res.data.errors ) || {};
 					let shown = 0;

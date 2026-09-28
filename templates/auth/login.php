@@ -37,7 +37,7 @@ $login_error = '';
 if ( isset( $_GET['login'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$login_param = sanitize_text_field( wp_unslash( $_GET['login'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	if ( 'failed' === $login_param ) {
-		$login_error = __( 'Incorrect username or password. Please try again.', 'buddynext' );
+		$login_error = __( 'Incorrect username or password. Try again.', 'buddynext' );
 	} elseif ( 'invalidcombo' === $login_param ) {
 		$login_error = __( 'No account found with that email address.', 'buddynext' );
 	}

@@ -519,7 +519,7 @@ class MediaController extends BaseRestController {
 		if ( ! $trashed ) {
 			return new WP_Error(
 				'bn_media_delete_failed',
-				__( 'Could not remove that media. Please try again.', 'buddynext' ),
+				__( 'Could not remove that media. Try again.', 'buddynext' ),
 				array( 'status' => 500 )
 			);
 		}

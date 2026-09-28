@@ -202,6 +202,18 @@ else
 	note "bin/check-tap-targets.sh missing"
 fi
 
+# 3b. Popup copy conformance: every confirm names its action, one voice for retries
+section "Popup copy"
+if [ -x bin/check-dialogs.sh ]; then
+	if bin/check-dialogs.sh; then
+		:
+	else
+		fail "popup copy does not conform - see bin/check-dialogs.sh"
+	fi
+else
+	note "bin/check-dialogs.sh missing"
+fi
+
 # 3a. Icon set conformance — Lucide-style, no baked-in sizes
 section "Icon set"
 if [ -x bin/check-icons.sh ]; then

@@ -618,7 +618,7 @@ class PostService {
 		if ( $post_id <= 0 ) {
 			return new WP_Error(
 				'post_not_saved',
-				__( 'Your post could not be saved. Please try again.', 'buddynext' ),
+				__( 'Your post could not be saved. Try again.', 'buddynext' ),
 				array(
 					'status' => 500,
 					'db'     => $wpdb->last_error,
@@ -2198,7 +2198,7 @@ class PostService {
 			}
 			return new WP_Error(
 				'post_delete_failed',
-				__( 'The post could not be deleted. Please try again.', 'buddynext' ),
+				__( 'The post could not be deleted. Try again.', 'buddynext' ),
 				array( 'status' => 500 )
 			);
 		}

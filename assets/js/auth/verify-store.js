@@ -61,12 +61,12 @@ function* sendResend( c ) {
 			c.tone = 'success';
 			toast( c.feedback, 'success' );
 		} else {
-			c.feedback = ( data && data.message ) || t( 'genericError', 'Something went wrong. Please try again.' );
+			c.feedback = ( data && data.message ) || t( 'genericError', 'Something went wrong. Try again.' );
 			c.tone = 'danger';
 			toast( c.feedback, 'danger' );
 		}
 	} catch ( _e ) {
-		c.feedback = t( 'genericError', 'Something went wrong. Please try again.' );
+		c.feedback = t( 'genericError', 'Something went wrong. Try again.' );
 		c.tone = 'danger';
 		toast( c.feedback, 'danger' );
 	}

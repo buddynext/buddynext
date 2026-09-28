@@ -119,9 +119,11 @@ class MediaAssets {
 					'saved'            => __( 'Saved', 'buddynext' ),
 					'removedFromSaved' => __( 'Removed from saved', 'buddynext' ),
 					// Moderator "Remove from space" (unlink) confirm + result toasts.
-					'unlinkConfirm'    => __( 'Remove this from the space? The member keeps their own copy.', 'buddynext' ),
-					'unlinkDone'       => __( 'Removed from the space.', 'buddynext' ),
-					'unlinkFail'       => __( 'Could not remove it from the space.', 'buddynext' ),
+					'unlinkConfirm'    => __( 'Remove this from the space?', 'buddynext' ),
+					'unlinkBody'       => __( 'The member keeps their own copy.', 'buddynext' ),
+					'unlinkAction'     => __( 'Remove', 'buddynext' ),
+					'unlinkDone'       => __( 'Removed from the space', 'buddynext' ),
+					'unlinkFail'       => __( 'Could not remove it from the space. Try again.', 'buddynext' ),
 				),
 			)
 		);
