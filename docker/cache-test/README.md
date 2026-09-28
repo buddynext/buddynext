@@ -47,6 +47,10 @@ logged-in visitors too.
    loaded twice; the second load must be a fresh render.
 3. **Guests still get the cache**, including hub sub-routes (Explore, the
    leaderboard, a profile), and never a cached login page.
+4. **A new public post reaches guests without a manual purge.** A guest copy of
+   Explore is cached, the member posts through REST (a real web request, because
+   LiteSpeed purges by response header), and the guest must see the post on the
+   next load. Proven by disabling the purge and watching it fail on every cache.
 
 "Fresh or cached" is read from a render stamp the bench adds to every page (a
 `<meta name="bn-bench-render">` with a per-request id), not from any one

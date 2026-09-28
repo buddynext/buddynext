@@ -142,6 +142,32 @@ for path in /spaces/ /activity/explore/ /activity/leaderboard/ /members/admin/ /
 	fi
 done
 
+# 4. A new public post reaches guests without a manual purge (card 10345223677).
+#    The author is logged in and bypasses the cache, so only a guest exposes a
+#    stale page. Warm the guest copy, post as the member through REST (a real web
+#    request: LiteSpeed purges by response header, which a CLI write cannot send),
+#    then read Explore as a guest. /activity/ redirects to Explore. The body is
+#    read into a variable first: under pipefail, `curl | grep -q` fails whenever
+#    grep exits before curl finishes writing a large page.
+if [ "$CACHE" != none ]; then
+	purge
+	curl -s "$BASE/activity/explore/" >/dev/null; sleep 1; curl -s "$BASE/activity/explore/" >/dev/null
+	TAG="bnpurgeprobe$(date +%s)"
+	NONCE="$(curl -s -b "$JAR" "$BASE/wp-admin/admin-ajax.php?action=rest-nonce")"
+	POST_ID="$(curl -s -b "$JAR" -H "X-WP-Nonce: $NONCE" -H 'Content-Type: application/json' \
+		-d "{\"type\":\"text\",\"content\":\"$TAG\",\"privacy\":\"public\"}" "$BASE/wp-json/buddynext/v1/posts" \
+		| grep -o '"id":[0-9]*' | head -1 | grep -o '[0-9]*')"
+	sleep 2
+	if [ -z "$POST_ID" ]; then
+		fail "could not create the probe post as the member (no post id returned)"
+	elif BODY="$(curl -s "$BASE/activity/explore/")"; [[ "$BODY" == *"$TAG"* ]]; then
+		pass "guest /activity/explore/ shows a new public post without a manual purge"
+	else
+		fail "guest /activity/explore/ still serves the cached page after a new public post (post $POST_ID)"
+	fi
+	[ -n "$POST_ID" ] && curl -s -o /dev/null -b "$JAR" -H "X-WP-Nonce: $NONCE" -X DELETE "$BASE/wp-json/buddynext/v1/posts/$POST_ID"
+fi
+
 cache_off
 rm -f "$JAR"
 echo "== $CACHE: $FAILS failure(s)"

@@ -120,6 +120,9 @@ final class StateReset implements BeforeTestHook {
 		// not survive a test whose invite/space rows rolled back underneath it, or
 		// one test's unlock leaks into another.
 		\BuddyNext\Spaces\SpaceVisibility::class          => array( 'invite_unlocked' => array() ),
+		// Per-REQUEST memo of feed URLs already purged from the page cache. A leftover
+		// entry mutes the next test's purge.
+		\BuddyNext\Core\PageCachePurger::class            => array( 'purged' => array() ),
 		// Per-REQUEST guard: the space whose dead invite link was already reported.
 		// A leftover value mutes the next test's card write.
 		\BuddyNext\Spaces\SpaceInviteLinkService::class   => array( 'dead_link_space' => 0 ),

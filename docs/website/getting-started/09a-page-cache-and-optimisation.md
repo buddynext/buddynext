@@ -15,6 +15,8 @@ A page cache stores a finished page and serves the same copy to the next visitor
 
 Guests still get cached copies of public pages (Explore, open spaces, public profiles and posts), which is where a page cache speeds a community up the most.
 
+**New posts reach guests without a manual purge.** A community post is not a WordPress post, so a page cache's own "purge when a post is published" rule never fires for it. Since 1.2.2, when a post is created, edited, approved, hidden, restored or deleted, BuddyNext purges the pages that list it: Explore and the Activity hub, the site's front page, the post's own page, its author's profile, and the space page for a space post. It purges through WP Rocket, LiteSpeed Cache, W3 Total Cache and WP Super Cache directly. Developers add another cache (Cloudflare APO, Varnish) on the `buddynext_purge_page_cache` action.
+
 BuddyNext does this with the WordPress-standard `DONOTCACHEPAGE` signal, plus `Cache-Control: no-store` headers for reverse proxies and browsers.
 
 WP Rocket normally skips caching any page whose address differs from its page's permalink, which would have left every profile, post and sub-page (such as Explore) uncached for guests. BuddyNext tells WP Rocket these are its own valid pages, so guests get them cached and optimised like any other page.
@@ -29,6 +31,7 @@ Each cache was set to its riskiest setting for a community: **caching logged-in 
 | W3 Total Cache | Page cache on (Disk), "Don't cache pages for logged in users" off | Members always get fresh pages; guests get cached pages |
 | WP Rocket | User Cache add-on on | Members always get fresh pages; guests get cached pages, including profiles and sub-pages |
 | LiteSpeed Cache on OpenLiteSpeed | Cache on, "Cache Logged-in Users" on | Members always get fresh pages; guests get cached pages |
+| WP Super Cache, W3 Total Cache, WP Rocket, LiteSpeed Cache | A member publishes a public post while a guest copy of Explore is cached | A guest sees the new post on the next load, with no manual purge |
 | Autoptimize | Optimise JS and CSS, aggregate JS, include inline JS, optimise for logged-in users | Onboarding and the post composer work; no script errors |
 | LiteSpeed Cache page optimisation | JS minify, "JS Combine", "Load JS Deferred" set to Delayed, CSS minify and combine, for logged-in users too | Onboarding and the post composer work; no script errors |
 | WP Rocket file optimisation | Minify JavaScript and CSS files, Load JavaScript deferred, Delay JavaScript execution | Guest pages work after the first tap, scroll or key press (Load more on Explore tested); no script errors. Member pages are not optimised, because they are never cached |
