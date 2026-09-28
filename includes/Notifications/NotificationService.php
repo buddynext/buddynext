@@ -942,9 +942,10 @@ class NotificationService {
 	 * minting a shared group_key - would have been cheaper to read and would have
 	 * destroyed all four.
 	 *
-	 * Grouped by (type, object_type, object_id): "8 people asked to join Design
-	 * Guild" is one entry, while a join request and a join for the same space stay
-	 * apart because their types differ.
+	 * Grouped by (type, object_type, object_id, read state): "8 people asked to join
+	 * Design Guild" is one entry, while a join request and a join for the same space
+	 * stay apart because their types differ, and a read notification is history that
+	 * a new one on the same object never folds into.
 	 *
 	 * Everything groups by default and types opt OUT through the filter. That way
 	 * the next high-volume notification somebody adds is collapsed on the day it
@@ -986,7 +987,10 @@ class NotificationService {
 				continue;
 			}
 
-			$key = $type . '|' . (string) ( $item['object_type'] ?? '' ) . '|' . $object_id;
+			// Read and unread never share a group: a notification the reader has seen is
+			// history, and a new one on the same object is its own entry. Folding them
+			// read "Sofia and 1 other" for one new person and hid what was new.
+			$key = $type . '|' . (string) ( $item['object_type'] ?? '' ) . '|' . $object_id . '|' . ( empty( $item['is_read'] ) ? 'unread' : 'read' );
 
 			if ( ! isset( $index[ $key ] ) ) {
 				// The NEWEST occurrence represents the group - it is already first,
@@ -1013,13 +1017,6 @@ class NotificationService {
 			$sender = (int) ( $item['sender_id'] ?? 0 );
 			if ( $sender > 0 && ! in_array( $sender, $grouped[ $at ]['group_actors'], true ) ) {
 				$grouped[ $at ]['group_actors'][] = $sender;
-			}
-
-			// A group is unread when ANY member of it is. Marking the group read
-			// marks them all, so the reverse has to hold or the badge would count
-			// items the reader cannot see.
-			if ( empty( $item['is_read'] ) ) {
-				$grouped[ $at ]['is_read'] = false;
 			}
 		}
 

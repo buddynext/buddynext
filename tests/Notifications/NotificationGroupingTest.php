@@ -146,18 +146,24 @@ class NotificationGroupingTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A group is unread when ANY member of it is, or the badge would count items
-	 * the reader cannot see.
+	 * A notification the reader has already seen is history: a new one on the same
+	 * object is its own entry, not folded into the old one (which would read
+	 * "Sofia and 1 other" for one new person and leave nothing new to spot).
 	 */
-	public function test_a_group_is_unread_when_any_member_is_unread(): void {
+	public function test_a_read_row_is_never_folded_into_an_unread_one(): void {
 		$this->seed( 703, 'bn.post_reacted', 9, 1, 1 );
 		$this->seed( 703, 'bn.post_reacted', 9, 2, 1 );
 		$this->seed( 703, 'bn.post_reacted', 9, 3, 0 );
+		$this->seed( 703, 'bn.post_reacted', 9, 4, 0 );
 
 		$items = $this->items( 703 );
 
-		$this->assertCount( 1, $items );
-		$this->assertFalse( $items[0]['is_read'] );
+		$this->assertCount( 2, $items, 'One unread entry and one read entry.' );
+		$by_read = array();
+		foreach ( $items as $item ) {
+			$by_read[ (int) $item['is_read'] ] = (int) $item['group_size'];
+		}
+		$this->assertSame( array( 0 => 2, 1 => 2 ), $by_read );
 	}
 
 	/**
