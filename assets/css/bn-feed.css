@@ -3497,10 +3497,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-comment__emoji-trigger img,
 .bn-comment__emoji-trigger svg { width: 18px; height: 18px; display: block; }
 
-@media (max-width: 640px) {
-	.bn-emoji-popover { grid-template-columns: repeat(6, 1fr); max-width: 260px; }
-}
-
 .bn-composer__poll-options {
 	display: flex;
 	flex-direction: column;

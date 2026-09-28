@@ -644,14 +644,17 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox--fullscreen .bn-lightbox__panel-body { display: none; }
 .bn-lightbox--fullscreen .bn-lightbox__media-wrap { inline-size: 100%; }
 
-/* Owner panel — the inline form Edit and Save open inside the side panel. */
-.bn-lightbox__panel {
+/* Owner panel — the inline form Edit and Save open inside the side panel. Its own class:
+   it used to share .bn-lightbox__panel with the aside, so the form drew the aside's
+   start border as a stray vertical line beside the fields. */
+.bn-lightbox__owner-panel {
 	display: flex;
 	flex-direction: column;
 	gap: var( --bn-s2, 8px );
 	padding: var( --bn-s3, 12px ) 0;
 	border-block-end: 1px solid var( --bn-line-faint, oklch( 92% 0.005 0 ) );
 }
+.bn-lightbox__owner-panel[hidden] { display: none; }
 .bn-lightbox__field { display: flex; flex-direction: column; gap: 4px; }
 /* Labels read at the size and weight of every other BuddyNext form label; they were the
    smallest text in the panel and looked like a caption to the field, not its name. */

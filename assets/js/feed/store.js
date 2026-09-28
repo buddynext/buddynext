@@ -1258,11 +1258,14 @@ onNavReady( initRealtimeCommentIndicator, { once: true } );
  * The slug→character map lives here in the data layer (NOT in PHP markup) so
  * no emoji characters are hardcoded in templates. Glyphs render from the
  * bundled SVGs for cross-platform consistency, mirroring the reaction picker.
+ *
+ * Keep the count a multiple of the popover's 8 columns (32 today) so the last row is
+ * never a lone glyph.
  */
 const BN_EMOJI_MAP = {
 	grin: '😀', haha: '😂', rofl: '🤣', wink: '😉', hearteyes: '😍',
 	starstruck: '🤩', cool: '😎', thinking: '🤔', mindblown: '🤯',
-	partyface: '🥳', pleading: '🥺', cry: '😢', sad: '😞', angry: '😠',
+	partyface: '🥳', pleading: '🥺', cry: '😢', angry: '😠',
 	like: '👍', thumbsdown: '👎', love: '❤️', fire: '🔥', hundred: '💯',
 	clap: '👏', raisedhands: '🙌', pray: '🙏', muscle: '💪', peace: '✌️',
 	eyes: '👀', wow: '😮', celebrate: '🎉', sparkles: '✨', star: '⭐',
