@@ -127,17 +127,17 @@ class TransactionalEmailTest extends \WP_UnitTestCase {
 		// Simulate one pre-v19 seeded row and one owner-customized row.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}bn_email_templates SET subject = %s WHERE type = 'bn.post_commented'", "New comment on your post {$em} {{site_name}}" ) );
-		$wpdb->query( "UPDATE {$wpdb->prefix}bn_email_templates SET subject = 'My custom badge subject' WHERE type = 'bn.badge_awarded'" );
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_email_templates SET subject = 'My custom share subject' WHERE type = 'bn.post_shared'" );
 
 		Installer::maybe_upgrade();
 		update_option( 'buddynext_schema_version', 0 ); // Force the runner.
 		Installer::maybe_upgrade();
 
 		$commented = (string) $wpdb->get_var( "SELECT subject FROM {$wpdb->prefix}bn_email_templates WHERE type = 'bn.post_commented'" );
-		$badge     = (string) $wpdb->get_var( "SELECT subject FROM {$wpdb->prefix}bn_email_templates WHERE type = 'bn.badge_awarded'" );
+		$shared    = (string) $wpdb->get_var( "SELECT subject FROM {$wpdb->prefix}bn_email_templates WHERE type = 'bn.post_shared'" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$this->assertSame( 'New comment on your {{site_name}} post', $commented, 'Former seeded subject converges.' );
-		$this->assertSame( 'My custom badge subject', $badge, 'Owner-customized subject is never overwritten.' );
+		$this->assertSame( 'My custom share subject', $shared, 'Owner-customized subject is never overwritten.' );
 	}
 }

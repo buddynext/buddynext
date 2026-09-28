@@ -206,7 +206,7 @@ $bn_ca_queue    = $bn_ca_mod->get_queue(
 		// Batches the offender lookup (post/comment/message author, or the
 		// reported user directly) plus their strike count and suspension state
 		// in one pass — the row actions below need offender_id for Strike/Suspend.
-		'enrich'   => true,
+		'enrich'      => true,
 	)
 );
 $report_rows    = $bn_ca_queue['items'];
@@ -968,7 +968,7 @@ $posts_pct_abs = abs( $posts_pct );
 							// ponytail: one lookup per row (20 per page), same as the wp-admin queue.
 							$rpt_excerpt  = \BuddyNext\Core\ObjectLabels::excerpt( $rpt_obj_type, $rpt_obj_id );
 							$rpt_view_url = false === \BuddyNext\Core\ObjectLabels::exists( $rpt_obj_type, $rpt_obj_id ) ? '' : \BuddyNext\Core\ObjectLabels::view_url( $rpt_obj_type, $rpt_obj_id );
-							$rpt_ctx       = wp_json_encode(
+							$rpt_ctx      = wp_json_encode(
 								array(
 									'reportId'     => (int) $rpt['id'],
 									'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),

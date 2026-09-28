@@ -738,8 +738,9 @@ class ModerationQueue {
 		$pages    = (int) ceil( $total / $per_page );
 
 		// Notices for the Run-now / export flow.
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice flag; the actions themselves are nonce-checked.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only notice flag; the actions themselves are nonce-checked.
 		$bn_flag = isset( $_GET['bn_modlog'] ) ? sanitize_key( wp_unslash( $_GET['bn_modlog'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		if ( 'ran' === $bn_flag ) {
 			AdminPageBase::render_notice( __( 'Moderation jobs queued to run now.', 'buddynext' ), 'success' );
 		}
@@ -1008,12 +1009,13 @@ class ModerationQueue {
 		<div class="bn-toolbar bn-modlog-toolbar">
 			<form method="get" class="bn-modlog-filters">
 				<?php // Preserve the admin page/tab routing so the filtered view stays on this tab. ?>
+				<?php // phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only routing params, sanitized here and escaped at output. ?>
 				<?php foreach ( array( 'page', 'tab' ) as $bn_keep ) : ?>
-					<?php // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 					<?php if ( isset( $_GET[ $bn_keep ] ) ) : ?>
 						<input type="hidden" name="<?php echo esc_attr( $bn_keep ); ?>" value="<?php echo esc_attr( sanitize_text_field( wp_unslash( $_GET[ $bn_keep ] ) ) ); ?>">
 					<?php endif; ?>
 				<?php endforeach; ?>
+				<?php // phpcs:enable WordPress.Security.NonceVerification.Recommended ?>
 				<select name="log_action" class="bn-select" aria-label="<?php esc_attr_e( 'Filter by action', 'buddynext' ); ?>">
 					<option value=""><?php esc_html_e( 'All actions', 'buddynext' ); ?></option>
 					<?php foreach ( $actions as $bn_slug => $bn_label ) : ?>
@@ -1093,7 +1095,7 @@ class ModerationQueue {
 			++$page;
 		} while ( ! empty( $items ) && (int) ( $result['total'] ?? 0 ) > ( $page - 1 ) * 100 );
 
-		fclose( $out );
+		fclose( $out ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- php://output stream, not a filesystem path.
 		exit;
 	}
 

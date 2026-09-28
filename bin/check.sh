@@ -597,7 +597,10 @@ fi
 # server still passes the other gates.
 section "Flow audit (free + pro pair)"
 FLOW_AUDIT_CLI="${FLOW_AUDIT_CLI:-$HOME/.mcp-servers/wp-plugin-qa-mcp-server/build/flow-audit-cli.js}"
-BN_PRO_PATH="${BN_PRO_PATH:-$HOME/dev/repos/buddynext-pro}"
+# Default to the Pro plugin installed beside this one (a Local site), else the
+# conventional checkout under ~/dev/repos.
+BN_PRO_PATH="${BN_PRO_PATH:-$(cd "$PLUGIN_DIR/.." && pwd)/buddynext-pro}"
+[ -d "$BN_PRO_PATH" ] || BN_PRO_PATH="$HOME/dev/repos/buddynext-pro"
 if bn_heavy_gate_skipped "flow audit"; then
 	:
 elif command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then
