@@ -187,6 +187,33 @@ class GroupedRowTest extends \WP_UnitTestCase {
 		$this->assertSame( $this->people['Aisha'], (int) $bell[0]['sender_id'] );
 	}
 
+	public function test_a_banned_newest_replier_does_not_hide_the_whole_row(): void {
+		$this->reply( $this->people['Carla'], 13 );
+		$this->reply( $this->people['Aisha'], 11 );
+		$this->reply( $this->people['Ben'], 12 );
+
+		// The plugin refuses anything done by Ben, whichever target it is asked about.
+		$ben = $this->people['Ben'];
+		add_filter(
+			'jetonomy_community_notification_visible',
+			static function ( array $visible, int $viewer, array $targets ) use ( $ben ): array {
+				foreach ( $targets as $key => $target ) {
+					if ( $ben === $target['actor_id'] ) {
+						$visible[ $key ] = false;
+					}
+				}
+				return $visible;
+			},
+			10,
+			3
+		);
+
+		$bell = $this->bell();
+		$this->assertCount( 1, $bell, 'The row is about the topic; Ben is one person in it.' );
+		$this->assertSame( 2, (int) $bell[0]['group_count'] );
+		$this->assertSame( $this->people['Aisha'], (int) $bell[0]['sender_id'], 'The newest person left is named.' );
+	}
+
 	public function test_the_plugin_is_asked_per_item_with_the_actor(): void {
 		$this->reply( $this->people['Aisha'], 11 );
 		$this->reply( $this->people['Ben'], 12 );

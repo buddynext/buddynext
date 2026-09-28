@@ -379,18 +379,13 @@ class IntegrationNotificationListener implements ListenerInterface {
 			if ( '' === $source ) {
 				continue;
 			}
-			$data                       = is_array( $row['data'] ?? null ) ? $row['data'] : (array) json_decode( (string) ( $row['data'] ?? '' ), true );
-			$decoded[ $i ]              = $data;
-			$subtype                    = (string) ( $data['subtype'] ?? '' );
-			$by_source[ $source ][ $i ] = array(
-				'type'        => $subtype,
-				'object_type' => (string) preg_replace( '/^' . preg_quote( $source, '/' ) . '_/', '', (string) ( $row['object_type'] ?? '' ) ),
-				'object_id'   => (int) ( $row['object_id'] ?? 0 ),
-				'actor_id'    => (int) ( $row['sender_id'] ?? 0 ),
-			);
+			$data          = is_array( $row['data'] ?? null ) ? $row['data'] : (array) json_decode( (string) ( $row['data'] ?? '' ), true );
+			$decoded[ $i ] = $data;
+			$subtype       = (string) ( $data['subtype'] ?? '' );
+			$targets       = array();
 			foreach ( (array) ( $data['items'] ?? array() ) as $n => $item ) {
 				if ( (int) ( $item['i'] ?? 0 ) > 0 && '' !== (string) ( $item['t'] ?? '' ) ) {
-					$by_source[ $source ][ $i . ':' . $n ] = array(
+					$targets[ $i . ':' . $n ] = array(
 						'type'        => $subtype,
 						'object_type' => (string) $item['t'],
 						'object_id'   => (int) $item['i'],
@@ -399,6 +394,16 @@ class IntegrationNotificationListener implements ListenerInterface {
 					);
 				}
 			}
+			// The container is about the object. When the row's events are checked one by
+			// one, the newest person is judged there, not here: a banned newest replier
+			// must shrink the row, not hide it.
+			$by_source[ $source ][ $i ] = array(
+				'type'        => $subtype,
+				'object_type' => (string) preg_replace( '/^' . preg_quote( $source, '/' ) . '_/', '', (string) ( $row['object_type'] ?? '' ) ),
+				'object_id'   => (int) ( $row['object_id'] ?? 0 ),
+				'actor_id'    => $targets ? 0 : (int) ( $row['sender_id'] ?? 0 ),
+			);
+			$by_source[ $source ]      += $targets;
 		}
 		if ( empty( $by_source ) ) {
 			return $rows;
