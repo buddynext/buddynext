@@ -2282,12 +2282,6 @@ class NavManager extends AdminPageBase {
 	/**
 	 * Return the built-in BuddyNext main navigation tabs.
 	 *
-	 * Explore is intentionally absent: it is reached as the Activity hub's
-	 * Home/Explore sub-tab (templates/feed/home.php), so a separate main-nav
-	 * row would be a duplicate entry to the same surface. A site that wants it
-	 * in the main nav can re-add it via the buddynext_nav_tabs filter. The
-	 * mobile bottom nav keeps its Explore tab (it has no sub-tab row).
-	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function default_tabs(): array {
@@ -2299,6 +2293,19 @@ class NavManager extends AdminPageBase {
 				'icon'        => 'tab-feed',
 				'description' => __( 'Main community feed', 'buddynext' ),
 				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'explore',
+				'label'       => __( 'Explore', 'buddynext' ),
+				'order'       => 20,
+				'icon'        => 'tab-globe',
+				'description' => __( 'Public discovery feed (ShellNavService::base_items()).', 'buddynext' ),
+				'capability'  => 'read',
+				// Visible by default: the left rail already shows Explore as a core
+				// nav item (hardcoded prior to this row's existence), so it must
+				// default to on the same way 'people' below does - otherwise saving
+				// the nav form for the first time would hide Explore from the rail.
+				'hidden'      => false,
 			),
 			array(
 				'slug'        => 'spaces',
