@@ -96,7 +96,6 @@ These are the Free-defined extension points Pro attaches to. They are public sea
 | `buddynext_post_pin_limit` | filter | Raise the pinned-post limit from Free's 1 to 10. |
 | `buddynext_profile_labels` | filter | Inject custom member labels into profile responses. |
 | `buddynext_notification_prefs` | filter | Inject push-notification preferences. |
-| `buddynext_part_space_settings_tabs_args` | filter | Register the per-space Brand tab. |
 | `cron_schedules` | filter | Add the custom cron interval used by scheduled posts. |
 | `buddynext_post_created` | action | Track post creation for analytics, AI ranking signals, and semantic-search indexing. |
 

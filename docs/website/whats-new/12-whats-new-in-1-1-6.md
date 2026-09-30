@@ -8,6 +8,8 @@ Documents come to Spaces and profiles, the media lightbox is rebuilt, and pinnin
 
 A community accumulates documents - a group's handbook, a member's portfolio, a shared template - and until now BuddyNext had nowhere to keep them.
 
+The document features below need **WPMediaVerse Pro** (its documents feature) active alongside BuddyNext. Without it, the Files tabs and the composer's document attach do not appear.
+
 - **Every space gets a Files tab**: its own document drive that members can browse, search, preview and download.
 - **Every member gets a Files tab** on their profile, showing their own documents inside BuddyNext's own interface.
 - **Documents open in a clean built-in reader.** A PDF renders as a readable single column instead of the browser's embedded viewer, and office and text files render inline.
