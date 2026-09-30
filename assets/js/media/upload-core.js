@@ -15,12 +15,20 @@ import { restFetch } from '@buddynext/rest-client';
 /**
  * Validate a File against the shared media limits.
  *
+ * Every real caller passes `maxSizeMB` from the server's own configured ceiling
+ * (WPMediaVerseBridge::media_max_bytes(), threaded through the composer/Media-tab
+ * context) — never a number owned by this file. The `|| 100` below is only a
+ * last-resort default for a caller that forgot to pass one; it matches
+ * WPMediaVerse's own default (mvs_max_upload_size = 104857600 bytes) rather than
+ * an arbitrary figure, so a missed wire-up degrades to the common case instead of
+ * silently under-allowing every site that raised the setting.
+ *
  * @param {File}   file File to check.
  * @param {Object} opts { maxSizeMB, badTypeMsg, tooLargeMsg }.
  * @return {string} '' when valid, else a human-readable error.
  */
 export function validateMedia( file, opts = {} ) {
-	const maxBytes = ( Number( opts.maxSizeMB ) || 64 ) * 1024 * 1024;
+	const maxBytes = ( Number( opts.maxSizeMB ) || 100 ) * 1024 * 1024;
 	if ( ! /^(image|video|audio)\//.test( file.type || '' ) ) {
 		return opts.badTypeMsg || 'Only images, video and audio can be uploaded.';
 	}

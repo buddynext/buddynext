@@ -1194,7 +1194,8 @@ class AssetService {
 					// the English JS fallback regardless of locale.
 					'announcementDismissFailed' => __( 'Could not dismiss this announcement. Try again.', 'buddynext' ),
 					'mediaBadType'              => __( 'Only images, video and audio can be attached.', 'buddynext' ),
-					'mediaTooLarge'             => __( 'That file is too large to upload.', 'buddynext' ),
+					/* translators: %d: maximum upload size in megabytes. */
+					'mediaTooLarge'             => __( 'File is larger than the %d MB allowed.', 'buddynext' ),
 					// post-card.js appends this on a comment thread that hit the
 					// DESCENDANT_CAP so a capped thread no longer presents itself as
 					// complete. It was read via t() but injected nowhere, so every

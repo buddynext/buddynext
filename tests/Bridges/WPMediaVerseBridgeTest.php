@@ -309,4 +309,85 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( '', $html );
 	}
+
+	/**
+	 * Card 10350369704: the composer/Media-tab upload ceiling must never be a
+	 * BuddyNext constant. Without WPMediaVerse's SettingsHelper loaded, it falls
+	 * back to the server's own ceiling.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_bytes_falls_back_to_server_ceiling_without_mediaverse(): void {
+		remove_all_filters( 'buddynext_media_max_bytes' );
+
+		$this->assertSame( wp_max_upload_size(), WPMediaVerseBridge::media_max_bytes() );
+	}
+
+	/**
+	 * When MVS's configured max is BELOW the server ceiling, that lower number
+	 * wins — it is what MVS will actually accept.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_bytes_uses_mediaverses_setting_when_it_is_the_lower_number(): void {
+		remove_all_filters( 'buddynext_media_max_bytes' );
+		// Below the REAL server ceiling, whatever this runner's php.ini sets it to
+		// (a bare PHP CLI often defaults upload_max_filesize to 2M) — the point is
+		// the lower of the two numbers, not a specific absolute size.
+		$configured = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
+		StubSettingsHelper::$max_upload_size = $configured;
+
+		$this->assertSame( $configured, WPMediaVerseBridge::media_max_bytes() );
+	}
+
+	/**
+	 * The bug this card reported, inverted: an owner who raises MVS's setting
+	 * PAST the server's real upload_max_filesize/post_max_size must not have the
+	 * composer advertise a size the server will refuse — the server ceiling wins.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_bytes_clamps_to_server_ceiling_when_mediaverse_is_set_higher(): void {
+		remove_all_filters( 'buddynext_media_max_bytes' );
+		StubSettingsHelper::$max_upload_size = wp_max_upload_size() + ( 50 * MB_IN_BYTES );
+
+		$this->assertSame( wp_max_upload_size(), WPMediaVerseBridge::media_max_bytes() );
+	}
+
+	/**
+	 * buddynext_media_max_bytes is the one extension seam — a site can still cap
+	 * it further than either number.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_bytes_honors_the_developer_filter(): void {
+		StubSettingsHelper::$max_upload_size = wp_max_upload_size();
+		add_filter(
+			'buddynext_media_max_bytes',
+			static function () {
+				return 2 * MB_IN_BYTES;
+			}
+		);
+
+		$this->assertSame( 2 * MB_IN_BYTES, WPMediaVerseBridge::media_max_bytes() );
+
+		remove_all_filters( 'buddynext_media_max_bytes' );
+	}
+}
+
+if ( ! class_exists( '\WPMediaVerse\Core\SettingsHelper' ) ) {
+	/**
+	 * Minimal stand-in for WPMediaVerse's real SettingsHelper so
+	 * WPMediaVerseBridge::media_max_bytes() can be tested without the whole
+	 * WPMediaVerse plugin loaded. Only the one method the bridge calls.
+	 */
+	class StubSettingsHelper {
+		/** @var int */
+		public static int $max_upload_size = 104857600;
+
+		public static function get_max_upload_size( int $user_id = 0 ): int {
+			return self::$max_upload_size;
+		}
+	}
+	class_alias( StubSettingsHelper::class, '\WPMediaVerse\Core\SettingsHelper' );
 }

@@ -30,7 +30,13 @@ $bn_mu_ctx = array(
 	'ownerId'   => $bn_mu_owner_id,
 	'spaceId'   => $bn_mu_space_id,
 	'maxFiles'  => 10,
-	'maxSizeMB' => 64,
+	// The site's real ceiling (MVS's configured max, clamped to the server's
+	// actual upload_max_filesize/post_max_size) — never a hardcoded number. See
+	// WPMediaVerseBridge::media_max_bytes(). Falls back to the server ceiling
+	// when the bridge class is not loaded (should not happen on a normal request).
+	'maxSizeMB' => class_exists( '\BuddyNext\Bridges\WPMediaVerseBridge' )
+		? (int) round( \BuddyNext\Bridges\WPMediaVerseBridge::media_max_bytes( $bn_mu_owner_id ) / MB_IN_BYTES )
+		: (int) round( wp_max_upload_size() / MB_IN_BYTES ),
 	// A space upload is shared with the space; a profile upload defaults to public.
 	'privacy'   => $bn_mu_is_space ? 'space' : 'public',
 	'staged'    => array(),
@@ -40,7 +46,8 @@ $bn_mu_ctx = array(
 	'errorMsg'  => '',
 	't'         => array(
 		'badType'               => __( 'Only images, video and audio can be uploaded.', 'buddynext' ),
-		'tooLarge'              => __( 'File is larger than the allowed size.', 'buddynext' ),
+		/* translators: %d: maximum upload size in megabytes. */
+		'tooLarge'              => __( 'File is larger than the %d MB allowed.', 'buddynext' ),
 		/* translators: %d: maximum number of files allowed per upload batch. */
 		'tooMany'               => __( 'You can upload up to %d files at once.', 'buddynext' ),
 		'failed'                => __( 'Upload failed.', 'buddynext' ),

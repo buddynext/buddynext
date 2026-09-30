@@ -1862,6 +1862,42 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * The image/video/audio upload ceiling the composer and Media tab should offer,
+	 * in bytes — read from MVS's OWN configured setting (never a BuddyNext
+	 * constant), the exact source `UploadService` itself enforces, so the client
+	 * can never advertise a size the server will refuse.
+	 *
+	 * Clamped to `wp_max_upload_size()`: MVS's own setting can be raised past the
+	 * server's real `upload_max_filesize`/`post_max_size` ceiling (its admin field
+	 * warns the owner but does not stop them), and offering that unclamped number
+	 * here would let a member start a doomed upload that only fails once the whole
+	 * file has already gone over the wire. The lower of the two numbers is always
+	 * the one that will actually succeed.
+	 *
+	 * `buddynext_media_max_bytes` is the one extension seam — for a site that
+	 * wants a stricter client-side cap than either number. There is no BuddyNext
+	 * admin setting for this: one number, one place it is configured (MVS's own
+	 * Settings > Max Upload Size), same rule as `document_composer_config()`.
+	 *
+	 * @param int $user_id Uploading member. 0 = current user.
+	 * @return int Bytes.
+	 */
+	public static function media_max_bytes( int $user_id = 0 ): int {
+		$server_ceiling = wp_max_upload_size();
+		$configured     = class_exists( '\\WPMediaVerse\\Core\\SettingsHelper' )
+			? \WPMediaVerse\Core\SettingsHelper::get_max_upload_size( $user_id )
+			: $server_ceiling;
+
+		/**
+		 * Filters the media upload ceiling BuddyNext's composer and Media tab offer.
+		 *
+		 * @param int $max_bytes The lower of MVS's configured max and the server ceiling.
+		 * @param int $user_id   Uploading member.
+		 */
+		return (int) apply_filters( 'buddynext_media_max_bytes', min( $configured, $server_ceiling ), $user_id );
+	}
+
+	/**
 	 * The document-attach config the composer needs, read from MVS's OWN app
 	 * config (never BuddyNext constants) so the composer can never advertise a
 	 * type or size the server will refuse — the exact mismatch that burned the
