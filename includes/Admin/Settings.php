@@ -1747,13 +1747,55 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * Registration Mode choices. One list for the setting (so Restore defaults
+	 * previews the label, not the stored code) and for the dropdown that renders it.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function reg_mode_choices(): array {
+		return array(
+			'open'     => __( 'Open: anyone can register', 'buddynext' ),
+			'invite'   => __( 'Invite Only: requires an invitation', 'buddynext' ),
+			'approval' => __( 'Admin Approval: admin reviews each request', 'buddynext' ),
+			'closed'   => __( 'Closed: nobody can create an account', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Email-verification strictness choices. See reg_mode_choices().
+	 *
+	 * @return array<string, string>
+	 */
+	private static function verify_enforcement_choices(): array {
+		return array(
+			'restricted' => __( 'Restricted: they can look around, but cannot post or comment until they confirm', 'buddynext' ),
+			'full'       => __( 'Full: they cannot use the community at all until they confirm', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Required two-factor choices. See reg_mode_choices().
+	 *
+	 * @return array<string, string>
+	 */
+	private static function two_factor_choices(): array {
+		return array(
+			'none'   => __( 'Nobody: members can still switch it on themselves', 'buddynext' ),
+			'admins' => __( 'Administrators', 'buddynext' ),
+			'staff'  => __( 'Administrators and editors', 'buddynext' ),
+			'all'    => __( 'Everyone', 'buddynext' ),
+		);
+	}
+
+	/**
 	 * Registration tab option descriptors.
 	 *
 	 * The Registration tab keeps its bespoke render_tab_registration() (conditional
 	 * email-verify UI, social-login credential cards, legal-page info block), so
 	 * these descriptors exist to register + index its options only — never set a
 	 * registered default here, so the bespoke render's inline get_option()
-	 * fallbacks (some dynamic) are preserved exactly.
+	 * fallbacks (some dynamic) are preserved exactly. Select labels come from the
+	 * *_choices() lists the render uses too, so there is one list per option.
 	 *
 	 * @return Section[]
 	 */
@@ -1768,6 +1810,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'              => 'buddynext_reg_mode',
 							'default_callback' => 'buddynext_default_reg_mode',
 							'type'             => 'select',
+							'choices'          => self::reg_mode_choices(),
 							'label'            => __( 'Registration Mode', 'buddynext' ),
 							'hint'             => __( 'Controls who can create a new account on your community.', 'buddynext' ),
 						)
@@ -1786,6 +1829,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_verify_enforcement',
 							'default' => 'restricted',
 							'type'    => 'select',
+							'choices' => self::verify_enforcement_choices(),
 							'label'   => __( 'How strictly to enforce verification', 'buddynext' ),
 							'hint'    => __( 'Restricted (recommended): members can look around but cannot post or comment until they confirm. Full: they cannot use the community at all until they confirm.', 'buddynext' ),
 						)
@@ -1843,26 +1887,26 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_auth_panel_heading',
-							'default' => '',
-							'type'    => 'text',
-							'label'   => __( 'Panel heading', 'buddynext' ),
+							'key'              => 'buddynext_auth_panel_heading',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_auth_panel_heading'],
+							'type'             => 'text',
+							'label'            => __( 'Panel heading', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_auth_panel_tagline',
-							'default' => '',
-							'type'    => 'textarea',
-							'label'   => __( 'Panel tagline', 'buddynext' ),
+							'key'              => 'buddynext_auth_panel_tagline',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_auth_panel_tagline'],
+							'type'             => 'textarea',
+							'label'            => __( 'Panel tagline', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_auth_panel_quote',
-							'default' => '',
-							'type'    => 'textarea',
-							'label'   => __( 'Featured quote', 'buddynext' ),
+							'key'              => 'buddynext_auth_panel_quote',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_auth_panel_quote'],
+							'type'             => 'textarea',
+							'label'            => __( 'Featured quote', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1875,11 +1919,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_signup_subtitle',
-							'default' => '',
-							'type'    => 'text',
-							'label'   => __( 'Sign-up form subtitle', 'buddynext' ),
-							'hint'    => __( 'Shown under "Join the community" on the sign-up form.', 'buddynext' ),
+							'key'              => 'buddynext_signup_subtitle',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_signup_subtitle'],
+							'type'             => 'text',
+							'label'            => __( 'Sign-up form subtitle', 'buddynext' ),
+							'hint'             => __( 'Shown under "Join the community" on the sign-up form.', 'buddynext' ),
 						)
 					),
 				)
@@ -1909,6 +1953,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_2fa_required',
 							'default' => 'none',
 							'type'    => 'select',
+							'choices' => self::two_factor_choices(),
 							'label'   => __( 'Require two-factor authentication', 'buddynext' ),
 							'hint'    => __( 'Members are always free to switch two-factor on themselves. This makes it mandatory for the roles you choose.', 'buddynext' ),
 						)
@@ -2653,12 +2698,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'buddynext_reg_mode',
 			__( 'Registration Mode', 'buddynext' ),
 			(string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
-			array(
-				'open'     => __( 'Open: anyone can register', 'buddynext' ),
-				'invite'   => __( 'Invite Only: requires an invitation', 'buddynext' ),
-				'approval' => __( 'Admin Approval: admin reviews each request', 'buddynext' ),
-				'closed'   => __( 'Closed: nobody can create an account', 'buddynext' ),
-			),
+			self::reg_mode_choices(),
 			__( 'Controls who can create a new account on your community.', 'buddynext' )
 		);
 
@@ -2717,10 +2757,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'buddynext_verify_enforcement',
 				__( 'How strictly to enforce verification', 'buddynext' ),
 				\BuddyNext\Auth\VerificationListener::enforcement(),
-				array(
-					'restricted' => __( 'Restricted: they can look around, but cannot post or comment until they confirm', 'buddynext' ),
-					'full'       => __( 'Full: they cannot use the community at all until they confirm', 'buddynext' ),
-				),
+				self::verify_enforcement_choices(),
 				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
 		} else {
@@ -2847,12 +2884,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'buddynext_2fa_required',
 			__( 'Require two-factor authentication', 'buddynext' ),
 			(string) get_option( 'buddynext_2fa_required', 'none' ),
-			array(
-				'none'   => __( 'Nobody: members can still switch it on themselves', 'buddynext' ),
-				'admins' => __( 'Administrators', 'buddynext' ),
-				'staff'  => __( 'Administrators and editors', 'buddynext' ),
-				'all'    => __( 'Everyone', 'buddynext' ),
-			),
+			self::two_factor_choices(),
 			__( 'Anyone in a required role is asked to set two-factor up the next time they sign in, and cannot use the community until they do.', 'buddynext' )
 		);
 

@@ -108,6 +108,56 @@ class RestoreDefaultsTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Every resettable select declares its choices, so the Restore defaults
+	 * preview can show the dropdown's label instead of the stored code
+	 * ("now invite -> default open"). Card 10354869259.
+	 *
+	 * @return void
+	 */
+	public function test_every_resettable_select_declares_its_choices(): void {
+		$missing = array();
+		foreach ( SettingsRegistry::all_fields() as $field ) {
+			if ( 'select' === $field->type && $field->resettable && ! $field->choices() ) {
+				$missing[] = $field->key;
+			}
+		}
+		$this->assertSame( array(), $missing, 'Selects with no choices preview raw stored values.' );
+	}
+
+	/**
+	 * The login/sign-up branding text falls back to product copy, so that copy
+	 * is its default: a saved value equal to it is not a change, and a
+	 * different one previews the real text a reset brings back, not "(empty)".
+	 *
+	 * @return void
+	 */
+	public function test_branding_preview_uses_the_product_defaults(): void {
+		$defaults = buddynext_auth_panel_defaults();
+		update_option( 'buddynext_auth_panel_heading', $defaults['buddynext_auth_panel_heading'] );
+		update_option( 'buddynext_signup_subtitle', 'Custom subtitle' );
+
+		$rows = array_column( SettingsDriver::tab_reset_preview( 'registration' )['changes'], null, 'key' );
+
+		$this->assertArrayNotHasKey( 'buddynext_auth_panel_heading', $rows );
+		$this->assertSame( $defaults['buddynext_signup_subtitle'], $rows['buddynext_signup_subtitle']['default'] ?? null );
+	}
+
+	/**
+	 * Registration Mode previews the dropdown's own label.
+	 *
+	 * @return void
+	 */
+	public function test_registration_mode_preview_uses_the_dropdown_label(): void {
+		update_option( 'users_can_register', 1 );
+		update_option( 'buddynext_reg_mode', 'invite' );
+
+		$rows = array_column( SettingsDriver::tab_reset_preview( 'registration' )['changes'], null, 'key' );
+
+		$this->assertSame( 'Invite Only: requires an invitation', $rows['buddynext_reg_mode']['current'] ?? null );
+		$this->assertSame( 'Open: anyone can register', $rows['buddynext_reg_mode']['default'] ?? null );
+	}
+
+	/**
 	 * Restoring a tab resets its changed resettable options, leaves owner data and
 	 * other tabs untouched.
 	 *
