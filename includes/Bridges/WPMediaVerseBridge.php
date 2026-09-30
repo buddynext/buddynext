@@ -1932,15 +1932,10 @@ class WPMediaVerseBridge {
 			'accept'   => '',
 			'max_size' => 0,
 		);
-		if ( ! self::documents_available() || ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
 			return $off;
 		}
-		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
-		if ( $res->is_error() ) {
-			return $off;
-		}
-		$data = (array) $res->get_data();
-		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		$docs = self::documents_config();
 		if ( empty( $docs['enabled'] ) ) {
 			return $off;
 		}
@@ -1969,19 +1964,46 @@ class WPMediaVerseBridge {
 	 * @return bool
 	 */
 	public static function documents_writable(): bool {
-		if ( ! self::documents_available() ) {
-			return false;
-		}
-		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
-		if ( $res->is_error() ) {
-			return false;
-		}
-		$data = (array) $res->get_data();
-		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		$docs = self::documents_config();
 		if ( empty( $docs['enabled'] ) ) {
 			return false;
 		}
 		return ! array_key_exists( 'writable', $docs ) || ! empty( $docs['writable'] );
+	}
+
+	/**
+	 * May a share link be created for a document right now.
+	 *
+	 * MVS's `documents.anonymous_links` (AppConfig::anonymous_links_allowed()):
+	 * off by default, and off on a private community. MediaVerse publishes it so
+	 * a share sheet hides "Create share link" instead of offering it and taking
+	 * the `mvs_link_sharing_disabled` 403. Absent (older MVS) reads as off, the
+	 * same as MediaVerse's own default.
+	 *
+	 * @return bool
+	 */
+	public static function document_links_allowed(): bool {
+		$docs = self::documents_config();
+		return ! empty( $docs['enabled'] ) && ! empty( $docs['anonymous_links'] );
+	}
+
+	/**
+	 * MediaVerse's `documents` app config for the current viewer (it carries
+	 * per-user fields such as `writable`). Empty when the document engine is
+	 * unavailable or the config cannot be read.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function documents_config(): array {
+		if ( ! self::documents_available() ) {
+			return array();
+		}
+		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
+		if ( $res->is_error() ) {
+			return array();
+		}
+		$data = (array) $res->get_data();
+		return isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
 	}
 
 	/**

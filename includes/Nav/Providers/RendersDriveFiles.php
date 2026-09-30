@@ -253,6 +253,7 @@ trait RendersDriveFiles {
 				'bn_fs_base_url'  => $base_url,
 				'bn_fs_folder'    => isset( $doc['folder'] ) ? (int) $doc['folder'] : 0,
 				'bn_fs_can_share' => $can_share,
+				'bn_fs_can_link'  => $can_share && WPMediaVerseBridge::document_links_allowed(),
 			)
 		);
 	}

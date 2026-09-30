@@ -24,6 +24,7 @@
  * @var string              $bn_fs_base_url  /spaces/{slug}/files/ or /members/{slug}/files/ .
  * @var int                 $bn_fs_folder    The document's folder (0 = drive root), for the back link.
  * @var bool                $bn_fs_can_share Whether to offer the Share control.
+ * @var bool                $bn_fs_can_link  Whether to offer "Create share link" (MediaVerse link sharing on).
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -33,6 +34,7 @@ $bn_fs_base_url  = isset( $bn_fs_base_url ) ? (string) $bn_fs_base_url : '';
 $bn_fs_folder    = isset( $bn_fs_folder ) ? (int) $bn_fs_folder : 0;
 $bn_fs_id        = isset( $bn_fs_doc['id'] ) ? (int) $bn_fs_doc['id'] : 0;
 $bn_fs_can_share = ! empty( $bn_fs_can_share ) && $bn_fs_id > 0;
+$bn_fs_can_link  = $bn_fs_can_share && ! empty( $bn_fs_can_link );
 
 $bn_fs_type  = isset( $bn_fs_doc['doc_type'] ) ? (string) $bn_fs_doc['doc_type'] : '';
 $bn_fs_title = isset( $bn_fs_doc['title'] ) && '' !== (string) $bn_fs_doc['title']
@@ -224,6 +226,7 @@ $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_fo
 
 				<ul class="bn-share__grants" data-bn-grants></ul>
 
+				<?php if ( $bn_fs_can_link ) : ?>
 				<div class="bn-share__link">
 					<div class="bn-share__link-controls">
 						<select class="bn-share__link-perm" name="link_permission" aria-label="<?php esc_attr_e( 'Link permission', 'buddynext' ); ?>">
@@ -243,6 +246,7 @@ $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_fo
 						</button>
 					</div>
 				</div>
+				<?php endif; ?>
 			</div>
 		</div>
 	<?php endif; ?>
