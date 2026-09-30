@@ -109,4 +109,38 @@ class PostDeleteLeavesNoOrphansTest extends WP_UnitTestCase {
 			$this->assertSame( 0, (int) $wpdb->get_var( $sql ), "Orphaned rows left in {$label} after post delete." );
 		}
 	}
+
+	/**
+	 * A post with media detaches it from the media engine's link store on
+	 * delete; posts without media make no call. Cards 10355027975 / 10355056059.
+	 *
+	 * @return void
+	 */
+	public function test_delete_detaches_the_posts_media_links(): void {
+		global $wpdb;
+
+		$links = new class() {
+			/** @var array<int, array{0:string,1:int,2:array<int,int>}> */
+			public array $calls = array();
+
+			public function set_object_media( string $type, int $id, array $media_ids ): void {
+				$this->calls[] = array( $type, $id, $media_ids );
+			}
+		};
+		$seam = static function ( $resolved, string $key ) use ( $links ) {
+			return 'object_media' === $key ? $links : $resolved;
+		};
+		add_filter( 'buddynext_media_service', $seam, 10, 2 );
+
+		$with_media = (int) $this->posts->create( $this->author, array( 'type' => 'text', 'content' => 'photo post', 'privacy' => 'public' ) );
+		$text_only  = (int) $this->posts->create( $this->author, array( 'type' => 'text', 'content' => 'text post', 'privacy' => 'public' ) );
+		$wpdb->insert( $wpdb->prefix . 'bn_post_media', array( 'post_id' => $with_media, 'media_id' => 777 ), array( '%d', '%d' ) );
+		$links->calls = array();
+
+		$this->assertTrue( $this->posts->delete( $with_media, $this->author ) );
+		$this->assertTrue( $this->posts->delete( $text_only, $this->author ) );
+		remove_filter( 'buddynext_media_service', $seam, 10 );
+
+		$this->assertSame( array( array( 'bn_post', $with_media, array() ) ), $links->calls );
+	}
 }
