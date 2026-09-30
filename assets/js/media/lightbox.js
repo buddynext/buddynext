@@ -642,19 +642,19 @@
 		if ( ! requireLogin() || ! currentAuthorId ) { return; }
 
 		var authorId = currentAuthorId;
-		var confirmFn = window.bnConfirm;
+		var confirmFn = window.bnBlockConfirm;
 
+		// The ONE shared "Block this member?" dialog (shell/dialog.js) - same
+		// wording, consequence list and button the profile page, member
+		// directory and message thread already use. The lightbox has no
+		// author display name on the media payload, so it renders the generic
+		// title; do not invent a one-off confirm with different copy here.
 		var proceed = typeof confirmFn === 'function'
-			? confirmFn( {
-				title: __( 'Block this member?', 'buddynext' ),
-				body: __( 'You will not see their posts or media, and they cannot message you. You can undo this from your settings.', 'buddynext' ),
-				confirmLabel: __( 'Block', 'buddynext' ),
-				tone: 'danger',
-			} )
-			// The accessible bnConfirm is exposed on window by shell/dialog.js.
-			// If it is somehow not loaded we do NOT fall back to a native
-			// window.confirm on a member-facing surface - skip the action, the
-			// same way the Report button no-ops when its dialog is absent.
+			? confirmFn()
+			// Exposed on window by shell/dialog.js. If it is somehow not
+			// loaded we do NOT fall back to a native window.confirm on a
+			// member-facing surface - skip the action, the same way the
+			// Report button no-ops when its dialog is absent.
 			: Promise.resolve( false );
 
 		Promise.resolve( proceed ).then( function ( ok ) {
