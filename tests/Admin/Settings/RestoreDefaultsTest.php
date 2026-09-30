@@ -91,6 +91,23 @@ class RestoreDefaultsTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The preview speaks the settings screen's words: a toggle stored as '0'
+	 * reads Off (not "0"), a select reads its option label (not its slug).
+	 * Card 10354869259.
+	 *
+	 * @return void
+	 */
+	public function test_preview_shows_toggle_and_select_values_as_the_owner_sees_them(): void {
+		update_option( 'buddynext_enable_link_preview', '0' );
+		update_option( 'buddynext_default_post_privacy', 'followers' );
+
+		$rows = array_column( SettingsDriver::tab_reset_preview( 'social' )['changes'], null, 'key' );
+
+		$this->assertSame( array( 'Off', 'On' ), array( $rows['buddynext_enable_link_preview']['current'], $rows['buddynext_enable_link_preview']['default'] ) );
+		$this->assertSame( array( 'Followers only', 'Public' ), array( $rows['buddynext_default_post_privacy']['current'], $rows['buddynext_default_post_privacy']['default'] ) );
+	}
+
+	/**
 	 * Restoring a tab resets its changed resettable options, leaves owner data and
 	 * other tabs untouched.
 	 *
