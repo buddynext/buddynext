@@ -316,19 +316,6 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Card 10350369704: the composer/Media-tab upload ceiling must never be a
-	 * BuddyNext constant. Without WPMediaVerse's SettingsHelper loaded, it falls
-	 * back to the server's own ceiling.
-	 *
-	 * @return void
-	 */
-	public function test_media_max_bytes_falls_back_to_server_ceiling_without_mediaverse(): void {
-		remove_all_filters( 'buddynext_media_max_bytes' );
-
-		$this->assertSame( wp_max_upload_size(), WPMediaVerseBridge::media_max_bytes() );
-	}
-
-	/**
 	 * When MVS's configured max is BELOW the server ceiling, that lower number
 	 * wins — it is what MVS will actually accept.
 	 *
@@ -400,6 +387,11 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 }
 
+// The "WPMediaVerse absent" fallback of media_max_bytes() is deliberately not
+// tested in this file: this stub is aliased to WPMediaVerse's SettingsHelper as
+// soon as the file loads, so that branch cannot be reached in-process. A test
+// that claimed to cover it only compared the runner's upload_max_filesize with
+// the stub's 100 MB default, and failed on any machine allowing more.
 if ( ! class_exists( '\WPMediaVerse\Core\SettingsHelper' ) ) {
 	/**
 	 * Minimal stand-in for WPMediaVerse's real SettingsHelper so
