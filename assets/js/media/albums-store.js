@@ -308,7 +308,11 @@ const albumsStore = store( 'buddynext/media-albums', {
 			const uploaded = [];
 
 			for ( const file of files ) {
-				const invalid = validateMedia( file );
+				const invalid = validateMedia( file, {
+					maxSizeMB:   ctx.maxSizeMB,
+					badTypeMsg:  t( 'badType', 'Only images, video and audio can be uploaded.' ),
+					tooLargeMsg: t( 'tooLarge', 'File is larger than the %d MB allowed.' ).replace( '%d', String( Number( ctx.maxSizeMB ) || 0 ) ),
+				} );
 				if ( invalid ) {
 					bnToast( invalid, { tone: 'danger' } );
 					continue;

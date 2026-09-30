@@ -1898,6 +1898,18 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * The same ceiling in whole MB, for the upload contexts (composer, Media tab,
+	 * album picker). Rounded DOWN: rounding up would let the client accept a file
+	 * the server then refuses after the whole upload.
+	 *
+	 * @param int $user_id Uploading member. 0 = current user.
+	 * @return int Megabytes.
+	 */
+	public static function media_max_mb( int $user_id = 0 ): int {
+		return (int) floor( self::media_max_bytes( $user_id ) / MB_IN_BYTES );
+	}
+
+	/**
 	 * The document-attach config the composer needs, read from MVS's OWN app
 	 * config (never BuddyNext constants) so the composer can never advertise a
 	 * type or size the server will refuse — the exact mismatch that burned the

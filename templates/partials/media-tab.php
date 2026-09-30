@@ -56,7 +56,13 @@ $bn_mt_ctx = array(
 	// True while an in-picker upload is in flight — disables the file input and shows
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
 	'pickerUploading'    => false,
+	// The album picker uploads as the viewer, against the same ceiling as every
+	// other media upload. See WPMediaVerseBridge::media_max_bytes().
+	'maxSizeMB'          => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
 	't'                  => array(
+		'badType'                 => __( 'Only images, video and audio can be uploaded.', 'buddynext' ),
+		/* translators: %d: maximum upload size in megabytes. */
+		'tooLarge'                => __( 'File is larger than the %d MB allowed.', 'buddynext' ),
 		'oneItem'                 => __( '1 item', 'buddynext' ),
 		/* translators: %d: number of items in an album. */
 		'nItems'                  => __( '%d items', 'buddynext' ),

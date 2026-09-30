@@ -32,11 +32,8 @@ $bn_mu_ctx = array(
 	'maxFiles'  => 10,
 	// The site's real ceiling (MVS's configured max, clamped to the server's
 	// actual upload_max_filesize/post_max_size) — never a hardcoded number. See
-	// WPMediaVerseBridge::media_max_bytes(). Falls back to the server ceiling
-	// when the bridge class is not loaded (should not happen on a normal request).
-	'maxSizeMB' => class_exists( '\BuddyNext\Bridges\WPMediaVerseBridge' )
-		? (int) round( \BuddyNext\Bridges\WPMediaVerseBridge::media_max_bytes( $bn_mu_owner_id ) / MB_IN_BYTES )
-		: (int) round( wp_max_upload_size() / MB_IN_BYTES ),
+	// WPMediaVerseBridge::media_max_bytes().
+	'maxSizeMB' => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( $bn_mu_owner_id ),
 	// A space upload is shared with the space; a profile upload defaults to public.
 	'privacy'   => $bn_mu_is_space ? 'space' : 'public',
 	'staged'    => array(),

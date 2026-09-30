@@ -809,7 +809,7 @@ store( 'buddynext/post-composer', {
 						// — see WPMediaVerseBridge::media_max_bytes()), never a hardcoded
 						// number: a hardcoded 64MB here used to reject files the server
 						// would gladly have accepted.
-						const maxSizeMB = Number( ctxData.mediaMaxMB ) || 100;
+						const maxSizeMB = Number( ctxData.mediaMaxMB ) || 0;
 						const invalid = validateMedia( file, {
 							maxSizeMB,
 							badTypeMsg:  t( 'mediaBadType', 'Only images, video and audio can be attached.' ),

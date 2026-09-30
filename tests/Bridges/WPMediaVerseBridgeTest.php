@@ -33,6 +33,11 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$this->bridge->init();
 		$this->sender_id    = self::factory()->user->create();
 		$this->recipient_id = self::factory()->user->create();
+		// The suite runs in random order: reset the stub's static so one
+		// media_max_bytes test's configured size cannot leak into the next.
+		if ( class_exists( StubSettingsHelper::class, false ) ) {
+			StubSettingsHelper::$max_upload_size = 104857600;
+		}
 	}
 
 	public function test_buddynext_active_filter_returns_true(): void {
@@ -370,6 +375,26 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		);
 
 		$this->assertSame( 2 * MB_IN_BYTES, WPMediaVerseBridge::media_max_bytes() );
+
+		remove_all_filters( 'buddynext_media_max_bytes' );
+	}
+
+	/**
+	 * The whole-MB value the upload contexts receive rounds DOWN: a 2.6 MB
+	 * ceiling offered as 3 MB would let the client accept a file the server
+	 * then refuses after the whole upload.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_mb_rounds_down(): void {
+		add_filter(
+			'buddynext_media_max_bytes',
+			static function () {
+				return (int) ( 2.6 * MB_IN_BYTES );
+			}
+		);
+
+		$this->assertSame( 2, WPMediaVerseBridge::media_max_mb() );
 
 		remove_all_filters( 'buddynext_media_max_bytes' );
 	}
