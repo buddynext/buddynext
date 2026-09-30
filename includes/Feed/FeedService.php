@@ -840,16 +840,29 @@ class FeedService {
 				// viewer via joined-spaces, so the member clause here is
 				// belt-and-suspenders, not the sole path. Block/mute/excluded
 				// filtering is applied by the caller on top.
-				$sql    = "(
+				//
+				// Membership decides WHICH spaces reach the viewer, never WHO may read
+				// a post inside one: a 'followers' or 'connections' post made into a
+				// space the viewer belongs to is still for the author's followers or
+				// connections only. Both member-space arms therefore AND the shared
+				// post_audience_clause() - the rule the Spaces tab and the single-space
+				// feed already apply (card 10264292078). Without it, For You showed
+				// those posts to every member of the space (card 10354867102).
+				[ $audience_sql, $audience_params ] = $this->post_audience_clause( $user_id );
+
+				$sql = "(
 					user_id IN (
 						SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
 					)
 					AND privacy IN ('public','followers')
 				)
 				OR user_id = %d
-				OR space_id IN (
-					SELECT space_id FROM {$wpdb->prefix}bn_space_members
-					WHERE user_id = %d AND status = 'active'
+				OR (
+					space_id IN (
+						SELECT space_id FROM {$wpdb->prefix}bn_space_members
+						WHERE user_id = %d AND status = 'active'
+					)
+					AND {$audience_sql}
 				)
 				OR (
 					id IN (
@@ -862,14 +875,24 @@ class FeedService {
 					)
 					AND (
 						{$this->explore_space_where()}
-						OR space_id IN (
-							SELECT space_id FROM {$wpdb->prefix}bn_space_members
-							WHERE user_id = %d AND status = 'active'
+						OR (
+							space_id IN (
+								SELECT space_id FROM {$wpdb->prefix}bn_space_members
+								WHERE user_id = %d AND status = 'active'
+							)
+							AND {$audience_sql}
 						)
 					)
 				)
 				OR {$this->explore_space_where()}";
-				$params = array( $user_id, $user_id, $user_id, $user_id, $user_id );
+				// Placeholder order: follows, own, joined-space member, joined-space
+				// audience (5), hashtag follow, hashtag member-space, its audience (5).
+				$params = array_merge(
+					array( $user_id, $user_id, $user_id ),
+					$audience_params,
+					array( $user_id, $user_id ),
+					$audience_params
+				);
 				break;
 		}
 
