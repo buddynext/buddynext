@@ -26,7 +26,7 @@ use BuddyNext\Core\PermissionService;
 /**
  * Renders the Roles & Capabilities matrix and saves overrides.
  */
-class RolesTab {
+class RolesTab extends AdminPageBase {
 
 	/**
 	 * Option holding the capability → required-role overrides.
@@ -107,17 +107,37 @@ class RolesTab {
 	}
 
 	/**
+	 * {@inheritDoc}
+	 *
+	 * @return string
+	 */
+	protected function get_title(): string {
+		return __( 'Roles & Capabilities', 'buddynext' );
+	}
+
+	/**
+	 * Suppress the base chrome subtitle — the explanatory copy already lives
+	 * inline as the section's own lead paragraph (S5: no card header, its
+	 * title would only repeat the page H1).
+	 *
+	 * @return string
+	 */
+	protected function get_subtitle(): string {
+		return '';
+	}
+
+	/**
 	 * Render the matrix.
 	 *
 	 * @return void
 	 */
-	public function render_page(): void {
+	protected function render_content(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bn_roles_flag = isset( $_GET['bn_roles'] ) ? sanitize_key( wp_unslash( $_GET['bn_roles'] ) ) : '';
 		if ( 'error' === $bn_roles_flag ) {
-			AdminPageBase::render_notice( __( 'Could not save role permissions. Try again.', 'buddynext' ), 'error' );
+			self::render_notice( __( 'Could not save role permissions. Try again.', 'buddynext' ), 'error' );
 		} elseif ( '' !== $bn_roles_flag ) {
-			AdminPageBase::render_notice( __( 'Role permissions saved.', 'buddynext' ), 'success' );
+			self::render_notice( __( 'Role permissions saved.', 'buddynext' ), 'success' );
 		}
 
 		$current = PermissionService::get_role_map();
@@ -168,17 +188,28 @@ class RolesTab {
 						</table>
 					<?php endforeach; ?>
 
-					<p>
-						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save permissions', 'buddynext' ); ?></button>
-						<button type="submit" name="bn_reset" value="1" class="bn-btn" data-variant="secondary"
-							data-bn-confirm="<?php esc_attr_e( 'Reset every capability to its default role?', 'buddynext' ); ?>"
-							data-bn-confirm-tone="warning">
-							<?php esc_html_e( 'Reset to defaults', 'buddynext' ); ?>
-						</button>
-					</p>
+					<?php $this->render_save_bar( __( 'Save permissions', 'buddynext' ) ); ?>
 				</div>
 			</div>
 		</form>
+		<?php
+		// Restore defaults lives in its own form, away from Save — the canonical
+		// pattern in Settings::render_restore_defaults() — so it can never be
+		// submitted by an Enter keypress in a role dropdown, and reuses that
+		// pattern's wording and layout classes rather than inventing a second one.
+		?>
+		<div class="bn-settings-restore">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-restore__form">
+				<input type="hidden" name="action" value="bn_roles_save">
+				<input type="hidden" name="bn_reset" value="1">
+				<?php wp_nonce_field( 'bn_roles_save' ); ?>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"
+					data-bn-confirm="<?php esc_attr_e( 'Reset every capability to its default role?', 'buddynext' ); ?>"
+					data-bn-confirm-tone="warning">
+					<?php esc_html_e( 'Restore defaults', 'buddynext' ); ?>
+				</button>
+			</form>
+		</div>
 		<?php
 	}
 

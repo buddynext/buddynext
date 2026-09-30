@@ -1217,13 +1217,6 @@ select.bn-text-input {
 	margin-bottom: var(--bn-a-s5);
 }
 
-.bn-save-msg {
-	font-size: var(--bn-a-text-xs);
-	color: var(--bn-a-green);
-	font-weight: var(--bn-a-fw-semibold);
-	margin-inline-end: auto;
-}
-
 /* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
    now renders the shared .bn-stat-grid > .bn-stat tiles (bn-base.css). */
 
@@ -2429,11 +2422,6 @@ button.bn-btn-danger:hover {
 		flex-direction: column;
 		align-items: stretch;
 	}
-
-	.bn-save-msg {
-		margin-inline-end: 0;
-		text-align: center;
-	}
 }
 
 /* ==========================================================================
@@ -3422,10 +3410,6 @@ button.bn-btn-danger:hover {
 .bnpro-queue-filters > input[type="hidden"],
 .bnpro-subs-filter > input[type="hidden"] {
 	display: none;
-}
-
-.bn-av-section-desc {
-	margin: 0 0 var(--bn-a-s3);
 }
 
 /* ══ THE ADMIN TABLE CONTRACT — one rule, two markup shapes ══════════════════

@@ -879,7 +879,6 @@ abstract class AdminPageBase {
 		}
 		?>
 		<div class="bn-save-bar">
-			<span class="bn-save-msg" id="bn-save-msg" aria-live="polite"></span>
 			<button type="submit" class="bn-btn" data-variant="primary"><?php echo esc_html( $button_label ); ?></button>
 		</div>
 		<?php
