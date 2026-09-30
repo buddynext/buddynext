@@ -144,6 +144,9 @@
 
 			var inner = document.createElement( 'div' );
 			inner.className = 'bn-search-overlay__inner';
+			inner.setAttribute( 'role', 'dialog' );
+			inner.setAttribute( 'aria-modal', 'true' );
+			inner.setAttribute( 'aria-label', __( 'Search', 'buddynext' ) );
 
 			var inputWrap = document.createElement( 'div' );
 			inputWrap.className = 'bn-search-overlay__input-wrap';
@@ -164,9 +167,20 @@
 			kbd.className = 'bn-search-overlay__kbd';
 			kbd.textContent = 'Esc';
 
+			// A real, focusable close control — the overlay previously had none
+			// (Esc and a backdrop click were the only ways out, and neither is
+			// discoverable for a keyboard or touch member who doesn't know them).
+			var closeBtn = document.createElement( 'button' );
+			closeBtn.type = 'button';
+			closeBtn.className = 'bn-modal__close';
+			closeBtn.setAttribute( 'aria-label', __( 'Close search', 'buddynext' ) );
+			// Lucide "x" (assets/icons/x.svg), constant markup, no caller input.
+			closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
 			inputWrap.appendChild( icon );
 			inputWrap.appendChild( input );
 			inputWrap.appendChild( kbd );
+			inputWrap.appendChild( closeBtn );
 			inner.appendChild( inputWrap );
 
 			var results = document.createElement( 'div' );
@@ -181,6 +195,7 @@
 			var self = this;
 			ov.addEventListener( 'click', function ( e ) { if ( e.target === ov ) self.close(); } );
 			input.addEventListener( 'keydown', function ( e ) { if ( e.key === 'Escape' ) self.close(); } );
+			closeBtn.addEventListener( 'click', function () { self.close(); } );
 
 			var timer = null;
 			input.addEventListener( 'input', function () {
