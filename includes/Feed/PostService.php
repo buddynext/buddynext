@@ -2327,7 +2327,14 @@ class PostService {
 			$del( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			// create() mirrors attached media into MediaVerse's link store; detach
+			// it here or the link outlives the post (the media itself stays in its
+			// owner's library). Through the engine seam, never its table directly.
+			$media_post_ids = $wpdb->get_col( "SELECT DISTINCT post_id FROM {$wpdb->prefix}bn_post_media WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_post_media WHERE post_id IN ({$in})" );
+			foreach ( (array) $media_post_ids as $media_post_id ) {
+				\BuddyNext\Media\ObjectMediaLink::set( \BuddyNext\Media\ObjectMediaLink::POST, (int) $media_post_id, array() );
+			}
 			$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" ) );
 			$del( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
