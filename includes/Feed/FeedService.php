@@ -822,17 +822,24 @@ class FeedService {
 				// "For You" is the blended discovery feed (vs. the strict "Following"
 				// tab): the viewer's follows, own posts, joined spaces and followed
 				// hashtags, PLUS public community activity so the feed isn't empty for
-				// users who follow no one. The public catch-all is scoped to non-space
-				// posts and posts in open spaces only — private/secret space posts are
-				// reached solely through the joined-spaces branch, never leaked here.
-				// The followed-hashtag branch carries the SAME public + space-visibility
-				// scope (public privacy AND non-space/open/viewer-is-member) — otherwise
-				// following a tag would surface a public post inside a private/secret
-				// space, or a followers-only post by a non-followed author, to a viewer
-				// who is not a member/follower (the overarching guard below only blocks
-				// 'private'). Member-space posts also reach the viewer via joined-spaces,
-				// so the member clause here is belt-and-suspenders, not the sole path.
-				// Block/mute/excluded filtering is applied by the caller on top.
+				// users who follow no one. The public catch-all reuses
+				// explore_space_where() — the same predicate Explore uses — so the two
+				// surfaces never disagree about what an open space makes readable: a
+				// non-space post needs privacy='public', while a post in an OPEN space
+				// is readable at 'public' OR 'space_members' (anyone may join an open
+				// space, so both mean "anyone" there - owner decision 2026-09-17, card
+				// 10313019984). Before this shared call, this branch checked
+				// privacy='public' only, so a 'space_members' post in an open space
+				// showed on Explore but never on For You (card 10352917675).
+				// Private/secret space posts are reached solely through the
+				// joined-spaces branch, never leaked here. The followed-hashtag branch
+				// carries the SAME scope — otherwise following a tag would surface a
+				// post inside a private/secret space, or a narrower-than-open-space
+				// post, to a viewer who is not a member/follower (the overarching guard
+				// below only blocks 'private'). Member-space posts also reach the
+				// viewer via joined-spaces, so the member clause here is
+				// belt-and-suspenders, not the sole path. Block/mute/excluded
+				// filtering is applied by the caller on top.
 				$sql    = "(
 					user_id IN (
 						SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
@@ -853,29 +860,15 @@ class FeedService {
 							WHERE hf.user_id = %d
 						)
 					)
-					AND privacy = 'public'
 					AND (
-						space_id IS NULL
-						OR space_id = 0
-						OR space_id IN (
-							SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open'
-						)
+						{$this->explore_space_where()}
 						OR space_id IN (
 							SELECT space_id FROM {$wpdb->prefix}bn_space_members
 							WHERE user_id = %d AND status = 'active'
 						)
 					)
 				)
-				OR (
-					privacy = 'public'
-					AND (
-						space_id IS NULL
-						OR space_id = 0
-						OR space_id IN (
-							SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open'
-						)
-					)
-				)";
+				OR {$this->explore_space_where()}";
 				$params = array( $user_id, $user_id, $user_id, $user_id, $user_id );
 				break;
 		}
