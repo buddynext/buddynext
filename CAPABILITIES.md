@@ -37,6 +37,7 @@ shipped (it had described the retired allow-list); a free Insights row was added
 administration and the Pro analytics row narrowed to "deep event analytics"; the appeals route count
 corrected 4 -> 5. Numeric counts (routes, hooks, jobs, openapi paths) still trace to
 `audit/manifest.summary.json` and were not re-tallied in this pass.
+**Partial update 2026-09-30 (1.2.2):** rows touched by 1.2.2 re-verified against the release code (branch `1.2.2`): the content-warning row (the standalone `/moderation/` page is retired, and the control now follows the moderator's own Add and Clear without a reload), the invite-link row (links can be revoked), and three new rows - front-end moderation in Community Admin, folders and a Trash in a space's Files, and page-cache compatibility. The manifest was rescanned the same day (hooks 1405) and the OpenAPI spec regenerated on a clean install with every partner current (221 Free / 298 combined paths, no field drift). Other rows not re-verified in this pass.
 **Source of truth order:** `audit/manifest.summary.json` > this file > the code.
 Regenerate both with `/wp-plugin-onboard --refresh`.
 
@@ -71,7 +72,8 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Give a space its own photo albums? | YES | 1.1.1. `Media\Galleries` + `SpaceAlbumListener`; needs the space Media tab on |
 | Categorise spaces? | YES | `bn_space_categories`, 2 `/space-categories` routes |
 | Ban a member from one space without site-wide action? | YES | `bn_space_bans` |
-| Invite people to a space with a shareable link? | YES | `Spaces\SpaceInviteLinkService::create()`/`validate()`/`consume()`; expiring, use-capped invite links plus direct member invites via `SpaceMemberService::invite()` |
+| Invite people to a space with a shareable link? | YES | `Spaces\SpaceInviteLinkService::create()`/`validate()`/`consume()`; expiring, use-capped invite links plus direct member invites via `SpaceMemberService::invite()`. 1.2.2: owners and moderators can revoke a link (`SpaceInviteLinkService::revoke()`, `DELETE /spaces/{id}/invite-link`) without issuing a new one |
+| Organise a space's files in folders, with a trash? | PARTIAL | 1.2.2. Space Files tab (`Nav\Providers\RendersDriveFiles::render_drive_files()`): create, rename and trash folders, restore them from a Trash view. Needs WPMediaVerse Pro documents; who may manage a folder is WPMediaVerse's rule |
 | Manage space membership - change a member's role, transfer ownership, or remove someone? | YES | `SpaceMemberService::change_role()` / `remove()`; ownership transfer is its own `SpaceService::transfer_ownership()` (`POST /spaces/{id}/transfer-ownership`), never assigned as a plain role |
 | Archive and restore a space, or create a sub-space under it? | YES | `SpaceService::archive()` (`POST`/`DELETE /spaces/{id}/archive`) toggles `archived_at`; `parent_id` + `GET /spaces/{id}/subspaces` support two-level sub-spaces up to a per-space cap |
 | Set a per-space notification preference? | YES | `SpaceMemberService::set_notification_pref()`/`get_notification_pref()` |
@@ -120,7 +122,8 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Rate-limit abuse? | PARTIAL | `bn_rate_limits` table backs it on every site; the fast object-cache path needs Redis or Memcached |
 | Filter banned words / safeguards? | YES | `Moderation\SafeguardService` |
 | Review a queue of reports in wp-admin? | YES | moderation screens under the `buddynext` hub |
-| Apply a content warning to member content during review? | YES | moderator add/update/clear NSFW/spoiler/violence/language warning from every moderation surface (wp-admin, community-admin, `/moderation/`, space-level) via the shared `templates/parts/moderation-cw-control.php` + `@buddynext/moderation` store; writes the same `content_warning`/`content_warning_type` columns the reader-facing blur reads |
+| Apply a content warning to member content during review? | YES | moderator add/update/clear NSFW/spoiler/violence/language warning from every moderation surface (wp-admin, Community Admin, a space's Moderation tab) via the shared `templates/parts/moderation-cw-control.php` + `@buddynext/moderation` store; writes the same `content_warning`/`content_warning_type` columns the reader-facing blur reads. 1.2.2: the control shows the post's current warning and follows Add and Clear without a reload |
+| Work the report queue on the front end, without wp-admin? | YES | 1.2.2. Community Admin (`Core\CommunityAdminRoutes`, `templates/community-admin.php`) pages through every open report with type filter and most-reported sort, for community moderators; each space keeps its own Moderation tab. The standalone `/moderation/` page is retired |
 | Auto-moderate with rules or AI? | PRO | `bn_mod_rules`, AI moderation - see BuddyNext Pro |
 
 ## Owner administration
@@ -142,6 +145,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 
 | Can it... | Status | How |
 |---|---|---|
+| Run behind a page cache? | YES | 1.2.2. Logged-in community pages are marked uncacheable (`DONOTCACHEPAGE` + `nocache_headers()` in `Core\PageRouter`); guest views of public pages stay cached and are purged on change by `Core\PageCachePurger`. Tested with WP Super Cache, W3 Total Cache, WP Rocket and LiteSpeed Cache |
 | Offer a REST API? | YES | 224 routes under `buddynext/v1`; catalogued in `docs/api/openapi.json` (210 paths) |
 | Send outbound webhooks? | YES | opt-in. `bn_outbound_webhooks` + log; 4 `/webhooks` routes |
 | Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
