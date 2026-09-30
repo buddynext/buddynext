@@ -17,16 +17,18 @@
  *
  * @package BuddyNext
  *
- * @var array $args {
- *     @type string $cw_type Currently-applied warning type (defaults 'nsfw').
- *     @type bool   $cw_has  Whether a warning is already applied.
- * }
+ * buddynext_get_template() imports each passed key as its own variable; there
+ * is no $args array (reading one silently fell back to the defaults, so a post
+ * that already carried a warning showed "Add warning" and no Clear).
+ *
+ * @var string $cw_type Currently-applied warning type (defaults 'nsfw').
+ * @var bool   $cw_has  Whether a warning is already applied.
  */
 
 defined( 'ABSPATH' ) || exit;
 
-$bn_cw_type = (string) ( $args['cw_type'] ?? 'nsfw' );
-$bn_cw_has  = (bool) ( $args['cw_has'] ?? false );
+$bn_cw_type = isset( $cw_type ) && '' !== (string) $cw_type ? (string) $cw_type : 'nsfw';
+$bn_cw_has  = ! empty( $cw_has );
 $bn_cw_opts = array(
 	'nsfw'     => __( 'NSFW', 'buddynext' ),
 	'spoilers' => __( 'Spoilers', 'buddynext' ),
