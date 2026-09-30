@@ -138,15 +138,39 @@ function buildModalFrame( opts ) {
 	return { backdrop, panel, confirmBtn, cancelBtn, closeBtn, titleId };
 }
 
+/** Open traps, innermost last. Only the top one handles Tab. */
+const trapStack = [];
+
 /**
  * Focus-trap helper. Keeps Tab cycling inside the modal until it closes.
  *
+ * Tab is handled at document level for the topmost trap, not on the container:
+ * when a focused button disables itself while its request runs (the Share
+ * dialog's "Create share link", every busy-bound submit) the browser drops focus
+ * to <body>, and a container-only listener never saw the next Tab, so focus
+ * walked through the page behind the open dialog. While focus is lost the trap
+ * also returns it: to that button once it is enabled again, or to the dialog
+ * panel when the focused control was removed.
+ *
  * @param {HTMLElement} container The modal panel.
- * @return {() => void} Cleanup function — call to remove the listener.
+ * @return {() => void} Cleanup function — call to release the trap.
  */
 export function trapFocus( container ) {
+	let lastInside = null;
+
+	function lost() {
+		const active = document.activeElement;
+		return ! active || active === document.body || ! document.contains( active );
+	}
+
+	function onFocusIn( ev ) {
+		if ( container.contains( ev.target ) ) {
+			lastInside = ev.target;
+		}
+	}
+
 	function onKey( ev ) {
-		if ( ev.key !== 'Tab' ) {
+		if ( ev.key !== 'Tab' || trapStack[ trapStack.length - 1 ] !== onKey ) {
 			return;
 		}
 		// Only controls that are actually rendered count. A dialog can hold controls
@@ -168,8 +192,8 @@ export function trapFocus( container ) {
 		const last   = focusables[ focusables.length - 1 ];
 		const active = document.activeElement;
 		// Focus on something that is not one of the stops - the panel itself, where a
-		// modal parks focus when it opens - wraps to the matching end instead of
-		// letting the browser step out of the dialog.
+		// modal parks focus when it opens, or <body> after a button disabled itself -
+		// wraps to the matching end instead of letting the browser leave the dialog.
 		const inList = focusables.indexOf( active ) !== -1;
 		if ( ev.shiftKey && ( active === first || ! inList ) ) {
 			ev.preventDefault();
@@ -179,9 +203,40 @@ export function trapFocus( container ) {
 			first.focus();
 		}
 	}
-	container.addEventListener( 'keydown', onKey );
+
+	// Focus lost while the trap is open: a busy button coming back enabled gets it
+	// back; a control that was removed (a "Remove" row) hands it to the dialog
+	// panel, so a screen reader stays inside the dialog instead of the page.
+	const observer = new MutationObserver( function () {
+		if ( ! lastInside || ! lost() ) {
+			return;
+		}
+		if ( ! container.contains( lastInside ) ) {
+			const panel = container.matches( '[role="dialog"],[role="alertdialog"]' )
+				? container
+				: container.querySelector( '[role="dialog"],[role="alertdialog"]' ) || container;
+			if ( ! panel.hasAttribute( 'tabindex' ) ) {
+				panel.setAttribute( 'tabindex', '-1' );
+			}
+			lastInside = null;
+			panel.focus();
+		} else if ( ! lastInside.disabled && lastInside.getClientRects().length ) {
+			lastInside.focus();
+		}
+	} );
+	observer.observe( container, { subtree: true, childList: true, attributes: true, attributeFilter: [ 'disabled' ] } );
+
+	trapStack.push( onKey );
+	container.addEventListener( 'focusin', onFocusIn );
+	document.addEventListener( 'keydown', onKey, true );
 	return function () {
-		container.removeEventListener( 'keydown', onKey );
+		const i = trapStack.indexOf( onKey );
+		if ( -1 !== i ) {
+			trapStack.splice( i, 1 );
+		}
+		observer.disconnect();
+		container.removeEventListener( 'focusin', onFocusIn );
+		document.removeEventListener( 'keydown', onKey, true );
 	};
 }
 
