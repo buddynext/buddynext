@@ -11,7 +11,7 @@
             "name": "GPL-2.0-or-later",
             "identifier": "GPL-2.0-or-later"
         },
-        "version": "1.2.1"
+        "version": "1.2.2"
     },
     "servers": [
         {
@@ -16609,6 +16609,32 @@
                             "null"
                         ]
                     },
+                    "poll_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "option_text": {
+                                    "type": "string"
+                                },
+                                "display_order": {
+                                    "type": "integer"
+                                },
+                                "vote_count": {
+                                    "type": "integer"
+                                },
+                                "end_date": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "privacy": {
                         "type": "string"
                     },
@@ -16913,6 +16939,32 @@
                     "media_ids": {},
                     "link_url": {},
                     "link_meta": {},
+                    "poll_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "option_text": {
+                                    "type": "string"
+                                },
+                                "display_order": {
+                                    "type": "integer"
+                                },
+                                "vote_count": {
+                                    "type": "integer"
+                                },
+                                "end_date": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "privacy": {
                         "type": "string"
                     },
@@ -20422,6 +20474,32 @@
                                 "media_ids": {},
                                 "link_url": {},
                                 "link_meta": {},
+                                "poll_options": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer"
+                                            },
+                                            "option_text": {
+                                                "type": "string"
+                                            },
+                                            "display_order": {
+                                                "type": "integer"
+                                            },
+                                            "vote_count": {
+                                                "type": "integer"
+                                            },
+                                            "end_date": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
                                 "privacy": {
                                     "type": "string"
                                 },

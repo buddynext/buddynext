@@ -6160,9 +6160,12 @@ final class ResponseSchema {
 	 * @return array<string, mixed>
 	 */
 	private static function poll_options(): array {
+		// Only poll posts carry it. bin/check-openapi.php reads x-bn-conditional so
+		// a sample of non-poll posts is not reported as drift.
 		return array(
-			'type'  => 'array',
-			'items' => array(
+			'type'             => 'array',
+			'x-bn-conditional' => true,
+			'items'            => array(
 				'type'       => 'object',
 				'properties' => array(
 					'id'            => array( 'type' => 'integer' ),

@@ -131,16 +131,28 @@ foreach ( $bn_registries as $bn_ns => $bn_class ) {
 			continue;
 		}
 
-		$bn_data = rest_get_server()->response_to_data( $bn_resp, false );
-		$bn_item = ( 'paginated' === $bn_shape ) ? ( $bn_data['items'][0] ?? null ) : ( is_array( $bn_data ) ? ( $bn_data[0] ?? null ) : null );
-		if ( ! is_array( $bn_item ) ) {
+		$bn_data  = rest_get_server()->response_to_data( $bn_resp, false );
+		$bn_items = ( 'paginated' === $bn_shape ) ? ( $bn_data['items'] ?? array() ) : ( is_array( $bn_data ) ? $bn_data : array() );
+		$bn_items = array_values( array_filter( (array) $bn_items, 'is_array' ) );
+		if ( ! $bn_items ) {
 			$bn_skipped[ $bn_resource ] = 'no rows to introspect';
 			continue;
 		}
+		$bn_item = $bn_items[0];
 
-		$bn_live     = array_keys( $bn_item );
-		$bn_schema   = (array) $bn_class::$bn_resource();
-		$bn_declared = array_keys( (array) ( $bn_schema['properties'] ?? array() ) );
+		// Every key any sampled row returns. Reading only the first row made the
+		// gate depend on sort order: a field carried by some rows only (a poll
+		// post's poll_options) failed as undocumented when a poll came first, and
+		// as documented-but-missing when it did not.
+		$bn_live = array();
+		foreach ( $bn_items as $bn_row ) {
+			$bn_live = array_merge( $bn_live, array_keys( $bn_row ) );
+		}
+		$bn_live = array_values( array_unique( $bn_live ) );
+
+		$bn_schema     = (array) $bn_class::$bn_resource();
+		$bn_properties = (array) ( $bn_schema['properties'] ?? array() );
+		$bn_declared   = array_keys( $bn_properties );
 
 		// `<key>_gmt` siblings of Core\Dates timestamp keys are documented by the
 		// generator itself wherever `<key>` is declared.
@@ -156,7 +168,11 @@ foreach ( $bn_registries as $bn_ns => $bn_class ) {
 		$bn_stale = array_values(
 			array_filter(
 				array_diff( $bn_declared, $bn_live ),
-				static fn( string $field ): bool => ! ( str_ends_with( $field, '_gmt' ) && array_key_exists( substr( $field, 0, -4 ), $bn_item ) )
+				// A field the schema marks x-bn-conditional is present only on some
+				// rows (e.g. poll_options on poll posts), so its absence from a
+				// sample proves nothing.
+				static fn( string $field ): bool => empty( $bn_properties[ $field ]['x-bn-conditional'] )
+					&& ! ( str_ends_with( $field, '_gmt' ) && array_key_exists( substr( $field, 0, -4 ), $bn_item ) )
 			)
 		);
 		if ( $bn_undocumented || $bn_stale ) {
