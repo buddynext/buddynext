@@ -213,7 +213,9 @@
 		},
 		open: function ( opener ) {
 			this.init();
-			this.opener = opener || null;
+			// Ctrl+K and "/" pass no opener: remember whatever had focus, so close()
+			// returns the member to where they were instead of the top of the page.
+			this.opener = opener || ( document.activeElement !== document.body ? document.activeElement : null );
 			this.el.hidden = false;
 			this.el.querySelector( 'input' ).value = '';
 			this.el.querySelector( 'input' ).focus();
