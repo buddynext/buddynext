@@ -192,7 +192,8 @@ $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_fo
 	<?php endif; ?>
 
 	<?php if ( $bn_fs_can_share ) : ?>
-		<div class="bn-share" data-wp-bind--hidden="!context.shareOpen">
+		<?php // .bn-modal-backdrop + .bn-modal__close wire this into the shared modal-a11y.js primitive (Esc, focus trap, focus restore) - see assets/js/shell/modal-a11y.js. ?>
+		<div class="bn-share bn-modal-backdrop" data-wp-bind--hidden="!context.shareOpen">
 			<div class="bn-share__backdrop" data-wp-on--click="actions.closeShare"></div>
 			<div class="bn-share__panel" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Share document', 'buddynext' ); ?>">
 				<header class="bn-share__head">
@@ -202,7 +203,7 @@ $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_fo
 						echo esc_html( sprintf( __( 'Share “%s”', 'buddynext' ), $bn_fs_title ) );
 						?>
 					</h3>
-					<button type="button" class="bn-share__close" data-wp-on--click="actions.closeShare" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>">
+					<button type="button" class="bn-share__close bn-modal__close" data-wp-on--click="actions.closeShare" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>">
 						<?php echo buddynext_icon( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
 					</button>
 				</header>

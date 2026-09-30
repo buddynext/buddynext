@@ -749,10 +749,12 @@ a.bn-files__name:focus-visible {
 	display: none;
 }
 
+/* The dim + blur now come from the shared .bn-modal-backdrop class on .bn-share
+   itself (bn-base.css); this stays a transparent full-cover click target so
+   clicking outside the panel still closes it. */
 .bn-share__backdrop {
 	position: absolute;
 	inset: 0;
-	background: var(--bn-overlay);
 }
 
 .bn-share__panel {
