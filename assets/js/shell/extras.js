@@ -139,7 +139,11 @@
 		init: function () {
 			if ( this.el ) return;
 			var ov = document.createElement( 'div' );
-			ov.className = 'bn-search-overlay';
+			// bn-modal-backdrop hands keyboard handling to the shared modal-a11y.js
+			// primitive: a document-level Escape (from the input, the X or a result),
+			// the Tab trap and focus return. Its layout stays top-aligned through the
+			// scoped .bn-search-overlay.bn-modal-backdrop rule in bn-base.css.
+			ov.className = 'bn-search-overlay bn-modal-backdrop';
 			ov.hidden = true;
 
 			var inner = document.createElement( 'div' );
@@ -194,7 +198,9 @@
 
 			var self = this;
 			ov.addEventListener( 'click', function ( e ) { if ( e.target === ov ) self.close(); } );
-			input.addEventListener( 'keydown', function ( e ) { if ( e.key === 'Escape' ) self.close(); } );
+			// No Escape listener here: modal-a11y.js closes the overlay through
+			// closeBtn wherever focus sits. The old input-only listener fired only
+			// while the input had focus, so Escape did nothing on the X or a result.
 			closeBtn.addEventListener( 'click', function () { self.close(); } );
 
 			var timer = null;

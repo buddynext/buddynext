@@ -1681,6 +1681,11 @@ class PageRouter {
 		// The one toast (bnToast) lives in this module; it replaces the queueing stub
 		// in shell/extras.js as soon as it runs, so every hub has a real toast.
 		wp_enqueue_script_module( '@buddynext/shell-dialog' );
+		// The search overlay built by shell/extras.js is a .bn-modal-backdrop and
+		// relies on modal-a11y for Escape, the Tab trap and focus return. Enqueue it
+		// directly rather than trusting the nav-init side-effect import to be
+		// pulled in by some other store on this hub.
+		wp_enqueue_script_module( '@buddynext/modal-a11y' );
 
 		// Social-buttons store powers the standalone Follow + Connect partials
 		// (sidebar widgets, block-rendered buttons, etc.) on every BN hub.

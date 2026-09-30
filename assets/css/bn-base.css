@@ -1420,6 +1420,17 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	padding-top: 15vh;
 	animation: bn-overlay-in 0.15s ease;
 }
+/* The overlay is also a .bn-modal-backdrop so modal-a11y handles its keyboard
+   (Escape, Tab trap, focus return), but it is a search palette, not a centred
+   dialog: keep it top-aligned with its own padding and no blur (the blur belongs
+   to the modal only - popup guideline). Two classes outrank .bn-modal-backdrop's
+   one, whatever the file order. */
+.bn-search-overlay.bn-modal-backdrop {
+	align-items: flex-start;
+	padding: 15vh 0 0;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
 @keyframes bn-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 .bn-search-overlay__inner {
 	width: 100%;
@@ -1505,7 +1516,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	margin-top: 2px;
 }
 @media (max-width: 640px) {
-	.bn-search-overlay { padding-top: var(--bn-s4); }
+	.bn-search-overlay.bn-modal-backdrop { padding-top: var(--bn-s4); }
 	.bn-search-overlay__inner { max-width: calc(100vw - 16px); border-radius: var(--bn-r-lg); }
 }
 
