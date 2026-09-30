@@ -149,18 +149,32 @@ export function trapFocus( container ) {
 		if ( ev.key !== 'Tab' ) {
 			return;
 		}
-		const focusables = container.querySelectorAll(
-			'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+		// Only controls that are actually rendered count. A dialog can hold controls
+		// that stay hidden until a state changes (the Share dialog's link row appears
+		// only after a link is created); counting those made an invisible element the
+		// "last" stop, so the wrap never fired and Tab walked out of the dialog.
+		const focusables = Array.prototype.filter.call(
+			container.querySelectorAll(
+				'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			),
+			function ( el ) {
+				return el.getClientRects().length > 0;
+			}
 		);
 		if ( ! focusables.length ) {
 			return;
 		}
-		const first = focusables[ 0 ];
-		const last  = focusables[ focusables.length - 1 ];
-		if ( ev.shiftKey && document.activeElement === first ) {
+		const first  = focusables[ 0 ];
+		const last   = focusables[ focusables.length - 1 ];
+		const active = document.activeElement;
+		// Focus on something that is not one of the stops - the panel itself, where a
+		// modal parks focus when it opens - wraps to the matching end instead of
+		// letting the browser step out of the dialog.
+		const inList = focusables.indexOf( active ) !== -1;
+		if ( ev.shiftKey && ( active === first || ! inList ) ) {
 			ev.preventDefault();
 			last.focus();
-		} else if ( ! ev.shiftKey && document.activeElement === last ) {
+		} else if ( ! ev.shiftKey && ( active === last || ! inList ) ) {
 			ev.preventDefault();
 			first.focus();
 		}
@@ -202,7 +216,7 @@ export function bnConfirm( opts, legacyOpts ) {
 		const releaseTrap = trapFocus( frame.panel );
 
 		function close( result ) {
-			document.removeEventListener( 'keydown', onEscape );
+			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
 			if ( trigger && typeof trigger.focus === 'function' ) {
@@ -226,7 +240,7 @@ export function bnConfirm( opts, legacyOpts ) {
 				close( false );
 			}
 		} );
-		document.addEventListener( 'keydown', onEscape );
+		window.addEventListener( 'keydown', onEscape, true );
 
 		document.body.appendChild( frame.backdrop );
 
@@ -331,7 +345,7 @@ export function bnPrompt( opts ) {
 		const releaseTrap = trapFocus( frame.panel );
 
 		function close( result ) {
-			document.removeEventListener( 'keydown', onEscape );
+			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
 			if ( trigger && typeof trigger.focus === 'function' ) {
@@ -383,7 +397,7 @@ export function bnPrompt( opts ) {
 				close( null );
 			}
 		} );
-		document.addEventListener( 'keydown', onEscape );
+		window.addEventListener( 'keydown', onEscape, true );
 
 		document.body.appendChild( frame.backdrop );
 
@@ -489,7 +503,7 @@ export function bnReportDialog( opts ) {
 		const releaseTrap = trapFocus( frame.panel );
 
 		function close( result ) {
-			document.removeEventListener( 'keydown', onEscape );
+			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
 			if ( trigger && typeof trigger.focus === 'function' ) {
@@ -509,7 +523,7 @@ export function bnReportDialog( opts ) {
 		frame.backdrop.addEventListener( 'click', function ( ev ) {
 			if ( ev.target === frame.backdrop ) { close( null ); }
 		} );
-		document.addEventListener( 'keydown', onEscape );
+		window.addEventListener( 'keydown', onEscape, true );
 
 		document.body.appendChild( frame.backdrop );
 
@@ -579,7 +593,7 @@ export function bnConnectNoteDialog( opts ) {
 		const releaseTrap = trapFocus( frame.panel );
 
 		function close( result ) {
-			document.removeEventListener( 'keydown', onEscape );
+			window.removeEventListener( 'keydown', onEscape, true );
 			releaseTrap();
 			frame.backdrop.remove();
 			if ( trigger && typeof trigger.focus === 'function' ) {
@@ -597,7 +611,7 @@ export function bnConnectNoteDialog( opts ) {
 		frame.backdrop.addEventListener( 'click', function ( ev ) {
 			if ( ev.target === frame.backdrop ) { close( null ); }
 		} );
-		document.addEventListener( 'keydown', onEscape );
+		window.addEventListener( 'keydown', onEscape, true );
 
 		document.body.appendChild( frame.backdrop );
 		window.requestAnimationFrame( function () { note.focus(); } );

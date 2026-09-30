@@ -78,7 +78,18 @@
 			panel.report.addEventListener( 'click', report );
 		}
 		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
-		if ( panel.edit ) { panel.edit.addEventListener( 'click', function () { closeMenu(); openEditPanel(); } ); }
+		if ( panel.edit ) { panel.edit.addEventListener( 'click', openEditPanel ); }
+		// Choosing any item closes the menu first (capture phase) and parks focus on
+		// the ⋯ trigger, so a dialog the item opens records a visible opener to
+		// return focus to instead of a menu item that is now hidden.
+		if ( panel.menu ) {
+			panel.menu.addEventListener( 'click', function ( e ) {
+				if ( e.target.closest( '[role="menuitem"]' ) ) {
+					closeMenu();
+					if ( panel.more ) { panel.more.focus(); }
+				}
+			}, true );
+		}
 		if ( panel.save ) { panel.save.addEventListener( 'click', toggleSave ); }
 		if ( panel.unlink ) { panel.unlink.addEventListener( 'click', unlinkFromSpace ); }
 		// The ⋯ overflow: toggle on the trigger, close on outside-click / Escape and
@@ -350,7 +361,6 @@
 	// lightbox closes.
 	function unlinkFromSpace() {
 		if ( ! current || currentSpaceId <= 0 ) { return; }
-		closeMenu();
 		var msg = I18N.unlinkConfirm || 'Remove this from the space?';
 		Promise.resolve(
 			typeof window.bnConfirm === 'function'
@@ -646,11 +656,12 @@
 
 		// The ONE shared "Block this member?" dialog (shell/dialog.js) - same
 		// wording, consequence list and button the profile page, member
-		// directory and message thread already use. The lightbox has no
-		// author display name on the media payload, so it renders the generic
-		// title; do not invent a one-off confirm with different copy here.
+		// directory and message thread already use. It names the person the
+		// same way they do ("Block admin?"), from the author name the viewer
+		// header already renders (renderAuthor() reads the same two fields).
+		var authorName = ( currentMedia && ( currentMedia.author_name || ( currentMedia.author_data && currentMedia.author_data.name ) ) ) || '';
 		var proceed = typeof confirmFn === 'function'
-			? confirmFn()
+			? confirmFn( authorName )
 			// Exposed on window by shell/dialog.js. If it is somehow not
 			// loaded we do NOT fall back to a native window.confirm on a
 			// member-facing surface - skip the action, the same way the
@@ -1183,9 +1194,21 @@
 
 	document.addEventListener( 'keydown', function ( e ) {
 		if ( ! overlay || overlay.hidden ) { return; }
+		// A dialog opened over the lightbox (Block, Report, Share) handles its own
+		// keys in the capture phase and marks them handled - leave those alone, or
+		// one Escape closes both the dialog and the photo behind it.
+		if ( e.defaultPrevented ) { return; }
 		// Don't hijack arrows while typing a comment.
 		var typing = document.activeElement && document.activeElement.matches( 'input, textarea' );
-		if ( 'Escape' === e.key ) { close(); }
+		if ( 'Escape' === e.key ) {
+			// Escape closes one layer: the open ⋯ menu first, the viewer after.
+			if ( panel.menu && ! panel.menu.hidden ) {
+				closeMenu();
+				if ( panel.more ) { panel.more.focus(); }
+				return;
+			}
+			close();
+		}
 		else if ( ! typing && 'ArrowLeft' === e.key ) { step( -1 ); }
 		else if ( ! typing && 'ArrowRight' === e.key ) { step( 1 ); }
 	} );

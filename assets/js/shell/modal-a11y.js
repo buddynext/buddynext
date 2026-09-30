@@ -171,7 +171,11 @@ function topmost() {
  * @return {void}
  */
 function onEscape( ev ) {
-	if ( 'Escape' !== ev.key || ! openModals.size ) {
+	// A layer above already handled this Escape - a transient bnConfirm /
+	// bnPrompt / report dialog listens on window in the capture phase, so it runs
+	// first and marks the event. Closing a modal here as well would close two
+	// layers for one key.
+	if ( 'Escape' !== ev.key || ev.defaultPrevented || ! openModals.size ) {
 		return;
 	}
 	const top = topmost();
@@ -205,7 +209,11 @@ function boot() {
 	}
 	window.__bnModalA11y = true;
 
-	document.addEventListener( 'keydown', onEscape );
+	// Capture phase: Escape layering is top-down. Transient dialogs (window,
+	// capture) run first, these modals next, and surfaces that sit beneath a modal
+	// (the media lightbox, menus) listen in the bubble phase and skip an event that
+	// is already defaultPrevented. So one Escape closes exactly one layer.
+	document.addEventListener( 'keydown', onEscape, true );
 
 	const observer = new MutationObserver( function ( mutations ) {
 		mutations.forEach( function ( m ) {
