@@ -1044,6 +1044,7 @@ final class ResponseSchema {
 					'format' => 'uri',
 				),
 				'link_meta'            => array( 'type' => array( 'object', 'null' ) ),
+				'poll_options'         => self::poll_options(),
 				'privacy'              => array( 'type' => 'string' ),
 				'reaction_count'       => array( 'type' => 'integer' ),
 				'comment_count'        => array( 'type' => 'integer' ),
@@ -1962,6 +1963,7 @@ final class ResponseSchema {
 				'media_ids'            => array(),
 				'link_url'             => array(),
 				'link_meta'            => array(),
+				'poll_options'         => self::poll_options(),
 				'privacy'              => array(
 					'type' => 'string',
 				),
@@ -2293,6 +2295,7 @@ final class ResponseSchema {
 							'media_ids'            => array(),
 							'link_url'             => array(),
 							'link_meta'            => array(),
+							'poll_options'         => self::poll_options(),
 							'privacy'              => array(
 								'type' => 'string',
 							),
@@ -6144,6 +6147,29 @@ final class ResponseSchema {
 				'created_at_gmt' => array(
 					'type'   => 'string',
 					'format' => 'date-time',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Options on a poll post, as PostService::attach_poll_options() adds them.
+	 * Present only on posts of type "poll", so it is optional wherever a post
+	 * appears (single post, feeds, hashtag feed).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function poll_options(): array {
+		return array(
+			'type'  => 'array',
+			'items' => array(
+				'type'       => 'object',
+				'properties' => array(
+					'id'            => array( 'type' => 'integer' ),
+					'option_text'   => array( 'type' => 'string' ),
+					'display_order' => array( 'type' => 'integer' ),
+					'vote_count'    => array( 'type' => 'integer' ),
+					'end_date'      => array( 'type' => array( 'string', 'null' ) ),
 				),
 			),
 		);
