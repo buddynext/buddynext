@@ -2893,6 +2893,35 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	cursor: not-allowed;
 }
 
+/* Dropdown arrow: BuddyNext draws its own on every select inside a BuddyNext
+   container. Themes such as Reign set `appearance: none` and paint their arrow
+   as a background image, and our field rules (.bn-select, .bn-input and the
+   component classes) set the `background` shorthand, which wiped that image:
+   in Reign's light mode every BuddyNext dropdown read as a text box. The
+   plugin owns its look, so the arrow is ours, token-coloured for dark mode and
+   mirrored for RTL. Selected by type inside a bn- container, like the iOS
+   16px floor below, because the classes vary; the :not() pair lifts it above
+   the two-class component rules that set `background`, and skips list boxes,
+   which have no arrow. */
+:is([class^="bn-"], [class*=" bn-"]) select:not([multiple]):not([size]) {
+	-webkit-appearance: none;
+	appearance: none;
+	padding-inline-end: calc(var(--bn-s3) * 2 + var(--bn-s2));
+	background-image:
+		linear-gradient(45deg, transparent 50%, var(--bn-ink-3) 50%),
+		linear-gradient(135deg, var(--bn-ink-3) 50%, transparent 50%);
+	background-position:
+		calc(100% - var(--bn-s3) - var(--bn-s1)) 50%,
+		calc(100% - var(--bn-s3)) 50%;
+	background-size: var(--bn-s1) var(--bn-s1);
+	background-repeat: no-repeat;
+}
+[dir="rtl"] :is([class^="bn-"], [class*=" bn-"]) select:not([multiple]):not([size]) {
+	background-position:
+		var(--bn-s3) 50%,
+		calc(var(--bn-s3) + var(--bn-s1)) 50%;
+}
+
 /* iOS Safari auto-zooms the viewport when a focused input/textarea/select has a
    computed font-size below 16px, and never zooms back out — the member has to
    pinch out after tapping any field. Raise text controls to a 16px floor on

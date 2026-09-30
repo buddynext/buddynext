@@ -214,7 +214,7 @@ $bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_fo
 
 				<form class="bn-share__add" data-wp-on--submit="actions.addMember">
 					<input type="text" class="bn-share__login" name="login" autocomplete="off" required
-						placeholder="<?php esc_attr_e( 'Add a member by username or email', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'Username or email', 'buddynext' ); ?>"
 						aria-label="<?php esc_attr_e( 'Add a member by username or email', 'buddynext' ); ?>">
 					<select class="bn-share__perm" name="permission" aria-label="<?php esc_attr_e( 'Permission', 'buddynext' ); ?>">
 						<?php foreach ( $bn_fs_levels as $bn_fs_lk => $bn_fs_ll ) : ?>
