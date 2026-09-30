@@ -72,4 +72,29 @@ class RolesTabTest extends \WP_UnitTestCase {
 	public function test_extends_admin_page_base(): void {
 		$this->assertInstanceOf( \BuddyNext\Admin\AdminPageBase::class, new RolesTab() );
 	}
+
+	/**
+	 * Restore defaults opens the same confirm as every settings tab, listing each
+	 * capability a reset would change in the dropdown's own words. Card 10350960555.
+	 *
+	 * @return void
+	 */
+	public function test_restore_confirm_lists_each_changed_capability(): void {
+		update_option( 'bn_role_map_overrides', array( 'buddynext-moderation/suspend-user' => 'admin' ) );
+
+		preg_match( '/data-bn-restore-defaults="([^"]*)"/', $this->render(), $m );
+		$payload = json_decode( html_entity_decode( $m[1] ?? '', ENT_QUOTES ), true );
+
+		$this->assertSame(
+			array(
+				array(
+					'key'     => 'buddynext-moderation/suspend-user',
+					'label'   => 'Suspend members',
+					'current' => 'Admins only',
+					'default' => 'Moderators & up',
+				),
+			),
+			$payload['changes'] ?? null
+		);
+	}
 }

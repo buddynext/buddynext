@@ -238,10 +238,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 *
 	 * Shown only when the tab has at least one resettable, driver-registered
 	 * setting. It sits below the Save bar, away from Save, and posts to the shared
-	 * SettingsDriver handler. A tiny inline script gates the submit behind the shared
-	 * confirm dialog, which lists exactly which settings would change (and says the
-	 * tab is already at defaults when nothing differs) so the reset is never a
-	 * surprise. Owner-data (resettable => false) is never listed and never reset.
+	 * SettingsDriver handler through the shared AdminPageBase::render_restore_form(),
+	 * whose dialog lists exactly which settings would change (and says the tab is
+	 * already at defaults when nothing differs) so the reset is never a surprise.
+	 * Owner-data (resettable => false) is never listed and never reset.
 	 *
 	 * @param string $slug Tab slug.
 	 * @return void
@@ -253,36 +253,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		}
 
 		$preview = \BuddyNext\Admin\Settings\SettingsDriver::tab_reset_preview( $slug );
-		$payload = wp_json_encode(
+		$this->render_restore_form(
 			array(
-				'changes'   => $preview['changes'],
-				'unchanged' => $preview['unchanged'],
-				'i18n'      => array(
-					'title'     => __( 'Restore default settings?', 'buddynext' ),
-					'confirm'   => __( 'Restore defaults', 'buddynext' ),
-					'cancel'    => __( 'Cancel', 'buddynext' ),
-					'close'     => __( 'Close', 'buddynext' ),
-					'intro'     => __( 'These settings on this tab will return to their defaults:', 'buddynext' ),
-					'current'   => __( 'now', 'buddynext' ),
-					'toDefault' => __( 'default', 'buddynext' ),
-					'noChange'  => __( 'This tab already uses the default settings. Nothing to restore.', 'buddynext' ),
-					'ownerNote' => __( 'Your data (names, banned words, keys, page mappings) is never reset.', 'buddynext' ),
-				),
-			)
+				'action'  => \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION,
+				'tab'     => $slug,
+				'section' => 'settings',
+			),
+			\BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION . '_' . $slug,
+			$preview['changes'],
+			$preview['unchanged'],
+			__( 'Your data (names, banned words, keys, page mappings) is never reset.', 'buddynext' )
 		);
-		?>
-		<div class="bn-settings-restore">
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-restore__form">
-				<input type="hidden" name="action" value="<?php echo esc_attr( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION ); ?>">
-				<input type="hidden" name="tab" value="<?php echo esc_attr( $slug ); ?>">
-				<input type="hidden" name="section" value="settings">
-				<?php wp_nonce_field( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION . '_' . $slug ); ?>
-				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-restore-defaults="<?php echo esc_attr( (string) $payload ); ?>">
-					<?php esc_html_e( 'Restore defaults', 'buddynext' ); ?>
-				</button>
-			</form>
-		</div>
-		<?php
 	}
 
 	/**

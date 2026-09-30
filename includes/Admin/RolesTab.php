@@ -136,6 +136,8 @@ class RolesTab extends AdminPageBase {
 		$bn_roles_flag = isset( $_GET['bn_roles'] ) ? sanitize_key( wp_unslash( $_GET['bn_roles'] ) ) : '';
 		if ( 'error' === $bn_roles_flag ) {
 			self::render_notice( __( 'Could not save role permissions. Try again.', 'buddynext' ), 'error' );
+		} elseif ( 'restored' === $bn_roles_flag ) {
+			self::render_notice( __( 'Role permissions restored to their defaults.', 'buddynext' ), 'success' );
 		} elseif ( '' !== $bn_roles_flag ) {
 			self::render_notice( __( 'Role permissions saved.', 'buddynext' ), 'success' );
 		}
@@ -164,7 +166,7 @@ class RolesTab extends AdminPageBase {
 							</thead>
 							<tbody>
 								<?php foreach ( $caps as $cap => $label ) : ?>
-									<?php $value = array_key_exists( $cap, $current ) ? (string) ( $current[ $cap ] ?? '' ) : 'member'; ?>
+									<?php $value = self::role_for( $current, $cap ); ?>
 									<tr>
 										<td><?php echo esc_html( $label ); ?></td>
 										<td>
@@ -187,30 +189,67 @@ class RolesTab extends AdminPageBase {
 							</tbody>
 						</table>
 					<?php endforeach; ?>
-
-					<?php $this->render_save_bar( __( 'Save permissions', 'buddynext' ) ); ?>
 				</div>
 			</div>
+
+			<?php $this->render_save_bar( __( 'Save permissions', 'buddynext' ) ); ?>
 		</form>
 		<?php
-		// Restore defaults lives in its own form, away from Save — the canonical
-		// pattern in Settings::render_restore_defaults() — so it can never be
-		// submitted by an Enter keypress in a role dropdown, and reuses that
-		// pattern's wording and layout classes rather than inventing a second one.
-		?>
-		<div class="bn-settings-restore">
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-restore__form">
-				<input type="hidden" name="action" value="bn_roles_save">
-				<input type="hidden" name="bn_reset" value="1">
-				<?php wp_nonce_field( 'bn_roles_save' ); ?>
-				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"
-					data-bn-confirm="<?php esc_attr_e( 'Reset every capability to its default role?', 'buddynext' ); ?>"
-					data-bn-confirm-tone="warning">
-					<?php esc_html_e( 'Restore defaults', 'buddynext' ); ?>
-				</button>
-			</form>
-		</div>
-		<?php
+		// Restore defaults: the same form and confirm as every settings tab, listing
+		// each capability a reset would change as "now X -> default Y".
+		$changes = array();
+		$labels  = self::role_choices();
+		$after   = self::map_after_reset();
+		foreach ( self::catalog() as $caps ) {
+			foreach ( $caps as $cap => $label ) {
+				$now = self::role_for( $current, $cap );
+				$def = self::role_for( $after, $cap );
+				if ( $now !== $def ) {
+					$changes[] = array(
+						'key'     => $cap,
+						'label'   => $label,
+						'current' => $labels[ $now ] ?? $now,
+						'default' => $labels[ $def ] ?? $def,
+					);
+				}
+			}
+		}
+		$total = array_sum( array_map( 'count', self::catalog() ) );
+		$this->render_restore_form(
+			array(
+				'action'   => 'bn_roles_save',
+				'bn_reset' => '1',
+			),
+			'bn_roles_save',
+			$changes,
+			$total - count( $changes ),
+			__( 'Only the role permissions on this tab are reset.', 'buddynext' )
+		);
+	}
+
+	/**
+	 * The role a capability requires in a role map, as a role_choices() key.
+	 * A capability missing from the map is open to all members; null is "off".
+	 *
+	 * @param array<string, string|null> $map Role map.
+	 * @param string                     $cap Capability.
+	 * @return string
+	 */
+	private static function role_for( array $map, string $cap ): string {
+		return array_key_exists( $cap, $map ) ? (string) ( $map[ $cap ] ?? '' ) : 'member';
+	}
+
+	/**
+	 * The role map as it will be once the overrides are deleted, which is exactly
+	 * what Restore defaults does.
+	 *
+	 * @return array<string, string|null>
+	 */
+	private static function map_after_reset(): array {
+		add_filter( 'pre_option_' . self::OPTION, '__return_empty_array' );
+		$map = PermissionService::build_role_map();
+		remove_filter( 'pre_option_' . self::OPTION, '__return_empty_array' );
+		return $map;
 	}
 
 	/**
@@ -227,7 +266,7 @@ class RolesTab extends AdminPageBase {
 		// Reset wipes the override option entirely → defaults take over.
 		if ( ! empty( $_POST['bn_reset'] ) ) {
 			delete_option( self::OPTION );
-			$this->redirect_back();
+			$this->redirect_back( true, 'restored' );
 		}
 
 		$valid_caps = array();
@@ -260,17 +299,18 @@ class RolesTab extends AdminPageBase {
 	}
 
 	/**
-	 * Redirect back to the Roles tab with a saved flag.
+	 * Redirect back to the Roles tab with a result flag.
 	 *
-	 * @param bool $ok Whether the save succeeded; controls the bn_roles flag.
+	 * @param bool   $ok   Whether the write succeeded.
+	 * @param string $flag bn_roles value on success: '1' saved, 'restored' reset.
 	 * @return void
 	 */
-	private function redirect_back( bool $ok = true ): void {
+	private function redirect_back( bool $ok = true, string $flag = '1' ): void {
 		// Resolve through the canonical placement map: the roles tab is registered
 		// under the 'settings' section but relocated to the Members page
 		// (page=buddynext-members), so a hardcoded page=buddynext landed on the
 		// General tab. tab_url() follows the remap to the page the tab renders on.
-		wp_safe_redirect( AdminHub::tab_url( 'settings', 'roles', array( 'bn_roles' => $ok ? '1' : 'error' ) ) );
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'roles', array( 'bn_roles' => $ok ? $flag : 'error' ) ) );
 		exit;
 	}
 }
