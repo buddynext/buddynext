@@ -882,7 +882,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	color: var(--bn-accent-fg);
 }
 .bn-toast__icon svg { width: 16px; height: 16px; }
-.bn-toast--success .bn-toast__icon { background: var(--bn-success); }
+.bn-toast--success .bn-toast__icon,
+.bn-toast--achievement .bn-toast__icon { background: var(--bn-success); }
 .bn-toast--error .bn-toast__icon { background: var(--bn-danger); }
 .bn-toast--info .bn-toast__icon { background: var(--bn-info); }
 .bn-toast__text {

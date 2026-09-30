@@ -135,9 +135,12 @@ class Appearance {
 		// as the theme block; appended later, so it wins. Drive the hue/chroma for
 		// the scale and pin the theme-remapped accent/brand tokens to the picked
 		// colour (hover/light derived with color-mix, already used site-wide).
+		// --bn-accent-500 is the base of the theme-mapped 50-900 ramp (and of
+		// partner tokens like --wb-gam-pop-accent), so pinning it keeps the whole
+		// scale on the owner's colour instead of the host theme's accent.
 		$css = sprintf(
 			':root,[data-bn-theme]{--bn-hue:%1$s;--bn-accent-hue:%1$s;--bn-chroma:%2$s;'
-			. '--bn-accent:%3$s;--bn-accent-700:color-mix(in oklch,%3$s 80%%,black);'
+			. '--bn-accent:%3$s;--bn-accent-500:%3$s;--bn-accent-700:color-mix(in oklch,%3$s 80%%,black);'
 			. '--brand:%3$s;--brand-hover:color-mix(in oklch,%3$s 86%%,black);'
 			. '--brand-light:color-mix(in oklch,%3$s 14%%,white);}',
 			$hue,
