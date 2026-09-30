@@ -131,6 +131,7 @@ Moderation moves to Community Admin and each space's own tab, Files gain folders
 * Fix      - Dropdowns show an arrow on every theme, in light and dark mode and right-to-left layouts.
 * Fix      - The moderation content-warning control shows a post's current warning and offers Clear warning, in Community Admin and a space's Moderation tab.
 * Fix      - BuddyNext runs safely next to older WB Gamification and WPMediaVerse versions: a feature that needs a newer partner stays hidden instead of causing an error.
+* Fix      - Points and badge toasts use the success colour, and with a brand colour set in Appearance every accent shade follows it, WB Gamification popups included.
 * Dev      - Mirrored follows, lightbox comments and forum replies run inside IntegrationActivity::as_mirror(), so reward listeners can skip them with IntegrationActivity::is_mirror() and never pay one action twice.
 * Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
 * Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.
