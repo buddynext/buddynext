@@ -370,7 +370,9 @@ class GamificationKudos {
 	 * @return true|\WP_Error
 	 */
 	private function give( int $giver, int $receiver, string $message ) {
-		if ( ! self::enabled() ) {
+		// Checked here as well as in register(): a site on WB Gamification older than
+		// 1.6.5 has no wb_gam_send_kudos(), and no future caller of give() may fatal on it.
+		if ( ! self::enabled() || ! function_exists( 'wb_gam_send_kudos' ) ) {
 			return new \WP_Error( 'kudos_off', __( 'Kudos is turned off on this community.', 'buddynext' ) );
 		}
 		if ( $giver <= 0 || $receiver <= 0 || $giver === $receiver || ! get_userdata( $receiver ) ) {

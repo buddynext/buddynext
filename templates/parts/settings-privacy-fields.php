@@ -75,8 +75,10 @@ $privacy_connect_options    = array(
 // "Who can message me" is WPMediaVerse's setting (card 10344455521): its choices
 // (the site's level or stricter), its labels and the member's effective value.
 // Shown only while messaging is on.
+// Both methods arrive together in WPMediaVerse 2.6.0; check both so a build that
+// has only one never fatals, it just hides the row.
 $bn_dm_service   = '\\WPMediaVerse\\Services\\ProfileService';
-$bn_dm_options   = ( \BuddyNext\Messages\MessagesData::entry_enabled() && is_callable( array( $bn_dm_service, 'dm_access_options' ) ) )
+$bn_dm_options   = ( \BuddyNext\Messages\MessagesData::entry_enabled() && is_callable( array( $bn_dm_service, 'dm_access_options' ) ) && is_callable( array( $bn_dm_service, 'effective_dm_access' ) ) )
 	? (array) call_user_func( array( $bn_dm_service, 'dm_access_options' ) )
 	: array();
 $bn_dm_value     = $bn_dm_options ? (string) call_user_func( array( $bn_dm_service, 'effective_dm_access' ), (int) $user_id ) : '';
