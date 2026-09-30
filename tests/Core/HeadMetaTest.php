@@ -130,6 +130,30 @@ class HeadMetaTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A hub set as the static front page is canonical at the site root: its own
+	 * slug 301s there, so pointing at it sends crawlers round a redirect
+	 * (card 10343760220).
+	 */
+	public function test_front_page_hub_is_canonical_at_the_root(): void {
+		$page = self::factory()->post->create( array( 'post_type' => 'page', 'post_name' => 'members' ) );
+		update_option( 'show_on_front', 'page' );
+		update_option( 'page_on_front', $page );
+		$this->go_to( home_url( '/' ) );
+		$this->assertTrue( is_front_page() );
+
+		$out = $this->render(
+			array(
+				'url'   => home_url( '/members/' ),
+				'title' => 'Members',
+			)
+		);
+
+		$this->assertStringContainsString( 'rel="canonical" href="' . home_url( '/' ) . '"', $out );
+		$this->assertStringContainsString( 'property="og:url" content="' . home_url( '/' ) . '"', $out );
+		$this->assertStringNotContainsString( '/members/"', $out );
+	}
+
+	/**
 	 * A second surface cannot describe the same response.
 	 */
 	public function test_first_descriptor_wins(): void {

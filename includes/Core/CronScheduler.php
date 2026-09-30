@@ -396,7 +396,7 @@ class CronScheduler {
 		}
 
 		$response = wp_remote_post(
-			admin_url( 'admin-ajax.php' ),
+			admin_url( 'admin-ajax.php' ), // wp-frontend-rest-only-allow: server-side loopback probe mirroring core Site Health, not a frontend call.
 			array(
 				'timeout'   => 10,
 				'blocking'  => true,

@@ -100,7 +100,7 @@ const resetStore = store( 'buddynext/auth-reset', {
 				c.notice = ( data && data.message ) || t( 'resetLinkSent', 'If an account matches, a reset link is on its way.' );
 			} catch ( _e ) {
 				c.submitting = false;
-				c.error = t( 'somethingWentWrong', 'Something went wrong. Please try again.' );
+				c.error = t( 'somethingWentWrong', 'Something went wrong. Try again.' );
 			}
 		},
 
@@ -140,7 +140,7 @@ const resetStore = store( 'buddynext/auth-reset', {
 				window.location.href = ( data && data.redirect_to ) || '/login/';
 			} catch ( _e ) {
 				c.submitting = false;
-				c.error = t( 'somethingWentWrong', 'Something went wrong. Please try again.' );
+				c.error = t( 'somethingWentWrong', 'Something went wrong. Try again.' );
 			}
 		},
 	},

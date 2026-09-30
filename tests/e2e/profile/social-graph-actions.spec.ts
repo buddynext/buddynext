@@ -69,10 +69,11 @@ const DISCONNECT_BTN = 'button[data-wp-on--click="actions.disconnectUser"]';
 const MUTE_ITEM = 'button[data-wp-on--click="actions.toggleMute"]';
 const BLOCK_ITEM = 'button[data-wp-on--click="actions.toggleBlock"]';
 const REPORT_ITEM = 'button[data-wp-on--click="actions.openReport"]';
-const BLOCK_BACKDROP = '.bn-pf-block-backdrop';
-const BLOCK_CONFIRM = '.bn-pf-block-backdrop button[data-wp-on--click="actions.confirmBlock"]';
-const REPORT_BACKDROP = '.bn-pf-report-backdrop';
-const REPORT_SUBMIT = '.bn-pf-report-backdrop button[data-wp-on--click="actions.submitReport"]';
+// Block and report use the shared dialogs (bnBlockConfirm / bnReportDialog): one modal
+// panel, the confirm action is the last button in its footer.
+// :visible because the profile page also carries the (closed) share modal's panel.
+const DIALOG = '.bn-modal__panel[role="dialog"]:visible';
+const DIALOG_CONFIRM = `${DIALOG} .bn-modal__foot .bn-btn:last-child`;
 
 const memberUrl = (login: string) => `/members/${login}/`;
 const SETTINGS_PRIVACY = '/settings/privacy/';
@@ -309,12 +310,12 @@ test.describe('profile / social-graph actions (effect-based)', () => {
         await page.goto(memberUrl(B_LOGIN));
         await expect(page.locator(HERO).first()).toBeVisible();
 
-        // Block via the kebab -> confirm modal.
+        // Block via the kebab -> shared confirm dialog.
         const wrap = await openMoreMenu(page);
         const blockItem = wrap.locator(BLOCK_ITEM).first();
         await expect(blockItem).toBeVisible();
         await blockItem.click();
-        await expect(page.locator(BLOCK_BACKDROP)).toBeVisible();
+        await expect(page.locator(DIALOG)).toBeVisible();
         await Promise.all([
             page.waitForResponse(
                 (r) =>
@@ -322,7 +323,7 @@ test.describe('profile / social-graph actions (effect-based)', () => {
                     r.request().method() === 'POST',
                 { timeout: 10_000 }
             ),
-            page.locator(BLOCK_CONFIRM).click(),
+            page.locator(DIALOG_CONFIRM).click(),
         ]);
         expect(await blockTypeCount('block'), 'block must create a wp_bn_blocks row').toBe(1);
 
@@ -360,32 +361,32 @@ test.describe('profile / social-graph actions (effect-based)', () => {
         // First report — default reason "spam".
         let wrap = await openMoreMenu(page);
         await wrap.locator(REPORT_ITEM).first().click();
-        await expect(page.locator(REPORT_BACKDROP)).toBeVisible();
+        await expect(page.locator(DIALOG)).toBeVisible();
         await Promise.all([
             page.waitForResponse(
                 (r) => r.url().includes('/reports') && r.request().method() === 'POST',
                 { timeout: 10_000 }
             ),
-            page.locator(REPORT_SUBMIT).click(),
+            page.locator(DIALOG_CONFIRM).click(),
         ]);
-        // Success closes the modal and creates exactly one report row.
-        await expect(page.locator(REPORT_BACKDROP)).toBeHidden();
+        // Success closes the dialog and creates exactly one report row.
+        await expect(page.locator(DIALOG)).toBeHidden();
         expect(await reportCount(), 'report must create a wp_bn_reports row').toBe(1);
 
-        // Second report — the server answers 409 already-reported: the modal stays
-        // open and NO duplicate row is written.
+        // Second report — the server answers 409 already-reported: the dialog closes,
+        // the server's message is shown as a toast, and NO duplicate row is written.
         wrap = await openMoreMenu(page);
         await wrap.locator(REPORT_ITEM).first().click();
-        await expect(page.locator(REPORT_BACKDROP)).toBeVisible();
+        await expect(page.locator(DIALOG)).toBeVisible();
         const second = await Promise.all([
             page.waitForResponse(
                 (r) => r.url().includes('/reports') && r.request().method() === 'POST',
                 { timeout: 10_000 }
             ),
-            page.locator(REPORT_SUBMIT).click(),
+            page.locator(DIALOG_CONFIRM).click(),
         ]);
         expect(second[0].status(), 'second report must be rejected (409)').toBe(409);
-        await expect(page.locator(REPORT_BACKDROP)).toBeVisible();
+        await expect(page.locator('.bn-toast--error')).toBeVisible();
         expect(await reportCount(), 'already-reported must NOT write a duplicate').toBe(1);
     });
 

@@ -346,11 +346,22 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): bool|WP_Error {
-		if ( empty( $this->load_space_row( $space_id ) ) ) {
+		$space = $this->load_space_row( $space_id );
+		if ( empty( $space ) ) {
 			return new WP_Error(
 				'space_not_found',
 				__( 'This space no longer exists.', 'buddynext' ),
 				array( 'status' => 404 )
+			);
+		}
+
+		// Same rule as join() and request_join(): an archived space takes no new
+		// members, so an invitation would be one nobody can accept.
+		if ( ! empty( $space['is_archived'] ) ) {
+			return new WP_Error(
+				'space_archived',
+				__( 'This space is archived and is not accepting new members.', 'buddynext' ),
+				array( 'status' => 403 )
 			);
 		}
 
@@ -609,7 +620,7 @@ class SpaceMemberService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason) VALUES (%d, %d, %d, %s)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason, created_at) VALUES (%d, %d, %d, %s, UTC_TIMESTAMP())",
 				$space_id,
 				$user_id,
 				$actor_id,
@@ -2391,12 +2402,13 @@ class SpaceMemberService {
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_space_bans',
 			array(
-				'space_id'  => $space_id,
-				'user_id'   => $user_id,
-				'banned_by' => max( 0, $banned_by ),
-				'reason'    => sanitize_textarea_field( $reason ),
+				'space_id'   => $space_id,
+				'user_id'    => $user_id,
+				'banned_by'  => max( 0, $banned_by ),
+				'reason'     => sanitize_textarea_field( $reason ),
+				'created_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%d', '%s' )
+			array( '%d', '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -2615,6 +2627,18 @@ class SpaceMemberService {
 	 */
 	public function can_join( array|object $space, int $user_id ): bool {
 		$space_row = is_object( $space ) ? (array) $space : $space;
+		$space_id  = (int) ( $space_row['id'] ?? 0 );
+
+		// An archived space takes no new members (join()/request_join()/invite()
+		// refuse it), so no surface may offer Join, Request or "Log in to join" -
+		// for anyone, guests included (card 10343780329). Rows that do not carry
+		// the column fall back to the cached lookup.
+		$archived = array_key_exists( 'is_archived', $space_row )
+			? ! empty( $space_row['is_archived'] )
+			: ( $space_id > 0 && buddynext_service( 'spaces' )->is_archived( $space_id ) );
+		if ( $archived ) {
+			return false;
+		}
 
 		// A suspended member reads spaces but cannot join one (POST /spaces/{id}/join
 		// 403s at RestHoldGate), so the Join / Request CTA must hide rather than 403
@@ -2622,7 +2646,7 @@ class SpaceMemberService {
 		// hides on; the space_id context also lets a space-banned member be refused
 		// here. Guests (user_id 0) are unaffected — they get the "Log in to join" CTA.
 		if ( $user_id > 0 && function_exists( 'buddynext_can' )
-			&& ! buddynext_can( $user_id, 'buddynext-spaces/join', array( 'space_id' => (int) ( $space_row['id'] ?? 0 ) ) ) ) {
+			&& ! buddynext_can( $user_id, 'buddynext-spaces/join', array( 'space_id' => $space_id ) ) ) {
 			return false;
 		}
 

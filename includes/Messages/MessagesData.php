@@ -49,38 +49,43 @@ class MessagesData {
 	}
 
 	/**
-	 * Whether direct messaging is turned on for this community.
-	 *
-	 * The site owner can disable DMs entirely from Platform → Features (the
-	 * 'messages' capability, default on). This is the canonical on/off switch every
-	 * BN-side messaging entry point consults — the rail item, header icon, user-menu
-	 * link, and the /messages/ route. It is the admin intent gate; whether the
-	 * WPMediaVerse engine is actually present is a separate concern handled by
-	 * available().
-	 *
-	 * @return bool
-	 */
-	public static function dm_enabled(): bool {
-		return buddynext_feature_enabled( 'messages' );
-	}
-
-	/**
 	 * Whether a member-facing messaging entry point (profile Message button,
 	 * Messages nav item, directory/space "Message" actions, the /messages/ hub)
 	 * should render at all.
 	 *
-	 * Combines the two independent gates so every entry point asks one question:
-	 *  - dm_enabled():  the site owner's on/off intent (the 'messages' capability).
-	 *  - available():   the WPMediaVerse engine is actually present.
+	 * WPMediaVerse owns the one messaging switch (Settings > Social > Messages):
+	 * off, its engine does not boot, so available() is false and every entry
+	 * point hides. BuddyNext has no switch of its own; a second one only hid
+	 * BuddyNext's screens while the API kept sending (card 10344001598).
 	 *
-	 * When this returns false the entry point must be HIDDEN — not rendered and
+	 * When this returns false the entry point must be HIDDEN, not rendered and
 	 * then 404'd, and never with an "install the plugin" notice (that is an admin
 	 * concern; community members should not see installation instructions).
 	 *
 	 * @return bool
 	 */
 	public static function entry_enabled(): bool {
-		return self::dm_enabled() && self::available();
+		return self::available();
+	}
+
+	/**
+	 * Whether WPMediaVerse is installed but its Messages switch is off, so the
+	 * owner is pointed at that switch rather than told to install the plugin.
+	 *
+	 * @return bool
+	 */
+	public static function switched_off(): bool {
+		$enabled = array( '\\WPMediaVerse\\Core\\Plugin', 'messaging_enabled' );
+		return is_callable( $enabled ) && ! call_user_func( $enabled );
+	}
+
+	/**
+	 * Where the owner turns messaging on or off.
+	 *
+	 * @return string
+	 */
+	public static function settings_url(): string {
+		return admin_url( 'admin.php?page=mvs-settings#social' );
 	}
 
 	/**
@@ -593,6 +598,9 @@ class MessagesData {
 				'reactions'         => $reactions,
 				'reply_to'          => $parent ? array( 'body' => (string) self::val( $parent, 'content', '' ) ) : null,
 				'media'             => $media,
+				// The message carried media that no longer resolves (deleted): the
+				// bubble says so instead of rendering an empty row.
+				'media_missing'     => null === $media && (int) self::val( $m, 'media_id', 0 ) > 0,
 				'read_by_recipient' => ( $sender_id === $viewer && $other_read && $created && $other_read >= $created ),
 			);
 		}

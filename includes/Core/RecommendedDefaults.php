@@ -38,8 +38,6 @@ class RecommendedDefaults {
 		// Discovery + reach.
 		'buddynext_public_explore'             => true,
 		'buddynext_enable_community_nav'       => true,
-		// Direct messaging.
-		'buddynext_default_dm_access'          => 'members',
 		// Activity feed engagement surfaces.
 		'buddynext_default_post_privacy'       => 'public',
 		'buddynext_enable_link_preview'        => true,

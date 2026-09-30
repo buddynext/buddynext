@@ -197,8 +197,8 @@ class FollowService {
 
 		$status = $this->is_private_account( $following_id ) ? 'pending' : 'approved';
 
-		// Importer seam: only include created_at when a backdate was supplied —
-		// otherwise the column's DEFAULT CURRENT_TIMESTAMP applies, unchanged.
+		// Importer seam: a supplied backdate wins; otherwise stamp UTC now (the
+		// column DEFAULT would use the DB server's local clock).
 		if ( null !== $created_at && '' !== $created_at ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
@@ -215,8 +215,8 @@ class FollowService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_follows (follower_id, following_id, status)
-					 VALUES (%d, %d, %s)",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_follows (follower_id, following_id, status, created_at)
+					 VALUES (%d, %d, %s, UTC_TIMESTAMP())",
 					$follower_id,
 					$following_id,
 					$status

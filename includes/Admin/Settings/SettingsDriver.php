@@ -153,8 +153,8 @@ final class SettingsDriver {
 			$changes[] = array(
 				'key'     => $key,
 				'label'   => $field->label,
-				'current' => self::display( $current ),
-				'default' => self::display( $default ),
+				'current' => self::display( $field, $current ),
+				'default' => self::display( $field, $default ),
 			);
 		}
 		return array(
@@ -247,14 +247,26 @@ final class SettingsDriver {
 	}
 
 	/**
-	 * A short human-readable rendering of a value for the confirm dialog.
+	 * A short human-readable rendering of a value for the confirm dialog, in the
+	 * words the owner sees on the settings screen: a toggle reads On/Off (its
+	 * stored value is '1'/'0'), a select reads its option label, not its slug.
 	 *
+	 * @param Field $field Field the value belongs to.
 	 * @param mixed $value Value.
 	 * @return string
 	 */
-	private static function display( $value ): string {
-		if ( is_bool( $value ) ) {
-			return $value ? __( 'On', 'buddynext' ) : __( 'Off', 'buddynext' );
+	private static function display( Field $field, $value ): string {
+		if ( 'toggle' === $field->type || is_bool( $value ) ) {
+			return ! empty( $value ) ? __( 'On', 'buddynext' ) : __( 'Off', 'buddynext' );
+		}
+		if ( 'optional_limit' === $field->type && 0 === (int) $value ) {
+			return __( 'No limit', 'buddynext' );
+		}
+		if ( is_scalar( $value ) ) {
+			$choices = $field->choices();
+			if ( isset( $choices[ (string) $value ] ) ) {
+				return (string) $choices[ (string) $value ];
+			}
 		}
 		if ( is_array( $value ) ) {
 			return implode( ', ', array_map( 'strval', $value ) );

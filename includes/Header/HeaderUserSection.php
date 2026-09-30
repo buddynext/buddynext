@@ -92,6 +92,27 @@ final class HeaderUserSection {
 	}
 
 	/**
+	 * Search icon → the community search palette.
+	 *
+	 * A real link to the search page, so it works on a page where the palette script
+	 * is not loaded (any non-BuddyNext page); where the script is loaded, a click on
+	 * `[data-bn-search-open]` opens the palette instead. Rendered for everyone, guests
+	 * included, because search is public.
+	 *
+	 * @return string
+	 */
+	public static function search_link(): string {
+		$url = PageRouter::search_url();
+		if ( '' === $url ) {
+			return '';
+		}
+
+		return '<a class="bn-header-search" href="' . esc_url( $url ) . '" aria-label="' . esc_attr__( 'Search', 'buddynext' ) . '" aria-haspopup="dialog" data-bn-search-open>'
+			. '<span class="bn-header-search__icon" aria-hidden="true">' . self::icon( 'search' ) . '</span>'
+			. '</a>';
+	}
+
+	/**
 	 * Messages icon → /messages/ (shown only when the messages feature is available).
 	 *
 	 * Carries the unread-DM count as a corner badge, mirroring the notification
@@ -102,7 +123,7 @@ final class HeaderUserSection {
 	 * @return string
 	 */
 	public static function messages_link(): string {
-		if ( ! is_user_logged_in() || ! MessagesData::dm_enabled() || ! MessagesData::available() ) {
+		if ( ! is_user_logged_in() || ! MessagesData::entry_enabled() ) {
 			return '';
 		}
 		$url = PageRouter::messages_url();

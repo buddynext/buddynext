@@ -795,4 +795,83 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$this->assertContains( $public_post, $alice_ids, 'the genuinely public tagged post still reaches the tag-follower' );
 		$this->assertContains( $secret_post, $carol_ids, 'a member of the space still sees the post' );
 	}
+
+	/**
+	 * A 'space_members'-privacy post in an OPEN space is readable by anyone —
+	 * anyone may join an open space, so 'public' and 'space_members' both mean
+	 * "anyone" there (owner decision 2026-09-17, card 10313019984). The For You
+	 * catch-all only checked privacy='public', so this post reached Explore
+	 * (explore_space_where()) but not For You for a non-member, non-follower
+	 * viewer. Regression guard for card 10352917675.
+	 *
+	 * The same post in a PRIVATE space must stay excluded — the fix must widen
+	 * the open-space case only, never loosen private/secret space privacy.
+	 *
+	 * @covers \BuddyNext\Feed\FeedService::home_feed
+	 */
+	public function test_for_you_shows_space_members_post_in_open_space_to_non_member(): void {
+		global $wpdb;
+
+		$make_space = function ( string $slug, string $type ) use ( $wpdb ): int {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_spaces',
+				array(
+					'name'       => $slug,
+					'slug'       => $slug,
+					'type'       => $type,
+					'owner_id'   => $this->bob,
+					'created_at' => current_time( 'mysql', 1 ),
+				)
+			);
+			$space_id = (int) $wpdb->insert_id;
+			// Bob must be an active member to post into the space at all.
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_space_members',
+				array(
+					'space_id'  => $space_id,
+					'user_id'   => $this->bob,
+					'role'      => 'owner',
+					'status'    => 'active',
+					'joined_at' => current_time( 'mysql', 1 ),
+				)
+			);
+			return $space_id;
+		};
+
+		$open_space_id    = $make_space( 'open-visibility', 'open' );
+		$private_space_id = $make_space( 'private-visibility', 'private' );
+
+		$open_post    = $this->posts->create(
+			$this->bob,
+			array(
+				'type'     => 'text',
+				'content'  => 'members-only post in an open space',
+				'privacy'  => 'space_members',
+				'space_id' => $open_space_id,
+			)
+		);
+		$private_post = $this->posts->create(
+			$this->bob,
+			array(
+				'type'     => 'text',
+				'content'  => 'members-only post in a private space',
+				'privacy'  => 'space_members',
+				'space_id' => $private_space_id,
+			)
+		);
+
+		// Alice is not a member of either space and does not follow Bob.
+		$alice_ids = array_column( $this->feed->home_feed( $this->alice )['items'], 'id' );
+
+		$this->assertContains(
+			$open_post,
+			$alice_ids,
+			'a space_members post in an OPEN space must reach a non-member For You feed, same as Explore'
+		);
+		$this->assertNotContains(
+			$private_post,
+			$alice_ids,
+			'a space_members post in a PRIVATE space must stay excluded from a non-member For You feed'
+		);
+	}
 }

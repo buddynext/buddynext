@@ -30,6 +30,8 @@ With the companion active, members can attach photos and other media to their ac
 
 As of BuddyNext 1.0.1, a standalone upload made directly in WPMediaVerse also posts a shared-media card to the activity feed. It is deferred by a couple of minutes and de-duplicated, so a photo added through the BuddyNext composer never posts twice.
 
+Feed posts follow their photos. Trash a photo in WPMediaVerse and a post with nothing left to show leaves the feed; restore it and the same post comes back with its reactions and comments; delete it permanently and the post is removed rather than left empty. A post with several photos keeps the ones that remain.
+
 ### Reporting media, and blocking an uploader
 
 The media viewer (the full-screen lightbox a member gets when they click a photo or video) carries two safety controls alongside Favorite, Share, and Download:
@@ -64,7 +66,7 @@ If the plugin is already installed but switched off, the same row shows an **Act
 
 The moment WPMediaVerse is active alongside BuddyNext, the bridge between them attaches automatically. There is nothing further to configure for basic messaging - the engine's own chat panel, standalone messages page, and notifications step aside so BuddyNext owns the experience. Members get direct messaging, media in posts, and the Media sidebar link with no extra setup.
 
-There are no BuddyNext settings to fill in for this companion. Who can message whom is controlled by your existing BuddyNext privacy and moderation rules (see Direct Messaging and Blocking and Muting), not by a separate WPMediaVerse panel.
+There are no BuddyNext settings to fill in for this companion. Who can message whom is WPMediaVerse's "who can message you" setting (Settings > Social), which members adjust from their BuddyNext privacy settings, plus BuddyNext's blocks (see Direct Messaging and Blocking and Muting).
 
 One BuddyNext setting does apply to media, on **Settings > General**:
 

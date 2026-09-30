@@ -48,9 +48,23 @@ See [Near-Real-Time Updates](../engagement/03-realtime-updates.md) and [Real-tim
 
 See [Integrations Overview](../integrations/01-overview.md).
 
+## A member sees an old page, or onboarding goes back to step 1, with a caching plugin on
+
+**Symptom:** In onboarding, pressing Continue after choosing interests lands the member back on step 1 (Skip still works). Or a logged-in member sees a feed, inbox or notification count that does not change until they clear their browser.
+
+**Likely cause:** A page-cache plugin (LiteSpeed Cache, WP Rocket, W3 Total Cache, WP Super Cache and similar) is set to cache pages for logged-in users, and the site runs BuddyNext 1.2.1 or earlier. The member is served a stored copy of their own earlier page.
+
+**Fix:**
+1. Update to BuddyNext 1.2.2 or later. It marks every page a logged-in member sees as uncacheable, so no exclusion list is needed.
+2. Purge all caches (page cache, and any CDN) after updating.
+3. If you cannot update yet, turn off your cache's "cache logged-in users" option, or exclude your onboarding page (by default `/onboarding/`).
+
+See [Page Cache and Optimisation Plugins](../getting-started/09a-page-cache-and-optimisation.md) for what was tested and where each plugin keeps these settings.
+
 ## Related
 
 - [Object Cache at Scale](../getting-started/09-object-cache-at-scale.md)
+- [Page Cache and Optimisation Plugins](../getting-started/09a-page-cache-and-optimisation.md)
 - [Plugin Isolation](../getting-started/08a-plugin-isolation.md)
 - [Near-Real-Time Updates](../engagement/03-realtime-updates.md)
 - [Real-time WebSocket (Pro)](../pro/18-realtime-websocket.md)

@@ -11,7 +11,7 @@
             "name": "GPL-2.0-or-later",
             "identifier": "GPL-2.0-or-later"
         },
-        "version": "1.2.1"
+        "version": "1.2.2"
     },
     "servers": [
         {
@@ -10909,6 +10909,15 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "roots_only",
+                        "in": "query",
+                        "required": false,
+                        "description": "1/true/yes to exclude sub-spaces even on the search path (search otherwise always includes them).",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -12290,6 +12299,52 @@
                         }
                     }
                 }
+            },
+            "delete": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "delete_spaces_id_invite_link",
+                "summary": "DELETE /buddynext/v1/spaces/{id}/invite-link",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/spaces/{id}/join": {
@@ -16554,6 +16609,32 @@
                             "null"
                         ]
                     },
+                    "poll_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "option_text": {
+                                    "type": "string"
+                                },
+                                "display_order": {
+                                    "type": "integer"
+                                },
+                                "vote_count": {
+                                    "type": "integer"
+                                },
+                                "end_date": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "privacy": {
                         "type": "string"
                     },
@@ -16858,6 +16939,32 @@
                     "media_ids": {},
                     "link_url": {},
                     "link_meta": {},
+                    "poll_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "option_text": {
+                                    "type": "string"
+                                },
+                                "display_order": {
+                                    "type": "integer"
+                                },
+                                "vote_count": {
+                                    "type": "integer"
+                                },
+                                "end_date": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "privacy": {
                         "type": "string"
                     },
@@ -19602,58 +19709,6 @@
                                     }
                                 }
                             },
-                            "bn.badge_awarded": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.level_up": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
                             "bn.onboarding_nudge": {
                                 "type": "object",
                                 "properties": {
@@ -19758,59 +19813,33 @@
                                     }
                                 }
                             },
+                            "bn.media_commented": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
                             "bn.media_favorited": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.media_reaction": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.media_mention": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {
@@ -20045,32 +20074,6 @@
                                 }
                             },
                             "bn.subscription_granted": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "jt.notification": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {
@@ -20471,6 +20474,32 @@
                                 "media_ids": {},
                                 "link_url": {},
                                 "link_meta": {},
+                                "poll_options": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer"
+                                            },
+                                            "option_text": {
+                                                "type": "string"
+                                            },
+                                            "display_order": {
+                                                "type": "integer"
+                                            },
+                                            "vote_count": {
+                                                "type": "integer"
+                                            },
+                                            "end_date": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
                                 "privacy": {
                                     "type": "string"
                                 },

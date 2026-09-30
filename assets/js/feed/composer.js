@@ -804,9 +804,16 @@ store( 'buddynext/post-composer', {
 						// guard the media-gallery and album pickers already run. Without
 						// it the composer streamed oversized/wrong-type files all the way
 						// to the server before rejection (wasted bandwidth, no feedback).
+						// The limit is the site's real ceiling (WPMediaVerse's configured
+						// max, clamped to the server's own upload_max_filesize/post_max_size
+						// — see WPMediaVerseBridge::media_max_bytes()), never a hardcoded
+						// number: a hardcoded 64MB here used to reject files the server
+						// would gladly have accepted.
+						const maxSizeMB = Number( ctxData.mediaMaxMB ) || 0;
 						const invalid = validateMedia( file, {
+							maxSizeMB,
 							badTypeMsg:  t( 'mediaBadType', 'Only images, video and audio can be attached.' ),
-							tooLargeMsg: t( 'mediaTooLarge', 'That file is too large to upload.' ),
+							tooLargeMsg: fmt( t( 'mediaTooLarge', 'File is larger than the %d MB allowed.' ), maxSizeMB ),
 						} );
 						if ( invalid ) {
 							bnToast( invalid, { tone: 'danger' } );
@@ -1047,7 +1054,7 @@ store( 'buddynext/post-composer', {
 					} catch ( _e ) {
 						ctx.documentId   = 0;
 						ctx.documentName = '';
-						bnToast( t( 'documentUploadFailed', 'That document could not be uploaded. Please try again.' ), { tone: 'error' } );
+						bnToast( t( 'documentUploadFailed', 'That document could not be uploaded. Try again.' ), { tone: 'error' } );
 					} finally {
 						ctx.documentUploading = false;
 						docInput.value        = '';

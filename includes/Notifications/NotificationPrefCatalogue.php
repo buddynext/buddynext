@@ -411,27 +411,6 @@ class NotificationPrefCatalogue {
 			),
 
 			// Growth + system.
-			// Badges + level-ups originate in wb-gamification (a partner plugin), so
-			// BN mirrors them in the notification center for display only and never
-			// emails them: the integration owns its own email templates, and BN
-			// emailing too would double up. can_email=false — the collect-only rule
-			// for all partner-sourced notifications (matches the Jetonomy listener).
-			'bn.badge_awarded'            => array(
-				'label'              => __( 'Badges earned', 'buddynext' ),
-				'description'        => __( 'You earned a new badge.', 'buddynext' ),
-				'group'              => self::GROUP_GROWTH,
-				'default_on_site'    => true,
-				'default_email_freq' => 'off',
-				'can_email'          => false,
-			),
-			'bn.level_up'                 => array(
-				'label'              => __( 'Level-ups', 'buddynext' ),
-				'description'        => __( 'You reached a new level.', 'buddynext' ),
-				'group'              => self::GROUP_GROWTH,
-				'default_on_site'    => true,
-				'default_email_freq' => 'off',
-				'can_email'          => false,
-			),
 			'bn.onboarding_nudge'         => array(
 				'label'              => __( 'Onboarding nudges', 'buddynext' ),
 				'description'        => __( 'Helpful reminders to finish setting up your profile.', 'buddynext' ),
@@ -484,6 +463,17 @@ class NotificationPrefCatalogue {
 				'can_email'          => false,
 				'email_only'         => true,
 			),
+			// BuddyNext owns media comments on a BuddyNext site (WPMediaVerse skips
+			// its own, owner decision 2026-09-27), so this one emails like a post
+			// comment does.
+			'bn.media_commented'          => array(
+				'label'              => __( 'Comments on your media', 'buddynext' ),
+				'description'        => __( 'Someone commented on a photo or video you posted.', 'buddynext' ),
+				'group'              => self::GROUP_FEED,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
 			'bn.media_favorited'          => array(
 				'label'              => __( 'Media favourited', 'buddynext' ),
 				'description'        => __( 'Someone favourited media you posted.', 'buddynext' ),
@@ -491,26 +481,6 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => true,
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
-			),
-			// Reactions + mentions on media are mirrored from WPMediaVerse, which
-			// owns their email. can_email is FALSE so BuddyNext never sends a second
-			// email for a partner event (the collect-only bridge rule); the centre
-			// shows them so members see everything in one place.
-			'bn.media_reaction'           => array(
-				'label'              => __( 'Reactions on your media', 'buddynext' ),
-				'description'        => __( 'Someone reacted to media you posted.', 'buddynext' ),
-				'group'              => self::GROUP_GROWTH,
-				'default_on_site'    => true,
-				'default_email_freq' => 'off',
-				'can_email'          => false,
-			),
-			'bn.media_mention'            => array(
-				'label'              => __( 'Mentions in media comments', 'buddynext' ),
-				'description'        => __( 'Someone mentioned you in a comment on media.', 'buddynext' ),
-				'group'              => self::GROUP_GROWTH,
-				'default_on_site'    => true,
-				'default_email_freq' => 'off',
-				'can_email'          => false,
 			),
 		);
 
@@ -634,7 +604,16 @@ class NotificationPrefCatalogue {
 			case self::GROUP_GROWTH:
 				return __( 'Growth and digests', 'buddynext' );
 			default:
-				return ucfirst( $group );
+				/**
+				 * Filter the settings-section label of a group BuddyNext does not own
+				 * (an integration's section, for example 'jetonomy' => 'Forums').
+				 *
+				 * @since 1.2.2
+				 *
+				 * @param string $label Label (the group key, capitalised).
+				 * @param string $group Group key.
+				 */
+				return (string) apply_filters( 'buddynext_notification_group_label', ucfirst( $group ), $group );
 		}
 	}
 

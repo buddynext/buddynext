@@ -879,8 +879,52 @@ abstract class AdminPageBase {
 		}
 		?>
 		<div class="bn-save-bar">
-			<span class="bn-save-msg" id="bn-save-msg" aria-live="polite"></span>
 			<button type="submit" class="bn-btn" data-variant="primary"><?php echo esc_html( $button_label ); ?></button>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the "Restore defaults" form every settings screen shares: its own form,
+	 * away from Save, whose button opens the bn-admin-dialogs.js confirm listing
+	 * each change as "now X -> default Y" (or saying nothing differs).
+	 *
+	 * @param array<string, string>                                                    $hidden       Hidden inputs (name => value), including `action`.
+	 * @param string                                                                   $nonce_action Nonce action the handler verifies.
+	 * @param array<int, array{key:string,label:string,current:string,default:string}> $changes      Rows that would change.
+	 * @param int                                                                      $unchanged    Rows already at their default.
+	 * @param string                                                                   $owner_note   What a restore never touches.
+	 * @return void
+	 */
+	protected function render_restore_form( array $hidden, string $nonce_action, array $changes, int $unchanged, string $owner_note ): void {
+		$payload = wp_json_encode(
+			array(
+				'changes'   => $changes,
+				'unchanged' => $unchanged,
+				'i18n'      => array(
+					'title'     => __( 'Restore default settings?', 'buddynext' ),
+					'confirm'   => __( 'Restore defaults', 'buddynext' ),
+					'cancel'    => __( 'Cancel', 'buddynext' ),
+					'close'     => __( 'Close', 'buddynext' ),
+					'intro'     => __( 'These settings on this tab will return to their defaults:', 'buddynext' ),
+					'current'   => __( 'now', 'buddynext' ),
+					'toDefault' => __( 'default', 'buddynext' ),
+					'noChange'  => __( 'This tab already uses the default settings. Nothing to restore.', 'buddynext' ),
+					'ownerNote' => $owner_note,
+				),
+			)
+		);
+		?>
+		<div class="bn-settings-restore">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-restore__form">
+				<?php foreach ( $hidden as $name => $value ) : ?>
+					<input type="hidden" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( $value ); ?>">
+				<?php endforeach; ?>
+				<?php wp_nonce_field( $nonce_action ); ?>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-restore-defaults="<?php echo esc_attr( (string) $payload ); ?>">
+					<?php esc_html_e( 'Restore defaults', 'buddynext' ); ?>
+				</button>
+			</form>
 		</div>
 		<?php
 	}

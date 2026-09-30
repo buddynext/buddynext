@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnPrompt, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 
@@ -844,10 +844,10 @@ async function doSave( ctx ) {
 			surfaceFieldErrors( json.errors );
 			bnToast( t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 		} else {
-			bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+			bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
 		}
 	} catch ( _e ) {
-		bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+		bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
 	} finally {
 		ctx.saving = false;
 	}
@@ -1150,6 +1150,13 @@ const profileStore = store( 'buddynext/profile', {
 		get slugStatusHidden() { const c = getContext(); return c.slugChecking || c.slugAvailable === null; },
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
+		// Field error flags for the account forms. The Interactivity expression parser
+		// honours ONE leading "!", so "!!context.errors.x" in markup always evaluated true
+		// and every field opened in its error state; a getter returns a real boolean.
+		get emailInvalid()           { return !! getContext().errors.email; },
+		get currentPasswordInvalid() { return !! getContext().errors.current_password; },
+		get newPasswordInvalid()     { return !! getContext().errors.new_password; },
+		get confirmPasswordInvalid() { return !! getContext().errors.confirm_password; },
 		// The field controls the @mention handle as well as the URL. Showing the
 		// result is the cheapest way to say so — a member typing a new handle sees
 		// what they will be called, rather than reading that it will change.
@@ -1214,7 +1221,7 @@ const profileStore = store( 'buddynext/profile', {
 				URL.revokeObjectURL( url );
 				bnToast( t( 'dataExportDownloaded', 'Your data export has downloaded.' ), 'success' );
 			} catch ( _e ) {
-				bnToast( t( 'dataExportFailed', 'Could not export your data. Please try again.' ), 'danger' );
+				bnToast( t( 'dataExportFailed', 'Could not export your data. Try again.' ), 'danger' );
 			} finally {
 				if ( btn ) { btn.disabled = false; }
 			}
@@ -1228,7 +1235,7 @@ const profileStore = store( 'buddynext/profile', {
 			// action's synchronous portion; reading it after `await bnConfirm()`
 			// has resolved throws, and because that throw happens before
 			// restFetch() is ever called, the catch below fired and showed
-			// "Could not delete your account. Please try again." while NO DELETE
+			// "Could not delete your account. Try again." while NO DELETE
 			// request was sent. The account was never deleted and the member had
 			// no way to tell the difference from a server refusal.
 			var ctx = getContext();
@@ -1275,7 +1282,7 @@ const profileStore = store( 'buddynext/profile', {
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.disabled = false; }
-				bnToast( t( 'deleteAccountFailedRetry', 'Could not delete your account. Please try again.' ), 'danger' );
+				bnToast( t( 'deleteAccountFailedRetry', 'Could not delete your account. Try again.' ), 'danger' );
 			}
 		},
 
@@ -1360,7 +1367,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
 				bnToast( t( 'prefSaved', 'Preference saved' ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
+				bnToast( t( 'saveFailed', 'Could not save. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1453,7 +1460,7 @@ const profileStore = store( 'buddynext/profile', {
 			} catch ( _e ) {
 				btn.setAttribute( 'aria-checked', prev ? 'true' : 'false' );
 				bnToast(
-					t( 'saveFailed', 'Could not save. Please try again.' ),
+					t( 'saveFailed', 'Could not save. Try again.' ),
 					{ tone: 'danger' }
 				);
 			}
@@ -2143,126 +2150,28 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
-		/* Block requires an explicit confirmation modal - destructive action. */
-		toggleBlock() {
+		/* Block requires an explicit confirmation - destructive action. The dialog is the
+		   shared one (bnBlockConfirm), the same as the member card and the message thread. */
+		async toggleBlock() {
 			var ctx = getContext();
 			if ( ctx.isBlocked ) {
 				// Unblock is reversible - no confirm needed.
 				doUnblock( ctx );
 				return;
 			}
-			ctx.blockConfirmOpen = true;
-			ctx.moreMenuOpen     = false;
+			ctx.moreMenuOpen = false;
+			if ( ! await bnBlockConfirm( ctx.displayName ) ) { return; }
+			await doBlock( ctx );
 		},
 
-		closeBlockConfirm() {
-			getContext().blockConfirmOpen = false;
-		},
-
-		/**
-		 * Dismiss the block-confirm modal when the dimmed backdrop itself is clicked
-		 * (the standard modal gesture). Bound via data-wp-on--click on the backdrop;
-		 * clicks that bubble up from the panel/controls have a descendant target, so
-		 * only a direct backdrop click closes it. Previously only the X / Cancel
-		 * buttons closed it.
-		 *
-		 * @param {MouseEvent} event The click event.
-		 */
-		backdropCloseBlock( event ) {
-			if ( getElement() && event.target === getElement().ref ) {
-				getContext().blockConfirmOpen = false;
-			}
-		},
-
-		async confirmBlock() {
+		/* Report goes through the shared report dialog, so the reasons and wording match
+		   every other report in the product. */
+		async openReport() {
 			var ctx = getContext();
-			if ( ctx.blockSubmitting ) { return; }
-			ctx.blockSubmitting = true;
-			try {
-				var res = await restFetch( '/users/' + ctx.profileUserId + '/block', {
-					method:       'POST',
-					nonce:        ctx.restNonce,
-					toastOnError: false,
-				} );
-				if ( ! res.ok ) { throw new Error( 'block_failed' ); }
-				ctx.isBlocked        = true;
-				ctx.blockConfirmOpen = false;
-				bnToast( ( ctx.displayName ? fmt( t( 'memberBlockedNamed', '%s blocked' ), ctx.displayName ) : t( 'memberBlocked', 'Member blocked' ) ), { tone: 'success' } );
-				// After block we redirect to the members directory since the profile is no longer accessible.
-				setTimeout( function () {
-					window.location.href = ( ctx.peopleUrl || '/members/' );
-				}, 800 );
-			} catch ( _e ) {
-				bnToast( t( 'blockFailed', 'Could not block. Try again.' ), { tone: 'danger' } );
-			} finally {
-				ctx.blockSubmitting = false;
-			}
-		},
-
-		/* -- Report modal ----------------------------------------------- */
-
-		openReport() {
-			var ctx = getContext();
-			ctx.reportOpen      = true;
-			ctx.reportReason    = 'spam';
-			ctx.reportNotes     = '';
-			ctx.moreMenuOpen    = false;
-		},
-
-		closeReport() {
-			getContext().reportOpen = false;
-		},
-
-		/**
-		 * Dismiss the report modal on a direct backdrop click — see
-		 * backdropCloseBlock for the rationale.
-		 *
-		 * @param {MouseEvent} event The click event.
-		 */
-		backdropCloseReport( event ) {
-			if ( getElement() && event.target === getElement().ref ) {
-				getContext().reportOpen = false;
-			}
-		},
-
-		setReportReason( event ) {
-			getContext().reportReason = event.target.value;
-		},
-
-		setReportNotes( event ) {
-			getContext().reportNotes = event.target.value;
-		},
-
-		async submitReport() {
-			var ctx = getContext();
-			if ( ctx.reportSubmitting ) { return; }
-			ctx.reportSubmitting = true;
-			try {
-				var res = await restFetch( '/reports', {
-					method:       'POST',
-					nonce:        ctx.restNonce,
-					toastOnError: false,
-					body:         {
-						object_type: 'user',
-						object_id:   ctx.profileUserId,
-						reason:      ctx.reportReason || 'other',
-						notes:       ctx.reportNotes  || '',
-					},
-				} );
-				if ( ! res.ok && res.status !== 201 ) {
-					// Surface the server's reason — e.g. the 409 "You have already
-					// reported this member." — rather than a generic retry message.
-					var data = res.data || {};
-					bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
-					return;
-				}
-				ctx.reportOpen = false;
-				bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
-			} catch ( _e ) {
-				bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
-			} finally {
-				ctx.reportSubmitting = false;
-			}
+			ctx.moreMenuOpen = false;
+			var result = await bnReportDialog( { title: t( 'reportProfileTitle', 'Report this profile' ) } );
+			if ( ! result ) { return; }
+			await doReport( ctx, result );
 		},
 
 		/* -- Email change ----------------------------------------------- */
@@ -2454,7 +2363,7 @@ const profileStore = store( 'buddynext/profile', {
 					if ( conInput ) { conInput.value = ''; }
 					ctx.passwordStrength = 0;
 					ctx.passwordStrengthLabel = '';
-					bnToast( t( 'passwordUpdated', 'Password updated.' ), { tone: 'success' } );
+					bnToast( t( 'passwordUpdated', 'Password updated' ), { tone: 'success' } );
 				} else if ( res.status === 422 && json && json.errors ) {
 					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
 				} else {
@@ -2479,7 +2388,7 @@ const profileStore = store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				bnToast( t( 'signedOutEverywhere', 'Signed out of every other session.' ), { tone: 'success' } );
+				bnToast( t( 'signedOutEverywhere', 'Signed out of every other session' ), { tone: 'success' } );
 			} catch ( _e ) {
 				bnToast( t( 'signOutFailed', 'Could not sign out everywhere. Try again.' ), { tone: 'danger' } );
 			} finally {
@@ -2652,6 +2561,59 @@ async function doUnblock( ctx ) {
 	} catch ( _e ) {
 		ctx.isBlocked = wasBlocked;
 		bnToast( t( 'unblockFailed', 'Could not unblock' ), { tone: 'danger' } );
+	}
+}
+
+async function doBlock( ctx ) {
+	if ( ctx.blockSubmitting ) { return; }
+	ctx.blockSubmitting = true;
+	try {
+		var res = await restFetch( '/users/' + ctx.profileUserId + '/block', {
+			method:       'POST',
+			nonce:        ctx.restNonce,
+			toastOnError: false,
+		} );
+		if ( ! res.ok ) { throw new Error( 'block_failed' ); }
+		ctx.isBlocked = true;
+		bnToast( ( ctx.displayName ? fmt( t( 'memberBlockedNamed', '%s blocked' ), ctx.displayName ) : t( 'memberBlocked', 'Member blocked' ) ), { tone: 'success' } );
+		// After block we redirect to the members directory since the profile is no longer accessible.
+		setTimeout( function () {
+			window.location.href = ( ctx.peopleUrl || '/members/' );
+		}, 800 );
+	} catch ( _e ) {
+		bnToast( t( 'blockFailed', 'Could not block. Try again.' ), { tone: 'danger' } );
+	} finally {
+		ctx.blockSubmitting = false;
+	}
+}
+
+async function doReport( ctx, result ) {
+	if ( ctx.reportSubmitting ) { return; }
+	ctx.reportSubmitting = true;
+	try {
+		var res = await restFetch( '/reports', {
+			method:       'POST',
+			nonce:        ctx.restNonce,
+			toastOnError: false,
+			body:         {
+				object_type: 'user',
+				object_id:   ctx.profileUserId,
+				reason:      result.reason || 'other',
+				notes:       result.notes  || '',
+			},
+		} );
+		if ( ! res.ok && res.status !== 201 ) {
+			// Surface the server's reason, e.g. the 409 "You have already reported this member.",
+			// rather than a generic retry message.
+			var data = res.data || {};
+			bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+			return;
+		}
+		bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+	} catch ( _e ) {
+		bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+	} finally {
+		ctx.reportSubmitting = false;
 	}
 }
 

@@ -153,6 +153,34 @@ final class SpaceNav {
 	}
 
 	/**
+	 * Whether the current viewer gets this space's Files tab.
+	 *
+	 * The tab's own condition, shared so anything that links INTO the tab (the
+	 * feed's document card) only does so when the page will actually be there.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	public static function files_tab_visible( int $space_id ): bool {
+		return \BuddyNext\Bridges\WPMediaVerseBridge::documents_available()
+			&& buddynext_integration_enabled( 'media', 'nav' )
+			&& (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' )
+			/**
+			 * Whether the space Files tab shows to a logged-out visitor.
+			 *
+			 * Default false: MediaVerse refuses anonymous document reads, so
+			 * the tab would render empty on a public space. Return true if
+			 * your MediaVerse serves them.
+			 *
+			 * @since 1.1.6
+			 *
+			 * @param bool $show     Whether to show the tab when logged out.
+			 * @param int  $space_id The space.
+			 */
+			&& ( is_user_logged_in() || (bool) apply_filters( 'buddynext_space_files_tab_for_guests', false, $space_id ) );
+	}
+
+	/**
 	 * Clean-URL builder for a space tab — /spaces/{slug}/{tab}/ (feed = the base).
 	 *
 	 * @param int    $space_id Space ID.
@@ -259,22 +287,7 @@ final class SpaceNav {
 				// show". A tab that structurally cannot hold content is worse than
 				// no tab. Filter it back on for a site whose MediaVerse serves
 				// anonymous reads.
-				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\WPMediaVerseBridge::documents_available()
-					&& buddynext_integration_enabled( 'media', 'nav' )
-					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_documents_tab' )
-					/**
-					 * Whether the space Files tab shows to a logged-out visitor.
-					 *
-					 * Default false: MediaVerse refuses anonymous document reads, so
-					 * the tab would render empty on a public space. Return true if
-					 * your MediaVerse serves them.
-					 *
-					 * @since 1.1.6
-					 *
-					 * @param bool $show     Whether to show the tab when logged out.
-					 * @param int  $space_id The space.
-					 */
-					&& ( is_user_logged_in() || (bool) apply_filters( 'buddynext_space_files_tab_for_guests', false, (int) $c->subject_id ) ),
+				'condition' => static fn( NavContext $c ): bool => self::files_tab_visible( (int) $c->subject_id ),
 				'render'    => function ( NavContext $c ): void {
 					$this->render_files_panel( $c->subject_id );
 				},
@@ -584,9 +597,25 @@ final class SpaceNav {
 	 * @return bool True when the viewer may add a sub-space here.
 	 */
 	private function can_add_subspace( NavContext $context ): bool {
-		$space = ( new SpaceService() )->get( $context->subject_id );
+		return self::can_add_subspace_to( $context->subject_id, $context->viewer_id );
+	}
 
-		if ( null === $space || ! empty( $space['parent_id'] ) ) {
+	/**
+	 * Whether a viewer may add a sub-space under a space right now.
+	 *
+	 * The one rule every "Add sub-space" control reads (the Sub-spaces tab and the
+	 * space sidebar), so they can never disagree with each other or with
+	 * SpaceService::create().
+	 *
+	 * @param int $space_id  Parent space.
+	 * @param int $viewer_id Viewer.
+	 * @return bool
+	 */
+	public static function can_add_subspace_to( int $space_id, int $viewer_id ): bool {
+		$space = ( new SpaceService() )->get( $space_id );
+
+		// An archived space takes no new sub-spaces (SpaceService::create refuses).
+		if ( null === $space || ! empty( $space['parent_id'] ) || ! empty( $space['is_archived'] ) ) {
 			return false;
 		}
 
@@ -605,13 +634,13 @@ final class SpaceNav {
 		 * space owner who is not a site admin was shown "Add sub-space", clicked it, and got a 403.
 		 * The UI promised what the endpoint refuses.
 		 */
-		return $context->viewer_id > 0
+		return $viewer_id > 0
 			&& buddynext_can(
-				$context->viewer_id,
+				$viewer_id,
 				'buddynext-manage-space',
-				array( 'space_id' => $context->subject_id )
+				array( 'space_id' => $space_id )
 			)
-			&& buddynext_can( $context->viewer_id, 'buddynext-spaces/create' );
+			&& buddynext_can( $viewer_id, 'buddynext-spaces/create' );
 	}
 
 	/**

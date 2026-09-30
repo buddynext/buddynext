@@ -30,19 +30,9 @@ if ( empty( $bn_mg_members ) ) {
 $bn_mg_nonce = wp_create_nonce( 'wp_rest' );
 $bn_mg_ctx   = wp_json_encode(
 	array(
-		'restNonce'        => $bn_mg_nonce,
-		'restUrl'          => esc_url_raw( rest_url( 'buddynext/v1' ) ),
-		'peopleUrl'        => \BuddyNext\Core\PageRouter::people_url(),
-		'blockTargetId'    => 0,
-		'blockTargetName'  => '',
-		'blockConfirmOpen' => false,
-		'blockSubmitting'  => false,
-		'reportOpen'       => false,
-		'reportTargetType' => 'user',
-		'reportTargetId'   => 0,
-		'reportReason'     => 'spam',
-		'reportNotes'      => '',
-		'reportSubmitting' => false,
+		'restNonce' => $bn_mg_nonce,
+		'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		'peopleUrl' => \BuddyNext\Core\PageRouter::people_url(),
 	)
 );
 if ( false === $bn_mg_ctx ) {
@@ -61,7 +51,3 @@ if ( false === $bn_mg_ctx ) {
 	);
 	?>
 </div>
-<?php
-// Block / report modals — opened imperatively by the card kebab menu.
-buddynext_get_template( 'parts/member-block-modal.php', array( 'nonce' => $bn_mg_nonce ) );
-buddynext_get_template( 'parts/member-report-modal.php', array( 'nonce' => $bn_mg_nonce ) );

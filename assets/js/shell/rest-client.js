@@ -293,7 +293,7 @@ export async function restFetch( path, opts ) {
 		} else if ( opts.toastOnError !== false ) {
 			bnToast(
 				( result.data && result.data.message ) ||
-					'Something went wrong. Please try again.',
+					'Something went wrong. Try again.',
 				{ tone: 'danger' }
 			);
 		}

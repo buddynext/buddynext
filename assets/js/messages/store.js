@@ -16,7 +16,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnBlockConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 // Shared client-side thumbnail only — DM upload stays on MediaVerse's own
 // conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
@@ -342,6 +342,52 @@ function normalizeMedia( msg ) {
 }
 
 /**
+ * Server timestamps are UTC. created_at is a bare MySQL datetime ("2026-09-25 00:52:00"),
+ * which Date() would read as browser-local, so it gets a Z; epoch seconds and ISO strings
+ * pass through.
+ *
+ * @param {string|number} raw Server timestamp.
+ * @return {Date} The instant.
+ */
+function parseServerDate( raw ) {
+	if ( ! raw ) {
+		return new Date();
+	}
+	const str = String( raw );
+	if ( /^\d+$/.test( str ) ) {
+		return new Date( Number( str ) * 1000 );
+	}
+	return new Date( /[zZ]$|[+-]\d\d:?\d\d$/.test( str ) ? str : str.replace( ' ', 'T' ) + 'Z' );
+}
+
+/**
+ * The bubble clock exactly as the server prints it: WP's time_format in the site zone.
+ * Handles the tokens a time_format uses (g G h H i s a A) and backslash escapes.
+ * ponytail: offset is today's; a message from across a DST switch reads 1h off until reload.
+ * ponytail: am/pm is English, wp_date() localizes it; map through i18n if a locale asks.
+ *
+ * @param {Date} date Instant to print.
+ * @return {string} Formatted clock.
+ */
+function siteClock( date ) {
+	const clock = ( messagesStore.state && messagesStore.state.clock ) || {};
+	const d     = new Date( date.getTime() + ( clock.offset || 0 ) * 1000 );
+	const h     = d.getUTCHours();
+	const pad   = ( n ) => String( n ).padStart( 2, '0' );
+	const map   = {
+		g: h % 12 || 12,
+		G: h,
+		h: pad( h % 12 || 12 ),
+		H: pad( h ),
+		i: pad( d.getUTCMinutes() ),
+		s: pad( d.getUTCSeconds() ),
+		a: h < 12 ? 'am' : 'pm',
+		A: h < 12 ? 'AM' : 'PM',
+	};
+	return String( clock.format || 'g:i A' ).replace( /\\?./g, ( ch ) => ( ch.length > 1 ? ch[ 1 ] : String( ch in map ? map[ ch ] : ch ) ) );
+}
+
+/**
  * Render a message bubble matching templates/parts/dm-message.php.
  *
  * @param {Object} msg    Message row { id, sender_id, content|body, created_at }.
@@ -406,6 +452,12 @@ function buildMessageNode( msg, viewer ) {
 		if ( wrapM.firstChild ) {
 			content.appendChild( wrapM );
 		}
+	} else if ( msg.media_missing || ( parseInt( msg.media_id, 10 ) > 0 && ! msg.media_share ) ) {
+		// It carried media that no longer resolves: say so, like the server bubble.
+		const gone = document.createElement( 'div' );
+		gone.className = 'bn-dm-bubble bn-dm-bubble--gone' + ( isMine ? ' is-mine' : '' );
+		gone.textContent = t( 'attachmentGone', 'This attachment is no longer available.' );
+		content.appendChild( gone );
 	}
 
 	// Text bubble — emitted only when there is actual text (a media-only message
@@ -438,10 +490,9 @@ function buildMessageNode( msg, viewer ) {
 	meta.className = 'bn-dm-msg__meta';
 	const time = document.createElement( 'time' );
 	time.className = 'bn-dm-msg__time';
-	const stamp = /^\d+$/.test( String( msg.created_at ) ) ? Number( msg.created_at ) * 1000 : msg.created_at;
-	const ts    = msg.created_at ? new Date( stamp ) : new Date();
+	const ts = parseServerDate( msg.created_at_gmt || msg.created_at );
 	time.dateTime = ts.toISOString();
-	time.textContent = ts.toLocaleTimeString( [], { hour: 'numeric', minute: '2-digit' } );
+	time.textContent = siteClock( ts );
 	meta.appendChild( time );
 	content.appendChild( meta );
 
@@ -816,15 +867,14 @@ const messagesStore = store( 'buddynext/messages', {
 						case 'dms_disabled':
 							dMsg = t( 'sendDeniedDmsDisabled', 'This person isn’t accepting messages right now.' );
 							break;
-						case 'connections_only':
 						case 'mutual_follow_required':
-							dMsg = t( 'sendDeniedConnectionsOnly', 'This person only accepts messages from their connections.' );
+							dMsg = t( 'sendDeniedMutualFollow', 'This person only accepts messages from people they follow back.' );
 							break;
 						case 'rate_limited':
 							dMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
 							break;
 						default:
-							dMsg = t( 'sendFailed', 'Could not send. Please try again.' );
+							dMsg = t( 'sendFailed', 'Could not send. Try again.' );
 							break;
 					}
 					bnToast( dMsg, { tone: 'danger' } );
@@ -917,9 +967,8 @@ const messagesStore = store( 'buddynext/messages', {
 					case 'dms_disabled':
 						denyMsg = t( 'sendDeniedDmsDisabled', 'This person isn’t accepting messages right now.' );
 						break;
-					case 'connections_only':
 					case 'mutual_follow_required':
-						denyMsg = t( 'sendDeniedConnectionsOnly', 'This person only accepts messages from their connections.' );
+						denyMsg = t( 'sendDeniedMutualFollow', 'This person only accepts messages from people they follow back.' );
 						break;
 					case 'rate_limited':
 						denyMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
@@ -934,7 +983,7 @@ const messagesStore = store( 'buddynext/messages', {
 						denyMsg = '';
 						break; // dedupe guard — the message already went through.
 					default:
-						denyMsg = t( 'sendDeniedGeneric', 'Your message couldn’t be sent. Please try again.' );
+						denyMsg = t( 'sendDeniedGeneric', 'Your message couldn’t be sent. Try again.' );
 						break;
 				}
 				if ( denyMsg ) {
@@ -1180,12 +1229,7 @@ const messagesStore = store( 'buddynext/messages', {
 				return;
 			}
 			const name = ctx.recipientName || t( 'thisMember', 'this member' );
-			const ok = await bnConfirm( {
-				title:        fmt( t( 'blockTitle', 'Block %s?' ), name ),
-				body:         t( 'blockBody', 'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.' ),
-				confirmLabel: t( 'blockConfirm', 'Block' ),
-				tone:         'danger',
-			} );
+			const ok = await bnBlockConfirm( name );
 			if ( ! ok ) {
 				return;
 			}
@@ -1193,7 +1237,7 @@ const messagesStore = store( 'buddynext/messages', {
 			try {
 				const res = await restFetch( '/users/' + uid + '/block', { method: 'POST', toastOnError: false } );
 				if ( res.ok || res.status === 201 ) {
-					bnToast( fmt( t( 'blockSuccess', '%s blocked.' ), name ), { tone: 'success' } );
+					bnToast( fmt( t( 'blockSuccess', '%s blocked' ), name ), { tone: 'success' } );
 					ctx.infoPanelOpen = false;
 					// You can no longer message a blocked member — leave the thread.
 					if ( ctx.messagesUrl ) {
@@ -1726,7 +1770,7 @@ const messagesStore = store( 'buddynext/messages', {
 			try {
 				const r = yield actions.groupApi( 'PUT', '', { title: String( ctx.activeGroupName || '' ).trim() } );
 				ctx.groupBusy = false;
-				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( t( 'groupRenamed', 'Group renamed.' ), { tone: 'success' } ); }
+				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( t( 'groupRenamed', 'Group renamed' ), { tone: 'success' } ); }
 				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;

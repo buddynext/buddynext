@@ -60,6 +60,7 @@ The table lists every hook Pro fires. Names are exact.
 | `buddynext_app_strings` | filter | The translated app strings, so a site can override or white-label specific keys without touching the shared catalogue | `array $out, string $locale, array $strings` | (none) |
 | `buddynext_presence_stamped` | action | A member's presence timestamp is refreshed. Pro's WebSocket layer listens here to broadcast presence | `int $user_id` | (none) |
 | `buddynext_pwa_shell_assets` | filter | The URLs precached as the offline shell. Keep the list small - every entry is downloaded on install, for every member | `string[] $shell` | (none) |
+| `buddynext_pwa_worker_imports` | filter | Extra scripts the service worker loads with `importScripts()`, so a companion adds its offline logic to BuddyNext's worker instead of registering a second one. Same-origin URLs only (cross-origin entries are dropped); each import is wrapped so one broken script cannot stop the worker installing (1.2.1) | `string[] $imports` | (none) |
 | `buddynext_head_meta` | filter | A surface descriptor before BuddyNext renders its head meta. Return an empty array to suppress BuddyNext's head output for that surface entirely | `array $descriptor` | (none) |
 
 > **Note:** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe `WebhookController` and with three (the extra `$source`) by Free's `AccessWebhookController`. Always register your callback for the lowest arg count you need (`add_action( 'buddynext_ability_granted', $cb, 10, 2 )`) so it works regardless of which producer fires.

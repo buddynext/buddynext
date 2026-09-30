@@ -138,6 +138,89 @@ class NotificationService {
 	}
 
 	/**
+	 * Update the data of a member's row with this group key, in place and quietly.
+	 *
+	 * For a notification that keeps one row per member per bucket and only needs
+	 * its content refreshed (a personal record that keeps growing through the
+	 * week): the row keeps its read state and its date, and nothing is re-sent -
+	 * unlike create()'s group merge, which re-surfaces the row and fires the
+	 * created action (bell, email, push) again.
+	 *
+	 * @param int                 $recipient_id Recipient.
+	 * @param string              $group_key    Group key the row was created with.
+	 * @param array<string,mixed> $data         New data (replaces the stored data).
+	 * @return int Updated row id, or 0 when the member has no such row.
+	 */
+	public function update_data_by_group( int $recipient_id, string $group_key, array $data ): int {
+		if ( $recipient_id <= 0 || '' === $group_key ) {
+			return 0;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND group_key = %s ORDER BY id DESC LIMIT 1",
+				$recipient_id,
+				$group_key
+			)
+		);
+		if ( $id <= 0 ) {
+			return 0;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_notifications',
+			array( 'data' => (string) wp_json_encode( $data ) ),
+			array( 'id' => $id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		return $id;
+	}
+
+	/**
+	 * Delete a type's notifications whose data carries a given key/value, for
+	 * the given recipients only.
+	 *
+	 * For partner objects keyed by a text id stored in the row's data (a WB
+	 * Gamification badge slug), which delete_for_object() cannot match. Scoped to
+	 * the recipients so the (recipient) index serves it.
+	 *
+	 * @param string $type          Notification type.
+	 * @param string $key           Top-level data key.
+	 * @param string $value         Value to match.
+	 * @param int[]  $recipient_ids Members whose rows to check.
+	 * @return int Rows deleted.
+	 */
+	public function delete_for_data( string $type, string $key, string $value, array $recipient_ids ): int {
+		$recipient_ids = array_values( array_unique( array_filter( array_map( 'intval', $recipient_ids ) ) ) );
+		if ( '' === $type || '' === $key || '' === $value || empty( $recipient_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+		$deleted = 0;
+		foreach ( array_chunk( $recipient_ids, 500 ) as $chunk ) {
+			$in = implode( ',', $chunk );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+			$deleted += (int) $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_notifications
+					 WHERE recipient_id IN ({$in}) AND type = %s
+					   AND JSON_VALID( data ) AND JSON_UNQUOTE( JSON_EXTRACT( data, %s ) ) = %s",
+					$type,
+					'$.' . $key,
+					$value
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$this->forget_counts_for( $chunk );
+		}
+
+		return $deleted;
+	}
+
+	/**
 	 * Drop notification rows whose target object no longer exists.
 	 *
 	 * The defensive read side: a bell row that opens a 404 is worse than a missing
@@ -171,7 +254,7 @@ class NotificationService {
 			}
 		}
 
-		return array_values(
+		$rows = array_values(
 			array_filter(
 				$rows,
 				static function ( $bn_row ): bool {
@@ -186,6 +269,20 @@ class NotificationService {
 				}
 			)
 		);
+
+		/**
+		 * Filter a page of bell rows down to those the recipient may see.
+		 *
+		 * For partner notifications mirrored into the bell: the partner that owns
+		 * the content owns who may see it (a banned author, trashed content, a
+		 * block), so its bridge removes its own rows here. Rows of other types
+		 * must be returned untouched.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param array<int,array<string,mixed>> $rows Raw rows (recipient_id, type, object_type, object_id, sender_id, data).
+		 */
+		return array_values( (array) apply_filters( 'buddynext_notification_visible_rows', $rows ) );
 	}
 
 	/**
@@ -193,7 +290,9 @@ class NotificationService {
 	 *
 	 * If $data contains a non-empty group_key and an unread notification with
 	 * that key already exists for the recipient, the existing row is updated
-	 * (sender_id and group_count refreshed) rather than inserting a new one.
+	 * (sender_id and group_count refreshed) rather than inserting a new one. On a row that
+	 * reads "X and N others" the count is distinct people and the row keeps each event
+	 * (see GroupedItems); `$data['item']` ( type, id ) names the thing the sender did.
 	 *
 	 * @param array $data Notification data: recipient_id (required), sender_id,
 	 *                    type (required), object_type, object_id, group_key, data.
@@ -274,28 +373,57 @@ class NotificationService {
 		// Attempt to merge into an existing unread group row within the 24-hour window.
 		if ( null !== $group_key && '' !== $group_key ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$existing_id = $wpdb->get_var(
+			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}bn_notifications
+					"SELECT id, sender_id, data FROM {$wpdb->prefix}bn_notifications
 					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
 					   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
 					 LIMIT 1",
 					$recipient_id,
 					$group_key
-				)
+				),
+				ARRAY_A
 			);
 
-			if ( null !== $existing_id ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$updated = $wpdb->query(
-					$wpdb->prepare(
-						"UPDATE {$wpdb->prefix}bn_notifications
-						 SET sender_id = %d, group_count = group_count + 1, created_at = UTC_TIMESTAMP()
-						 WHERE id = %d",
-						(int) ( $data['sender_id'] ?? 0 ),
-						(int) $existing_id
-					)
-				);
+			if ( null !== $existing ) {
+				$existing_id = (int) $existing['id'];
+				$sender_id   = (int) ( $data['sender_id'] ?? 0 );
+
+				if ( $sender_id > 0 && GroupedItems::is_people_row( $type, $data ) ) {
+					// "X and N others" counts people: the row keeps who did what, and the
+					// count is the distinct people in it, however the events interleave.
+					$stored = GroupedItems::add(
+						(array) json_decode( (string) $existing['data'], true ),
+						(int) $existing['sender_id'],
+						$sender_id,
+						(string) ( $data['item']['type'] ?? '' ),
+						(int) ( $data['item']['id'] ?? 0 )
+					);
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$updated = $wpdb->query(
+						$wpdb->prepare(
+							"UPDATE {$wpdb->prefix}bn_notifications
+							 SET sender_id = %d, group_count = %d, data = %s, created_at = UTC_TIMESTAMP()
+							 WHERE id = %d",
+							$sender_id,
+							GroupedItems::people( $stored ),
+							(string) wp_json_encode( $stored ),
+							$existing_id
+						)
+					);
+				} else {
+					// A tally of events (reports waiting), or an event with no person.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$updated = $wpdb->query(
+						$wpdb->prepare(
+							"UPDATE {$wpdb->prefix}bn_notifications
+							 SET sender_id = %d, group_count = group_count + 1, created_at = UTC_TIMESTAMP()
+							 WHERE id = %d",
+							$sender_id,
+							$existing_id
+						)
+					);
+				}
 
 				// A failed merge UPDATE must not bust the cache or fire the hook for
 				// a row we did not actually touch.
@@ -306,10 +434,22 @@ class NotificationService {
 				$this->forget_counts( $recipient_id );
 
 				/** This action is documented in includes/Notifications/NotificationService.php */
-				do_action( 'buddynext_notification_created', (int) $existing_id, $recipient_id, $data );
+				do_action( 'buddynext_notification_created', $existing_id, $recipient_id, $data );
 
-				return (int) $existing_id;
+				return $existing_id;
 			}
+		}
+
+		// A new people row starts its list with its first event.
+		$first_sender = (int) ( $data['sender_id'] ?? 0 );
+		if ( $first_sender > 0 && GroupedItems::is_people_row( $type, $data ) ) {
+			$data['data'] = GroupedItems::add(
+				(array) ( $data['data'] ?? array() ),
+				0,
+				$first_sender,
+				(string) ( $data['item']['type'] ?? '' ),
+				(int) ( $data['item']['id'] ?? 0 )
+			);
 		}
 
 		// Insert a new notification row.
@@ -533,7 +673,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND is_read = 0",
+				 WHERE recipient_id = %d AND is_read = 0" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id
 			)
 		);
@@ -599,7 +739,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND created_at > %s",
+				 WHERE recipient_id = %d AND created_at > %s" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id,
 				$last_seen
 			)
@@ -802,9 +942,10 @@ class NotificationService {
 	 * minting a shared group_key - would have been cheaper to read and would have
 	 * destroyed all four.
 	 *
-	 * Grouped by (type, object_type, object_id): "8 people asked to join Design
-	 * Guild" is one entry, while a join request and a join for the same space stay
-	 * apart because their types differ.
+	 * Grouped by (type, object_type, object_id, read state): "8 people asked to join
+	 * Design Guild" is one entry, while a join request and a join for the same space
+	 * stay apart because their types differ, and a read notification is history that
+	 * a new one on the same object never folds into.
 	 *
 	 * Everything groups by default and types opt OUT through the filter. That way
 	 * the next high-volume notification somebody adds is collapsed on the day it
@@ -846,7 +987,10 @@ class NotificationService {
 				continue;
 			}
 
-			$key = $type . '|' . (string) ( $item['object_type'] ?? '' ) . '|' . $object_id;
+			// Read and unread never share a group: a notification the reader has seen is
+			// history, and a new one on the same object is its own entry. Folding them
+			// read "Sofia and 1 other" for one new person and hid what was new.
+			$key = $type . '|' . (string) ( $item['object_type'] ?? '' ) . '|' . $object_id . '|' . ( empty( $item['is_read'] ) ? 'unread' : 'read' );
 
 			if ( ! isset( $index[ $key ] ) ) {
 				// The NEWEST occurrence represents the group - it is already first,
@@ -873,13 +1017,6 @@ class NotificationService {
 			$sender = (int) ( $item['sender_id'] ?? 0 );
 			if ( $sender > 0 && ! in_array( $sender, $grouped[ $at ]['group_actors'], true ) ) {
 				$grouped[ $at ]['group_actors'][] = $sender;
-			}
-
-			// A group is unread when ANY member of it is. Marking the group read
-			// marks them all, so the reverse has to hold or the badge would count
-			// items the reader cannot see.
-			if ( empty( $item['is_read'] ) ) {
-				$grouped[ $at ]['is_read'] = false;
 			}
 		}
 
@@ -991,8 +1128,7 @@ class NotificationService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT type, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND is_read = 0
-				 GROUP BY type",
+				 WHERE recipient_id = %d AND is_read = 0" . $this->hidden_types_sql() . ' GROUP BY type', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id
 			),
 			ARRAY_A
@@ -1064,12 +1200,33 @@ class NotificationService {
 	private function filter_where( string $filter ): string {
 		switch ( $filter ) {
 			case 'unread':
-				return 'AND is_read = 0';
+				return 'AND is_read = 0' . $this->hidden_types_sql();
 			case 'read':
-				return 'AND is_read = 1';
+				return 'AND is_read = 1' . $this->hidden_types_sql();
 			default:
-				return '';
+				return $this->hidden_types_sql();
 		}
+	}
+
+	/**
+	 * SQL clause leaving out notification types whose feature is switched off.
+	 *
+	 * With messaging off in WPMediaVerse, "sent you a message" rows would open the
+	 * unavailable Messages page, so they are left out of the list and every count
+	 * while it is off, and come back untouched when it is on (card 10344001598).
+	 * Counts are cached for CACHE_TTL seconds, so they follow a switch within it.
+	 *
+	 * @return string '' or " AND type NOT IN (...)".
+	 */
+	private function hidden_types_sql(): string {
+		$types = array();
+		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+			$types[] = 'bn.new_message';
+		}
+		if ( empty( $types ) ) {
+			return '';
+		}
+		return " AND type NOT IN ('" . implode( "','", array_map( 'esc_sql', $types ) ) . "')";
 	}
 
 	/**

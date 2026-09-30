@@ -67,13 +67,13 @@ class FeatureRegistry {
 		$catalog = array(
 
 			// ── MANDATORY — always on, cannot be disabled ────────────────
-			'feed'          => array(
+			'feed'            => array(
 				'slug'       => 'feed',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'core',
 				'depends_on' => array(),
 			),
-			'profile'       => array(
+			'profile'         => array(
 				'slug'       => 'profile',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'core',
@@ -89,37 +89,37 @@ class FeatureRegistry {
 			// and nothing changed. A control that silently does nothing is worse than
 			// no control, so it is locked to match reality — as `feed` and `profile`,
 			// the other structural features, already are.
-			'spaces'        => array(
+			'spaces'          => array(
 				'slug'       => 'spaces',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
-			'social_graph'  => array(
+			'social_graph'    => array(
 				'slug'       => 'social_graph',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'core',
 				'depends_on' => array(),
 			),
-			'notifications' => array(
+			'notifications'   => array(
 				'slug'       => 'notifications',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'core',
 				'depends_on' => array(),
 			),
-			'auth'          => array(
+			'auth'            => array(
 				'slug'       => 'auth',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'core',
 				'depends_on' => array(),
 			),
-			'search'        => array(
+			'search'          => array(
 				'slug'       => 'search',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'core',
 				'depends_on' => array(),
 			),
-			'moderation'    => array(
+			'moderation'      => array(
 				'slug'       => 'moderation',
 				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'core',
@@ -127,79 +127,81 @@ class FeatureRegistry {
 			),
 
 			// ── DEFAULT-ON — owner can disable ───────────────────────────
-			'hashtags'      => array(
+			'hashtags'        => array(
 				'slug'       => 'hashtags',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
-			'reactions'     => array(
+			'reactions'       => array(
 				'slug'       => 'reactions',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
-			'comments'      => array(
+			'comments'        => array(
 				'slug'       => 'comments',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
-			'sidebar'       => array(
+			'sidebar'         => array(
 				'slug'       => 'sidebar',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
-			'onboarding'    => array(
+			'onboarding'      => array(
 				'slug'       => 'onboarding',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
-			'verification'  => array(
+			'verification'    => array(
 				'slug'       => 'verification',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array( 'auth' ),
 			),
-			'announcements' => array(
+			'announcements'   => array(
 				'slug'       => 'announcements',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
-			'bookmarks'     => array(
+			'bookmarks'       => array(
 				'slug'       => 'bookmarks',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
-			'polls'         => array(
+			'polls'           => array(
 				'slug'       => 'polls',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
-			'shares'        => array(
+			'shares'          => array(
 				'slug'       => 'shares',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
 				'depends_on' => array( 'feed' ),
 			),
-			// Direct messages. The catalog toggle is the owner's on/off intent; the
-			// separate availability check (WPMediaVerse present) still gates it, so
-			// with the engine absent DMs stay hidden regardless of this switch. See
-			// MessagesData::entry_enabled().
-			'messages'      => array(
-				'slug'       => 'messages',
-				'tier'       => self::TIER_DEFAULT_ON,
-				'group'      => 'community',
-				'depends_on' => array(),
+			// Direct messages. The switch lives in WPMediaVerse (Settings > Social >
+			// Messages), which runs messaging: off, its engine does not boot. The row
+			// reports that state and links there; BuddyNext stores no switch of its
+			// own (card 10344001598). See MessagesData::entry_enabled().
+			'messages'        => array(
+				'slug'        => 'messages',
+				'tier'        => self::TIER_DEFAULT_ON,
+				'group'       => 'community',
+				'depends_on'  => array(),
+				'state_from'  => array( \BuddyNext\Messages\MessagesData::class, 'entry_enabled' ),
+				'managed_url' => array( \BuddyNext\Messages\MessagesData::class, 'settings_url' ),
 			),
 			// Installable app (PWA): the manifest + service worker. Self-contained
 			// (no external key), so default-on; when off the service never boots.
-			'pwa'           => array(
+			'pwa'             => array(
 				'slug'       => 'pwa',
 				'tier'       => self::TIER_DEFAULT_ON,
 				'group'      => 'community',
@@ -225,7 +227,7 @@ class FeatureRegistry {
 			// its partner constant and wires unconditionally at boot).
 
 			// ── OPT-IN — off by default ───────────────────────────────────
-			'webhooks'      => array(
+			'webhooks'        => array(
 				'slug'       => 'webhooks',
 				'tier'       => self::TIER_OPT_IN,
 				'group'      => 'integrations',
@@ -285,6 +287,12 @@ class FeatureRegistry {
 		// lets Settings → Features render the toggle as unavailable).
 		if ( ! $this->presence_met( $slug ) ) {
 			return false;
+		}
+
+		// A feature whose switch lives in the plugin that runs it reports that
+		// plugin's state; there is no BuddyNext-side value to read.
+		if ( isset( $feature['state_from'] ) && is_callable( $feature['state_from'] ) ) {
+			return (bool) call_user_func( $feature['state_from'] );
 		}
 
 		// Tier default.
@@ -416,83 +424,83 @@ class FeatureRegistry {
 	 */
 	private static function labels(): array {
 		return array(
-			'feed'          => array(
+			'feed'            => array(
 				'label'       => __( 'Activity feed', 'buddynext' ),
 				'description' => __( 'Posts, comments, reactions, polls, shares: the heart of the community.', 'buddynext' ),
 			),
-			'profile'       => array(
+			'profile'         => array(
 				'label'       => __( 'Member profiles', 'buddynext' ),
 				'description' => __( 'Per-member profile pages with cover, avatar, bio, custom fields.', 'buddynext' ),
 			),
-			'spaces'        => array(
+			'spaces'          => array(
 				'label'       => __( 'Spaces', 'buddynext' ),
 				'description' => __( 'Topic-scoped sub-communities with their own posts, members, settings.', 'buddynext' ),
 			),
-			'social_graph'  => array(
+			'social_graph'    => array(
 				'label'       => __( 'Follows, connections, blocks', 'buddynext' ),
 				'description' => __( 'The relationships layer the feed and member directory depend on.', 'buddynext' ),
 			),
-			'notifications' => array(
+			'notifications'   => array(
 				'label'       => __( 'Notifications', 'buddynext' ),
 				'description' => __( 'In-app notifications for follows, reactions, comments, mentions, moderation events.', 'buddynext' ),
 			),
-			'auth'          => array(
+			'auth'            => array(
 				'label'       => __( 'Login + registration', 'buddynext' ),
 				'description' => __( 'Custom auth pages and the email verification handshake.', 'buddynext' ),
 			),
-			'search'        => array(
+			'search'          => array(
 				'label'       => __( 'Search index', 'buddynext' ),
 				'description' => __( 'Unified FULLTEXT index across posts, users, spaces, hashtags.', 'buddynext' ),
 			),
-			'moderation'    => array(
+			'moderation'      => array(
 				'label'       => __( 'Moderation', 'buddynext' ),
 				'description' => __( 'Reports, strikes, suspensions, appeals: the integrity layer.', 'buddynext' ),
 			),
-			'hashtags'      => array(
+			'hashtags'        => array(
 				'label'       => __( 'Hashtags', 'buddynext' ),
 				'description' => __( 'Extract #tags from posts, build trending lists, link to per-tag feeds.', 'buddynext' ),
 			),
-			'reactions'     => array(
+			'reactions'       => array(
 				'label'       => __( 'Reactions', 'buddynext' ),
 				'description' => __( 'Six default emoji reactions on every post + comment.', 'buddynext' ),
 			),
-			'comments'      => array(
+			'comments'        => array(
 				'label'       => __( 'Comments', 'buddynext' ),
 				'description' => __( 'Threaded comments on posts.', 'buddynext' ),
 			),
-			'sidebar'       => array(
+			'sidebar'         => array(
 				'label'       => __( 'Sidebar widgets', 'buddynext' ),
 				'description' => __( 'Right-column widgets on hub pages: trending topics, suggested people, your spaces.', 'buddynext' ),
 			),
-			'onboarding'    => array(
+			'onboarding'      => array(
 				'label'       => __( 'Member onboarding flow', 'buddynext' ),
 				'description' => __( 'Multi-step welcome flow for new members (interests, suggested follows, first post).', 'buddynext' ),
 			),
-			'verification'  => array(
+			'verification'    => array(
 				'label'       => __( 'Email verification', 'buddynext' ),
 				'description' => __( 'Send a verification link on registration; gate certain actions on verified status.', 'buddynext' ),
 			),
-			'announcements' => array(
+			'announcements'   => array(
 				'label'       => __( 'Site announcements', 'buddynext' ),
 				'description' => __( 'Pin an announcement to the top of every member\'s feed.', 'buddynext' ),
 			),
-			'bookmarks'     => array(
+			'bookmarks'       => array(
 				'label'       => __( 'Bookmarks', 'buddynext' ),
 				'description' => __( 'Let members save posts to a private Bookmarks list to read later.', 'buddynext' ),
 			),
-			'polls'         => array(
+			'polls'           => array(
 				'label'       => __( 'Polls', 'buddynext' ),
 				'description' => __( 'Let members attach a poll to a post and vote in the feed.', 'buddynext' ),
 			),
-			'shares'        => array(
+			'shares'          => array(
 				'label'       => __( 'Re-shares', 'buddynext' ),
 				'description' => __( 'Let members re-share another member\'s post into their own feed.', 'buddynext' ),
 			),
-			'messages'      => array(
+			'messages'        => array(
 				'label'       => __( 'Direct messages', 'buddynext' ),
-				'description' => __( 'Private one-to-one messaging between members (requires WPMediaVerse).', 'buddynext' ),
+				'description' => __( 'Private messaging between members, run by WPMediaVerse. Turn it on or off in WPMediaVerse: Settings, Social, Messages.', 'buddynext' ),
 			),
-			'pwa'           => array(
+			'pwa'             => array(
 				'label'       => __( 'Installable app (PWA)', 'buddynext' ),
 				'description' => __( 'Let members install the community as an app and use it offline (manifest + service worker).', 'buddynext' ),
 			),
@@ -500,7 +508,7 @@ class FeatureRegistry {
 				'label'       => __( 'Scheduled posts', 'buddynext' ),
 				'description' => __( 'Let members compose a post now and have it publish automatically at a chosen time.', 'buddynext' ),
 			),
-			'webhooks'      => array(
+			'webhooks'        => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),
 				'description' => __( 'Send signed HTTPS POSTs to external endpoints on community events. Power-user feature.', 'buddynext' ),
 			),

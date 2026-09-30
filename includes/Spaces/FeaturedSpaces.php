@@ -125,7 +125,7 @@ class FeaturedSpaces {
 			return $ranked;
 		}
 
-		$head = array_slice( $ranked, 0, 2 ); // strongest personal matches stay first
+		$head = array_slice( $ranked, 0, 2 ); // The strongest personal matches stay first.
 		$tail = array_slice( $ranked, 2 );
 
 		return array_values( array_unique( array_merge( $head, $inject, $tail ) ) );
@@ -146,13 +146,14 @@ class FeaturedSpaces {
 		global $wpdb;
 		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $placeholders is a run of %d built above and every id is bound by prepare().
 		$live = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE is_archived = 0 AND id IN ({$placeholders})",
 				...$ids
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$live = array_map( 'absint', (array) $live );
 

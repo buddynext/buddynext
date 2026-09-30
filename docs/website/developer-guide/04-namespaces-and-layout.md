@@ -49,7 +49,6 @@ When a new file's name starts with a domain prefix, it goes in that domain's fol
 | Outbound webhook service/controller/listener | `Outbound/` | `OutboundWebhookService` |
 | Content moderation logic (banned words, rate limits) | `Moderation/` | `SafeguardService` |
 | Bridge adapter | `Bridges/` with `Bridge` suffix | `JetonomyBridge.php` |
-| Bridge hook registrar | `Bridges/` with `BridgeListener` suffix | `JetonomyBridgeListener.php` |
 | Directory/listing service querying `WP_User_Query` | `Profile/` | `MemberDirectoryService` |
 | Directory/listing service querying `bn_search_index` | `Search/` | - |
 | Cron job runner | `Core/CronService.php` | - |

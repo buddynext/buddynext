@@ -1,7 +1,7 @@
 <?php
 /**
  * An invalid value written through raw space meta must never be stored as a
- * WP_Error, and a row already holding one must read as unset.
+ * WP_Error, and the upgrade must remove any row already holding one.
  *
  * Regression cover for card 10335421251: the register_meta sanitize_callback
  * returned FieldType::sanitize()'s WP_Error, WordPress serialized it into
@@ -55,11 +55,12 @@ class SpaceFieldInvalidMetaTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A row corrupted before the fix (serialized WP_Error) reads as unset.
+	 * The upgrade removes a row corrupted before the fix (serialized WP_Error), so
+	 * every reader - the getter, the About tab, the REST payload - sees it unset.
 	 *
 	 * @return void
 	 */
-	public function test_legacy_error_row_reads_as_unset(): void {
+	public function test_upgrade_purges_legacy_error_row(): void {
 		global $wpdb;
 		update_metadata( 'bn_space', $this->space, 'brand_color', '#ff5500' );
 		$wpdb->update(
@@ -72,6 +73,15 @@ class SpaceFieldInvalidMetaTest extends WP_UnitTestCase {
 		);
 		wp_cache_flush();
 
+		// The v61 step directly: maybe_upgrade() runs dbDelta, whose DDL commits
+		// the test transaction and leaks rows into other tests.
+		$purge = new \ReflectionMethod( Installer::class, 'purge_error_space_meta' );
+		$purge->setAccessible( true );
+		$purge->invoke( null, $wpdb->prefix );
+
+		$this->assertSame( '', get_metadata( 'bn_space', $this->space, 'brand_color', true ) );
 		$this->assertSame( '', buddynext_get_space_field( $this->space, 'brand_color' ) );
+		$fields = \BuddyNext\Spaces\SpaceFieldRegistry::instance()->resolve_for_space( $this->space, true );
+		$this->assertContains( 'brand_color', array_column( $fields, 'key' ) );
 	}
 }

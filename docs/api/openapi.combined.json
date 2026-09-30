@@ -3,7 +3,7 @@
     "info": {
         "title": "BuddyNext REST API (Free + Pro)",
         "description": "The complete REST surface of BuddyNext: the Free plugin under `buddynext/v1` and BuddyNext Pro under `buddynext-pro/v1` (membership, payments, AI, analytics, email, push, moderation). Generated from the live route registry by bin/gen-openapi.php; do not hand-edit. The narrative reference lives in the Developer Guide.",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "contact": {
             "name": "Wbcom Designs",
             "url": "https://wbcomdesigns.com"
@@ -17497,6 +17497,15 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "roots_only",
+                        "in": "query",
+                        "required": false,
+                        "description": "1/true/yes to exclude sub-spaces even on the search path (search otherwise always includes them).",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -18878,6 +18887,52 @@
                         }
                     }
                 }
+            },
+            "delete": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "delete_buddynext_v1_spaces_id_invite_link",
+                "summary": "DELETE /buddynext/v1/spaces/{id}/invite-link",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/buddynext/v1/spaces/{id}/join": {
@@ -23142,6 +23197,32 @@
                             "null"
                         ]
                     },
+                    "poll_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "option_text": {
+                                    "type": "string"
+                                },
+                                "display_order": {
+                                    "type": "integer"
+                                },
+                                "vote_count": {
+                                    "type": "integer"
+                                },
+                                "end_date": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "privacy": {
                         "type": "string"
                     },
@@ -23446,6 +23527,32 @@
                     "media_ids": {},
                     "link_url": {},
                     "link_meta": {},
+                    "poll_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "option_text": {
+                                    "type": "string"
+                                },
+                                "display_order": {
+                                    "type": "integer"
+                                },
+                                "vote_count": {
+                                    "type": "integer"
+                                },
+                                "end_date": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            }
+                        }
+                    },
                     "privacy": {
                         "type": "string"
                     },
@@ -26190,58 +26297,6 @@
                                     }
                                 }
                             },
-                            "bn.badge_awarded": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.level_up": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
                             "bn.onboarding_nudge": {
                                 "type": "object",
                                 "properties": {
@@ -26346,59 +26401,33 @@
                                     }
                                 }
                             },
+                            "bn.media_commented": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
                             "bn.media_favorited": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.media_reaction": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.media_mention": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {
@@ -26633,32 +26662,6 @@
                                 }
                             },
                             "bn.subscription_granted": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "jt.notification": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {
@@ -27059,6 +27062,32 @@
                                 "media_ids": {},
                                 "link_url": {},
                                 "link_meta": {},
+                                "poll_options": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer"
+                                            },
+                                            "option_text": {
+                                                "type": "string"
+                                            },
+                                            "display_order": {
+                                                "type": "integer"
+                                            },
+                                            "vote_count": {
+                                                "type": "integer"
+                                            },
+                                            "end_date": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
                                 "privacy": {
                                     "type": "string"
                                 },

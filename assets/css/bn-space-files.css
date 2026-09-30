@@ -12,6 +12,16 @@
 	--bn-files-row-min: var(--bn-s12);
 }
 
+/* The Files UI also renders outside the .bn-wrap shell (buddynext_render_drive_files()
+ * on any page), where the base reset does not reach. Width caps below assume
+ * padding and border fit inside them, so the drive carries its own reset. */
+.bn-space-files,
+.bn-space-files *,
+.bn-space-files *::before,
+.bn-space-files *::after {
+	box-sizing: border-box;
+}
+
 /* ── Toolbar: search + upload + link on one row ─────────────────────────────
  * Search grows; Upload and Link a file are compact buttons beside it. Wraps to
  * stacked, full-width controls under 640px so nothing is cramped on a phone. */
@@ -211,6 +221,36 @@
 	border-block-start: 1px solid var(--bn-line-faint);
 }
 
+/* Trash rows: name over the trash info, actions at the end (card 10343724177). */
+.bn-files__row.bn-files-trash__row {
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	grid-template-areas: none;
+}
+
+/* The name sits in a column with its trash info, not in the row grid. */
+.bn-files-trash__main .bn-files__name {
+	align-self: auto;
+}
+
+.bn-files-trash__main {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+}
+
+.bn-files-trash__info {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-files-trash__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	justify-content: flex-end;
+}
+
 .bn-files__row:first-child {
 	border-block-start: 0;
 }
@@ -236,8 +276,14 @@
 }
 
 .bn-files__chip--dir {
-	background: var(--bn-accent-bg);
+	background: var(--bn-accent-50);
 	color: var(--bn-accent);
+}
+
+/* Folders show the folder icon, sized to the text chips beside them. */
+.bn-files__chip--dir svg {
+	width: var(--bn-text-md);
+	height: var(--bn-text-md);
 }
 
 .bn-files__chip--pdf {
@@ -295,7 +341,8 @@ a.bn-files__name:focus-visible {
 }
 
 .bn-files__download,
-.bn-files__remove {
+.bn-files__remove,
+.bn-files__icon-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -305,8 +352,9 @@ a.bn-files__name:focus-visible {
 	color: var(--bn-ink-3);
 }
 
-/* Remove is a <button>: strip the UA chrome so it reads as an icon action. */
-.bn-files__remove {
+/* Remove / folder tools are <button>s: strip the UA chrome so they read as icon actions. */
+.bn-files__remove,
+.bn-files__icon-btn {
 	padding: 0;
 	border: 0;
 	background: transparent;
@@ -314,8 +362,10 @@ a.bn-files__name:focus-visible {
 }
 
 .bn-files__download:hover,
-.bn-files__download:focus-visible {
-	background: var(--bn-accent-bg);
+.bn-files__download:focus-visible,
+.bn-files__icon-btn:hover,
+.bn-files__icon-btn:focus-visible {
+	background: var(--bn-accent-50);
 	color: var(--bn-accent);
 }
 
@@ -325,13 +375,15 @@ a.bn-files__name:focus-visible {
 	color: var(--bn-danger);
 }
 
-.bn-files__remove[disabled] {
+.bn-files__remove[disabled],
+.bn-files__icon-btn[disabled] {
 	opacity: 0.5;
 	cursor: default;
 }
 
 .bn-files__download svg,
 .bn-files__remove svg,
+.bn-files__icon-btn svg,
 .bn-files__actions > svg {
 	width: var(--bn-s5);
 	height: var(--bn-s5);
@@ -375,6 +427,31 @@ a.bn-files__name:focus-visible {
 }
 
 /* ── Mobile: rows become cards (chip + name on top, meta below) ─────────── */
+@media (max-width: 640px) {
+	/* Chip beside name + info, actions underneath (its own areas, since the
+	   list rows' chip/name/meta/dl areas do not fit a trash row). */
+	.bn-files__row.bn-files-trash__row {
+		grid-template-columns: auto minmax(0, 1fr);
+		grid-template-areas:
+			"chip main"
+			".    actions";
+	}
+
+	.bn-files-trash__row > .bn-files__chip {
+		grid-area: chip;
+		align-self: start;
+	}
+
+	.bn-files-trash__main {
+		grid-area: main;
+	}
+
+	.bn-files-trash__actions {
+		grid-area: actions;
+		justify-content: flex-start;
+	}
+}
+
 @media (max-width: 640px) {
 	.bn-files__row {
 		grid-template-columns: auto minmax(0, 1fr) auto;
@@ -661,7 +738,7 @@ a.bn-files__name:focus-visible {
 .bn-share {
 	position: fixed;
 	inset: 0;
-	z-index: 1000;
+	z-index: var(--bn-z-modal);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -672,10 +749,12 @@ a.bn-files__name:focus-visible {
 	display: none;
 }
 
+/* The dim + blur now come from the shared .bn-modal-backdrop class on .bn-share
+   itself (bn-base.css); this stays a transparent full-cover click target so
+   clicking outside the panel still closes it. */
 .bn-share__backdrop {
 	position: absolute;
 	inset: 0;
-	background: var(--bn-overlay);
 }
 
 .bn-share__panel {
@@ -974,7 +1053,7 @@ a.bn-files__name:focus-visible {
 	padding: var( --bn-s1, 4px ) var( --bn-s2, 8px );
 	border-radius: var( --bn-r-sm );
 	background: var( --bn-surface );
-	box-shadow: var( --bn-shadow-1, 0 1px 3px rgba( 0, 0, 0, 0.12 ) );
+	box-shadow: var(--bn-shadow-xs);
 	font-size: var( --bn-text-sm, 0.875rem );
 	color: var( --bn-ink-3 );
 	white-space: nowrap;
@@ -1011,7 +1090,7 @@ a.bn-files__name:focus-visible {
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
-	box-shadow: var(--bn-shadow-2, 0 4px 16px rgba(0, 0, 0, 0.14));
+	box-shadow: var(--bn-shadow-md);
 	z-index: 4;
 }
 

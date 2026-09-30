@@ -54,12 +54,12 @@ A few rules keep scoring fair:
 ### Where badges and levels show
 
 - **Profile.** Gamification occupies one top-level profile tab, **Achievements**, with three sub-tabs:
-  - **Achievements** - the badge grid (earned badges plus the locked ones still to earn, so a member can see what to aim for next), a standing strip of points, leaderboard rank, level, and current streak, and a recent points history for the profile owner.
-  - **Points** - the member's own running point ledger (each entry labelled by the action that earned it) and a "How to earn points" guide listing every enabled action, grouped by category, with its point value and any cooldown or daily cap. Visible only to the member on their own profile.
+  - **Achievements** - the badge grid (earned badges plus the locked ones still to earn, so a member can see what to aim for next), a standing strip of points, leaderboard rank, level, and current streak.
+  - **Points** - the member's own points history (WB Gamification's history, labelled the same way as its point toasts) and its "How to earn points" guide listing every enabled action, grouped by category, with its point value and any cooldown or daily cap. Visible only to the member on their own profile.
   - **Kudos** - the peer-recognition surface described in Kudos: peer recognition below.
 
   The tab only appears once WB Gamification is active, and each sub-tab only shows once there is something to show (the parent tab still appears - and lands on Kudos - even for a member with no points or badges yet, since anyone can be given kudos).
-- **Leaderboard.** The ranked board lists top members with their points and badges, and shows the viewer their own rank, level, streak, and next milestone. See The community leaderboard for the full walkthrough. A "Leaderboard" link is also added to the main community navigation rail when gamification is active.
+- **Leaderboard.** The ranked board lists top members with their points and badges, and shows the viewer their own rank, level (and how far to the next), and streak. See The community leaderboard for the full walkthrough. A "Leaderboard" link is also added to the main community navigation rail when gamification is active.
 - **Notifications.** When WB Gamification awards a badge or moves a member up a level, BuddyNext drops a notification in the member's bell so the win does not pass unnoticed.
 - **Activity feed.** When a member chooses to share a credential badge (not every small participation badge, only the ones marked as credentials), a card announcing it appears in the feed, crediting the member and linking to the badge on their Achievements tab. Un-sharing a badge withdraws the card; sharing it again brings the same card back rather than posting a duplicate.
 
@@ -89,6 +89,10 @@ WB Gamification publishes a hub page that hosts the leaderboard and badge views.
 - **Self-reactions do not earn points.** Reacting to your own content awards nothing, so members cannot farm points by reacting to themselves.
 - **The owner controls the numbers.** The point values above are BuddyNext's defaults. Every value, cap, cooldown, badge, and level threshold is editable in WB Gamification, so your community's economy is yours to balance.
 - **Nothing to back-fill.** Points accrue from the moment the companion is active. Actions taken before install are not retroactively scored.
+- **Profile privacy covers standing too.** Who can see a member's points, badges, rank and kudos follows their BuddyNext profile privacy (including blocks, followers-only and connections-only), everywhere: the Achievements tabs, the leaderboard (a hidden member keeps their rank and points but shows no badges), and WB Gamification's own blocks and API. WB Gamification's own public-profile switch is replaced by a note saying the community plugin decides.
+- **Your inbox shows the moments that matter.** Besides badges and level-ups, a member's BuddyNext notifications show kudos they receive (removed again if an admin revokes it), challenges they complete, a reward that is ready, a badge credential that expires, a new personal best for the week or month (once per period, kept up to date as it grows), and streak milestones (7, 14, 30, 60, 100, 180 and 365 days). None of them is emailed by BuddyNext, and each can be switched off under notification preferences. A level drop (for example after points are deducted) is not announced.
+- **Badge and level emails come from WB Gamification.** BuddyNext shows badge and level notifications in its notification center but never emails them, and leaves them out of its email digest, so a member never gets the same news twice. Edit those emails in WB Gamification.
+- **Forum leaderboard handoff.** If WB Gamification is set to hand the leaderboard to Jetonomy, BuddyNext hides its own leaderboard links, and its leaderboard address forwards to the Jetonomy leaderboard, so the community has one board.
 - **A read-only achievements endpoint exists for the app.** `GET /buddynext/v1/users/{id}/achievements` returns the same badges and standing tiles the Achievements tab renders, gated by the same profile-visibility rules a viewer would hit on the tab itself (a blocked or private viewer gets an empty result, not an error).
 
 ## Free vs Pro

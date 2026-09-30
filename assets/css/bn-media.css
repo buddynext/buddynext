@@ -135,7 +135,7 @@
 	cursor: pointer;
 	color: inherit;
 	line-height: 0;
-	border-radius: var( --bn-radius-sm, 6px );
+	border-radius: var(--bn-r-sm);
 }
 .bn-media-tile__audio-open:focus-visible {
 	outline: 2px solid var( --bn-accent, currentColor );
@@ -431,11 +431,11 @@ body.bn-lightbox-open { overflow: hidden; }
 	min-inline-size: 11rem;
 	max-inline-size: 16rem;
 	padding: var( --bn-s1, 4px );
-	background: var( --bn-surface, oklch( 100% 0 0 ) );
-	border: 1px solid var( --bn-line, oklch( 90% 0.006 0 ) );
-	border-radius: var( --bn-r-md, 8px );
-	box-shadow: var( --bn-shadow-md, 0 8px 24px oklch( 0% 0 0 / 0.12 ) );
-	z-index: 20;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-md);
+	z-index: var(--bn-z-menu);
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -557,7 +557,7 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-xs, 0.75rem );
 	line-height: 1;
 	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
-	border-radius: var( --bn-radius-xs, 3px );
+	border-radius: var(--bn-r-sm);
 	/* Keeps the hit area usable without inflating the visual box. */
 	padding: 4px 2px;
 }
@@ -582,7 +582,7 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-size: var( --bn-text-sm, 0.875rem );
 	padding: 4px 8px;
 	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
-	border-radius: var( --bn-radius-sm, 6px );
+	border-radius: var(--bn-r-sm);
 	background: var( --bn-surface, #fff );
 	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
 }
@@ -644,25 +644,32 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox--fullscreen .bn-lightbox__panel-body { display: none; }
 .bn-lightbox--fullscreen .bn-lightbox__media-wrap { inline-size: 100%; }
 
-/* Owner panel — the inline form Edit and Save open inside the side panel. */
-.bn-lightbox__panel {
+/* Owner panel — the inline form Edit and Save open inside the side panel. Its own class:
+   it used to share .bn-lightbox__panel with the aside, so the form drew the aside's
+   start border as a stray vertical line beside the fields. */
+.bn-lightbox__owner-panel {
 	display: flex;
 	flex-direction: column;
 	gap: var( --bn-s2, 8px );
 	padding: var( --bn-s3, 12px ) 0;
 	border-block-end: 1px solid var( --bn-line-faint, oklch( 92% 0.005 0 ) );
 }
+.bn-lightbox__owner-panel[hidden] { display: none; }
 .bn-lightbox__field { display: flex; flex-direction: column; gap: 4px; }
+/* Labels read at the size and weight of every other BuddyNext form label; they were the
+   smallest text in the panel and looked like a caption to the field, not its name. */
 .bn-lightbox__field-label {
-	font-size: var( --bn-text-xs, 0.75rem );
-	color: var( --bn-ink-3, oklch( 55% 0.01 0 ) );
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-2);
 }
 .bn-lightbox__field-input {
 	font: inherit;
 	font-size: var( --bn-text-sm, 0.875rem );
+	min-block-size: 36px;
 	padding: 6px 8px;
 	border: 1px solid var( --bn-line, oklch( 88% 0.01 0 ) );
-	border-radius: var( --bn-radius-sm, 6px );
+	border-radius: var(--bn-r-sm);
 	background: var( --bn-surface, #fff );
 	color: var( --bn-ink, oklch( 25% 0.01 0 ) );
 	width: 100%;
@@ -673,7 +680,8 @@ body.bn-lightbox-open { overflow: hidden; }
 	outline-offset: 2px;
 	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
 }
-.bn-lightbox__field-check { inline-size: 16px; block-size: 16px; }
+.bn-lightbox__field-check { inline-size: 16px; block-size: 16px; min-block-size: 0; }
+textarea.bn-lightbox__field-input { min-block-size: 72px; }
 
 /* A checkbox field reads as "[✓] Allow downloads" on one row, not a label with a
    lone checkbox stranded beneath it. */

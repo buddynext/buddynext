@@ -50,19 +50,24 @@ class Appearance {
 	}
 
 	/**
-	 * Disable the Reign "Left Panel" menu location on BuddyNext hub pages.
+	 * Disable the Reign "Left Panel" menu location on BuddyNext hub pages —
+	 * but only while BuddyNext is actually drawing its own rail there.
 	 *
-	 * BuddyNext owns its own navigation (the .bn-app__rail) and bursts to full
-	 * width, so a theme-level fixed left panel would overlap it. Returning a
-	 * falsy global setting makes Reign's reign-panel.php bail before render. Only
-	 * applies when a bn_hub query var is set (i.e. a BuddyNext route); off-hub
-	 * pages keep the theme's configured panel.
+	 * BuddyNext's rail and Reign's left panel are two independent left-hand
+	 * navigations; showing both at once overlaps them, so this suppresses the
+	 * theme's panel while BN's rail owns the column. It must NOT suppress
+	 * unconditionally: an owner who turns the rail off (Settings > "Show the
+	 * desktop sidebar rail") loses it, and the site is left with no left
+	 * navigation at all on every hub if the theme's is also off — the bug
+	 * fixed here (card 10348288795). buddynext_community_rail_enabled() is
+	 * the same gate hub-shell.php uses to decide whether to render the rail,
+	 * so this can never disagree with what actually rendered.
 	 *
 	 * @param mixed $value Stored reign_left_panel_gloabl_setting value.
-	 * @return mixed False on a BN hub page, the original value otherwise.
+	 * @return mixed False on a BN hub page while the BN rail renders there, the original value otherwise.
 	 */
 	public function suppress_theme_left_panel_on_hub( $value ) {
-		if ( '' !== (string) get_query_var( 'bn_hub' ) ) {
+		if ( '' !== (string) get_query_var( 'bn_hub' ) && function_exists( 'buddynext_community_rail_enabled' ) && buddynext_community_rail_enabled() ) {
 			return false;
 		}
 		return $value;
@@ -154,9 +159,11 @@ class Appearance {
 		// Some host themes (e.g. Reign) restyle BuddyNext primary buttons with
 		// their own hard-coded brand colour, beating the token-based rule. Reassert
 		// the admin accent on BN primary buttons inside the community surface only.
+		// The label is --bn-accent-fg (black or white by contrast, bn-base.css),
+		// never a fixed white: white on a teal or cyan brand colour fails AA.
 		$css .= sprintf(
 			'.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]{'
-			. 'background-color:%1$s!important;border-color:%1$s!important;color:#fff!important;}'
+			. 'background-color:%1$s!important;border-color:%1$s!important;color:var(--bn-accent-fg)!important;}'
 			. '.bn-app .bn-btn--primary:hover,.bn-app .bn-btn[data-variant="primary"]:hover{'
 			. 'background-color:color-mix(in oklch,%1$s 86%%,black)!important;'
 			. 'border-color:color-mix(in oklch,%1$s 86%%,black)!important;}',

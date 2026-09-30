@@ -99,6 +99,29 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A deleted badge definition removes every holder's shared-badge card.
+	 *
+	 * @return void
+	 */
+	public function test_deleted_badge_removes_the_shared_cards(): void {
+		global $wpdb;
+		$user = self::factory()->user->create();
+		$GLOBALS['wb_gam_test']['badges'][ $user ] = array(
+			array(
+				'id'            => 'veteran',
+				'name'          => 'Veteran',
+				'is_credential' => true,
+			),
+		);
+		do_action( 'wb_gam_badge_shared', $user, 'veteran' );
+		$count = static fn() => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge'", $user ) );
+		$this->assertSame( 1, $count() );
+
+		do_action( 'wb_gam_badge_deleted', 'veteran', array( $user ), array() );
+		$this->assertSame( 0, $count(), 'the card of a deleted badge is removed' );
+	}
+
+	/**
 	 * A non-credential badge does not broadcast to the feed, even when shared.
 	 */
 	public function test_non_credential_shared_badge_posts_no_activity(): void {
@@ -199,5 +222,54 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), apply_filters( 'wb_gam_toast_data', $cooldown, 123 ), 'the other reasons stay silent — the filter is per-reason' );
 
 		remove_filter( 'buddynext_gamification_show_skip_toast', $only_caps, 10 );
+	}
+
+	/**
+	 * BuddyNext profile privacy decides who sees a member's standing, through
+	 * wb_gam_can_view_public_profile, whatever gamification's own switches say.
+	 */
+	public function test_profile_privacy_decides_standing_visibility(): void {
+		$owner   = self::factory()->user->create();
+		$viewer  = self::factory()->user->create();
+		$privacy = buddynext_service( 'privacy' );
+
+		$privacy->set_preference( $owner, 'profile_visibility', 'public' );
+		$this->assertTrue( apply_filters( 'wb_gam_can_view_public_profile', false, $owner, $viewer ), 'public profile: visible even when gamification said no' );
+		$this->assertTrue( GamificationBridge::can_view_standing( $owner, 0 ), 'public profile: visible to a visitor' );
+
+		$privacy->set_preference( $owner, 'profile_visibility', 'private' );
+		$this->assertFalse( apply_filters( 'wb_gam_can_view_public_profile', true, $owner, $viewer ), 'private profile: hidden even when gamification said yes' );
+		$this->assertFalse( GamificationBridge::can_view_standing( $owner, 0 ), 'private profile: hidden from a visitor' );
+		$this->assertTrue( GamificationBridge::can_view_standing( $owner, $owner ), 'a member always sees their own standing' );
+		$this->assertFalse( GamificationBridge::can_view_standing( 0, $viewer ), 'no member, nothing to show' );
+	}
+
+	/**
+	 * A WB Gamification bell row opens on the member's own profile tab for it; the plugin
+	 * links every row to the profile front page, and a reward keeps its own hub link.
+	 */
+	public function test_gamification_bell_rows_open_the_matching_profile_tab(): void {
+		$member = self::factory()->user->create();
+		wp_set_current_user( $member );
+		$profile = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $member ) );
+		$plugin  = 'http://example.org/members/somebody/';
+
+		foreach ( array(
+			'wb_gamification.badge_awarded'       => 'achievements/',
+			'wb_gamification.level_up'            => 'achievements/',
+			'wb_gamification.challenge_completed' => 'achievements/',
+			'wb_gamification.credential_expired'  => 'achievements/',
+			'wb_gamification.streak_milestone'    => 'achievements/',
+			'wb_gamification.kudos_received'      => 'kudos/',
+			'wb_gamification.personal_record'     => 'points/',
+		) as $type => $tab ) {
+			$this->assertSame( $profile . $tab, $this->bridge->filter_notification_url( $plugin, $type, 0, 0, array() ), $type );
+		}
+
+		$this->assertSame( $plugin, $this->bridge->filter_notification_url( $plugin, 'wb_gamification.reward_fulfilled', 0, 0, array() ), 'A reward keeps the plugin hub link.' );
+		$this->assertSame( $plugin, $this->bridge->filter_notification_url( $plugin, 'jetonomy.reply_to_post', 0, 0, array() ), 'Another plugin is left alone.' );
+
+		wp_set_current_user( 0 );
+		$this->assertSame( $plugin, $this->bridge->filter_notification_url( $plugin, 'wb_gamification.kudos_received', 0, 0, array() ), 'No member, no tab.' );
 	}
 }

@@ -125,6 +125,7 @@ class Installer {
 		'bn_poll_options',
 		'bn_poll_votes',
 		'bn_post_hashtags',
+		'bn_post_media',
 		'bn_posts',
 		'bn_presence',
 		'bn_profile_fields',
@@ -433,8 +434,21 @@ class Installer {
 	 *      order column + id, lets ONE index set serve both views filesort-free — a space
 	 *      and a sub-space are the same object (card 10312614032). maybe_widen_indexes()
 	 *      recreates them on upgrade; read-only index change, no data touched.
+	 *  61: delete bn_space_meta rows holding a serialized WP_Error. Before 1.2.1 a
+	 *      space field's register_meta sanitize_callback returned the WP_Error for an
+	 *      invalid value and WordPress stored the object; every reader that cast it to
+	 *      string then fataled (card 10335421251). 1.2.1 fixed the write; this removes
+	 *      the rows already written, so no reader needs its own guard.
+	 *  63: bn_post_media (post_id, media_id) indexes bn_posts.media_ids. A media
+	 *      trash / restore / delete used to find its posts with JSON_CONTAINS over
+	 *      every post, a full scan run once per status (card 10344434252). The
+	 *      upgrade backfills it from existing posts; new writes go through
+	 *      PostService::index_media().
+	 *  64: seed the bn.media_commented email template (BuddyNext now sends the
+	 *      media-comment notification itself, card 10344509261). run() seeds it on
+	 *      upgrade; no data touched.
 	 */
-	private const SCHEMA_VERSION = 60;
+	private const SCHEMA_VERSION = 64;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -1197,6 +1211,16 @@ class Installer {
 		// v45: retire the media cards that should never have been published.
 		self::purge_retired_media_cards( $wpdb->prefix );
 
+		// v61: drop space-field rows that stored a WP_Error (unset -> field default).
+		self::purge_error_space_meta( $wpdb->prefix );
+
+		// v62: file every report on space content under its real space (it came
+		// from the client, and comment reports never sent one).
+		self::backfill_report_spaces( $wpdb->prefix );
+
+		// v63: index the media every existing post carries.
+		self::backfill_post_media( $wpdb->prefix );
+
 		// v49: plugin isolation now ships OFF. Preserve ON for a site that was
 		// already running the previous default-ON build and had configured it.
 		self::maybe_preserve_isolation_state();
@@ -1222,6 +1246,31 @@ class Installer {
 		if ( false === get_option( self::SCHEMA_FAILURE_OPTION, false ) ) {
 			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 		}
+	}
+
+	/**
+	 * Fill bn_post_media from the posts that already carry media (v63).
+	 *
+	 * Keyset batches of 500 posts, INSERT IGNORE, so it is idempotent and safe
+	 * to re-run after an interrupted upgrade.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function backfill_post_media( string $prefix ): void {
+		global $wpdb;
+		$posts = new \BuddyNext\Feed\PostService();
+		$after = 0;
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- prefix is the site prefix.
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, media_ids FROM {$prefix}bn_posts WHERE id > %d AND media_ids IS NOT NULL ORDER BY id ASC LIMIT 500", $after ), ARRAY_A );
+			$rows = (array) $rows;
+			foreach ( $rows as $row ) {
+				$after = (int) $row['id'];
+				$posts->index_media( $after, (array) json_decode( (string) $row['media_ids'], true ) );
+			}
+			$batch = count( $rows );
+		} while ( 500 === $batch );
 	}
 
 	/**
@@ -1296,6 +1345,52 @@ class Installer {
 
 		$data['allowed'] = false;
 		update_option( $option, $data );
+	}
+
+	/**
+	 * Set each report's space_id from the object it reports (card 10343966478).
+	 *
+	 * Reports kept whatever space_id the client sent, and comment reports sent
+	 * none, so reports on space content missed the space's moderation queue. Two
+	 * set-based UPDATEs, idempotent: a post takes its own space, a comment its
+	 * post's space.
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function backfill_report_spaces( string $prefix ): void {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$prefix}bn_reports r
+			   JOIN {$prefix}bn_posts p ON r.object_type = 'post' AND p.id = r.object_id
+			    SET r.space_id = p.space_id
+			  WHERE NOT ( r.space_id <=> p.space_id )"
+		);
+		$wpdb->query(
+			"UPDATE {$prefix}bn_reports r
+			   JOIN {$prefix}bn_comments c ON r.object_type = 'comment' AND c.id = r.object_id AND c.object_type = 'post'
+			   JOIN {$prefix}bn_posts p ON p.id = c.object_id
+			    SET r.space_id = p.space_id
+			  WHERE NOT ( r.space_id <=> p.space_id )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Delete bn_space_meta rows that hold a serialized WP_Error (v61).
+	 *
+	 * @param string $prefix Table prefix.
+	 * @return void
+	 */
+	private static function purge_error_space_meta( string $prefix ): void {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$deleted = $wpdb->query( $wpdb->prepare( "DELETE FROM {$prefix}bn_space_meta WHERE meta_value LIKE %s", 'O:8:"WP_Error"%' ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $deleted ) {
+			wp_cache_flush(); // One-shot; the meta cache still holds the deleted objects.
+		}
 	}
 
 	/**
@@ -1395,7 +1490,7 @@ class Installer {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			"UPDATE {$prefix}bn_posts p
-			    SET p.status = 'under_review'
+			    SET p.status = 'under_review', p.updated_at = p.updated_at
 			  WHERE p.status = 'pending'
 			    AND EXISTS (
 			        SELECT 1 FROM {$prefix}bn_reports r
@@ -1478,7 +1573,7 @@ class Installer {
 			$wpdb->prepare(
 				"UPDATE {$prefix}bn_search_index si
 				 INNER JOIN {$prefix}bn_spaces s ON s.id = si.space_id
-				 SET si.visibility = 'private'
+				 SET si.visibility = 'private', si.updated_at = si.updated_at
 				 WHERE si.visibility = 'public'
 				   AND si.space_id > 0
 				   AND s.type NOT IN ( {$placeholders} )",
@@ -1677,15 +1772,13 @@ class Installer {
 			'bn.appeal_resolved'           => array( "Your appeal has been reviewed {$em} {{site_name}}", 'Your {{site_name}} appeal has been reviewed' ),
 			'bn.unsuspension_confirmation' => array( "Your account suspension has been lifted {$em} {{site_name}}", 'Your {{site_name}} account suspension has been lifted' ),
 			'bn.new_report'                => array( "New content report awaiting review {$em} {{site_name}}", 'New content report awaiting review on {{site_name}}' ),
-			'bn.badge_awarded'             => array( 'You earned a badge on {{site_name}}!', 'You earned a badge on {{site_name}}' ),
-			'bn.level_up'                  => array( 'You levelled up on {{site_name}}!', 'You levelled up on {{site_name}}' ),
 		);
 
 		foreach ( $map as $type => $pair ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_email_templates SET subject = %s WHERE type = %s AND subject = %s",
+					"UPDATE {$wpdb->prefix}bn_email_templates SET subject = %s, updated_at = updated_at WHERE type = %s AND subject = %s",
 					$pair[1],
 					$type,
 					$pair[0]
@@ -3138,18 +3231,6 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
 			),
 			array(
-				'type'         => 'bn.badge_awarded',
-				'subject'      => 'You earned a badge on {{site_name}}',
-				'preview_text' => 'Congratulations on your new badge',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{action_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
-				'type'         => 'bn.level_up',
-				'subject'      => 'You levelled up on {{site_name}}',
-				'preview_text' => 'Your community level increased',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{action_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
 				'type'         => 'bn.strike_warning',
 				'subject'      => 'Your {{site_name}} account has received multiple strikes',
 				'preview_text' => 'You have received multiple moderation strikes',
@@ -3202,6 +3283,12 @@ class Installer {
 				'subject'      => 'New message on {{site_name}}',
 				'preview_text' => 'You have a new direct message',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.media_commented',
+				'subject'      => 'New comment on your media on {{site_name}}',
+				'preview_text' => 'Someone commented on your media',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Someone commented on your media on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.media_favorited',
@@ -3261,7 +3348,7 @@ class Installer {
 		// than re-seeded so an owner's edits to the copy survive.
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE IGNORE `{$p}bn_email_templates` SET type = %s WHERE type = %s",
+				"UPDATE IGNORE `{$p}bn_email_templates` SET type = %s, updated_at = updated_at WHERE type = %s",
 				'bn.user_unsuspended',
 				'bn.unsuspension_confirmation'
 			)
@@ -3270,8 +3357,8 @@ class Installer {
 		foreach ( $templates as $tpl ) {
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO `{$p}bn_email_templates` (type, subject, preview_text, body_html)
-					 VALUES (%s, %s, %s, %s)",
+					"INSERT IGNORE INTO `{$p}bn_email_templates` (type, subject, preview_text, body_html, created_at, updated_at)
+					 VALUES (%s, %s, %s, %s, UTC_TIMESTAMP(), UTC_TIMESTAMP())",
 					$tpl['type'],
 					$tpl['subject'],
 					$tpl['preview_text'],
@@ -3346,7 +3433,7 @@ class Installer {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$p}bn_member_types (slug, name, color, text_color, sort_order, show_in_dir, self_select) VALUES (%s, %s, %s, %s, %d, %d, %d)",
+					"INSERT IGNORE INTO {$p}bn_member_types (slug, name, color, text_color, sort_order, show_in_dir, self_select, created_at) VALUES (%s, %s, %s, %s, %d, %d, %d, UTC_TIMESTAMP())",
 					$type[0],
 					$type[1],
 					$type[2],
@@ -4285,6 +4372,16 @@ class Installer {
 				PRIMARY KEY (post_id, object_type, hashtag_id),
 				KEY         hashtag_feed (hashtag_id, created_at),
 				KEY         trending_window (created_at)
+			) {$cs};",
+
+			// Which posts carry which media file: an index of bn_posts.media_ids,
+			// written by PostService::index_media(), so a media trash / restore /
+			// delete finds its posts without scanning every post's JSON.
+			"CREATE TABLE {$p}bn_post_media (
+				post_id BIGINT(20) UNSIGNED NOT NULL,
+				media_id BIGINT(20) UNSIGNED NOT NULL,
+				PRIMARY KEY (post_id, media_id),
+				KEY         media_posts (media_id, post_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_hashtag_follows (

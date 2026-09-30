@@ -188,13 +188,15 @@ class OutboundWebhookService {
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_outbound_webhooks',
 			array(
-				'label'     => $label,
-				'url'       => $url,
-				'secret'    => $secret,
-				'events'    => wp_json_encode( array_values( array_unique( $events ) ) ),
-				'is_active' => 1,
+				'label'      => $label,
+				'url'        => $url,
+				'secret'     => $secret,
+				'events'     => wp_json_encode( array_values( array_unique( $events ) ) ),
+				'is_active'  => 1,
+				'created_at' => current_time( 'mysql', true ),
+				'updated_at' => current_time( 'mysql', true ),
 			),
-			array( '%s', '%s', '%s', '%s', '%d' )
+			array( '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
 
@@ -762,12 +764,14 @@ class OutboundWebhookService {
 				'response_code' => $response_code > 0 ? $response_code : null,
 				'response_body' => $response_body,
 				'status'        => $status,
+				'created_at'    => current_time( 'mysql', true ),
 			),
 			array(
 				'%d',
 				'%s',
 				'%s',
 				$response_code > 0 ? '%d' : '%s',
+				'%s',
 				'%s',
 				'%s',
 			)
@@ -817,9 +821,12 @@ class OutboundWebhookService {
 			if ( 1 === $was_active ) {
 				$wpdb->update(
 					$wpdb->prefix . 'bn_outbound_webhooks',
-					array( 'is_active' => 0 ),
+					array(
+						'is_active'  => 0,
+						'updated_at' => current_time( 'mysql', true ),
+					),
 					array( 'id' => $webhook_id ),
-					array( '%d' ),
+					array( '%d', '%s' ),
 					array( '%d' )
 				);
 				$this->flush_active_cache();

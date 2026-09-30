@@ -236,6 +236,7 @@ class CommentService {
 			}
 		}
 
+		$bn_stamp = \BuddyNext\Core\Backdate::resolve( $created_at );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
@@ -250,9 +251,10 @@ class CommentService {
 				// regardless of the MySQL/PHP timezone (see buddynext_time_ago()).
 				// Backdate::resolve() returns now unless a valid past timestamp
 				// was supplied (importer seam).
-				'created_at'  => \BuddyNext\Core\Backdate::resolve( $created_at ),
+				'created_at'  => $bn_stamp,
+				'updated_at'  => $bn_stamp,
 			),
-			array( '%d', '%s', '%d', '%d', '%s', '%s' )
+			array( '%d', '%s', '%d', '%d', '%s', '%s', '%s' )
 		);
 
 		$comment_id = (int) $wpdb->insert_id;
@@ -383,9 +385,12 @@ class CommentService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			"{$wpdb->prefix}bn_comments",
-			array( 'sync_reply_id' => $reply_id ),
+			array(
+				'sync_reply_id' => $reply_id,
+				'updated_at'    => current_time( 'mysql', true ),
+			),
 			array( 'id' => $comment_id ),
-			array( '%d' ),
+			array( '%d', '%s' ),
 			array( '%d' )
 		);
 	}
@@ -494,11 +499,12 @@ class CommentService {
 		$wpdb->update(
 			$wpdb->prefix . 'bn_comments',
 			array(
-				'content'   => $content,
-				'is_edited' => 1,
+				'content'    => $content,
+				'is_edited'  => 1,
+				'updated_at' => current_time( 'mysql', true ),
 			),
 			array( 'id' => $comment_id ),
-			array( '%s', '%d' ),
+			array( '%s', '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -549,9 +555,10 @@ class CommentService {
 			array(
 				'is_deleted' => 1,
 				'content'    => '',
+				'updated_at' => current_time( 'mysql', true ),
 			),
 			array( 'id' => $comment_id ),
-			array( '%d', '%s' ),
+			array( '%d', '%s', '%s' ),
 			array( '%d' )
 		);
 
@@ -577,6 +584,46 @@ class CommentService {
 		 * @param int $user_id    User who deleted the comment.
 		 */
 		do_action( 'buddynext_comment_deleted', $comment_id, $user_id );
+
+		return true;
+	}
+
+	/**
+	 * Undo delete(): bring a soft-deleted comment back with the given content.
+	 *
+	 * Same id, date, thread position and reactions. Used when the forum reply a
+	 * comment mirrors is restored or approved again. Fires no created hook, so
+	 * nobody is notified a second time.
+	 *
+	 * @param int    $comment_id Soft-deleted comment.
+	 * @param string $content    Content to restore (delete() blanks it).
+	 * @return bool True when the comment was restored.
+	 */
+	public function restore( int $comment_id, string $content ): bool {
+		$comment = $this->get( $comment_id );
+		$content = wp_kses_post( trim( $content ) );
+		if ( null === $comment || empty( $comment['is_deleted'] ) || '' === $content ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_comments',
+			array(
+				'is_deleted' => 0,
+				'content'    => $content,
+				'updated_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $comment_id ),
+			array( '%d', '%s', '%s' ),
+			array( '%d' )
+		);
+
+		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
+		if ( 'post' === $comment['object_type'] ) {
+			buddynext_service( 'post_service' )->increment_counter( (int) $comment['object_id'], 'comment_count' );
+		}
 
 		return true;
 	}

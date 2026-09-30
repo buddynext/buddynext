@@ -40,9 +40,7 @@ use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\BuddyXBridge;
 use BuddyNext\Bridges\GamificationBridge;
-use BuddyNext\Bridges\GamificationBridgeListener;
 use BuddyNext\Bridges\JetonomyBridge;
-use BuddyNext\Bridges\JetonomyBridgeListener;
 use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Bridges\WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
@@ -53,6 +51,7 @@ use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Notifications\EmailDispatchListener;
 use BuddyNext\Notifications\EmailSender;
+use BuddyNext\Notifications\IntegrationNotificationListener;
 use BuddyNext\Notifications\NotificationListener;
 use BuddyNext\Notifications\NotificationMessageService;
 use BuddyNext\Notifications\NotificationPrefService;
@@ -379,6 +378,7 @@ class Plugin {
 
 		// Wire social-event hooks to in-app notification routing.
 		( new NotificationListener() )->register();
+		( new IntegrationNotificationListener() )->register();
 
 		// Wire email verification hooks.
 		( new VerificationListener( $container->get( 'verification' ) ) )->register();
@@ -647,9 +647,16 @@ class Plugin {
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
 
+		// Author links (bylines, author boxes, archive headers) go to the member's profile.
+		( new \BuddyNext\Profile\AuthorLinkListener() )->register();
+
 		// Explore decks — busted on a block (the deck hides blocked members, and a block
 		// must bite immediately) and on new content.
 		( new \BuddyNext\Feed\ExploreListener() )->register();
+
+		// Page cache — guests get cached copies of the public hubs, and a feed item is
+		// not a WordPress post, so no cache plugin purges them on its own.
+		( new PageCachePurger() )->register();
 
 		// Feed cache — always bound (feed is mandatory). Listener busts
 		// the writer's first-page cache on post_created / post_deleted.
@@ -770,14 +777,13 @@ class Plugin {
 				// behind an integration toggle: BuddyNext's own /messages/ hub reaches
 				// the engine through MessagesData -> MediaClient -> the engine's
 				// container, never through this bridge, so gating the checks would
-				// disable bn_blocks and DM-privacy while members kept sending. The
-				// owner's real DM switch is Settings -> General -> Direct Messaging.
+				// disable bn_blocks and DM-privacy while members kept sending. Who may
+				// message whom is WPMediaVerse's setting (BuddyNext only shows it).
 				$wpmediaverse->init_dm_gates();
 
 				$wpmediaverse->init();
 
 				( new GamificationBridge() )->init();
-				( new GamificationBridgeListener() )->register();
 				// Gamification's Achievements profile tab (badge grid + standing).
 				( new \BuddyNext\Profile\GamificationAchievements() )->register();
 				// Gamification's Points tab (recent ledger + how-to-earn guide).
@@ -786,7 +792,6 @@ class Plugin {
 				( new \BuddyNext\Profile\GamificationKudos() )->register();
 
 				( new JetonomyBridge() )->init();
-				( new JetonomyBridgeListener() )->register();
 
 				// WB Member Blog: the member's published WordPress posts as an
 				// Articles profile tab. The FEED half needs no bridge — BlogPostListener
@@ -899,18 +904,31 @@ class Plugin {
 				'url'   => PageRouter::notifications_url(),
 			),
 			array(
-				'title' => __( 'Messages', 'buddynext' ),
-				'url'   => PageRouter::messages_url(),
-			),
-			array(
 				'title' => __( 'Search', 'buddynext' ),
 				'url'   => PageRouter::search_url(),
 			),
-			array(
+		);
+		// No Leaderboard entry when the owner handed the leaderboard to Jetonomy.
+		if ( ! \BuddyNext\Bridges\GamificationBridge::leaderboard_deferred() ) {
+			$pages[] = array(
 				'title' => __( 'Leaderboard', 'buddynext' ),
 				'url'   => PageRouter::leaderboard_url(),
-			),
-		);
+			);
+		}
+		// Offer Messages only while messaging is on, so a new menu item is never a dead end.
+		if ( \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+			array_splice(
+				$pages,
+				5,
+				0,
+				array(
+					array(
+						'title' => __( 'Messages', 'buddynext' ),
+						'url'   => PageRouter::messages_url(),
+					),
+				)
+			);
+		}
 
 		// Add Jetonomy pages if active.
 		if ( class_exists( 'Jetonomy\Jetonomy' ) && function_exists( 'Jetonomy\base_url' ) ) {

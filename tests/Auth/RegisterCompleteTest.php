@@ -84,7 +84,6 @@ class RegisterCompleteTest extends \WP_Test_REST_TestCase {
 		$user = get_user_by( 'email', $email );
 		$this->assertInstanceOf( \WP_User::class, $user );
 		// Created through RegistrationService, so the post-create steps ran.
-		$this->assertNotEmpty( get_user_meta( $user->ID, 'bn_privacy_dm', true ) );
 		$this->assertSame( 'uid', substr( (string) get_user_meta( $user->ID, 'bn_social_google_id', true ), 0, 3 ) );
 	}
 

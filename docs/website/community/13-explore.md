@@ -39,6 +39,7 @@ Explore carries type filters so you can focus the deck on one kind of content ra
 - Only public activity appears in Explore. Private posts and content from spaces you cannot see are never shown.
 - Activity from members you have blocked is excluded.
 - Activity from suspended or shadow-banned authors is excluded for everyone except admins.
+- Document posts are left off. A shared file has nothing to look at in a discovery deck; it still shows in its space's feed and Files tab and on the author's profile. Developers can show documents here with the `buddynext_explore_excluded_post_types` filter.
 
 ## Setting it up (for owners)
 

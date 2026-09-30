@@ -65,3 +65,4 @@ So we do not hedge: **at scale, a persistent object cache is the expected setup.
 ## Related
 
 - [Tools and Maintenance](08-tools-and-maintenance.md) - where the object cache panel lives, alongside the other health checks.
+- [Page Cache and Optimisation Plugins](09a-page-cache-and-optimisation.md) - a page cache is a different layer; what BuddyNext does with LiteSpeed, WP Rocket and similar plugins.

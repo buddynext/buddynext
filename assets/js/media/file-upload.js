@@ -22,7 +22,7 @@
  */
 
 import { onNavReady } from '@buddynext/nav-init';
-import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnPrompt, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
 
 function parseStrings( root ) {
 	try {
@@ -114,10 +114,7 @@ function bind( root ) {
 
 		root.classList.remove( 'is-uploading' );
 		if ( ok > 0 ) {
-			if ( typeof bnToast === 'function' ) {
-				bnToast( t.done || 'Uploaded.', { tone: 'success' } );
-			}
-			window.location.reload();
+			bnReloadWithToast( t.done || 'Uploaded.', { tone: 'success' } );
 		} else {
 			setStatus( '' );
 			if ( typeof bnToast === 'function' ) {
@@ -227,10 +224,7 @@ function bindActions( root ) {
 					headers:     { 'X-WP-Nonce': nonce },
 				} );
 				if ( res.ok ) {
-					if ( typeof bnToast === 'function' ) {
-						bnToast( t.done || 'File removed.', { tone: 'success' } );
-					}
-					window.location.reload();
+					bnReloadWithToast( t.done || 'File removed.', { tone: 'success' } );
 					return;
 				}
 			} catch ( e ) {
@@ -280,7 +274,14 @@ function bindLink( box ) {
 	};
 
 	const run = async function () {
-		const ref = ( input.value || '' ).trim();
+		let ref = ( input.value || '' ).trim();
+		// A member copies the address BuddyNext shows them - a Files page
+		// (/files/{id}/) or an embed (?bn_doc={id}) - which MediaVerse does not
+		// know. Hand it the id instead.
+		const own = ref.match( /\/files\/(\d+)\/?(?:[?#].*)?$/ ) || ref.match( /[?&]bn_doc=(\d+)/ );
+		if ( own ) {
+			ref = own[ 1 ];
+		}
 		if ( ! ref ) {
 			say( t.empty || 'Paste a file link first.', true );
 			return;
@@ -296,10 +297,7 @@ function bindLink( box ) {
 				body:        JSON.stringify( { ref, space_id: spaceId } ),
 			} );
 			if ( res.ok ) {
-				if ( typeof bnToast === 'function' ) {
-					bnToast( t.done || 'File linked to this space.', { tone: 'success' } );
-				}
-				window.location.reload();
+				bnReloadWithToast( t.done || 'File linked to this space.', { tone: 'success' } );
 				return;
 			}
 			// A wrong or unreachable file gets the server's specific reason
@@ -325,9 +323,142 @@ function bindLink( box ) {
 			run();
 		}
 	} );
+
+	// The panel is a <details> popover over the file list. Like any dropdown it
+	// closes on Escape (focus back to its toggle) and on a click outside it,
+	// otherwise it sits over the rows and swallows their Rename / Trash clicks.
+	const details = box.closest( 'details' );
+	if ( details ) {
+		details.addEventListener( 'keydown', function ( e ) {
+			if ( 'Escape' === e.key && details.open ) {
+				details.open = false;
+				details.querySelector( 'summary' )?.focus();
+			}
+		} );
+		document.addEventListener( 'click', function ( e ) {
+			if ( details.open && ! details.contains( e.target ) ) {
+				details.open = false;
+			}
+		} );
+	}
+}
+
+/**
+ * Wire the folder controls a drive's managers see: New folder, Rename and Move to
+ * trash on the Files list, Restore in its Trash view. All call MediaVerse's folder
+ * REST routes; the list reloads on success. Endpoint, drive, parent folder, nonce
+ * and copy live once on the `[data-bn-folder-manage]` root.
+ *
+ * @param {HTMLElement} root The Files root.
+ */
+function bindFolders( root ) {
+	if ( root._bnFoldersBound ) {
+		return;
+	}
+	root._bnFoldersBound = true;
+
+	const base  = ( root.getAttribute( 'data-bn-folder-endpoint' ) || '' ).replace( /\/$/, '' );
+	const nonce = root.getAttribute( 'data-bn-nonce' ) || '';
+	let t       = {};
+	try {
+		t = JSON.parse( root.getAttribute( 'data-bn-folder-strings' ) || '{}' );
+	} catch ( e ) {
+		t = {};
+	}
+	const fmt = ( tpl, ...vals ) => { let i = 0; return String( tpl || '' ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); };
+
+	async function call( path, method, body, done, btn ) {
+		if ( btn ) { btn.disabled = true; }
+		try {
+			const res = await fetch( base + path, {
+				method,
+				credentials: 'same-origin',
+				headers:     Object.assign( { 'X-WP-Nonce': nonce }, body ? { 'Content-Type': 'application/json' } : {} ),
+				body:        body ? JSON.stringify( body ) : undefined,
+			} );
+			if ( res.ok ) {
+				bnReloadWithToast( done, { tone: 'success' } );
+				return;
+			}
+			const data = await res.json().catch( () => ( {} ) );
+			bnToast( data.message || t.failed || 'That did not work.', { tone: 'error' } );
+		} catch ( e ) {
+			bnToast( t.failed || 'That did not work.', { tone: 'error' } );
+		}
+		if ( btn ) { btn.disabled = false; }
+	}
+
+	async function askName( title, confirmLabel, current ) {
+		const name = await bnPrompt( {
+			title,
+			confirmLabel,
+			cancelLabel:  t.cancel,
+			inputType:    'text',
+			placeholder:  t.placeholder,
+			defaultValue: current || '',
+			validate:     ( value ) => ( '' === value.trim() ? ( t.nameRequired || 'Enter a folder name.' ) : '' ),
+		} );
+		return null === name ? null : name.trim();
+	}
+
+	root.querySelectorAll( '[data-bn-folder-new]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const name = await askName( t.newTitle, t.newConfirm );
+		if ( name ) {
+			const parent = parseInt( root.getAttribute( 'data-bn-parent' ) || '0', 10 ) || 0;
+			call( '', 'POST', { name, drive: root.getAttribute( 'data-bn-drive' ), parent }, t.created, btn );
+		}
+	} ) );
+
+	root.querySelectorAll( '[data-bn-folder-rename]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const current = btn.getAttribute( 'data-bn-name' ) || '';
+		const name    = await askName( t.renameTitle, t.renameOk, current );
+		if ( name && name !== current ) {
+			call( '/' + btn.getAttribute( 'data-bn-id' ), 'PATCH', { name }, t.renamed, btn );
+		}
+	} ) );
+
+	root.querySelectorAll( '[data-bn-folder-delete]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const files   = parseInt( btn.getAttribute( 'data-bn-files' ) || '0', 10 ) || 0;
+		const folders = parseInt( btn.getAttribute( 'data-bn-folders' ) || '0', 10 ) || 0;
+		const parts   = [];
+		if ( files ) { parts.push( fmt( 1 === files ? t.fileOne : t.fileMany, files ) ); }
+		if ( folders ) { parts.push( fmt( 1 === folders ? t.folderOne : t.folderMany, folders ) ); }
+		const holds = 2 === parts.length ? fmt( t.andJoin, parts[ 0 ], parts[ 1 ] ) : ( parts[ 0 ] || '' );
+		const ok    = await bnConfirm( {
+			title:        fmt( t.trashTitle, btn.getAttribute( 'data-bn-name' ) || '' ),
+			body:         holds ? fmt( t.trashBody, holds ) : t.trashEmpty,
+			confirmLabel: t.trashConfirm,
+			cancelLabel:  t.cancel,
+			tone:         'danger',
+		} );
+		if ( ok ) {
+			call( '/' + btn.getAttribute( 'data-bn-id' ), 'DELETE', null, t.trashed, btn );
+		}
+	} ) );
+
+	root.querySelectorAll( '[data-bn-folder-restore]' ).forEach( ( btn ) => btn.addEventListener( 'click', () => {
+		call( '/' + btn.getAttribute( 'data-bn-id' ) + '/restore', 'POST', null, t.restored, btn );
+	} ) );
+
+	// Trash view: Delete now empties one trashed folder for good (WPMediaVerse's
+	// force delete). A danger confirm, so focus starts on Cancel.
+	root.querySelectorAll( '[data-bn-folder-purge]' ).forEach( ( btn ) => btn.addEventListener( 'click', async () => {
+		const items = parseInt( btn.getAttribute( 'data-bn-items' ) || '0', 10 ) || 0;
+		const ok    = await bnConfirm( {
+			title:        fmt( t.purgeTitle, btn.getAttribute( 'data-bn-name' ) || '' ),
+			body:         items ? fmt( t.purgeBody, fmt( 1 === items ? t.itemOne : t.itemMany, items ) ) : t.purgeEmpty,
+			confirmLabel: t.purgeConfirm,
+			cancelLabel:  t.cancel,
+			tone:         'danger',
+		} );
+		if ( ok ) {
+			call( '/' + btn.getAttribute( 'data-bn-id' ) + '?force=true', 'DELETE', null, t.purged, btn );
+		}
+	} ) );
 }
 
 onNavReady( function () {
+	document.querySelectorAll( '[data-bn-folder-manage]' ).forEach( bindFolders );
 	document.querySelectorAll( '[data-bn-file-upload]' ).forEach( bind );
 	document.querySelectorAll( '[data-bn-files-actions]' ).forEach( bindActions );
 	document.querySelectorAll( '[data-bn-file-link]' ).forEach( bindLink );

@@ -822,27 +822,47 @@ class FeedService {
 				// "For You" is the blended discovery feed (vs. the strict "Following"
 				// tab): the viewer's follows, own posts, joined spaces and followed
 				// hashtags, PLUS public community activity so the feed isn't empty for
-				// users who follow no one. The public catch-all is scoped to non-space
-				// posts and posts in open spaces only — private/secret space posts are
-				// reached solely through the joined-spaces branch, never leaked here.
-				// The followed-hashtag branch carries the SAME public + space-visibility
-				// scope (public privacy AND non-space/open/viewer-is-member) — otherwise
-				// following a tag would surface a public post inside a private/secret
-				// space, or a followers-only post by a non-followed author, to a viewer
-				// who is not a member/follower (the overarching guard below only blocks
-				// 'private'). Member-space posts also reach the viewer via joined-spaces,
-				// so the member clause here is belt-and-suspenders, not the sole path.
-				// Block/mute/excluded filtering is applied by the caller on top.
-				$sql    = "(
+				// users who follow no one. The public catch-all reuses
+				// explore_space_where() — the same predicate Explore uses — so the two
+				// surfaces never disagree about what an open space makes readable: a
+				// non-space post needs privacy='public', while a post in an OPEN space
+				// is readable at 'public' OR 'space_members' (anyone may join an open
+				// space, so both mean "anyone" there - owner decision 2026-09-17, card
+				// 10313019984). Before this shared call, this branch checked
+				// privacy='public' only, so a 'space_members' post in an open space
+				// showed on Explore but never on For You (card 10352917675).
+				// Private/secret space posts are reached solely through the
+				// joined-spaces branch, never leaked here. The followed-hashtag branch
+				// carries the SAME scope — otherwise following a tag would surface a
+				// post inside a private/secret space, or a narrower-than-open-space
+				// post, to a viewer who is not a member/follower (the overarching guard
+				// below only blocks 'private'). Member-space posts also reach the
+				// viewer via joined-spaces, so the member clause here is
+				// belt-and-suspenders, not the sole path. Block/mute/excluded
+				// filtering is applied by the caller on top.
+				//
+				// Membership decides WHICH spaces reach the viewer, never WHO may read
+				// a post inside one: a 'followers' or 'connections' post made into a
+				// space the viewer belongs to is still for the author's followers or
+				// connections only. Both member-space arms therefore AND the shared
+				// post_audience_clause() - the rule the Spaces tab and the single-space
+				// feed already apply (card 10264292078). Without it, For You showed
+				// those posts to every member of the space (card 10354867102).
+				[ $audience_sql, $audience_params ] = $this->post_audience_clause( $user_id );
+
+				$sql = "(
 					user_id IN (
 						SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
 					)
 					AND privacy IN ('public','followers')
 				)
 				OR user_id = %d
-				OR space_id IN (
-					SELECT space_id FROM {$wpdb->prefix}bn_space_members
-					WHERE user_id = %d AND status = 'active'
+				OR (
+					space_id IN (
+						SELECT space_id FROM {$wpdb->prefix}bn_space_members
+						WHERE user_id = %d AND status = 'active'
+					)
+					AND {$audience_sql}
 				)
 				OR (
 					id IN (
@@ -853,30 +873,26 @@ class FeedService {
 							WHERE hf.user_id = %d
 						)
 					)
-					AND privacy = 'public'
 					AND (
-						space_id IS NULL
-						OR space_id = 0
-						OR space_id IN (
-							SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open'
-						)
-						OR space_id IN (
-							SELECT space_id FROM {$wpdb->prefix}bn_space_members
-							WHERE user_id = %d AND status = 'active'
+						{$this->explore_space_where()}
+						OR (
+							space_id IN (
+								SELECT space_id FROM {$wpdb->prefix}bn_space_members
+								WHERE user_id = %d AND status = 'active'
+							)
+							AND {$audience_sql}
 						)
 					)
 				)
-				OR (
-					privacy = 'public'
-					AND (
-						space_id IS NULL
-						OR space_id = 0
-						OR space_id IN (
-							SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open'
-						)
-					)
-				)";
-				$params = array( $user_id, $user_id, $user_id, $user_id, $user_id );
+				OR {$this->explore_space_where()}";
+				// Placeholder order: follows, own, joined-space member, joined-space
+				// audience (5), hashtag follow, hashtag member-space, its audience (5).
+				$params = array_merge(
+					array( $user_id, $user_id, $user_id ),
+					$audience_params,
+					array( $user_id, $user_id ),
+					$audience_params
+				);
 				break;
 		}
 
@@ -1468,12 +1484,15 @@ class FeedService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array(
+				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
+				'updated_at'          => current_time( 'mysql', true ),
+			),
 			array(
 				'id'              => $post_id,
 				'is_announcement' => 1,
 			),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2061,15 +2080,36 @@ class FeedService {
 	 *
 	 * Excludes reshares (amplification, not original discovery content; the Explore
 	 * card cannot dereference shared_post_id), authorless rows (a deleted account
-	 * otherwise renders as "Community member"), and rows with nothing to show (no
-	 * text, media, poll, or link). Static fragment — only table/column names, no
-	 * user input — safe to interpolate.
+	 * otherwise renders as "Community member"), rows with nothing to show (no
+	 * text, media, poll, or link), and document posts by default: Explore is the
+	 * public discovery deck, a file has nothing to look at there, and it belongs
+	 * next to its space (space feed and Files tab), where it still shows (owner
+	 * decision 2026-09-27, card 10344283332).
 	 *
-	 * @return string A leading-" AND " WHERE fragment.
+	 * @return string A leading-" AND " WHERE fragment (excluded types bound via prepare).
 	 */
 	public function explore_renderable_where(): string {
 		global $wpdb;
-		return " AND type <> 'share'
+
+		/**
+		 * Post types left off the public Explore deck and its pulse count.
+		 *
+		 * Reshares are always left off (a correctness rule, not a preference) and
+		 * cannot be re-added here. Return an empty array to show document posts on
+		 * Explore.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string[] $types Post types to leave off. Default array( 'document' ).
+		 */
+		$excluded     = array_values( array_filter( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_explore_excluded_post_types', array( 'document' ) ) ) ) );
+		$excluded_sql = '';
+		if ( $excluded ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders built from the count of sanitized keys.
+			$excluded_sql = $wpdb->prepare( ' AND type NOT IN (' . implode( ',', array_fill( 0, count( $excluded ), '%s' ) ) . ')', $excluded );
+		}
+
+		return " AND type <> 'share'{$excluded_sql}
 			   AND user_id IN ( SELECT ID FROM {$wpdb->users} )
 			   AND (
 			       TRIM( COALESCE( content, '' ) ) <> ''

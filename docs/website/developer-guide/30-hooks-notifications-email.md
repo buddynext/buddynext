@@ -36,6 +36,10 @@ Key contract rules:
 | `buddynext_transactional_notification_types` | filter | Resolving which notification types are **transactional**, meaning they bypass the member's email preferences entirely and always send. The core set is `email_verify` and `welcome`. Add a type here only when the member genuinely cannot opt out of it - the case this was opened for is Pro's upcoming-renewal notice, where EU and California auto-renewal rules require advance notice before a card is charged. The returned array is cast to strings, de-duplicated and emptied of blanks. | `string[] $types` |
 | `buddynext_notification_created` | action | After a notification row is inserted or merged into an unread group | `int $notification_id, int $recipient_id, array $data` |
 | `buddynext_notification_ungroupable_types` | filter | Resolving which notification types must never collapse into a grouped row | `string[] $types` |
+| `buddynext_media_notification_url` | filter | Resolving where a media notification (comment, favorite, reaction, mention) opens | `string $url, int $media_id` |
+| `buddynext_notification_visible_rows` | filter | Reading a page of a member's notifications, after rows whose object is gone are dropped | `array[] $rows` |
+| `buddynext_notification_sources` | filter | Listing the integrations whose notification hook carries the shared payload | `array $sources` |
+| `buddynext_notification_group_label` | filter | Naming a settings section BuddyNext does not own (an integration's) | `string $label, string $group` |
 
 Details:
 
@@ -51,7 +55,49 @@ Details:
   } );
   ```
 
+- `buddynext_media_notification_url` defaults to `''`, which falls back to the activity feed. The WPMediaVerse bridge answers with the post the media is in, or the media's own page.
+- WB Gamification decides which personal records reach the inbox with its own `wb_gam_personal_record_notify` filter (default: `week` and `month` records whose previous best was at least 10). A record is announced once per period (one row per member per site-calendar week or month); later records in the same period refresh that row's number without a new alert.
+
+- `buddynext_notification_visible_rows` receives the raw rows of one page (each has `recipient_id`, `type`, `object_type`, `object_id`, `sender_id` and the JSON `data`). It is for a plugin whose notifications are mirrored into the bell: that plugin owns who may see its content, so it removes its own rows the recipient should not see (a banned author, trashed content). Return every other row untouched. It filters the list only; unread counts are not recalculated.
+
+  ```php
+  add_filter( 'buddynext_notification_visible_rows', function ( array $rows ): array {
+      return array_filter( $rows, function ( array $row ): bool {
+          return 'my_plugin.notice' !== $row['type'] || my_plugin_can_see( (int) $row['recipient_id'], (int) $row['object_id'] );
+      } );
+  } );
+  ```
+
 - `buddynext_notification_created` is the canonical "a notification happened" signal. The `$type` lives at `$data['type']`. Note the parameter order: `$notification_id, $recipient_id, $data` (the data array, not a bare type string).
+
+- `buddynext_notification_sources` lists the integrations that send notifications to the bell through one shared payload. Each plugin passes that payload as the LAST argument of its own notification hook, so its other listeners are untouched; BuddyNext reads it, shows it in the bell with the plugin's words, link and icon, and never emails it (the plugin sends its own email). Our plugins are registered already. Add yours to take part:
+
+  ```php
+  add_filter( 'buddynext_notification_sources', function ( array $sources ): array {
+      $sources['my_plugin'] = array(
+          'hook'   => 'my_plugin_notification_created', // your existing hook
+          'prefix' => 'my_plugin',                      // for my_plugin_community_notification_types / _visible / _removed
+          'label'  => __( 'My plugin', 'my-plugin' ),
+          'icon'   => 'bell',
+      );
+      return $sources;
+  } );
+
+  // Wherever you notify a member: your existing arguments, then the payload.
+  do_action( 'my_plugin_notification_created', $notification_id, array(
+      'recipient_id' => $user_id,
+      'type'         => 'item_approved',
+      'actor_id'     => 0,
+      'object_type'  => 'item',
+      'object_id'    => $item_id,
+      'message'      => __( 'Your item was approved.', 'my-plugin' ), // plain text
+      'url'          => get_permalink( $item_id ),
+      'group_key'    => '', // same key = unread rows merge ("Aisha and 3 others...")
+  ) );
+  ```
+
+  Declare your types on `{prefix}_community_notification_types` (slug => `label`, `description`, `default_on`) to give members a switch per type; answer `{prefix}_community_notification_visible` (`array $visible, int $viewer_id, array $targets`, return key => bool) to hide rows the viewer may no longer see; fire `{prefix}_community_notification_removed( $object_type, $object_id )` when an object is permanently deleted. A grouped row ("Aisha and 2 others replied") carries the container as its object (the topic) and one event per person: send `item_type` and `item_id` (the reply), `message_single` (one person, `{actor}` placeholder) and `message_grouped` (`{actor}` and `{others}`, which becomes a translated "1 other" / "3 others"). BuddyNext keeps each event as (person, item), counts people, not events, and asks your `_visible` filter about each item too (target `item => true`, with the person as `actor_id`): answer false for a gone, trashed or banned item and the row shrinks, then disappears when none is left. Send an anonymous event with `actor_id` 0 and its own `group_key` and it never merges. The `group_key` and the object must describe what `url` opens, because a merged row keeps the first event's link. BuddyNext reads the payload only once your types are declared. For a running notice whose number only grows (a weekly best), add `'renotify' => false` with a `group_key` per period: repeats then refresh the existing row quietly instead of alerting again.
+- `buddynext_notification_group_label` names a settings section by its group key when BuddyNext does not own the group. Integration sections are named already.
 
 ## Preference hooks
 
@@ -86,6 +132,7 @@ The email channel is driven by `EmailSender`. Event emails render from a `bn_ema
 | `buddynext_send_notification_email` | action | Action Scheduler callback to send a notification email asynchronously | `int $user_id, string $notification_type, array $data` |
 | `buddynext_email_template_catalogue` | filter | Building the list of templates on Settings -> Notifications -> Email Templates | `array $catalogue` |
 | `buddynext_logs_purged` | action | A retention purge finishes, so a site can log or monitor what was removed | `array{notifications:int,email_log:int} $deleted, int $window` |
+| `buddynext_email_failure_alert_threshold` | filter | The Email Log admin banner decides whether to warn about delivery. It shows once failed sends in the last 24 hours reach this number. Default `5`; return `0` to never show it (1.2.0) | `int $threshold` |
 
 Details:
 

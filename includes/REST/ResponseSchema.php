@@ -923,7 +923,10 @@ final class ResponseSchema {
 				),
 				'rules'             => array( 'type' => 'string' ),
 				'required_ability'  => array( 'type' => 'string' ),
-				'gate_plans'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+				'gate_plans'        => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'string' ),
+				),
 				'is_gated'          => array( 'type' => 'boolean' ),
 				'is_archived'       => array( 'type' => 'boolean' ),
 				'archived_at'       => array( 'type' => array( 'string', 'null' ) ),
@@ -959,52 +962,55 @@ final class ResponseSchema {
 			'title'      => 'space',
 			'type'       => 'object',
 			'properties' => array(
-				'id'                => array( 'type' => 'integer' ),
-				'name'              => array( 'type' => 'string' ),
-				'slug'              => array( 'type' => 'string' ),
-				'description'       => array( 'type' => 'string' ),
-				'category_id'       => array( 'type' => 'integer' ),
-				'parent_id'         => array( 'type' => array( 'integer', 'null' ) ),
-				'type'              => array( 'type' => 'string' ),
-				'owner_id'          => array( 'type' => 'integer' ),
-				'member_count'      => array( 'type' => 'integer' ),
-				'avatar_url'        => array(
+				'id'                 => array( 'type' => 'integer' ),
+				'name'               => array( 'type' => 'string' ),
+				'slug'               => array( 'type' => 'string' ),
+				'description'        => array( 'type' => 'string' ),
+				'category_id'        => array( 'type' => 'integer' ),
+				'parent_id'          => array( 'type' => array( 'integer', 'null' ) ),
+				'type'               => array( 'type' => 'string' ),
+				'owner_id'           => array( 'type' => 'integer' ),
+				'member_count'       => array( 'type' => 'integer' ),
+				'avatar_url'         => array(
 					'type'   => 'string',
 					'format' => 'uri',
 				),
-				'cover_image_url'   => array(
+				'cover_image_url'    => array(
 					'type'   => 'string',
 					'format' => 'uri',
 				),
-				'rules'             => array( 'type' => 'string' ),
-				'required_ability'  => array( 'type' => 'string' ),
-				'gate_plans'        => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
-				'is_gated'          => array( 'type' => 'boolean' ),
-				'is_archived'       => array( 'type' => 'boolean' ),
-				'archived_at'       => array( 'type' => array( 'string', 'null' ) ),
-				'created_at'        => array( 'type' => 'string' ),
-				'created_at_gmt'    => array(
+				'rules'              => array( 'type' => 'string' ),
+				'required_ability'   => array( 'type' => 'string' ),
+				'gate_plans'         => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'string' ),
+				),
+				'is_gated'           => array( 'type' => 'boolean' ),
+				'is_archived'        => array( 'type' => 'boolean' ),
+				'archived_at'        => array( 'type' => array( 'string', 'null' ) ),
+				'created_at'         => array( 'type' => 'string' ),
+				'created_at_gmt'     => array(
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
-				'viewer_role'       => array( 'type' => 'string' ),
+				'viewer_role'        => array( 'type' => 'string' ),
 				'last_active_at'     => array( 'type' => array( 'string', 'null' ) ),
 				'last_active_at_gmt' => array(
 					'type'   => array( 'string', 'null' ),
 					'format' => 'date-time',
 				),
-				'category_name'     => array( 'type' => 'string' ),
-				'category_slug'     => array( 'type' => 'string' ),
-				'subspace_count'    => array( 'type' => 'integer' ),
-				'cover_tone'        => array( 'type' => 'string' ),
-				'type_label'        => array( 'type' => 'string' ),
-				'type_tone'         => array( 'type' => 'string' ),
-				'join_method'       => array( 'type' => 'string' ),
-				'membership_role'   => array( 'type' => array( 'string', 'null' ) ),
-				'membership_status' => array( 'type' => array( 'string', 'null' ) ),
-				'can_invite'        => array( 'type' => 'boolean' ),
-				'can_manage'        => array( 'type' => 'boolean' ),
-				'can_edit_space'    => array( 'type' => 'boolean' ),
+				'category_name'      => array( 'type' => 'string' ),
+				'category_slug'      => array( 'type' => 'string' ),
+				'subspace_count'     => array( 'type' => 'integer' ),
+				'cover_tone'         => array( 'type' => 'string' ),
+				'type_label'         => array( 'type' => 'string' ),
+				'type_tone'          => array( 'type' => 'string' ),
+				'join_method'        => array( 'type' => 'string' ),
+				'membership_role'    => array( 'type' => array( 'string', 'null' ) ),
+				'membership_status'  => array( 'type' => array( 'string', 'null' ) ),
+				'can_invite'         => array( 'type' => 'boolean' ),
+				'can_manage'         => array( 'type' => 'boolean' ),
+				'can_edit_space'     => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -1038,6 +1044,7 @@ final class ResponseSchema {
 					'format' => 'uri',
 				),
 				'link_meta'            => array( 'type' => array( 'object', 'null' ) ),
+				'poll_options'         => self::poll_options(),
 				'privacy'              => array( 'type' => 'string' ),
 				'reaction_count'       => array( 'type' => 'integer' ),
 				'comment_count'        => array( 'type' => 'integer' ),
@@ -1956,6 +1963,7 @@ final class ResponseSchema {
 				'media_ids'            => array(),
 				'link_url'             => array(),
 				'link_meta'            => array(),
+				'poll_options'         => self::poll_options(),
 				'privacy'              => array(
 					'type' => 'string',
 				),
@@ -2287,6 +2295,7 @@ final class ResponseSchema {
 							'media_ids'            => array(),
 							'link_url'             => array(),
 							'link_meta'            => array(),
+							'poll_options'         => self::poll_options(),
 							'privacy'              => array(
 								'type' => 'string',
 							),
@@ -3708,58 +3717,6 @@ final class ResponseSchema {
 								),
 							),
 						),
-						'bn.badge_awarded'                 => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
-						'bn.level_up'                      => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
 						'bn.onboarding_nudge'              => array(
 							'type'       => 'object',
 							'properties' => array(
@@ -3864,59 +3821,33 @@ final class ResponseSchema {
 								),
 							),
 						),
+						'bn.media_commented'               => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
 						'bn.media_favorited'               => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
-						'bn.media_reaction'                => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
-						'bn.media_mention'                 => array(
 							'type'       => 'object',
 							'properties' => array(
 								'on_site'     => array(
@@ -4151,32 +4082,6 @@ final class ResponseSchema {
 							),
 						),
 						'bn.subscription_granted'          => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
-						'jt.notification'                  => array(
 							'type'       => 'object',
 							'properties' => array(
 								'on_site'     => array(
@@ -6242,6 +6147,32 @@ final class ResponseSchema {
 				'created_at_gmt' => array(
 					'type'   => 'string',
 					'format' => 'date-time',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Options on a poll post, as PostService::attach_poll_options() adds them.
+	 * Present only on posts of type "poll", so it is optional wherever a post
+	 * appears (single post, feeds, hashtag feed).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function poll_options(): array {
+		// Only poll posts carry it. bin/check-openapi.php reads x-bn-conditional so
+		// a sample of non-poll posts is not reported as drift.
+		return array(
+			'type'             => 'array',
+			'x-bn-conditional' => true,
+			'items'            => array(
+				'type'       => 'object',
+				'properties' => array(
+					'id'            => array( 'type' => 'integer' ),
+					'option_text'   => array( 'type' => 'string' ),
+					'display_order' => array( 'type' => 'integer' ),
+					'vote_count'    => array( 'type' => 'integer' ),
+					'end_date'      => array( 'type' => array( 'string', 'null' ) ),
 				),
 			),
 		);

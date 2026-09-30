@@ -75,8 +75,8 @@ class BlockService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
-				 VALUES (%d, %d, 'block')
+				"INSERT INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type, created_at)
+				 VALUES (%d, %d, 'block', UTC_TIMESTAMP())
 				 ON DUPLICATE KEY UPDATE type = 'block'",
 				$blocker_id,
 				$blocked_id
@@ -86,7 +86,7 @@ class BlockService {
 		// A failed write must surface as an error, not a false success — otherwise
 		// we would bust the cache and fire buddynext_block while no row was stored.
 		if ( false === $result ) {
-			return new WP_Error( 'block_failed', __( 'Could not block this user. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'block_failed', __( 'Could not block this user. Try again.', 'buddynext' ) );
 		}
 
 		// Capture the insert's affected-row count NOW: the unfollow / connection
@@ -189,8 +189,8 @@ class BlockService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
-				 VALUES (%d, %d, 'mute')",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type, created_at)
+				 VALUES (%d, %d, 'mute', UTC_TIMESTAMP())",
 				$muter_id,
 				$muted_id
 			)
@@ -198,7 +198,7 @@ class BlockService {
 
 		// Surface a failed write instead of reporting a false success.
 		if ( false === $result ) {
-			return new WP_Error( 'mute_failed', __( 'Could not mute this user. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'mute_failed', __( 'Could not mute this user. Try again.', 'buddynext' ) );
 		}
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
@@ -282,8 +282,8 @@ class BlockService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
-				 VALUES (%d, %d, 'restrict')",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type, created_at)
+				 VALUES (%d, %d, 'restrict', UTC_TIMESTAMP())",
 				$actor_id,
 				$target_id
 			)
@@ -291,7 +291,7 @@ class BlockService {
 
 		// Surface a failed write instead of reporting a false success.
 		if ( false === $result ) {
-			return new WP_Error( 'restrict_failed', __( 'Could not restrict this user. Please try again.', 'buddynext' ) );
+			return new WP_Error( 'restrict_failed', __( 'Could not restrict this user. Try again.', 'buddynext' ) );
 		}
 
 		$this->invalidate_block_cache( $actor_id, $target_id );

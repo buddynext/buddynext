@@ -77,10 +77,10 @@ const connectStore = store( 'buddynext/auth-connect-app', {
 				} else if ( r.status === 429 ) {
 					c.error = ( data && data.message ) || t( 'rateLimited', 'Too many connection attempts. Please wait a while and try again.' );
 				} else {
-					c.error = ( data && data.message ) || t( 'genericError', 'Something went wrong. Please try again.' );
+					c.error = ( data && data.message ) || t( 'genericError', 'Something went wrong. Try again.' );
 				}
 			} catch ( _e ) {
-				c.error = t( 'genericError', 'Something went wrong. Please try again.' );
+				c.error = t( 'genericError', 'Something went wrong. Try again.' );
 			}
 			c.busy = false;
 		},

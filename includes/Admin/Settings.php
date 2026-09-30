@@ -238,10 +238,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 *
 	 * Shown only when the tab has at least one resettable, driver-registered
 	 * setting. It sits below the Save bar, away from Save, and posts to the shared
-	 * SettingsDriver handler. A tiny inline script gates the submit behind the shared
-	 * confirm dialog, which lists exactly which settings would change (and says the
-	 * tab is already at defaults when nothing differs) so the reset is never a
-	 * surprise. Owner-data (resettable => false) is never listed and never reset.
+	 * SettingsDriver handler through the shared AdminPageBase::render_restore_form(),
+	 * whose dialog lists exactly which settings would change (and says the tab is
+	 * already at defaults when nothing differs) so the reset is never a surprise.
+	 * Owner-data (resettable => false) is never listed and never reset.
 	 *
 	 * @param string $slug Tab slug.
 	 * @return void
@@ -253,36 +253,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		}
 
 		$preview = \BuddyNext\Admin\Settings\SettingsDriver::tab_reset_preview( $slug );
-		$payload = wp_json_encode(
+		$this->render_restore_form(
 			array(
-				'changes'   => $preview['changes'],
-				'unchanged' => $preview['unchanged'],
-				'i18n'      => array(
-					'title'     => __( 'Restore default settings?', 'buddynext' ),
-					'confirm'   => __( 'Restore defaults', 'buddynext' ),
-					'cancel'    => __( 'Cancel', 'buddynext' ),
-					'close'     => __( 'Close', 'buddynext' ),
-					'intro'     => __( 'These settings on this tab will return to their defaults:', 'buddynext' ),
-					'current'   => __( 'now', 'buddynext' ),
-					'toDefault' => __( 'default', 'buddynext' ),
-					'noChange'  => __( 'This tab already uses the default settings. Nothing to restore.', 'buddynext' ),
-					'ownerNote' => __( 'Your data (names, banned words, keys, page mappings) is never reset.', 'buddynext' ),
-				),
-			)
+				'action'  => \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION,
+				'tab'     => $slug,
+				'section' => 'settings',
+			),
+			\BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION . '_' . $slug,
+			$preview['changes'],
+			$preview['unchanged'],
+			__( 'Your data (names, banned words, keys, page mappings) is never reset.', 'buddynext' )
 		);
-		?>
-		<div class="bn-settings-restore">
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-restore__form">
-				<input type="hidden" name="action" value="<?php echo esc_attr( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION ); ?>">
-				<input type="hidden" name="tab" value="<?php echo esc_attr( $slug ); ?>">
-				<input type="hidden" name="section" value="settings">
-				<?php wp_nonce_field( \BuddyNext\Admin\Settings\SettingsDriver::RESTORE_ACTION . '_' . $slug ); ?>
-				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-restore-defaults="<?php echo esc_attr( (string) $payload ); ?>">
-					<?php esc_html_e( 'Restore defaults', 'buddynext' ); ?>
-				</button>
-			</form>
-		</div>
-		<?php
 	}
 
 	/**
@@ -1009,17 +990,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_default_dm_access',
-							'type'    => 'select',
-							'label'   => __( 'Who can DM me (default)', 'buddynext' ),
-							'default' => 'everyone',
-							'choices' => array(
-								'everyone'    => __( 'Everyone', 'buddynext' ),
-								'members'     => __( 'Members only', 'buddynext' ),
-								'connections' => __( 'Connections only', 'buddynext' ),
-								'nobody'      => __( 'No one', 'buddynext' ),
-							),
-							'hint'    => __( 'Default privacy applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' ),
+							// WPMediaVerse owns "who can message you" (card 10344455521):
+							// this row shows its setting and links there.
+							'key'             => 'buddynext_dm_access_managed',
+							'type'            => 'custom',
+							'render_callback' => array( $this, 'render_dm_access_row' ),
 						)
 					),
 				)
@@ -1204,6 +1179,36 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				)
 			),
 		);
+	}
+
+	/**
+	 * "Who can message members": WPMediaVerse's setting, shown read-only.
+	 *
+	 * @return void
+	 */
+	public function render_dm_access_row(): void {
+		$bn_options = is_callable( array( '\\WPMediaVerse\\Services\\ProfileService', 'dm_access_options' ) )
+			? (array) \WPMediaVerse\Services\ProfileService::dm_access_options()
+			: array();
+		?>
+		<div class="bn-field">
+			<span class="bn-tl-title"><?php esc_html_e( 'Who can message members', 'buddynext' ); ?></span>
+			<?php if ( empty( $bn_options ) ) : ?>
+				<span class="bn-tl-desc"><?php esc_html_e( 'Direct messages need WPMediaVerse. Activate it to set who can message members.', 'buddynext' ); ?></span>
+			<?php else : ?>
+				<span class="bn-tl-desc">
+					<?php
+					printf(
+						/* translators: %s: the site-wide "who can message you" level, e.g. "Everyone". */
+						esc_html__( 'Set in WPMediaVerse: %s. Members can choose this or stricter in their privacy settings.', 'buddynext' ),
+						esc_html( (string) reset( $bn_options ) )
+					);
+					?>
+				</span>
+				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Messages\MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**
@@ -1742,13 +1747,55 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * Registration Mode choices. One list for the setting (so Restore defaults
+	 * previews the label, not the stored code) and for the dropdown that renders it.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function reg_mode_choices(): array {
+		return array(
+			'open'     => __( 'Open: anyone can register', 'buddynext' ),
+			'invite'   => __( 'Invite Only: requires an invitation', 'buddynext' ),
+			'approval' => __( 'Admin Approval: admin reviews each request', 'buddynext' ),
+			'closed'   => __( 'Closed: nobody can create an account', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Email-verification strictness choices. See reg_mode_choices().
+	 *
+	 * @return array<string, string>
+	 */
+	private static function verify_enforcement_choices(): array {
+		return array(
+			'restricted' => __( 'Restricted: they can look around, but cannot post or comment until they confirm', 'buddynext' ),
+			'full'       => __( 'Full: they cannot use the community at all until they confirm', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Required two-factor choices. See reg_mode_choices().
+	 *
+	 * @return array<string, string>
+	 */
+	private static function two_factor_choices(): array {
+		return array(
+			'none'   => __( 'Nobody: members can still switch it on themselves', 'buddynext' ),
+			'admins' => __( 'Administrators', 'buddynext' ),
+			'staff'  => __( 'Administrators and editors', 'buddynext' ),
+			'all'    => __( 'Everyone', 'buddynext' ),
+		);
+	}
+
+	/**
 	 * Registration tab option descriptors.
 	 *
 	 * The Registration tab keeps its bespoke render_tab_registration() (conditional
 	 * email-verify UI, social-login credential cards, legal-page info block), so
 	 * these descriptors exist to register + index its options only — never set a
 	 * registered default here, so the bespoke render's inline get_option()
-	 * fallbacks (some dynamic) are preserved exactly.
+	 * fallbacks (some dynamic) are preserved exactly. Select labels come from the
+	 * *_choices() lists the render uses too, so there is one list per option.
 	 *
 	 * @return Section[]
 	 */
@@ -1763,6 +1810,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'              => 'buddynext_reg_mode',
 							'default_callback' => 'buddynext_default_reg_mode',
 							'type'             => 'select',
+							'choices'          => self::reg_mode_choices(),
 							'label'            => __( 'Registration Mode', 'buddynext' ),
 							'hint'             => __( 'Controls who can create a new account on your community.', 'buddynext' ),
 						)
@@ -1781,6 +1829,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_verify_enforcement',
 							'default' => 'restricted',
 							'type'    => 'select',
+							'choices' => self::verify_enforcement_choices(),
 							'label'   => __( 'How strictly to enforce verification', 'buddynext' ),
 							'hint'    => __( 'Restricted (recommended): members can look around but cannot post or comment until they confirm. Full: they cannot use the community at all until they confirm.', 'buddynext' ),
 						)
@@ -1838,26 +1887,26 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_auth_panel_heading',
-							'default' => '',
-							'type'    => 'text',
-							'label'   => __( 'Panel heading', 'buddynext' ),
+							'key'              => 'buddynext_auth_panel_heading',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_auth_panel_heading'],
+							'type'             => 'text',
+							'label'            => __( 'Panel heading', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_auth_panel_tagline',
-							'default' => '',
-							'type'    => 'textarea',
-							'label'   => __( 'Panel tagline', 'buddynext' ),
+							'key'              => 'buddynext_auth_panel_tagline',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_auth_panel_tagline'],
+							'type'             => 'textarea',
+							'label'            => __( 'Panel tagline', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_auth_panel_quote',
-							'default' => '',
-							'type'    => 'textarea',
-							'label'   => __( 'Featured quote', 'buddynext' ),
+							'key'              => 'buddynext_auth_panel_quote',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_auth_panel_quote'],
+							'type'             => 'textarea',
+							'label'            => __( 'Featured quote', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1870,11 +1919,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_signup_subtitle',
-							'default' => '',
-							'type'    => 'text',
-							'label'   => __( 'Sign-up form subtitle', 'buddynext' ),
-							'hint'    => __( 'Shown under "Join the community" on the sign-up form.', 'buddynext' ),
+							'key'              => 'buddynext_signup_subtitle',
+							'default_callback' => static fn() => buddynext_auth_panel_defaults()['buddynext_signup_subtitle'],
+							'type'             => 'text',
+							'label'            => __( 'Sign-up form subtitle', 'buddynext' ),
+							'hint'             => __( 'Shown under "Join the community" on the sign-up form.', 'buddynext' ),
 						)
 					),
 				)
@@ -1904,6 +1953,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_2fa_required',
 							'default' => 'none',
 							'type'    => 'select',
+							'choices' => self::two_factor_choices(),
 							'label'   => __( 'Require two-factor authentication', 'buddynext' ),
 							'hint'    => __( 'Members are always free to switch two-factor on themselves. This makes it mandatory for the roles you choose.', 'buddynext' ),
 						)
@@ -2522,6 +2572,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					);
 				$badge_tone  = $is_mandatory ? 'accent' : ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier ? 'success' : 'info' );
 
+				// A feature switched in the plugin that runs it: the badge is its
+				// live state and the control is a link there, not a toggle.
+				$managed_url = ( isset( $feature['managed_url'] ) && is_callable( $feature['managed_url'] ) ) ? (string) call_user_func( $feature['managed_url'] ) : '';
+				if ( '' !== $managed_url ) {
+					$badge_label = $current ? __( 'On', 'buddynext' ) : __( 'Off', 'buddynext' );
+					$badge_tone  = $current ? 'success' : 'info';
+				}
+
 				?>
 				<div class="bn-feature-row" data-tier="<?php echo esc_attr( $tier ); ?>">
 					<div class="bn-feature-row__copy">
@@ -2558,7 +2616,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<?php endif; ?>
 					</div>
 					<div class="bn-feature-row__toggle">
-						<?php if ( $is_locked ) : ?>
+						<?php if ( '' !== $managed_url ) : ?>
+							<?php if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) : ?>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+							<?php else : ?>
+								<span class="bn-feature-row__deps"><?php esc_html_e( 'Requires the WPMediaVerse plugin.', 'buddynext' ); ?></span>
+							<?php endif; ?>
+						<?php elseif ( $is_locked ) : ?>
 							<span class="bn-feature-row__locked" aria-label="<?php esc_attr_e( 'This feature is always on and cannot be disabled.', 'buddynext' ); ?>">
 								<?php buddynext_icon( 'lock' ); ?>
 							</span>
@@ -2634,12 +2698,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'buddynext_reg_mode',
 			__( 'Registration Mode', 'buddynext' ),
 			(string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
-			array(
-				'open'     => __( 'Open: anyone can register', 'buddynext' ),
-				'invite'   => __( 'Invite Only: requires an invitation', 'buddynext' ),
-				'approval' => __( 'Admin Approval: admin reviews each request', 'buddynext' ),
-				'closed'   => __( 'Closed: nobody can create an account', 'buddynext' ),
-			),
+			self::reg_mode_choices(),
 			__( 'Controls who can create a new account on your community.', 'buddynext' )
 		);
 
@@ -2698,10 +2757,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'buddynext_verify_enforcement',
 				__( 'How strictly to enforce verification', 'buddynext' ),
 				\BuddyNext\Auth\VerificationListener::enforcement(),
-				array(
-					'restricted' => __( 'Restricted: they can look around, but cannot post or comment until they confirm', 'buddynext' ),
-					'full'       => __( 'Full: they cannot use the community at all until they confirm', 'buddynext' ),
-				),
+				self::verify_enforcement_choices(),
 				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
 		} else {
@@ -2828,12 +2884,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'buddynext_2fa_required',
 			__( 'Require two-factor authentication', 'buddynext' ),
 			(string) get_option( 'buddynext_2fa_required', 'none' ),
-			array(
-				'none'   => __( 'Nobody: members can still switch it on themselves', 'buddynext' ),
-				'admins' => __( 'Administrators', 'buddynext' ),
-				'staff'  => __( 'Administrators and editors', 'buddynext' ),
-				'all'    => __( 'Everyone', 'buddynext' ),
-			),
+			self::two_factor_choices(),
 			__( 'Anyone in a required role is asked to set two-factor up the next time they sign in, and cannot use the community until they do.', 'buddynext' )
 		);
 

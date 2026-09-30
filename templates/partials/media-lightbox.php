@@ -196,7 +196,7 @@ $bn_lb_can_interact = is_user_logged_in();
 				<?php endif; ?>
 
 				<?php // Filled by the JS when Save or Edit is opened; empty otherwise. ?>
-				<div class="bn-lightbox__panel" data-bn-lb-panel hidden></div>
+				<div class="bn-lightbox__owner-panel" data-bn-lb-panel hidden></div>
 
 				<?php // Rendered for everyone — reading a public thread needs no account. ?>
 				<div class="bn-lightbox__comments" data-bn-lb-comments aria-live="polite"></div>

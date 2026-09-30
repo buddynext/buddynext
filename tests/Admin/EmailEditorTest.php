@@ -53,6 +53,8 @@ class EmailEditorTest extends \WP_UnitTestCase {
 				preview_text TEXT NOT NULL,
 				body_html    LONGTEXT NOT NULL,
 				enabled      TINYINT(1) NOT NULL DEFAULT 1,
+				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id)
 			) {$wpdb->get_charset_collate()}"
 		);
@@ -71,13 +73,13 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	// ── Catalogue ─────────────────────────────────────────────────────────────
 
 	/**
-	 * The catalogue returns the seven template categories. The Jetonomy "Forum
-	 * Reply" category was intentionally removed in the collect-only fix for bug
-	 * #10062150983 — BN no longer emails on a partner's behalf (Jetonomy owns it).
+	 * The catalogue returns the six template categories. Jetonomy "Forum Reply"
+	 * (bug #10062150983) and Gamification (card 10344441224) were removed: BN
+	 * never emails on a partner's behalf; Jetonomy and WB Gamification own them.
 	 */
-	public function test_catalogue_has_seven_categories(): void {
+	public function test_catalogue_has_six_categories(): void {
 		$catalogue = $this->editor->get_catalogue();
-		$this->assertCount( 7, $catalogue );
+		$this->assertCount( 6, $catalogue );
 	}
 
 	/**
@@ -120,7 +122,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 40, $total );
+		$this->assertSame( 39, $total );
 	}
 
 	/**

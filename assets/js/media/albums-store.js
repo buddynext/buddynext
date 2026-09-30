@@ -205,11 +205,11 @@ const albumsStore = store( 'buddynext/media-albums', {
 						ctx.activeAlbumTitle = card.title;
 						ctx.activeAlbumDesc = card.description;
 						ctx.activeAlbumPrivacy = card.privacy;
-						bnToast( t( 'albumSaved', 'Album updated.' ), { tone: 'success' } );
+						bnToast( t( 'albumSaved', 'Album updated' ), { tone: 'success' } );
 					} else {
 						ctx.albums = [ card, ...( ctx.albums || [] ) ];
 						ctx.hasAlbums = true;
-						bnToast( t( 'albumCreated', 'Album created.' ), { tone: 'success' } );
+						bnToast( t( 'albumCreated', 'Album created' ), { tone: 'success' } );
 					}
 					ctx.createOpen = false;
 					ctx.editingAlbumId = 0;
@@ -239,7 +239,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 					ctx.hasAlbums = ctx.albums.length > 0;
 					ctx.albumOpen = false;
 					ctx.activeAlbumId = 0;
-					bnToast( t( 'albumDeleted', 'Album deleted.' ), { tone: 'success' } );
+					bnToast( t( 'albumDeleted', 'Album deleted' ), { tone: 'success' } );
 				} else {
 					bnToast( t( 'deleteFailed', 'Could not delete the album.' ), { tone: 'danger' } );
 				}
@@ -308,7 +308,11 @@ const albumsStore = store( 'buddynext/media-albums', {
 			const uploaded = [];
 
 			for ( const file of files ) {
-				const invalid = validateMedia( file );
+				const invalid = validateMedia( file, {
+					maxSizeMB:   ctx.maxSizeMB,
+					badTypeMsg:  t( 'badType', 'Only images, video and audio can be uploaded.' ),
+					tooLargeMsg: t( 'tooLarge', 'File is larger than the %d MB allowed.' ).replace( '%d', String( Number( ctx.maxSizeMB ) || 0 ) ),
+				} );
 				if ( invalid ) {
 					bnToast( invalid, { tone: 'danger' } );
 					continue;
@@ -399,7 +403,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 				if ( res.ok ) {
 					clearPickerSel();
 					ctx.pickerOpen = false;
-					bnToast( t( 'added', 'Added to album.' ), { tone: 'success' } );
+					bnToast( t( 'added', 'Added to album' ), { tone: 'success' } );
 					await loadAlbumDetail( ctx );
 					syncCountFromServer( ctx, res.data );
 				} else {
@@ -620,8 +624,9 @@ function bindDetailDelete( ctx ) {
 		const id = parseInt( btn.getAttribute( 'data-bn-album-remove' ), 10 ) || 0;
 		if ( ! id || ! ctx.activeAlbumId ) { return; }
 		const ok = await bnConfirm( {
-			title: t( 'confirmRemove', 'Remove this from the album?' ),
-			tone:  'danger',
+			title:        t( 'confirmRemove', 'Remove this from the album?' ),
+			confirmLabel: t( 'removeFromAlbum', 'Remove from album' ),
+			tone:         'danger',
 		} );
 		if ( ! ok ) { return; }
 		try {
@@ -632,7 +637,7 @@ function bindDetailDelete( ctx ) {
 				const cell = btn.closest( '.bn-media-cell' );
 				if ( cell ) { cell.remove(); }
 				syncCountFromServer( ctx, res.data );
-				bnToast( t( 'removedFromAlbum', 'Removed from album.' ), { tone: 'success' } );
+				bnToast( t( 'removedFromAlbum', 'Removed from album' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'removeFailed', 'Could not remove.' ), { tone: 'danger' } );
 			}
@@ -659,7 +664,7 @@ function bindDetailCover( ctx ) {
 			} );
 			if ( res.ok && res.data ) {
 				ctx.albums = ( ctx.albums || [] ).map( ( a ) => ( a.id === ctx.activeAlbumId ? toCard( res.data ) : a ) );
-				bnToast( t( 'coverSet', 'Cover updated.' ), { tone: 'success' } );
+				bnToast( t( 'coverSet', 'Cover updated' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'coverFailed', 'Could not set the cover.' ), { tone: 'danger' } );
 			}

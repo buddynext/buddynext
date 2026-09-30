@@ -146,7 +146,7 @@ class AppearanceTab {
 		// persisting an empty option (an empty value would wipe the accent, since
 		// read sites only default when the option is ABSENT, not when it is '').
 		$brand = isset( $_POST['bn_brand_color'] )
-			? Settings::sanitize_brand_color( wp_unslash( (string) $_POST['bn_brand_color'] ) )
+			? Settings::sanitize_brand_color( sanitize_text_field( wp_unslash( $_POST['bn_brand_color'] ) ) )
 			: \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
 		update_option( 'buddynext_brand_color', $brand );
 

@@ -95,7 +95,7 @@ class EmailEditor {
 	 */
 	public function get_catalogue(): array {
 		$catalogue = array(
-			__( 'Social', 'buddynext' )       => array(
+			__( 'Social', 'buddynext' )     => array(
 				'bn.new_follower'         => array(
 					'name'    => __( 'New Follower', 'buddynext' ),
 					'trigger' => __( 'When someone follows you', 'buddynext' ),
@@ -184,6 +184,14 @@ class EmailEditor {
 					'preview' => 'You have a new reply',
 					'body'    => "Hi {{user_name}},\n\n{{actor_name}} replied to your comment on <strong>{{site_name}}</strong>.\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Read the reply →</a>",
 				),
+				'bn.media_commented'      => array(
+					'name'    => __( 'Media Comment', 'buddynext' ),
+					'trigger' => __( 'When someone comments on your photo or video', 'buddynext' ),
+					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'subject' => '{{actor_name}} commented on your media on {{site_name}}',
+					'preview' => '{{actor_name}} commented on your media.',
+					'body'    => "Hi {{recipient_name}},\n\n<strong>{{actor_name}}</strong> commented on your media on {{site_name}}.\n\n<a href=\"{{action_url}}\">View the comment →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+				),
 				'bn.media_favorited'      => array(
 					'name'    => __( 'Media Favorited', 'buddynext' ),
 					'trigger' => __( 'When someone favorites your media', 'buddynext' ),
@@ -193,7 +201,7 @@ class EmailEditor {
 					'body'    => "Hi {{recipient_name}},\n\n<strong>{{actor_name}}</strong> favorited your media on {{site_name}}.\n\n<a href=\"{{action_url}}\">View it →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 			),
-			__( 'Spaces', 'buddynext' )       => array(
+			__( 'Spaces', 'buddynext' )     => array(
 				'bn.space_invite'             => array(
 					'name'    => __( 'Space Invite', 'buddynext' ),
 					'trigger' => __( 'When invited to join a space', 'buddynext' ),
@@ -267,7 +275,7 @@ class EmailEditor {
 					'body'    => "Hi {{recipient_name}},\n\nYou are now the owner of <strong>{{space_name}}</strong> on {{site_name}}. As the owner you manage its settings, members and moderation.\n\n<a href=\"{{space_url}}\">Open the space →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 			),
-			__( 'Moderation', 'buddynext' )   => array(
+			__( 'Moderation', 'buddynext' ) => array(
 				'bn.strike_issued'    => array(
 					'name'    => __( 'Strike Issued', 'buddynext' ),
 					'trigger' => __( 'When a moderation strike is issued to a member', 'buddynext' ),
@@ -349,25 +357,7 @@ class EmailEditor {
 					'body'    => "Hi {{recipient_name}},\n\nA new report was filed on <strong>{{site_name}}</strong> and is awaiting review.\n\n<a href=\"{{action_url}}\">Open the moderation queue →</a>",
 				),
 			),
-			__( 'Gamification', 'buddynext' ) => array(
-				'bn.badge_awarded' => array(
-					'name'    => __( 'Badge Awarded', 'buddynext' ),
-					'trigger' => __( 'When a member earns a badge', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'You earned a badge on {{site_name}}!',
-					'preview' => 'Congratulations on your new badge.',
-					'body'    => "Hi {{recipient_name}},\n\nCongratulations! You earned the <strong>{{badge_name}}</strong> badge on {{site_name}}.\n\n<a href=\"{{profile_url}}\">View your profile →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
-				),
-				'bn.level_up'      => array(
-					'name'    => __( 'Level Up', 'buddynext' ),
-					'trigger' => __( 'When a member reaches a new level', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'You levelled up on {{site_name}}!',
-					'preview' => 'Your community level increased.',
-					'body'    => "Hi {{recipient_name}},\n\nYou have reached level <strong>{{new_level}}</strong> on {{site_name}}!\n\n<a href=\"{{profile_url}}\">See your new level →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
-				),
-			),
-			__( 'Auth', 'buddynext' )         => array(
+			__( 'Auth', 'buddynext' )       => array(
 				'welcome'              => array(
 					'name'    => __( 'Welcome Email', 'buddynext' ),
 					'trigger' => __( 'Sent on registration', 'buddynext' ),
@@ -398,7 +388,7 @@ class EmailEditor {
 					'body'    => "Hi {{user_name}},\n\nYou asked to change the email address on your {{site_name}} account to this inbox. Confirm the change below:\n\n<a href=\"{{verify_url}}\">Confirm email change →</a>\n\nIf you didn't request this, you can ignore this email.",
 				),
 			),
-			__( 'Digests', 'buddynext' )      => array(
+			__( 'Digests', 'buddynext' )    => array(
 				'bn.daily_digest'  => array(
 					'name'    => __( 'Daily Digest', 'buddynext' ),
 					'trigger' => __( 'Daily summary of community activity', 'buddynext' ),
@@ -416,7 +406,7 @@ class EmailEditor {
 					'body'    => "Hi {{recipient_name}},\n\nHere's a summary of this week's activity on {{site_name}}.\n\n<a href=\"{{site_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
 				),
 			),
-			__( 'Onboarding', 'buddynext' )   => array(
+			__( 'Onboarding', 'buddynext' ) => array(
 				'bn.bulk_invite'      => array(
 					'name'    => __( 'Bulk Invite', 'buddynext' ),
 					'trigger' => __( 'Sent when an admin invites a member via CSV upload', 'buddynext' ),
@@ -566,13 +556,16 @@ class EmailEditor {
 			'preview_text' => $preview_text,
 			'body_html'    => $body_html,
 			'enabled'      => $enabled ? 1 : 0,
+			'updated_at'   => current_time( 'mysql', true ),
 		);
-		$formats  = array( '%s', '%s', '%s', '%s', '%d' );
+		$formats  = array( '%s', '%s', '%s', '%s', '%d', '%s' );
 
 		if ( $existing ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$result = $wpdb->update( $table, $data, array( 'type' => $type ), $formats, array( '%s' ) );
 		} else {
+			$data['created_at'] = $data['updated_at'];
+			$formats[]          = '%s';
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$result = $wpdb->insert( $table, $data, $formats );
 		}
@@ -783,13 +776,12 @@ class EmailEditor {
 	 */
 	private function category_tone( string $category ): string {
 		$map = array(
-			'Social'       => 'accent',
-			'Spaces'       => 'info',
-			'Moderation'   => 'warn',
-			'Gamification' => 'events',
-			'Jetonomy'     => 'jetonomy',
-			'Auth'         => 'success',
-			'Onboarding'   => 'media',
+			'Social'     => 'accent',
+			'Spaces'     => 'info',
+			'Moderation' => 'warn',
+			'Jetonomy'   => 'jetonomy',
+			'Auth'       => 'success',
+			'Onboarding' => 'media',
 		);
 		foreach ( $map as $needle => $tone ) {
 			if ( false !== stripos( $category, $needle ) ) {
@@ -892,7 +884,7 @@ class EmailEditor {
 			);
 			?>
 		<?php elseif ( 0 === $updated ) : ?>
-			<?php AdminPageBase::render_notice( __( 'Save failed. Please try again.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'updated' ) ); ?>
+			<?php AdminPageBase::render_notice( __( 'Save failed. Try again.', 'buddynext' ), 'error', false, array( 'data-bn-clear-param' => 'updated' ) ); ?>
 		<?php endif; ?>
 
 		<?php if ( 1 === $tested ) : ?>

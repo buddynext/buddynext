@@ -371,7 +371,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				'url'   => PageRouter::people_url(),
 			),
 		);
-		$empty = $empty_states[ $bn_filter ] ?? $empty_states['for-you'];
+		$empty        = $empty_states[ $bn_filter ] ?? $empty_states['for-you'];
 
 		/*
 		 * A community with nobody in it needs a different sentence.

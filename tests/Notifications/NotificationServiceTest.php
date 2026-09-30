@@ -182,6 +182,77 @@ class NotificationServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Count of the merged row for a group key.
+	 *
+	 * @param string $group_key Group key.
+	 * @return int
+	 */
+	private function merged_count( string $group_key ): int {
+		global $wpdb;
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT group_count FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND group_key = %s",
+				$this->recipient_id,
+				$group_key
+			)
+		);
+	}
+
+	/**
+	 * "X and N others" counts people: one person merging in twice is still one person.
+	 */
+	public function test_the_same_sender_twice_does_not_read_as_another_person(): void {
+		$row = array(
+			'recipient_id' => $this->recipient_id,
+			'sender_id'    => $this->sender_id,
+			'type'         => 'bn.post_commented',
+			'group_key'    => 'people_native',
+		);
+		$this->service->create( $row );
+		$this->service->create( $row );
+		$this->assertSame( 1, $this->merged_count( 'people_native' ), 'The same commenter twice is still one person.' );
+
+		$row['sender_id'] = self::factory()->user->create();
+		$this->service->create( $row );
+		$this->assertSame( 2, $this->merged_count( 'people_native' ), 'A different commenter is a second person.' );
+	}
+
+	/**
+	 * A partner's grouped row (it carries its own "{actor} and {others}" sentence) counts people too.
+	 */
+	public function test_a_partner_grouped_row_counts_people_not_events(): void {
+		$row = array(
+			'recipient_id' => $this->recipient_id,
+			'sender_id'    => $this->sender_id,
+			'type'         => 'partner.reply_to_post',
+			'group_key'    => 'partner_topic_1',
+			'data'         => array( 'message_grouped' => '{actor} and {others} replied' ),
+		);
+		$this->service->create( $row );
+		$this->service->create( $row );
+
+		$this->assertSame( 1, $this->merged_count( 'partner_topic_1' ) );
+	}
+
+	/**
+	 * A tally of events keeps counting them: a moderator's "3 reports waiting" must not shrink
+	 * because one member filed two.
+	 */
+	public function test_a_tally_type_still_counts_every_event(): void {
+		$row = array(
+			'recipient_id' => $this->recipient_id,
+			'sender_id'    => $this->sender_id,
+			'type'         => 'bn.new_report',
+			'group_key'    => 'reports_tally',
+		);
+		$this->service->create( $row );
+		$this->service->create( $row );
+
+		$this->assertSame( 2, $this->merged_count( 'reports_tally' ) );
+	}
+
+	/**
 	 * @covers \BuddyNext\Notifications\NotificationService::mark_unread
 	 */
 	public function test_mark_unread_restores_unread_state_and_checks_owner(): void {

@@ -29,6 +29,7 @@ use WP_REST_Request;
  * @covers \BuddyNext\Spaces\SpaceController::join_space
  * @covers \BuddyNext\Spaces\SpaceController::get_invite_link
  * @covers \BuddyNext\Spaces\SpaceController::save_invite_link
+ * @covers \BuddyNext\Spaces\SpaceController::revoke_invite_link
  */
 class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 
@@ -55,6 +56,36 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		);
 	}
 
+	/**
+	 * Run the template_redirect step for a request carrying ?invite=.
+	 *
+	 * @param string $token Token presented in the URL.
+	 * @return bool Whether the space page will say the link is dead.
+	 */
+	private function arrive_with( string $token ): bool {
+		$dead = new \ReflectionProperty( SpaceInviteLinkService::class, 'dead_link_space' );
+		$dead->setAccessible( true );
+		$dead->setValue( null, 0 );
+
+		$_GET['invite'] = $token;
+		set_query_var( 'bn_space_slug', 'invite-space' );
+		SpaceInviteLinkService::prime_from_request();
+		unset( $_GET['invite'] );
+
+		return SpaceInviteLinkService::dead_link_for( $this->space_id );
+	}
+
+	/** A dead link is named on the space page, one answer for every reason (card 10343711010). */
+	public function test_dead_invite_link_is_flagged_for_the_space_page(): void {
+		$link = $this->make_link();
+		$this->assertFalse( $this->arrive_with( $link['token'] ), 'a live link is not dead' );
+		$this->assertTrue( $this->arrive_with( 'not-a-token' ), 'a wrong token is dead' );
+
+		$this->links->revoke( $this->space_id );
+		$this->assertTrue( $this->arrive_with( $link['token'] ), 'a revoked token is dead' );
+		$this->assertFalse( SpaceInviteLinkService::dead_link_for( $this->space_id + 1 ), 'only for the space it was opened on' );
+	}
+
 	private function make_link( string $expires = '7d', int $max = 0 ): array {
 		return $this->links->create( $this->space_id, $this->owner_id, $expires, $max );
 	}
@@ -68,6 +99,19 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$this->assertNotSame( $first['token'], $second['token'] );
 		$this->assertWPError( $this->links->validate( $this->space_id, $first['token'] ) );
 		$this->assertTrue( $this->links->validate( $this->space_id, $second['token'] ) );
+	}
+
+	/** Revoke turns the link off without issuing a new one (card 10331990056). */
+	public function test_revoke_removes_link_and_rejects_old_token(): void {
+		$link = $this->make_link();
+		wp_set_current_user( $this->owner_id );
+
+		$res = rest_do_request( new WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $this->space_id . '/invite-link' ) );
+
+		$this->assertSame( 200, $res->get_status() );
+		$this->assertNull( $res->get_data()['invite_link'] );
+		$this->assertNull( $this->links->get( $this->space_id ) );
+		$this->assertWPError( $this->links->validate( $this->space_id, $link['token'] ) );
 	}
 
 	/** @covers Plan item: expiry is enforced. */
@@ -184,6 +228,11 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$post = new WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $this->space_id . '/invite-link' );
 		$post->set_body_params( array( 'expires' => '7d', 'max_uses' => 0 ) );
 		$this->assertSame( 403, rest_do_request( $post )->get_status() );
+
+		$this->make_link();
+		$delete = rest_do_request( new WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $this->space_id . '/invite-link' ) );
+		$this->assertSame( 403, $delete->get_status() );
+		$this->assertNotNull( $this->links->get( $this->space_id ), 'an outsider must not revoke the link' );
 	}
 
 	/** @covers Plan item: a secret space's content is not exposed on an invalid link. */

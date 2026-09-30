@@ -25,6 +25,53 @@ use BuddyNext\Feed\IntegrationActivity;
 class GamificationBridge {
 
 	/**
+	 * The site's name for points ("Points" unless the owner renamed the default
+	 * point type, e.g. "Coins"), so every BuddyNext surface says what the
+	 * gamification plugin says (card 10343975769).
+	 *
+	 * @return string
+	 */
+	public static function points_label(): string {
+		static $label = null;
+		if ( null === $label ) {
+			// WB Gamification's public helper (1.6.5+), never its internal classes.
+			$label = function_exists( 'wb_gam_get_point_type_label' ) ? trim( wb_gam_get_point_type_label() ) : '';
+			if ( '' === $label ) {
+				$label = __( 'Points', 'buddynext' );
+			}
+		}
+		return $label;
+	}
+
+	/**
+	 * An amount of points as WB Gamification writes it: "1 Point", "250 Karma",
+	 * "+10 Points" when $signed. Plain text; escape on output (card 10344451935).
+	 *
+	 * @param int  $amount Amount.
+	 * @param bool $signed Prefix a positive amount with "+".
+	 * @return string
+	 */
+	public static function format_points( int $amount, bool $signed = false ): string {
+		if ( function_exists( 'wb_gam_format_points' ) ) {
+			return (string) wb_gam_format_points( $amount, '', $signed );
+		}
+		return ( $signed && $amount > 0 ? '+' : '' ) . number_format_i18n( $amount ) . ' ' . self::points_label();
+	}
+
+	/**
+	 * The points name that goes with an amount shown on its own ("Point" under a
+	 * 1, "Points" under a 2), for tiles that print the number and the name apart.
+	 *
+	 * @param int $amount Amount the name sits beside.
+	 * @return string
+	 */
+	public static function points_unit( int $amount ): string {
+		$unit = trim( str_replace( number_format_i18n( $amount ), '', self::format_points( $amount ) ) );
+		return '' !== $unit ? $unit : self::points_label();
+	}
+
+
+	/**
 	 * Attach hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.
@@ -37,7 +84,7 @@ class GamificationBridge {
 		// the LinkedIn-minimum home for standing).
 
 		// Broadcast credential badges to the feed (social proof). The user-facing
-		// notification is handled separately by GamificationBridgeListener; this is
+		// notification comes from the plugin's own notification contract; this is
 		// the public engagement surface. Broadcast on the member's explicit SHARE, not
 		// on award: wb-gamification 1.6.4 made badges private until the member presses
 		// Share (wb_gam_badge_shared / _unshared). Broadcasting on award published a
@@ -47,6 +94,13 @@ class GamificationBridge {
 		// same card — id, date, reactions, comments — back rather than minting a new one.
 		add_action( 'wb_gam_badge_shared', array( $this, 'on_badge_shared_activity' ), 10, 2 );
 		add_action( 'wb_gam_badge_unshared', array( $this, 'on_badge_unshared_activity' ), 10, 2 );
+		// A deleted badge definition takes every holder's shared-badge card with it.
+		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
+
+		// WB Gamification sends its bell rows through the notification contract with a
+		// link to the member's profile front page. Where a row opens inside the
+		// community is BuddyNext's profile tabs, so the row is pointed at the right one.
+		add_filter( 'buddynext_notification_url', array( $this, 'filter_notification_url' ), 20, 5 );
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
@@ -72,6 +126,11 @@ class GamificationBridge {
 		// this purpose and nothing was hooking it, so BN was answering a question it
 		// should have been forwarding.
 		add_filter( 'buddynext_user_activity_streak', array( $this, 'canonical_streak' ), 10, 2 );
+		// ...and for the active days behind it: the greeting card's 7-day strip and
+		// "best this month" read this date list. Left unhooked, the number came from
+		// gamification and the strip from BN post dates, so one card disagreed with
+		// itself (card 10343081902).
+		add_filter( 'buddynext_user_active_dates', array( $this, 'canonical_active_dates' ), 10, 3 );
 
 		// BuddyNext is the master community. When wb-gamification can't show a badge
 		// on its own share page (un-earned / un-published), it would redirect to its
@@ -85,6 +144,150 @@ class GamificationBridge {
 		// point its /u/ page at the BN profile. wb-gamification exposes the filter;
 		// the bridge fills it.
 		add_filter( 'wb_gam_profile_redirect_url', array( $this, 'profile_redirect_url' ), 10, 2 );
+
+		// Every member name WB Gamification links (leaderboard, kudos feed, badge
+		// share page) goes to the BuddyNext profile too (card 10344441205).
+		add_filter( 'wb_gam_member_url', array( $this, 'profile_redirect_url' ), 10, 2 );
+
+		// WB Gamification owns category labels; BuddyNext only renames the
+		// core-actions category, since "WordPress" means nothing to a member.
+		add_filter( 'wb_gam_category_label', array( $this, 'category_label' ), 10, 2 );
+
+		// On a BuddyNext site the member's BuddyNext profile privacy decides who sees
+		// their points, badges, rank and kudos, everywhere wb-gamification shows them
+		// (blocks, REST, leaderboard). Hooking this also tells wb-gamification to stop
+		// offering its own public-profile switches, which BuddyNext members cannot
+		// reach: its /u/ page redirects to the BuddyNext profile (card 10343975769).
+		add_filter( 'wb_gam_can_view_public_profile', array( $this, 'can_view_public_profile' ), 10, 3 );
+	}
+
+	/**
+	 * Answer wb_gam_can_view_public_profile with BuddyNext's profile privacy.
+	 *
+	 * Gamification's own answer ($allowed) comes from switches a BuddyNext member
+	 * never sees, so it is replaced, not combined. Self and administrators are
+	 * allowed by wb-gamification before this filter runs.
+	 *
+	 * @param bool $allowed   Gamification's own answer (unused on BuddyNext sites).
+	 * @param int  $target_id Member whose data would be shown.
+	 * @param int  $viewer_id Viewer (0 for a visitor).
+	 * @return bool
+	 */
+	public function can_view_public_profile( $allowed, $target_id, $viewer_id = 0 ): bool { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed
+		return self::can_view_standing( (int) $target_id, (int) $viewer_id );
+	}
+
+	/**
+	 * Whether a viewer may see a member's gamification standing (points, badges,
+	 * rank, kudos). The one answer every BuddyNext gamification surface uses: the
+	 * member's BuddyNext profile privacy, which also honours blocks.
+	 *
+	 * Fails CLOSED: without the privacy service there is no honest answer, and a
+	 * boot-order regression must not turn a hidden profile public.
+	 *
+	 * @param int      $member_id Member whose standing would be shown.
+	 * @param int|null $viewer_id Viewer; defaults to the current user.
+	 * @return bool
+	 */
+	public static function can_view_standing( int $member_id, ?int $viewer_id = null ): bool {
+		$viewer_id = $viewer_id ?? get_current_user_id();
+		if ( $member_id <= 0 ) {
+			return false;
+		}
+		if ( $viewer_id === $member_id ) {
+			return true;
+		}
+		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
+			return false;
+		}
+		return $privacy->can_view_profile( $viewer_id, $member_id );
+	}
+
+	/**
+	 * Open a WB Gamification bell row on the member's own profile tab for it.
+	 *
+	 * The plugin links every row to the profile front page; BuddyNext owns the tabs
+	 * (Achievements, Kudos, Points), so the tab is chosen here by type. A reward row
+	 * keeps the plugin's own link (its rewards hub).
+	 *
+	 * @param string              $url       URL so far.
+	 * @param string              $type      Notification type.
+	 * @param int                 $actor_id  Actor (unused).
+	 * @param int                 $object_id Object id (unused).
+	 * @param array<string,mixed> $data      Row data (unused).
+	 * @return string
+	 */
+	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data ): string {
+		unset( $actor_id, $object_id, $data );
+		static $tabs = array(
+			'wb_gamification.badge_awarded'       => 'achievements',
+			'wb_gamification.level_up'            => 'achievements',
+			'wb_gamification.challenge_completed' => 'achievements',
+			'wb_gamification.credential_expired'  => 'achievements',
+			'wb_gamification.streak_milestone'    => 'achievements',
+			'wb_gamification.kudos_received'      => 'kudos',
+			'wb_gamification.personal_record'     => 'points',
+		);
+		$viewer      = get_current_user_id();
+		if ( ! isset( $tabs[ $type ] ) || $viewer <= 0 ) {
+			return (string) $url;
+		}
+		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . $tabs[ $type ] . '/';
+	}
+
+	/**
+	 * WB Gamification's hub page (leaderboard, rewards), or '' when unset.
+	 *
+	 * @return string
+	 */
+	public static function hub_url(): string {
+		$page_id = (int) get_option( 'wb_gam_hub_page_id', 0 );
+		if ( $page_id <= 0 || 'publish' !== get_post_status( $page_id ) ) {
+			return '';
+		}
+		return (string) get_permalink( $page_id );
+	}
+
+	/**
+	 * Whether the owner handed the community leaderboard to Jetonomy
+	 * (WB Gamification > Settings > Appearance > Community Leaderboard).
+	 *
+	 * Then BuddyNext shows no leaderboard of its own: no rail item, no menu
+	 * entry, and /activity/leaderboard/ goes to Jetonomy's board, so members
+	 * never see two competing rankings (card 10344451935).
+	 *
+	 * @return bool
+	 */
+	public static function leaderboard_deferred(): bool {
+		return '' !== self::deferred_leaderboard_url();
+	}
+
+	/**
+	 * Jetonomy's leaderboard URL when the leaderboard is handed to Jetonomy,
+	 * otherwise an empty string.
+	 *
+	 * @return string
+	 */
+	public static function deferred_leaderboard_url(): string {
+		if ( ! function_exists( 'wb_gam_leaderboard_deferred_to_jetonomy' )
+			|| ! function_exists( '\\Jetonomy\\route_url' )
+			|| ! wb_gam_leaderboard_deferred_to_jetonomy()
+		) {
+			return '';
+		}
+		return (string) \Jetonomy\route_url( 'leaderboard' );
+	}
+
+	/**
+	 * Rename WB Gamification's core-actions category for members.
+	 *
+	 * @param string $label Label from WB Gamification.
+	 * @param string $slug  Category slug.
+	 * @return string
+	 */
+	public function category_label( $label, $slug ): string {
+		return 'wordpress' === strtolower( (string) $slug ) ? __( 'Getting started', 'buddynext' ) : (string) $label; // phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- the engine's category slug.
 	}
 
 	/**
@@ -132,12 +335,32 @@ class GamificationBridge {
 	}
 
 	/**
+	 * Source the member's active days from wb-gamification: every site-local day
+	 * with any points in the window. The greeting card's 7-day strip and "best
+	 * this month" are computed from this list, so they agree with the streak
+	 * number canonical_streak() takes from the same engine.
+	 *
+	 * @param mixed $dates   Null (BuddyNext computes) or a date list from another filter.
+	 * @param int   $user_id Member.
+	 * @param int   $window  Lookback in days.
+	 * @return mixed List of 'Y-m-d' dates, or the incoming value when the engine is absent.
+	 */
+	public function canonical_active_dates( $dates, int $user_id, int $window = 30 ) {
+		if ( $user_id <= 0 || ! function_exists( 'wb_gam_get_contribution_data' ) ) {
+			return $dates;
+		}
+		// Days with any points in the window, site-local like StreakService's "today".
+		return array_keys( wb_gam_get_contribution_data( $user_id, $window ) );
+	}
+
+	/**
 	 * Defer the member's current streak to wb-gamification.
 	 *
 	 * Only the CURRENT streak is mapped. wb-gamification's `longest_streak` is an
 	 * all-time record, which is not what `buddynext_user_activity_best_month_streak`
 	 * asks for (the best run within a month) -- mapping it would trade one wrong
-	 * number for another, so that filter is deliberately left alone.
+	 * number for another, so that filter is deliberately left alone. "Best this
+	 * month" still agrees, because it is computed from canonical_active_dates().
 	 *
 	 * @param int $streak  BuddyNext's inline-computed streak.
 	 * @param int $user_id Member whose streak is being resolved.
@@ -267,6 +490,31 @@ class GamificationBridge {
 			$name,
 			'badge'
 		);
+	}
+
+	/**
+	 * Remove the shared-badge cards of a badge definition that was deleted.
+	 *
+	 * Real hook: `wb_gam_badge_deleted( string $badge_id, int[] $user_ids, array $def )`,
+	 * fired after WB Gamification deletes the definition and every earned copy.
+	 * A real delete, so the cards are removed, not withdrawn.
+	 *
+	 * @param string $badge_id Badge slug.
+	 * @param int[]  $user_ids Members who had earned it.
+	 * @return void
+	 */
+	public function on_badge_deleted( string $badge_id, array $user_ids = array() ): void {
+		if ( '' === $badge_id ) {
+			return;
+		}
+		// ponytail: one indexed card lookup per holder, in a rare admin action where
+		// WB Gamification has just deleted as many rows itself. A text-id
+		// remove_by_meta() would make it one query if badges ever get very large.
+		foreach ( array_unique( array_map( 'intval', $user_ids ) ) as $user_id ) {
+			if ( $user_id > 0 ) {
+				IntegrationActivity::remove( $this->badge_activity_url( $badge_id, $user_id ), 'badge' );
+			}
+		}
 	}
 
 	/**

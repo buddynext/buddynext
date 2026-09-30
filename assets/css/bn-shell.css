@@ -768,8 +768,8 @@ body.admin-bar .bn-app__rail {
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
-	box-shadow: var(--bn-shadow-lg);
-	z-index: 220;
+	box-shadow: var(--bn-shadow-md);
+	z-index: var(--bn-z-menu);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -1080,7 +1080,7 @@ body.admin-bar .bn-app__rail {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	z-index: 10000;
+	z-index: var(--bn-z-modal);
 	padding: 16px;
 }
 .bn-avatar-crop-panel {

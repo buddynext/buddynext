@@ -22,6 +22,7 @@ The action and filter seams for the activity feed and everything members post in
 | `buddynext_post_created` | action | A new post goes live (also fired for a share, with `$type = 'share'`) | `int $post_id, int $user_id, string $type` |
 | `buddynext_post_updated` | action | A post is edited | `int $post_id, int $user_id, array $fields` (columns written this update) |
 | `buddynext_post_deleted` | action | A post is deleted by its owner | `int $post_id, int $user_id` |
+| `buddynext_purge_page_cache` | action | A feed change purged one of its pages from the page caches BuddyNext knows (WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache). Hook it to purge the same URL from a cache BuddyNext does not know, such as Cloudflare APO or a proxy. Fires once per URL per request. | `string $url` (absolute) |
 | `buddynext_link_preview_max_redirects` | filter | Fetching a link preview, capping how many redirect hops are followed (default `5`; every hop is re-validated against SSRF rules before it is followed) | `int $max, string $url` |
 | `buddynext_post_approved` | action | A held post is approved by a moderator | `int $post_id, int $author` |
 | `buddynext_post_rejected` | action | A held post is rejected by a moderator | `int $post_id, int $author, string $reason` |
@@ -92,6 +93,7 @@ The composer partial exposes wrapper hooks for adding tools and modals to the po
 | `buddynext_part_composer_after` | action | Immediately after the composer markup | `array $args` |
 | `buddynext_comment_descendant_cap` | filter | One page of a comment thread is loaded, bounding how many descendant rows come with it | `int $cap, string $object_type, int $object_id` |
 | `buddynext_explore_all_deck` | filter | The blended Explore first-page deck is assembled, so an add-on can inject its own cards among the posts | `array $items, array $post_cards` |
+| `buddynext_explore_excluded_post_types` | filter | Explore's deck and its pulse count are queried. Post types listed here are left off. Default `array( 'document' )`: a document post stays in its space feed, the space Files tab and the author's profile. Return `array()` to show documents on Explore. Reshares are always left off and cannot be re-added (1.2.2) | `string[] $types` |
 | `buddynext_post_link_meta_resolved` | action | A queued link preview finished resolving and was stored on the post. The post was already visible without it, so anything that renders the preview should refresh here | `int $post_id` |
 | `buddynext_scheduled_post_published` | action | A scheduled post is published ahead of its schedule | `int $post_id` |
 

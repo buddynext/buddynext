@@ -125,7 +125,7 @@ const loginStore = store( 'buddynext/auth-login', {
 				toast( t( 'signedIn', 'Signed in.' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || c.redirectTo || '/activity/';
 			} catch ( _e ) {
-				c.error = t( 'genericError', 'Something went wrong. Please try again.' );
+				c.error = t( 'genericError', 'Something went wrong. Try again.' );
 				c.submitting = false;
 			}
 		},
@@ -160,7 +160,7 @@ const loginStore = store( 'buddynext/auth-login', {
 				toast( t( 'signedIn', 'Signed in.' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || c.redirectTo || '/activity/';
 			} catch ( _e ) {
-				c.twofaError = t( 'genericError', 'Something went wrong. Please try again.' );
+				c.twofaError = t( 'genericError', 'Something went wrong. Try again.' );
 				c.submitting = false;
 			}
 		},

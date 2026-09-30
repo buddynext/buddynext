@@ -234,4 +234,34 @@ class NavManagerTest extends \WP_UnitTestCase {
 		$this->assertSame( 'warn', $result );
 		wp_delete_post( $page_id, true );
 	}
+
+	/**
+	 * The Explore rail item must be a configurable main-scope tab, not hardcoded
+	 * outside NavManager's catalogue - otherwise Settings > Navigation has no row
+	 * for it and an admin can never hide/relabel/reorder/cap-gate it, even though
+	 * it always renders in the left rail (ShellNavService::base_items()).
+	 * Card 10351394819.
+	 *
+	 * @return void
+	 */
+	public function test_get_tabs_includes_a_configurable_explore_entry(): void {
+		$slugs = array_column( $this->nav->get_tabs(), 'slug' );
+		$this->assertContains( 'explore', $slugs, 'Explore must appear in Settings > Navigation like every other core rail item' );
+	}
+
+	/**
+	 * Every default nav row must draw an icon. The admin rows used to read only
+	 * assets/svg/admin/, so defaults such as tab-globe (Explore) and tab-bookmark
+	 * rendered blank. Card 10351394819.
+	 *
+	 * @return void
+	 */
+	public function test_every_default_row_icon_resolves(): void {
+		foreach ( array( 'main', 'profile', 'space', 'mobile', 'account' ) as $scope ) {
+			foreach ( $this->nav->get_tabs_for_scope( $scope ) as $tab ) {
+				$icon = (string) ( $tab['icon'] ?? '' );
+				$this->assertNotSame( '', \BuddyNext\Core\IconService::render( $icon ), "{$scope}:{$tab['slug']} icon '{$icon}' renders nothing" );
+			}
+		}
+	}
 }

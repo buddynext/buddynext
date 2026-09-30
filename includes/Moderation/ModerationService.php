@@ -300,6 +300,35 @@ class ModerationService {
 	}
 
 	/**
+	 * The space a reported object belongs to, or 0.
+	 *
+	 * A post is in its own space; a comment is in its post's space. Anything else
+	 * (a member, a message, a space itself) belongs to no space queue - a report
+	 * about a space goes to the community's moderators, not to its own owners.
+	 *
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 * @return int
+	 */
+	private function space_for_object( string $object_type, int $object_id ): int {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( 'post' === $object_type ) {
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+		}
+		if ( 'comment' === $object_type ) {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT p.space_id FROM {$wpdb->prefix}bn_comments c JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.id = %d AND c.object_type = 'post'",
+					$object_id
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return 0;
+	}
+
+	/**
 	 * Submit a report on an object.
 	 *
 	 * Each user may only report a given object once (UNIQUE KEY enforced at DB).
@@ -308,7 +337,7 @@ class ModerationService {
 	 * @param string $object_type Object type (e.g. 'post', 'comment', 'user').
 	 * @param int    $object_id   Object ID.
 	 * @param string $reason      Report reason (one of REASONS).
-	 * @param int    $space_id    Optional space context (0 = no space).
+	 * @param int    $space_id    Ignored: the space is derived from the object (kept for callers).
 	 * @param string $notes       Optional free-text notes.
 	 * @return int|WP_Error Inserted report ID or WP_Error on duplicate/validation.
 	 */
@@ -325,6 +354,12 @@ class ModerationService {
 		$notes = mb_substr( sanitize_textarea_field( $notes ), 0, self::NOTE_MAX_LENGTH );
 
 		$object_type = sanitize_key( $object_type );
+
+		// The space is a fact about the reported object, not something a client
+		// may choose: derive it here and ignore the argument (card 10343966478).
+		// A client-sent value used to decide which space queue saw the report,
+		// and comment reports never sent one.
+		$space_id = $this->space_for_object( $object_type, $object_id );
 
 		// The controller comment long claimed this method validated the target; it
 		// did not — only sanitize_key() ran, so a report against object_type 'zzz'
@@ -756,7 +791,7 @@ class ModerationService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = 'under_review' WHERE id = %d AND status = 'published'",
+				"UPDATE {$wpdb->prefix}bn_posts SET status = 'under_review', updated_at = UTC_TIMESTAMP() WHERE id = %d AND status = 'published'",
 				$post_id
 			)
 		);
@@ -790,7 +825,7 @@ class ModerationService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 1 WHERE id = %d AND is_hidden = 0 AND is_deleted = 0",
+				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 1, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 0 AND is_deleted = 0",
 				$comment_id
 			)
 		);
@@ -1150,9 +1185,10 @@ class ModerationService {
 			array(
 				'content_warning'      => $has_warning ? 1 : 0,
 				'content_warning_type' => sanitize_key( $warning_type ),
+				'updated_at'           => current_time( 'mysql', true ),
 			),
 			array( 'id' => $post_id ),
-			array( '%d', '%s' ),
+			array( '%d', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1179,11 +1215,12 @@ class ModerationService {
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_user_strikes',
 			array(
-				'user_id'   => $user_id,
-				'issued_by' => $actor_id,
-				'reason'    => sanitize_textarea_field( $reason ),
+				'user_id'    => $user_id,
+				'issued_by'  => $actor_id,
+				'reason'     => sanitize_textarea_field( $reason ),
+				'created_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1327,7 +1364,7 @@ class ModerationService {
 			array(
 				'is_reversed' => 1,
 				'reversed_by' => $actor_id,
-				'reversed_at' => current_time( 'mysql' ),
+				'reversed_at' => current_time( 'mysql', true ),
 			),
 			array( 'id' => $strike_id ),
 			array( '%d', '%d', '%s' ),
@@ -1338,7 +1375,7 @@ class ModerationService {
 		if ( false === $updated ) {
 			return new WP_Error(
 				'strike_reverse_failed',
-				__( 'Could not reverse the strike. Please try again.', 'buddynext' ),
+				__( 'Could not reverse the strike. Try again.', 'buddynext' ),
 				array( 'status' => 500 )
 			);
 		}
@@ -1770,7 +1807,7 @@ class ModerationService {
 				$wpdb->prepare(
 					"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_user_suspensions
 					 WHERE lifted_at IS NULL
-					   AND ( expires_at IS NULL OR expires_at > NOW() )
+					   AND ( expires_at IS NULL OR expires_at > UTC_TIMESTAMP() )
 					   AND user_id IN ({$placeholders})",
 					...$user_ids
 				),
@@ -1809,10 +1846,9 @@ class ModerationService {
 	/**
 	 * Whether a user may view the moderation queue (report queue + pending approvals).
 	 *
-	 * The SINGLE predicate the REST route (ModerationController::require_queue_access)
-	 * and the queue template (templates/moderation/queue.php) share, so a space-only
-	 * moderator gets both the 200 and a drawn page instead of a 200 the template
-	 * refuses to render as "Access Restricted" (card 10264294189). Two ways in:
+	 * The predicate behind the REST queue route (ModerationController::
+	 * require_queue_access), so a space-only moderator's app / API reads are
+	 * scoped rather than refused (card 10264294189). Two ways in:
 	 * site-wide authority to review the queue, OR ownership/moderation of at least
 	 * one space (the get_queue() handler then scopes the results to those spaces).
 	 * A plain member holds neither and is refused on both surfaces.
@@ -2130,8 +2166,9 @@ class ModerationService {
 				'duration_days' => $duration_days,
 				'hide_posts'    => $hide_posts,
 				'expires_at'    => $expires_at,
+				'created_at'    => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -2208,7 +2245,7 @@ class ModerationService {
 				 WHERE user_id = %d AND lifted_at IS NULL
 				 ORDER BY id DESC
 				 LIMIT 1",
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ),
 				$actor_id,
 				$user_id
 			)
@@ -2973,8 +3010,9 @@ class ModerationService {
 				'suspension_id' => $suspension_id,
 				'user_id'       => $user_id,
 				'message'       => sanitize_textarea_field( $message ),
+				'created_at'    => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -3259,7 +3297,7 @@ class ModerationService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$restored = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published' WHERE id = %d AND status = 'under_review'",
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published', updated_at = UTC_TIMESTAMP() WHERE id = %d AND status = 'under_review'",
 					$restore_post_id
 				)
 			);
@@ -3287,7 +3325,7 @@ class ModerationService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$restored = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 0 WHERE id = %d AND is_hidden = 1",
+					"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 0, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 1",
 					$restore_comment_id
 				)
 			);
@@ -3548,8 +3586,9 @@ class ModerationService {
 				'reason'       => sanitize_textarea_field( $reason ),
 				'expires_at'   => $expires_at,
 				'hide_posts'   => $hide_content ? 1 : 0,
+				'created_at'   => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%d' )
+			array( '%d', '%d', '%s', '%s', '%d', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -3630,7 +3669,7 @@ class ModerationService {
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
 				 WHERE user_id = %d AND lifted_at IS NULL",
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ),
 				0,
 				$user_id
 			)
@@ -3771,8 +3810,9 @@ class ModerationService {
 				'user_id'       => $user_id,
 				'message'       => sanitize_textarea_field( $message ),
 				'status'        => 'pending',
+				'created_at'    => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -3846,7 +3886,7 @@ class ModerationService {
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
 				 WHERE id = %d AND lifted_at IS NULL",
-				current_time( 'mysql' ),
+				current_time( 'mysql', true ),
 				$actor_id > 0 ? $actor_id : 0,
 				$suspension_id
 			)

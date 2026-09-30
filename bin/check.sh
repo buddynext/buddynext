@@ -202,6 +202,18 @@ else
 	note "bin/check-tap-targets.sh missing"
 fi
 
+# 3b. Popup copy conformance: every confirm names its action, one voice for retries
+section "Popup copy"
+if [ -x bin/check-dialogs.sh ]; then
+	if bin/check-dialogs.sh; then
+		:
+	else
+		fail "popup copy does not conform - see bin/check-dialogs.sh"
+	fi
+else
+	note "bin/check-dialogs.sh missing"
+fi
+
 # 3a. Icon set conformance — Lucide-style, no baked-in sizes
 section "Icon set"
 if [ -x bin/check-icons.sh ]; then
@@ -585,7 +597,10 @@ fi
 # server still passes the other gates.
 section "Flow audit (free + pro pair)"
 FLOW_AUDIT_CLI="${FLOW_AUDIT_CLI:-$HOME/.mcp-servers/wp-plugin-qa-mcp-server/build/flow-audit-cli.js}"
-BN_PRO_PATH="${BN_PRO_PATH:-$HOME/dev/repos/buddynext-pro}"
+# Default to the Pro plugin installed beside this one (a Local site), else the
+# conventional checkout under ~/dev/repos.
+BN_PRO_PATH="${BN_PRO_PATH:-$(cd "$PLUGIN_DIR/.." && pwd)/buddynext-pro}"
+[ -d "$BN_PRO_PATH" ] || BN_PRO_PATH="$HOME/dev/repos/buddynext-pro"
 if bn_heavy_gate_skipped "flow audit"; then
 	:
 elif command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then

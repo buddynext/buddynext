@@ -32,12 +32,25 @@ class GamificationKudos {
 	 * @return void
 	 */
 	public function register(): void {
-		if ( ! is_callable( array( '\WBGam\Engine\KudosEngine', 'send' ) ) ) {
+		if ( ! function_exists( 'wb_gam_send_kudos' ) ) {
 			return;
 		}
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
 		add_action( 'admin_post_bn_give_kudos', array( $this, 'handle_give_kudos' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
+	}
+
+	/**
+	 * Whether Kudos is switched on in WB Gamification (Settings > Modules).
+	 *
+	 * The engine owns the switch; BuddyNext only follows it, so a site that turns
+	 * Kudos off loses the tab and the give paths everywhere (card 10344054799).
+	 * Engines without ModuleToggles have no switch, so Kudos is on.
+	 *
+	 * @return bool
+	 */
+	public static function enabled(): bool {
+		return ! function_exists( 'wb_gam_is_module_enabled' ) || wb_gam_is_module_enabled( 'kudos' );
 	}
 
 	/**
@@ -57,12 +70,12 @@ class GamificationKudos {
 				'icon'      => 'heart',
 				'priority'  => 30,
 				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool =>
-					buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0,
+					buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0 && self::enabled(),
 				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string =>
 					trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . self::TAB_SLUG . '/',
 				'count'     => static fn( \BuddyNext\Nav\NavContext $c ): int =>
-					is_callable( array( '\WBGam\Engine\KudosEngine', 'get_received_count' ) )
-						? (int) \WBGam\Engine\KudosEngine::get_received_count( $c->subject_id )
+					function_exists( 'wb_gam_get_kudos_received_count' )
+						? (int) wb_gam_get_kudos_received_count( $c->subject_id )
 						: 0,
 				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
 					$this->render_panel( $c->subject_id );
@@ -85,25 +98,95 @@ class GamificationKudos {
 		$viewer   = get_current_user_id();
 		$is_self  = $viewer > 0 && $viewer === $member_id;
 		$can_give = $viewer > 0 && ! $is_self;
+		// wb-gamification 1.6.5+ never refuses appreciation; the one refusal left is
+		// its spam ceiling. When that applies the form cannot succeed, so it is not
+		// offered at all - no dead form, no notice (card 10343809008).
+		if ( $can_give && function_exists( 'wb_gam_can_send_kudos' ) && ! wb_gam_can_send_kudos( $viewer ) ) {
+			$can_give = false;
+		}
 
 		echo '<div class="bn-gam-kudos">';
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only display of a redirect result flag.
-		$sent = isset( $_GET['kudos'] ) && 'sent' === sanitize_key( wp_unslash( $_GET['kudos'] ) );
-		$err  = isset( $_GET['kudos_err'] ) ? sanitize_text_field( wp_unslash( $_GET['kudos_err'] ) ) : '';
+		$err = isset( $_GET['kudos_err'] ) ? sanitize_text_field( wp_unslash( $_GET['kudos_err'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
-		if ( $sent ) {
-			echo '<div class="bn-notice bn-notice--success">' . esc_html__( 'Kudos sent: nice!', 'buddynext' ) . '</div>';
-		} elseif ( '' !== $err ) {
+		if ( '' !== $err ) {
 			echo '<div class="bn-notice bn-notice--error">' . esc_html( $this->error_message( $err ) ) . '</div>';
 		}
 
 		if ( $can_give ) {
-			$this->render_give_form( $member_id );
+			// Like a Like button: once given, show the state, not the form again.
+			// A repeat inside the engine's window is delivered but earns no points,
+			// so the form returns only once that window has passed.
+			$given = $this->recent_kudos_time( $viewer, $member_id );
+			if ( 0 !== $given ) {
+				$this->render_given_state( $member_id, $given );
+			} else {
+				$this->render_give_form( $member_id );
+			}
 		}
 
 		$this->render_received( $member_id, $is_self );
 
+		echo '</div>';
+	}
+
+	/**
+	 * When the viewer last gave this member kudos, inside the engine's repeat window.
+	 *
+	 * Uses the engine's own window filter so the tab and the points rule agree.
+	 *
+	 * @param int $viewer    Giver.
+	 * @param int $member_id Receiver.
+	 * @return int Timestamp; -1 when recent but not in the latest received rows; 0 when none.
+	 */
+	private function recent_kudos_time( int $viewer, int $member_id ): int {
+		if ( ! function_exists( 'wb_gam_has_recent_kudos' ) ) {
+			return 0;
+		}
+		$window = (int) apply_filters( 'wb_gam_kudos_per_receiver_cooldown_seconds', HOUR_IN_SECONDS, $viewer, $member_id );
+		if ( $window <= 0 || ! wb_gam_has_recent_kudos( $viewer, $member_id, $window ) ) {
+			return 0;
+		}
+		$rows = function_exists( 'wb_gam_get_kudos_received' ) ? (array) wb_gam_get_kudos_received( $member_id, 20 ) : array();
+		foreach ( $rows as $row ) {
+			if ( (int) ( $row['giver_id'] ?? 0 ) === $viewer && ! empty( $row['created_at'] ) ) {
+				return max( 1, \BuddyNext\Core\Dates::utc_timestamp( (string) $row['created_at'] ) );
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 * "You gave {name} kudos · 5 mins ago", shown in place of the form.
+	 *
+	 * @param int $member_id Receiver.
+	 * @param int $when      Timestamp, or -1 when only known to be recent.
+	 * @return void
+	 */
+	private function render_given_state( int $member_id, int $when ): void {
+		$name = (string) get_the_author_meta( 'display_name', $member_id );
+
+		echo '<div class="bn-card bn-gam-kudos__given" role="status">';
+		if ( function_exists( 'buddynext_icon' ) ) {
+			buddynext_icon( 'heart' );
+		}
+		echo '<span>' . esc_html(
+			sprintf(
+				/* translators: %s: member display name. */
+				__( 'You gave %s kudos', 'buddynext' ),
+				$name
+			)
+		);
+		echo ' <span class="bn-gam-kudos__time">' . esc_html(
+			$when > 0
+				? sprintf(
+					/* translators: %s: human-readable time difference. */
+					__( '· %s ago', 'buddynext' ),
+					human_time_diff( $when )
+				)
+				: __( '· recently', 'buddynext' )
+		) . '</span></span>';
 		echo '</div>';
 	}
 
@@ -141,8 +224,8 @@ class GamificationKudos {
 	 * @return void
 	 */
 	private function render_received( int $member_id, bool $is_self ): void {
-		$rows = is_callable( array( '\WBGam\Engine\KudosEngine', 'get_received' ) )
-			? \WBGam\Engine\KudosEngine::get_received( $member_id, 20 )
+		$rows = function_exists( 'wb_gam_get_kudos_received' )
+			? wb_gam_get_kudos_received( $member_id, 20 )
 			: array();
 
 		echo '<div class="bn-card bn-gam-points__panel">';
@@ -168,7 +251,7 @@ class GamificationKudos {
 			$giver_id   = (int) ( $row['giver_id'] ?? 0 );
 			$giver_name = (string) ( $row['giver_name'] ?? __( 'Someone', 'buddynext' ) );
 			$message    = isset( $row['message'] ) ? (string) $row['message'] : '';
-			$when       = ! empty( $row['created_at'] ) ? (int) strtotime( (string) $row['created_at'] ) : 0;
+			$when       = ! empty( $row['created_at'] ) ? \BuddyNext\Core\Dates::utc_timestamp( (string) $row['created_at'] ) : 0;
 
 			echo '<li class="bn-gam-kudos__item">';
 			echo '<img class="bn-gam-kudos__avatar" src="' . esc_url( get_avatar_url( $giver_id, array( 'size' => 72 ) ) ) . '" alt="" loading="lazy" width="36" height="36" />';
@@ -222,7 +305,8 @@ class GamificationKudos {
 			exit;
 		}
 
-		wp_safe_redirect( add_query_arg( 'kudos', 'sent', $tab_url ) );
+		// The tab now shows "You gave X kudos" in place of the form.
+		wp_safe_redirect( $tab_url );
 		exit;
 	}
 
@@ -266,7 +350,11 @@ class GamificationKudos {
 			(string) ( $request['message'] ?? '' )
 		);
 		if ( is_wp_error( $result ) ) {
-			$status = 'invalid_receiver' === $result->get_error_code() ? 400 : 429;
+			$codes  = array(
+				'invalid_receiver' => 400,
+				'kudos_off'        => 403,
+			);
+			$status = $codes[ $result->get_error_code() ] ?? 429;
 			$result->add_data( array( 'status' => $status ) );
 			return $result;
 		}
@@ -282,18 +370,17 @@ class GamificationKudos {
 	 * @return true|\WP_Error
 	 */
 	private function give( int $giver, int $receiver, string $message ) {
+		// Checked here as well as in register(): a site on WB Gamification older than
+		// 1.6.5 has no wb_gam_send_kudos(), and no future caller of give() may fatal on it.
+		if ( ! self::enabled() || ! function_exists( 'wb_gam_send_kudos' ) ) {
+			return new \WP_Error( 'kudos_off', __( 'Kudos is turned off on this community.', 'buddynext' ) );
+		}
 		if ( $giver <= 0 || $receiver <= 0 || $giver === $receiver || ! get_userdata( $receiver ) ) {
 			return new \WP_Error( 'invalid_receiver', __( 'You cannot send kudos to that member.', 'buddynext' ) );
 		}
 
-		$result = \WBGam\Engine\KudosEngine::send( $giver, $receiver, $message );
-		if ( is_wp_error( $result ) ) {
-			return $result;
-		}
-		if ( false === $result ) {
-			return new \WP_Error( 'kudos_failed', __( 'Could not send kudos right now: you may have hit the limit.', 'buddynext' ) );
-		}
-		return true;
+		$result = wb_gam_send_kudos( $giver, $receiver, $message );
+		return is_wp_error( $result ) ? $result : true;
 	}
 
 	/**
@@ -308,10 +395,15 @@ class GamificationKudos {
 			case 'wb_gam_kudos_self':
 			case 'wb_gam_kudos_invalid_user':
 				return __( 'You cannot send kudos to that member.', 'buddynext' );
-			case 'wb_gam_kudos_cooldown':
-				return __( 'You have already sent kudos to this member recently: try again later.', 'buddynext' );
+			case 'kudos_off':
+			case 'wb_gam_module_disabled':
+				return __( 'Kudos is turned off on this community.', 'buddynext' );
+			case 'wb_gam_kudos_daily_ceiling':
+				return __( 'You have given a lot of kudos today. Try again tomorrow.', 'buddynext' );
+			case 'wb_gam_kudos_busy':
+				return __( 'Kudos is busy right now. Please try again in a moment.', 'buddynext' );
 			default:
-				return __( 'Could not send kudos right now. Please try again.', 'buddynext' );
+				return __( 'Could not send kudos right now. Try again.', 'buddynext' );
 		}
 	}
 }

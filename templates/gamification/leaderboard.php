@@ -14,7 +14,7 @@
  *
  * Layout:
  *  - Hero strip: .bn-stat-grid with your-rank / points / level tiles.
- *  - Level meter: .bn-progress[data-tone="accent"] toward next milestone.
+ *  - Level meter: .bn-progress[data-tone="accent"] toward the next level.
  *  - Filter strip: .bn-tabs (period) + .bn-select (rank-window).
  *  - Leaderboard list: .bn-card[data-interactive] rows with rank pill,
  *    avatar, name/handle, points, badge ribbon, follow CTA. The current
@@ -136,6 +136,7 @@ if ( $current_user_id > 0 && ! empty( $bn_lb_user_ids ) ) {
 
 // Current user stats from the read API.
 $current_user_pts  = $current_user_id ? (int) wb_gam_get_user_points( $current_user_id ) : 0;
+$bn_points_label   = \BuddyNext\Bridges\GamificationBridge::points_label();
 $current_user_rank = 0;
 // Whether the viewer's own row is on the visible page. When it is not (they rank
 // below the window), a pinned "You" row is shown after the list so everyone can
@@ -158,8 +159,8 @@ if ( $current_user_id ) {
 		}
 	}
 
-	if ( 0 === $current_user_rank && is_callable( array( '\WBGam\Engine\LeaderboardEngine', 'get_user_rank' ) ) ) {
-		$rank_data = \WBGam\Engine\LeaderboardEngine::get_user_rank( $current_user_id, $api_period );
+	if ( 0 === $current_user_rank && function_exists( 'wb_gam_get_user_rank' ) ) {
+		$rank_data = wb_gam_get_user_rank( $current_user_id, $api_period );
 		if ( is_array( $rank_data ) && isset( $rank_data['rank'] ) && $current_user_pts > 0 ) {
 			$current_user_rank = (int) $rank_data['rank'];
 			$bn_self_pts       = (int) ( $rank_data['points'] ?? 0 );
@@ -183,15 +184,23 @@ $longest_streak = is_array( $user_streak ) ? (int) ( $user_streak['longest_strea
 
 // Build a per-user badge ribbon for the leaderboard rows (top earned badges).
 // Sourced exclusively from the read API — no direct table access.
-$ribbon_by_user = array();
+$ribbon_by_user  = array();
+$ribbon_total_by = array(); // Full earned count, so "+N" is not capped by the slice.
 foreach ( $leaderboard as $row ) {
 	$uid = (int) ( $row['user_id'] ?? 0 );
-	if ( $uid <= 0 ) {
+	// Badges are profile data: a member whose profile this viewer cannot see keeps
+	// their rank and points on the board but shows no badges (as wb-gamification's
+	// own leaderboard does).
+	if ( $uid <= 0 || ! \BuddyNext\Bridges\GamificationBridge::can_view_standing( $uid, $current_user_id ) ) {
 		continue;
 	}
 	$badges = wb_gam_get_user_badges( $uid );
 	if ( is_array( $badges ) && ! empty( $badges ) ) {
-		$ribbon_by_user[ $uid ] = array_slice( $badges, 0, 4 );
+		// The ribbon shows the member's LATEST four (owner decision). Sorted here
+		// because wb-gamification 1.6.5 returns ladder order.
+		usort( $badges, static fn( $a, $b ) => strcmp( (string) ( $b['earned_at'] ?? '' ), (string) ( $a['earned_at'] ?? '' ) ) );
+		$ribbon_by_user[ $uid ]  = array_slice( $badges, 0, 4 );
+		$ribbon_total_by[ $uid ] = count( $badges );
 	}
 }
 
@@ -202,12 +211,6 @@ $rank_changes = array();
 foreach ( $leaderboard as $row ) {
 	$rank_changes[ (int) ( $row['user_id'] ?? 0 ) ] = (int) ( $row['rank_change'] ?? 0 );
 }
-
-// Next 100-point micro-goal — used only by the standalone "Next Milestone"
-// widget below (a small "keep going" nudge, distinct from levels).
-$next_milestone_pts  = $current_user_pts > 0 ? (int) ( ceil( ( $current_user_pts + 1 ) / 100 ) * 100 ) : 100;
-$milestone_progress  = min( 100, (int) ( $current_user_pts % 100 ) );
-$milestone_remaining = max( 0, $next_milestone_pts - $current_user_pts );
 
 // Current level + the NEXT level, straight from the engine, so this surface
 // agrees with the Achievements tab and shows real level progress (not a made-up
@@ -226,8 +229,8 @@ if ( function_exists( 'wb_gam_get_user_level' ) ) {
 
 // Next level (null = the member is already at the top level).
 $bn_next_level = null;
-if ( is_callable( array( '\WBGam\Engine\LevelEngine', 'get_next_level' ) ) ) {
-	$bn_nl         = \WBGam\Engine\LevelEngine::get_next_level( $current_user_id );
+if ( function_exists( 'wb_gam_get_next_level' ) ) {
+	$bn_nl         = wb_gam_get_next_level( $current_user_id );
 	$bn_next_level = is_array( $bn_nl ) ? $bn_nl : null;
 }
 $next_level_name = $bn_next_level ? (string) ( $bn_next_level['name'] ?? '' ) : '';
@@ -235,10 +238,13 @@ $next_level_min  = $bn_next_level ? (int) ( $bn_next_level['min_points'] ?? 0 ) 
 $is_max_level    = ( null === $bn_next_level );
 
 // Progress WITHIN the current level band (this level's floor → next level's floor).
+// A level follows points EARNED, not the spendable balance: redeeming a reward
+// must not move the bar backwards (card 10344451935).
+$bn_earned_pts   = ( $current_user_id && function_exists( 'wb_gam_get_earned_points' ) ) ? (int) wb_gam_get_earned_points( $current_user_id ) : $current_user_pts;
 $level_span      = max( 1, $next_level_min - $current_level_min );
-$level_into      = max( 0, $current_user_pts - $current_level_min );
+$level_into      = max( 0, $bn_earned_pts - $current_level_min );
 $level_progress  = $is_max_level ? 100 : (int) min( 100, round( $level_into / $level_span * 100 ) );
-$level_remaining = $is_max_level ? 0 : max( 0, $next_level_min - $current_user_pts );
+$level_remaining = $is_max_level ? 0 : max( 0, $next_level_min - $bn_earned_pts );
 
 // Rank pill tone for a given rank position.
 $rank_tone = static function ( int $rank ): string {
@@ -349,7 +355,7 @@ $updated_iso = gmdate( 'c' );
 				<div class="bn-stat">
 					<span class="bn-stat__label">
 						<span class="bn-lb-stat__icon" aria-hidden="true"><?php buddynext_icon( 'zap' ); ?></span>
-						<?php esc_html_e( 'Points', 'buddynext' ); ?>
+						<?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( $current_user_pts ) ); ?>
 					</span>
 					<span class="bn-stat__value">
 						<?php echo esc_html( number_format_i18n( $current_user_pts ) ); ?>
@@ -378,8 +384,8 @@ $updated_iso = gmdate( 'c' );
 						if ( $is_max_level ) {
 							esc_html_e( 'Top level reached', 'buddynext' );
 						} else {
-							/* translators: 1: points remaining, 2: next level name. */
-							echo esc_html( sprintf( _n( '%1$s pt to %2$s', '%1$s pts to %2$s', $level_remaining, 'buddynext' ), number_format_i18n( $level_remaining ), $next_level_name ) );
+							/* translators: 1: points remaining with the site's name for points, e.g. "40 Points", 2: next level name. */
+							echo esc_html( sprintf( __( '%1$s to %2$s', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::format_points( $level_remaining ), $next_level_name ) );
 						}
 						?>
 					</span>
@@ -392,19 +398,11 @@ $updated_iso = gmdate( 'c' );
 					<span class="bn-lb-level__label">
 						<?php
 						if ( $is_max_level ) {
-							/* translators: 1: level name, 2: current points. */
-							echo esc_html( sprintf( __( '%1$s · %2$s points (top level)', 'buddynext' ), $current_level_name, number_format_i18n( $current_user_pts ) ) );
+							/* translators: 1: level name, 2: current points with the site's name for points, e.g. "1,200 Points". */
+							echo esc_html( sprintf( __( '%1$s · %2$s (top level)', 'buddynext' ), $current_level_name, \BuddyNext\Bridges\GamificationBridge::format_points( $current_user_pts ) ) );
 						} else {
-							/* translators: 1: current level name, 2: next level name, 3: current points, 4: next-level points. */
-							echo esc_html( sprintf( __( '%1$s → %2$s: %3$s / %4$s points', 'buddynext' ), $current_level_name, $next_level_name, number_format_i18n( $current_user_pts ), number_format_i18n( $next_level_min ) ) );
-						}
-						?>
-					</span>
-					<span class="bn-lb-level__remaining">
-						<?php
-						if ( ! $is_max_level ) {
-							/* translators: %s: points remaining to the next level. */
-							echo esc_html( sprintf( _n( '%s pt to go', '%s pts to go', $level_remaining, 'buddynext' ), number_format_i18n( $level_remaining ) ) );
+							/* translators: 1: current level name, 2: next level name, 3: points earned, 4: next-level points with the site's name for points, e.g. "500 Points". */
+							echo esc_html( sprintf( __( '%1$s → %2$s: %3$s / %4$s', 'buddynext' ), $current_level_name, $next_level_name, number_format_i18n( $bn_earned_pts ), \BuddyNext\Bridges\GamificationBridge::format_points( $next_level_min ) ) );
 						}
 						?>
 					</span>
@@ -466,7 +464,10 @@ $updated_iso = gmdate( 'c' );
 			<span class="bn-lb-empty__icon" aria-hidden="true"><?php buddynext_icon( 'award' ); ?></span>
 			<h2 class="bn-lb-empty__title"><?php esc_html_e( 'No leaderboard data yet', 'buddynext' ); ?></h2>
 			<p class="bn-lb-empty__desc">
-				<?php esc_html_e( 'Start contributing to the community to earn points and climb the ranks.', 'buddynext' ); ?>
+				<?php
+				/* translators: %s: the site's name for points. */
+				echo esc_html( sprintf( __( 'Start contributing to the community to earn %s and climb the ranks.', 'buddynext' ), $bn_points_label ) );
+				?>
 			</p>
 		</div>
 	<?php else : ?>
@@ -502,6 +503,7 @@ $updated_iso = gmdate( 'c' );
 				$delta         = (int) ( $rank_changes[ $uid ] ?? 0 );
 				$trend         = ( 0 === $delta ) ? 'flat' : ( $delta > 0 ? 'up' : 'down' );
 				$ribbon        = $ribbon_by_user[ $uid ] ?? array();
+				$ribbon_total  = (int) ( $ribbon_total_by[ $uid ] ?? 0 );
 				$initials      = \BuddyNext\Profile\AvatarService::initials_for( $display );
 				?>
 				<li>
@@ -583,7 +585,8 @@ $updated_iso = gmdate( 'c' );
 							<div class="bn-lb-ribbon" aria-label="<?php esc_attr_e( 'Earned badges', 'buddynext' ); ?>">
 								<?php
 								$ribbon_shown = array_slice( $ribbon, 0, 3 );
-								$ribbon_extra = max( 0, count( $ribbon ) - count( $ribbon_shown ) );
+								// From the member's full count: counting the 4-badge slice capped it at +1 (card 10343973232).
+								$ribbon_extra = max( 0, $ribbon_total - count( $ribbon_shown ) );
 								foreach ( $ribbon_shown as $b ) :
 									$bname = isset( $b['name'] ) ? (string) $b['name'] : '';
 									?>
@@ -602,7 +605,7 @@ $updated_iso = gmdate( 'c' );
 									</span>
 								<?php endforeach; ?>
 								<?php if ( $ribbon_extra > 0 ) : ?>
-									<span class="bn-lb-ribbon__more">
+									<span class="bn-lb-ribbon__more" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: number of badges not shown. */ _n( '%d more badge', '%d more badges', $ribbon_extra, 'buddynext' ), $ribbon_extra ) ); ?>">
 										<?php
 										// translators: %d: number of additional badges not shown.
 										echo esc_html( sprintf( __( '+%d', 'buddynext' ), $ribbon_extra ) );
@@ -616,7 +619,7 @@ $updated_iso = gmdate( 'c' );
 
 						<div class="bn-lb-row__points">
 							<span class="bn-lb-row__points-val"><?php echo esc_html( $pts_formatted ); ?></span>
-							<span class="bn-lb-row__points-unit"><?php esc_html_e( 'pts', 'buddynext' ); ?></span>
+							<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( (int) ( $row['points'] ?? 0 ) ) ); ?></span>
 						</div>
 
 						<?php if ( $is_self ) : ?>
@@ -710,7 +713,7 @@ $updated_iso = gmdate( 'c' );
 							<span aria-hidden="true"></span>
 							<div class="bn-lb-row__points">
 								<span class="bn-lb-row__points-val"><?php echo esc_html( number_format_i18n( $bn_self_pts ) ); ?></span>
-								<span class="bn-lb-row__points-unit"><?php esc_html_e( 'pts', 'buddynext' ); ?></span>
+								<span class="bn-lb-row__points-unit"><?php echo esc_html( \BuddyNext\Bridges\GamificationBridge::points_unit( $bn_self_pts ) ); ?></span>
 							</div>
 							<span aria-hidden="true"></span>
 						</article>
@@ -723,7 +726,7 @@ $updated_iso = gmdate( 'c' );
 
 	<?php endif; // End: leaderboard data check. ?>
 
-	<!-- Your-stats widgets: a responsive row (badges · streak · milestone) that fills
+	<!-- Your-stats widgets: a responsive row (badges · streak) that fills
 		the width instead of three full-width blocks with dead space beside them. -->
 	<aside class="bn-lb-widgets" aria-label="<?php esc_attr_e( 'Your gamification widgets', 'buddynext' ); ?>">
 
@@ -796,41 +799,6 @@ $updated_iso = gmdate( 'c' );
 						<?php esc_html_e( 'Stay active each day to build your streak.', 'buddynext' ); ?>
 					</p>
 				<?php endif; ?>
-			</div>
-		<?php endif; ?>
-
-		<!-- Next Milestone -->
-		<?php if ( $current_user_id ) : ?>
-			<div class="bn-widget">
-				<div class="bn-widget-title">
-					<?php buddynext_icon( 'target' ); ?>
-					<?php esc_html_e( 'Next Milestone', 'buddynext' ); ?>
-				</div>
-				<div class="bn-lb-milestone__name">
-					<?php
-					// translators: %s: target milestone in points.
-					echo esc_html( sprintf( __( '%s pts milestone', 'buddynext' ), number_format_i18n( $next_milestone_pts ) ) );
-					?>
-				</div>
-				<div class="bn-lb-milestone__desc">
-					<?php
-					// translators: %d: number of points remaining.
-					echo esc_html( sprintf( __( 'Earn %d more points to reach the next milestone.', 'buddynext' ), $milestone_remaining ) );
-					?>
-				</div>
-				<div class="bn-progress" data-tone="accent" role="progressbar"
-					aria-valuemin="0"
-					aria-valuemax="100"
-					aria-valuenow="<?php echo esc_attr( (string) $milestone_progress ); ?>">
-					<div class="bn-progress__fill" style="width:<?php echo esc_attr( (string) $milestone_progress ); ?>%;"></div>
-				</div>
-				<div class="bn-lb-milestone__row">
-					<span><?php echo esc_html( number_format_i18n( $current_user_pts ) ); ?> <?php esc_html_e( 'pts', 'buddynext' ); ?></span>
-					<span><?php echo esc_html( number_format_i18n( $next_milestone_pts ) ); ?> <?php esc_html_e( 'pts', 'buddynext' ); ?></span>
-				</div>
-				<div class="bn-lb-milestone__hint">
-					<?php esc_html_e( 'Earn points by posting, commenting, reacting, and keeping a daily streak.', 'buddynext' ); ?>
-				</div>
 			</div>
 		<?php endif; ?>
 

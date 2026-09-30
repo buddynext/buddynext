@@ -31,51 +31,12 @@
 	var nonce = data.restNonce || '';
 
 	// ── Toast helper ───────────────────────────────────────────────────────
+	// The one toast lives in the shell-dialog module (shell/dialog.js), which replaces this
+	// function when it loads. A call made before that (a classic script racing the module
+	// graph) is queued and replayed then, so there is a single toast implementation and no
+	// second copy of its markup, timing or accessibility rules to keep in step.
 	window.bnToast = function ( msg, type ) {
-		// Accept a tone string — bnToast(msg, 'success') — or an options object —
-		// bnToast(msg, { tone, timeout }). Map to one of the four real toast classes
-		// (error/success/info/warning); 'danger'/'warn' are aliases that would
-		// otherwise emit undefined classes and render neutral. Kept behaviourally
-		// identical to the module bnToast in dialog.js.
-		var opts    = ( type && 'object' === typeof type ) ? type : {};
-		var tone    = ( 'string' === typeof type ) ? type : ( opts.tone || '' );
-		// Errors/warnings dwell longer than transient success/info; explicit wins.
-		var isAlert = ( 'danger' === tone || 'error' === tone || 'warn' === tone || 'warning' === tone );
-		var timeout = ( 'number' === typeof opts.timeout ) ? opts.timeout : ( isAlert ? 7000 : 3000 );
-		var cls     = '';
-		if ( 'success' === tone ) {
-			cls = 'bn-toast--success';
-		} else if ( 'danger' === tone || 'error' === tone ) {
-			cls = 'bn-toast--error';
-		} else if ( 'warn' === tone || 'warning' === tone ) {
-			cls = 'bn-toast--warning';
-		} else if ( 'info' === tone ) {
-			cls = 'bn-toast--info';
-		}
-		var c = document.querySelector( '.bn-toast-container' );
-		if ( ! c ) {
-			c = document.createElement( 'div' );
-			c.className = 'bn-toast-container';
-			document.body.appendChild( c );
-		}
-		var t = document.createElement( 'div' );
-		t.className = 'bn-toast' + ( cls ? ' ' + cls : '' );
-		t.setAttribute( 'role', isAlert ? 'alert' : 'status' );
-		t.setAttribute( 'aria-live', isAlert ? 'assertive' : 'polite' );
-		t.textContent = msg;
-		c.appendChild( t );
-		// JS-owned lifetime: fade via --leaving, then remove; click dismisses early.
-		var removeTimer;
-		var dismiss = function () {
-			window.clearTimeout( removeTimer );
-			t.classList.add( 'bn-toast--leaving' );
-			setTimeout( function () {
-				t.remove();
-				if ( c && ! c.children.length ) { c.remove(); }
-			}, 250 );
-		};
-		t.addEventListener( 'click', dismiss );
-		removeTimer = setTimeout( dismiss, timeout );
+		( window.__bnToastQueue = window.__bnToastQueue || [] ).push( [ msg, type ] );
 	};
 
 	// ── Notification dropdown ──────────────────────────────────────────────
@@ -178,18 +139,27 @@
 		init: function () {
 			if ( this.el ) return;
 			var ov = document.createElement( 'div' );
-			ov.className = 'bn-search-overlay';
+			// bn-modal-backdrop hands keyboard handling to the shared modal-a11y.js
+			// primitive: a document-level Escape (from the input, the X or a result),
+			// the Tab trap and focus return. Its layout stays top-aligned through the
+			// scoped .bn-search-overlay.bn-modal-backdrop rule in bn-base.css.
+			ov.className = 'bn-search-overlay bn-modal-backdrop';
 			ov.hidden = true;
 
 			var inner = document.createElement( 'div' );
 			inner.className = 'bn-search-overlay__inner';
+			inner.setAttribute( 'role', 'dialog' );
+			inner.setAttribute( 'aria-modal', 'true' );
+			inner.setAttribute( 'aria-label', __( 'Search', 'buddynext' ) );
 
 			var inputWrap = document.createElement( 'div' );
 			inputWrap.className = 'bn-search-overlay__input-wrap';
 
 			var icon = document.createElement( 'span' );
 			icon.className = 'bn-search-overlay__icon';
-			icon.textContent = '⌕';
+			icon.setAttribute( 'aria-hidden', 'true' );
+			// Lucide "search" (assets/icons/search.svg), constant markup, no caller input.
+			icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
 
 			var input = document.createElement( 'input' );
 			input.type = 'search';
@@ -201,9 +171,20 @@
 			kbd.className = 'bn-search-overlay__kbd';
 			kbd.textContent = 'Esc';
 
+			// A real, focusable close control — the overlay previously had none
+			// (Esc and a backdrop click were the only ways out, and neither is
+			// discoverable for a keyboard or touch member who doesn't know them).
+			var closeBtn = document.createElement( 'button' );
+			closeBtn.type = 'button';
+			closeBtn.className = 'bn-modal__close';
+			closeBtn.setAttribute( 'aria-label', __( 'Close search', 'buddynext' ) );
+			// Lucide "x" (assets/icons/x.svg), constant markup, no caller input.
+			closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
 			inputWrap.appendChild( icon );
 			inputWrap.appendChild( input );
 			inputWrap.appendChild( kbd );
+			inputWrap.appendChild( closeBtn );
 			inner.appendChild( inputWrap );
 
 			var results = document.createElement( 'div' );
@@ -217,7 +198,10 @@
 
 			var self = this;
 			ov.addEventListener( 'click', function ( e ) { if ( e.target === ov ) self.close(); } );
-			input.addEventListener( 'keydown', function ( e ) { if ( e.key === 'Escape' ) self.close(); } );
+			// No Escape listener here: modal-a11y.js closes the overlay through
+			// closeBtn wherever focus sits. The old input-only listener fired only
+			// while the input had focus, so Escape did nothing on the X or a result.
+			closeBtn.addEventListener( 'click', function () { self.close(); } );
 
 			var timer = null;
 			input.addEventListener( 'input', function () {
@@ -227,14 +211,22 @@
 				timer = setTimeout( function () { self.search( q, results ); }, 300 );
 			} );
 		},
-		open: function () {
+		open: function ( opener ) {
 			this.init();
+			// Ctrl+K and "/" pass no opener: remember whatever had focus, so close()
+			// returns the member to where they were instead of the top of the page.
+			this.opener = opener || ( document.activeElement !== document.body ? document.activeElement : null );
 			this.el.hidden = false;
 			this.el.querySelector( 'input' ).value = '';
 			this.el.querySelector( 'input' ).focus();
 			document.getElementById( 'bn-search-results' ).textContent = '';
 		},
-		close: function () { if ( this.el ) this.el.hidden = true; },
+		close: function () {
+			if ( ! this.el ) return;
+			this.el.hidden = true;
+			if ( this.opener && document.contains( this.opener ) ) this.opener.focus();
+			this.opener = null;
+		},
 		// Normalise the search REST response into a flat, capped list of
 		// { type, title, url } items. The default (no-type) request returns the
 		// grouped shape { grouped:true, results:{ types:[ { type, results[] } ] } };
@@ -245,15 +237,20 @@
 
 			var groups = payload.results && payload.results.types;
 			if ( Array.isArray( groups ) ) {
-				groups.forEach( function ( group ) {
-					( group.results || [] ).forEach( function ( item ) {
-						out.push( {
-							type: group.type,
-							title: item.title || item.content || '',
-							url: item.url || item.permalink || '#'
-						} );
+				// One result per group per pass, so the first group (jobs) cannot fill
+				// all eight rows and hide people, spaces and posts.
+				for ( var i = 0; i < 3; i++ ) {
+					groups.forEach( function ( group ) {
+						var item = ( group.results || [] )[ i ];
+						if ( item ) {
+							out.push( {
+								type: group.type,
+								title: item.title || item.content || '',
+								url: item.url || item.permalink || '#'
+							} );
+						}
 					} );
-				} );
+				}
 				return out.slice( 0, 8 );
 			}
 
@@ -261,8 +258,21 @@
 			var items = payload.items || payload.results || payload;
 			return Array.isArray( items ) ? items.slice( 0, 8 ) : out;
 		},
+		typeLabel: function ( type ) {
+			var labels = {
+				post: __( 'Post', 'buddynext' ),
+				user: __( 'Member', 'buddynext' ),
+				space: __( 'Space', 'buddynext' ),
+				job: __( 'Job', 'buddynext' ),
+				listing: __( 'Listing', 'buddynext' )
+			};
+			return labels[ type ] || ( type.charAt( 0 ).toUpperCase() + type.slice( 1 ) );
+		},
 		search: function ( q, resultsEl ) {
 			if ( ! data.restSearchUrl ) return;
+			// `self` is only bound in init(); without this it resolved to window and
+			// every search threw on self.flatten, landing on "Search failed".
+			var self = this;
 			resultsEl.textContent = '';
 			var loading = document.createElement( 'div' );
 			loading.className = 'bn-search-overlay__loading';
@@ -291,7 +301,7 @@
 						title.textContent = item.title || item.content || '';
 						var meta = document.createElement( 'div' );
 						meta.className = 'bn-search-overlay__result-meta';
-						meta.textContent = ( item.type || 'post' ) + ( item.author_name ? ' by ' + item.author_name : '' );
+						meta.textContent = self.typeLabel( item.type || 'post' ) + ( item.author_name ? ' by ' + item.author_name : '' );
 						a.appendChild( title );
 						a.appendChild( meta );
 						resultsEl.appendChild( a );
@@ -337,6 +347,15 @@
 		}
 		return null;
 	}
+
+	// A header search link (buddynext_header_search) opens the palette in place. A
+	// modified click or middle click keeps the link's own behaviour (new tab).
+	document.addEventListener( 'click', function ( e ) {
+		var link = e.target.closest && e.target.closest( '[data-bn-search-open]' );
+		if ( ! link || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey ) return;
+		e.preventDefault();
+		window.bnSearchOverlay.open( link );
+	} );
 
 	document.addEventListener( 'keydown', function ( e ) {
 		var inInput = e.target.closest && e.target.closest( 'input,textarea,[contenteditable]' );

@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.2.1
+ * Version:     1.2.2
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.2.1' );
+define( 'BUDDYNEXT_VERSION', '1.2.2' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -518,9 +518,6 @@ function buddynext_get_space_field( int $space_id, string $key ): mixed {
 
 	if ( null === $field ) {
 		return $value; // Not a registered field — return the raw stored value.
-	}
-	if ( is_object( $value ) ) {
-		$value = ''; // A row corrupted before 1.2.1 (serialized WP_Error) reads as unset.
 	}
 	if ( '' === (string) $value && '' !== (string) $field['default'] ) {
 		$value = $field['default'];
@@ -1143,6 +1140,101 @@ function buddynext_space_moderation_url( string $slug ): string {
 }
 
 /**
+ * Copy for the Files UI's folder controls (New folder, Rename, Trash, Restore),
+ * shared by the Files list and its Trash view and read by media/file-upload.js.
+ *
+ * @since 1.2.2
+ *
+ * @return array<string,string>
+ */
+function buddynext_drive_folder_strings(): array {
+	return array(
+		'newTitle'     => __( 'New folder', 'buddynext' ),
+		'newConfirm'   => __( 'Create', 'buddynext' ),
+		'placeholder'  => __( 'Folder name', 'buddynext' ),
+		'renameTitle'  => __( 'Rename folder', 'buddynext' ),
+		'renameOk'     => __( 'Save', 'buddynext' ),
+		/* translators: %s: folder name. */
+		'trashTitle'   => __( 'Move “%s” to trash?', 'buddynext' ),
+		'trashEmpty'   => __( 'It is empty. You can restore it from Trash.', 'buddynext' ),
+		/* translators: %s: what the folder holds, e.g. "12 files and 2 folders". */
+		'trashBody'    => __( 'It holds %s. Everything inside moves to the trash with it, and you can restore it from Trash.', 'buddynext' ),
+		/* translators: %d: number of files. */
+		'fileOne'      => __( '%d file', 'buddynext' ),
+		/* translators: %d: number of files. */
+		'fileMany'     => __( '%d files', 'buddynext' ),
+		/* translators: %d: number of folders. */
+		'folderOne'    => __( '%d folder', 'buddynext' ),
+		/* translators: %d: number of folders. */
+		'folderMany'   => __( '%d folders', 'buddynext' ),
+		/* translators: 1: file count, 2: folder count. */
+		'andJoin'      => __( '%1$s and %2$s', 'buddynext' ),
+		'trashConfirm' => __( 'Move to trash', 'buddynext' ),
+		'cancel'       => __( 'Cancel', 'buddynext' ),
+		'created'      => __( 'Folder created.', 'buddynext' ),
+		'renamed'      => __( 'Folder renamed.', 'buddynext' ),
+		'trashed'      => __( 'Folder moved to trash.', 'buddynext' ),
+		'restored'     => __( 'Folder restored.', 'buddynext' ),
+		// translators: %s: folder name.
+		'purgeTitle'   => __( 'Delete “%s” permanently?', 'buddynext' ),
+		// translators: %s: what it holds, e.g. "4 items".
+		'purgeBody'    => __( 'It holds %s. They are deleted with it. This can’t be undone.', 'buddynext' ),
+		'purgeEmpty'   => __( 'This can’t be undone.', 'buddynext' ),
+		// translators: %d: number of items.
+		'itemOne'      => __( '%d item', 'buddynext' ),
+		// translators: %d: number of items.
+		'itemMany'     => __( '%d items', 'buddynext' ),
+		'purgeConfirm' => __( 'Delete permanently', 'buddynext' ),
+		'purged'       => __( 'Folder deleted.', 'buddynext' ),
+		'nameRequired' => __( 'Enter a folder name.', 'buddynext' ),
+		'failed'       => __( 'That did not work. Try again.', 'buddynext' ),
+	);
+}
+
+/**
+ * Render a document drive's Files UI anywhere: the same browse / folders /
+ * search / upload / single-file UI as a space's or member's Files tab.
+ *
+ * For a page that shows a space's files outside the space's own tab. Access is
+ * MediaVerse's: a viewer who cannot read the drive gets the empty state, never
+ * the files, and nothing here can grant write.
+ *
+ * @since 1.2.2
+ *
+ * @param string $drive_type 'space' or 'user'.
+ * @param int    $drive_id   Space id, or the member id for a personal drive.
+ * @param string $base_url   URL of the page it renders on. Folder, page and search
+ *                           links are query args on it; a file opens at ?bn_doc={id}.
+ * @param int    $doc_id     File to show, or 0 for the list. Pass
+ *                           absint( $_GET['bn_doc'] ?? 0 ) to honour file links.
+ * @param array  $args       Options: bool can_write (false hides Upload / Link).
+ * @return void
+ */
+function buddynext_render_drive_files( string $drive_type, int $drive_id, string $base_url, int $doc_id = 0, array $args = array() ): void {
+	if ( ! in_array( $drive_type, array( 'space', 'user' ), true ) || $drive_id <= 0 ) {
+		return;
+	}
+
+	/**
+	 * Filters the options of an embedded Files UI.
+	 *
+	 * @since 1.2.2
+	 *
+	 * @param array  $args       { @type bool $can_write }
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id.
+	 */
+	$args                    = (array) apply_filters( 'buddynext_render_drive_files_args', $args, $drive_type, $drive_id );
+	$args['doc_query_links'] = true;
+
+	( new class() {
+		use \BuddyNext\Nav\Providers\RendersDriveFiles {
+			render_drive_files as public;
+		}
+	} )->render_drive_files( $drive_type, $drive_id, $base_url, $doc_id, $args );
+}
+
+/**
  * Return the Community Admin Panel URL.
  *
  * @return string Absolute URL.
@@ -1504,6 +1596,20 @@ function buddynext_header_notification_bell(): void {
 function buddynext_header_messages_bell(): void {
 	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
 	echo \BuddyNext\Header\HeaderUserSection::messages_link();
+}
+
+/**
+ * Echo the BuddyNext search icon → the community search palette.
+ *
+ * Header chrome for any theme. A link to the community search page that opens the
+ * palette in place on BuddyNext pages; on any other page it simply navigates to the
+ * search page. Renders for guests too. Use where a theme's header search icon belongs.
+ *
+ * @return void
+ */
+function buddynext_header_search(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::search_link();
 }
 
 /**

@@ -151,16 +151,16 @@ final class UserLinks {
 			// Drop the Bookmarks item when the Bookmarks feature is off (FeatureRegistry
 			// 'bookmarks', default-on). The route is already guarded in PageRouter; removing
 			// it here hides the link everywhere this catalogue feeds.
-			if ( function_exists( 'buddynext_service' )
+		if ( function_exists( 'buddynext_service' )
 				&& ! buddynext_service( 'features' )->is_enabled( 'bookmarks' )
 			) {
-				$items = array_values(
-					array_filter(
-						$items,
-						static fn( array $item ): bool => '#bn-bookmarks' !== ( $item['token'] ?? '' )
-					)
-				);
-			}
+			$items = array_values(
+				array_filter(
+					$items,
+					static fn( array $item ): bool => '#bn-bookmarks' !== ( $item['token'] ?? '' )
+				)
+			);
+		}
 
 		// Drop the Spaces item when the site owner has disabled the Spaces feature
 		// (FeatureRegistry 'spaces', default-on — the authoritative toggle). The

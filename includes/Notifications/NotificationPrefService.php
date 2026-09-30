@@ -189,20 +189,19 @@ class NotificationPrefService {
 			return;
 		}
 
-		// Both keys are optional: a partial update is the natural call - turning one
-		// type off in-app without touching its email cadence is exactly what the
-		// prefs UI and any integration does. Default FIRST, then validate. Folding
-		// the two steps together (`in_array( $data['x'] ?? 'immediate', ... ) ? $data['x'] : ...`)
-		// reads the key again on the true branch, where it may not exist: that
-		// emitted a warning into debug.log on every partial update and stored ''.
-		// The column is ENUM('immediate','daily','weekly','off') NOT NULL, so ''
-		// is MySQL's invalid-value marker rather than an ordinary string, and
-		// get_pref() hands it straight back unvalidated. The digest cron then
-		// matched neither 'daily' nor 'weekly' and the member silently got no
-		// digest at all - a wrong row that never announced itself.
-		$on_site    = isset( $data['on_site'] ) ? (int) $data['on_site'] : 1;
-		$email_freq = $data['email_freq'] ?? 'immediate';
-		$email_freq = in_array( $email_freq, self::VALID_FREQ, true ) ? $email_freq : 'immediate';
+		// Both keys are optional: a partial update (turn the bell off, leave the email
+		// cadence alone) starts from what the member has now, or the type's default
+		// when they have no row, and overrides only the keys sent. Filling a missing
+		// key with a fixed default instead silently reset the other setting: bell off
+		// turned a weekly or off email into "immediate". The column is ENUM NOT NULL,
+		// so an invalid value is never stored as '' (the digest cron would match no
+		// cadence and the member would get no digest); it keeps the current value.
+		$current    = $this->get_pref( $user_id, $type );
+		$on_site    = isset( $data['on_site'] ) ? (int) $data['on_site'] : (int) $current['on_site'];
+		$email_freq = $data['email_freq'] ?? $current['email_freq'];
+		if ( ! in_array( $email_freq, self::VALID_FREQ, true ) ) {
+			$email_freq = in_array( $current['email_freq'], self::VALID_FREQ, true ) ? $current['email_freq'] : 'immediate';
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(

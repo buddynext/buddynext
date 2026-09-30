@@ -56,43 +56,23 @@ class WPMediaVerseBridge {
 	private string $pending_dm_flag = '';
 
 	/**
-	 * Object-cache group + TTL for the media -> source-activity lookup. The lookup
-	 * scans bn_posts (JSON_CONTAINS on media_ids is not indexable), so the result
-	 * is cached: a media's source post never changes once created.
+	 * True while a media comment is being mirrored onto its feed card.
 	 *
-	 * @var string
+	 * @var bool
 	 */
-	private const CACHE_GROUP = 'buddynext_media';
-
-	/**
-	 * Cache TTL for the media -> source-activity lookup, in seconds.
-	 *
-	 * @var int
-	 */
-	private const CACHE_TTL = 3600;
+	private static bool $mirroring_comment = false;
 
 	/**
 	 * Attach the DM safety gates.
 	 *
-	 * Registered independently of the Platform → Features toggle, and of this
+	 * Registered independently of the Platform > Features toggle and of this
 	 * bridge's display half, because BuddyNext's DM surface does not depend on
-	 * either. `MessagesData::available()` asks `MediaClient`, which resolves the
-	 * engine's own container directly — so `/messages/`, the shell-nav item and
-	 * the messages store stay live whenever the engine is present and
-	 * the 'messages' capability is on, regardless of this bridge.
-	 *
-	 * Gating these three filters on the Features toggle therefore did not disable
-	 * DM; it disabled only the checks on it. Turning the integration off left
-	 * BuddyNext serving its own DM UI while `bn_blocks` and the recipient's
-	 * DM-privacy preference silently stopped applying — a member who had blocked
-	 * someone still received their messages, and the Block control went on
-	 * promising otherwise.
-	 *
-	 * The owner keeps both switches that mean something: Features → WPMediaVerse
-	 * still controls the integration's display, and Settings → General → Direct
-	 * Messaging (the 'messages' capability) still turns DM off outright. What an owner
-	 * cannot do is leave DM on while its safety gates are off, because that is not
-	 * a preference — it is the Block button lying.
+	 * either: `MessagesData::available()` resolves the engine directly, so
+	 * `/messages/` stays live whenever the engine is present and WPMediaVerse's
+	 * Messages switch is on. Gating these filters on the Features toggle would
+	 * leave BuddyNext serving DM while `bn_blocks` and auto-moderation stopped
+	 * applying - the Block button lying. "Who can message you" is WPMediaVerse's
+	 * own rule and needs nothing from here.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges, before init().
 	 */
@@ -101,17 +81,13 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
+		// Gate DMs on bn_blocks.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
 
 		// Run DM text through auto-moderation (banned words + Pro rules) so a member
 		// can't plant blocked content in a direct message — posts/comments/profile
 		// are guarded; DMs were not.
 		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 3 );
-
-		// When that gate denies, report WHY (block vs privacy preference) so the
-		// sender sees an accurate notice instead of a generic "blocked".
-		add_filter( 'mvs_dm_denial_reason', array( $this, 'dm_denial_reason' ), 10, 3 );
 	}
 
 	/**
@@ -174,17 +150,8 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
-		// Notify the media owner when someone reacts to their content, and notify
-		// mention targets when they are @mentioned in a media comment. MediaVerse
-		// already renders both categories (media_reaction, media_mention) and owns
-		// their email; these mirror the events into the BuddyNext notification
-		// centre only (can_email=false), so a member sees reactions and mentions in
-		// one place — with the centre's Reactions and Mentions tabs, which had the
-		// UI but never a feed — without a second email. Reactions come from the
-		// service hook (mvs_reaction_added), not the REST toggle, so a reaction made
-		// through any path is caught once.
-		add_action( 'mvs_reaction_added', array( $this, 'on_media_reaction' ), 10, 3 );
-		add_action( 'mvs_mentions_created', array( $this, 'on_media_mention' ), 10, 4 );
+		// Media reactions and mentions reach the bell through WPMediaVerse's own
+		// notification contract (IntegrationNotificationListener), not from here.
 
 		// Space document drives (MVS Pro 2.4.0). MVS holds an opaque drive id and
 		// asks US who may see and write a space:<id> drive — it never reads bn_*
@@ -249,6 +216,15 @@ class WPMediaVerseBridge {
 		// feed. Gated inside on the 'media' integration/feed toggle.
 		add_filter( 'buddynext_render_post_body_document', array( $this, 'render_document_card' ), 10, 2 );
 
+		// One notification per action (owner decision 2026-09-27): for the types
+		// BuddyNext notifies itself - follows, media comments, favorites and direct
+		// messages - WPMediaVerse skips its own copy, so a member gets one bell row,
+		// one email and one push. Reactions and mentions stay WPMediaVerse's.
+		add_filter( 'mvs_should_send_notification', array( $this, 'skip_duplicate_mvs_notification' ), 10, 3 );
+
+		// Media bell rows follow WPMediaVerse's own "who may see this media" rule.
+		add_filter( 'buddynext_notification_visible_rows', array( $this, 'filter_visible_media_rows' ) );
+
 		// Keep the WPMediaVerse follow graph (mvs_follows) and BuddyNext's
 		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
 		// show divergent follow state for the same pair. A re-entrancy guard plus
@@ -293,7 +269,15 @@ class WPMediaVerseBridge {
 		// Sync MVS lightbox comments → BuddyNext activity comments.
 		// When a user comments on a photo via the lightbox, create a matching
 		// bn_comments entry threaded under the BuddyNext post that holds the media.
+		// A media comment notifies the owner from the comment itself, whether or not
+		// the photo has a feed card yet (its card is created two minutes after the
+		// upload, by Action Scheduler). The copy on the card is display only and
+		// notifies nobody (card 10344509261).
+		add_action( 'mvs_comment_created', array( $this, 'notify_media_comment' ), 10, 3 );
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
+		add_filter( 'buddynext_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
+		// Media notifications open the post the media is in, or the media page.
+		add_filter( 'buddynext_media_notification_url', array( $this, 'media_notification_url' ), 10, 2 );
 
 		// Surface standalone WPMediaVerse uploads in the activity feed. The
 		// upload itself fired no feed entry before, so media shared from the
@@ -323,11 +307,8 @@ class WPMediaVerseBridge {
 		// the time it fires), which is the exact link_url the card was keyed on.
 		add_action( 'mvs_media_deleted', array( $this, 'on_media_deleted' ), 10, 3 );
 
-		// A document TRASHED (not permanently deleted) now fires its own hook
-		// (WPMediaVerse Pro 2.4.0, added for us). Trash is the normal delete from
-		// the app + UI and used to fire nothing, so a composer document card would
-		// linger after its document was gone; remove it here by id.
-		add_action( 'mvs_document_trashed', array( $this, 'on_document_trashed' ), 10, 1 );
+		// A file linked into an OPEN space reads like one uploaded there: public.
+		add_action( 'mvs_document_linked_to_space', array( $this, 'on_document_linked_to_space' ), 10, 3 );
 
 		// The MEDIA half of the same lifecycle. WPMediaVerse fires mvs_media_trashed
 		// / mvs_media_restored with the SAME three args as mvs_media_deleted, built
@@ -447,27 +428,27 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$attached = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE media_ids IS NOT NULL AND JSON_CONTAINS(media_ids, %s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				(string) wp_json_encode( $media_id )
-			)
-		);
-		if ( $attached > 0 ) {
+		// Already surfaced by a post (the composer, or an earlier run of this job).
+		if ( array() !== ( new PostService() )->ids_with_media( $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' ) ) {
 			return;
 		}
 
 		if ( in_array( (string) $media_type, array( 'photo', 'image' ), true ) ) {
-			( new PostService() )->create(
-				$user_id,
-				array(
-					'type'      => 'photo',
-					'content'   => '',
-					'media_ids' => array( $media_id ),
+			// A copy of an upload WPMediaVerse already recorded: flagged so reward
+			// listeners do not pay the same upload twice (card 10343975769).
+			IntegrationActivity::as_mirror(
+				static fn() => ( new PostService() )->create(
+					$user_id,
+					array(
+						'type'      => 'photo',
+						'content'   => '',
+						'media_ids' => array( $media_id ),
+					)
 				)
 			);
+			// Comments made before the card existed (this job runs two minutes after
+			// the upload) are carried onto it, with their own times.
+			$this->carry_comments_onto_card( $media_id );
 			return;
 		}
 
@@ -647,11 +628,17 @@ class WPMediaVerseBridge {
 		// A permanently deleted document is a media row too, so this same hook
 		// carries its id. Remove any composer document card keyed on it — by id,
 		// not URL, because the card stores only the id (privacy) and the source
-		// row is already gone. Trash is handled separately by on_document_trashed().
+		// row is already gone. Trash withdraws it instead (on_media_trashed()).
 		$media_id = (int) $media_id;
 		if ( $media_id > 0 ) {
 			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
+			// The media's reactions, favorites and mentions leave the bell with it.
+			if ( function_exists( 'buddynext_service' ) ) {
+				buddynext_service( 'notifications' )->delete_for_object( self::BELL_MEDIA_TYPE, $media_id );
+			}
 		}
+
+		$this->sync_photo_posts( $media_id, 'deleted' );
 
 		$permalink = (string) $permalink;
 		if ( '' === $permalink ) {
@@ -661,19 +648,48 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Remove a composer document card when its document is TRASHED.
+	 * Keep the feed posts that show a media file in step with it.
 	 *
-	 * The permanent-delete hook above covers destroy; this covers trash — the
-	 * normal delete path — now that WPMediaVerse fires `mvs_document_trashed`.
-	 * Keyed by id, the only thing the card stores.
+	 * Photos are native posts holding media ids, not bridge cards, so the
+	 * permalink-keyed card handlers never reach them (card 10344032853):
+	 * - trashed:  a post with no photo left to show is withdrawn (reversible);
+	 *             one that still shows other photos stays, the renderer skips
+	 *             the trashed one.
+	 * - restored: posts withdrawn that way come back in place.
+	 * - deleted:  the id is dropped; a post left with no media is deleted.
 	 *
-	 * @param int $media_id The trashed document id.
+	 * @param int    $media_id Media id.
+	 * @param string $event    'trashed', 'restored' or 'deleted'.
 	 * @return void
 	 */
-	public function on_document_trashed( $media_id ): void {
-		$media_id = (int) $media_id;
-		if ( $media_id > 0 ) {
-			IntegrationActivity::remove_by_meta( 'document', 'doc_id', $media_id );
+	private function sync_photo_posts( int $media_id, string $event ): void {
+		if ( $media_id <= 0 ) {
+			return;
+		}
+		$posts = new PostService();
+
+		if ( 'restored' === $event ) {
+			foreach ( $posts->ids_with_media( $media_id, 'draft' ) as $post_id ) {
+				$posts->set_media_withdrawn( $post_id, false );
+			}
+			return;
+		}
+
+		if ( 'trashed' === $event ) {
+			foreach ( $posts->ids_with_media( $media_id, 'published' ) as $post_id ) {
+				$post   = $posts->get( $post_id );
+				$others = array_values( array_diff( array_map( 'intval', (array) ( $post['media_ids'] ?? array() ) ), array( $media_id ) ) );
+				if ( empty( $others ) || empty( \BuddyNext\Media\MediaUrlResolver::descriptors( $others ) ) ) {
+					$posts->set_media_withdrawn( $post_id, true );
+				}
+			}
+			return;
+		}
+
+		foreach ( $posts->ids_with_media( $media_id, 'published', 'draft', 'pending', 'scheduled', 'under_review' ) as $post_id ) {
+			if ( empty( $posts->remove_media_id( $post_id, $media_id ) ) ) {
+				$posts->delete( $post_id, $posts->get_author_id( $post_id ) );
+			}
 		}
 	}
 
@@ -681,18 +697,23 @@ class WPMediaVerseBridge {
 	 * Withdraw the media feed card when its source is TRASHED (soft delete).
 	 *
 	 * Same withdrawal as on_media_deleted's URL path, but reversible: the card
-	 * comes back through on_media_restored(). Only the 'media' card (video /
-	 * audio) is keyed on the permalink - documents are handled by
-	 * on_document_trashed(), and photos are native posts, not bridge cards, so a
-	 * remove() keyed on the media permalink is a no-op for both. The permalink is
-	 * carried on the hook because the row is already trashed by the time it fires.
+	 * comes back through on_media_restored(). The 'media' card (video / audio)
+	 * is keyed on the permalink; photos are native posts keyed on media id and go
+	 * through sync_photo_posts(); a composer document card is keyed on its doc_id.
+	 * Every trash, member or admin, goes through the repository's trash(), which
+	 * fires this hook.
+	 * The permalink is carried on the hook because the row is already trashed by
+	 * the time it fires.
 	 *
-	 * @param int    $media_id  Trashed media id (unused; the card is keyed on URL).
+	 * @param int    $media_id  Trashed media id.
 	 * @param int    $author_id Author (unused here).
 	 * @param string $permalink The media's public permalink, as posted.
 	 * @return void
 	 */
 	public function on_media_trashed( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		$this->sync_photo_posts( (int) $media_id, 'trashed' );
+		IntegrationActivity::withdraw_by_meta( 'document', 'doc_id', (int) $media_id );
+
 		$permalink = (string) $permalink;
 		if ( '' !== $permalink ) {
 			// Withdraw, not delete: trash is reversible (on_media_restored), so the
@@ -721,7 +742,14 @@ class WPMediaVerseBridge {
 	public function on_media_restored( $media_id, $author_id = 0, $permalink = '' ): void {
 		$media_id  = (int) $media_id;
 		$author_id = (int) $author_id;
-		if ( $media_id <= 0 || $author_id <= 0 ) {
+		if ( $media_id <= 0 ) {
+			return;
+		}
+
+		// A composer document card withdrawn on trash comes back in place.
+		IntegrationActivity::restore_by_meta( 'document', 'doc_id', $media_id );
+
+		if ( $author_id <= 0 ) {
 			return;
 		}
 
@@ -730,6 +758,9 @@ class WPMediaVerseBridge {
 		// card to restore (e.g. the media/feed toggle was off when it was trashed, so
 		// a card was never created), where publish_media_activity re-applies every
 		// gate the original publish had.
+		// Photo posts withdrawn on trash come back in place, with their comments.
+		$this->sync_photo_posts( $media_id, 'restored' );
+
 		$permalink = (string) $permalink;
 		if ( '' !== $permalink && IntegrationActivity::restore( $permalink, 'media' ) ) {
 			return;
@@ -781,12 +812,26 @@ class WPMediaVerseBridge {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT privacy, media_ids FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				"SELECT user_id, space_id, type, privacy, media_ids, link_meta FROM {$wpdb->prefix}bn_posts WHERE id = %d",
 				$post_id
 			),
 			ARRAY_A
 		);
-		if ( ! is_array( $row ) || empty( $row['media_ids'] ) ) {
+		if ( ! is_array( $row ) ) {
+			return;
+		}
+
+		if ( 'document' === (string) $row['type'] ) {
+			$meta = json_decode( (string) $row['link_meta'], true );
+			self::share_document_with_post_audience(
+				(int) ( is_array( $meta ) ? ( $meta['doc_id'] ?? 0 ) : 0 ),
+				(int) $row['user_id'],
+				(int) $row['space_id'],
+				(string) ( $row['privacy'] ?? 'public' )
+			);
+		}
+
+		if ( empty( $row['media_ids'] ) ) {
 			return;
 		}
 
@@ -847,6 +892,112 @@ class WPMediaVerseBridge {
 					$repaired ? ' - applied directly instead' : ' - MEDIA MAY STILL BE READABLE'
 				)
 			);
+		}
+	}
+
+	/**
+	 * Open a file linked into an open space to everyone, as the space's own
+	 * uploads already are.
+	 *
+	 * MediaVerse grants a LINKED file to space members only, while a file
+	 * uploaded into the same open space is public - so a visitor browsing an open
+	 * space's Files found some files opening and others refusing. An open space's
+	 * content is public in BuddyNext, and linking a file there is sharing it
+	 * there. Private and secret spaces are left to the link's member-only grant.
+	 *
+	 * @param int $media_id Linked document.
+	 * @param int $space_id Space it was linked into.
+	 * @param int $user_id  Member who linked it (the file's owner).
+	 * @return void
+	 */
+	public function on_document_linked_to_space( $media_id, $space_id, $user_id ): void {
+		$space = (int) $space_id > 0 ? buddynext_service( 'spaces' )->get( (int) $space_id ) : null;
+		if ( ! is_array( $space ) || 'open' !== (string) ( $space['type'] ?? '' ) ) {
+			return;
+		}
+
+		$actor = get_current_user_id();
+		if ( $actor !== (int) $user_id ) {
+			wp_set_current_user( (int) $user_id );
+		}
+		$patch = new \WP_REST_Request( 'PATCH', '/mvs-pro/v1/documents/' . (int) $media_id );
+		$patch->set_body_params( array( 'privacy' => 'public' ) );
+		$res = rest_do_request( $patch );
+		if ( $actor !== (int) $user_id ) {
+			wp_set_current_user( $actor );
+		}
+
+		if ( $res->is_error() ) {
+			error_log( sprintf( 'BuddyNext: opening document #%d linked into open space #%d failed (%s)', (int) $media_id, (int) $space_id, $res->get_data()['code'] ?? $res->get_status() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		}
+	}
+
+	/**
+	 * Give a composer document the audience of the post it was shared in.
+	 *
+	 * The composer uploads the file to the author's drive as private and the post
+	 * stores only its id, so everyone the post reached saw a card they could not
+	 * open (card 10343766573). A card in someone's feed says they may open it, so
+	 * the post is the moment the file's audience is decided, on create and edit:
+	 *
+	 * - Space post: the file is linked into the space (it shows in the space's
+	 *   Files, and the link is what lets space members read it). An open space
+	 *   treats its member posts as public (card 10313019984), so there the file
+	 *   is public too; anywhere else it stays private and the link does the work.
+	 * - Any other post: the file takes the post's privacy through the same map
+	 *   photos use.
+	 *
+	 * Runs as the author, because MediaVerse checks the actor owns the file and
+	 * may write to the space. A scheduled post publishes from cron with no user.
+	 *
+	 * @param int    $doc_id       Document (MediaVerse media id).
+	 * @param int    $author_id    Post author.
+	 * @param int    $space_id     Post space, or 0.
+	 * @param string $post_privacy BuddyNext post privacy.
+	 * @return void
+	 */
+	private static function share_document_with_post_audience( int $doc_id, int $author_id, int $space_id, string $post_privacy ): void {
+		if ( $doc_id <= 0 || $author_id <= 0 || ! self::documents_available() ) {
+			return;
+		}
+
+		$space   = $space_id > 0 ? buddynext_service( 'spaces' )->get( $space_id ) : null;
+		$privacy = self::media_privacy_for_post( $post_privacy );
+		if ( is_array( $space ) ) {
+			$privacy = 'open' === (string) ( $space['type'] ?? '' ) && in_array( $post_privacy, array( 'public', 'space_members' ), true ) ? 'public' : 'private';
+		}
+
+		$actor = get_current_user_id();
+		if ( $actor !== $author_id ) {
+			wp_set_current_user( $author_id );
+		}
+
+		$failed = array();
+		if ( is_array( $space ) ) {
+			$link = new \WP_REST_Request( 'POST', '/mvs-pro/v1/documents/' . $doc_id . '/spaces' );
+			$link->set_body_params( array( 'space_id' => $space_id ) );
+			$res = rest_do_request( $link );
+			// 409 = the file already lives in this space: nothing to link.
+			if ( $res->is_error() && 409 !== $res->get_status() ) {
+				$failed[] = 'link to space #' . $space_id . ' (' . ( $res->get_data()['code'] ?? $res->get_status() ) . ')';
+			}
+		}
+
+		$patch = new \WP_REST_Request( 'PATCH', '/mvs-pro/v1/documents/' . $doc_id );
+		$patch->set_body_params( array( 'privacy' => $privacy ) );
+		$res = rest_do_request( $patch );
+		if ( $res->is_error() ) {
+			$failed[] = 'privacy "' . $privacy . '" (' . ( $res->get_data()['code'] ?? $res->get_status() ) . ')';
+		}
+
+		if ( $actor !== $author_id ) {
+			wp_set_current_user( $actor );
+		}
+
+		// A failure leaves the file narrower than the post (the card then says it
+		// is unavailable) - never wider - but an owner should be able to find it.
+		if ( $failed ) {
+			error_log( sprintf( 'BuddyNext: sharing document #%d with its post audience failed: %s', $doc_id, implode( '; ', $failed ) ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 		}
 	}
 
@@ -985,10 +1136,8 @@ class WPMediaVerseBridge {
 	/**
 	 * Find the BuddyNext post a media item was surfaced in (photo post or media card).
 	 *
-	 * Photo uploads store the media id in `bn_posts.media_ids` (JSON); non-photo
-	 * uploads become a media card whose `link_url` is the media's /media/ permalink.
-	 * Cached because JSON_CONTAINS can't use an index and a media's source post is
-	 * stable once created.
+	 * Photo uploads are found through the bn_post_media index; non-photo uploads
+	 * become a media card whose `link_url` is the media's /media/ permalink.
 	 *
 	 * @param int $media_id Media id.
 	 * @return int Source post id, or 0 when the media has no BuddyNext activity.
@@ -998,33 +1147,18 @@ class WPMediaVerseBridge {
 			return 0;
 		}
 
-		$cache_key = 'src_post_' . $media_id;
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
-		if ( false !== $cached ) {
-			return (int) $cached;
+		// A photo is found through the bn_post_media index; a video or audio card
+		// by its /media/ permalink (indexed type + link_url).
+		$ids     = ( new PostService() )->ids_with_media( $media_id, 'published' );
+		$post_id = empty( $ids ) ? 0 : max( $ids );
+		if ( 0 === $post_id ) {
+			$repo      = MediaClient::repo();
+			$media_url = ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) ? (string) $repo->get_permalink( $media_id ) : '';
+			$post_id   = '' !== $media_url ? ( new PostService() )->get_id_by_link( 'media', $media_url ) : 0;
 		}
 
-		$media_url = '';
-		$repo      = MediaClient::repo();
-		if ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) {
-			$media_url = (string) $repo->get_permalink( $media_id );
-		}
-
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$post_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts
-				 WHERE ( media_ids IS NOT NULL AND JSON_CONTAINS( media_ids, %s ) )
-				    OR ( link_url = %s AND link_url <> '' )
-				 ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				(string) wp_json_encode( $media_id ),
-				$media_url
-			)
-		);
-
-		// cache-ttl-only: a media->post attachment is immutable once made. There is no event that could invalidate it, because there is no change that can happen.
-		wp_cache_set( $cache_key, $post_id, self::CACHE_GROUP, self::CACHE_TTL );
+		// Not cached: both lookups are indexed, and a cache would go stale when the
+		// card is created (two minutes after upload) or deleted.
 		return $post_id;
 	}
 
@@ -1100,16 +1234,60 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Gate a DM send against the recipient's block list AND DM-access preference.
+	 * WPMediaVerse notification types BuddyNext already sends as its own.
 	 *
-	 * BuddyNext layers this on top of MediaVerse's own DM controls via the same
-	 * mvs_can_send_message filter — either side can deny, neither overrides the
-	 * other. Enforces:
-	 *   - recipient has blocked the sender → deny;
-	 *   - recipient's "who can DM me" preference (bn_privacy_dm, seeded on
-	 *     registration from buddynext_default_dm_access, falling back to that
-	 *     option when unset): everyone | members | connections | nobody.
-	 * Site admins (manage_options) bypass so staff can always reach members.
+	 * @var string[]
+	 */
+	private const BN_OWNED_MVS_NOTIFICATIONS = array( 'new_follower', 'media_comment', 'media_favorite', 'new_message' );
+
+	/**
+	 * The bell's object_type for a WPMediaVerse media id (namespaced, so it is
+	 * never read as a BuddyNext object).
+	 */
+	private const BELL_MEDIA_TYPE = 'mvs_media';
+
+	/**
+	 * Drop media bell rows the recipient may no longer see (private, trashed,
+	 * moved into a space they are not in), by WPMediaVerse's PrivacyService.
+	 *
+	 * @param array<int,array<string,mixed>> $rows Raw bell rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function filter_visible_media_rows( array $rows ): array {
+		$privacy = MediaClient::privacy();
+		if ( ! is_object( $privacy ) || ! method_exists( $privacy, 'can_view' ) ) {
+			return $rows;
+		}
+		foreach ( $rows as $i => $row ) {
+			if ( self::BELL_MEDIA_TYPE === (string) ( $row['object_type'] ?? '' )
+				&& ! $privacy->can_view( (int) ( $row['object_id'] ?? 0 ), (int) ( $row['recipient_id'] ?? 0 ) ) ) {
+				unset( $rows[ $i ] );
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	 * Tell WPMediaVerse to skip a notification BuddyNext sends itself.
+	 *
+	 * Hooked on: mvs_should_send_notification ( bool $send, int $user_id, string $type, ... ).
+	 *
+	 * @param bool   $send    Whether WPMediaVerse sends it.
+	 * @param int    $user_id Recipient.
+	 * @param string $type    WPMediaVerse notification type.
+	 * @return bool
+	 */
+	public function skip_duplicate_mvs_notification( $send, $user_id, $type ): bool {
+		return (bool) $send && ! in_array( (string) $type, self::BN_OWNED_MVS_NOTIFICATIONS, true );
+	}
+
+	/**
+	 * Gate a DM send on BuddyNext's block list.
+	 *
+	 * "Who can message you" is WPMediaVerse's rule (its site ceiling and the
+	 * member's choice, card 10344455521); BuddyNext only adds its blocks, via the
+	 * same mvs_can_send_message filter. Site admins (manage_options) bypass the
+	 * block so staff can always reach members.
 	 *
 	 * Hooked on: mvs_can_send_message (int $sender_id, int $recipient_id)
 	 *
@@ -1122,40 +1300,14 @@ class WPMediaVerseBridge {
 		if ( ! $allowed ) {
 			return false;
 		}
-
-		// Staff can always reach anyone.
 		if ( user_can( $sender_id, 'manage_options' ) ) {
 			return true;
 		}
-
-		// Recipient blocked sender → deny. Routed through the BlockService model
-		// (the data-access API), never a raw query from this bridge.
+		// WPMediaVerse reports a refused send as 'blocked' by default, which is the
+		// right reason here: this gate only ever refuses for a block.
 		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
-		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
-			&& $blocks->has_blocked( $recipient_id, $sender_id ) ) {
-			return false;
-		}
-
-		// Recipient's DM-access preference. Empty = inherit the site default.
-		$pref = (string) get_user_meta( $recipient_id, 'bn_privacy_dm', true );
-		if ( '' === $pref ) {
-			$pref = (string) get_option( 'buddynext_default_dm_access', 'everyone' );
-		}
-
-		switch ( $pref ) {
-			case 'nobody':
-				return false;
-			case 'connections':
-				$conn = function_exists( 'buddynext_service' ) ? buddynext_service( 'connections' ) : null;
-				return is_object( $conn )
-					&& method_exists( $conn, 'are_connected' )
-					&& $conn->are_connected( $sender_id, $recipient_id );
-			case 'members':
-				return $sender_id > 0;
-			case 'everyone':
-			default:
-				return true;
-		}
+		return ! ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
+			&& $blocks->has_blocked( $recipient_id, $sender_id ) );
 	}
 
 	/**
@@ -1193,51 +1345,6 @@ class WPMediaVerseBridge {
 		}
 
 		return $result;
-	}
-
-	/**
-	 * Translate a check_block() denial into a specific reason code.
-	 *
-	 * The check_block() gate is boolean, so a denial otherwise surfaces as the
-	 * generic 'blocked'. This mirrors its logic to report the real cause — an
-	 * actual block stays 'blocked', a "nobody" preference becomes 'dms_disabled',
-	 * and a "connections-only" preference becomes 'connections_only' — so the
-	 * sender's notice is accurate. Other causes keep the incoming default.
-	 *
-	 * Hooked on: mvs_dm_denial_reason ( string $reason, int $sender_id, int $recipient_id ).
-	 *
-	 * @param string $reason       Reason resolved so far (default 'blocked').
-	 * @param int    $sender_id    Sender user ID.
-	 * @param int    $recipient_id Recipient user ID.
-	 * @return string
-	 */
-	public function dm_denial_reason( string $reason, int $sender_id, int $recipient_id ): string {
-		// Staff are never denied by check_block, so there is nothing to translate.
-		if ( user_can( $sender_id, 'manage_options' ) ) {
-			return $reason;
-		}
-
-		// A real block keeps the generic 'blocked' reason (same check as check_block).
-		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
-		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
-			&& $blocks->has_blocked( $recipient_id, $sender_id ) ) {
-			return 'blocked';
-		}
-
-		// Otherwise the denial is the recipient's DM-privacy preference.
-		$pref = (string) get_user_meta( $recipient_id, 'bn_privacy_dm', true );
-		if ( '' === $pref ) {
-			$pref = (string) get_option( 'buddynext_default_dm_access', 'everyone' );
-		}
-
-		switch ( $pref ) {
-			case 'nobody':
-				return 'dms_disabled';
-			case 'connections':
-				return 'connections_only';
-			default:
-				return $reason;
-		}
 	}
 
 	/**
@@ -1340,7 +1447,7 @@ class WPMediaVerseBridge {
 		// follow mirroring for the rest of the request.
 		$this->mirroring_follow = true;
 		try {
-			$bn->follow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->follow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1367,7 +1474,7 @@ class WPMediaVerseBridge {
 		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
 		try {
-			$bn->unfollow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->unfollow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1394,7 +1501,7 @@ class WPMediaVerseBridge {
 		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
 		try {
-			$mvs->follow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $mvs->follow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1421,7 +1528,7 @@ class WPMediaVerseBridge {
 		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
 		try {
-			$mvs->unfollow( $follower_id, $following_id );
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $mvs->unfollow( $follower_id, $following_id ) );
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1471,8 +1578,7 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Same media-owner resolution as on_media_reaction(): the id is a
-		// wp_mvs_media_index row, not a post, so get_post_field() returns 0.
+		// The id is a wp_mvs_media_index row, not a post, so get_post_field() returns 0.
 		$repo     = MediaClient::repo();
 		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
@@ -1484,97 +1590,12 @@ class WPMediaVerseBridge {
 				'recipient_id' => $owner_id,
 				'sender_id'    => $user_id,
 				'type'         => 'bn.media_favorited',
-				'object_type'  => 'media',
+				'object_type'  => self::BELL_MEDIA_TYPE,
 				'object_id'    => $media_id,
 				'group_key'    => "mvs_fav_{$media_id}",
 				'data'         => array( 'media_id' => $media_id ),
 			)
 		);
-	}
-
-	/**
-	 * Notify the media owner when someone reacts to their content.
-	 *
-	 * Mirrors MediaVerse's own media_reaction into the BuddyNext centre (Reactions
-	 * tab), collect-only: the catalogue marks bn.media_reaction can_email=false, so
-	 * MediaVerse stays the single emailer. Self-reactions are skipped and reactions
-	 * on the same media collapse via the group key.
-	 *
-	 * Hooked on: mvs_reaction_added ($media_id, $user_id, $reaction_type) — the
-	 * service hook, so a reaction made through any path (REST toggle or direct) is
-	 * caught exactly once.
-	 *
-	 * @param int    $media_id      Media item ID.
-	 * @param int    $user_id       User who reacted.
-	 * @param string $reaction_type Reaction slug (e.g. 'like', 'love').
-	 */
-	public function on_media_reaction( int $media_id, int $user_id, string $reaction_type = '' ): void {
-		// MVS media live in wp_mvs_media_index, not wp_posts, so get_post_field()
-		// returns 0 and would silently drop every reaction notification. Resolve
-		// the owner through the media repo (the same lookup used at line ~529).
-		$repo     = MediaClient::repo();
-		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
-		if ( 0 === $owner_id || $owner_id === $user_id ) {
-			return;
-		}
-
-		( new NotificationService() )->create(
-			array(
-				'recipient_id' => $owner_id,
-				'sender_id'    => $user_id,
-				'type'         => 'bn.media_reaction',
-				'object_type'  => 'media',
-				'object_id'    => $media_id,
-				'group_key'    => "mvs_reaction_{$media_id}",
-				'data'         => array(
-					'media_id'      => $media_id,
-					'reaction_type' => sanitize_key( $reaction_type ),
-				),
-			)
-		);
-	}
-
-	/**
-	 * Notify each mentioned member when they are @mentioned in a media comment.
-	 *
-	 * Mirrors MediaVerse's own media_mention into the BuddyNext centre (Mentions
-	 * tab), collect-only. The mentioner is the acting user (the comment author);
-	 * self-mentions are skipped.
-	 *
-	 * Hooked on: mvs_mentions_created ($media_id, $mentioned_ids, $context, $comment_id).
-	 *
-	 * @param int    $media_id      Media item ID.
-	 * @param int[]  $mentioned_ids Users named in the comment.
-	 * @param string $context       Where the mention was made (e.g. 'comment').
-	 * @param int    $comment_id    The comment carrying the mention.
-	 */
-	public function on_media_mention( int $media_id, array $mentioned_ids, string $context = '', int $comment_id = 0 ): void {
-		$actor_id = get_current_user_id();
-		if ( $actor_id <= 0 || $media_id <= 0 ) {
-			return;
-		}
-
-		$service = new NotificationService();
-		foreach ( array_unique( array_map( 'absint', $mentioned_ids ) ) as $recipient_id ) {
-			if ( $recipient_id <= 0 || $recipient_id === $actor_id ) {
-				continue;
-			}
-			$service->create(
-				array(
-					'recipient_id' => $recipient_id,
-					'sender_id'    => $actor_id,
-					'type'         => 'bn.media_mention',
-					'object_type'  => 'media',
-					'object_id'    => $media_id,
-					'group_key'    => "mvs_mention_{$media_id}_{$recipient_id}",
-					'data'         => array(
-						'media_id'   => $media_id,
-						'comment_id' => (int) $comment_id,
-						'context'    => sanitize_key( $context ),
-					),
-				)
-			);
-		}
 	}
 
 	/**
@@ -1841,6 +1862,54 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * The image/video/audio upload ceiling the composer and Media tab should offer,
+	 * in bytes — read from MVS's OWN configured setting (never a BuddyNext
+	 * constant), the exact source `UploadService` itself enforces, so the client
+	 * can never advertise a size the server will refuse.
+	 *
+	 * Clamped to `wp_max_upload_size()`: MVS's own setting can be raised past the
+	 * server's real `upload_max_filesize`/`post_max_size` ceiling (its admin field
+	 * warns the owner but does not stop them), and offering that unclamped number
+	 * here would let a member start a doomed upload that only fails once the whole
+	 * file has already gone over the wire. The lower of the two numbers is always
+	 * the one that will actually succeed.
+	 *
+	 * `buddynext_media_max_bytes` is the one extension seam — for a site that
+	 * wants a stricter client-side cap than either number. There is no BuddyNext
+	 * admin setting for this: one number, one place it is configured (MVS's own
+	 * Settings > Max Upload Size), same rule as `document_composer_config()`.
+	 *
+	 * @param int $user_id Uploading member. 0 = current user.
+	 * @return int Bytes.
+	 */
+	public static function media_max_bytes( int $user_id = 0 ): int {
+		$server_ceiling = wp_max_upload_size();
+		$configured     = class_exists( '\\WPMediaVerse\\Core\\SettingsHelper' )
+			? \WPMediaVerse\Core\SettingsHelper::get_max_upload_size( $user_id )
+			: $server_ceiling;
+
+		/**
+		 * Filters the media upload ceiling BuddyNext's composer and Media tab offer.
+		 *
+		 * @param int $max_bytes The lower of MVS's configured max and the server ceiling.
+		 * @param int $user_id   Uploading member.
+		 */
+		return (int) apply_filters( 'buddynext_media_max_bytes', min( $configured, $server_ceiling ), $user_id );
+	}
+
+	/**
+	 * The same ceiling in whole MB, for the upload contexts (composer, Media tab,
+	 * album picker). Rounded DOWN: rounding up would let the client accept a file
+	 * the server then refuses after the whole upload.
+	 *
+	 * @param int $user_id Uploading member. 0 = current user.
+	 * @return int Megabytes.
+	 */
+	public static function media_max_mb( int $user_id = 0 ): int {
+		return (int) floor( self::media_max_bytes( $user_id ) / MB_IN_BYTES );
+	}
+
+	/**
 	 * The document-attach config the composer needs, read from MVS's OWN app
 	 * config (never BuddyNext constants) so the composer can never advertise a
 	 * type or size the server will refuse — the exact mismatch that burned the
@@ -1863,15 +1932,10 @@ class WPMediaVerseBridge {
 			'accept'   => '',
 			'max_size' => 0,
 		);
-		if ( ! self::documents_available() || ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
 			return $off;
 		}
-		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
-		if ( $res->is_error() ) {
-			return $off;
-		}
-		$data = (array) $res->get_data();
-		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		$docs = self::documents_config();
 		if ( empty( $docs['enabled'] ) ) {
 			return $off;
 		}
@@ -1900,19 +1964,46 @@ class WPMediaVerseBridge {
 	 * @return bool
 	 */
 	public static function documents_writable(): bool {
-		if ( ! self::documents_available() ) {
-			return false;
-		}
-		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
-		if ( $res->is_error() ) {
-			return false;
-		}
-		$data = (array) $res->get_data();
-		$docs = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		$docs = self::documents_config();
 		if ( empty( $docs['enabled'] ) ) {
 			return false;
 		}
 		return ! array_key_exists( 'writable', $docs ) || ! empty( $docs['writable'] );
+	}
+
+	/**
+	 * May a share link be created for a document right now.
+	 *
+	 * MVS's `documents.anonymous_links` (AppConfig::anonymous_links_allowed()):
+	 * off by default, and off on a private community. MediaVerse publishes it so
+	 * a share sheet hides "Create share link" instead of offering it and taking
+	 * the `mvs_link_sharing_disabled` 403. Absent (older MVS) reads as off, the
+	 * same as MediaVerse's own default.
+	 *
+	 * @return bool
+	 */
+	public static function document_links_allowed(): bool {
+		$docs = self::documents_config();
+		return ! empty( $docs['enabled'] ) && ! empty( $docs['anonymous_links'] );
+	}
+
+	/**
+	 * MediaVerse's `documents` app config for the current viewer (it carries
+	 * per-user fields such as `writable`). Empty when the document engine is
+	 * unavailable or the config cannot be read.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function documents_config(): array {
+		if ( ! self::documents_available() ) {
+			return array();
+		}
+		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
+		if ( $res->is_error() ) {
+			return array();
+		}
+		$data = (array) $res->get_data();
+		return isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
 	}
 
 	/**
@@ -2016,7 +2107,7 @@ class WPMediaVerseBridge {
 			return null;
 		}
 
-		$folders     = (array) $folders_res->get_data();
+		$folders     = self::with_folder_counts( (array) $folders_res->get_data() );
 		$documents   = (array) $docs_res->get_data();
 		$doc_headers = $docs_res->get_headers();
 		$fol_headers = $folders_res->get_headers();
@@ -2061,17 +2152,77 @@ class WPMediaVerseBridge {
 		}
 
 		return array(
-			'folders'      => $folders,
-			'documents'    => $documents,
-			'breadcrumbs'  => self::drive_breadcrumbs( $folder ),
-			'total'        => isset( $doc_headers['X-WP-Total'] ) ? (int) $doc_headers['X-WP-Total'] : count( $documents ),
-			'pages'        => isset( $doc_headers['X-WP-TotalPages'] ) ? (int) $doc_headers['X-WP-TotalPages'] : 1,
-			'page'         => $page,
-			'folder'       => $folder,
-			'folder_total' => isset( $fol_headers['X-WP-Total'] ) ? (int) $fol_headers['X-WP-Total'] : count( $folders ),
-			'folder_pages' => isset( $fol_headers['X-WP-TotalPages'] ) ? (int) $fol_headers['X-WP-TotalPages'] : 1,
-			'folder_page'  => $folder_page,
-			'can_write'    => in_array( $access, array( 'write', 'own' ), true ),
+			'folders'           => $folders,
+			'documents'         => $documents,
+			'breadcrumbs'       => self::drive_breadcrumbs( $folder ),
+			'total'             => isset( $doc_headers['X-WP-Total'] ) ? (int) $doc_headers['X-WP-Total'] : count( $documents ),
+			'pages'             => isset( $doc_headers['X-WP-TotalPages'] ) ? (int) $doc_headers['X-WP-TotalPages'] : 1,
+			'page'              => $page,
+			'folder'            => $folder,
+			'folder_total'      => isset( $fol_headers['X-WP-Total'] ) ? (int) $fol_headers['X-WP-Total'] : count( $folders ),
+			'folder_pages'      => isset( $fol_headers['X-WP-TotalPages'] ) ? (int) $fol_headers['X-WP-TotalPages'] : 1,
+			'folder_page'       => $folder_page,
+			'can_write'         => in_array( $access, array( 'write', 'own' ), true ),
+			// MediaVerse's own answer to "may this viewer create a folder here"
+			// (2.6.0+); null on an older MediaVerse that does not send it.
+			'can_create_folder' => isset( $fol_headers['X-MVS-Can-Create-Folder'] ) ? '1' === (string) $fol_headers['X-MVS-Can-Create-Folder'] : null,
+		);
+	}
+
+	/**
+	 * Add each folder row's direct `file_count` / `folder_count`: two GROUP BY
+	 * queries per page (MediaVerse's own batched counters), never one per row.
+	 * The Delete confirm names what moves to the trash with the folder.
+	 *
+	 * @param array<int,array<string,mixed>> $folders Folder rows from /mvs-pro/v1/folders.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private static function with_folder_counts( array $folders ): array {
+		$ids = array_filter( array_map( static fn( $f ): int => (int) ( $f['id'] ?? 0 ), $folders ) );
+		if ( ! $ids || ! class_exists( '\\WPMediaVersePro\\Documents\\FolderService' ) || ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+			return $folders;
+		}
+		$files = (array) \WPMediaVerse\Core\Plugin::container()->get( 'media_repository' )->count_documents_in_folders( $ids );
+		$subs  = (array) ( new \WPMediaVersePro\Documents\FolderService() )->count_children_in( $ids );
+		foreach ( $folders as &$f ) {
+			$fid               = (int) ( $f['id'] ?? 0 );
+			$f['file_count']   = (int) ( $files[ $fid ] ?? 0 );
+			$f['folder_count'] = (int) ( $subs[ $fid ] ?? 0 );
+		}
+		unset( $f );
+		return $folders;
+	}
+
+	/**
+	 * A drive's trashed folders (the restorable subtree roots), newest first.
+	 *
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id.
+	 * @param int    $page       1-based page.
+	 * @return array{items: array<int,array<string,mixed>>, page: int, pages: int}|null Null when the viewer may not see the drive.
+	 */
+	public static function drive_trash( string $drive_type, int $drive_id, int $page = 1 ): ?array {
+		if ( ! self::documents_available() ) {
+			return null;
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/folders' );
+		$req->set_query_params(
+			array(
+				'drive'    => $drive_type . ':' . $drive_id,
+				'status'   => 'trashed',
+				'per_page' => 50,
+				'page'     => max( 1, $page ),
+			)
+		);
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		$headers = $res->get_headers();
+		return array(
+			'items' => (array) $res->get_data(),
+			'page'  => max( 1, $page ),
+			'pages' => isset( $headers['X-WP-TotalPages'] ) ? (int) $headers['X-WP-TotalPages'] : 1,
 		);
 	}
 
@@ -2160,10 +2311,35 @@ class WPMediaVerseBridge {
 		}
 		$doc   = (array) $res->get_data();
 		$drive = isset( $doc['drive'] ) && is_array( $doc['drive'] ) ? $doc['drive'] : array();
-		if ( ( $drive['type'] ?? '' ) !== $drive_type || (int) ( $drive['id'] ?? 0 ) !== $drive_id ) {
+		$home  = ( $drive['type'] ?? '' ) === $drive_type && (int) ( $drive['id'] ?? 0 ) === $drive_id;
+		// A file LINKED into a space (Link a file, or shared in a space post)
+		// belongs to its Files too: the list shows it, so its page must open.
+		if ( ! $home && ! ( 'space' === $drive_type && self::linked_to_space( $doc_id, $drive_id ) ) ) {
 			return null;
 		}
 		return $doc;
+	}
+
+	/**
+	 * Whether a document is linked into a space from another drive.
+	 *
+	 * One primary-key lookup on MediaVerse's link table; the bridge owns partner
+	 * table access. MediaVerse's REST has no per-document answer for this.
+	 *
+	 * @param int $doc_id   Document id.
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	private static function linked_to_space( int $doc_id, int $space_id ): bool {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1 FROM {$wpdb->prefix}mvs_media_spaces WHERE media_id = %d AND space_id = %d LIMIT 1",
+				$doc_id,
+				$space_id
+			)
+		);
 	}
 
 	/**
@@ -2336,6 +2512,30 @@ class WPMediaVerseBridge {
 		}
 		// A cookie-auth GET needs a nonce (same as the Files tab download links).
 		$url = add_query_arg( '_wpnonce', wp_create_nonce( 'wp_rest' ), $link );
+
+		// A space post whose space shows this viewer its Files tab opens the
+		// file's page there (preview + Download). Anywhere else the tab is not
+		// guaranteed to exist for the viewer (a profile's Files tab is its owner's
+		// alone), so the download stays: every destination must open for whoever
+		// can see the card.
+		$post     = isset( $args['bn_post'] ) && is_array( $args['bn_post'] ) ? $args['bn_post'] : array();
+		$space_id = (int) ( $post['space_id'] ?? 0 );
+		if ( $space_id > 0 && \BuddyNext\Nav\Providers\SpaceNav::files_tab_visible( $space_id ) ) {
+			$url = trailingslashit( \BuddyNext\Core\PageRouter::space_url( $space_id ) ) . 'files/' . $doc_id . '/';
+		}
+
+		/**
+		 * Filters where a feed document card links to.
+		 *
+		 * Only called for a viewer allowed to open the document.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string              $url    Space file page or nonce'd download URL.
+		 * @param int                 $doc_id Document (MediaVerse media) ID.
+		 * @param array<string,mixed> $post   The post being rendered.
+		 */
+		$url = (string) apply_filters( 'buddynext_document_card_url', $url, $doc_id, $post );
 
 		// Reference, not embed: the card links OUT to the document; BuddyNext
 		// never renders its bytes. Build the preview fresh, per viewer.
@@ -2539,23 +2739,11 @@ class WPMediaVerseBridge {
 
 		global $wpdb;
 
-		// Find the BuddyNext post that has this media_id in its media_ids JSON
-		// array. JSON_CONTAINS does an exact array-element match — a LIKE '%5%'
-		// matched 5, 50, 51, 15… (false positives). JSON_VALID guards rows whose
-		// media_ids is NULL/empty/non-JSON so the function can't error on them.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$bn_post_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts
-				 WHERE media_ids IS NOT NULL AND media_ids <> ''
-				   AND JSON_VALID(media_ids) AND JSON_CONTAINS(media_ids, %s)
-				   AND status = 'published'
-				 ORDER BY created_at DESC LIMIT 1",
-				(string) $media_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
+		// The newest published post showing this media, through the bn_post_media
+		// index (card 10344434252). None yet: publish_media_activity() carries the
+		// comment over when it creates the card.
+		$bn_post_ids = ( new PostService() )->ids_with_media( $media_id, 'published' );
+		$bn_post_id  = empty( $bn_post_ids ) ? 0 : max( $bn_post_ids );
 		if ( ! $bn_post_id ) {
 			return;
 		}
@@ -2583,8 +2771,10 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Create the bn_comments entry.
-		$now = current_time( 'mysql' );
+		// Create the bn_comments entry, dated when the member wrote it (a comment
+		// carried onto a card created later keeps its own time).
+		$now     = current_time( 'mysql', true );
+		$written = '' !== (string) $comment->comment_date_gmt && '0000-00-00 00:00:00' !== (string) $comment->comment_date_gmt ? (string) $comment->comment_date_gmt : $now;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
@@ -2603,9 +2793,10 @@ class WPMediaVerseBridge {
 				// render "on photo N of M" attribution. Post-level feed comments
 				// carry NULL here (they are about the post, not any one photo).
 				'media_id'    => $media_id,
-				'created_at'  => $now,
+				'created_at'  => $written,
+				'updated_at'  => $now,
 			),
-			array( '%s', '%d', '%d', '%s', '%d', '%d', '%s' )
+			array( '%s', '%d', '%d', '%s', '%d', '%d', '%s', '%s' )
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2624,8 +2815,124 @@ class WPMediaVerseBridge {
 		// form would ArgumentCountError-fatal the 4-arg listeners.
 		$new_comment_id = (int) $wpdb->insert_id;
 		if ( $new_comment_id > 0 ) {
-			do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
+			// A mirror of a comment MediaVerse already recorded: flag it so reward
+			// listeners do not pay the same comment twice, and mute notifications -
+			// notify_media_comment() already told the owner (card 10344509261).
+			self::$mirroring_comment = true;
+			try {
+				\BuddyNext\Feed\IntegrationActivity::as_mirror(
+					static function () use ( $new_comment_id, $bn_post_id, $user_id ) {
+						do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
+					}
+				);
+			} finally {
+				self::$mirroring_comment = false;
+			}
 		}
+	}
+
+	/**
+	 * Tell the media owner about a comment on their media.
+	 *
+	 * Hooked on: mvs_comment_created ( $media_id, $user_id, $comment_id, ... ).
+	 * BuddyNext owns this notification on a BuddyNext site (WPMediaVerse skips
+	 * its media_comment, owner decision 2026-09-27), so it is sent here, from the
+	 * comment, not from its copy on the feed card: a photo has no card for its
+	 * first two minutes, and media outside the feed never gets one. Never to the
+	 * commenter themself, and dropped when either member has blocked the other.
+	 *
+	 * @param int $media_id   Media id.
+	 * @param int $user_id    Commenter (re-read from the comment).
+	 * @param int $comment_id WP comment id.
+	 * @return void
+	 */
+	public function notify_media_comment( int $media_id, int $user_id, int $comment_id ): void {
+		$comment   = get_comment( $comment_id );
+		$commenter = $comment ? (int) $comment->user_id : 0;
+		$repo      = MediaClient::repo();
+		$owner_id  = ( $repo && $media_id > 0 ) ? (int) $repo->get( $media_id, 'post_author' ) : 0;
+		if ( $commenter <= 0 || $owner_id <= 0 || $owner_id === $commenter ) {
+			return;
+		}
+		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
+		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
+			&& ( $blocks->has_blocked( $owner_id, $commenter ) || $blocks->has_blocked( $commenter, $owner_id ) ) ) {
+			return;
+		}
+
+		( new NotificationService() )->create(
+			array(
+				'recipient_id' => $owner_id,
+				'sender_id'    => $commenter,
+				'type'         => 'bn.media_commented',
+				'object_type'  => self::BELL_MEDIA_TYPE,
+				'object_id'    => $media_id,
+				'group_key'    => "mvs_comment_{$media_id}",
+				'data'         => array(
+					'media_id'   => $media_id,
+					'comment_id' => $comment_id,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Copy a media item's existing comments onto the card just created for it.
+	 *
+	 * Runs inside the Action Scheduler job that creates a photo's card, so it adds
+	 * nothing to the member's request. Deduplicated by sync_lightbox_comment() and
+	 * silent (the owner was told when each comment was written).
+	 *
+	 * @param int $media_id Media id.
+	 * @return void
+	 */
+	private function carry_comments_onto_card( int $media_id ): void {
+		$service = MediaClient::comments();
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_for_media' ) ) {
+			return;
+		}
+		// ponytail: the first 200 top-level comments; the card is two minutes old, so
+		// more than that before it exists is not a real case.
+		$page = (array) $service->get_for_media( $media_id, 200, 1 );
+		foreach ( (array) ( $page['comments'] ?? array() ) as $row ) {
+			$comment_id = (int) ( $row['id'] ?? 0 );
+			if ( $comment_id > 0 ) {
+				$this->sync_lightbox_comment( $media_id, 0, $comment_id );
+			}
+		}
+	}
+
+	/**
+	 * Suppress BuddyNext notifications while a media comment is mirrored.
+	 *
+	 * @param bool $should Whether to send.
+	 * @return bool
+	 */
+	public function mute_mirror_notifications( $should ) {
+		return self::$mirroring_comment ? false : (bool) $should;
+	}
+
+	/**
+	 * Where a media notification opens: the post the media is in, else its page.
+	 *
+	 * Hooked on: buddynext_media_notification_url.
+	 *
+	 * @param string $url      URL so far.
+	 * @param int    $media_id Media id.
+	 * @return string
+	 */
+	public function media_notification_url( $url, $media_id ): string {
+		$media_id = (int) $media_id;
+		if ( $media_id <= 0 ) {
+			return (string) $url;
+		}
+		$post_id = $this->source_post_for_media( $media_id );
+		if ( $post_id > 0 ) {
+			return \BuddyNext\Core\PageRouter::post_url( $post_id );
+		}
+		$repo = MediaClient::repo();
+		$link = ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) ? (string) $repo->get_permalink( $media_id ) : '';
+		return '' !== $link ? $link : (string) $url;
 	}
 	/**
 	 * Tell MediaVerse a member HAS a custom avatar when BuddyNext holds one.

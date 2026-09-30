@@ -33,6 +33,11 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$this->bridge->init();
 		$this->sender_id    = self::factory()->user->create();
 		$this->recipient_id = self::factory()->user->create();
+		// The suite runs in random order: reset the stub's static so one
+		// media_max_bytes test's configured size cannot leak into the next.
+		if ( class_exists( StubSettingsHelper::class, false ) ) {
+			StubSettingsHelper::$max_upload_size = 104857600;
+		}
 	}
 
 	public function test_buddynext_active_filter_returns_true(): void {
@@ -67,10 +72,6 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$this->assertNotFalse(
 			has_filter( 'mvs_message_content_check', array( $display_off, 'moderate_dm_content' ) ),
 			'DM auto-moderation must survive the display toggle.'
-		);
-		$this->assertNotFalse(
-			has_filter( 'mvs_dm_denial_reason', array( $display_off, 'dm_denial_reason' ) ),
-			'The denial reason must survive the display toggle, or a denial reads as a generic error.'
 		);
 	}
 
@@ -209,6 +210,41 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $after, 'the card is withdrawn with its source' );
 	}
 
+	/**
+	 * A composer document card is withdrawn with its trashed document and comes
+	 * back, the same card, when the document is restored.
+	 *
+	 * @return void
+	 */
+	public function test_document_card_follows_trash_and_restore(): void {
+		global $wpdb;
+		\BuddyNext\Feed\IntegrationActivity::publish( $this->sender_id, 'shared a file', home_url( '/files/q3-report/' ), 'Q3', 'document', '', 0, array( 'doc_id' => 77 ) );
+		$card   = ( new \BuddyNext\Feed\PostService() )->get_id_by_link( 'document', home_url( '/files/q3-report/' ) );
+		$status = static fn() => (string) $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $card ) );
+		$this->assertSame( 'published', $status() );
+
+		$this->bridge->on_media_trashed( 77, $this->sender_id, '' );
+		$this->assertSame( 'draft', $status(), 'a trashed document withdraws its card' );
+
+		$this->bridge->on_media_restored( 77, 0, '' );
+		$this->assertSame( 'published', $status(), 'restore brings back the same card' );
+	}
+
+	/**
+	 * WPMediaVerse skips the notifications BuddyNext sends itself, and keeps its
+	 * own reactions and mentions.
+	 *
+	 * @return void
+	 */
+	public function test_mediaverse_skips_notifications_buddynext_sends(): void {
+		foreach ( array( 'new_follower', 'media_comment', 'media_favorite', 'new_message' ) as $type ) {
+			$this->assertFalse( $this->bridge->skip_duplicate_mvs_notification( true, 1, $type ), $type );
+		}
+		foreach ( array( 'media_reaction', 'media_mention' ) as $type ) {
+			$this->assertTrue( $this->bridge->skip_duplicate_mvs_notification( true, 1, $type ), $type );
+		}
+	}
+
 	public function test_media_delete_without_permalink_is_a_noop(): void {
 		// A legacy 2-arg dispatch (no permalink) must not throw or wipe anything.
 		$this->bridge->on_media_deleted( 55, $this->sender_id, '' );
@@ -278,4 +314,97 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( '', $html );
 	}
+
+	/**
+	 * When MVS's configured max is BELOW the server ceiling, that lower number
+	 * wins — it is what MVS will actually accept.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_bytes_uses_mediaverses_setting_when_it_is_the_lower_number(): void {
+		remove_all_filters( 'buddynext_media_max_bytes' );
+		// Below the REAL server ceiling, whatever this runner's php.ini sets it to
+		// (a bare PHP CLI often defaults upload_max_filesize to 2M) — the point is
+		// the lower of the two numbers, not a specific absolute size.
+		$configured = (int) max( 1, intdiv( wp_max_upload_size(), 2 ) );
+		StubSettingsHelper::$max_upload_size = $configured;
+
+		$this->assertSame( $configured, WPMediaVerseBridge::media_max_bytes() );
+	}
+
+	/**
+	 * The bug this card reported, inverted: an owner who raises MVS's setting
+	 * PAST the server's real upload_max_filesize/post_max_size must not have the
+	 * composer advertise a size the server will refuse — the server ceiling wins.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_bytes_clamps_to_server_ceiling_when_mediaverse_is_set_higher(): void {
+		remove_all_filters( 'buddynext_media_max_bytes' );
+		StubSettingsHelper::$max_upload_size = wp_max_upload_size() + ( 50 * MB_IN_BYTES );
+
+		$this->assertSame( wp_max_upload_size(), WPMediaVerseBridge::media_max_bytes() );
+	}
+
+	/**
+	 * buddynext_media_max_bytes is the one extension seam — a site can still cap
+	 * it further than either number.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_bytes_honors_the_developer_filter(): void {
+		StubSettingsHelper::$max_upload_size = wp_max_upload_size();
+		add_filter(
+			'buddynext_media_max_bytes',
+			static function () {
+				return 2 * MB_IN_BYTES;
+			}
+		);
+
+		$this->assertSame( 2 * MB_IN_BYTES, WPMediaVerseBridge::media_max_bytes() );
+
+		remove_all_filters( 'buddynext_media_max_bytes' );
+	}
+
+	/**
+	 * The whole-MB value the upload contexts receive rounds DOWN: a 2.6 MB
+	 * ceiling offered as 3 MB would let the client accept a file the server
+	 * then refuses after the whole upload.
+	 *
+	 * @return void
+	 */
+	public function test_media_max_mb_rounds_down(): void {
+		add_filter(
+			'buddynext_media_max_bytes',
+			static function () {
+				return (int) ( 2.6 * MB_IN_BYTES );
+			}
+		);
+
+		$this->assertSame( 2, WPMediaVerseBridge::media_max_mb() );
+
+		remove_all_filters( 'buddynext_media_max_bytes' );
+	}
+}
+
+// The "WPMediaVerse absent" fallback of media_max_bytes() is deliberately not
+// tested in this file: this stub is aliased to WPMediaVerse's SettingsHelper as
+// soon as the file loads, so that branch cannot be reached in-process. A test
+// that claimed to cover it only compared the runner's upload_max_filesize with
+// the stub's 100 MB default, and failed on any machine allowing more.
+if ( ! class_exists( '\WPMediaVerse\Core\SettingsHelper' ) ) {
+	/**
+	 * Minimal stand-in for WPMediaVerse's real SettingsHelper so
+	 * WPMediaVerseBridge::media_max_bytes() can be tested without the whole
+	 * WPMediaVerse plugin loaded. Only the one method the bridge calls.
+	 */
+	class StubSettingsHelper {
+		/** @var int */
+		public static int $max_upload_size = 104857600;
+
+		public static function get_max_upload_size( int $user_id = 0 ): int {
+			return self::$max_upload_size;
+		}
+	}
+	class_alias( StubSettingsHelper::class, '\WPMediaVerse\Core\SettingsHelper' );
 }

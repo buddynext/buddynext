@@ -4,6 +4,7 @@ import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
+import { bnConfirm, bnReloadWithToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -561,7 +562,7 @@ async function moderateJoinRequest( event, action ) {
 	} catch ( _e ) {
 		if ( row ) { row.style.opacity = '1'; }
 		for ( var k = 0; k < rowBtns.length; k++ ) { rowBtns[ k ].disabled = false; }
-		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 	}
 }
 
@@ -771,36 +772,31 @@ function refreshSpacePageAfterJoin() {
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 /**
- * POST create/reset of a space's invite link, then reload so the settings tab
- * re-renders the new state. Shared by the create and reset actions.
+ * Create/reset (POST) or revoke (DELETE) a space's invite link, then reload so
+ * the settings tab re-renders the new state. Shared by all three actions.
  *
  * @param {string}      spaceId Space ID.
- * @param {string}      expires Expiry preset (1d|7d|30d|never).
- * @param {number}      maxUses Max uses (0 = unlimited).
+ * @param {Object|null} body    { expires, max_uses } to create/reset; null to revoke.
  * @param {HTMLElement} trigger The clicked element (its button is disabled while busy).
  * @return {Promise<void>}
  */
-async function saveInviteLink( spaceId, expires, maxUses, trigger ) {
+async function saveInviteLink( spaceId, body, trigger ) {
 	if ( ! spaceId ) { return; }
 	var btn = trigger && trigger.closest ? trigger.closest( 'button' ) : null;
 	if ( btn ) { btn.disabled = true; }
 	try {
-		var res = await restFetch( '/spaces/' + spaceId + '/invite-link', {
-			method:       'POST',
-			nonce:        resolveNonce(),
-			body:         { expires: expires, max_uses: maxUses },
-			toastOnError: false,
-		} );
-		if ( res.ok && res.data && res.data.invite_link ) {
-			if ( window.bnToast ) { window.bnToast( t( 'inviteSaved', 'Invite link ready.' ), 'success' ); }
-			window.location.reload();
+		var opts = { method: body ? 'POST' : 'DELETE', nonce: resolveNonce(), toastOnError: false };
+		if ( body ) { opts.body = body; }
+		var res = await restFetch( '/spaces/' + spaceId + '/invite-link', opts );
+		if ( res.ok && res.data && ( body ? res.data.invite_link : null === res.data.invite_link ) ) {
+			bnReloadWithToast( body ? t( 'inviteSaved', 'Invite link ready.' ) : t( 'inviteRevoked', 'Invite link turned off.' ), 'success' );
 			return;
 		}
 		if ( btn ) { btn.disabled = false; }
 		if ( window.bnToast ) { window.bnToast( ( res.data && res.data.message ) || t( 'inviteSaveFailed', 'Could not save the invite link.' ), 'danger' ); }
 	} catch ( _e ) {
 		if ( btn ) { btn.disabled = false; }
-		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 	}
 }
 
@@ -887,7 +883,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 			}
 		},
 
@@ -903,7 +899,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			var maxSel  = root.querySelector( '[data-bn-invite-max]' );
 			var expires = expSel ? expSel.value : '7d';
 			var maxUses = parseInt( maxSel ? maxSel.value : '0', 10 ) || 0;
-			await saveInviteLink( spaceId, expires, maxUses, event.target );
+			await saveInviteLink( spaceId, { expires: expires, max_uses: maxUses }, event.target );
 		},
 
 		/**
@@ -925,7 +921,26 @@ var storeInstance = store( 'buddynext/spaces', {
 			var spaceId = root.getAttribute( 'data-space-id' );
 			var expires = root.getAttribute( 'data-bn-invite-expires-current' ) || '7d';
 			var maxUses = parseInt( root.getAttribute( 'data-bn-invite-max-current' ) || '0', 10 ) || 0;
-			await saveInviteLink( spaceId, expires, maxUses, event.target );
+			await saveInviteLink( spaceId, { expires: expires, max_uses: maxUses }, event.target );
+		},
+
+		/**
+		 * Revoke the link after a confirm: the old URL stops working and no new
+		 * link is issued; the panel returns to its create form.
+		 */
+		revokeInviteLink: async function ( event ) {
+			var root = event && event.target && event.target.closest( '[data-bn-invite-panel]' );
+			if ( ! root ) { return; }
+			if ( window.bnConfirm ) {
+				var ok = await window.bnConfirm( {
+					tone:         'danger',
+					title:        t( 'inviteRevokeTitle', 'Turn off the invite link?' ),
+					body:         t( 'inviteRevokeBody', 'The current link stops working immediately and can’t be restored. People who already joined stay members.' ),
+					confirmLabel: t( 'inviteRevokeConfirm', 'Turn off link' ),
+				} );
+				if ( ! ok ) { return; }
+			}
+			await saveInviteLink( root.getAttribute( 'data-space-id' ), null, event.target );
 		},
 
 		/**
@@ -981,8 +996,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				var data = res.data || {};
 
 				if ( res.ok && data.joined ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationAccepted', 'Invitation accepted.' ), 'success' ); }
-					window.location.reload();
+					bnReloadWithToast( t( 'invitationAccepted', 'Invitation accepted.' ), 'success' );
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
@@ -1015,8 +1029,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationDeclined', 'Invitation declined.' ), 'info' ); }
-					window.location.reload();
+					bnReloadWithToast( t( 'invitationDeclined', 'Invitation declined.' ), 'info' );
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
@@ -1069,7 +1082,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
 			}
 		},
 
@@ -1094,6 +1107,8 @@ var storeInstance = store( 'buddynext/spaces', {
 				message: t( 'leaveSpaceConfirm', 'You will stop seeing its posts and can join again later.' ),
 				ok:      t( 'leaveSpaceOk', 'Leave' ),
 				cancel:  t( 'cancel', 'Cancel' ),
+				// Leaving is reversible (the member can join again), so it is not a danger dialog.
+				tone:    'default',
 			} );
 			if ( ! confirmed ) { return; }
 
@@ -1520,9 +1535,8 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'ownershipTransferred', 'Ownership transferred.' ), 'success' ); }
 					closeAllSpaceModals();
-					setTimeout( function () { window.location.reload(); }, 600 );
+					bnReloadWithToast( t( 'ownershipTransferred', 'Ownership transferred.' ), 'success' );
 				} else {
 					var data = res.data || {};
 					var errEl = modal.querySelector( '[data-bn-transfer-error]' );
@@ -1709,8 +1723,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'spaceArchived', 'Space archived.' ), 'success' ); }
-					setTimeout( function () { window.location.reload(); }, 500 );
+					bnReloadWithToast( t( 'spaceArchived', 'Space archived.' ), 'success' );
 				} else {
 					btn.disabled = false;
 					if ( window.bnToast ) { window.bnToast( t( 'couldNotArchive', 'Could not archive the space. Try again.' ), 'danger' ); }
@@ -1746,8 +1759,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'spaceRestored', 'Space restored.' ), 'success' ); }
-					setTimeout( function () { window.location.reload(); }, 500 );
+					bnReloadWithToast( t( 'spaceRestored', 'Space restored.' ), 'success' );
 				} else {
 					btn.disabled = false;
 					if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
@@ -1963,7 +1975,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent' ), 'success' ); }
 					closeAllSpaceModals();
 				} else {
 					var data = res.data || {};
@@ -2181,7 +2193,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					showCreateSpaceError( form, '_global', t( 'couldNotCreateSpace', 'Could not create the space.' ) );
 				}
 			} catch ( _e ) {
-				showCreateSpaceError( form, '_global', t( 'networkErrorRetry', 'Network error. Please try again.' ) );
+				showCreateSpaceError( form, '_global', t( 'networkErrorRetry', 'Network error. Try again.' ) );
 			} finally {
 				if ( btn ) {
 					btn.disabled    = false;
@@ -3005,8 +3017,22 @@ function openSpaceModal( name ) {
 	var modal = document.querySelector( '[data-bn-modal="' + name + '"]' );
 	if ( ! modal ) { return; }
 	modal.hidden = false;
-	var focusable = modal.querySelector( 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])' );
-	if ( focusable ) { focusable.focus(); }
+	focusModalStart( modal );
+}
+
+/**
+ * Put initial focus where the member starts: the first form field when the modal has
+ * one, otherwise the first control. Landing on the header's close button (the first
+ * focusable in DOM order) drew a heavy ring on an "x" and made a form modal feel
+ * unfocused.
+ *
+ * @param {HTMLElement} modal Modal backdrop.
+ */
+function focusModalStart( modal ) {
+	var target = modal.querySelector( 'input:not([type="hidden"]), select, textarea' ) ||
+		modal.querySelector( 'button:not(.bn-modal__close), [href], [tabindex]:not([tabindex="-1"])' ) ||
+		modal.querySelector( 'button' );
+	if ( target ) { target.focus(); }
 }
 
 /**
@@ -3020,8 +3046,7 @@ function focusFirstInModal( name ) {
 	requestAnimationFrame( function () {
 		var modal = document.querySelector( '[data-bn-modal="' + name + '"]' );
 		if ( ! modal || modal.hidden ) { return; }
-		var focusable = modal.querySelector( 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])' );
-		if ( focusable ) { focusable.focus(); }
+		focusModalStart( modal );
 	} );
 }
 
@@ -3050,197 +3075,54 @@ function closeAllSpaceModals() {
 	}
 }
 
-/* ── Confirm modal ─────────────────────────────────────────────────────
+/* ── Confirm ───────────────────────────────────────────────────────────
  *
- * `data-bn-confirm="<message>"` on any button opens a v2 modal dialog
- * with the supplied message. If the user confirms, the original click
- * is re-dispatched on the same element with an acknowledged flag so
- * the underlying click pipeline (forms, wp Interactivity actions,
- * native links) runs unchanged.
+ * The shared bnConfirm is the one confirm dialog (same shell, focus handling, Escape
+ * and dark styling as every other). `data-bn-confirm="<message>"` on a button gates its
+ * click behind it: on confirm the click is replayed on the same element with an
+ * acknowledged flag, so the underlying pipeline (forms, Interactivity actions, links)
+ * runs unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 
 var BN_CONFIRM_FLAG = 'data-bn-confirm-acknowledged';
-var bnConfirmBackdrop = null;
-var bnConfirmRefs = null;
-// When a promise-based confirm (bnConfirmDialog) is open, this holds its resolver.
-// It lets an action `await` a confirmation at the SEAM every control shares, instead
-// of relying on a per-template data-bn-confirm attribute one route can forget (or,
-// as on the space hero, one where the markup gate swallowed the click but never
-// showed a modal — card 10294398101 item 1).
-var bnConfirmResolve = null;
-
-function buildConfirmModal() {
-	var backdrop = document.createElement( 'div' );
-	backdrop.className = 'bn-modal-backdrop';
-	backdrop.setAttribute( 'role', 'dialog' );
-	backdrop.setAttribute( 'aria-modal', 'true' );
-	backdrop.setAttribute( 'data-bn-confirm-modal', '' );
-	backdrop.hidden = true;
-
-	var panel = document.createElement( 'div' );
-	panel.className = 'bn-modal__panel';
-	panel.setAttribute( 'data-tone', 'danger' );
-	panel.setAttribute( 'data-size', 'sm' );
-
-	var head = document.createElement( 'header' );
-	head.className = 'bn-modal__head';
-	var title = document.createElement( 'h2' );
-	title.className = 'bn-modal__title';
-	var closeBtn = document.createElement( 'button' );
-	closeBtn.type = 'button';
-	closeBtn.className = 'bn-modal__close';
-	closeBtn.setAttribute( 'data-bn-confirm-cancel', '' );
-	closeBtn.setAttribute( 'aria-label', t( 'confirmClose', 'Close' ) );
-	closeBtn.textContent = '×';
-	head.appendChild( title );
-	head.appendChild( closeBtn );
-
-	var body = document.createElement( 'div' );
-	body.className = 'bn-modal__body';
-	var message = document.createElement( 'p' );
-	body.appendChild( message );
-
-	var foot = document.createElement( 'div' );
-	foot.className = 'bn-modal__foot';
-	var cancelBtn = document.createElement( 'button' );
-	cancelBtn.type = 'button';
-	cancelBtn.className = 'bn-btn';
-	cancelBtn.setAttribute( 'data-variant', 'ghost' );
-	cancelBtn.setAttribute( 'data-size', 'md' );
-	cancelBtn.setAttribute( 'data-bn-confirm-cancel', '' );
-	var okBtn = document.createElement( 'button' );
-	okBtn.type = 'button';
-	okBtn.className = 'bn-btn';
-	okBtn.setAttribute( 'data-variant', 'danger' );
-	okBtn.setAttribute( 'data-size', 'md' );
-	okBtn.setAttribute( 'data-bn-confirm-ok', '' );
-	foot.appendChild( cancelBtn );
-	foot.appendChild( okBtn );
-
-	panel.appendChild( head );
-	panel.appendChild( body );
-	panel.appendChild( foot );
-	backdrop.appendChild( panel );
-	document.body.appendChild( backdrop );
-
-	return {
-		backdrop: backdrop,
-		title:    title,
-		message:  message,
-		ok:       okBtn,
-		cancel:   cancelBtn,
-		close:    closeBtn,
-	};
-}
-
-function ensureConfirmModal() {
-	if ( bnConfirmRefs ) { return bnConfirmRefs; }
-	bnConfirmRefs    = buildConfirmModal();
-	bnConfirmBackdrop = bnConfirmRefs.backdrop;
-	return bnConfirmRefs;
-}
-
-function openConfirmModal( triggerEl ) {
-	var refs = ensureConfirmModal();
-	refs.title.textContent   = triggerEl.dataset.bnConfirmTitle || t( 'pleaseConfirm', 'Please confirm' );
-	refs.message.textContent = triggerEl.dataset.bnConfirm || '';
-	refs.ok.textContent      = triggerEl.dataset.bnConfirmOk || t( 'confirm', 'Confirm' );
-	refs.cancel.textContent  = triggerEl.dataset.bnConfirmCancel || t( 'cancel', 'Cancel' );
-
-	if ( ! triggerEl.id ) {
-		triggerEl.dataset.bnConfirmAutoId = 'bn-confirm-' + Math.random().toString( 36 ).slice( 2 );
-	}
-	refs.backdrop.dataset.bnConfirmTriggerId = triggerEl.id || triggerEl.dataset.bnConfirmAutoId;
-
-	refs.backdrop.hidden = false;
-	refs.ok.focus();
-}
-
-function closeConfirmModal() {
-	if ( bnConfirmBackdrop ) {
-		bnConfirmBackdrop.hidden = true;
-	}
-}
 
 /**
- * Programmatic confirm: open the shared modal and resolve true/false on the
- * owner's choice. Any action can `await bnConfirmDialog(...)` before a
- * destructive step, so every control that dispatches to that action is guarded
- * by construction — no per-template attribute to forget.
+ * Confirm before a step. Any action can `await bnConfirmDialog(...)`, so every control
+ * that dispatches to it is guarded by construction, with no per-template attribute to
+ * forget.
  *
- * @param {Object} opts title/message/ok/cancel text.
- * @return {Promise<boolean>} Resolves true when confirmed, false otherwise.
+ * @param {Object} opts title, message, ok and cancel text; tone ('danger' by default).
+ * @return {Promise<boolean>} Resolves true when confirmed.
  */
 function bnConfirmDialog( opts ) {
 	opts = opts || {};
-	// If a previous programmatic confirm is somehow still open, decline it.
-	if ( bnConfirmResolve ) { settleConfirmDialog( false ); }
-
-	var refs = ensureConfirmModal();
-	refs.title.textContent   = opts.title || t( 'pleaseConfirm', 'Please confirm' );
-	refs.message.textContent = opts.message || '';
-	refs.ok.textContent      = opts.ok || t( 'confirm', 'Confirm' );
-	refs.cancel.textContent  = opts.cancel || t( 'cancel', 'Cancel' );
-	// Not a click-replay confirm — clear any trigger id so the OK handler resolves
-	// the promise below instead of re-clicking a markup trigger.
-	delete refs.backdrop.dataset.bnConfirmTriggerId;
-
-	refs.backdrop.hidden = false;
-	refs.ok.focus();
-
-	return new Promise( function ( resolve ) { bnConfirmResolve = resolve; } );
-}
-
-/**
- * Resolve a pending programmatic confirm and close the modal.
- *
- * @param {boolean} confirmed Whether the owner confirmed.
- * @return {boolean} True when a programmatic confirm was pending (and handled).
- */
-function settleConfirmDialog( confirmed ) {
-	if ( ! bnConfirmResolve ) { return false; }
-	var resolve = bnConfirmResolve;
-	bnConfirmResolve = null;
-	closeConfirmModal();
-	resolve( !! confirmed );
-	return true;
-}
-
-function resumeConfirmedClick() {
-	if ( ! bnConfirmBackdrop ) { return; }
-	var triggerId = bnConfirmBackdrop.dataset.bnConfirmTriggerId;
-	closeConfirmModal();
-	if ( ! triggerId ) { return; }
-	var trigger = document.getElementById( triggerId ) ||
-		document.querySelector( '[data-bn-confirm-auto-id="' + triggerId + '"]' );
-	if ( ! trigger ) { return; }
-	trigger.setAttribute( BN_CONFIRM_FLAG, '1' );
-	trigger.click();
-	trigger.removeAttribute( BN_CONFIRM_FLAG );
+	return bnConfirm( {
+		title:        opts.title || t( 'pleaseConfirm', 'Please confirm' ),
+		body:         opts.message || '',
+		confirmLabel: opts.ok || t( 'confirm', 'Confirm' ),
+		cancelLabel:  opts.cancel || t( 'cancel', 'Cancel' ),
+		tone:         opts.tone || 'danger',
+	} );
 }
 
 document.addEventListener( 'click', function ( event ) {
-	// Confirm modal interactions take priority.
-	if ( event.target.closest( '[data-bn-confirm-ok]' ) ) {
-		event.preventDefault();
-		event.stopImmediatePropagation();
-		// A programmatic confirm resolves its promise; a markup confirm replays.
-		if ( ! settleConfirmDialog( true ) ) { resumeConfirmedClick(); }
-		return;
-	}
-	if ( event.target.closest( '[data-bn-confirm-cancel]' ) ) {
-		event.preventDefault();
-		event.stopImmediatePropagation();
-		if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
-		return;
-	}
-
-	// Gate — buttons with data-bn-confirm open a modal instead of running.
+	// Gate: a button with data-bn-confirm asks first, then replays its click.
 	var confirmEl = event.target.closest( '[data-bn-confirm]' );
 	if ( confirmEl && ! confirmEl.hasAttribute( BN_CONFIRM_FLAG ) ) {
 		event.preventDefault();
 		event.stopImmediatePropagation();
-		openConfirmModal( confirmEl );
+		// A button can name its action: data-bn-confirm-title and data-bn-confirm-ok. Without
+		// them the dialog falls back to the generic "Please confirm" / "Confirm".
+		bnConfirmDialog( {
+			title:   confirmEl.getAttribute( 'data-bn-confirm-title' ) || '',
+			message: confirmEl.getAttribute( 'data-bn-confirm' ),
+			ok:      confirmEl.getAttribute( 'data-bn-confirm-ok' ) || '',
+		} ).then( function ( ok ) {
+			if ( ! ok ) { return; }
+			confirmEl.setAttribute( BN_CONFIRM_FLAG, '1' );
+			confirmEl.click();
+			confirmEl.removeAttribute( BN_CONFIRM_FLAG );
+		} );
 		return;
 	}
 
@@ -3258,21 +3140,12 @@ document.addEventListener( 'click', function ( event ) {
 		closeAllSpaceModals();
 		return;
 	}
-	var confirmBackdrop = event.target.closest( '.bn-modal-backdrop[data-bn-confirm-modal]' );
-	if ( confirmBackdrop && event.target === confirmBackdrop ) {
-		// Backdrop click = cancel; resolve a pending programmatic confirm as false.
-		if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
-	}
 }, true );
 
 document.addEventListener( 'keydown', function ( event ) {
 	if ( 'Escape' === event.key ) {
 		var openBackdrop = document.querySelector( '[data-bn-modal]:not([hidden])' );
 		if ( openBackdrop ) { closeAllSpaceModals(); }
-		if ( bnConfirmBackdrop && ! bnConfirmBackdrop.hidden ) {
-			// Escape = cancel; resolve a pending programmatic confirm as false.
-			if ( ! settleConfirmDialog( false ) ) { closeConfirmModal(); }
-		}
 	}
 } );
 
@@ -3552,7 +3425,7 @@ document.addEventListener( 'keydown', function ( event ) {
 					} ).then( function ( data ) {
 						paint( data.cover_image_url || '', focal );
 						paintSpaceHeader( 'cover', data.cover_image_url || '', undefined, focal );
-						if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated.' ), 'success' ); }
+						if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated' ), 'success' ); }
 					} ).catch( function ( err ) {
 						if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotUploadCover', 'Could not upload cover.' ), 'danger' ); }
 					} ).finally( function () {

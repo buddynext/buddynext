@@ -223,9 +223,10 @@ final class ScheduledPostsPublisher {
 				array(
 					'status'       => 'draft',
 					'scheduled_at' => null,
+					'updated_at'   => current_time( 'mysql', true ),
 				),
 				array( 'id' => $post_id ),
-				array( '%s', '%s' ),
+				array( '%s', '%s', '%s' ),
 				array( '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

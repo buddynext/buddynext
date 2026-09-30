@@ -254,7 +254,7 @@ printf(
 		)
 	);
 	?>
-<?php elseif ( $bn_is_member && ! $bn_can_post ) : ?>
+<?php elseif ( $bn_is_member && ! $bn_can_post && ! $bn_is_archived ) : // The archive notice above already explains posting is off. ?>
 	<div class="bn-card bn-sh-guest-cta">
 		<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
 		<div class="bn-sh-guest-cta__copy">
@@ -262,7 +262,7 @@ printf(
 			<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Only the space owner and moderators can post here. You can still react and reply.', 'buddynext' ); ?></p>
 		</div>
 	</div>
-<?php elseif ( $bn_is_guest && (bool) apply_filters( 'buddynext_space_feed_show_guest_cta', true, $bn_space_id ) ) : ?>
+<?php elseif ( $bn_is_guest && ! $bn_is_archived && (bool) apply_filters( 'buddynext_space_feed_show_guest_cta', true, $bn_space_id ) ) : // Archived: the notice explains; nothing to join. ?>
 	<?php
 	/**
 	 * Filter whether the logged-out "Join to participate / Log in" card shows in
@@ -339,7 +339,9 @@ printf(
 		array(
 			'icon'  => 'message-circle',
 			'title' => __( 'No posts yet', 'buddynext' ),
-			'body'  => __( 'Be the first to post in this space.', 'buddynext' ),
+			'body'  => $bn_is_archived
+				? __( 'Nothing was posted before this space was archived.', 'buddynext' )
+				: __( 'Be the first to post in this space.', 'buddynext' ),
 		)
 	);
 	?>

@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -58,6 +58,88 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.2 - September 2026 =
+
+Moderation moves to Community Admin and each space's own tab, Files gain folders and a Trash, gamification and messaging follow their partner plugins more closely, and a broad accessibility and reliability sweep. Lockstep with BuddyNext Pro 1.2.2 - install and test both together.
+
+* New      - Space owners and moderators can revoke a space's invite link, turning it off without issuing a new one.
+* New      - Space owners and moderators can create, rename and trash folders in a space's Files tab, and restore them from a new Trash view.
+* New      - The Files Trash shows who trashed each folder, when, how many items it holds and when it will be removed, with a Delete now action for people who can manage it.
+* New      - Page cache and optimisation guide for site owners: what BuddyNext handles automatically, what was tested, and what to do after updates.
+* Improve  - Community Admin moderation now pages through every open report, filters by type and sorts by most reported, so moderators without wp-admin access can work the whole queue.
+* Improve  - Report rows show the first line of what was reported, and the More menu adds View reported item, Warn author and Reverse last strike.
+* Improve  - A space's Moderation tab keeps Dismiss and Remove on each report and moves the rest into a More menu, with a working View reported item link.
+* Improve  - The standalone /moderation/ page is retired; Community Admin is the front-end moderation home and each space keeps its own Moderation tab.
+* Improve  - The Kudos tab follows WB Gamification 1.6.5: after you give kudos it shows "You gave X kudos" instead of the form, and the form is not offered when you have hit the daily ceiling.
+* Improve  - Folder controls in Files follow WPMediaVerse's own rules: space owners and moderators manage every folder, and a member can rename or trash the folders they created.
+* Improve  - Gamification screens use your site's own name for points (Points tab, Achievements, Leaderboard), the Achievements rank is labelled All-time rank, and the leaderboard no longer shows an invented next-milestone widget.
+* Improve  - Earning categories on the Points tab use WB Gamification's own labels, so new categories read correctly without a BuddyNext update.
+* Improve  - Messages are switched on or off in one place, WPMediaVerse Settings, Social, Messages; Platform, Features shows whether they are on and links there.
+* Improve  - Document posts stay off the public Explore page, which is for things to look at; they still show in their space's feed and Files tab and on the author's profile. Developers can show them with the buddynext_explore_excluded_post_types filter.
+* Fix      - When a community page is the site's front page, its deeper pages (Leaderboard, Explore, Account status, member profiles) open normally, with their own title and no home-page styling.
+* Fix      - Profile Achievements list badges in ladder order (1-Year, 2-Year, 5-Year, 10-Year), and the leaderboard ribbon shows each member's latest badges with a correct "+N more" count.
+* Fix      - The level-up notification names the level you reached instead of an internal number.
+* Fix      - A member's profile privacy now also hides their points, badges, rank and kudos from people who cannot see their profile, including on the leaderboard.
+* Fix      - Uploading a photo in WPMediaVerse earns its upload points once; the feed post it creates no longer pays again.
+* Fix      - Switching Kudos off in WB Gamification removes the profile Kudos tab, and the Achievements tab no longer points at it.
+* Fix      - With Messages off, the member directory, space member lists, the notifications Messages filter and the Add to Menu box no longer offer a Message link that leads nowhere, and message notifications are left out of the bell until Messages are on again.
+* Fix      - The Messages page tells an administrator that Messages are switched off in WPMediaVerse (with a link) instead of asking them to install a plugin they already have, and tells members plainly that Messages are turned off.
+* Fix      - The Message button on a space's member list opens a conversation with that member instead of the inbox.
+* Fix      - Every community page a member is logged in on is now marked uncacheable, so a page cache that caches logged-in visitors no longer sends onboarding back to step 1 after Continue. Tested with WP Super Cache, W3 Total Cache, WP Rocket and LiteSpeed Cache; guest views of public pages stay cached.
+* Fix      - With WP Rocket, guests now get cached and optimised profiles, posts and other community sub-pages; WP Rocket skipped them because their address differs from their page's permalink.
+* Fix      - A photo trashed in WPMediaVerse takes its feed post with it, restoring the photo brings the same post back, and deleting it permanently removes the post instead of leaving an empty one.
+* Fix      - The Achievements badge count is no longer capped at 24.
+* Fix      - A full search reindex now includes spaces' searchable custom fields, as saving a space already did.
+* Fix      - With WB Gamification active, the sidebar streak card's 7-day strip and best-this-month use the same activity as its streak number.
+* Fix      - A message whose photo was deleted shows "This attachment is no longer available." instead of an empty row.
+* Fix      - A message sent or received while a conversation is open now shows the same time as after a reload, in the site's timezone and time format.
+* Fix      - Moderation queues: open-report counts drop as you act, Warn and Remove from space only show for members they can act on, profile reports offer member actions, and rows show a shared discussion's title.
+* Fix      - Community Admin report rows stack on phones, and the row's More menu is no longer cut off by the card or the screen edge.
+* Fix      - A space that stored an invalid field value before 1.2.1 no longer breaks its About tab or the space API; the update removes the bad value.
+* Fix      - The drag handle in the Featured spaces picker shows again (its icon was missing).
+* Fix      - The Files tab's Link a file panel closes on Escape or a click outside it, instead of staying open over the file list.
+* Fix      - Confirmation messages for actions that refresh the page (invite link, space archive, restore and transfer, invitations, file uploads, unpinning, appeals) now show after the refresh instead of vanishing.
+* Fix      - Opening a space through a revoked, expired or used-up invite link now says the link is no longer valid, instead of showing a join button with no explanation.
+* Fix      - Delete, revoke and trash confirmations focus Cancel, so a stray Enter never removes anything.
+* Fix      - Pressing Enter submits name prompts such as New folder, and an empty name shows an inline message instead of closing the dialog.
+* Fix      - Folders in the Files list show a folder icon instead of "DIR".
+* Fix      - The "This space is archived" notice and the kudos result messages show as styled notices instead of plain text.
+* Fix      - Colours, sizes and shadows that pointed at design tokens which did not exist now use the real ones, so they follow your theme colour and dark mode.
+* Fix      - A document attached to a post is shared with that post's audience, so everyone who can see the post can open the file; in a space it is added to the space's Files.
+* Fix      - A document card in a space opens the file's page with a preview and Download when the space has Files turned on.
+* Fix      - Files linked into a space open from the space's Files tab instead of showing "File not found".
+* Fix      - Link a file accepts the address of a BuddyNext Files page.
+* Fix      - A file linked into an open space can be opened by everyone, like the files uploaded there.
+* Fix      - A discussion card whose discussion was deleted or made private no longer links to a missing page; it is withdrawn from the feed.
+* Fix      - A space's moderation queue shows each reported author's real standing (owner, moderator, member or not a member), and explains "Remove from space" only where it is offered.
+* Fix      - Reports on a space's posts and comments always reach that space's moderation queue, including comment reports and reports filed from the app; existing reports are re-filed on update.
+* Fix      - A space's moderation, settings and admin pages tell a visitor why they can't use them: community moderators are pointed to Community Admin, and people who never held the role are no longer told they "no longer" do.
+* Fix      - An archived space looks and acts archived: an Archived badge, no Invite, Join, Log in to join or Add sub-space, no contradictory posting panel, and invitations and new sub-spaces are refused.
+* Fix      - When a community page is the site's front page, the home tab reads "Page - Site name" and its canonical and og:url point at the site root; Activity sub-pages such as Leaderboard use their own canonical URL.
+* Fix      - On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
+* Fix      - For You no longer shows followers-only or connections-only posts from joined spaces to members outside that audience.
+* Fix      - Dialogs: one Escape closes one layer (confirm, then menu, then lightbox), and Tab never leaves an open dialog, including after a button disables itself or a row is removed.
+* Fix      - Search: Escape and the close button work from anywhere in the overlay, and closing returns you to where you were, including after the keyboard shortcut.
+* Fix      - The album picker, feed composer and Media tab all use the site's real upload limit from WPMediaVerse and name it in the error.
+* Fix      - Settings, Navigation shows an icon on every row, offers the Icon field only on custom links where it works, and describes Explore in plain words.
+* Fix      - Restore defaults previews every setting in the words the settings screen uses: On and Off, dropdown labels, No limit and the real login-panel text.
+* Fix      - Roles & Capabilities uses the same Restore defaults confirmation, layout and notices as every other settings tab.
+* Fix      - Accent-coloured buttons pick black or white text by contrast, so any brand or theme colour stays readable in light and dark mode.
+* Fix      - Create share link is hidden when WPMediaVerse link sharing is off, instead of failing when pressed.
+* Fix      - Deleting a photo post also clears its media link in WPMediaVerse; the photo stays in the member's library.
+* Fix      - Dropdowns show an arrow on every theme, in light and dark mode and right-to-left layouts.
+* Fix      - The moderation content-warning control shows a post's current warning and offers Clear warning, in Community Admin and a space's Moderation tab.
+* Fix      - BuddyNext runs safely next to older WB Gamification and WPMediaVerse versions: a feature that needs a newer partner stays hidden instead of causing an error.
+* Dev      - Mirrored follows, lightbox comments and forum replies run inside IntegrationActivity::as_mirror(), so reward listeners can skip them with IntegrationActivity::is_mirror() and never pay one action twice.
+* Dev      - New buddynext_render_drive_files() shows a space's or member's Files UI on any page.
+* Dev      - New buddynext_search_space_object_type filter lets a plugin list some spaces under their own search section and tab.
+* Dev      - New buddynext_invite_link_dead_notice filter changes or removes the dead invite link notice.
+* Dev      - New buddynext_document_card_url filter changes where a feed document card links.
+* Dev      - New buddynext_discussion_card_url filter lets a bridge confirm a discussion card's link as it renders.
+* Dev      - Removed the buddynext_mod_queue_columns filter with the retired page; buddynext_mod_queue_row_actions and buddynext_moderation_queue_before now fire in Community Admin.
+* Dev      - The REST API reference documents the options on a poll post in the single post, Explore and hashtag feed responses.
+* Compat   - Aligned with BuddyNext Pro 1.2.2. Install both updates together. Kudos, ranks and shared badges need WB Gamification 1.6.5 or later.
 
 = 1.2.1 - September 2026 =
 

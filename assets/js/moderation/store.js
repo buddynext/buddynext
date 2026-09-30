@@ -1,10 +1,10 @@
 /* BuddyNext — Moderation Interactivity API store.
  *
- * Powers both the site-wide moderation queue (moderation/queue.php) and
- * space-level moderation panel (spaces/moderation.php).
+ * Powers Community Admin > Moderation (community-admin.php), the space-level
+ * moderation panel (spaces/moderation.php) and the account-status appeal form.
  */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -18,15 +18,31 @@ let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
+/**
+ * Take a resolved report off the page: remove its whole row (a Community Admin
+ * row or a space report card, never just the button that carries the id) and
+ * count it off every open-reports counter, so the stats match without a reload.
+ *
+ * @param {number|string} reportId Report id.
+ */
+function dropReportRow( reportId ) {
+	const hit = document.querySelector( '[data-report-id="' + reportId + '"]' );
+	const row = hit && ( hit.closest( '.bn-ca-report-row, .bn-space-mod__report' ) || hit );
+	if ( ! row ) { return; }
+	row.remove();
+	document.querySelectorAll( '[data-bn-open-reports]' ).forEach( ( el ) => {
+		el.textContent = String( Math.max( 0, ( parseInt( el.textContent, 10 ) || 0 ) - 1 ) );
+	} );
+}
+
 const moderationStore = store( 'buddynext/moderation', {
 
 	/* ── Derived state: the offender's live strike standing ─────────────────
 	 *
 	 * Each queue row's context carries `strikes` — the offender's active
 	 * (non-reversed) strike count, seeded server-side by the queue's enrich pass.
-	 * strikeUser() and reverseStrike() write it back, so the strike dots, the
-	 * count label, and the Reverse control all track the real standing without a
-	 * reload. Interactivity directives cannot evaluate `!` or `>=` inline, so the
+	 * strikeUser() and reverseStrike() write it back, so the Reverse control
+	 * tracks the real standing without a reload. Interactivity directives cannot evaluate `!` or `>=` inline, so the
 	 * booleans are derived here; getContext() resolves to the row the directive
 	 * lives in. ────────────────────────────────────────────────────────────── */
 	state: {
@@ -34,49 +50,16 @@ const moderationStore = store( 'buddynext/moderation', {
 			const ctx = getContext();
 			return Math.max( 0, parseInt( ( ctx && ctx.strikes ) || 0, 10 ) || 0 );
 		},
-		// Hides the strike dots, the count label and the Reverse control for a
-		// member with a clean record. `hidden` is a real DOM property, so a plain
+		// Hides the Reverse control for a member with a clean record. `hidden` is a real DOM property, so a plain
 		// boolean is correct here.
 		get noStrikes() { return moderationStore.state.strikeCount < 1; },
-		/* The dot getters return true|null, NOT true|false. `data-active` is a
-		 * data-* attribute, and Preact only removes those when the bound value is
-		 * null/undefined — a literal `false` is written out as data-active="false",
-		 * which still matches the CSS [data-active] rule and would paint every dot
-		 * red. null is the only value that clears the attribute. */
-		get strikeDot1() { return moderationStore.state.strikeCount >= 1 || null; },
-		get strikeDot2() { return moderationStore.state.strikeCount >= 2 || null; },
-		get strikeDot3() { return moderationStore.state.strikeCount >= 3 || null; },
-		get strikeCountLabel() {
-			const n = moderationStore.state.strikeCount;
-			return fmt( 1 === n ? t( 'strikeCountOne', '%d strike' ) : t( 'strikeCountOther', '%d strikes' ), n );
-		},
 		get reverseStrikeAria() {
 			return fmt( t( 'reverseStrikeAria', 'Reverse the most recent strike (%d active)' ), moderationStore.state.strikeCount );
 		},
 	},
 
 	actions: {
-		/* ── Site-wide queue actions ────────────────────────────────── */
-
-		viewObject() {
-			const ctx = getContext();
-			const url = ctx.objectUrl || '#';
-			window.open( url, '_blank' );
-		},
-
-		viewInContext() {
-			const ctx = getContext();
-			window.location.href = ctx.contextUrl || '#';
-		},
-
-		applySort( event ) {
-			const val = event.target.value || event.target.dataset.sort;
-			if ( val ) {
-				const url = new URL( window.location.href );
-				url.searchParams.set( 'sort', val );
-				window.location.href = url.toString();
-			}
-		},
+		/* ── Report-row actions (Community Admin) ─────────────────────── */
 
 		* dismiss() {
 			const ctx = getContext();
@@ -89,8 +72,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
-				if ( row ) { row.remove(); }
+				dropReportRow( ctx.reportId );
 			} else {
 				bnToast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), { tone: 'danger' } );
 			}
@@ -115,9 +97,8 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
-				if ( row ) { row.remove(); }
-				bnToast( t( 'contentRemoved', 'Content removed.' ), { tone: 'success' } );
+				dropReportRow( ctx.reportId );
+				bnToast( t( 'contentRemoved', 'Content removed' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'removeContentFailed', 'Could not remove the content. Try again.' ), { tone: 'danger' } );
 			}
@@ -135,9 +116,8 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
-				if ( row ) { row.remove(); }
-				bnToast( t( 'reportResolved', 'Report resolved.' ), { tone: 'success' } );
+				dropReportRow( ctx.reportId );
+				bnToast( t( 'reportResolved', 'Report resolved' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'resolveFailed', 'Could not resolve the report. Try again.' ), { tone: 'danger' } );
 			}
@@ -157,7 +137,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				ctx.escalated      = true;
 				ctx.moreMenuOpen   = false;
-				bnToast( t( 'reportEscalated', 'Report escalated.' ), { tone: 'success' } );
+				bnToast( t( 'reportEscalated', 'Report escalated' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'escalateFailed', 'Could not escalate the report. Try again.' ), { tone: 'danger' } );
 			}
@@ -206,7 +186,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			} );
 			if ( res.ok ) {
 				ctx.cwHasWarning = true;
-				bnToast( t( 'cwAdded', 'Content warning applied.' ), { tone: 'success' } );
+				bnToast( t( 'cwAdded', 'Content warning applied' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
 			}
@@ -224,7 +204,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			} );
 			if ( res.ok ) {
 				ctx.cwHasWarning = false;
-				bnToast( t( 'cwCleared', 'Content warning cleared.' ), { tone: 'success' } );
+				bnToast( t( 'cwCleared', 'Content warning cleared' ), { tone: 'success' } );
 			} else {
 				bnToast( t( 'cwFailed', 'Could not update the content warning. Try again.' ), { tone: 'danger' } );
 			}
@@ -245,7 +225,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				body: { message: 'Content policy reminder', space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : t( 'warnUserFailed', 'Could not warn the user.' ), { tone: res.ok ? 'success' : 'danger' } );
+			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnUserFailed', 'Could not warn the user.' ) ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* strikeUser() {
@@ -260,7 +240,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				// Reflect the new standing so the row's strike dots/count update and
+				// Reflect the new standing so
 				// the Reverse control appears — the admin who just struck someone by
 				// mistake must be able to undo it without hunting for a reload.
 				ctx.strikes = ( parseInt( ctx.strikes || 0, 10 ) || 0 ) + 1;
@@ -318,7 +298,7 @@ const moderationStore = store( 'buddynext/moderation', {
 
 			if ( res.ok ) {
 				ctx.strikes = Math.max( 0, strikes.length - 1 );
-				bnToast( t( 'strikeReversed', 'Strike reversed.' ), { tone: 'success' } );
+				bnToast( t( 'strikeReversed', 'Strike reversed' ), { tone: 'success' } );
 			} else {
 				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' );
 				bnToast( emsg, { tone: 'danger' } );
@@ -355,7 +335,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			const message = field ? field.value.trim() : '';
 			if ( ! ctx.suspensionId || ! ctx.restNonce ) { return; }
 			if ( message.length < 10 ) {
-				bnToast( t( 'appealTooShort', 'Please describe why you are appealing (at least 10 characters).' ), { tone: 'danger' } );
+				bnToast( t( 'appealTooShort', 'Describe why you are appealing (at least 10 characters).' ), { tone: 'danger' } );
 				if ( field ) { field.focus(); }
 				return;
 			}
@@ -368,9 +348,8 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( t( 'appealSubmitted', 'Your appeal has been submitted.' ), { tone: 'success' } );
 				// Reload so the banner re-renders in its "under review" state.
-				window.location.reload();
+				bnReloadWithToast( t( 'appealSubmitted', 'Your appeal has been submitted.' ), { tone: 'success' } );
 			} else {
 				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'appealSubmitFailed', 'Could not submit your appeal. Try again.' );
 				bnToast( emsg, { tone: 'danger' } );
@@ -386,6 +365,8 @@ const moderationStore = store( 'buddynext/moderation', {
 				title: t( 'approveAppealTitle', 'Approve this appeal?' ),
 				body: t( 'approveAppealBody', 'The member’s suspension will be lifted and they will be notified.' ),
 				confirmLabel: t( 'approveLabel', 'Approve' ),
+				// Approving an appeal lifts a suspension; it is not a destructive action.
+				tone: 'default',
 			} );
 			if ( ! ok ) { return; }
 			// Real route: POST /appeals/{id}/resolve { decision }.
@@ -397,7 +378,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( t( 'appealApproved', 'Appeal approved — suspension lifted.' ), { tone: 'success' } );
+				bnToast( t( 'appealApproved', 'Appeal approved. Suspension lifted' ), { tone: 'success' } );
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
@@ -424,7 +405,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( t( 'appealDenied', 'Appeal denied.' ), { tone: 'success' } );
+				bnToast( t( 'appealDenied', 'Appeal denied' ), { tone: 'success' } );
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
@@ -434,11 +415,6 @@ const moderationStore = store( 'buddynext/moderation', {
 		},
 
 		/* ── Space moderation actions ──────────────────────────────── */
-
-		viewReportedPost() {
-			const ctx = getContext();
-			window.open( ctx.postUrl || '#', '_blank' );
-		},
 
 		/* Every action below opts out of restFetch's default error toast
 		 * (toastOnError: false) because it owns its own feedback. Each one MUST
@@ -455,9 +431,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				const card = document.querySelector( '.bn-space-mod__report [data-report-id="' + ctx.reportId + '"]' );
-				const row  = ( card && card.closest( '.bn-space-mod__report' ) ) || document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
-				if ( row ) { row.remove(); }
+				dropReportRow( ctx.reportId );
 			} else {
 				bnToast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), { tone: 'danger' } );
 			}
@@ -476,7 +450,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				body: { message: 'Space rule violation', space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? t( 'memberWarned', 'Warning sent.' ) : t( 'warnMemberFailed', 'Could not warn the member.' ), { tone: res.ok ? 'success' : 'danger' } );
+			bnToast( res.ok ? t( 'memberWarned', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnMemberFailed', 'Could not warn the member.' ) ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* removeFromSpace() {
@@ -500,7 +474,7 @@ const moderationStore = store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				window.location.reload();
 			} else {
-				bnToast( t( 'removeFromSpaceFailed', 'Could not remove the member from this space. Try again.' ), { tone: 'danger' } );
+				bnToast( ( res.data && res.data.message ) || t( 'removeFromSpaceFailed', 'Could not remove the member from this space. Try again.' ), { tone: 'danger' } );
 			}
 		},
 

@@ -121,12 +121,12 @@ class AssetService {
 		if ( ! is_admin() ) {
 			wp_enqueue_style( 'bn-base' );
 
-			// Header user section (bell + messages + avatar dropdown) is chrome
-			// that can render in ANY theme's header — via the block, the shortcode,
-			// or a per-theme auto-place shim — so its CSS loads site-wide, but
-			// only for logged-in visitors (the section renders nothing otherwise).
+			// Header chrome (search icon, guest Log In / Register, and for members the
+			// bell + messages + avatar dropdown) can render in ANY theme's header — via
+			// the block, the shortcode, or a per-theme auto-place shim — so its CSS
+			// loads site-wide, for guests too.
+			wp_enqueue_style( 'bn-header' );
 			if ( is_user_logged_in() ) {
-				wp_enqueue_style( 'bn-header' );
 				// The account menu's open state is a real toggle, so its script
 				// travels with the section's CSS rather than with a hub bundle.
 				wp_enqueue_script( 'bn-header-user-menu' );
@@ -744,6 +744,7 @@ class AssetService {
 			'@buddynext/media-albums',
 			'@buddynext/community-admin',
 			'@buddynext/file-upload',
+			'@buddynext/spaces',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {
@@ -899,7 +900,7 @@ class AssetService {
 				'i18n' => array(
 					'expired'      => __( 'This connection screen has expired. Go back to the app and try connecting again.', 'buddynext' ),
 					'rateLimited'  => __( 'Too many connection attempts. Please wait a while and try again.', 'buddynext' ),
-					'genericError' => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'genericError' => __( 'Something went wrong. Try again.', 'buddynext' ),
 				),
 			)
 		);
@@ -1191,9 +1192,10 @@ class AssetService {
 					// Announcement dismiss (post-card.js) + composer media validation.
 					// Read via t() but were never injected, so they always rendered
 					// the English JS fallback regardless of locale.
-					'announcementDismissFailed' => __( 'Could not dismiss this announcement. Please try again.', 'buddynext' ),
+					'announcementDismissFailed' => __( 'Could not dismiss this announcement. Try again.', 'buddynext' ),
 					'mediaBadType'              => __( 'Only images, video and audio can be attached.', 'buddynext' ),
-					'mediaTooLarge'             => __( 'That file is too large to upload.', 'buddynext' ),
+					/* translators: %d: maximum upload size in megabytes. */
+					'mediaTooLarge'             => __( 'File is larger than the %d MB allowed.', 'buddynext' ),
 					// post-card.js appends this on a comment thread that hit the
 					// DESCENDANT_CAP so a capped thread no longer presents itself as
 					// complete. It was read via t() but injected nowhere, so every
@@ -1273,7 +1275,7 @@ class AssetService {
 					'blockTitleNamed'               => __( 'Block %s?', 'buddynext' ),
 					'blockTitleGeneric'             => __( 'Block this member?', 'buddynext' ),
 					/* translators: %s: member display name. */
-					'toastBlocked'                  => __( '@%s blocked', 'buddynext' ),
+					'toastBlocked'                  => __( '%s blocked', 'buddynext' ),
 					'toastCouldNotBlock'            => __( 'Could not block. Try again.', 'buddynext' ),
 					'toastReportSubmitted'          => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'toastCouldNotReport'           => __( 'Could not submit report. Try again.', 'buddynext' ),
@@ -1321,6 +1323,10 @@ class AssetService {
 					'inviteResetTitle'                => __( 'Reset the invite link?', 'buddynext' ),
 					'inviteResetBody'                 => __( 'The current link stops working immediately and a new one is created.', 'buddynext' ),
 					'inviteResetConfirm'              => __( 'Reset link', 'buddynext' ),
+					'inviteRevokeTitle'               => __( 'Turn off the invite link?', 'buddynext' ),
+					'inviteRevokeBody'                => __( 'The current link stops working immediately and can’t be restored. People who already joined stay members.', 'buddynext' ),
+					'inviteRevokeConfirm'             => __( 'Turn off link', 'buddynext' ),
+					'inviteRevoked'                   => __( 'Invite link turned off.', 'buddynext' ),
 					// requestJoin's failure branch. It suppresses the shared error
 					// toast, so without this a rejected request (a banned member, say)
 					// only flickered the button and said nothing.
@@ -1348,6 +1354,7 @@ class AssetService {
 					'apply'                           => __( 'Apply', 'buddynext' ),
 					'reportPost'                      => __( 'Report post', 'buddynext' ),
 					'reportSubmitted'                 => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
+					'reportProfileTitle'              => __( 'Report this profile', 'buddynext' ),
 					'couldNotSubmitReport'            => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'shared'                          => __( 'Shared!', 'buddynext' ),
 					'roleUpdated'                     => __( 'Role updated.', 'buddynext' ),
@@ -1376,7 +1383,7 @@ class AssetService {
 					'couldNotUpdateNotifPref'         => __( 'Could not update notification preference.', 'buddynext' ),
 					'notifPrefSaved'                  => __( 'Notification preference saved.', 'buddynext' ),
 					'enterUsernameOrEmail'            => __( 'Enter a username or email address.', 'buddynext' ),
-					'invitationSent'                  => __( 'Invitation sent.', 'buddynext' ),
+					'invitationSent'                  => __( 'Invitation sent', 'buddynext' ),
 					'couldNotSendInvite'              => __( 'Could not send the invitation.', 'buddynext' ),
 					'enterName'                       => __( 'Please enter a name.', 'buddynext' ),
 					'creating'                        => __( 'Creating…', 'buddynext' ),
@@ -1400,7 +1407,7 @@ class AssetService {
 					/* translators: %s: number of matching spaces. */
 					'sdResultsMany'                   => __( '%s results', 'buddynext' ),
 					'couldNotUploadCover'             => __( 'Could not upload cover.', 'buddynext' ),
-					'coverUpdated'                    => __( 'Cover updated.', 'buddynext' ),
+					'coverUpdated'                    => __( 'Cover updated', 'buddynext' ),
 					'couldNotRemoveCover'             => __( 'Could not remove cover.', 'buddynext' ),
 					'coverRemoved'                    => __( 'Cover removed.', 'buddynext' ),
 					'uploading'                       => __( 'Uploading…', 'buddynext' ),
@@ -1408,8 +1415,8 @@ class AssetService {
 					'iconUpdated'                     => __( 'Icon updated.', 'buddynext' ),
 					'couldNotRemoveIcon'              => __( 'Could not remove icon.', 'buddynext' ),
 					'iconRemoved'                     => __( 'Icon removed.', 'buddynext' ),
-					'networkError'                    => __( 'Network error.', 'buddynext' ),
-					'networkErrorRetry'               => __( 'Network error. Please try again.', 'buddynext' ),
+					'networkError'                    => __( 'Network error. Try again.', 'buddynext' ),
+					'networkErrorRetry'               => __( 'Network error. Try again.', 'buddynext' ),
 					// Spaces directory card meta + keyset pager. Read by spaces/store.js
 					// via t() but never injected, so they always rendered English.
 					/* translators: %d: number of sub-spaces */
@@ -1447,7 +1454,13 @@ class AssetService {
 		wp_interactivity_state(
 			'buddynext/messages',
 			array(
-				'i18n' => array(
+				// Live-drawn bubbles print their clock like the server ones
+				// (templates/parts/dm-message.php: wp_date( time_format ) in the site zone).
+				'clock' => array(
+					'offset' => (int) timezone_offset_get( wp_timezone(), new \DateTime( 'now', new \DateTimeZone( 'UTC' ) ) ),
+					'format' => (string) get_option( 'time_format', 'g:i A' ),
+				),
+				'i18n'  => array(
 					'composeNewGroup'           => __( 'New group', 'buddynext' ),
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),
 					'composeHint'               => __( 'Search for a person to message.', 'buddynext' ),
@@ -1463,13 +1476,14 @@ class AssetService {
 					'roleMember'                => __( 'Member', 'buddynext' ),
 					'makeMember'                => __( 'Make member', 'buddynext' ),
 					'makeAdmin'                 => __( 'Make admin', 'buddynext' ),
-					'groupRenamed'              => __( 'Group renamed.', 'buddynext' ),
+					'groupRenamed'              => __( 'Group renamed', 'buddynext' ),
 					'groupActionFailed'         => __( 'Something went wrong.', 'buddynext' ),
 					'groupCreateFailed'         => __( 'Could not create the group.', 'buddynext' ),
 					'groupLeaveConfirm'         => __( 'Leave this group?', 'buddynext' ),
 					'groupLeaveBody'            => __( 'You will stop receiving messages from this conversation.', 'buddynext' ),
 					'groupLeaveOk'              => __( 'Leave', 'buddynext' ),
 					'attachment'                => __( 'Attachment', 'buddynext' ),
+					'attachmentGone'            => __( 'This attachment is no longer available.', 'buddynext' ),
 					// DM attachment upload failed (too large, disallowed type, quota).
 					// Fallback only — the server's own reason is preferred when present.
 					'attachmentUploadFailed'    => __( 'Could not attach that file. Try a different one.', 'buddynext' ),
@@ -1478,11 +1492,11 @@ class AssetService {
 					'emojiPickerClose'          => __( 'Close emoji picker', 'buddynext' ),
 					'sendDeniedBlocked'         => __( 'You can no longer message this person.', 'buddynext' ),
 					'sendDeniedDmsDisabled'     => __( 'This person isn’t accepting messages right now.', 'buddynext' ),
-					'sendDeniedConnectionsOnly' => __( 'This person only accepts messages from their connections.', 'buddynext' ),
+					'sendDeniedMutualFollow'    => __( 'This person only accepts messages from people they follow back.', 'buddynext' ),
 					'sendDeniedRateLimited'     => __( 'You’re sending messages too quickly: please wait a moment.', 'buddynext' ),
 					'sendDeniedTooLong'         => __( 'That message is too long to send.', 'buddynext' ),
 					'sendDeniedNotParticipant'  => __( 'You can no longer post to this conversation.', 'buddynext' ),
-					'sendDeniedGeneric'         => __( 'Your message couldn’t be sent. Please try again.', 'buddynext' ),
+					'sendDeniedGeneric'         => __( 'Your message couldn’t be sent. Try again.', 'buddynext' ),
 					'reportMessageTitle'        => __( 'Report this message', 'buddynext' ),
 					'reportMessageSuccess'      => __( 'Message reported. Our moderators will review it.', 'buddynext' ),
 					'reportMessageFailed'       => __( 'Could not report this message. Try again.', 'buddynext' ),
@@ -1492,7 +1506,7 @@ class AssetService {
 					'blockBody'                 => __( 'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.', 'buddynext' ),
 					'blockConfirm'              => __( 'Block', 'buddynext' ),
 					/* translators: %s: member display name. */
-					'blockSuccess'              => __( '%s blocked.', 'buddynext' ),
+					'blockSuccess'              => __( '%s blocked', 'buddynext' ),
 					/* translators: %s: member display name. */
 					'blockFailed'               => __( 'Could not block %s. Try again.', 'buddynext' ),
 					'reportConversationTitle'   => __( 'Report this conversation', 'buddynext' ),
@@ -1541,23 +1555,23 @@ class AssetService {
 					// Album CRUD + media picker toasts and dialogs. Read by
 					// media/albums-store.js via t() but were never injected, so
 					// they always rendered the English JS fallback.
-					'albumCreated'            => __( 'Album created.', 'buddynext' ),
-					'albumSaved'              => __( 'Album updated.', 'buddynext' ),
-					'albumDeleted'            => __( 'Album deleted.', 'buddynext' ),
+					'albumCreated'            => __( 'Album created', 'buddynext' ),
+					'albumSaved'              => __( 'Album updated', 'buddynext' ),
+					'albumDeleted'            => __( 'Album deleted', 'buddynext' ),
 					'createFailed'            => __( 'Could not save the album.', 'buddynext' ),
 					'deleteFailed'            => __( 'Could not delete the album.', 'buddynext' ),
 					'confirmDeleteAlbumTitle' => __( 'Delete this album?', 'buddynext' ),
 					'confirmDeleteAlbumBody'  => __( 'The photos stay in your media.', 'buddynext' ),
 					'delete'                  => __( 'Delete', 'buddynext' ),
 					'emptyAlbum'              => __( 'This album is empty.', 'buddynext' ),
-					'added'                   => __( 'Added to album.', 'buddynext' ),
+					'added'                   => __( 'Added to album', 'buddynext' ),
 					'addFailed'               => __( 'Could not add media.', 'buddynext' ),
 					'removeFromAlbum'         => __( 'Remove from album', 'buddynext' ),
 					'confirmRemove'           => __( 'Remove this from the album?', 'buddynext' ),
-					'removedFromAlbum'        => __( 'Removed from album.', 'buddynext' ),
+					'removedFromAlbum'        => __( 'Removed from album', 'buddynext' ),
 					'removeFailed'            => __( 'Could not remove.', 'buddynext' ),
 					'setCover'                => __( 'Set as cover', 'buddynext' ),
-					'coverSet'                => __( 'Cover updated.', 'buddynext' ),
+					'coverSet'                => __( 'Cover updated', 'buddynext' ),
 					'coverFailed'             => __( 'Could not set the cover.', 'buddynext' ),
 					'uploadFailed'            => __( 'Could not upload that file.', 'buddynext' ),
 					'uploadedOne'             => __( 'Uploaded and selected. Choose Add to put it in the album.', 'buddynext' ),
@@ -1575,7 +1589,7 @@ class AssetService {
 				'i18n' => array(
 					'empty'                 => __( 'No media uploaded yet.', 'buddynext' ),
 					'remove'                => __( 'Remove', 'buddynext' ),
-					'removed'               => __( 'Media removed.', 'buddynext' ),
+					'removed'               => __( 'Media removed', 'buddynext' ),
 					'removeFailed'          => __( 'Could not remove.', 'buddynext' ),
 					'confirmDeleteTitle'    => __( 'Remove this media?', 'buddynext' ),
 					'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
@@ -1610,7 +1624,7 @@ class AssetService {
 					'coverSaveFailed'                  => __( 'Cover could not be saved', 'buddynext' ),
 					'profileSaved'                     => __( 'Profile saved', 'buddynext' ),
 					'fieldsNeedAttention'              => __( 'Some fields need attention', 'buddynext' ),
-					'saveFailed'                       => __( 'Could not save. Please try again.', 'buddynext' ),
+					'saveFailed'                       => __( 'Could not save. Try again.', 'buddynext' ),
 					'present'                          => __( 'Present', 'buddynext' ),
 					'unmute'                           => __( 'Unmute', 'buddynext' ),
 					'mute'                             => __( 'Mute', 'buddynext' ),
@@ -1623,7 +1637,7 @@ class AssetService {
 					/* translators: %d: number of remaining two-factor backup codes (plural). */
 					'backupCodesLeftPlural'            => __( '%d backup codes left.', 'buddynext' ),
 					'dataExportDownloaded'             => __( 'Your data export has downloaded.', 'buddynext' ),
-					'dataExportFailed'                 => __( 'Could not export your data. Please try again.', 'buddynext' ),
+					'dataExportFailed'                 => __( 'Could not export your data. Try again.', 'buddynext' ),
 					'deleteAccountTitle'               => __( 'Delete your account?', 'buddynext' ),
 					'deleteAccountMessage'             => __( 'This permanently deletes your account and removes your data. This cannot be undone.', 'buddynext' ),
 					'deleteAccountConfirm'             => __( 'Delete my account', 'buddynext' ),
@@ -1634,7 +1648,7 @@ class AssetService {
 					'deleteAccountPasswordPlaceholder' => __( 'Your password', 'buddynext' ),
 					'deleteAccountPasswordRequired'    => __( 'Enter your password to confirm.', 'buddynext' ),
 					'deleteAccountFailed'              => __( 'Could not delete your account.', 'buddynext' ),
-					'deleteAccountFailedRetry'         => __( 'Could not delete your account. Please try again.', 'buddynext' ),
+					'deleteAccountFailedRetry'         => __( 'Could not delete your account. Try again.', 'buddynext' ),
 					'profile'                          => __( 'Profile', 'buddynext' ),
 					'profileLinkCopied'                => __( 'Profile link copied', 'buddynext' ),
 					'couldNotCopyLongPress'            => __( 'Could not copy. Long-press the URL.', 'buddynext' ),
@@ -1680,6 +1694,7 @@ class AssetService {
 					'memberBlockedNamed'               => __( '%s blocked', 'buddynext' ),
 					'memberBlocked'                    => __( 'Member blocked', 'buddynext' ),
 					'blockFailed'                      => __( 'Could not block. Try again.', 'buddynext' ),
+					'reportProfileTitle'               => __( 'Report this profile', 'buddynext' ),
 					'reportFailed'                     => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'reportSubmitted'                  => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
 					'checkInboxConfirm'                => __( 'Check your inbox to confirm.', 'buddynext' ),
@@ -1702,9 +1717,9 @@ class AssetService {
 					'enterNewPassword'                 => __( 'Enter a new password.', 'buddynext' ),
 					'passwordMinChars'                 => __( 'Use at least 8 characters.', 'buddynext' ),
 					'passwordsNoMatch'                 => __( 'Passwords do not match.', 'buddynext' ),
-					'passwordUpdated'                  => __( 'Password updated.', 'buddynext' ),
+					'passwordUpdated'                  => __( 'Password updated', 'buddynext' ),
 					'passwordChangeFailed'             => __( 'Could not change password. Try again.', 'buddynext' ),
-					'signedOutEverywhere'              => __( 'Signed out of every other session.', 'buddynext' ),
+					'signedOutEverywhere'              => __( 'Signed out of every other session', 'buddynext' ),
 					'signOutFailed'                    => __( 'Could not sign out everywhere. Try again.', 'buddynext' ),
 					'twofaSetupFailed'                 => __( 'Could not start setup. Try again.', 'buddynext' ),
 					'twofaCodeMismatch'                => __( 'That code did not match.', 'buddynext' ),
@@ -1756,26 +1771,22 @@ class AssetService {
 					'removeContentTitle'    => __( 'Remove this content?', 'buddynext' ),
 					'removeContentBody'     => __( 'The reported item will be taken down from public view and the report marked resolved.', 'buddynext' ),
 					'removeLabel'           => __( 'Remove', 'buddynext' ),
-					'contentRemoved'        => __( 'Content removed.', 'buddynext' ),
+					'contentRemoved'        => __( 'Content removed', 'buddynext' ),
 					'removeContentFailed'   => __( 'Could not remove the content. Try again.', 'buddynext' ),
-					'reportResolved'        => __( 'Report resolved.', 'buddynext' ),
+					'reportResolved'        => __( 'Report resolved', 'buddynext' ),
 					'resolveFailed'         => __( 'Could not resolve the report. Try again.', 'buddynext' ),
-					'reportEscalated'       => __( 'Report escalated.', 'buddynext' ),
+					'reportEscalated'       => __( 'Report escalated', 'buddynext' ),
 					'escalateFailed'        => __( 'Could not escalate the report. Try again.', 'buddynext' ),
 					'warningSent'           => __( 'Warning sent.', 'buddynext' ),
 					'warnUserFailed'        => __( 'Could not warn the user.', 'buddynext' ),
 					'strikeIssued'          => __( 'Strike issued.', 'buddynext' ),
 					'strikeUserFailed'      => __( 'Could not issue a strike.', 'buddynext' ),
-					// Reverse strike — the counterpart to the above. The queue row's
-					// strike dots and count re-render from these after every strike or
-					// reversal, so the admin can see what they are undoing.
-					'strikeReversed'        => __( 'Strike reversed.', 'buddynext' ),
+					// Reverse strike — the counterpart to the above. The report row's
+					// Reverse control shows/hides from the live count after every strike
+					// or reversal.
+					'strikeReversed'        => __( 'Strike reversed', 'buddynext' ),
 					'reverseStrikeFailed'   => __( 'Could not reverse the strike. Try again.', 'buddynext' ),
 					'noActiveStrikes'       => __( 'This member has no active strikes.', 'buddynext' ),
-					/* translators: %d: number of strikes. */
-					'strikeCountOne'        => __( '%d strike', 'buddynext' ),
-					/* translators: %d: number of active strikes. */
-					'strikeCountOther'      => __( '%d strikes', 'buddynext' ),
 					/* translators: %d: number of active strikes. */
 					'reverseStrikeAria'     => __( 'Reverse the most recent strike (%d active)', 'buddynext' ),
 					'suspendUserTitle'      => __( 'Suspend this user?', 'buddynext' ),
@@ -1783,7 +1794,7 @@ class AssetService {
 					'suspendLabel'          => __( 'Suspend', 'buddynext' ),
 					'userSuspended'         => __( 'User suspended for 7 days.', 'buddynext' ),
 					'suspendUserFailed'     => __( 'Could not suspend the user.', 'buddynext' ),
-					'appealTooShort'        => __( 'Please describe why you are appealing (at least 10 characters).', 'buddynext' ),
+					'appealTooShort'        => __( 'Describe why you are appealing (at least 10 characters).', 'buddynext' ),
 					'appealSubmitted'       => __( 'Your appeal has been submitted.', 'buddynext' ),
 					'appealSubmitFailed'    => __( 'Could not submit your appeal. Try again.', 'buddynext' ),
 					'approveAppealTitle'    => __( 'Approve this appeal?', 'buddynext' ),
@@ -1794,7 +1805,7 @@ class AssetService {
 					'denyAppealTitle'       => __( 'Deny this appeal?', 'buddynext' ),
 					'denyAppealBody'        => __( 'The suspension stays in place. The member will be notified of the decision.', 'buddynext' ),
 					'denyLabel'             => __( 'Deny', 'buddynext' ),
-					'appealDenied'          => __( 'Appeal denied.', 'buddynext' ),
+					'appealDenied'          => __( 'Appeal denied', 'buddynext' ),
 					'denyAppealFailed'      => __( 'Could not deny the appeal. Try again.', 'buddynext' ),
 					'removeFromSpaceTitle'  => __( 'Remove this member from the space?', 'buddynext' ),
 					'removeFromSpaceBody'   => __( 'They will lose access to this space immediately.', 'buddynext' ),
@@ -1839,27 +1850,27 @@ class AssetService {
 					'toastSkipped'             => __( 'Skipped. You can fill in your profile any time.', 'buddynext' ),
 					'toastJoinedSpace'         => __( 'Joined the space.', 'buddynext' ),
 					'toastLeftSpace'           => __( 'Left the space.', 'buddynext' ),
-					'toastSpaceUpdateFailed'   => __( 'Could not update space. Please try again.', 'buddynext' ),
+					'toastSpaceUpdateFailed'   => __( 'Could not update space. Try again.', 'buddynext' ),
 					'toastFollowing'           => __( 'Following.', 'buddynext' ),
 					'toastUnfollowed'          => __( 'Unfollowed.', 'buddynext' ),
-					'toastFollowUpdateFailed'  => __( 'Could not update follow. Please try again.', 'buddynext' ),
+					'toastFollowUpdateFailed'  => __( 'Could not update follow. Try again.', 'buddynext' ),
 					/* translators: %s: maximum upload size in megabytes. */
 					'toastImageTooLarge'       => __( 'Image too large. Max %sMB.', 'buddynext' ),
 					/* translators: 1: maximum megapixels, 2: maximum pixels on a single side */
 					'toastImageDimensions'     => __( 'That image is too large to process (over %1$s megapixels or %2$s pixels on a side). Please choose a smaller photo.', 'buddynext' ),
-					'toastPhotoUploadFailed'   => __( 'Could not upload photo. Please try again.', 'buddynext' ),
+					'toastPhotoUploadFailed'   => __( 'Could not upload photo. Try again.', 'buddynext' ),
 					'toastPhotoUpdated'        => __( 'Profile photo updated.', 'buddynext' ),
 					'toastAllSet'              => __( 'You are all set. Welcome aboard!', 'buddynext' ),
-					'toastFinishFailed'        => __( 'Could not finish onboarding. Please try again.', 'buddynext' ),
-					'toastInterestsSaveFailed' => __( 'Could not save your interests. Please try again.', 'buddynext' ),
-					'errorGeneric'             => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'toastFinishFailed'        => __( 'Could not finish onboarding. Try again.', 'buddynext' ),
+					'toastInterestsSaveFailed' => __( 'Could not save your interests. Try again.', 'buddynext' ),
+					'errorGeneric'             => __( 'Something went wrong. Try again.', 'buddynext' ),
 					// Finish-step failures. The wizard used to fire the profile / handle /
 					// channel writes and forget them, so a rejected save still reached the
 					// success screen. Each failure now keeps the member on the wizard with
 					// the reason, so their data is never lost behind "You're all set".
 					'errorProfileSaveFailed'   => __( 'Your profile could not be saved. Please check your details and try again.', 'buddynext' ),
 					'errorHandleTaken'         => __( 'That username is already taken. Please choose another.', 'buddynext' ),
-					'errorChannelsSaveFailed'  => __( 'Your notification settings could not be saved. Please try again.', 'buddynext' ),
+					'errorChannelsSaveFailed'  => __( 'Your notification settings could not be saved. Try again.', 'buddynext' ),
 				),
 
 				/*
@@ -2044,7 +2055,7 @@ class AssetService {
 					'unban'              => __( 'Unban', 'buddynext' ),
 					'unbanMemberFailed'  => __( 'Could not unban member. Try again.', 'buddynext' ),
 					'enterIdentifier'    => __( 'Enter a username or email address.', 'buddynext' ),
-					'inviteSent'         => __( 'Invitation sent.', 'buddynext' ),
+					'inviteSent'         => __( 'Invitation sent', 'buddynext' ),
 					'inviteFailed'       => __( 'Could not send the invitation.', 'buddynext' ),
 				),
 			)
@@ -2061,7 +2072,7 @@ class AssetService {
 			'buddynext/space-fields',
 			array(
 				'i18n' => array(
-					'saved'      => __( 'Fields saved.', 'buddynext' ),
+					'saved'      => __( 'Fields saved', 'buddynext' ),
 					'saveFailed' => __( 'Could not save the fields. Try again.', 'buddynext' ),
 				),
 			)
@@ -2107,7 +2118,7 @@ class AssetService {
 					'enterEmailPassword' => __( 'Enter your email and password to sign in.', 'buddynext' ),
 					'invalidCredentials' => __( 'Invalid email or password.', 'buddynext' ),
 					'signedIn'           => __( 'Signed in.', 'buddynext' ),
-					'genericError'       => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'genericError'       => __( 'Something went wrong. Try again.', 'buddynext' ),
 					'twofaIncorrect'     => __( 'That code was not correct.', 'buddynext' ),
 					'emailCodeSent'      => __( 'If your session is still valid, a code is on its way.', 'buddynext' ),
 					'emailCodeFailed'    => __( 'Could not send the code. Try your authenticator app.', 'buddynext' ),
@@ -2136,7 +2147,7 @@ class AssetService {
 					'answerChallenge'  => __( 'Please answer the verification question.', 'buddynext' ),
 					'createFailed'     => __( 'Could not create your account.', 'buddynext' ),
 					'accountCreated'   => __( 'Account created. Welcome aboard!', 'buddynext' ),
-					'genericError'     => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'genericError'     => __( 'Something went wrong. Try again.', 'buddynext' ),
 					// Username validation + pending-approval notice. Read by
 					// auth/signup-store.js via t() but never injected, so they always
 					// rendered English.
@@ -2158,7 +2169,7 @@ class AssetService {
 			array(
 				'i18n' => array(
 					'verificationSent' => __( 'Verification email sent. Check your inbox.', 'buddynext' ),
-					'genericError'     => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'genericError'     => __( 'Something went wrong. Try again.', 'buddynext' ),
 				),
 			)
 		);
@@ -2176,7 +2187,7 @@ class AssetService {
 				'i18n' => array(
 					'enterEmailOrUsername'  => __( 'Please enter your email or username.', 'buddynext' ),
 					'resetLinkSent'         => __( 'If an account matches, a reset link is on its way.', 'buddynext' ),
-					'somethingWentWrong'    => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'somethingWentWrong'    => __( 'Something went wrong. Try again.', 'buddynext' ),
 					'chooseNewPassword'     => __( 'Please choose a new password.', 'buddynext' ),
 					'couldNotResetPassword' => __( 'Could not reset your password.', 'buddynext' ),
 					'passwordUpdated'       => __( 'Password updated. Please sign in.', 'buddynext' ),

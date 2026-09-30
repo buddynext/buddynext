@@ -597,8 +597,9 @@ class PostService {
 				// sorts correctly in the "Active" feed before it receives any
 				// engagement. Bumped to NOW() on each reaction/comment/share.
 				'last_activity_at'     => $bn_last_activity,
+				'updated_at'           => $bn_created_at,
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -617,7 +618,7 @@ class PostService {
 		if ( $post_id <= 0 ) {
 			return new WP_Error(
 				'post_not_saved',
-				__( 'Your post could not be saved. Please try again.', 'buddynext' ),
+				__( 'Your post could not be saved. Try again.', 'buddynext' ),
 				array(
 					'status' => 500,
 					'db'     => $wpdb->last_error,
@@ -630,6 +631,7 @@ class PostService {
 		// can resolve a post's media. The bn_posts.media_ids JSON stays the
 		// canonical read for now; this is an additive, best-effort mirror.
 		if ( ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] ) ) {
+			$this->index_media( $post_id, $data['media_ids'] );
 			\BuddyNext\Media\ObjectMediaLink::set(
 				\BuddyNext\Media\ObjectMediaLink::POST,
 				$post_id,
@@ -1989,8 +1991,11 @@ class PostService {
 
 		global $wpdb;
 
-		$fields  = array( 'edited_at' => current_time( 'mysql', true ) );
-		$formats = array( '%s' );
+		$fields  = array(
+			'edited_at'  => current_time( 'mysql', true ),
+			'updated_at' => current_time( 'mysql', true ),
+		);
+		$formats = array( '%s', '%s' );
 
 		if ( isset( $data['content'] ) ) {
 			$fields['content'] = $data['content'];
@@ -2193,7 +2198,7 @@ class PostService {
 			}
 			return new WP_Error(
 				'post_delete_failed',
-				__( 'The post could not be deleted. Please try again.', 'buddynext' ),
+				__( 'The post could not be deleted. Try again.', 'buddynext' ),
 				array( 'status' => 500 )
 			);
 		}
@@ -2322,6 +2327,14 @@ class PostService {
 			$del( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			// create() mirrors attached media into MediaVerse's link store; detach
+			// it here or the link outlives the post (the media itself stays in its
+			// owner's library). Through the engine seam, never its table directly.
+			$media_post_ids = $wpdb->get_col( "SELECT DISTINCT post_id FROM {$wpdb->prefix}bn_post_media WHERE post_id IN ({$in})" );
+			$del( "DELETE FROM {$wpdb->prefix}bn_post_media WHERE post_id IN ({$in})" );
+			foreach ( (array) $media_post_ids as $media_post_id ) {
+				\BuddyNext\Media\ObjectMediaLink::set( \BuddyNext\Media\ObjectMediaLink::POST, (int) $media_post_id, array() );
+			}
 			$notif_recipients = array_merge( $notif_recipients, (array) $wpdb->get_col( "SELECT DISTINCT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" ) );
 			$del( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
@@ -2569,12 +2582,15 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'link_meta' => wp_json_encode( $meta ) ),
+			array(
+				'link_meta'  => wp_json_encode( $meta ),
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array(
 				'type'     => $type,
 				'link_url' => $link_url,
 			),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2610,21 +2626,18 @@ class PostService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$moved = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array( 'status' => $to ),
-			array(
-				'type'     => $type,
-				'link_url' => $link_url,
-				'status'   => $from,
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s AND status = %s",
+				$type,
+				$link_url,
+				$from
 			),
-			array( '%s' ),
-			array( '%s', '%s', '%s' )
+			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_int( $moved ) ? $moved : 0;
+		return $this->move_status( (array) $rows, $from, $to );
 	}
 
 	/**
@@ -2652,24 +2665,263 @@ class PostService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$moved = $wpdb->query(
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = %s
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
 				 WHERE type = %s AND status = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
 				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
-				$to,
 				$type,
 				$from,
 				'$.' . $meta_key,
 				$value
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $this->move_status( (array) $rows, $from, $to );
+	}
+
+	/**
+	 * Put every card of a type whose link_meta id matches into another space.
+	 *
+	 * The space-move counterpart of transition_link_meta_status(), used through
+	 * IntegrationActivity::set_space_by_meta(). Privacy follows the rule publish()
+	 * uses: 'space_members' inside a space, 'public' outside one. Each moved card's
+	 * cache is dropped and both the old and the new space feeds are told.
+	 *
+	 * @param string $type     Post type marker (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int    $value    Value to match.
+	 * @param int    $space_id Target BuddyNext space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	public function move_link_meta_space( string $type, string $meta_key, int $value, int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s AND COALESCE( space_id, 0 ) <> %d
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$type,
+				$space_id,
+				'$.' . $meta_key,
+				$value
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], (array) $rows ) ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+		$moved = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET space_id = NULLIF( %d, 0 ), privacy = %s, updated_at = UTC_TIMESTAMP() WHERE id IN ({$in})",
+				$space_id,
+				$space_id > 0 ? 'space_members' : 'public'
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
+		$spaces = $space_id > 0 ? array( $space_id => true ) : array();
+		foreach ( (array) $rows as $row ) {
+			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
+			if ( ! empty( $row['space_id'] ) ) {
+				$spaces[ (int) $row['space_id'] ] = true;
+			}
+		}
+		foreach ( array_keys( $spaces ) as $sid ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $sid );
+		}
+
 		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
+	 * Move the given cards from one status to another and tell every reader.
+	 *
+	 * Shared by the two transitions above. The update is guarded on $from again, so
+	 * a card a moderator moved in between is left alone. Each moved card's cached
+	 * row is dropped and its space's feed is told it changed, as a delete does;
+	 * without that a withdrawn or restored card kept its old status for the cache's
+	 * life.
+	 *
+	 * @param array<int,array{id:string|int,space_id:string|int|null}> $rows Cards to move.
+	 * @param string                                                   $from Status they must still be in.
+	 * @param string                                                   $to   Status to move them to.
+	 * @return int Rows moved.
+	 */
+	private function move_status( array $rows, string $from, string $to ): int {
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], $rows ) ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+		$moved = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET status = %s, updated_at = UTC_TIMESTAMP() WHERE id IN ({$in}) AND status = %s", $to, $from ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$spaces = array();
+		foreach ( $rows as $row ) {
+			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
+			if ( ! empty( $row['space_id'] ) ) {
+				$spaces[ (int) $row['space_id'] ] = true;
+			}
+		}
+		foreach ( array_keys( $spaces ) as $space_id ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $space_id );
+		}
+
+		return is_int( $moved ) ? $moved : 0;
+	}
+
+	/**
+	 * The posts carrying a media file, in the given statuses.
+	 *
+	 * One indexed lookup through bn_post_media, whatever the number of statuses
+	 * (card 10344434252).
+	 *
+	 * @param int    $media_id    Media id.
+	 * @param string ...$statuses Post statuses to match.
+	 * @return int[] Post ids.
+	 */
+	public function ids_with_media( int $media_id, string ...$statuses ): array {
+		$statuses = array_values( array_filter( $statuses, static fn( string $status ): bool => '' !== $status ) );
+		if ( $media_id <= 0 || empty( $statuses ) ) {
+			return array();
+		}
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is a placeholder list.
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT p.id FROM {$wpdb->prefix}bn_post_media pm INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = pm.post_id WHERE pm.media_id = %d AND p.status IN ({$in})",
+				array_merge( array( $media_id ), $statuses )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Record which media a post carries in bn_post_media.
+	 *
+	 * Called wherever bn_posts.media_ids is written: post create, the v63
+	 * backfill, and remove_media_id() through its own delete.
+	 *
+	 * @param int   $post_id   Post id.
+	 * @param int[] $media_ids Media ids the post carries.
+	 * @return void
+	 */
+	public function index_media( int $post_id, array $media_ids ): void {
+		$media_ids = array_values( array_unique( array_filter( array_map( 'absint', $media_ids ) ) ) );
+		if ( $post_id <= 0 || empty( $media_ids ) ) {
+			return;
+		}
+		global $wpdb;
+		$rows = implode( ',', array_fill( 0, count( $media_ids ), '(%d,%d)' ) );
+		$args = array();
+		foreach ( $media_ids as $media_id ) {
+			$args[] = $post_id;
+			$args[] = $media_id;
+		}
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $rows is a (%d,%d) placeholder list.
+		$wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->prefix}bn_post_media (post_id, media_id) VALUES {$rows}", $args ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
+	 * Drop one media id from a post's media_ids.
+	 *
+	 * @param int $post_id  Post id.
+	 * @param int $media_id Media id to drop.
+	 * @return int[] The media ids the post still holds.
+	 */
+	public function remove_media_id( int $post_id, int $media_id ): array {
+		$post = $this->get( $post_id );
+		if ( null === $post ) {
+			return array();
+		}
+		$ids       = array_map( 'intval', (array) ( $post['media_ids'] ?? array() ) );
+		$remaining = array_values( array_diff( $ids, array( $media_id ) ) );
+		if ( count( $remaining ) !== count( $ids ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'media_ids'  => empty( $remaining ) ? null : wp_json_encode( $remaining ),
+					'updated_at' => current_time( 'mysql', true ),
+				),
+				array( 'id' => $post_id )
+			);
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_post_media',
+				array(
+					'post_id'  => $post_id,
+					'media_id' => $media_id,
+				),
+				array( '%d', '%d' )
+			);
+			wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+		}
+		return $remaining;
+	}
+
+	/**
+	 * Withdraw a post whose media are all gone, or bring it back.
+	 *
+	 * Withdraw flips published -> draft and stamps link_meta.media_withdrawn, so
+	 * restore only republishes posts this withdrew, never a member's own draft (a
+	 * cancelled schedule is also 'draft'). Same id, date, reactions and comments.
+	 *
+	 * @param int  $post_id   Post id.
+	 * @param bool $withdrawn True to withdraw, false to restore.
+	 * @return bool Whether the post moved.
+	 */
+	public function set_media_withdrawn( int $post_id, bool $withdrawn ): bool {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$moved = $withdrawn
+			? $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'draft', updated_at = UTC_TIMESTAMP(),
+					 link_meta = JSON_SET( IF( link_meta IS NOT NULL AND JSON_VALID( link_meta ), link_meta, '{}' ), '$.media_withdrawn', 1 )
+					 WHERE id = %d AND status = 'published'",
+					$post_id
+				)
+			)
+			: $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published', updated_at = UTC_TIMESTAMP(),
+					 link_meta = NULLIF( JSON_REMOVE( link_meta, '$.media_withdrawn' ), JSON_OBJECT() )
+					 WHERE id = %d AND status = 'draft' AND link_meta IS NOT NULL AND JSON_VALID( link_meta )
+					   AND JSON_EXTRACT( link_meta, '$.media_withdrawn' ) IS NOT NULL",
+					$post_id
+				)
+			);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $moved > 0 ) {
+			wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+		}
+		return $moved > 0;
 	}
 
 	/**
@@ -2895,9 +3147,12 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'is_pinned' => 1 ),
+			array(
+				'is_pinned'  => 1,
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%d' ),
+			array( '%d', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2938,9 +3193,12 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'is_pinned' => 0 ),
+			array(
+				'is_pinned'  => 0,
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%d' ),
+			array( '%d', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2999,7 +3257,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = %s WHERE id = %d",
+				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = %s, updated_at = UTC_TIMESTAMP() WHERE id = %d",
 				current_time( 'mysql', true ),
 				$post_id
 			)
@@ -3025,7 +3283,7 @@ class PostService {
 		// column (col - 1 when col is 0 wraps to a huge value on unsigned).
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
-			$wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET {$column} = GREATEST(1, {$column}) - 1 WHERE id = %d", $post_id )
+			$wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET {$column} = GREATEST(1, {$column}) - 1, updated_at = UTC_TIMESTAMP() WHERE id = %d", $post_id )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
@@ -3073,7 +3331,7 @@ class PostService {
 			      WHERE object_type = 'post'{$scope_inner}
 			      GROUP BY object_id
 			 ) r ON r.object_id = p.id
-			 SET p.reaction_count = COALESCE(r.cnt, 0)
+			 SET p.reaction_count = COALESCE(r.cnt, 0), p.updated_at = UTC_TIMESTAMP()
 			 WHERE p.reaction_count <> COALESCE(r.cnt, 0){$scope_outer}"
 		);
 
@@ -3088,7 +3346,7 @@ class PostService {
 			        AND object_type = 'post'{$scope_inner}
 			      GROUP BY object_id
 			 ) c ON c.object_id = p.id
-			 SET p.comment_count = COALESCE(c.cnt, 0)
+			 SET p.comment_count = COALESCE(c.cnt, 0), p.updated_at = UTC_TIMESTAMP()
 			 WHERE p.comment_count <> COALESCE(c.cnt, 0){$scope_outer}"
 		);
 
@@ -3103,7 +3361,7 @@ class PostService {
 			      WHERE 1 = 1{$scope_shares}
 			      GROUP BY post_id
 			 ) s ON s.post_id = p.id
-			 SET p.share_count = COALESCE(s.cnt, 0)
+			 SET p.share_count = COALESCE(s.cnt, 0), p.updated_at = UTC_TIMESTAMP()
 			 WHERE p.share_count <> COALESCE(s.cnt, 0){$scope_outer}"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -3172,9 +3430,10 @@ class PostService {
 			array(
 				'status'       => 'scheduled',
 				'scheduled_at' => $scheduled_at,
+				'updated_at'   => current_time( 'mysql', true ),
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3205,9 +3464,10 @@ class PostService {
 			array(
 				'status'       => 'draft',
 				'scheduled_at' => null,
+				'updated_at'   => current_time( 'mysql', true ),
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3245,9 +3505,10 @@ class PostService {
 				'status'           => 'published',
 				'created_at'       => $now,
 				'last_activity_at' => $now,
+				'updated_at'       => $now,
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3293,9 +3554,10 @@ class PostService {
 				'scheduled_at'     => null,
 				'created_at'       => $now,
 				'last_activity_at' => $now,
+				'updated_at'       => $now,
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3357,9 +3619,10 @@ class PostService {
 				'status'           => 'published',
 				'created_at'       => $now,
 				'last_activity_at' => $now,
+				'updated_at'       => $now,
 			),
 			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3422,9 +3685,12 @@ class PostService {
 
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'status' => 'deleted' ),
+			array(
+				'status'     => 'deleted',
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3705,7 +3971,7 @@ class PostService {
 
 		$where_sql = implode( ' AND ', $where );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- placeholders are built dynamically with $params.
 		$count_sql = "SELECT COUNT(*) FROM {$table} p WHERE {$where_sql}";
 		$total     = (int) ( $params
 			? $wpdb->get_var( $wpdb->prepare( $count_sql, $params ) )
@@ -3723,7 +3989,7 @@ class PostService {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return array(
 			'items' => is_array( $rows ) ? $rows : array(),
@@ -3779,12 +4045,13 @@ class PostService {
 			array(
 				'is_announcement'     => 0,
 				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
+				'updated_at'          => current_time( 'mysql', true ),
 			),
 			array(
 				'id'              => $post_id,
 				'is_announcement' => 1,
 			),
-			array( '%d', '%s' ),
+			array( '%d', '%s', '%s' ),
 			array( '%d', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3942,7 +4209,7 @@ class PostService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$changed = (int) $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET status = %s WHERE id = %d AND status = %s",
+				"UPDATE {$wpdb->prefix}bn_posts SET status = %s, updated_at = UTC_TIMESTAMP() WHERE id = %d AND status = %s",
 				$to,
 				$post_id,
 				$from
@@ -4312,9 +4579,12 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'link_meta' => wp_json_encode( $meta ) ),
+			array(
+				'link_meta'  => wp_json_encode( $meta ),
+				'updated_at' => current_time( 'mysql', true ),
+			),
 			array( 'id' => $post_id ),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

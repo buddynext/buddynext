@@ -104,15 +104,15 @@ class SearchService {
 		$result = $wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
-				    (object_type, object_id, title, content, author_id, space_id, visibility)
-				 VALUES (%s, %d, %s, %s, %d, %d, %s)
+				    (object_type, object_id, title, content, author_id, space_id, visibility, created_at, updated_at)
+				 VALUES (%s, %d, %s, %s, %d, %d, %s, UTC_TIMESTAMP(), UTC_TIMESTAMP())
 				 ON DUPLICATE KEY UPDATE
 				    title = VALUES(title),
 				    content = VALUES(content),
 				    author_id = VALUES(author_id),
 				    space_id = VALUES(space_id),
 				    visibility = VALUES(visibility),
-				    updated_at = NOW()",
+				    updated_at = UTC_TIMESTAMP()",
 				$object_type,
 				$object_id,
 				$title,
@@ -423,7 +423,7 @@ class SearchService {
 		$changed = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_search_index
-				    SET visibility = 'private', updated_at = NOW()
+				    SET visibility = 'private', updated_at = UTC_TIMESTAMP()
 				  WHERE space_id = %d
 				    AND visibility = 'public'",
 				$space_id
@@ -551,7 +551,10 @@ class SearchService {
 			$user          = get_userdata( $object_id );
 			$item['title'] = $user ? $user->display_name : __( 'Unknown', 'buddynext' );
 		} elseif ( '' === (string) ( $item['title'] ?? '' ) ) {
-			$item['title'] = __( 'Untitled', 'buddynext' );
+			// A feed post has no title of its own; its opening words identify it, as on
+			// any social platform. Untitled is only for a row with no text at all.
+			$excerpt       = trim( wp_specialchars_decode( wp_strip_all_tags( (string) ( $item['content'] ?? '' ) ), ENT_QUOTES ) );
+			$item['title'] = '' !== $excerpt ? wp_trim_words( $excerpt, 10, "\xE2\x80\xA6" ) : __( 'Untitled', 'buddynext' );
 		}
 
 		$item['url']      = $this->resolve_item_url( $type, $object_id );
@@ -570,7 +573,11 @@ class SearchService {
 	 * @param int    $object_id Object ID within its type.
 	 * @return string Absolute URL, or '' when the type has no known route.
 	 */
-	private function resolve_item_url( string $type, int $object_id ): string {
+	public function resolve_item_url( string $type, int $object_id ): string {
+		// A space filed under an add-on's own type is still a space.
+		if ( in_array( $type, self::space_object_types(), true ) ) {
+			$type = 'space';
+		}
 		switch ( $type ) {
 			case 'user':
 			case 'member':
@@ -651,6 +658,32 @@ class SearchService {
 		wp_cache_set( 'bn_search_index_rows', $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
+	}
+
+	/**
+	 * Every object_type a space's own index row may carry: 'space', plus each
+	 * type an add-on has filed a space under via buddynext_search_space_object_type
+	 * (recorded by remember_space_type(), so removal and member visibility can
+	 * find the row after the space itself is gone).
+	 *
+	 * @return string[]
+	 */
+	public static function space_object_types(): array {
+		return array_values( array_unique( array_merge( array( 'space' ), (array) get_option( 'buddynext_search_space_types', array() ) ) ) );
+	}
+
+	/**
+	 * Record a non-default type a space was indexed under.
+	 *
+	 * @param string $type Sanitized object_type.
+	 * @return void
+	 */
+	public static function remember_space_type( string $type ): void {
+		$types = self::space_object_types();
+		if ( ! in_array( $type, $types, true ) ) {
+			$types[] = $type;
+			update_option( 'buddynext_search_space_types', array_values( array_diff( $types, array( 'space' ) ) ), true );
+		}
 	}
 
 	/**
@@ -903,13 +936,13 @@ class SearchService {
 		$date_key   = isset( $search_args['date'] ) ? sanitize_key( (string) $search_args['date'] ) : '';
 		switch ( $date_key ) {
 			case 'week':
-				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
+				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )';
 				break;
 			case 'month':
-				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
+				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 MONTH )';
 				break;
 			case 'year':
-				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
+				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 YEAR )';
 				break;
 		}
 		$sort_recent = isset( $search_args['sort'] ) && 'recent' === sanitize_key( (string) $search_args['sort'] );
@@ -1050,7 +1083,8 @@ class SearchService {
 
 		// Visibility gate. Guests and the default path see only public rows. A
 		// logged-in viewer additionally sees content in spaces they belong to: the
-		// private space itself (space rows store their id in object_id, space_id 0)
+		// private space itself (space rows store their id in object_id, space_id 0,
+		// under 'space' or an add-on's own space type - see space_object_types())
 		// and any content whose space_id is one of their spaces. Space ids are cast
 		// to int and embedded directly (an all-integer IN() list is injection-safe),
 		// so the four search queries below need no extra prepared params.
@@ -1060,7 +1094,7 @@ class SearchService {
 			if ( ! empty( $viewer_spaces ) ) {
 				$space_in         = implode( ',', array_map( 'absint', $viewer_spaces ) );
 				$visibility_where = "( si.visibility = 'public'"
-					. " OR ( si.object_type = 'space' AND si.object_id IN ({$space_in}) )"
+					. " OR ( si.object_type IN ('" . implode( "','", array_map( 'sanitize_key', self::space_object_types() ) ) . "') AND si.object_id IN ({$space_in}) )"
 					. " OR ( si.space_id IN ({$space_in}) ) )";
 			}
 		}

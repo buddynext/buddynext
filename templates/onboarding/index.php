@@ -133,8 +133,8 @@ foreach ( array_merge( $bn_ob_featured, $bn_ob_suggested ) as $ob_s ) {
 	if ( 'direct' !== \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $ob_s['type'] ?? 'open' ) ) ) {
 		continue;
 	}
-	$bn_ob_seen[ $ob_id ]  = true;
-	$recommended_spaces[]  = $ob_s;
+	$bn_ob_seen[ $ob_id ] = true;
+	$recommended_spaces[] = $ob_s;
 	if ( count( $recommended_spaces ) >= 6 ) {
 		break;
 	}

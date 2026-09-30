@@ -129,6 +129,10 @@ class NotificationsSidebarProvider {
 				'count' => $message_unread,
 			),
 		);
+		// No Messages group while messaging is off in WPMediaVerse (card 10344001598).
+		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+			unset( $sidebar_types['message'] );
+		}
 
 		$descriptors[] = array(
 			'id'       => 'notif-recent-actors',

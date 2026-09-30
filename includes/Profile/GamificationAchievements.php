@@ -25,8 +25,7 @@ namespace BuddyNext\Profile;
  */
 class GamificationAchievements {
 
-	private const TAB_SLUG   = 'achievements';
-	private const MAX_BADGES = 24;
+	private const TAB_SLUG = 'achievements';
 
 	/**
 	 * Parent primary-tab id that houses the three gamification sub-tabs
@@ -102,7 +101,7 @@ class GamificationAchievements {
 		$deny  = (array) $deny;
 		$paths = array();
 
-		$hub = $this->hub_url();
+		$hub = \BuddyNext\Bridges\GamificationBridge::hub_url();
 		if ( '' !== $hub ) {
 			$path = (string) wp_parse_url( $hub, PHP_URL_PATH );
 			if ( '' !== $path ) {
@@ -113,8 +112,8 @@ class GamificationAchievements {
 		// Badge share/verify pages live under WB Gamification's own rewrite base
 		// (independent of the hub page slug). Derive it from the canonical builder
 		// so it tracks the plugin, then trim to the leading segment as a prefix.
-		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
-			$share = (string) \WBGam\Engine\BadgeSharePage::get_share_url( '_', 0 );
+		if ( function_exists( 'wb_gam_get_badge_share_url' ) ) {
+			$share = (string) wb_gam_get_badge_share_url( '_', 0 );
 			$spath = (string) wp_parse_url( $share, PHP_URL_PATH );
 			$seg   = explode( '/', trim( $spath, '/' ) );
 			if ( ! empty( $seg[0] ) ) {
@@ -162,7 +161,7 @@ class GamificationAchievements {
 	 * @return array<int, array<string,mixed>>
 	 */
 	public function inject_leaderboard_nav_item( array $items ): array {
-		if ( ! buddynext_integration_enabled( 'gamification', 'nav' ) ) {
+		if ( ! buddynext_integration_enabled( 'gamification', 'nav' ) || \BuddyNext\Bridges\GamificationBridge::leaderboard_deferred() ) {
 			return $items;
 		}
 
@@ -199,10 +198,9 @@ class GamificationAchievements {
 	public function register_nav( \BuddyNext\Nav\NavRegistry $registry ): void {
 		// Parent container: one "Achievements" top-level tab that houses the
 		// gamification sub-tabs so Achievements / Points / Kudos don't each take a
-		// primary slot. Owns no panel — landing deep-links to the first available
-		// child (Achievements when the member has standing, else Kudos, which is
-		// always present). Shown whenever gamification nav is on (Kudos guarantees
-		// at least one child, so the parent never renders empty).
+		// primary slot. Owns no panel — landing deep-links to the first child that
+		// exists for this viewer, and the parent hides when none does (Kudos can be
+		// switched off, card 10344054799), so it never opens an empty tab.
 		$registry->register(
 			array(
 				'id'        => self::PARENT_SLUG,
@@ -210,11 +208,8 @@ class GamificationAchievements {
 				'layer'     => 'primary',
 				'label'     => __( 'Achievements', 'buddynext' ),
 				'priority'  => 70,
-				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0,
-				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
-					$base = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) );
-					return $base . ( $this->has_standing( $c->subject_id ) ? self::TAB_SLUG . '/' : 'kudos/' );
-				},
+				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0 && '' !== $this->landing_slug( $c->subject_id ),
+				'url'       => fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . $this->landing_slug( $c->subject_id ) . '/',
 			)
 		);
 
@@ -254,53 +249,25 @@ class GamificationAchievements {
 		echo '<div class="bn-achievements">';
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
-		$this->render_points_history( $member_id );
 		echo '</div>';
 	}
 
 	/**
-	 * Render the member's recent points ledger below the badge grid.
-	 *
-	 * On a standalone BuddyPress site wb-gamification's own profile
-	 * integration ships a Points sub-tab (its points-history block); on a
-	 * BuddyNext stack that sub-nav is shadowed because BN owns the profile —
-	 * so without this section the ledger existed nowhere on the profile.
-	 * Read-only parity via the plugin's own [wb_gam_points_history]
-	 * shortcode (block SSR — wb-gamification owns markup, escaping and any
-	 * per-member privacy rules), scoped to the displayed member.
+	 * The first gamification sub-tab that exists for this viewer, in tab order:
+	 * Achievements (member has standing), Kudos (switched on), Points (own
+	 * profile only). Empty when none does.
 	 *
 	 * @param int $member_id Profile being viewed.
-	 * @return void
+	 * @return string Tab slug, or ''.
 	 */
-	private function render_points_history( int $member_id ): void {
-		if ( ! shortcode_exists( 'wb_gam_points_history' ) ) {
-			return;
+	private function landing_slug( int $member_id ): string {
+		if ( $this->has_standing( $member_id ) ) {
+			return self::TAB_SLUG;
 		}
-
-		// Owner (and site admins) only. Visitors get credentials and standing —
-		// badges, level, rank — never the per-action churn of another member's
-		// ledger; the history answers the OWNER's "where did my points come
-		// from", which is who the shadowed wb-gam Points sub-tab served best.
-		if ( get_current_user_id() !== $member_id && ! current_user_can( 'manage_options' ) ) {
-			return;
+		if ( GamificationKudos::enabled() ) {
+			return 'kudos';
 		}
-
-		$history = do_shortcode( sprintf( '[wb_gam_points_history user_id="%d" limit="10"]', $member_id ) );
-		if ( '' === trim( wp_strip_all_tags( $history ) ) ) {
-			return; // No entries yet — no empty shell.
-		}
-
-		echo '<div class="bn-card bn-achievements__panel bn-achievements__history">';
-		echo '<header class="bn-achievements__head">';
-		echo '<h3 class="bn-achievements__title">';
-		if ( function_exists( 'buddynext_icon' ) ) {
-			buddynext_icon( 'trending-up' );
-		}
-		echo ' ' . esc_html__( 'Points history', 'buddynext' );
-		echo '</h3>';
-		echo '</header>';
-		echo $history; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
-		echo '</div>';
+		return get_current_user_id() === $member_id ? 'points' : '';
 	}
 
 	/**
@@ -333,7 +300,7 @@ class GamificationAchievements {
 			}
 		);
 
-		return array_slice( $badges, 0, self::MAX_BADGES );
+		return $badges;
 	}
 
 	/**
@@ -350,7 +317,7 @@ class GamificationAchievements {
 	 *               is_credential, category, earned (bool), earned_at.
 	 */
 	private function all_badges( int $member_id ): array {
-		if ( ! is_callable( array( '\WBGam\Engine\BadgeEngine', 'get_all_badges_for_user' ) ) ) {
+		if ( ! function_exists( 'wb_gam_get_all_badges_for_user' ) ) {
 			// Engine catalogue unavailable — degrade to earned-only, flagged earned.
 			return array_map(
 				static function ( array $badge ): array {
@@ -361,7 +328,7 @@ class GamificationAchievements {
 			);
 		}
 
-		$all = \WBGam\Engine\BadgeEngine::get_all_badges_for_user( $member_id );
+		$all = wb_gam_get_all_badges_for_user( $member_id );
 		if ( ! is_array( $all ) ) {
 			return array();
 		}
@@ -369,7 +336,7 @@ class GamificationAchievements {
 		usort(
 			$all,
 			static function ( array $a, array $b ): int {
-				// Earned first, then credentials, then name — a stable, goal-first order.
+				// Earned first, then credentials; a stable, goal-first order.
 				$ea = ! empty( $a['earned'] ) ? 1 : 0;
 				$eb = ! empty( $b['earned'] ) ? 1 : 0;
 				if ( $ea !== $eb ) {
@@ -377,10 +344,10 @@ class GamificationAchievements {
 				}
 				$ca = ! empty( $a['is_credential'] ) ? 1 : 0;
 				$cb = ! empty( $b['is_credential'] ) ? 1 : 0;
-				if ( $ca !== $cb ) {
-					return $cb <=> $ca;
-				}
-				return strcasecmp( (string) ( $a['name'] ?? '' ), (string) ( $b['name'] ?? '' ) );
+				// Within a group, keep the engine's ladder order (category, then
+				// threshold): a name sort put "10-Year" before "2-Year" (card
+				// 10343796762). usort is stable on PHP 8, so equal keys keep it.
+				return $cb <=> $ca;
 			}
 		);
 
@@ -430,17 +397,20 @@ class GamificationAchievements {
 		$tiles = array();
 
 		if ( function_exists( 'wb_gam_get_user_points' ) ) {
+			$points  = (int) wb_gam_get_user_points( $member_id );
 			$tiles[] = array(
 				'icon'  => 'star',
-				'label' => __( 'Points', 'buddynext' ),
-				'value' => number_format_i18n( (int) wb_gam_get_user_points( $member_id ) ),
+				'label' => \BuddyNext\Bridges\GamificationBridge::points_unit( $points ),
+				'value' => number_format_i18n( $points ),
 			);
 		}
 		$rank = $this->leaderboard_rank( $member_id );
 		if ( $rank > 0 ) {
 			$tiles[] = array(
 				'icon'  => 'crown',
-				'label' => __( 'Rank', 'buddynext' ),
+				// The tile is the all-time rank; the leaderboard defaults to monthly,
+				// so the period is named (card 10343975769).
+				'label' => __( 'All-time rank', 'buddynext' ),
 				'value' => '#' . number_format_i18n( $rank ),
 			);
 		}
@@ -497,31 +467,6 @@ class GamificationAchievements {
 	}
 
 	/**
-	 * Whether the current viewer may see this member's profile at all.
-	 *
-	 * Fails CLOSED. If the privacy service cannot be resolved there is no honest
-	 * answer available, and the safe direction for a visibility check is to refuse:
-	 * a boot-order regression must not silently turn a gated route back into an
-	 * open one. (PortfolioController's equivalent fails open — worth aligning, but
-	 * not by copying the weaker half.)
-	 *
-	 * @param int $member_id The profile being read.
-	 * @return bool
-	 */
-	private function viewer_can_see( int $member_id ): bool {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return false;
-		}
-
-		$privacy = buddynext_service( 'privacy' );
-		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
-			return false;
-		}
-
-		return $privacy->can_view_profile( get_current_user_id(), $member_id );
-	}
-
-	/**
 	 * REST: a member's badges + standing — the same data the SSR Achievements tab
 	 * renders, so the native app can draw the badge grid and standing strip.
 	 *
@@ -546,7 +491,7 @@ class GamificationAchievements {
 		// Return the neutral empty shape rather than a 403, so the answer for "you
 		// may not see this" is identical to the answer for "there is nothing here" —
 		// a 403 would confirm the member exists and has standing worth hiding.
-		if ( ! $this->viewer_can_see( $member_id ) ) {
+		if ( ! \BuddyNext\Bridges\GamificationBridge::can_view_standing( $member_id ) ) {
 			return new \WP_REST_Response(
 				array(
 					'has_standing' => false,
@@ -634,8 +579,8 @@ class GamificationAchievements {
 		// One query for the published set rather than one per tile.
 		$viewer        = get_current_user_id();
 		$sees_all      = $viewer > 0 && ( $viewer === $member_id || user_can( $viewer, 'manage_options' ) );
-		$can_check     = is_callable( array( '\WBGam\Engine\BadgeShare', 'shared_badges' ) );
-		$published_ids = ( ! $sees_all && $can_check ) ? array_flip( \WBGam\Engine\BadgeShare::shared_badges( $member_id ) ) : array();
+		$can_check     = function_exists( 'wb_gam_get_shared_badges' );
+		$published_ids = ( ! $sees_all && $can_check ) ? array_flip( wb_gam_get_shared_badges( $member_id ) ) : array();
 
 		echo '<ul class="bn-achievements__grid" role="list">';
 		foreach ( $all as $badge ) {
@@ -645,7 +590,7 @@ class GamificationAchievements {
 			$desc      = isset( $badge['description'] ) ? (string) $badge['description'] : '';
 			$image     = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
 			$is_cr     = ! empty( $badge['is_credential'] );
-			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? date_i18n( $date_format, (int) strtotime( (string) $badge['earned_at'] ) ) : '';
+			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? get_date_from_gmt( (string) $badge['earned_at'], $date_format ) : '';
 			// Only earned badges the viewer can open get a link; the rest are static.
 			$can_open = $is_earned && '' !== $id && ( $sees_all || ! $can_check || isset( $published_ids[ $id ] ) );
 			$url      = $can_open ? $this->badge_share_url( $id, $member_id ) : '';
@@ -712,33 +657,20 @@ class GamificationAchievements {
 			return $ranks[ $member_id ];
 		}
 
-		if ( ! is_callable( array( '\WBGam\Engine\LeaderboardEngine', 'get_user_rank' ) ) ) {
+		if ( ! function_exists( 'wb_gam_get_user_rank' ) ) {
 			$ranks[ $member_id ] = 0;
 			return 0;
 		}
-		$data                = \WBGam\Engine\LeaderboardEngine::get_user_rank( $member_id, 'all' );
+		$data                = wb_gam_get_user_rank( $member_id, 'all' );
 		$ranks[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
 
 		return $ranks[ $member_id ];
 	}
 
 	/**
-	 * The wb-gamification hub page URL (leaderboard), or '' when unset.
-	 *
-	 * @return string
-	 */
-	private function hub_url(): string {
-		$page_id = (int) get_option( 'wb_gam_hub_page_id', 0 );
-		if ( $page_id <= 0 || 'publish' !== get_post_status( $page_id ) ) {
-			return '';
-		}
-		return (string) get_permalink( $page_id );
-	}
-
-	/**
 	 * Public share URL for a badge.
 	 *
-	 * Defers to WB Gamification's canonical `\WBGam\Engine\BadgeSharePage::get_share_url()`
+	 * Defers to WB Gamification's public `wb_gam_get_badge_share_url()`
 	 * so the link can never drift from the plugin's own share-page rewrite. The
 	 * hand-built fallback (`gamification/badge/{id}/{uid}/share/`) only runs on an
 	 * older WB Gamification that predates the helper.
@@ -748,8 +680,8 @@ class GamificationAchievements {
 	 * @return string
 	 */
 	private function badge_share_url( string $badge_id, int $user_id ): string {
-		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
-			return (string) \WBGam\Engine\BadgeSharePage::get_share_url( $badge_id, $user_id );
+		if ( function_exists( 'wb_gam_get_badge_share_url' ) ) {
+			return (string) wb_gam_get_badge_share_url( $badge_id, $user_id );
 		}
 		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' ); // bn-route-ok: wb-gam's fixed share rewrite, fallback only.
 	}

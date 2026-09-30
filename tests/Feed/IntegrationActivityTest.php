@@ -61,6 +61,28 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * set_space_by_meta() moves every card of a partner id, keeps the card, and
+	 * gives it the audience publish() would; a withdraw and restore still find it.
+	 *
+	 * @return void
+	 */
+	public function test_set_space_by_meta_moves_cards_and_their_audience(): void {
+		global $wpdb;
+		$id  = IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/event/9/', 'Meetup', 'event', '', 3, array( 'event_id' => 9 ) );
+		$row = static fn() => $wpdb->get_row( $wpdb->prepare( "SELECT space_id, privacy, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+
+		$this->assertSame( 1, IntegrationActivity::set_space_by_meta( 'event', 'event_id', 9, 4 ) );
+		$this->assertSame( 4, (int) $row()->space_id );
+		$this->assertSame( 'space_members', $row()->privacy );
+		$this->assertSame( 0, IntegrationActivity::set_space_by_meta( 'event', 'event_id', 9, 4 ), 'already there: untouched' );
+
+		$this->assertSame( 1, IntegrationActivity::set_space_by_meta( 'event', 'event_id', 9, 0 ) );
+		$this->assertNull( $row()->space_id );
+		$this->assertSame( 'public', $row()->privacy );
+		$this->assertSame( 'published', $row()->status );
+	}
+
+	/**
 	 * A typed publish() records the type and merges the meta into link_meta.
 	 *
 	 * @return void
@@ -430,5 +452,33 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $card_left, 'the card row is gone' );
 		$this->assertSame( 0, $comment_left, 'the comment is cascaded, not orphaned' );
 		$this->assertSame( 0, $react_left, 'the comment reaction is cascaded, not orphaned' );
+	}
+
+	/**
+	 * is_mirror() is true only inside as_mirror(), survives nesting, and resets
+	 * when the write throws.
+	 */
+	public function test_mirror_flag_is_scoped_to_the_write(): void {
+		$this->assertFalse( IntegrationActivity::is_mirror() );
+
+		$seen = IntegrationActivity::as_mirror(
+			static function (): array {
+				$inner = IntegrationActivity::as_mirror( static fn() => IntegrationActivity::is_mirror() );
+				return array( $inner, IntegrationActivity::is_mirror() );
+			}
+		);
+		$this->assertSame( array( true, true ), $seen, 'true inside, and still true after a nested mirror returns' );
+		$this->assertFalse( IntegrationActivity::is_mirror() );
+
+		try {
+			IntegrationActivity::as_mirror(
+				static function (): void {
+					throw new \RuntimeException( 'boom' );
+				}
+			);
+		} catch ( \RuntimeException $e ) {
+			unset( $e );
+		}
+		$this->assertFalse( IntegrationActivity::is_mirror(), 'a throwing write does not leave the flag stuck' );
 	}
 }

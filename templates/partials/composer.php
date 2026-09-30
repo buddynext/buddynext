@@ -205,6 +205,9 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'linkThumb'             => '',
 				'linkMeta'              => null,
 				'mediaEnabled'          => $composer_media_enabled,
+				// Same source and clamp as the Media-tab composer — never a
+				// hardcoded number. See WPMediaVerseBridge::media_max_bytes().
+				'mediaMaxMB'            => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
 				'docEnabled'            => (bool) $composer_doc_config['enabled'],
 				'docAccept'             => (string) $composer_doc_config['accept'],
 				'docMaxSize'            => (int) $composer_doc_config['max_size'],

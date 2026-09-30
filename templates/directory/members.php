@@ -30,8 +30,6 @@
  *   - parts/member-directory-filter-bar.php — relation tabs + search + sort + type filter
  *   - parts/member-directory-grid.php       — grid wrapper + member-card loop
  *   - parts/member-card.php                 — single member row (reusable)
- *   - parts/member-block-modal.php          — block confirmation
- *   - parts/member-report-modal.php         — report profile
  *
  * Overridable: copy to `{theme}/buddynext/directory/members.php`.
  *
@@ -509,24 +507,6 @@ if ( $current_user_id > 0 ) {
 	?>
 </div>
 
-<?php
-// Cross-surface modals — opened imperatively by the directory kebab menu.
-// Rendered OUTSIDE the `data-wp-interactive="buddynext/members"` element so
-// stray `data-wp-bind` directives from the partials are inert. The
-// directory store opens / closes them by toggling the [hidden] attribute.
-buddynext_get_template(
-	'parts/member-block-modal.php',
-	array(
-		'nonce' => $bn_rest_nonce,
-	)
-);
-
-buddynext_get_template(
-	'parts/member-report-modal.php',
-	array(
-		'nonce' => $bn_rest_nonce,
-	)
-);
 
 /**
  * Fires after the members directory inner content.

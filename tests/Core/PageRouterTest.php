@@ -333,6 +333,38 @@ class PageRouterTest extends \WP_UnitTestCase {
 	// ── Shell rendering (inside theme chrome) ─────────────────────────────────
 
 	/**
+	 * Render the feed shell with the theme's header.php / footer.php resolved to
+	 * nothing, so the output is the shell plus the get_header/get_footer stubs
+	 * only. The theme's header prints the DOCTYPE - that is the theme's job - and
+	 * whether it appeared depended on test order, which made these tests flaky.
+	 *
+	 * @return string
+	 */
+	private function render_feed_shell_without_theme_templates(): string {
+		global $wp_stylesheet_path, $wp_template_path;
+		$saved = array( $wp_stylesheet_path, $wp_template_path );
+		// Empty header.php / footer.php: without them locate_template() falls back
+		// to wp-includes/theme-compat/header.php, which prints a DOCTYPE the first
+		// time any test in the process loads it (require_once).
+		$empty = get_temp_dir() . 'bn-no-theme-templates';
+		wp_mkdir_p( $empty );
+		foreach ( array( 'header.php', 'footer.php' ) as $bn_file ) {
+			if ( ! file_exists( $empty . '/' . $bn_file ) ) {
+				file_put_contents( $empty . '/' . $bn_file, '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- test fixture.
+			}
+		}
+		$wp_stylesheet_path = $empty; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- restored below.
+		$wp_template_path   = $empty; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- restored below.
+
+		ob_start();
+		$this->router->render_shell_with_theme_chrome( 'feed', 'feed/home.php', array() );
+		$output = (string) ob_get_clean();
+
+		list( $wp_stylesheet_path, $wp_template_path ) = $saved; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+		return $output;
+	}
+
+	/**
 	 * Render method must not emit DOCTYPE / html / head / body — theme owns them.
 	 *
 	 * Stubs get_header() / get_footer() output via sentinel filters and
@@ -357,9 +389,7 @@ class PageRouterTest extends \WP_UnitTestCase {
 		$user_id = self::factory()->user->create();
 		wp_set_current_user( $user_id );
 
-		ob_start();
-		$this->router->render_shell_with_theme_chrome( 'feed', 'feed/home.php', array() );
-		$output = (string) ob_get_clean();
+		$output = $this->render_feed_shell_without_theme_templates();
 
 		wp_set_current_user( 0 );
 
@@ -463,9 +493,7 @@ class PageRouterTest extends \WP_UnitTestCase {
 		$user_id = self::factory()->user->create();
 		wp_set_current_user( $user_id );
 
-		ob_start();
-		$this->router->render_shell_with_theme_chrome( 'feed', 'feed/home.php', array() );
-		$output = (string) ob_get_clean();
+		$output = $this->render_feed_shell_without_theme_templates();
 
 		wp_set_current_user( 0 );
 

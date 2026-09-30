@@ -48,6 +48,40 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * How many bridge mirror writes are in flight (nesting-safe).
+	 *
+	 * @var int
+	 */
+	private static int $mirror_depth = 0;
+
+	/**
+	 * Whether the current write copies an action a partner plugin already
+	 * recorded (a MediaVerse follow or lightbox comment, a Jetonomy reply, or
+	 * the reverse). Listeners that reward or count actions check this so one
+	 * member action is never paid twice, once per plugin.
+	 *
+	 * @return bool
+	 */
+	public static function is_mirror(): bool {
+		return self::$mirror_depth > 0;
+	}
+
+	/**
+	 * Run a bridge mirror write with is_mirror() true for its duration.
+	 *
+	 * @param callable $write The cross-plugin write.
+	 * @return mixed Whatever $write returns.
+	 */
+	public static function as_mirror( callable $write ) {
+		++self::$mirror_depth;
+		try {
+			return $write();
+		} finally {
+			--self::$mirror_depth;
+		}
+	}
+
+	/**
 	 * Publish a link-card activity for content a member just created.
 	 *
 	 * Rendered as a standard feed link card pointing at the partner's own page
@@ -346,6 +380,28 @@ class IntegrationActivity {
 			return 0;
 		}
 		return ( new PostService() )->transition_link_meta_status( $type, $meta_key, $value, 'draft', 'published' );
+	}
+
+	/**
+	 * Move every card of a partner id into the partner's current space.
+	 *
+	 * For a partner object that can change home (an event moved to another
+	 * space): the cards keep their ids, dates and comments, and take the new
+	 * space and the privacy publish() gives a card there (a space card follows
+	 * the space's audience; a card with no space is public). Call it on every
+	 * partner save; cards already in that space are untouched.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to move.
+	 * @param int    $space_id BuddyNext space id, or 0 for none.
+	 * @return int Cards moved.
+	 */
+	public static function set_space_by_meta( string $type, string $meta_key, int $value, int $space_id ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 || $space_id < 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->move_link_meta_space( $type, $meta_key, $value, $space_id );
 	}
 
 	/**

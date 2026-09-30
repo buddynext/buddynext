@@ -37,14 +37,12 @@ if ( ! $space_id ) {
 // ── Permission gate ───────────────────────────────────────────────────────────
 
 if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) ) ) {
-	// A demoted moderator may still hold this URL — render a friendly in-shell
-	// notice with a way back instead of a bare wp_die() white screen.
-	printf(
-		'<div class="bn-empty-state bn-space-no-access"><div class="bn-empty-title">%1$s</div><p class="bn-empty-text">%2$s</p><a class="bn-btn" data-variant="primary" href="%3$s">%4$s</a></div>',
-		esc_html__( 'You no longer moderate this space', 'buddynext' ),
-		esc_html__( 'Your moderator access to this space has changed. You can still view and take part in it.', 'buddynext' ),
-		esc_url( \BuddyNext\Core\PageRouter::space_url( $space_id ) ),
-		esc_html__( 'Back to space', 'buddynext' )
+	buddynext_get_template(
+		'parts/space-no-access.php',
+		array(
+			'space_id' => $space_id,
+			'surface'  => 'moderate',
+		)
 	);
 	return;
 }
@@ -54,7 +52,9 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate', array(
 $bn_mod_svc     = new ModerationService();
 $bn_mod_log_svc = new ModerationLogService();
 $bn_member_svc  = new SpaceMemberService();
-$bn_space_row   = ( new SpaceService() )->get( $space_id );
+// A site moderator may warn anyone; a space-only moderator only this space's members.
+$bn_mod_site_mod = buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' );
+$bn_space_row    = ( new SpaceService() )->get( $space_id );
 
 if ( null === $bn_space_row ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
@@ -242,7 +242,7 @@ $mod_privacy = array(
 		<div class="bn-stat-grid bn-space-mod__stats" role="list">
 			<div class="bn-stat" role="listitem">
 				<div class="bn-stat__label"><?php esc_html_e( 'Open reports', 'buddynext' ); ?></div>
-				<div class="bn-stat__value"><?php echo esc_html( (string) $open_reports_count ); ?></div>
+				<div class="bn-stat__value" data-bn-open-reports><?php echo esc_html( (string) $open_reports_count ); ?></div>
 			</div>
 			<div class="bn-stat" role="listitem">
 				<div class="bn-stat__label"><?php esc_html_e( 'Pending member requests', 'buddynext' ); ?></div>
@@ -301,11 +301,18 @@ $mod_privacy = array(
 							$r_tone       = bn_report_priority( $r_count );
 							$r_id         = (int) ( $report['id'] ?? 0 );
 							// Content-warning state (post reports only) for the shared CW control.
-							$r_obj_type = (string) ( $report['object_type'] ?? '' );
-							$r_obj_id   = (int) ( $report['object_id'] ?? 0 );
-							$r_cw       = ( 'post' === $r_obj_type && $r_obj_id > 0 ) ? $bn_space_cw->get_post_content_warning( $r_obj_id ) : null;
-							$r_cw_has   = (bool) ( $r_cw['has_warning'] ?? false );
-							$r_cw_type  = (string) ( $r_cw['warning_type'] ?? '' );
+							// Member actions only where the server will accept them: a space-only
+							// moderator may warn / remove MEMBERS of this space (ModerationService::warn),
+							// a site moderator may warn anyone; nobody removes the owner or themselves.
+							// ponytail: one role lookup per row, bounded by the 20-report page.
+							$r_role      = $reported_uid > 0 ? (string) $bn_member_svc->get_role( $space_id, $reported_uid ) : '';
+							$r_is_member = in_array( $r_role, array( 'member', 'moderator' ), true ) && get_current_user_id() !== $reported_uid;
+							$r_can_warn  = $reported_uid > 0 && get_current_user_id() !== $reported_uid && ( $r_is_member || 'owner' === $r_role || $bn_mod_site_mod );
+							$r_obj_type  = (string) ( $report['object_type'] ?? '' );
+							$r_obj_id    = (int) ( $report['object_id'] ?? 0 );
+							$r_cw        = ( 'post' === $r_obj_type && $r_obj_id > 0 ) ? $bn_space_cw->get_post_content_warning( $r_obj_id ) : null;
+							$r_cw_has    = (bool) ( $r_cw['has_warning'] ?? false );
+							$r_cw_type   = (string) ( $r_cw['warning_type'] ?? '' );
 							if ( '' === $r_cw_type ) {
 								$r_cw_type = 'nsfw';
 							}
@@ -313,7 +320,7 @@ $mod_privacy = array(
 							<article
 								class="bn-card bn-space-mod__report"
 								data-tone="<?php echo esc_attr( $r_tone ); ?>"
-								data-wp-context='{"reportId":<?php echo (int) $r_id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>,"objectId":<?php echo (int) $r_obj_id; ?>,"objectType":"<?php echo esc_js( $r_obj_type ); ?>","cwType":"<?php echo esc_js( $r_cw_type ); ?>","cwHasWarning":<?php echo $r_cw_has ? 'true' : 'false'; ?>}'
+								data-wp-context='{"reportId":<?php echo (int) $r_id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>,"objectId":<?php echo (int) $r_obj_id; ?>,"objectType":"<?php echo esc_js( $r_obj_type ); ?>","cwType":"<?php echo esc_js( $r_cw_type ); ?>","cwHasWarning":<?php echo $r_cw_has ? 'true' : 'false'; ?>,"moreMenuOpen":false}'
 							>
 								<div class="bn-space-mod__report-head">
 									<span class="bn-avatar" data-size="md" aria-hidden="true">
@@ -337,7 +344,16 @@ $mod_privacy = array(
 												?>
 												<span aria-hidden="true">&middot;</span>
 											<?php endif; ?>
-											<span><?php esc_html_e( 'member of this space', 'buddynext' ); ?></span>
+											<?php
+											// The author's real standing in this space, from the same role lookup the
+											// row's actions use - never a blanket "member" (card 10343760182).
+											$r_standing = array(
+												'owner'  => __( 'owner of this space', 'buddynext' ),
+												'moderator' => __( 'moderator of this space', 'buddynext' ),
+												'member' => __( 'member of this space', 'buddynext' ),
+											);
+											?>
+											<span><?php echo esc_html( $r_standing[ (string) $r_role ] ?? __( 'not a member', 'buddynext' ) ); ?></span>
 											<?php if ( $r_time ) : ?>
 												<span aria-hidden="true">&middot;</span>
 												<span><?php echo esc_html( $r_time ); ?></span>
@@ -393,36 +409,15 @@ $mod_privacy = array(
 									<?php endif; ?>
 
 									<div class="bn-space-mod__report-actions">
+										<?php // Primary actions inline; the rest in "More" - the same split as Community Admin and wp-admin (card 10331285055). ?>
 										<button
 											type="button"
 											class="bn-btn"
-											data-variant="ghost"
-											data-size="sm"
-											data-wp-on--click="actions.viewReportedPost"
-											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
-										><?php esc_html_e( 'View post', 'buddynext' ); ?></button>
-
-										<button
-											type="button"
-											class="bn-btn"
-											data-variant="ghost"
+											data-variant="secondary"
 											data-size="sm"
 											data-wp-on--click="actions.dismissReport"
 											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 										><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
-
-										<?php // Member-level actions only exist when the report has a resolvable offender — never render a button bound to user id 0, where the store's handlers early-return. ?>
-										<?php if ( $reported_uid > 0 ) : ?>
-											<button
-												type="button"
-												class="bn-btn"
-												data-variant="secondary"
-												data-size="sm"
-												data-wp-on--click="actions.warnMember"
-												data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
-												data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
-											><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
-										<?php endif; ?>
 
 										<button
 											type="button"
@@ -431,42 +426,68 @@ $mod_privacy = array(
 											data-size="sm"
 											data-wp-on--click="actions.removeContent"
 											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
-											data-bn-confirm="<?php echo esc_attr( __( 'Remove this content? It will be hidden from the space.', 'buddynext' ) ); ?>"
+											data-bn-confirm-title="<?php echo esc_attr( __( 'Remove this content?', 'buddynext' ) ); ?>"
+											data-bn-confirm="<?php echo esc_attr( __( 'It will be hidden from the space.', 'buddynext' ) ); ?>"
+											data-bn-confirm-ok="<?php echo esc_attr( __( 'Remove', 'buddynext' ) ); ?>"
 										><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
 
-										<?php if ( 'post' === $r_obj_type ) : ?>
-											<?php
-											buddynext_get_template(
-												'parts/moderation-cw-control.php',
-												array(
-													'cw_type' => $r_cw_type,
-													'cw_has'  => $r_cw_has,
-												)
-											);
-											?>
-										<?php endif; ?>
-
-										<?php if ( $reported_uid > 0 ) : ?>
+										<div class="bn-ca-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-on-document--click="actions.closeMoreMenuOnOutside">
 											<button
 												type="button"
-												class="bn-btn"
-												data-variant="danger"
+												class="bn-btn bn-ca-more-trigger"
+												data-variant="secondary"
 												data-size="sm"
-												data-wp-on--click="actions.removeFromSpace"
-												data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
-												data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
-												data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-												data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space? This does not suspend their platform account.', 'buddynext' ) ); ?>"
-											><?php buddynext_icon( 'ban' ); ?> <?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
-										<?php endif; ?>
+												aria-haspopup="menu"
+												aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
+												data-wp-on--click="actions.toggleMoreMenu"
+												data-wp-bind--aria-expanded="context.moreMenuOpen"
+											><?php buddynext_icon( 'more-horizontal' ); ?></button>
+											<div class="bn-ca-more-menu" role="menu">
+												<?php $r_view_url = false === \BuddyNext\Core\ObjectLabels::exists( $r_obj_type, $r_obj_id ) ? '' : \BuddyNext\Core\ObjectLabels::view_url( $r_obj_type, $r_obj_id ); ?>
+												<?php if ( '' !== $r_view_url ) : ?>
+													<a class="bn-ca-more-menu-item" role="menuitem" href="<?php echo esc_url( $r_view_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View reported item', 'buddynext' ); ?></a>
+												<?php endif; ?>
+												<?php // Member-level actions only exist when the report has a resolvable offender - never a control bound to user id 0, where the store's handlers early-return. ?>
+												<?php if ( $r_can_warn ) : ?>
+													<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.warnMember" data-report-id="<?php echo esc_attr( (string) $r_id ); ?>" data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"><?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
+												<?php endif; ?>
+												<?php if ( 'post' === $r_obj_type ) : ?>
+													<div class="bn-ca-more-menu-item bn-ca-more-menu-item--cw">
+														<?php
+														buddynext_get_template(
+															'parts/moderation-cw-control.php',
+															array(
+																'cw_type' => $r_cw_type,
+																'cw_has'  => $r_cw_has,
+															)
+														);
+														?>
+													</div>
+												<?php endif; ?>
+												<?php if ( $r_is_member ) : ?>
+													<button type="button" class="bn-ca-more-menu-item bn-ca-more-menu-item--danger" role="menuitem"
+														data-wp-on--click="actions.removeFromSpace"
+														data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
+														data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
+														data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+														data-bn-confirm-title="<?php echo esc_attr( __( 'Remove this member from the space?', 'buddynext' ) ); ?>"
+														data-bn-confirm="<?php echo esc_attr( __( 'This does not suspend their platform account.', 'buddynext' ) ); ?>"
+														data-bn-confirm-ok="<?php echo esc_attr( __( 'Remove', 'buddynext' ) ); ?>"
+													><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
+												<?php endif; ?>
+											</div>
+										</div>
 									</div>
 
+									<?php if ( $r_is_member ) : ?>
 									<p class="bn-space-mod__report-note">
 										<?php
+										// Only where "Remove from space" is actually offered.
 										// translators: %s is the space name.
 										printf( esc_html__( '"Remove from space" removes this member from %s only; it does not suspend their platform account.', 'buddynext' ), '<strong>' . esc_html( $space->name ?? '' ) . '</strong>' );
 										?>
 									</p>
+									<?php endif; ?>
 								</div>
 							</article>
 						<?php endforeach; ?>

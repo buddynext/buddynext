@@ -38,7 +38,11 @@ $current_user_id = get_current_user_id();
 
 // Resolve active filter tab (sanitized).
 $allowed_filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
-$active_filter   = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// No Messages filter while messaging is off in WPMediaVerse (card 10344001598).
+if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+	$allowed_filters = array_values( array_diff( $allowed_filters, array( 'message' ) ) );
+}
+$active_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 	$active_filter = 'all';
 }
@@ -47,9 +51,9 @@ if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 // below and the per-type unread tally (so the in-template SQL is gone but the
 // "which types belong to which tab" mapping stays declarative).
 $filter_type_map = array(
-	'reaction' => array( 'bn.post_reacted', 'bn.media_reaction' ),
-	'comment'  => array( 'bn.post_commented' ),
-	'mention'  => array( 'bn.mention', 'bn.media_mention' ),
+	'reaction' => array( 'bn.post_reacted', 'mediaverse.media_reaction' ),
+	'comment'  => array( 'bn.post_commented', 'bn.media_commented' ),
+	'mention'  => array( 'bn.mention', 'mediaverse.media_mention' ),
 	'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
 	'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
 	'message'  => array( 'bn.new_message' ),
@@ -402,6 +406,9 @@ $initial_context = wp_json_encode(
 			'count' => $message_unread,
 		),
 	);
+	// A tab exists only for a filter the page accepts (Messages drops out while
+	// messaging is off), so the bar never offers a filter that falls back to All.
+	$notif_tabs = array_values( array_filter( $notif_tabs, static fn( array $t ): bool => in_array( (string) $t['key'], $allowed_filters, true ) ) );
 
 	buddynext_get_template(
 		'parts/notifications-filter-bar.php',

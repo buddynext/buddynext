@@ -100,6 +100,7 @@ $bn_is_guest      = (bool) $args['is_guest'];
 $bn_privacy_label = (string) $args['privacy_label'];
 $bn_privacy_tone  = (string) $args['privacy_tone'];
 $bn_notif_pref    = (string) $args['notif_pref'];
+$bn_is_archived   = ! empty( $bn_space->is_archived );
 
 // Owner-set brand colour (the registered `color` space field). When present it
 // drives the hero accent through a CSS custom property; when empty the stylesheet
@@ -167,8 +168,12 @@ do_action( 'buddynext_part_space_hero_before', $args );
 
 		<div class="bn-sh-hero__info">
 			<h1 class="bn-sh-hero__name"
-				aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $bn_space->name, $bn_privacy_label ) ); ?>"
-			><?php echo esc_html( $bn_space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $bn_privacy_tone ); ?>"><?php echo esc_html( $bn_privacy_label ); ?></span></h1>
+				aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $bn_space->name, $bn_is_archived ? $bn_privacy_label . ', ' . __( 'Archived', 'buddynext' ) : $bn_privacy_label ) ); ?>"
+			><?php echo esc_html( $bn_space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $bn_privacy_tone ); ?>"><?php echo esc_html( $bn_privacy_label ); ?></span>
+			<?php if ( $bn_is_archived ) : ?>
+				<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
+			<?php endif; ?>
+		</h1>
 			<?php
 			// Breadcrumb — only on a sub-space, giving the parent context a member
 			// expects (Slack/Notion-style "Parent > This space"). Placed BELOW the
@@ -199,7 +204,9 @@ do_action( 'buddynext_part_space_hero_before', $args );
 		</div>
 
 		<div class="bn-sh-hero__actions" data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>">
-			<?php if ( $bn_is_guest ) : ?>
+			<?php if ( $bn_is_guest && $bn_is_archived ) : ?>
+				<?php // An archived space takes no new members, so there is nothing to log in to join. ?>
+			<?php elseif ( $bn_is_guest ) : ?>
 				<a
 					href="<?php echo esc_url( PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $bn_space->slug ) ) ); ?>"
 					class="bn-btn"
@@ -247,6 +254,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 				<?php // Guests already get the "Log in to join" CTA from the first chain above; show no join/request action here, otherwise both buttons render at once. ?>
 
 			<?php elseif ( $bn_is_owner ) : ?>
+				<?php if ( ! $bn_is_archived ) : // An archived space takes no new members. ?>
 				<button
 					type="button"
 					class="bn-btn"
@@ -254,6 +262,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-size="sm"
 					data-wp-on--click="actions.openInviteModal"
 				><?php buddynext_icon( 'user-plus' ); ?> <?php esc_html_e( 'Invite', 'buddynext' ); ?></button>
+				<?php endif; ?>
 				<a
 					href="<?php echo esc_url( buddynext_space_settings_url( $bn_space->slug ) ); ?>"
 					class="bn-btn"
@@ -338,6 +347,30 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	</div>
 
 	<?php
+	// Arrived on a revoked, expired or used-up invite link: say so, or the
+	// ordinary join button reads as a rejection. Same line for every reason.
+	if ( ! $bn_is_member && ! $bn_is_owner && \BuddyNext\Spaces\SpaceInviteLinkService::dead_link_for( $bn_space_id ) ) :
+		/**
+		 * Filters the notice shown on a space opened through a dead invite link.
+		 *
+		 * Return an empty string to show nothing.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string $notice   Notice text.
+		 * @param int    $space_id Space ID.
+		 */
+		$bn_dead_invite_notice = (string) apply_filters( 'buddynext_invite_link_dead_notice', __( 'This invite link is no longer valid. Ask the space for a new one.', 'buddynext' ), $bn_space_id );
+		if ( '' !== $bn_dead_invite_notice ) :
+			?>
+		<p class="bn-sh-hero__notice" role="status">
+			<?php buddynext_icon( 'info' ); ?>
+			<span><?php echo esc_html( $bn_dead_invite_notice ); ?></span>
+		</p>
+			<?php
+		endif;
+	endif;
+
 	buddynext_get_template(
 		'parts/space-stats-strip.php',
 		array(

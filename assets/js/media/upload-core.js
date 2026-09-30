@@ -15,16 +15,21 @@ import { restFetch } from '@buddynext/rest-client';
 /**
  * Validate a File against the shared media limits.
  *
+ * `maxSizeMB` is the site's ceiling from WPMediaVerseBridge::media_max_mb(),
+ * threaded through each caller's context (feed composer, Media-tab composer,
+ * album picker). This file owns no number: without one the size check is
+ * skipped and the server, which enforces the same ceiling, has the last word.
+ *
  * @param {File}   file File to check.
  * @param {Object} opts { maxSizeMB, badTypeMsg, tooLargeMsg }.
  * @return {string} '' when valid, else a human-readable error.
  */
 export function validateMedia( file, opts = {} ) {
-	const maxBytes = ( Number( opts.maxSizeMB ) || 64 ) * 1024 * 1024;
+	const maxBytes = Number( opts.maxSizeMB ) * 1024 * 1024;
 	if ( ! /^(image|video|audio)\//.test( file.type || '' ) ) {
 		return opts.badTypeMsg || 'Only images, video and audio can be uploaded.';
 	}
-	if ( file.size > maxBytes ) {
+	if ( maxBytes > 0 && file.size > maxBytes ) {
 		return opts.tooLargeMsg || 'File is larger than the allowed size.';
 	}
 	return '';

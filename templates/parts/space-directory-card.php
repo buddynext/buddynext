@@ -183,7 +183,9 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 
 		<?php if ( $bn_dc_action ) : ?>
 		<div class="bn-sd-card__foot">
-			<?php if ( 0 === $bn_dc_uid ) : ?>
+			<?php if ( 0 === $bn_dc_uid && ! empty( $bn_dc_space['is_archived'] ) ) : ?>
+				<?php // Archived: no Join for anyone, so no "Log in to join" either. ?>
+			<?php elseif ( 0 === $bn_dc_uid ) : ?>
 				<a
 					href="<?php echo esc_url( PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space_slug ) ) ); ?>"
 					class="bn-btn"

@@ -592,6 +592,15 @@
 	border-radius: 16px 16px 4px 16px;
 }
 
+/* A message whose media was deleted: a quiet placeholder, never an empty row. */
+.bn-dm-bubble--gone,
+.bn-dm-bubble--gone.is-mine {
+	background: transparent;
+	border: 1px dashed var(--bn-line);
+	color: var(--bn-ink-3);
+	font-style: italic;
+}
+
 .bn-dm-bubble__quoted {
 	margin-bottom: var(--bn-s2);
 	padding: var(--bn-s2) var(--bn-s3);
@@ -1439,10 +1448,11 @@
 	flex-shrink: 0;
 }
 
-/* ── Dependency notice (WPMediaVerse not installed) ──────────────────────── */
+/* ── Messages-off notice (WPMediaVerse absent, or its Messages switch off) ── */
+/* The messages container is full-bleed, so the card keeps its own gutter. */
 .bn-dm-dep-notice {
-	max-width: 540px;
-	margin-inline: auto;
+	max-width: min(540px, calc(100% - 2 * var(--bn-s4)));
+	margin: var(--bn-s6) auto;
 	padding: var(--bn-s6);
 	text-align: start;
 	display: flex;
@@ -1461,8 +1471,8 @@
 	width: 40px;
 	height: 40px;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-warn-bg);
-	color: var(--bn-warn);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
 	align-items: center;
 	justify-content: center;
 }
@@ -2121,7 +2131,7 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	height: 64px;
 	border-radius: 50%;
 	object-fit: cover;
-	font-size: var(--bn-fs-lg, 1.125rem);
+	font-size: var(--bn-text-lg);
 }
 .bn-dm-info__name {
 	font-weight: 600;
@@ -2133,7 +2143,7 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 }
 .bn-dm-info__section-title {
 	margin: 0 0 var(--bn-s3);
-	font-size: var(--bn-fs-sm, 0.875rem);
+	font-size: var(--bn-text-sm);
 	font-weight: 600;
 	color: var(--bn-ink-2, inherit);
 }
@@ -2162,7 +2172,7 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 .bn-dm-info__media-empty {
 	grid-column: 1 / -1;
 	color: var(--bn-ink-2, inherit);
-	font-size: var(--bn-fs-sm, 0.875rem);
+	font-size: var(--bn-text-sm);
 }
 .bn-dm-info__actions {
 	display: flex;
@@ -2171,10 +2181,13 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	border-top: 1px solid var(--bn-line, #e5e7eb);
 	padding-top: var(--bn-s4);
 }
-.bn-dm-info__actions .bn-dm-info__danger {
+.bn-dm-info__actions .bn-btn {
+	/* Every action reads from the start edge; Mute used to centre while the red ones did not. */
 	justify-content: flex-start;
 	gap: var(--bn-s2);
-	color: var(--bn-danger, #dc2626);
+}
+.bn-dm-info__actions .bn-dm-info__danger {
+	color: var(--bn-danger);
 }
 @media (max-width: 480px) {
 	.bn-dm-info__media {

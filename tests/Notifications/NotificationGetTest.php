@@ -52,7 +52,7 @@ class NotificationGetTest extends \WP_UnitTestCase {
 
 	/**
 	 * The hydrated row must carry the decoded `data` payload. Partner-mirrored
-	 * (jt.* and suite.*) and data-driven types keep their message/url ONLY in data,
+	 * (jetonomy.* and suite.*) and data-driven types keep their message/url ONLY in data,
 	 * so a hydrate that dropped it forced generic copy + a home_url() link on the
 	 * hub and REST. This is the C2.1 regression guard.
 	 */
@@ -65,7 +65,7 @@ class NotificationGetTest extends \WP_UnitTestCase {
 			array(
 				'recipient_id' => $recipient,
 				'sender_id'    => $sender,
-				'type'         => 'jt.notification',
+				'type'         => 'jetonomy.reply_to_post',
 				'object_type'  => 'jetonomy_reply',
 				'object_id'    => 123,
 				'data'         => array(

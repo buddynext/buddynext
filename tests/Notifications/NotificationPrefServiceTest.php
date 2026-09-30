@@ -90,6 +90,36 @@ class NotificationPrefServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 'weekly', $pref['email_freq'] );
 	}
 
+	/**
+	 * A partial update keeps what the member already saved (card 10345184463).
+	 *
+	 * The app and the REST route send one key at a time. Bell off used to turn a
+	 * weekly or off email into "immediate"; email off used to turn the bell back on.
+	 */
+	public function test_partial_update_keeps_the_saved_value_of_the_other_key(): void {
+		$this->service->set_pref( $this->user_id, 'bn.mention', array( 'on_site' => true, 'email_freq' => 'weekly' ) );
+
+		$this->service->set_pref( $this->user_id, 'bn.mention', array( 'on_site' => false ) );
+		$pref = $this->service->get_pref( $this->user_id, 'bn.mention' );
+		$this->assertFalse( $pref['on_site'] );
+		$this->assertSame( 'weekly', $pref['email_freq'], 'Bell off must not touch the email cadence.' );
+
+		$this->service->set_pref( $this->user_id, 'bn.mention', array( 'email_freq' => 'off' ) );
+		$pref = $this->service->get_pref( $this->user_id, 'bn.mention' );
+		$this->assertFalse( $pref['on_site'], 'Email off must not turn the bell back on.' );
+		$this->assertSame( 'off', $pref['email_freq'] );
+	}
+
+	/**
+	 * An invalid cadence keeps the member's current one, not a reset to immediate.
+	 */
+	public function test_invalid_email_freq_keeps_the_saved_cadence(): void {
+		$this->service->set_pref( $this->user_id, 'bn.mention', array( 'on_site' => true, 'email_freq' => 'daily' ) );
+		$this->service->set_pref( $this->user_id, 'bn.mention', array( 'email_freq' => 'hourly' ) );
+
+		$this->assertSame( 'daily', $this->service->get_pref( $this->user_id, 'bn.mention' )['email_freq'] );
+	}
+
 	public function test_set_pref_rejects_an_invalid_email_freq(): void {
 		$this->service->set_pref(
 			$this->user_id,

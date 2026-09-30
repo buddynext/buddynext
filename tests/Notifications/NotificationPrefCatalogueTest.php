@@ -105,27 +105,6 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Partner-sourced notifications are collect-only: BN mirrors them in the
-	 * center for display but never emails on the integration's behalf (the
-	 * integration owns its own email templates). So every integration-sourced
-	 * type must be can_email=false — badges/level-ups come from wb-gamification,
-	 * discussions from Jetonomy.
-	 */
-	public function test_partner_sourced_notifications_are_collect_only(): void {
-		$catalogue = ( new NotificationPrefCatalogue() )->all();
-
-		foreach ( array( 'bn.badge_awarded', 'bn.level_up', 'jt.notification' ) as $slug ) {
-			if ( ! isset( $catalogue[ $slug ] ) ) {
-				continue; // jt.notification is registered by the Jetonomy listener, may be absent here.
-			}
-			$this->assertFalse(
-				$catalogue[ $slug ]['can_email'],
-				"{$slug} is partner-sourced and must never be emailed by BN (collect-only)."
-			);
-		}
-	}
-
-	/**
 	 * The digest master switch is a real, member-facing catalogue entry.
 	 *
 	 * Class-preventing guard for card 10264293350 (digest unsubscribe was a

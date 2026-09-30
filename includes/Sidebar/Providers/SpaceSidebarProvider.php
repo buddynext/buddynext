@@ -129,14 +129,7 @@ class SpaceSidebarProvider {
 		 * Roles; the "Add sub-space" CTA must honour both or it promises something
 		 * the create endpoint refuses.
 		 */
-		$can_manage_sub = $is_root && $sub_allowed && $viewer > 0
-			&& function_exists( 'buddynext_service' ) && is_object( buddynext_service( 'permissions' ) )
-			&& buddynext_service( 'permissions' )->can(
-				$viewer,
-				'buddynext-manage-space',
-				array( 'space_id' => $space_id )
-			)
-			&& function_exists( 'buddynext_can' ) && buddynext_can( $viewer, 'buddynext-spaces/create' );
+		$can_manage_sub = \BuddyNext\Nav\Providers\SpaceNav::can_add_subspace_to( $space_id, $viewer );
 
 		// The per-parent cap (Settings -> Spaces -> "Max Sub-Spaces", 0 = unlimited).
 		// Counted with count_subspaces(), NOT the visibility-scoped $subspaces list

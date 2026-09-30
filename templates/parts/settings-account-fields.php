@@ -128,7 +128,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 		?>
 		<div class="bn-ep-field bn-ep-field--full">
 			<label class="bn-ep-label" for="bn-ep-new-email"><?php esc_html_e( 'New email address', 'buddynext' ); ?></label>
-			<input class="bn-input" type="email" id="bn-ep-new-email" autocomplete="email" data-wp-bind--aria-invalid="!!context.errors.email" data-wp-class--bn-input--error="!!context.errors.email" />
+			<input class="bn-input" type="email" id="bn-ep-new-email" autocomplete="email" data-wp-bind--aria-invalid="state.emailInvalid" data-wp-class--bn-input--error="state.emailInvalid" />
 			<span class="bn-ep-field-error" role="alert" data-wp-text="context.errors.email" data-wp-bind--hidden="!context.errors.email"></span>
 		</div>
 		<div class="bn-ep-account-form-actions">
@@ -216,18 +216,18 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 		?>
 		<div class="bn-ep-field bn-ep-field--full">
 			<label class="bn-ep-label" for="bn-ep-current-password"><?php esc_html_e( 'Current password', 'buddynext' ); ?></label>
-			<input class="bn-input" type="password" id="bn-ep-current-password" autocomplete="current-password" data-wp-bind--aria-invalid="!!context.errors.current_password" data-wp-class--bn-input--error="!!context.errors.current_password" />
+			<input class="bn-input" type="password" id="bn-ep-current-password" autocomplete="current-password" data-wp-bind--aria-invalid="state.currentPasswordInvalid" data-wp-class--bn-input--error="state.currentPasswordInvalid" />
 			<span class="bn-ep-field-error" role="alert" data-wp-text="context.errors.current_password" data-wp-bind--hidden="!context.errors.current_password"></span>
 		</div>
 		<div class="bn-ep-field bn-ep-field--full">
 			<label class="bn-ep-label" for="bn-ep-new-password"><?php esc_html_e( 'New password', 'buddynext' ); ?></label>
-			<input class="bn-input" type="password" id="bn-ep-new-password" autocomplete="new-password" data-wp-on--input="actions.measurePasswordStrength" data-wp-bind--aria-invalid="!!context.errors.new_password" data-wp-class--bn-input--error="!!context.errors.new_password" />
+			<input class="bn-input" type="password" id="bn-ep-new-password" autocomplete="new-password" data-wp-on--input="actions.measurePasswordStrength" data-wp-bind--aria-invalid="state.newPasswordInvalid" data-wp-class--bn-input--error="state.newPasswordInvalid" />
 			<span class="bn-ep-field-error" role="alert" data-wp-text="context.errors.new_password" data-wp-bind--hidden="!context.errors.new_password"></span>
 			<div class="bn-ep-strength" aria-live="polite" data-wp-bind--data-strength="context.passwordStrength"><span class="bn-ep-strength-bar"></span><span class="bn-ep-strength-label" data-wp-text="context.passwordStrengthLabel"></span></div>
 		</div>
 		<div class="bn-ep-field bn-ep-field--full">
 			<label class="bn-ep-label" for="bn-ep-confirm-password"><?php esc_html_e( 'Confirm new password', 'buddynext' ); ?></label>
-			<input class="bn-input" type="password" id="bn-ep-confirm-password" autocomplete="new-password" data-wp-bind--aria-invalid="!!context.errors.confirm_password" data-wp-class--bn-input--error="!!context.errors.confirm_password" />
+			<input class="bn-input" type="password" id="bn-ep-confirm-password" autocomplete="new-password" data-wp-bind--aria-invalid="state.confirmPasswordInvalid" data-wp-class--bn-input--error="state.confirmPasswordInvalid" />
 			<span class="bn-ep-field-error" role="alert" data-wp-text="context.errors.confirm_password" data-wp-bind--hidden="!context.errors.confirm_password"></span>
 		</div>
 		<div class="bn-ep-account-form-actions">

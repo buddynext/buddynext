@@ -42,7 +42,7 @@
 	margin: 0;
 	color: var(--bn-ink-3);
 	font-size: var(--bn-text-sm);
-	line-height: var(--bn-lh-normal);
+	line-height: var(--bn-leading-normal);
 }
 
 /* ── Section 1: Channels ──────────────────────────────────────────────── */
@@ -270,7 +270,7 @@
 	margin: 0;
 	color: var(--bn-ink-3);
 	font-size: var(--bn-text-xs);
-	line-height: var(--bn-lh-normal);
+	line-height: var(--bn-leading-normal);
 }
 
 .bn-prefs-row__controls {
@@ -484,8 +484,7 @@
 	gap: var(--bn-s3);
 	margin-block-end: var(--bn-s4);
 	padding: var(--bn-s3) var(--bn-s4);
-	border: 1px solid var(--bn-line);
-	border-inline-start: 3px solid var(--bn-info);
+	border: 1px solid var(--bn-info);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-info-bg);
 }
@@ -518,7 +517,7 @@
 .bn-prefs-notice__text {
 	margin: 0;
 	font-size: var(--bn-text-xs);
-	line-height: var(--bn-lh-normal);
+	line-height: var(--bn-leading-normal);
 	color: var(--bn-ink-2);
 }
 
@@ -545,7 +544,7 @@
 	inline-size: 100%;
 	text-align: end;
 	font-size: var(--bn-text-xs);
-	line-height: var(--bn-lh-normal);
+	line-height: var(--bn-leading-normal);
 	color: var(--bn-warn);
 }
 

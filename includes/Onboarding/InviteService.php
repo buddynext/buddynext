@@ -75,10 +75,11 @@ class InviteService {
 				'token'      => $token,
 				'status'     => 'pending',
 				'expires_at' => $expires_at,
+				'created_at' => current_time( 'mysql', true ),
 			),
 			$space_id > 0
-				? array( '%s', '%s', '%d', '%s', '%s', '%s' )
-				: array( '%s', '%s', '%s', '%s', '%s', '%s' )
+				? array( '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
+				: array( '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
 		);
 
 		$invite_id = (int) $wpdb->insert_id;

@@ -8,11 +8,11 @@
  * - Discussion created → BN feed activity (engagement; link card to Jetonomy,
  *   via Feed\IntegrationActivity; filter buddynext_jetonomy_discussion_activity)
  * - Discussion deleted → removes the search entry + the feed activity
- * - Reply / mention / accepted-answer notifications are mirrored for display only by
- *   JetonomyBridgeListener (from jetonomy_notification_created); Jetonomy owns the row
- *   text and the email, so BN never creates a second row or emails on its behalf
- * - Unified nav: BuddyNext subnav injected on all Jetonomy pages (jetonomy_before_content);
- *   Jetonomy's own community nav suppressed (jetonomy_show_community_nav → false)
+ * - Reply / mention / accepted-answer notifications reach the bell through Jetonomy's
+ *   community notification contract (IntegrationNotificationListener); Jetonomy owns
+ *   the text, the visibility rule and the email, so BN never emails on its behalf
+ * - Nav: a Discussions rail item (buddynext_rail_items) and a discussion context nav
+ *   (buddynext_context_nav)
  * - Space Discussions tab (linked or on-demand forum) + profile Discussions count
  *
  * @package BuddyNext\Bridges
@@ -31,6 +31,14 @@ use BuddyNext\Feed\PostService;
  * Jetonomy ↔ BuddyNext integration layer.
  */
 class JetonomyBridge {
+
+	/**
+	 * Per-request answers of verify_discussion_card(), keyed by card URL.
+	 *
+	 * @var array<string, string>
+	 */
+	private array $verified_cards = array();
+
 
 	/**
 	 * Object-cache group for the bridge's per-view count/list reads.
@@ -85,10 +93,20 @@ class JetonomyBridge {
 	private static function mirror( callable $write ): void {
 		self::$syncing = true;
 		try {
-			$write();
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( $write );
 		} finally {
 			self::$syncing = false;
 		}
+	}
+
+	/**
+	 * Suppress BuddyNext notifications raised by a mirror write.
+	 *
+	 * @param bool $should Whether to send.
+	 * @return bool
+	 */
+	public function mute_mirror_notifications( $should ) {
+		return self::$syncing ? false : (bool) $should;
 	}
 
 	/**
@@ -105,18 +123,24 @@ class JetonomyBridge {
 		// jetonomy_after_create_post fires ($post_id, $space_id) — 2 args only.
 		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 2 );
 
-		// jetonomy_post_updated fires ($post_id, $space_id, $user_id) on edit — keep
-		// the discussion's feed card + search row in sync with the new title/body and
-		// any public<->private transition. Reply edits already sync; posts did not.
-		add_action( 'jetonomy_post_updated', array( $this, 'on_post_updated' ), 10, 2 );
-
-		// jetonomy_post_deleted fires ($post_id, $space_id, $user_id) — 3 args.
-		add_action( 'jetonomy_post_deleted', array( $this, 'on_post_deleted' ), 10, 3 );
+		// One sync keeps a discussion's feed card + search row matching its current
+		// state. Two triggers: an edit (jetonomy_post_updated: title/body/privacy),
+		// and every move into or out of publish (jetonomy_post_publish_transition,
+		// fired by Post::create/update/delete for create, approve, restore, trash,
+		// scheduled publish and purge - card 10344390418).
+		add_action( 'jetonomy_post_updated', array( $this, 'sync_discussion' ), 10, 2 );
+		add_action( 'jetonomy_post_publish_transition', array( $this, 'sync_discussion' ), 10, 1 );
 		// jetonomy_after_delete_post fires ($post_id) from Post::delete() — the
 		// PERMANENT purge (empty-trash / CLI / programmatic), a different action
 		// from the soft delete above. Mirrors jetonomy_after_delete_reply, which
 		// the reply side already hooks.
 		add_action( 'jetonomy_after_delete_post', array( $this, 'on_post_hard_deleted' ), 10, 1 );
+
+		// A card must never link to a discussion the viewer cannot open. Checked as
+		// it renders, because some causes fire no hook: a forum switched private in
+		// Jetonomy, or a card published before post_id was stamped (2026-09-19) whose
+		// discussion was later deleted. See verify_discussion_card().
+		add_filter( 'buddynext_discussion_card_url', array( $this, 'verify_discussion_card' ), 10, 2 );
 
 		// Inject a Discussions link into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
@@ -159,22 +183,31 @@ class JetonomyBridge {
 		// (/spaces/?bn_provision_forum=N) shows the directory instead.
 		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ), 5 );
 
+		// BuddyNext owns the member profile: Jetonomy's own profile pages hand over
+		// to it, as its generated links already do (filter_jetonomy_profile_url).
+		add_action( 'template_redirect', array( $this, 'redirect_forum_profile' ), 5 );
+
 		// Two-way discussion sync: a comment on a discussion card in the BuddyNext
 		// feed becomes a reply in the originating Jetonomy forum topic, and a reply
 		// in the forum becomes a comment on the card — so a member who engages on
 		// either surface is heard on both. A static in-request guard (self::$syncing)
 		// blocks the reciprocal mirror, so the two hooks can never loop.
 		add_action( 'buddynext_comment_created', array( $this, 'sync_comment_to_forum' ), 10, 4 );
-		add_action( 'jetonomy_after_create_reply', array( $this, 'sync_reply_to_feed' ), 10, 2 );
+		// A mirror write never notifies: the side where the member acted sends the
+		// one notification, so a forum reply is one Jetonomy row and a card comment
+		// one BuddyNext row, never both (card 10344414409, decision 10062150983).
+		add_filter( 'buddynext_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
+		// A forum reply's comment on the card follows the reply in and out of
+		// publish: create, approve, restore, trash, purge (card 10344390418).
+		add_action( 'jetonomy_reply_publish_transition', array( $this, 'sync_reply_mirror' ), 10, 3 );
 
-		// Edit + delete propagation, both directions, resolved through the pair id
+		// Edit propagation both ways, and feed-side delete to the forum, resolved through the pair id
 		// stored on the comment at creation (bn_comments.sync_reply_id). Same static
 		// guard blocks the reciprocal mirror. Without this the surfaces desync — an
 		// edit/delete on one side leaves the other side stale.
 		add_action( 'buddynext_comment_updated', array( $this, 'sync_comment_edit_to_forum' ), 10, 1 );
 		add_action( 'buddynext_comment_deleted', array( $this, 'sync_comment_delete_to_forum' ), 10, 1 );
 		add_action( 'jetonomy_reply_updated', array( $this, 'sync_reply_edit_to_feed' ), 10, 1 );
-		add_action( 'jetonomy_after_delete_reply', array( $this, 'sync_reply_delete_to_feed' ), 10, 1 );
 
 		// App coverage: REST to provision/fetch a space's forum URL.
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
@@ -343,14 +376,13 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Index a Jetonomy discussion in bn_search_index, parse @mentions, and
-	 * optionally push a feed entry when the feed sync option is enabled.
+	 * Announce a new Jetonomy discussion and refresh cached counts.
 	 *
-	 * Hooked on: jetonomy_after_create_post( int $post_id, int $space_id )
-	 *
-	 * Note: Jetonomy fires only 2 args — post_id and space_id. Author, title,
-	 * and content are fetched from jt_posts to avoid relying on a wider signature
-	 * that may never ship.
+	 * Hooked on: jetonomy_after_create_post( int $post_id, int $space_id ).
+	 * The feed card and search row are not made here: Post::create() fires
+	 * jetonomy_post_publish_transition first, and sync_discussion() handles it.
+	 * Mentions are not notified here either: Jetonomy notifies its own, and
+	 * the contract shows that one row in the bell.
 	 *
 	 * @param int $post_id  Jetonomy discussion ID (jt_posts.id).
 	 * @param int $space_id Jetonomy space ID the discussion belongs to.
@@ -375,122 +407,6 @@ class JetonomyBridge {
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
 
-		// Gated on the owner's "Include in search" switch. This was unconditional, with a
-		// comment that said "Always-on" — so an owner who switched Jetonomy off still had
-		// every new discussion enter community search, complete with its own Discussions
-		// tab on the results page (the tab list is built from DISTINCT object_type in the
-		// index, so the rows generate the tab that displays them).
-		if ( buddynext_integration_enabled( 'jetonomy', 'search' ) ) {
-			// Two corrections on one line, both leaks.
-			//
-			// Visibility was the literal 'public' while `is_private` and `status` were
-			// selected and then ignored, so a PRIVATE topic — and a draft — entered
-			// community search, where the guest gate is exactly `visibility = 'public'`.
-			// is_public_discussion() is the predicate the feed path already uses for
-			// this same decision; search now shares it instead of holding a second,
-			// wrong opinion.
-			//
-			// The id stamped into bn_search_index.space_id was the JETONOMY forum id.
-			// That column is matched against BuddyNext space ids by the search gate
-			// (`si.space_id IN (viewer's bn spaces)`), so a member of BuddyNext space N
-			// was granted search access to every discussion in unrelated Jetonomy forum
-			// N. The feed path maps the forum back to its linked bn_spaces row; search
-			// must use the same mapping or the value is meaningless in the column it
-			// lands in.
-			$bn_space_id = $this->space_id_for_forum( $space_id );
-			$visibility  = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status )
-				? 'public'
-				: 'private';
-
-			( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, $visibility, $bn_space_id );
-		}
-
-		// Always-on: parse @username mentions from the discussion body. Collect the
-		// unique logins first, then resolve them all in ONE query — the previous
-		// get_user_by('login') per match was an N+1 (and fired a duplicate
-		// notification when the same user was mentioned twice). number caps a
-		// pathological mention flood.
-		preg_match_all( Handle::mention_regex(), $content, $matches );
-
-		// Resolved as HANDLES, not logins — see PostService for why. This costs a
-		// lookup per DISTINCT handle rather than one login__in query, which is the
-		// price of resolving the same way the handle is displayed: a custom slug
-		// lives in usermeta and cannot be answered by a users-table IN(). The 100
-		// cap that bounded the old query is kept as a cap on distinct handles, so
-		// a pathological mention flood still cannot fan out.
-		$mention_handles = array();
-		foreach ( $matches[1] as $raw_username ) {
-			$username = (string) $raw_username;
-			if ( '' !== $username ) {
-				$mention_handles[ $username ] = true;
-			}
-		}
-
-		if ( ! empty( $mention_handles ) ) {
-			$mentioned_ids = array();
-			foreach ( array_slice( array_keys( $mention_handles ), 0, 100 ) as $handle ) {
-				$user = Handle::resolve( $handle );
-				if ( $user instanceof \WP_User ) {
-					$mentioned_ids[] = (int) $user->ID;
-				}
-			}
-
-			foreach ( $mentioned_ids as $mentioned_id ) {
-				/**
-				 * Fires when a user is @mentioned in a Jetonomy forum post.
-				 *
-				 * Matches NotificationListener::on_user_mentioned( int, int, int ):
-				 * the third argument is the context id (the post the mention is in),
-				 * not a context slug — passing a string here threw a TypeError and
-				 * 500'd the reply/post request.
-				 *
-				 * @param int $mentioned_user_id ID of the user who was mentioned.
-				 * @param int $mentioner_id      ID of the user who wrote the post.
-				 * @param int $context_id        Jetonomy post ID containing the mention.
-				 */
-				do_action( 'buddynext_user_mentioned', (int) $mentioned_id, $author_id, $post_id );
-			}
-		}
-
-		// Single source of truth: a Jetonomy topic in a connected PUBLIC space
-		// becomes a `discussion` activity in bn_posts, so the feed + Explore show
-		// it like any other activity (one feed, one data source). Sync is ON by
-		// default whenever Jetonomy is active (this bridge only loads then), and
-		// the owner can still flip it off via Integrations → "Jetonomy Feed Sync".
-		//
-		// Privacy gate: only PUBLIC spaces, public (non-private) topics, and
-		// published posts produce a public activity — a private/secret space or a
-		// private topic must never leak into the public heartbeat.
-		$is_public_discussion = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status );
-
-		if ( $is_public_discussion
-			&& buddynext_integration_enabled( 'jetonomy', 'feed' )
-			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
-			$url = $this->discussion_url( $post_id, $space_id );
-			if ( '' !== $url ) {
-				$excerpt = wp_trim_words( wp_strip_all_tags( $content ), 30, '…' );
-
-				// Stamp the BuddyNext space this discussion belongs to. $space_id here
-				// is a Jetonomy FORUM id, which no BuddyNext surface understands — so
-				// it has to be mapped back to the bn_spaces row the forum is linked to.
-				// Without it the activity lands with space_id = NULL, which means the
-				// space's "Share activity to the main feed" toggle cannot suppress it
-				// (FeedService lets a NULL space through) and the space's own feed
-				// cannot show it (it queries WHERE space_id = %d). Both surfaces are
-				// fixed by this one value.
-				IntegrationActivity::publish(
-					$author_id,
-					__( 'started a discussion', 'buddynext' ),
-					$url,
-					$title,
-					'discussion',
-					$excerpt,
-					$this->space_id_for_forum( $space_id ),
-					array( 'post_id' => $post_id )
-				);
-			}
-		}
-
 		/**
 		 * Fires after a Jetonomy discussion is indexed in BuddyNext search.
 		 *
@@ -512,34 +428,30 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Keep a discussion's BuddyNext surfaces in sync when it is EDITED.
+	 * Make a discussion's feed card and search row match its current state.
 	 *
-	 * Hooked on: jetonomy_post_updated( int $post_id, int $space_id, int $user_id ).
-	 * on_post_created mirrors a topic into the feed + search on create and
-	 * on_post_deleted tears it down on delete, but an EDIT went unnoticed — the
-	 * feed card kept the original title/excerpt and the search row the original
-	 * body, while reply edits already synced (sync_reply_edit_to_feed). This
-	 * closes that asymmetry and also handles a visibility flip: a topic edited
-	 * from public to private/draft must lose its public card, and one flipped
-	 * public must gain one.
-	 *
-	 * The feed card is refreshed IN PLACE via its link_meta (title/description),
-	 * so the activity keeps its date, reactions and comments — never a
-	 * remove+republish that would resurface the post and drop its engagement.
-	 * Mentions are deliberately NOT re-notified on edit (matching the reply-edit
-	 * path): re-firing them would spam every mentioned member on every save.
+	 * Hooked on jetonomy_post_updated (an edit) and jetonomy_post_publish_transition
+	 * (create, approve, restore, trash, scheduled publish, purge). It reads the row
+	 * as it is now, so one method answers every path:
+	 * - published and public: restore a withdrawn card, refresh it in place, or
+	 *   publish the first one (an approved topic);
+	 * - anything else: withdraw the card (reversible, so a restore brings back the
+	 *   same card with its date, reactions and comments - card 10320560928);
+	 * - search: re-indexed while published, dropped otherwise.
+	 * A purged row no longer exists; on_post_hard_deleted() removes that card.
+	 * Mentions are not re-sent on edit.
 	 *
 	 * @param int $post_id  Jetonomy discussion ID.
-	 * @param int $space_id Jetonomy forum ID.
+	 * @param int $space_id Jetonomy forum ID; read from the row when not given.
 	 * @return void
 	 */
-	public function on_post_updated( int $post_id, int $space_id ): void {
+	public function sync_discussion( int $post_id, int $space_id = 0 ): void {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT author_id, title, content_plain, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
+				"SELECT space_id, author_id, title, content_plain, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
 				$post_id
 			)
 		);
@@ -548,20 +460,18 @@ class JetonomyBridge {
 		if ( null === $post ) {
 			return;
 		}
+		if ( $space_id <= 0 ) {
+			$space_id = (int) $post->space_id;
+		}
 
 		$author_id = (int) $post->author_id;
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
-		$url       = $this->discussion_url( $post_id, $space_id );
-		if ( '' === $url ) {
-			return;
-		}
-
 		$is_public = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status );
 
-		// Search index: re-assert the row against the new title/body/visibility.
-		// Drop first, then re-index only when still public — this handles a
-		// public->private edit (row gone) and a body change (row refreshed) alike.
+		// Search index: drop, then re-index while published. A private topic keeps a
+		// 'private' row (space members can find it); the search gate reads the
+		// BuddyNext space the forum is linked to.
 		if ( buddynext_integration_enabled( 'jetonomy', 'search' ) ) {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->delete(
@@ -573,13 +483,16 @@ class JetonomyBridge {
 				array( '%s', '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			if ( $is_public ) {
-				( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $this->space_id_for_forum( $space_id ) );
+			if ( 'publish' === (string) $post->status ) {
+				( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, $is_public ? 'public' : 'private', $this->space_id_for_forum( $space_id ) );
 			}
 		}
 
 		// Feed card: refresh in place, add if newly public, remove if no longer public.
-		if ( buddynext_integration_enabled( 'jetonomy', 'feed' )
+		// The card is keyed on the discussion URL, so a topic with no forum has none.
+		$url = $this->discussion_url( $post_id, $space_id );
+		if ( '' !== $url
+			&& buddynext_integration_enabled( 'jetonomy', 'feed' )
 			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			if ( $is_public ) {
 				$excerpt = wp_trim_words( wp_strip_all_tags( $content ), 30, '…' );
@@ -635,67 +548,13 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Withdraw a TRASHED Jetonomy discussion from BuddyNext surfaces, reversibly.
-	 *
-	 * Hooked on: jetonomy_post_deleted( int $post_id, int $space_id, int $user_id )
-	 *
-	 * Despite the hook name, jetonomy "delete" is a SOFT delete — the REST endpoint
-	 * runs Post::update( status => trash ), the jt_posts row survives, and restoring
-	 * from trash is Post::update( status => publish ), which fires jetonomy_post_updated
-	 * and lands in on_post_updated(). So this drops the search-index entry (re-added on
-	 * restore by on_post_updated) and WITHDRAWS the feed card rather than deleting it:
-	 * the card goes to 'draft' (hidden from every feed) with its id, date, reactions and
-	 * comments intact, and a restore brings the exact same card back. Deleting instead
-	 * destroyed the card and orphaned every comment on it (card 10320560928).
-	 *
-	 * @param int $post_id  Jetonomy discussion ID.
-	 * @param int $space_id Jetonomy space ID (used to rebuild the discussion URL).
-	 * @param int $_user_id User who deleted the discussion (unused — kept for hook signature).
-	 */
-	public function on_post_deleted( int $post_id, int $space_id, int $_user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_user_id kept for the hook signature.
-		global $wpdb;
-
-		// Remove from search index. Jetonomy "delete" is a soft-delete (status →
-		// trash), so the jt_posts/jt_spaces rows still exist and the URL resolves.
-		// on_post_updated() re-indexes it when the discussion is restored to public.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_search_index',
-			array(
-				'object_type' => 'discussion',
-				'object_id'   => $post_id,
-			),
-			array( '%s', '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		// Withdraw (not delete) the feed card, so a restore from trash brings back
-		// this exact card and its comments rather than minting a new one.
-		$url = $this->discussion_url( $post_id, $space_id );
-		if ( '' !== $url ) {
-			IntegrationActivity::withdraw( $url, 'discussion' );
-		}
-
-		// Deleting a discussion drops the author's published count — invalidate the
-		// author's + the space's cached reads. Jetonomy soft-deletes (status → trash)
-		// so the row still resolves the author id.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$author_id = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT author_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $post_id )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$this->invalidate_member_caches( $author_id );
-		$this->invalidate_space_caches( $space_id );
-	}
-
-	/**
 	 * Permanently remove a discussion's BuddyNext surfaces when the jt_posts row is
 	 * PURGED (not trashed).
 	 *
 	 * Hooked on: jetonomy_after_delete_post( int $post_id ), fired by Post::delete()
 	 * — the hard delete behind empty-trash, `wp jetonomy content delete`, and any
 	 * programmatic purge. This is a genuine, irreversible delete, so the card is
-	 * REMOVED (unlike the reversible trash path in on_post_deleted, which withdraws).
+	 * REMOVED (unlike the reversible trash path in sync_discussion, which withdraws).
 	 *
 	 * Post::delete() deletes the jt_posts row BEFORE firing this action and passes
 	 * only the id — the discussion URL (built from jt_posts.slug + jt_spaces.slug) is
@@ -719,7 +578,7 @@ class JetonomyBridge {
 		IntegrationActivity::remove_by_meta( 'discussion', 'post_id', $post_id );
 
 		// Drop the search-index entry. Keyed on object_id, so it needs no URL; a
-		// harmless no-op when a prior trash (on_post_deleted) already removed it.
+		// harmless no-op when a prior trash (sync_discussion) already removed it.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_search_index',
@@ -758,6 +617,66 @@ class JetonomyBridge {
 		}
 		wp_cache_delete( 'jt_scount_' . $forum_id, self::CACHE_GROUP );
 		wp_cache_delete( 'jt_slist_' . $forum_id, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Keep a discussion card's link only while the discussion is public.
+	 *
+	 * One indexed lookup per card, memoised per request. When the discussion is
+	 * gone or no longer public the card is withdrawn (hidden from every feed,
+	 * restored in place if the discussion is republished) and '' tells the
+	 * template to show a neutral line instead of a link that would 404. An older
+	 * card without a stamped post_id is matched by its URL and stamped, so the
+	 * normal delete path finds it from then on.
+	 *
+	 * @param string               $url  Card URL.
+	 * @param array<string, mixed> $meta Card link_meta.
+	 * @return string The URL, or '' when the discussion cannot be opened.
+	 */
+	public function verify_discussion_card( string $url, array $meta ): string {
+		if ( '' === $url ) {
+			return $url;
+		}
+		if ( array_key_exists( $url, $this->verified_cards ) ) {
+			return $this->verified_cards[ $url ];
+		}
+
+		global $wpdb;
+		$topic_id = (int) ( $meta['post_id'] ?? 0 );
+		$topic    = null;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $topic_id > 0 ) {
+			$topic = $wpdb->get_row( $wpdb->prepare( "SELECT id, space_id, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d", $topic_id ) );
+		} else {
+			// No stamp: the topic slug is the URL's last segment; confirm the match
+			// by rebuilding the URL, since a slug is only unique within its forum.
+			$slug = basename( untrailingslashit( (string) wp_parse_url( $url, PHP_URL_PATH ) ) );
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT p.id, p.space_id, p.is_private, p.status, p.slug, s.slug AS space_slug FROM {$wpdb->prefix}jt_posts p JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE p.slug = %s",
+					$slug
+				)
+			);
+			foreach ( (array) $rows as $row ) {
+				if ( untrailingslashit( $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug ) ) === untrailingslashit( $url ) ) {
+					$topic = $row;
+					break;
+				}
+			}
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $topic && $this->is_public_discussion( (int) $topic->space_id, (int) $topic->is_private, (string) $topic->status ) ) {
+			if ( $topic_id <= 0 ) {
+				IntegrationActivity::refresh( $url, 'discussion', array( 'post_id' => (int) $topic->id ) );
+			}
+			$this->verified_cards[ $url ] = $url;
+			return $url;
+		}
+
+		IntegrationActivity::withdraw( $url, 'discussion' );
+		$this->verified_cards[ $url ] = '';
+		return '';
 	}
 
 	/**
@@ -1377,6 +1296,67 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Send Jetonomy's own profile pages to the BuddyNext profile (card 10344441290).
+	 *
+	 * The bare profile and its public activity pages redirect, so a bookmark or a
+	 * search result never opens a second profile outside BuddyNext privacy; posts
+	 * land on the Discussions tab. Bookmarks, drafts and Jetonomy's own badges are
+	 * the member's private tools: they stay on Jetonomy for that member only, and
+	 * anyone else is handed to the BuddyNext profile, where its privacy and blocks
+	 * apply. That hand-over depends on the viewer, so it is a 302 a browser never
+	 * caches for the owner.
+	 *
+	 * @return void
+	 */
+	public function redirect_forum_profile(): void {
+		$route = (string) get_query_var( 'jetonomy_route', '' );
+		if ( 'profile' !== $route && 'edit-profile' !== $route ) {
+			return;
+		}
+
+		$slug = (string) get_query_var( 'jetonomy_slug', '' );
+		$user = Handle::resolve( $slug );
+		if ( ! $user instanceof \WP_User ) {
+			$user = get_user_by( 'slug', $slug );
+		}
+		if ( ! $user instanceof \WP_User ) {
+			return; // Unknown member: Jetonomy answers with its own not-found page.
+		}
+
+		$uid     = (int) $user->ID;
+		$profile = \BuddyNext\Core\PageRouter::profile_url( $uid );
+		if ( '' === $profile ) {
+			return; // No BuddyNext member directory page: nothing to hand over to.
+		}
+
+		if ( 'edit-profile' === $route ) {
+			$url = \BuddyNext\Core\PageRouter::edit_profile_url( $uid );
+		} else {
+			switch ( (string) get_query_var( 'jetonomy_tab', '' ) ) {
+				case '':
+				case 'activity':
+				case 'replies':
+				case 'votes':
+					$url = $profile;
+					break;
+				case 'posts':
+					$url = trailingslashit( $profile ) . 'discussions/';
+					break;
+				default:
+					// bookmarks, drafts, badges: the member's own pages.
+					if ( get_current_user_id() === $uid ) {
+						return;
+					}
+					wp_safe_redirect( $profile, 302 );
+					exit;
+			}
+		}
+
+		wp_safe_redirect( $url, 301 );
+		exit;
+	}
+
+	/**
 	 * On-demand web flow: provision the forum for `?bn_provision_forum={space}` and
 	 * redirect to it. Fired on template_redirect.
 	 *
@@ -1490,42 +1470,71 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Two-way sync — a reply in a Jetonomy forum topic becomes a comment on that
-	 * topic's discussion card in the BuddyNext feed. Fires on `jetonomy_after_create_reply`.
+	 * Keep a forum reply's comment on its discussion card matching the reply.
 	 *
-	 * @param int $reply_id New reply id.
-	 * @param int $post_id  Parent Jetonomy topic (jt_posts) id.
+	 * Hooked on jetonomy_reply_publish_transition( $reply_id, $delta, $created_at ),
+	 * which Reply::create/update/delete fire whenever a reply enters or leaves
+	 * publish. A new or approved reply gets its comment (dated when the reply was
+	 * written), a restored reply gets the same comment back, and a trashed,
+	 * unapproved or purged reply loses it (card 10344390418). A reply written from
+	 * the card itself is skipped by the self::$syncing guard: its comment exists.
+	 *
+	 * @param int    $reply_id   Jetonomy reply id.
+	 * @param int    $delta      +1 entering publish, -1 leaving it.
+	 * @param string $created_at Reply creation time (MySQL, UTC).
 	 * @return void
 	 */
-	public function sync_reply_to_feed( int $reply_id, int $post_id ): void {
-		if ( self::$syncing || $reply_id <= 0 || $post_id <= 0 ) {
+	public function sync_reply_mirror( int $reply_id, int $delta, string $created_at = '' ): void {
+		if ( self::$syncing || $reply_id <= 0 || 0 === $delta ) {
 			return;
 		}
-		$card_id = $this->card_id_for_topic( $post_id );
-		if ( $card_id <= 0 ) {
-			return; // This topic isn't surfaced as a feed card — nothing to mirror onto.
+
+		$comments = new \BuddyNext\Comments\CommentService();
+		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+
+		if ( $delta < 0 ) {
+			if ( null !== $comment && empty( $comment['is_deleted'] ) ) {
+				self::mirror(
+					static function () use ( $comments, $comment ) {
+						$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
+					}
+				);
+			}
+			return;
 		}
 
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$reply = $wpdb->get_row(
-			$wpdb->prepare( "SELECT author_id, content, status FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ),
+			$wpdb->prepare( "SELECT post_id, author_id, content_plain, status FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$author_id = null !== $reply ? (int) $reply['author_id'] : 0;
-		$content   = null !== $reply ? trim( (string) $reply['content'] ) : '';
-		if ( $author_id <= 0 || '' === $content || 'publish' !== (string) ( $reply['status'] ?? '' ) ) {
-			return; // Only mirror a published reply by a real author.
+		// Comments are plain text; Jetonomy keeps a plain copy with paragraph breaks.
+		$content = null !== $reply ? trim( (string) $reply['content_plain'] ) : '';
+		if ( null === $reply || 'publish' !== (string) $reply['status'] || '' === $content ) {
+			return;
+		}
+
+		if ( null !== $comment ) {
+			if ( ! empty( $comment['is_deleted'] ) ) {
+				$comments->restore( (int) $comment['id'], $content );
+			}
+			return;
+		}
+
+		$author_id = (int) $reply['author_id'];
+		$card_id   = $this->card_id_for_topic( (int) $reply['post_id'] );
+		if ( $author_id <= 0 || $card_id <= 0 ) {
+			return; // No real author, or the topic has no feed card to mirror onto.
 		}
 
 		self::mirror(
-			function () use ( $author_id, $card_id, $content, $reply_id ) {
+			static function () use ( $comments, $author_id, $card_id, $content, $reply_id, $created_at ) {
 				// CommentService applies its own permission/verification gate and sanitizes;
 				// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
-				$comments   = new \BuddyNext\Comments\CommentService();
-				$comment_id = $comments->create( $author_id, 'post', $card_id, $content );
+				$comment_id = $comments->create( $author_id, 'post', $card_id, $content, null, '' !== $created_at ? $created_at : null );
 				if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
 					// Persist the pair so edit/delete propagate in both directions.
 					$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
@@ -1613,37 +1622,13 @@ class JetonomyBridge {
 		}
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$content = trim( (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ) ) );
+		$content = trim( (string) $wpdb->get_var( $wpdb->prepare( "SELECT content_plain FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ) ) );
 		if ( '' === $content ) {
 			return;
 		}
 		self::mirror(
 			function () use ( $comments, $comment, $content ) {
 				$comments->update( (int) $comment['id'], (int) $comment['user_id'], $content );
-			}
-		);
-	}
-
-	/**
-	 * Two-way sync — deleting a forum reply removes the mirrored feed comment.
-	 * Fires on `jetonomy_after_delete_reply`. Deletes as the comment's own author.
-	 * CommentService::delete fires buddynext_comment_deleted, which the guard blocks.
-	 *
-	 * @param int $reply_id Deleted reply id.
-	 * @return void
-	 */
-	public function sync_reply_delete_to_feed( int $reply_id ): void {
-		if ( self::$syncing || $reply_id <= 0 ) {
-			return;
-		}
-		$comments = new \BuddyNext\Comments\CommentService();
-		$comment  = $comments->find_by_sync_reply_id( $reply_id );
-		if ( null === $comment ) {
-			return;
-		}
-		self::mirror(
-			function () use ( $comments, $comment ) {
-				$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
 			}
 		);
 	}

@@ -434,47 +434,88 @@ class SearchIndexListener implements ListenerInterface {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, name, description, type, owner_id, is_archived
-				 FROM {$wpdb->prefix}bn_spaces
-				 WHERE id = %d",
-				$space_id
-			),
+			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $space_id ),
 			ARRAY_A
 		);
 
-		if ( ! $row ) {
-			return;
+		if ( $row ) {
+			$this->index_space_row( $row );
 		}
+	}
+
+	/**
+	 * Index (or drop) one space's own search row. The single path for the
+	 * per-space job and the full reindex, so both index the same content.
+	 *
+	 * @param array<string,mixed> $row Full bn_spaces row.
+	 * @return void
+	 */
+	private function index_space_row( array $row ): void {
+		$space_id = (int) $row['id'];
+		$search   = buddynext_service( 'search' );
 
 		// Archived spaces must not stay searchable — drop them from the index.
 		// This path also fires on the archive action via on_space_updated.
 		if ( 1 === (int) $row['is_archived'] ) {
-			buddynext_service( 'search' )->deindex( 'space', $space_id );
+			$this->deindex_space_everywhere( $space_id );
 			return;
 		}
 
-		$visibility = self::space_visibility( (string) $row['type'] );
-		$owner_id   = (int) $row['owner_id'];
-		$title      = (string) $row['name'];
-		$content    = wp_strip_all_tags( (string) ( $row['description'] ?? '' ) );
+		/**
+		 * Filters the search object_type a space is indexed under.
+		 *
+		 * Returning another slug (e.g. 'circle') lists the space in its own
+		 * search section and tab instead of Spaces; name it with the
+		 * `buddynext_search_type_labels` filter. Visibility rules are unchanged.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string              $type Object type. Default 'space'.
+		 * @param array<string,mixed> $row  The bn_spaces row (id, name, type, category_id, ...).
+		 */
+		$type = sanitize_key( (string) apply_filters( 'buddynext_search_space_object_type', 'space', $row ) );
+		if ( '' === $type ) {
+			$type = 'space';
+		}
+		if ( 'space' !== $type ) {
+			SearchService::remember_space_type( $type );
+		}
+		// A space whose type changed must not linger under the old one.
+		foreach ( SearchService::space_object_types() as $other ) {
+			if ( $other !== $type ) {
+				$search->deindex( $other, $space_id );
+			}
+		}
 
 		// Fold the space's searchable + public custom field values into the index
 		// content so a developer field (searchable:true, visibility:public) makes
 		// the space discoverable. Members-only/private values are never indexed.
+		$content       = wp_strip_all_tags( (string) ( $row['description'] ?? '' ) );
 		$bn_field_text = SpaceFieldRegistry::instance()->searchable_public_text( $space_id );
 		if ( '' !== $bn_field_text ) {
 			$content = trim( $content . ' ' . $bn_field_text );
 		}
 
-		buddynext_service( 'search' )->index(
-			'space',
+		$search->index(
+			$type,
 			$space_id,
-			$title,
+			(string) $row['name'],
 			$content,
-			$owner_id,
-			$visibility
+			(int) $row['owner_id'],
+			self::space_visibility( (string) $row['type'] )
 		);
+	}
+
+	/**
+	 * Remove a space's own row under every type it may have been indexed as.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	private function deindex_space_everywhere( int $space_id ): void {
+		foreach ( SearchService::space_object_types() as $type ) {
+			buddynext_service( 'search' )->deindex( $type, $space_id );
+		}
 	}
 
 	/**
@@ -484,7 +525,7 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function async_deindex_space( int $space_id ): void {
-		buddynext_service( 'search' )->deindex( 'space', $space_id );
+		$this->deindex_space_everywhere( $space_id );
 	}
 
 	/**
@@ -576,7 +617,7 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			$space_rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, name, description, type, owner_id, is_archived
+					"SELECT *
 					 FROM {$wpdb->prefix}bn_spaces
 					 WHERE id > %d
 					 ORDER BY id ASC
@@ -589,21 +630,7 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			foreach ( (array) $space_rows as $space_row ) {
-				// Skip + drop archived spaces so a reindex purges any that were
-				// archived after their last index.
-				if ( 1 === (int) $space_row['is_archived'] ) {
-					$search_service->deindex( 'space', (int) $space_row['id'] );
-					continue;
-				}
-				$visibility = self::space_visibility( (string) $space_row['type'] );
-				$search_service->index(
-					'space',
-					(int) $space_row['id'],
-					(string) $space_row['name'],
-					wp_strip_all_tags( (string) ( $space_row['description'] ?? '' ) ),
-					(int) $space_row['owner_id'],
-					$visibility
-				);
+				$this->index_space_row( $space_row );
 			}
 
 			$fetched_spaces = count( (array) $space_rows );

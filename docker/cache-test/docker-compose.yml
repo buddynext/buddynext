@@ -1,0 +1,79 @@
+# BuddyNext page-cache compatibility bench. See README.md.
+name: bn-cache-test
+
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: wp
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: wp
+      MARIADB_ROOT_PASSWORD: root
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      retries: 40
+
+  redis:
+    image: redis:7-alpine
+
+  wp:
+    image: wordpress:php8.2-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BN_CACHE_PORT:-8091}:80"
+    environment: &wpenv
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wp
+      WORDPRESS_CONFIG_EXTRA: |
+        define( 'WP_REDIS_HOST', 'redis' );
+        define( 'WP_ENVIRONMENT_TYPE', 'local' );
+    volumes:
+      - wp:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/buddynext:ro
+
+  cli:
+    image: wordpress:cli-php8.2
+    user: "33:33"
+    depends_on:
+      - wp
+    environment: *wpenv
+    volumes:
+      - wp:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/buddynext:ro
+      - ./zips:/zips:ro
+    entrypoint: ["sleep", "infinity"]
+
+  # LiteSpeed Cache only page-caches behind a LiteSpeed server, so it gets its
+  # own OpenLiteSpeed site: `docker compose --profile litespeed up -d`.
+  ols:
+    image: litespeedtech/openlitespeed:latest
+    profiles: ["litespeed"]
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BN_CACHE_OLS_PORT:-8092}:80"
+    volumes:
+      - wp-ols:/var/www/vhosts/localhost/html
+      - ../..:/var/www/vhosts/localhost/html/wp-content/plugins/buddynext:ro
+
+  cli-ols:
+    image: wordpress:cli-php8.2
+    profiles: ["litespeed"]
+    user: "33:33"
+    depends_on:
+      - ols
+    volumes:
+      - wp-ols:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/buddynext:ro
+      - ./zips:/zips:ro
+    entrypoint: ["sleep", "infinity"]
+
+volumes:
+  wp:
+  wp-ols:

@@ -20,6 +20,7 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 | `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
 | `buddynext_can_view_space_content` | filter | A viewer's access to a space's **content** is resolved, before it is rendered or cached. Return `false` to withhold the space's posts while leaving the space itself visible. Fired from `SpaceVisibility` and again in `FeedService` when building a space feed, so an add-on that gates content only has to answer once. Default `true`. | `bool $can_view, int $space_id, int $viewer_id` |
 | `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: WPMediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
+| `buddynext_document_card_url` | filter | Where a feed document card links, for a viewer allowed to open the file. Default: the space's file page (preview + Download) when the post is in a space whose Files tab this viewer gets, otherwise a direct download. | `string $url, int $doc_id, array $post` |
 | `buddynext_space_default_tab` | filter | Which tab a space opens on when the URL names none (`/spaces/{slug}/`). Runs for the resolved default only - a non-member of a private space gets `about`, then the space's own "Space opens on" setting, then the first inline tab in the site's Navigation order - never for an explicit `/spaces/{slug}/{tab}/`. Return a tab id; a value the viewer cannot see falls back to the first renderable tab, so a bad return can never blank the space. Example: open course spaces on About - `return 'about';`. | `string $tab, array $space, int $viewer_id` |
 
 Default: `true` for open spaces; `false` for private and secret spaces unless the viewer is an active member, a moderator, the space owner, or a site admin. A private space is **listed but gated** — its name, description, house rules, avatar, cover, category, member COUNT, and its owner + moderator list stay public (a stranger needs them to decide whether to request to join), while the full member roster does not.
@@ -72,6 +73,7 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_join_denied_data` | filter | A gated join/request is denied, to build the error payload | `array $data, int $space_id, int $user_id, array $space, string $action` |
 | `buddynext_space_joined_via_link` | action | A member joins a space through its shareable invite link (see REST: Spaces, Invite links) | `int $space_id, int $user_id` |
 | `buddynext_space_can_invite` | filter | After the per-space `who_can_invite` gate, whether a user may invite others to a space | `bool $can, int $space_id, int $inviter_id, string $inviter_role` |
+| `buddynext_invite_link_dead_notice` | filter | The line a space page shows to someone who opened it through a revoked, expired or used-up invite link. Return `''` to show nothing | `string $notice, int $space_id` |
 | `buddynext_space_can_post` | filter | After the per-space `who_can_post` gate, whether a user may post in a space. Lets an add-on apply conditional rules, e.g. require an active membership tier to post | `bool $can, int $space_id, int $user_id, string $role` (`role` is `owner`\|`moderator`\|`member`) |
 
 > **Note:** When a request is approved, both `buddynext_space_join_approved` and `buddynext_space_member_joined` fire (in that order). The first is the moderation event; the second is the "this user is now an active member" event, identical to the one fired on a direct join.
@@ -86,6 +88,8 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | `buddynext_space_user_banned` | action | A user is banned from a space | `int $space_id, int $user_id, int $actor_id` |
 | `buddynext_space_user_unbanned` | action | A space ban is lifted | `int $space_id, int $user_id` |
 | `buddynext_space_notification_pref_updated` | action | A member changes their per-space notification preference | `int $space_id, int $user_id, string $pref` (`'all'`, `'mentions_only'`, `'none'`) |
+| `buddynext_membership_rows` | filter | A member's "My spaces" rows are built for the rail flyout, the profile "Member of" list and the profile sidebar. Drop rows to hide spaces an add-on owns (each row carries `category_id`); the cap is applied after the filter, so the member still sees up to `$limit` spaces (1.2.0) | `array<int,object> $rows` (id, name, slug, category_id, role), `int $user_id, int $limit` |
+| `buddynext_cross_space_activity_rows` | filter | The cross-space activity list is built. Return extra rows in the same shape (`id, icon, avatar, text, occurred_at_utc`); the service merges, sorts and pages them. Return at most `$fetch` newest rows (1.2.0) | `array $extra, int[] $space_ids, int $fetch, int $offset, int $per_page` |
 
 > **Warning:** A ban removes the membership, so it fires `buddynext_space_member_removed` and `buddynext_space_user_banned` together. If you maintain a banned-users list, listen to `buddynext_space_user_banned` specifically; if you only need to react to "this user is no longer in the space" (for example, busting a sidebar cache), listen to `buddynext_space_member_removed` and you will cover both removals and bans.
 
@@ -219,6 +223,44 @@ add_action( 'buddynext_space_admin_after_stats', function ( int $space_id, int $
 ```
 
 BuddyNext Pro uses this seam to render its "Last 30 days" analytics row (new members, left, net growth, posts) for space owners; with Pro inactive the page is unchanged. `$viewer_id` has already passed the manage-space capability gate, so the hook never fires for a member.
+
+## Show a space's Files on another page
+
+A space's Files tab (browse, folders, search, upload, single file) can render on any page, for example a plugin that gives some spaces their own landing page.
+
+```php
+buddynext_render_drive_files(
+    'space',                                  // or 'user' for a member's own drive
+    $space_id,
+    get_permalink(),                          // the page it renders on
+    absint( $_GET['bn_doc'] ?? 0 ),           // honour single-file links
+    array( 'can_write' => false )             // optional: hide Upload / Link a file
+);
+```
+
+- It loads its own styles and scripts. Folder, page and search links are query args on your page URL, and a file opens at `?bn_doc={id}`. Your page's own query args (for example `?id=5`) are kept on every link and through a search.
+- Access stays MediaVerse's: a viewer who cannot read the drive sees "No files to show". `can_write` can only hide the write controls, never grant them.
+- `buddynext_render_drive_files_args` filters the options per drive: `( array $args, string $drive_type, int $drive_id )`.
+
+### Make space Files read-only for members
+
+By default a space's members may add files to its Files (upload and link). WPMediaVerse decides folder permissions: owners and moderators manage every folder, and a member manages folders they created that hold only their own files. There is no admin setting for this.
+
+BuddyNext answers WPMediaVerse's `mvs_document_drive_access` filter with `write` for space members. To make plain members read-only on every space drive, filter it after BuddyNext (priority 10):
+
+```php
+add_filter( 'mvs_document_drive_access', function ( $level, $drive_type, $drive_id, $user_id ) {
+    if ( 'space' === $drive_type && 'write' === $level ) {
+        $role = buddynext_service( 'space_members' )->get_role( (int) $drive_id, (int) $user_id );
+        if ( 'member' === $role ) {
+            return 'read';
+        }
+    }
+    return $level;
+}, 20, 4 );
+```
+
+Members then browse and download only. Upload, Link a file and New folder disappear for them on the space Files tab and on any `buddynext_render_drive_files()` embed, because both render from WPMediaVerse's answers.
 
 ## Space settings tabs
 

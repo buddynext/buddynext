@@ -52,9 +52,10 @@ class NotificationMessageService {
 	 * @return array<string,mixed>
 	 */
 	public function compose( array $row ): array {
-		$type        = isset( $row['type'] ) ? (string) $row['type'] : '';
-		$actor_id    = isset( $row['sender_id'] ) ? (int) $row['sender_id'] : 0;
-		$object_id   = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
+		$type      = isset( $row['type'] ) ? (string) $row['type'] : '';
+		$actor_id  = isset( $row['sender_id'] ) ? (int) $row['sender_id'] : 0;
+		$object_id = isset( $row['object_id'] ) ? (int) $row['object_id'] : 0;
+
 		/*
 		 * Two counts can describe "how many", and the bigger one is the honest one.
 		 *
@@ -73,7 +74,25 @@ class NotificationMessageService {
 		$meta       = $this->meta_for( $type );
 		$url        = $this->url_for( $type, $actor_id, $object_id, $data );
 
-		if ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {
+		$grouped_template = (string) ( $data['message_grouped'] ?? '' );
+		if ( $group_count > 1 && '' !== $grouped_template ) {
+			// A row that carries its own grouped sentence (integration contract rows).
+			$message = strtr(
+				$grouped_template,
+				array(
+					'{actor}'  => $actor_name,
+					'{others}' => sprintf(
+						/* translators: %s: number of other people. */
+						_n( '%s other', '%s others', $group_count - 1, 'buddynext' ),
+						number_format_i18n( $group_count - 1 )
+					),
+				)
+			);
+		} elseif ( '' !== (string) ( $data['message_single'] ?? '' ) ) {
+			// A row that carries its own one-person sentence: the person shown is whoever
+			// is left in the row, not the person the first event named.
+			$message = strtr( (string) $data['message_single'], array( '{actor}' => $actor_name ) );
+		} elseif ( $group_count > 1 && $this->supports_group_collapse( $type ) ) {
 			$message = $this->compose_grouped( $type, $actor_name, $group_count, $object_id, $data );
 		} else {
 			$message = $this->compose_single( $type, $actor_name, $object_id, $data );
@@ -401,28 +420,6 @@ class NotificationMessageService {
 						return __( 'Something you posted was removed by a moderator.', 'buddynext' );
 				}
 
-			case 'bn.badge_awarded':
-				$badge = isset( $data['badge'] ) ? (string) $data['badge'] : '';
-				if ( '' !== $badge ) {
-					return sprintf(
-						/* translators: %s: badge name. */
-						__( 'You earned a new badge: %s.', 'buddynext' ),
-						$badge
-					);
-				}
-				return __( 'You earned a new badge.', 'buddynext' );
-
-			case 'bn.level_up':
-				$level = isset( $data['level'] ) ? (int) $data['level'] : 0;
-				if ( $level > 0 ) {
-					return sprintf(
-						/* translators: %d: new level number. */
-						__( 'You reached level %d.', 'buddynext' ),
-						$level
-					);
-				}
-				return __( 'You levelled up.', 'buddynext' );
-
 			case 'bn.onboarding_nudge':
 				return __( 'Finish setting up your profile to get the most out of the community.', 'buddynext' );
 
@@ -432,24 +429,17 @@ class NotificationMessageService {
 			case 'bn.weekly_digest':
 				return __( 'Your weekly digest is ready.', 'buddynext' );
 
+			case 'bn.media_commented':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s commented on your media.', 'buddynext' ),
+					$actor_name
+				);
+
 			case 'bn.media_favorited':
 				return sprintf(
 					/* translators: %s: actor display name. */
 					__( '%s favourited your media.', 'buddynext' ),
-					$actor_name
-				);
-
-			case 'bn.media_reaction':
-				return sprintf(
-					/* translators: %s: actor display name. */
-					__( '%s reacted to your media.', 'buddynext' ),
-					$actor_name
-				);
-
-			case 'bn.media_mention':
-				return sprintf(
-					/* translators: %s: actor display name. */
-					__( '%s mentioned you in a media comment.', 'buddynext' ),
 					$actor_name
 				);
 
@@ -579,18 +569,18 @@ class NotificationMessageService {
 					$others
 				);
 
-			case 'bn.media_favorited':
+			case 'bn.media_commented':
 				return sprintf(
 					/* translators: 1: actor display name, 2: number of other actors. */
-					_n( '%1$s and %2$d other favourited your media.', '%1$s and %2$d others favourited your media.', $others, 'buddynext' ),
+					_n( '%1$s and %2$d other commented on your media.', '%1$s and %2$d others commented on your media.', $others, 'buddynext' ),
 					$actor_name,
 					$others
 				);
 
-			case 'bn.media_reaction':
+			case 'bn.media_favorited':
 				return sprintf(
 					/* translators: 1: actor display name, 2: number of other actors. */
-					_n( '%1$s and %2$d other reacted to your media.', '%1$s and %2$d others reacted to your media.', $others, 'buddynext' ),
+					_n( '%1$s and %2$d other favourited your media.', '%1$s and %2$d others favourited your media.', $others, 'buddynext' ),
 					$actor_name,
 					$others
 				);
@@ -776,16 +766,6 @@ class NotificationMessageService {
 					'tone'  => 'warning',
 					'label' => __( 'New report', 'buddynext' ),
 				),
-				'bn.badge_awarded'            => array(
-					'icon'  => 'award',
-					'tone'  => 'warn',
-					'label' => __( 'Badge', 'buddynext' ),
-				),
-				'bn.level_up'                 => array(
-					'icon'  => 'trending-up',
-					'tone'  => 'success',
-					'label' => __( 'Level up', 'buddynext' ),
-				),
 				'bn.onboarding_nudge'         => array(
 					'icon'  => 'sparkles',
 					'tone'  => 'accent',
@@ -801,20 +781,15 @@ class NotificationMessageService {
 					'tone'  => 'info',
 					'label' => __( 'Weekly digest', 'buddynext' ),
 				),
+				'bn.media_commented'          => array(
+					'icon'  => 'message-circle',
+					'tone'  => 'accent',
+					'label' => __( 'Media comment', 'buddynext' ),
+				),
 				'bn.media_favorited'          => array(
 					'icon'  => 'heart',
 					'tone'  => 'warn',
 					'label' => __( 'Media favourite', 'buddynext' ),
-				),
-				'bn.media_reaction'           => array(
-					'icon'  => 'smile',
-					'tone'  => 'accent',
-					'label' => __( 'Media reaction', 'buddynext' ),
-				),
-				'bn.media_mention'            => array(
-					'icon'  => 'at-sign',
-					'tone'  => 'accent',
-					'label' => __( 'Media mention', 'buddynext' ),
 				),
 				'bn.test'                     => array(
 					'icon'  => 'bell',
@@ -977,12 +952,21 @@ class NotificationMessageService {
 					? PageRouter::conversation_url( $conv_id )
 					: PageRouter::messages_url();
 
+			case 'bn.media_commented':
 			case 'bn.media_favorited':
-			case 'bn.media_reaction':
-			case 'bn.media_mention':
-				return $object_id > 0
-					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
-					: PageRouter::activity_url();
+				/**
+				 * Where a media notification opens, given the media id it is about.
+				 *
+				 * The media plugin's bridge answers: the post the media is in, or the
+				 * media's own page. An empty answer falls back to the activity feed.
+				 *
+				 * @since 1.2.2
+				 *
+				 * @param string $url      URL so far ('' by default).
+				 * @param int    $media_id Media id.
+				 */
+				$media_url = (string) apply_filters( 'buddynext_media_notification_url', '', $object_id );
+				return '' !== $media_url ? $media_url : PageRouter::activity_url();
 
 			case 'bn.user_warned':
 			case 'bn.strike_warning':
@@ -1036,14 +1020,6 @@ class NotificationMessageService {
 				}
 				return PageRouter::community_admin_url();
 
-			case 'bn.badge_awarded':
-			case 'bn.level_up':
-				// Deep-link to the member's own Achievements tab (badge grid +
-				// points/level standing strip), not the general profile, so the
-				// notification lands where the earned badge / new level is shown.
-				$me = $viewer_id;
-				return $me > 0 ? trailingslashit( PageRouter::profile_url( $me ) ) . 'achievements/' : '';
-
 			case 'bn.onboarding_nudge':
 				return PageRouter::onboarding_url();
 
@@ -1085,7 +1061,7 @@ class NotificationMessageService {
 	 *
 	 * @param string $type Notification type slug.
 	 */
-	private function supports_group_collapse( string $type ): bool {
+	public static function supports_group_collapse( string $type ): bool {
 		return in_array(
 			$type,
 			array(
@@ -1097,8 +1073,8 @@ class NotificationMessageService {
 				'bn.space_join',
 				'bn.space_new_post',
 				'bn.new_message',
+				'bn.media_commented',
 				'bn.media_favorited',
-				'bn.media_reaction',
 			),
 			true
 		);

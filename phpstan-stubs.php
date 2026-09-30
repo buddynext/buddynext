@@ -4,8 +4,8 @@
  *
  * These are not our code and not bugs — they are external symbols PHPStan cannot
  * see: WP-CLI's namespaced helpers (only loaded in a `wp` process) and the
- * optional wb-gamification plugin (a soft integration we call only behind an
- * is_callable()/class_exists() guard). Stubbing them here is the correct root fix
+ * optional wb-gamification, Jetonomy and WPMediaVerse plugins (soft integrations we call only
+ * behind a function_exists() guard). Stubbing them here is the correct root fix
  * — never an @phpstan-ignore on the call site, which would also hide a real typo.
  *
  * Loaded via phpstan.neon `bootstrapFiles`. Braced namespaces because this file
@@ -27,19 +27,60 @@ namespace WP_CLI\Utils {
 	}
 }
 
-namespace WBGam\Engine {
-	if ( ! class_exists( 'WBGam\\Engine\\BadgeShare' ) ) {
+namespace {
+	if ( ! function_exists( 'wb_gam_send_kudos' ) ) {
 		/**
-		 * Stub for the optional wb-gamification badge-share engine. BuddyNext calls
-		 * it only behind is_callable( [ '\WBGam\Engine\BadgeShare', 'shared_badges' ] ).
+		 * Stub for the wb-gamification public helper. GamificationKudos::register()
+		 * wires the send path only when the real function exists.
+		 *
+		 * @return true|\WP_Error
 		 */
-		class BadgeShare {
+		function wb_gam_send_kudos( int $giver_id, int $receiver_id, string $message = '' ) { // phpcs:ignore
+			return true;
+		}
+	}
+}
+
+namespace Jetonomy {
+	if ( ! function_exists( 'Jetonomy\\route_url' ) ) {
+		/**
+		 * Stub for Jetonomy's route helper. BuddyNext calls it only after
+		 * GamificationBridge::leaderboard_deferred(), which checks it exists.
+		 */
+		function route_url( string $route, ...$args ): string { // phpcs:ignore
+			return '';
+		}
+	}
+}
+
+namespace WPMediaVerse\Services {
+	if ( ! class_exists( 'WPMediaVerse\\Services\\ProfileService' ) ) {
+		/**
+		 * Stub for WPMediaVerse's profile service ("who can message you", 2.6.0).
+		 * BuddyNext calls it only behind is_callable()/class_exists() guards.
+		 */
+		class ProfileService {
 			/**
-			 * @param int $user_id Member whose shared badges to return.
-			 * @return array<int,int> Post ids of the member's publicly shared badges.
+			 * @return string[]
 			 */
-			public static function shared_badges( $user_id ) { // phpcs:ignore
+			public static function dm_access_choices(): array { // phpcs:ignore
 				return array();
+			}
+			/**
+			 * @return array<string,string>
+			 */
+			public static function dm_access_options(): array { // phpcs:ignore
+				return array();
+			}
+			public static function effective_dm_access( int $user_id ): string { // phpcs:ignore
+				return 'everyone';
+			}
+			/**
+			 * @param array<string,mixed> $fields Fields.
+			 * @return true|\WP_Error
+			 */
+			public function update_profile( int $user_id, array $fields ) { // phpcs:ignore
+				return true;
 			}
 		}
 	}

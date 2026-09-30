@@ -150,7 +150,7 @@ class SpaceAudiencePrivacyTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The three surfaces every assertion walks, as label => id list.
+	 * The surfaces every assertion walks, as label => id list.
 	 *
 	 * @return array<string,int[]>
 	 */
@@ -159,6 +159,9 @@ class SpaceAudiencePrivacyTest extends \WP_UnitTestCase {
 		return array(
 			'space feed'   => $this->ids( $this->feed->space_feed( $this->space, $this->viewer, null, 20 ) ),
 			'home spaces'  => $this->ids( $this->feed->home_feed( $this->viewer, null, 20, 'spaces' ) ),
+			// For You blends joined spaces too, so it must apply the same audience rule
+			// (card 10354867102: it showed every space member the followers-only post).
+			'home for-you' => $this->ids( $this->feed->home_feed( $this->viewer, null, 20, 'for-you' ) ),
 			'search'       => $this->ids( $this->search->search( $this->token, 'post', 20, 1, $this->viewer ) ),
 		);
 	}

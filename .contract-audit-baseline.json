@@ -32,11 +32,6 @@
       "severity": "warning"
     },
     {
-      "id": "option-read-never-written:buddynext_default_dm_access",
-      "reason": "Persisted via the WordPress Settings API — registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-      "severity": "warning"
-    },
-    {
       "id": "option-read-never-written:buddynext_show_onboarding",
       "reason": "Persisted via the WordPress Settings API — registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
       "severity": "warning"

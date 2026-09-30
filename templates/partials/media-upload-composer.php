@@ -30,7 +30,10 @@ $bn_mu_ctx = array(
 	'ownerId'   => $bn_mu_owner_id,
 	'spaceId'   => $bn_mu_space_id,
 	'maxFiles'  => 10,
-	'maxSizeMB' => 64,
+	// The site's real ceiling (MVS's configured max, clamped to the server's
+	// actual upload_max_filesize/post_max_size) — never a hardcoded number. See
+	// WPMediaVerseBridge::media_max_bytes().
+	'maxSizeMB' => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( $bn_mu_owner_id ),
 	// A space upload is shared with the space; a profile upload defaults to public.
 	'privacy'   => $bn_mu_is_space ? 'space' : 'public',
 	'staged'    => array(),
@@ -40,7 +43,8 @@ $bn_mu_ctx = array(
 	'errorMsg'  => '',
 	't'         => array(
 		'badType'               => __( 'Only images, video and audio can be uploaded.', 'buddynext' ),
-		'tooLarge'              => __( 'File is larger than the allowed size.', 'buddynext' ),
+		/* translators: %d: maximum upload size in megabytes. */
+		'tooLarge'              => __( 'File is larger than the %d MB allowed.', 'buddynext' ),
 		/* translators: %d: maximum number of files allowed per upload batch. */
 		'tooMany'               => __( 'You can upload up to %d files at once.', 'buddynext' ),
 		'failed'                => __( 'Upload failed.', 'buddynext' ),
@@ -58,7 +62,7 @@ $bn_mu_ctx = array(
 		'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
 		/* translators: %s: comma-separated list of space album names. */
 		'confirmDeleteInSpaces' => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
-		'removed'               => __( 'Media removed.', 'buddynext' ),
+		'removed'               => __( 'Media removed', 'buddynext' ),
 		'removeFailed'          => __( 'Could not remove.', 'buddynext' ),
 	),
 );

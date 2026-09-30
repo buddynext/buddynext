@@ -418,7 +418,27 @@ do_action( 'buddynext_part_post_body_before', $args );
 		// thread — not the activity verb. The source label stays generic; the
 		// underlying discussion engine is never named on the front end.
 		$bn_disc_title = '' !== $bn_link_title ? $bn_link_title : wp_trim_words( wp_strip_all_tags( $bn_body_content ), 14 );
+
+		/**
+		 * Filters a discussion card's link for this render.
+		 *
+		 * The bridge that owns the discussion confirms it can still be opened;
+		 * returning '' marks it gone or no longer public, and the card then shows a
+		 * neutral line instead of a link that would 404.
+		 *
+		 * @since 1.2.2
+		 *
+		 * @param string               $url       Discussion URL.
+		 * @param array<string, mixed> $link_meta The card's stored link_meta.
+		 */
+		$bn_disc_url = '' !== $bn_link_url ? (string) apply_filters( 'buddynext_discussion_card_url', $bn_link_url, (array) ( $args['link_meta'] ?? array() ) ) : '';
 		?>
+		<?php if ( '' !== $bn_link_url && '' === $bn_disc_url ) : ?>
+		<div class="bn-post-card__bridge-card bn-post-card__bridge-card--discussion is-unavailable">
+			<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
+			<span class="bn-post-card__bridge-title"><?php esc_html_e( 'This discussion is no longer available.', 'buddynext' ); ?></span>
+		</div>
+		<?php else : ?>
 		<div class="bn-post-card__bridge-card bn-post-card__bridge-card--discussion">
 			<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
 			<div class="bn-post-card__bridge-content">
@@ -433,6 +453,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 				<?php endif; ?>
 			</div>
 		</div>
+		<?php endif; ?>
 
 	<?php elseif ( 'share' === $bn_body_post_type ) : ?>
 		<?php if ( '' !== $bn_body_content ) : ?>

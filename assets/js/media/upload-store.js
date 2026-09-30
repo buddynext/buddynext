@@ -52,7 +52,7 @@ function validate( file, ctx ) {
 	return validateMedia( file, {
 		maxSizeMB:   ctx.maxSizeMB,
 		badTypeMsg:  ctx.t.badType,
-		tooLargeMsg: ctx.t.tooLarge,
+		tooLargeMsg: ( ctx.t.tooLarge || 'File is larger than the %d MB allowed.' ).replace( '%d', String( Number( ctx.maxSizeMB ) || 0 ) ),
 	} );
 }
 
@@ -435,7 +435,7 @@ function bindRegionDelete() {
 			if ( cell ) {
 				cell.remove();
 			}
-			bnToast( t( 'removed', 'Media removed.' ), { tone: 'success' } );
+			bnToast( t( 'removed', 'Media removed' ), { tone: 'success' } );
 		} else {
 			bnToast( t( 'removeFailed', 'Could not remove.' ), { tone: 'danger' } );
 		}

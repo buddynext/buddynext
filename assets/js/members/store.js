@@ -14,7 +14,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnBlockConfirm, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 
@@ -900,8 +900,8 @@ const membersStore = store( 'buddynext/members', {
 				case 'decline': delegatedDecide( card, false, cfg ); break;
 				case 'kebab':   delegatedKebab( card, trigger ); break;
 				case 'mute':    delegatedMute( card, trigger, cfg ); break;
-				case 'block':   delegatedCloseKebab( card ); openBlockModal( parseInt( card.dataset.userId, 10 ) || 0, card.dataset.displayName, trigger ); break;
-				case 'report':  delegatedCloseKebab( card ); openReportModal( 'user', parseInt( card.dataset.userId, 10 ) || 0, card.dataset.displayName, trigger ); break;
+				case 'block':   delegatedCloseKebab( card ); blockMember( parseInt( card.dataset.userId, 10 ) || 0, card.dataset.displayName ); break;
+				case 'report':  delegatedCloseKebab( card ); reportMember( parseInt( card.dataset.userId, 10 ) || 0 ); break;
 				default: break;
 			}
 		},
@@ -1123,26 +1123,20 @@ const membersStore = store( 'buddynext/members', {
 			}
 		},
 
-		/* -- Cross-surface modals (Block + Report) -------------------- *
-		 * These actions cannot mutate the root reactive context proxy
-		 * from a nested card scope, so they imperatively open vanilla
-		 * modals built from the existing partials. The partial DOM is
-		 * already in the page (rendered by members.php); we toggle
-		 * `hidden` on the backdrop and wire submit / cancel handlers. */
+		/* -- Cross-surface dialogs (Block + Report) ------------------- *
+		 * The shared bnBlockConfirm / bnReportDialog, the same as the profile
+		 * page and the message thread, so there is one wording and one behaviour. */
 
-		openBlock( event ) {
+		openBlock() {
 			const ctx = getContext();
 			ctx.menuOpen = false;
-			// Pass the trigger so the modal in THIS grid (tab panel) opens — a
-			// global lookup would grab the first grid's modal, often in a
-			// hidden tab. See findNearestModal().
-			openBlockModal( ctx.userId, ctx.displayName, event && event.target );
+			blockMember( ctx.userId, ctx.displayName );
 		},
 
-		openReport( event ) {
+		openReport() {
 			const ctx = getContext();
 			ctx.menuOpen = false;
-			openReportModal( 'user', ctx.userId, ctx.displayName, event && event.target );
+			reportMember( ctx.userId );
 		},
 	},
 } );
@@ -1164,160 +1158,50 @@ function getModalSettings() {
 	}
 }
 
-/**
- * Find the modal backdrop nearest the element that triggered it.
- *
- * The block/report modals ship inside member-grid.php, so a page with several
- * member grids — e.g. the profile Followers / Following / Connections tabs —
- * renders one backdrop per grid. A global document.querySelector always returns
- * the first, which usually lives in a hidden tab panel, so un-hiding it shows
- * nothing and Block / Report appear dead on every other grid. Walk up from the
- * trigger to the closest ancestor that actually contains a matching backdrop,
- * falling back to the first in the document if the trigger is detached.
- *
- * @param {Element} originEl Element that triggered the modal (the kebab item).
- * @param {string}  selector Backdrop selector.
- * @return {Element|null} The nearest matching backdrop.
- */
-function findNearestModal( originEl, selector ) {
-	let node = ( originEl && 1 === originEl.nodeType ) ? originEl : null;
-	while ( node ) {
-		const found = node.querySelector ? node.querySelector( selector ) : null;
-		if ( found ) { return found; }
-		node = node.parentElement;
+async function blockMember( userId, displayName ) {
+	if ( ! userId || ! await bnBlockConfirm( displayName ) ) { return; }
+	const { restUrl, restNonce: nonce } = getModalSettings();
+	const name = displayName || t( 'memberFallback', 'member' );
+	try {
+		const res = await restFetch(
+			'/users/' + userId + '/block',
+			{ method: 'POST', base: restUrl || undefined, nonce: nonce, toastOnError: false }
+		);
+		if ( ! res.ok ) { throw new Error( 'block_failed' ); }
+		bnToast( fmt( t( 'toastBlocked', '%s blocked' ), name ), { tone: 'success' } );
+		const card = document.querySelector( '.bn-md-card[data-user-id="' + userId + '"]' );
+		if ( card ) { card.remove(); }
+	} catch ( _e ) {
+		bnToast( t( 'toastCouldNotBlock', 'Could not block. Try again.' ), { tone: 'danger' } );
 	}
-	return document.querySelector( selector );
 }
 
-function openBlockModal( userId, displayName, originEl ) {
-	const modal = findNearestModal( originEl, '.bn-pf-block-backdrop' );
-	if ( ! modal ) { return; }
-	modal.dataset.targetId   = String( userId );
-	modal.dataset.targetName = String( displayName || '' );
-	const title = modal.querySelector( '.bn-modal__title' );
-	if ( title ) {
-		title.textContent = displayName ? fmt( t( 'blockTitleNamed', 'Block %s?' ), displayName ) : t( 'blockTitleGeneric', 'Block this member?' );
+async function reportMember( userId ) {
+	if ( ! userId ) { return; }
+	const result = await bnReportDialog( { title: t( 'reportProfileTitle', 'Report this profile' ) } );
+	if ( ! result ) { return; }
+	const { restUrl, restNonce: nonce } = getModalSettings();
+	try {
+		const res = await restFetch(
+			'/reports',
+			{
+				method:       'POST',
+				base:         restUrl || undefined,
+				nonce:        nonce,
+				toastOnError: false,
+				body:         { object_type: 'user', object_id: userId, reason: result.reason || 'other', notes: result.notes || '' },
+			}
+		);
+		if ( ! res.ok && res.status !== 201 ) {
+			// Surface the server's reason, e.g. the 409 "You have already reported this member."
+			const data = res.data || {};
+			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+			return;
+		}
+		bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+	} catch ( _e ) {
+		bnToast( t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 	}
-	modal.hidden = false;
-
-	bindOnce( modal, 'block-bound', () => {
-		// Dismiss on backdrop click: a click whose target is the backdrop element
-		// itself (the dimmed area outside the panel) closes the modal, matching the
-		// standard modal gesture. Clicks inside the panel have a descendant target,
-		// so the form and its controls are unaffected.
-		modal.addEventListener( 'click', ( e ) => {
-			if ( e.target === modal ) { modal.hidden = true; }
-		} );
-		modal.querySelectorAll( '[data-wp-on--click="actions.closeBlockConfirm"]' ).forEach( ( b ) => {
-			b.addEventListener( 'click', ( e ) => { e.preventDefault(); modal.hidden = true; } );
-		} );
-		const cta = modal.querySelector( '[data-wp-on--click="actions.confirmBlock"]' );
-		if ( cta ) {
-			cta.addEventListener( 'click', async ( e ) => {
-				e.preventDefault();
-				if ( cta.dataset.submitting === '1' ) { return; }
-				cta.dataset.submitting = '1';
-				cta.setAttribute( 'aria-disabled', 'true' );
-				const { restUrl, restNonce: nonce } = getModalSettings();
-				const targetId = parseInt( modal.dataset.targetId || '0', 10 );
-				const name     = modal.dataset.targetName || t( 'memberFallback', 'member' );
-				try {
-					const res = await restFetch(
-						'/users/' + targetId + '/block',
-						{ method: 'POST', base: restUrl || undefined, nonce: nonce, toastOnError: false }
-					);
-					if ( ! res.ok ) { throw new Error( 'block_failed' ); }
-					modal.hidden = true;
-					bnToast( fmt( t( 'toastBlocked', '@%s blocked' ), name ), { tone: 'success' } );
-					const card = document.querySelector( '.bn-md-card[data-user-id="' + targetId + '"]' );
-					if ( card ) { card.remove(); }
-				} catch ( _e ) {
-					bnToast( t( 'toastCouldNotBlock', 'Could not block. Try again.' ), { tone: 'danger' } );
-				} finally {
-					cta.dataset.submitting = '';
-					cta.removeAttribute( 'aria-disabled' );
-				}
-			} );
-		}
-	} );
-}
-
-function openReportModal( targetType, targetId, displayName, originEl ) {
-	const modal = findNearestModal( originEl, '.bn-pf-report-backdrop' );
-	if ( ! modal ) { return; }
-	modal.dataset.targetType = String( targetType || 'user' );
-	modal.dataset.targetId   = String( targetId || 0 );
-	modal.dataset.targetName = String( displayName || '' );
-	// Reset form fields.
-	const reasonSel = modal.querySelector( '#bn-pf-report-reason' );
-	if ( reasonSel ) { reasonSel.value = 'spam'; }
-	const notesEl = modal.querySelector( '#bn-pf-report-notes' );
-	if ( notesEl ) { notesEl.value = ''; }
-	modal.hidden = false;
-
-	bindOnce( modal, 'report-bound', () => {
-		// Dismiss on backdrop click — see openBlockModal for the rationale.
-		modal.addEventListener( 'click', ( e ) => {
-			if ( e.target === modal ) { modal.hidden = true; }
-		} );
-		modal.querySelectorAll( '[data-wp-on--click="actions.closeReport"]' ).forEach( ( b ) => {
-			b.addEventListener( 'click', ( e ) => { e.preventDefault(); modal.hidden = true; } );
-		} );
-		const cta = modal.querySelector( '[data-wp-on--click="actions.submitReport"]' );
-		if ( cta ) {
-			cta.addEventListener( 'click', async ( e ) => {
-				e.preventDefault();
-				if ( cta.dataset.submitting === '1' ) { return; }
-				cta.dataset.submitting = '1';
-				cta.setAttribute( 'aria-disabled', 'true' );
-				const { restUrl, restNonce: nonce } = getModalSettings();
-				const reason = ( reasonSel && reasonSel.value ) || 'other';
-				const notes  = ( notesEl && notesEl.value )  || '';
-				try {
-					const res = await restFetch(
-						'/reports',
-						{
-							method:       'POST',
-							base:         restUrl || undefined,
-							nonce:        nonce,
-							toastOnError: false,
-							body:         {
-								object_type: modal.dataset.targetType || 'user',
-								object_id:   parseInt( modal.dataset.targetId || '0', 10 ),
-								reason:      reason,
-								notes:       notes,
-							},
-						}
-					);
-					if ( ! res.ok && res.status !== 201 ) {
-						// Surface the server's reason — e.g. the 409 "You have
-						// already reported this member." — instead of a generic
-						// failure the user misreads as "the submit failed, retry".
-						const data = res.data || {};
-						bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
-						return;
-					}
-					modal.hidden = true;
-					bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
-				} catch ( _e ) {
-					bnToast( t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
-				} finally {
-					cta.dataset.submitting = '';
-					cta.removeAttribute( 'aria-disabled' );
-				}
-			} );
-		}
-	} );
-}
-
-function bindOnce( el, flag, fn ) {
-	// Use setAttribute, not dataset[flag]: dataset keys containing a hyphen
-	// followed by a lowercase letter (e.g. 'report-bound') throw a SyntaxError,
-	// which previously aborted before the modal's submit listener was attached.
-	var attr = 'data-bn-' + flag;
-	if ( el.getAttribute( attr ) === '1' ) { return; }
-	el.setAttribute( attr, '1' );
-	fn();
 }
 
 onNavReady( () => { applyViewClass( readView() ); } );

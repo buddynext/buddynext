@@ -52,7 +52,7 @@ class GamificationPoints {
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'parent'    => GamificationAchievements::PARENT_SLUG,
-				'label'     => __( 'Points', 'buddynext' ),
+				'label'     => \BuddyNext\Bridges\GamificationBridge::points_label(),
 				'icon'      => 'zap',
 				'priority'  => 20,
 				// Own profile only — a member's point ledger is personal.
@@ -86,7 +86,7 @@ class GamificationPoints {
 
 		echo '<div class="bn-card bn-gam-points__total">';
 		echo '<span class="bn-gam-points__total-value">' . esc_html( number_format_i18n( $total ) ) . '</span>';
-		echo '<span class="bn-gam-points__total-label">' . esc_html__( 'Total points', 'buddynext' ) . '</span>';
+		echo '<span class="bn-gam-points__total-label">' . esc_html( sprintf( /* translators: %s: the site's name for points, e.g. "Points". */ __( 'Total %s', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) ) . '</span>';
 		echo '</div>';
 
 		$this->render_history( $member_id );
@@ -96,216 +96,51 @@ class GamificationPoints {
 	}
 
 	/**
-	 * Recent point ledger — labelled + timestamped, newest first.
+	 * Recent point history: WB Gamification's own history block, inside
+	 * BuddyNext's panel, so labels match its toasts (card 10344428395).
 	 *
 	 * @param int $member_id Member.
 	 * @return void
 	 */
 	private function render_history( int $member_id ): void {
-		$rows = is_callable( array( '\WBGam\Engine\PointsEngine', 'get_history' ) )
-			? \WBGam\Engine\PointsEngine::get_history( $member_id, 20 )
-			: array();
+		$history = shortcode_exists( 'wb_gam_points_history' )
+			? do_shortcode( sprintf( '[wb_gam_points_history user_id="%d" limit="20"]', $member_id ) )
+			: '';
 
 		echo '<div class="bn-card bn-gam-points__panel">';
 		echo '<div class="bn-widget-title">';
 		if ( function_exists( 'buddynext_icon' ) ) {
-			buddynext_icon( 'zap' );
+			buddynext_icon( 'trending-up' );
 		}
-		echo ' ' . esc_html__( 'Your recent activity', 'buddynext' );
+		echo ' ' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( '%s history', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) );
 		echo '</div>';
 
-		if ( empty( $rows ) ) {
-			echo '<p class="bn-achievements__empty">' . esc_html__( 'No points yet: start contributing to earn your first points.', 'buddynext' ) . '</p>';
-			echo '</div>';
-			return;
+		if ( '' === trim( wp_strip_all_tags( $history ) ) ) {
+			echo '<p class="bn-achievements__empty">' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( 'No %s yet: start contributing to earn your first.', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) ) . '</p>';
+		} else {
+			echo $history; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
 		}
-
-		$labels = $this->action_labels();
-
-		echo '<ul class="bn-gam-ledger" role="list">';
-		foreach ( $rows as $row ) {
-			$action = isset( $row['action_id'] ) ? (string) $row['action_id'] : '';
-			$label  = $labels[ $action ] ?? $this->humanize( $action );
-			$points = (int) ( $row['points'] ?? 0 );
-			$when   = ! empty( $row['created_at'] ) ? (int) strtotime( (string) $row['created_at'] ) : 0;
-
-			echo '<li class="bn-gam-ledger__row">';
-			echo '<span class="bn-gam-ledger__icon" aria-hidden="true">';
-			if ( function_exists( 'buddynext_icon' ) ) {
-				buddynext_icon( 'sparkles' );
-			}
-			echo '</span>';
-			echo '<span class="bn-gam-ledger__body">';
-			echo '<span class="bn-gam-ledger__label">' . esc_html( $label ) . '</span>';
-			if ( $when > 0 ) {
-				echo '<span class="bn-gam-ledger__time">' . esc_html(
-					sprintf(
-						/* translators: %s: human-readable time difference, e.g. "3 hours". */
-						__( '%s ago', 'buddynext' ),
-						human_time_diff( $when )
-					)
-				) . '</span>';
-			}
-			echo '</span>';
-			echo '<span class="bn-gam-ledger__points' . ( $points < 0 ? ' is-negative' : '' ) . '">' . esc_html(
-				sprintf(
-					/* translators: %s: signed point amount, e.g. "+10". */
-					__( '%s pts', 'buddynext' ),
-					( $points >= 0 ? '+' : '' ) . number_format_i18n( $points )
-				)
-			) . '</span>';
-			echo '</li>';
-		}
-		echo '</ul>';
 		echo '</div>';
 	}
 
 	/**
-	 * "How to earn" — enabled actions grouped by category with points + limits.
+	 * "How to earn": WB Gamification's own earning guide, inside BuddyNext's panel.
+	 *
+	 * WB Gamification owns which actions are enabled, their points, limits and
+	 * wording, so BuddyNext renders its guide rather than rebuilding it from the
+	 * raw options (card 10344441205).
 	 *
 	 * @return void
 	 */
 	private function render_earn_guide(): void {
-		$grouped = $this->earning_guide();
-
 		echo '<div class="bn-card bn-gam-points__panel">';
 		echo '<div class="bn-widget-title">';
 		if ( function_exists( 'buddynext_icon' ) ) {
 			buddynext_icon( 'target' );
 		}
-		echo ' ' . esc_html__( 'How to earn points', 'buddynext' );
+		echo ' ' . esc_html( sprintf( /* translators: %s: the site's name for points. */ __( 'How to earn %s', 'buddynext' ), \BuddyNext\Bridges\GamificationBridge::points_label() ) );
 		echo '</div>';
-
-		if ( empty( $grouped ) ) {
-			echo '<p class="bn-achievements__empty">' . esc_html__( 'No earning opportunities are enabled yet.', 'buddynext' ) . '</p>';
-			echo '</div>';
-			return;
-		}
-
-		foreach ( $grouped as $category => $actions ) {
-			echo '<h4 class="bn-gam-earn__cat">' . esc_html( $this->category_label( (string) $category ) ) . '</h4>';
-			echo '<ul class="bn-gam-earn__list" role="list">';
-			foreach ( $actions as $action ) {
-				echo '<li class="bn-gam-earn__row">';
-				echo '<span class="bn-gam-earn__label">' . esc_html( (string) $action['label'] ) . '</span>';
-				echo '<span class="bn-gam-earn__right">';
-				$meta = $this->limit_text( (int) $action['cooldown'], (int) $action['daily_cap'] );
-				if ( '' !== $meta ) {
-					echo '<span class="bn-gam-earn__meta">' . esc_html( $meta ) . '</span>';
-				}
-				echo '<span class="bn-gam-earn__pts">' . esc_html(
-					sprintf(
-						/* translators: %s: point amount, e.g. "+10". */
-						__( '+%s pts', 'buddynext' ),
-						number_format_i18n( (int) $action['points'] )
-					)
-				) . '</span>';
-				echo '</span>';
-				echo '</li>';
-			}
-			echo '</ul>';
-		}
+		echo do_shortcode( '[wb_gam_earning_guide]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
 		echo '</div>';
-	}
-
-	/**
-	 * Action id → human label map from the registry (one build per request).
-	 *
-	 * @return array<string,string>
-	 */
-	private function action_labels(): array {
-		$map     = array();
-		$actions = function_exists( 'wb_gam_get_actions' ) ? (array) wb_gam_get_actions() : array();
-		foreach ( $actions as $id => $action ) {
-			$map[ (string) $id ] = (string) ( $action['label'] ?? $id );
-		}
-		return $map;
-	}
-
-	/**
-	 * Enabled earning actions grouped by category, with the admin-resolved points.
-	 *
-	 * @return array<string,array<int,array{label:string,points:int,cooldown:int,daily_cap:int}>>
-	 */
-	private function earning_guide(): array {
-		$actions = function_exists( 'wb_gam_get_actions' ) ? (array) wb_gam_get_actions() : array();
-		$grouped = array();
-
-		foreach ( $actions as $id => $action ) {
-			if ( ! (bool) get_option( 'wb_gam_enabled_' . $id, true ) ) {
-				continue;
-			}
-			$points = (int) get_option( 'wb_gam_points_' . $id, $action['default_points'] ?? 0 );
-			if ( $points <= 0 ) {
-				continue;
-			}
-			$category = (string) ( $action['category'] ?? 'general' );
-
-			$grouped[ $category ][] = array(
-				'label'     => (string) ( $action['label'] ?? $id ),
-				'points'    => $points,
-				'cooldown'  => (int) ( $action['cooldown'] ?? 0 ),
-				'daily_cap' => (int) ( $action['daily_cap'] ?? 0 ),
-			);
-		}
-
-		return $grouped;
-	}
-
-	/**
-	 * Human-readable limit hint for an action ("max 10/day", "1m cooldown").
-	 *
-	 * @param int $cooldown  Cooldown seconds (0 = none).
-	 * @param int $daily_cap Max awards per day (0 = unlimited).
-	 * @return string
-	 */
-	private function limit_text( int $cooldown, int $daily_cap ): string {
-		$parts = array();
-		if ( $daily_cap > 0 ) {
-			/* translators: %d: maximum number of times per day. */
-			$parts[] = sprintf( __( 'max %d/day', 'buddynext' ), $daily_cap );
-		}
-		if ( $cooldown > 0 ) {
-			$mins = max( 1, (int) round( $cooldown / 60 ) );
-			/* translators: %d: cooldown in minutes. */
-			$parts[] = sprintf( _n( '%d min cooldown', '%d min cooldown', $mins, 'buddynext' ), $mins );
-		}
-		return implode( ' · ', $parts );
-	}
-
-	/**
-	 * Community-friendly label for an earning category.
-	 *
-	 * The engine's category slugs are developer-facing (the core-actions slug in
-	 * particular reads as jargon); map the known ones to words a member understands,
-	 * and title-case anything unmapped.
-	 *
-	 * @param string $slug Category slug.
-	 * @return string
-	 */
-	private function category_label( string $slug ): string {
-		$labels = array(
-			'content'   => __( 'Content', 'buddynext' ),
-			'social'    => __( 'Social', 'buddynext' ),
-			'community' => __( 'Community', 'buddynext' ),
-			'wordpress' => __( 'Getting started', 'buddynext' ),
-			'media'     => __( 'Media', 'buddynext' ),
-			'listings'  => __( 'Listings', 'buddynext' ),
-			'careers'   => __( 'Careers', 'buddynext' ),
-			'learning'  => __( 'Learning', 'buddynext' ),
-			'general'   => __( 'General', 'buddynext' ),
-		);
-
-		return $labels[ strtolower( $slug ) ] ?? $this->humanize( $slug );
-	}
-
-	/**
-	 * Title-case a slug for display ("bn_profile_updated" → "Bn Profile Updated").
-	 *
-	 * @param string $slug Slug.
-	 * @return string
-	 */
-	private function humanize( string $slug ): string {
-		return ucwords( str_replace( array( '-', '_' ), ' ', $slug ) );
 	}
 }

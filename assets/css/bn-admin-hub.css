@@ -989,7 +989,7 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--bn-a-on-accent, #fff);
+	color: var(--bn-accent-fg);
 }
 
 .bn-setup-step__check svg {

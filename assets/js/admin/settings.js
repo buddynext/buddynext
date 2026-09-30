@@ -200,7 +200,7 @@
 					} )
 					.catch( function () {
 						testBtn.disabled = false;
-						setStatus( __( 'Network error.', 'buddynext' ), true );
+						setStatus( __( 'Network error. Try again.', 'buddynext' ), true );
 					} );
 				} else if ( rmBtn ) {
 					window.bnConfirm( {
@@ -231,7 +231,7 @@
 						} )
 						.catch( function () {
 							rmBtn.disabled = false;
-							setStatus( __( 'Network error.', 'buddynext' ), true );
+							setStatus( __( 'Network error. Try again.', 'buddynext' ), true );
 						} );
 					} );
 				}

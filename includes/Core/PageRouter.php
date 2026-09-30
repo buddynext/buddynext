@@ -108,6 +108,7 @@ class PageRouter {
 		// gate cannot recognise its own login target and redirects it to itself
 		// forever: ERR_TOO_MANY_REDIRECTS (card 10317628894).
 		add_action( 'wp', array( $this, 'align_hub_page_conditionals' ) );
+		add_action( 'wp', array( $this, 'detach_front_page_from_subroute' ), 1 );
 
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
@@ -155,7 +156,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-08-29-space-slug-beats-scope';
+	private const ROUTER_VERSION = '2026-09-26-retire-moderation-hub';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -274,6 +275,51 @@ class PageRouter {
 		$wp_query->is_home           = false;
 		$wp_query->is_404            = false;
 	}
+
+	/**
+	 * A front-page hub's deeper routes are not the front page.
+	 *
+	 * The align_hub_page_conditionals() method gives every route of a hub its
+	 * mapped page as the queried object (themes read layout settings from it).
+	 * When that page is the static front page, WordPress then answers
+	 * is_front_page() true on
+	 * /activity/leaderboard/, /me/account-status/ or /members/alice/ too: core
+	 * 301s them to "/" (redirect_canonical), titles drop the site name, the body
+	 * gets .home, and front-page-only theme/SEO output leaks onto every sub-route.
+	 * For the rest of such a request page_on_front reads 0, so only the hub root
+	 * is the front page while the queried object (and its layout meta) stays.
+	 *
+	 * @return void
+	 */
+	public function detach_front_page_from_subroute(): void {
+		if ( $this->is_front_hub_subroute() ) {
+			add_filter( 'pre_option_page_on_front', '__return_zero' );
+		}
+	}
+
+	/**
+	 * Whether this request is a route deeper than the root of the hub that is
+	 * set as the static front page.
+	 *
+	 * @return bool
+	 */
+	private function is_front_hub_subroute(): bool {
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		if ( '' === $hub || 'page' !== (string) get_option( 'show_on_front' ) ) {
+			return false;
+		}
+		$page_id = self::hub_page_id( $hub );
+		if ( $page_id <= 0 || (int) get_option( 'page_on_front' ) !== $page_id ) {
+			return false;
+		}
+		$descriptor = HubRegistry::instance()->get( $hub );
+		$root       = $descriptor instanceof HubDescriptor ? self::hub_slug( $descriptor->slug_option, $descriptor->default_slug ) : '';
+
+		global $wp;
+		$path = trim( (string) $wp->request, '/' );
+		return '' !== $path && $path !== $root;
+	}
+
 
 	/**
 	 * Resolve the BuddyNext hub for this request and queue it for rendering.
@@ -652,11 +698,40 @@ class PageRouter {
 		// automated and rejected — a site-wide registration outage. Mark the whole
 		// hub uncacheable before any output: the general rule for any
 		// nonce/token-bearing form page, not just signup.
-		if ( 'auth' === $hub ) {
+		//
+		// The same holds for EVERY hub a member is logged in on: their feed,
+		// inbox, notifications, profile and onboarding step are rendered for them
+		// and carry their nonce. A page cache that also caches logged-in visitors
+		// (LiteSpeed private cache, WP Super Cache for known users) served the
+		// onboarding wizard's reload from cache, so Next after Interests bounced
+		// back to step 1 (card 10344282503). Guest views of public hubs stay
+		// cacheable, which is where a page cache earns its keep. Proven against
+		// WP Super Cache, W3 Total Cache, WP Rocket and LiteSpeed Cache (all
+		// honour DONOTCACHEPAGE alone) by docker/cache-test/check.sh.
+		if ( 'auth' === $hub || is_user_logged_in() ) {
 			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 				define( 'DONOTCACHEPAGE', true ); // Honoured by WP Rocket, W3TC, WP Super Cache, LiteSpeed, Batcache.
 			}
 			nocache_headers(); // Cache-Control: no-store … — reverse proxies (Varnish, Cloudflare) and browsers.
+		}
+
+		// Every route of a hub reports its mapped page as the queried object (see
+		// align_hub_page_conditionals()), so /activity/explore/ or /members/alice/
+		// never equals get_permalink() of that page. WP Rocket reads that mismatch
+		// as a junk URL and neither caches nor optimises the page, so guests never
+		// got a cached profile, post or sub-route. These are BuddyNext's own
+		// routes, valid by construction: skip the check for this request only.
+		// DONOTCACHEPAGE above still keeps member pages out of the cache.
+		add_filter( 'rocket_disable_url_validation', '__return_true' );
+
+		// The owner handed the leaderboard to Jetonomy: send the BuddyNext route
+		// to Jetonomy's board rather than showing a second ranking.
+		if ( 'feed' === $hub && 'leaderboard' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+			$jetonomy_board = \BuddyNext\Bridges\GamificationBridge::deferred_leaderboard_url();
+			if ( '' !== $jetonomy_board ) {
+				wp_safe_redirect( $jetonomy_board, 302 );
+				exit;
+			}
 		}
 
 		// ── Space visibility gate ─────────────────────────────────────────
@@ -1114,6 +1189,14 @@ class PageRouter {
 				'document_title_parts',
 				static function ( array $parts ) use ( $title_frozen ): array {
 					$parts['title'] = $title_frozen;
+					// As the static front page, WordPress titles the root "Site - Tagline";
+					// a hub there reads "Hub - Site" like every other community page
+					// (card 10343760220). The community name, if set, replaces the site
+					// part in apply_community_name_to_title().
+					if ( is_front_page() ) {
+						$parts['site'] = (string) get_bloginfo( 'name' );
+						unset( $parts['tagline'] );
+					}
 					return $parts;
 				}
 			);
@@ -1595,6 +1678,14 @@ class PageRouter {
 		wp_enqueue_style( 'bn-shell' );
 		wp_enqueue_script( 'bn-shell-font-scale' );
 		wp_enqueue_script( 'bn-shell-extras' );
+		// The one toast (bnToast) lives in this module; it replaces the queueing stub
+		// in shell/extras.js as soon as it runs, so every hub has a real toast.
+		wp_enqueue_script_module( '@buddynext/shell-dialog' );
+		// The search overlay built by shell/extras.js is a .bn-modal-backdrop and
+		// relies on modal-a11y for Escape, the Tab trap and focus return. Enqueue it
+		// directly rather than trusting the nav-init side-effect import to be
+		// pulled in by some other store on this hub.
+		wp_enqueue_script_module( '@buddynext/modal-a11y' );
 
 		// Social-buttons store powers the standalone Follow + Connect partials
 		// (sidebar widgets, block-rendered buttons, etc.) on every BN hub.
@@ -1649,6 +1740,19 @@ class PageRouter {
 				'close'                  => __( 'Close', 'buddynext' ),
 				'confirm'                => __( 'Confirm', 'buddynext' ),
 				'cancel'                 => __( 'Cancel', 'buddynext' ),
+				// Block confirmation (bnBlockConfirm).
+				/* translators: %s: the member's display name */
+				'blockTitleNamed'        => __( 'Block %s?', 'buddynext' ),
+				'blockTitleGeneric'      => __( 'Block this member?', 'buddynext' ),
+				'blockIntro'             => __( 'Blocking this person will:', 'buddynext' ),
+				'blockHidePosts'         => __( 'Hide their posts and replies from your feed.', 'buddynext' ),
+				'blockStopContact'       => __( 'Stop them from following you or sending you messages.', 'buddynext' ),
+				'blockRemoveLinks'       => __( 'Remove any existing connection or follow between you.', 'buddynext' ),
+				'blockHelp'              => __( 'You can unblock from your settings at any time.', 'buddynext' ),
+				'block'                  => __( 'Block', 'buddynext' ),
+				// Toast: the close control on a toast that stays, and the default link label.
+				'dismiss'                => __( 'Dismiss', 'buddynext' ),
+				'view'                   => __( 'View', 'buddynext' ),
 				// Report dialog.
 				'reportTitle'            => __( 'Report', 'buddynext' ),
 				'reportBody'             => __( 'Reports are reviewed by moderators. The person you report is not notified.', 'buddynext' ),
@@ -2053,10 +2157,6 @@ class PageRouter {
 				}
 				break;
 
-			case 'moderation':
-				$assets->enqueue( 'moderation' );
-				break;
-
 			case 'community_admin':
 				// The panel's .bn-ca-* chrome lives in bn-moderation.css and its
 				// Appeals approve/deny controls run on the buddynext/moderation
@@ -2367,8 +2467,8 @@ class PageRouter {
 	 */
 	private function resolve_hub_template( string $hub ): ?string {
 		// Non-hub routes without a descriptor resolve here: the single-post
-		// permalink, the settings sub-tabs, and the moderation queue (post folds
-		// into feed; settings + moderation get descriptors — plan Phase 4). Every
+		// permalink and the settings sub-tabs (post folds into feed; settings gets
+		// a descriptor — plan Phase 4). Every
 		// hub, core or addon, resolves through its descriptor's resolve_template
 		// callback in the default branch, so there is one path.
 		switch ( $hub ) {
@@ -2381,9 +2481,6 @@ class PageRouter {
 					$settings_section = 'account';
 				}
 				return 'settings/' . $settings_section . '.php';
-
-			case 'moderation':
-				return 'moderation/queue.php';
 
 			default:
 				$bn_descriptor = HubRegistry::instance()->get( $hub );
@@ -2429,13 +2526,11 @@ class PageRouter {
 		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_legacy_search%', '([01])' );
 
-		// Non-hub routes that have no descriptor: single-post permalink, the
-		// settings sub-tabs, and the moderation queue. These stay explicit until
-		// they gain their own descriptors (post folds into feed; settings +
-		// moderation get descriptors — plan Phase 4).
+		// Non-hub routes that have no descriptor: single-post permalink and the
+		// settings sub-tabs. These stay explicit until they gain their own
+		// descriptors (post folds into feed; settings gets one — plan Phase 4).
 		self::register_post_rules();
 		self::register_settings_rules();
-		self::register_moderation_rules();
 
 		// Every hub — core and addon — registers its own rewrite rules through
 		// its descriptor's register_rules callback. Core hubs now ride the exact
@@ -2747,23 +2842,6 @@ class PageRouter {
 		add_rewrite_rule(
 			'^settings/?$',
 			'index.php?bn_hub=settings&bn_settings_section=account',
-			'top'
-		);
-	}
-
-	/**
-	 * Register Moderation hub rewrite rules.
-	 *
-	 * Single rule — the moderation hub has no sub-endpoints.
-	 *
-	 * @return void
-	 */
-	private function register_moderation_rules(): void {
-		$m = self::hub_slug( 'buddynext_slug_moderation', 'moderation' );
-
-		add_rewrite_rule(
-			'^' . preg_quote( $m, '/' ) . '/?$',
-			'index.php?bn_hub=moderation',
 			'top'
 		);
 	}

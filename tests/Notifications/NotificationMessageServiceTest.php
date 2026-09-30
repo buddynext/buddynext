@@ -111,11 +111,10 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 			'appeal_submitted'       => array( 'bn.appeal_submitted', 'appeal' ),
 			'appeal_resolved'        => array( 'bn.appeal_resolved', 'appeal' ),
 			'report_resolved'        => array( 'bn.report_resolved', 'report' ),
-			'badge_awarded'          => array( 'bn.badge_awarded', 'badge' ),
-			'level_up'               => array( 'bn.level_up', 'level' ),
 			'onboarding_nudge'       => array( 'bn.onboarding_nudge', 'profile' ),
 			'daily_digest'           => array( 'bn.daily_digest', 'daily digest' ),
 			'weekly_digest'          => array( 'bn.weekly_digest', 'weekly digest' ),
+			'media_commented'        => array( 'bn.media_commented', 'commented on your media' ),
 			'media_favorited'        => array( 'bn.media_favorited', 'favourited' ),
 			// bn.jetonomy_reply was removed in the collect-only fix (bug #10062150983);
 			// Jetonomy owns that notification now, so BN renders no copy for it.

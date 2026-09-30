@@ -56,23 +56,29 @@ $bn_mt_ctx = array(
 	// True while an in-picker upload is in flight — disables the file input and shows
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
 	'pickerUploading'    => false,
+	// The album picker uploads as the viewer, against the same ceiling as every
+	// other media upload. See WPMediaVerseBridge::media_max_bytes().
+	'maxSizeMB'          => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
 	't'                  => array(
+		'badType'                 => __( 'Only images, video and audio can be uploaded.', 'buddynext' ),
+		/* translators: %d: maximum upload size in megabytes. */
+		'tooLarge'                => __( 'File is larger than the %d MB allowed.', 'buddynext' ),
 		'oneItem'                 => __( '1 item', 'buddynext' ),
 		/* translators: %d: number of items in an album. */
 		'nItems'                  => __( '%d items', 'buddynext' ),
-		'albumCreated'            => __( 'Album created.', 'buddynext' ),
-		'albumSaved'              => __( 'Album updated.', 'buddynext' ),
+		'albumCreated'            => __( 'Album created', 'buddynext' ),
+		'albumSaved'              => __( 'Album updated', 'buddynext' ),
 		'createFailed'            => __( 'Could not save the album.', 'buddynext' ),
 		'confirmDeleteAlbum'      => __( 'Delete this album? The photos stay in your media.', 'buddynext' ),
 		'confirmDeleteAlbumTitle' => __( 'Delete this album?', 'buddynext' ),
 		'confirmDeleteAlbumBody'  => __( 'The photos stay in your media.', 'buddynext' ),
 		'delete'                  => __( 'Delete', 'buddynext' ),
-		'albumDeleted'            => __( 'Album deleted.', 'buddynext' ),
+		'albumDeleted'            => __( 'Album deleted', 'buddynext' ),
 		'deleteFailed'            => __( 'Could not delete the album.', 'buddynext' ),
 		'setCover'                => __( 'Set as cover', 'buddynext' ),
-		'coverSet'                => __( 'Cover updated.', 'buddynext' ),
+		'coverSet'                => __( 'Cover updated', 'buddynext' ),
 		'coverFailed'             => __( 'Could not set the cover.', 'buddynext' ),
-		'added'                   => __( 'Added to album.', 'buddynext' ),
+		'added'                   => __( 'Added to album', 'buddynext' ),
 		'addFailed'               => __( 'Could not add media.', 'buddynext' ),
 		'uploadFailed'            => __( 'Could not upload that file.', 'buddynext' ),
 		'uploadedOne'             => __( 'Uploaded and selected. Choose Add to put it in the album.', 'buddynext' ),
@@ -80,7 +86,7 @@ $bn_mt_ctx = array(
 		'emptyAlbum'              => __( 'This album is empty.', 'buddynext' ),
 		'removeFromAlbum'         => __( 'Remove from album', 'buddynext' ),
 		'confirmRemove'           => __( 'Remove this from the album?', 'buddynext' ),
-		'removedFromAlbum'        => __( 'Removed from album.', 'buddynext' ),
+		'removedFromAlbum'        => __( 'Removed from album', 'buddynext' ),
 		'removeFailed'            => __( 'Could not remove.', 'buddynext' ),
 	),
 );

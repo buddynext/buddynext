@@ -14,8 +14,8 @@
  *      maps 3+ buddynext_page_* or buddynext_slug_* option keys (the exact shape
  *      of the deleted NavManager::PAGE_OPTIONS / SLUG_OPTIONS).
  *   B. A rewrite rule routes to a bn_hub=<key> that is neither a registered core
- *      descriptor nor one of the known non-hub routes (post, settings,
- *      moderation) — i.e. a hub added to routing but not to the registry.
+ *      descriptor nor one of the known non-hub routes (post, settings) —
+ *      i.e. a hub added to routing but not to the registry.
  *   C. register_rewrites() calls a core-hub register_*_rules() method directly
  *      again, instead of letting the registry loop drive it.
  *
@@ -38,11 +38,11 @@ $bn_core_hub_keys = array( 'feed', 'people', 'spaces', 'messages', 'notification
 
 /**
  * Non-hub bn_hub values routed without a descriptor. These stay explicit until
- * they gain descriptors (plan Phase 4: post folds into feed; settings +
- * moderation get descriptors). Shrinking this list is progress; growing it needs
- * a deliberate decision, so a new entry here is the signal to review.
+ * they gain descriptors (plan Phase 4: post folds into feed; settings gets
+ * a descriptor). Shrinking this list is progress; growing it needs a
+ * deliberate decision, so a new entry here is the signal to review.
  */
-$bn_non_hub_routes = array( 'post', 'settings', 'moderation' );
+$bn_non_hub_routes = array( 'post', 'settings' );
 
 $bn_allowed_hub_values = array_merge( $bn_core_hub_keys, $bn_non_hub_routes );
 
@@ -127,7 +127,7 @@ if ( is_file( $bn_router ) ) {
 	if ( preg_match( '/function register_rewrites\(\).*?\n\t\}/s', $bn_src, $rm ) ) {
 		$body = $rm[0];
 		if ( preg_match_all( '/(?:self::|\$this->)register_([a-z_]+)_rules\(\)/', $body, $cm ) ) {
-			$allowed_explicit = array( 'post', 'settings', 'moderation' );
+			$allowed_explicit = array( 'post', 'settings' );
 			foreach ( array_unique( $cm[1] ) as $which ) {
 				if ( ! in_array( $which, $allowed_explicit, true ) ) {
 					$bn_violations[] = sprintf(

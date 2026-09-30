@@ -380,7 +380,7 @@ class SpaceService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$parent_row = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id, parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+					"SELECT id, parent_id, is_archived FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
 					$parent_id
 				),
 				ARRAY_A
@@ -389,6 +389,14 @@ class SpaceService {
 				return new WP_Error(
 					'parent_not_found',
 					__( 'The selected parent space does not exist.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+			// An archived space is read-only: it takes no new sub-spaces either.
+			if ( ! empty( $parent_row['is_archived'] ) ) {
+				return new WP_Error(
+					'parent_archived',
+					__( 'This space is archived. Restore it before adding a sub-space.', 'buddynext' ),
 					array( 'status' => 422 )
 				);
 			}
@@ -1017,7 +1025,7 @@ class SpaceService {
 				 ON DUPLICATE KEY UPDATE role = 'owner', status = 'active'",
 				$space_id,
 				$new_owner_id,
-				current_time( 'mysql' )
+				current_time( 'mysql', true )
 			)
 		);
 
@@ -1564,8 +1572,8 @@ class SpaceService {
 	public function featured_spaces( int $viewer_id, int $limit = 0, string $surface = 'sidebar' ): array {
 		$limit = $limit > 0 ? $limit : FeaturedSpaces::limit();
 
-		$curated  = true;
-		$ids      = FeaturedSpaces::get_ids();
+		$curated = true;
+		$ids     = FeaturedSpaces::get_ids();
 		if ( empty( $ids ) ) {
 			$curated = false;
 			$ids     = ( new AutoJoinService() )->spaces_for_signup();

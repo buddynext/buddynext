@@ -65,6 +65,7 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 		'buddynext_allow_polls'     => '6c7351f9', // -> features catalog 'polls'.
 		'buddynext_allow_shares'    => '6c7351f9', // -> features catalog 'shares'.
 		'buddynext_allow_bookmarks' => '0bcdf67f', // -> features catalog 'bookmarks'.
+		'buddynext_default_dm_access' => 'card 10344455521', // -> WPMediaVerse mvs_dm_access.
 	);
 
 	private const SAVED_ELSEWHERE = array(
@@ -76,7 +77,6 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 		'buddynext_site_name',
 		'buddynext_description',
 		'buddynext_public_explore',
-		'buddynext_default_dm_access',
 		'buddynext_enable_community_nav',
 		'buddynext_enable_community_rail',
 		'buddynext_enable_community_mobile_nav',

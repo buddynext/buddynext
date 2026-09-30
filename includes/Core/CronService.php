@@ -539,7 +539,7 @@ class CronService {
 				   FROM {$wpdb->prefix}bn_notifications
 				  WHERE recipient_id = %d
 				    AND is_read      = 0
-				    AND created_at  >= DATE_SUB( NOW(), INTERVAL %d DAY )
+				    AND created_at  >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )
 				  ORDER BY created_at DESC",
 				$user_id,
 				$days
@@ -552,12 +552,27 @@ class CronService {
 			return array();
 		}
 
-		return array_map(
-			static fn( array $r ) => array(
-				'type'        => (string) $r['type'],
-				'group_count' => (int) $r['group_count'],
-			),
-			$rows
+		// Only types BuddyNext may email. A partner plugin sends its own emails
+		// (badge and level-up belong to WB Gamification), so a notification that
+		// is collect-only for email never reaches a digest either (card
+		// 10344441224). A digest left with nothing is skipped by the callers.
+		// Built once per digest: the catalogue is filterable and not cheap per row.
+		$emailable = array();
+		foreach ( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all() as $type => $entry ) {
+			if ( ! empty( $entry['can_email'] ) ) {
+				$emailable[ (string) $type ] = true;
+			}
+		}
+		$rows = array_filter( $rows, static fn( array $r ): bool => isset( $emailable[ (string) $r['type'] ] ) );
+
+		return array_values(
+			array_map(
+				static fn( array $r ) => array(
+					'type'        => (string) $r['type'],
+					'group_count' => (int) $r['group_count'],
+				),
+				$rows
+			)
 		);
 	}
 
@@ -573,8 +588,8 @@ class CronService {
 		global $wpdb;
 
 		$date_cond = ( 'bn.daily_digest' === $type )
-			? 'digest_date = CURDATE()'
-			: 'YEARWEEK( digest_date, 1 ) = YEARWEEK( CURDATE(), 1 )';
+			? 'digest_date = UTC_DATE()'
+			: 'YEARWEEK( digest_date, 1 ) = YEARWEEK( UTC_DATE(), 1 )';
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$count = (int) $wpdb->get_var(
@@ -641,8 +656,6 @@ class CronService {
 			'bn.space_request_approved'   => 'Your space join request was approved',
 			'bn.space_ownership_received' => 'You became the owner of a space',
 			'bn.strike_issued'            => 'A moderation action was taken on your account',
-			'bn.badge_awarded'            => 'You earned a new badge',
-			'bn.level_up'                 => 'You reached a new community level',
 		);
 
 		$items = '';
@@ -740,8 +753,9 @@ class CronService {
 				'type'        => $type,
 				'digest_date' => gmdate( 'Y-m-d' ),
 				'status'      => 'sent',
+				'sent_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
@@ -770,8 +784,9 @@ class CronService {
 				'digest_date' => null,
 				'status'      => 'failed',
 				'error'       => null !== EmailSender::last_error() ? mb_substr( (string) EmailSender::last_error(), 0, 2000 ) : null,
+				'sent_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%s', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
