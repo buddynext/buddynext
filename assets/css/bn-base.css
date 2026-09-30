@@ -65,7 +65,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-800: oklch(34% calc(var(--bn-chroma) * 0.85) var(--bn-hue));
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
-	--bn-accent-fg:  oklch(99% 0 0);
+	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
 
 	/* Surfaces (three-layer system) */
 	--bn-canvas:   oklch(99% 0.002 var(--bn-hue));
@@ -439,7 +439,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-300: oklch(42% 0.10 var(--bn-hue));
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
-	--bn-accent-fg:  oklch(15% 0.008 var(--bn-hue));
+	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 
 	--bn-success-bg: oklch(25% 0.05 145);
 	--bn-warn-bg:    oklch(25% 0.05 75);
@@ -486,7 +486,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
-		--bn-accent-fg:  oklch(15% 0.008 var(--bn-hue));
+		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 	}
 }
 
@@ -505,6 +505,25 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
  * color syntax isn't supported. v2 indigo hue snapshot only — whitelabel
  * rebrand requires modern browsers regardless.
  * ────────────────────────────────────────────────────────────────────── */
+
+/*
+ * Label colour on a filled accent, derived from the accent actually in use:
+ * white when the accent is dark, near-black when it is light (OKLCH lightness
+ * 0.62 is the switch point). One rule for BN's own palette, the Appearance
+ * picker and every host theme that remaps --bn-accent (Reign, BuddyX), so a
+ * saturated theme red in dark mode no longer gets BN's near-black dark label.
+ * Declared on every element that can set --bn-accent so it is computed from
+ * that element's accent. Browsers without relative colour keep the literal
+ * fallbacks in the light and dark blocks above.
+ */
+@supports (color: oklch(from red l c h)) {
+	:root,
+	[data-bn-theme],
+	[data-theme],
+	[data-bx-mode] {
+		--bn-accent-fg-auto: oklch(from var(--bn-accent) clamp(0.15, (0.62 - l) * 1000, 0.99) 0 0);
+	}
+}
 
 @supports not (color: oklch(0% 0 0)) {
 	:root,
