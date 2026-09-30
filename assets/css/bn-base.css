@@ -508,20 +508,27 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 /*
  * Label colour on a filled accent, derived from the accent actually in use:
- * white when the accent is dark, near-black when it is light (OKLCH lightness
- * 0.62 is the switch point). One rule for BN's own palette, the Appearance
- * picker and every host theme that remaps --bn-accent (Reign, BuddyX), so a
- * saturated theme red in dark mode no longer gets BN's near-black dark label.
- * Declared on every element that can set --bn-accent so it is computed from
- * that element's accent. Browsers without relative colour keep the literal
- * fallbacks in the light and dark blocks above.
+ * white or black, whichever contrasts more. The switch is the accent's WCAG
+ * relative luminance (Y = 0.2126R + 0.7152G + 0.0722B in linear sRGB) at 0.179,
+ * where white and black give the same contrast ratio. It must be luminance,
+ * not OKLCH lightness: the two disagree on saturated hues, and an L-based
+ * switch put white on teal, emerald, cyan and sky accents at under 4:1 where
+ * black passes. One rule for BN's own palette, the Appearance picker and every
+ * host theme that remaps --bn-accent (Reign, BuddyX). Declared on every element
+ * that can set --bn-accent so it is computed from that element's accent.
+ * sign() makes it a hard switch: a scaled clamp produced a grey for accents
+ * right at the crossover (pink-600). Browsers without relative colour or
+ * sign() keep the literal fallbacks in the light and dark blocks above.
  */
-@supports (color: oklch(from red l c h)) {
+@supports (color: color(from red srgb-linear r g b)) and (width: calc(1px * sign(1))) {
 	:root,
 	[data-bn-theme],
 	[data-theme],
 	[data-bx-mode] {
-		--bn-accent-fg-auto: oklch(from var(--bn-accent) clamp(0.15, (0.62 - l) * 1000, 0.99) 0 0);
+		--bn-accent-fg-auto: color(from var(--bn-accent) srgb-linear
+			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
 	}
 }
 

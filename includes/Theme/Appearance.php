@@ -159,9 +159,11 @@ class Appearance {
 		// Some host themes (e.g. Reign) restyle BuddyNext primary buttons with
 		// their own hard-coded brand colour, beating the token-based rule. Reassert
 		// the admin accent on BN primary buttons inside the community surface only.
+		// The label is --bn-accent-fg (black or white by contrast, bn-base.css),
+		// never a fixed white: white on a teal or cyan brand colour fails AA.
 		$css .= sprintf(
 			'.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]{'
-			. 'background-color:%1$s!important;border-color:%1$s!important;color:#fff!important;}'
+			. 'background-color:%1$s!important;border-color:%1$s!important;color:var(--bn-accent-fg)!important;}'
 			. '.bn-app .bn-btn--primary:hover,.bn-app .bn-btn[data-variant="primary"]:hover{'
 			. 'background-color:color-mix(in oklch,%1$s 86%%,black)!important;'
 			. 'border-color:color-mix(in oklch,%1$s 86%%,black)!important;}',
