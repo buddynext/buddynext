@@ -248,4 +248,20 @@ class NavManagerTest extends \WP_UnitTestCase {
 		$slugs = array_column( $this->nav->get_tabs(), 'slug' );
 		$this->assertContains( 'explore', $slugs, 'Explore must appear in Settings > Navigation like every other core rail item' );
 	}
+
+	/**
+	 * Every default nav row must draw an icon. The admin rows used to read only
+	 * assets/svg/admin/, so defaults such as tab-globe (Explore) and tab-bookmark
+	 * rendered blank. Card 10351394819.
+	 *
+	 * @return void
+	 */
+	public function test_every_default_row_icon_resolves(): void {
+		foreach ( array( 'main', 'profile', 'space', 'mobile', 'account' ) as $scope ) {
+			foreach ( $this->nav->get_tabs_for_scope( $scope ) as $tab ) {
+				$icon = (string) ( $tab['icon'] ?? '' );
+				$this->assertNotSame( '', \BuddyNext\Core\IconService::render( $icon ), "{$scope}:{$tab['slug']} icon '{$icon}' renders nothing" );
+			}
+		}
+	}
 }

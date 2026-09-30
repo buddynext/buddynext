@@ -1404,8 +1404,8 @@ class NavManager extends AdminPageBase {
 			<?php endif; ?>
 
 			<div class="bn-nav-row-icon" aria-hidden="true">
-				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
-				echo $this->svg( $icon );
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::render() returns kses-sanitised SVG.
+				echo \BuddyNext\Core\IconService::render( $icon );
 				?>
 			</div>
 
@@ -1572,8 +1572,8 @@ class NavManager extends AdminPageBase {
 		<div class="bn-config-header">
 			<div class="bn-config-breadcrumb"><?php echo esc_html( ucwords( str_replace( '-', ' ', $scope ) ) ); ?> &rsaquo;</div>
 			<div class="bn-config-title">
-			<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
-			echo $this->svg( $icon );
+			<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::render() returns kses-sanitised SVG.
+			echo \BuddyNext\Core\IconService::render( $icon );
 			?>
 			<?php echo esc_html( $label ); ?>
 		</div>
@@ -1593,15 +1593,16 @@ class NavManager extends AdminPageBase {
 			</div>
 
 			<?php
-			// Icon picker — the panel header shows the icon, but without this field
-			// the icon was never submitted, so any change reset to the default on
-			// save. The read side (get_tabs / get_tabs_for_scope) already applies a
-			// saved 'icon' override.
-			$bn_icon_choices = $this->available_tab_icons();
-			if ( '' !== $icon && ! in_array( $icon, $bn_icon_choices, true ) ) {
-				array_unshift( $bn_icon_choices, $icon );
-			}
-			?>
+			// Icon picker, custom tabs only. The member-facing renderers (rail,
+			// mobile bar, profile and space tabs) draw a core item's own icon and
+			// read an 'icon' override only for custom tabs, so offering it on a
+			// core row was a control that saved and changed nothing.
+			if ( ! $is_core ) :
+				$bn_icon_choices = $this->available_tab_icons();
+				if ( '' !== $icon && ! in_array( $icon, $bn_icon_choices, true ) ) {
+					array_unshift( $bn_icon_choices, $icon );
+				}
+				?>
 			<div class="bn-cf">
 				<label for="bn-cfg-icon-<?php echo esc_attr( $slug ); ?>">
 					<?php esc_html_e( 'Icon', 'buddynext' ); ?>
@@ -1615,6 +1616,7 @@ class NavManager extends AdminPageBase {
 					<?php endforeach; ?>
 				</select>
 			</div>
+			<?php endif; ?>
 
 			<?php
 			/*
@@ -2299,7 +2301,7 @@ class NavManager extends AdminPageBase {
 				'label'       => __( 'Explore', 'buddynext' ),
 				'order'       => 20,
 				'icon'        => 'tab-globe',
-				'description' => __( 'Public discovery feed (ShellNavService::base_items()).', 'buddynext' ),
+				'description' => __( 'Discover posts from across the community', 'buddynext' ),
 				'capability'  => 'read',
 				// Visible by default: the left rail already shows Explore as a core
 				// nav item (hardcoded prior to this row's existence), so it must
