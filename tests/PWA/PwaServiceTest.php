@@ -230,7 +230,7 @@ class PwaServiceTest extends \WP_UnitTestCase {
 		$version = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
 
 		$this->assertStringContainsString( 'buddynext-shell-' . $version, $script );
-		$this->assertStringContainsString( 'buddynext-assets-' . $version, $script );
+		$this->assertStringContainsString( 'buddynext-assets-own-' . $version, $script );
 		$this->assertStringContainsString( 'caches.delete', $script, 'activate must purge caches from older versions.' );
 	}
 

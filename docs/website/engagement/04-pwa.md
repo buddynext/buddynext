@@ -46,6 +46,7 @@ The defaults are ready to go: the app name is your site name, the app uses your 
 - The install prompt and offline behaviour are evaluated by the browser, not by BuddyNext. Browsers require the site to be served over HTTPS (or localhost during development) before they offer to install. The PWA is intended for the front-end community surface and does not apply in the WordPress admin.
 - The app icon ships at 192 and 512 pixels, and the larger one is also marked "maskable", so it crops cleanly into the rounded or circular shapes different phones use. If you replace the icon, supply both sizes and leave a little padding around your mark, or a phone that crops to a circle will clip its edges.
 - Offline coverage is the home shell plus pages a member has already visited. A first-time, fully-offline visit to a deep page will not have cached content to show.
+- The app only keeps copies of BuddyNext's own files (its styles, scripts and the offline page). Your theme's files, other plugins' files and uploads are left to the browser as if the app were not installed, so updating any of them shows up on the very next page view. After a BuddyNext update the new files are used straight away too; a saved copy is only used when there is no connection. Developers can add another plugin's directory with the `buddynext_pwa_asset_paths` filter.
 - Installability depends on the member's browser and device. Some browsers show the prompt automatically; others require the member to choose "Install" or "Add to Home Screen" from a menu.
 
 ## Free vs Pro
