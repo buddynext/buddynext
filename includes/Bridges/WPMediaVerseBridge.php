@@ -2245,6 +2245,44 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * A drive's trashed FILES (documents), for the Files Trash view.
+	 *
+	 * The twin of drive_trash() for documents. WPMediaVerse Pro already keeps the
+	 * trash (DELETE /documents/{id} trashes; POST /documents/{id}/restore brings it
+	 * back) and lists only the files this viewer may restore, so BuddyNext only
+	 * renders its answer.
+	 *
+	 * @param string $drive_type 'user' | 'space'.
+	 * @param int    $drive_id   Drive owner (user id or space id).
+	 * @param int    $page       1-based page.
+	 * @return array{items:array<int,array<string,mixed>>,page:int,pages:int}|null Null when documents are unavailable.
+	 */
+	public static function drive_trashed_documents( string $drive_type, int $drive_id, int $page = 1 ): ?array {
+		if ( ! self::documents_available() ) {
+			return null;
+		}
+		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents' );
+		$req->set_query_params(
+			array(
+				'drive'    => $drive_type . ':' . $drive_id,
+				'status'   => 'trash',
+				'per_page' => 50,
+				'page'     => max( 1, $page ),
+			)
+		);
+		$res = rest_do_request( $req );
+		if ( $res->is_error() ) {
+			return null;
+		}
+		$headers = $res->get_headers();
+		return array(
+			'items' => (array) $res->get_data(),
+			'page'  => max( 1, $page ),
+			'pages' => isset( $headers['X-WP-TotalPages'] ) ? (int) $headers['X-WP-TotalPages'] : 1,
+		);
+	}
+
+	/**
 	 * Flag which listed documents are LINKED into a space rather than living there.
 	 *
 	 * A file whose home drive is NOT this space (its `drive` is a user drive, or a

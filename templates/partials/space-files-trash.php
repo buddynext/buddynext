@@ -1,6 +1,9 @@
 <?php
 /**
- * A drive's Trash: trashed folders with Restore (drive managers only).
+ * A drive's Trash: trashed folders and files, each with Restore.
+ *
+ * Folders for the drive's managers; files for whoever WPMediaVerse Pro says may
+ * restore them (its own trash list is already scoped to the viewer).
  *
  * Rendered by RendersDriveFiles for `?bn_trash=1`. Each row is a trashed
  * subtree root; restoring it brings everything inside back with it.
@@ -10,6 +13,7 @@
  * @var string                         $bn_sft_drive    Drive descriptor ('space:12').
  * @var string                         $bn_sft_base_url The Files URL (Back link).
  * @var array<int,array<string,mixed>> $bn_sft_items    Trashed folder rows.
+ * @var array<int,array<string,mixed>> $bn_sft_files    Trashed document rows (mvs-pro/v1/documents?status=trash).
  * @var int                            $bn_sft_page     Current page.
  * @var int                            $bn_sft_pages    Page count.
  */
@@ -17,6 +21,7 @@
 defined( 'ABSPATH' ) || exit;
 
 $bn_sft_items = isset( $bn_sft_items ) && is_array( $bn_sft_items ) ? $bn_sft_items : array();
+$bn_sft_files = isset( $bn_sft_files ) && is_array( $bn_sft_files ) ? $bn_sft_files : array();
 $bn_sft_page  = isset( $bn_sft_page ) ? max( 1, (int) $bn_sft_page ) : 1;
 $bn_sft_pages = isset( $bn_sft_pages ) ? max( 1, (int) $bn_sft_pages ) : 1;
 $bn_sft_back  = remove_query_arg( array( 'bn_trash', 'bn_files_page' ), (string) $bn_sft_base_url );
@@ -24,6 +29,7 @@ $bn_sft_back  = remove_query_arg( array( 'bn_trash', 'bn_files_page' ), (string)
 <div class="bn-space-files bn-files-trash"
 	data-bn-folder-manage
 	data-bn-folder-endpoint="<?php echo esc_url( rest_url( 'mvs-pro/v1/folders' ) ); ?>"
+	data-bn-doc-endpoint="<?php echo esc_url( rest_url( 'mvs-pro/v1/documents' ) ); ?>"
 	data-bn-drive="<?php echo esc_attr( (string) $bn_sft_drive ); ?>"
 	data-bn-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
 	data-bn-folder-strings="<?php echo esc_attr( (string) wp_json_encode( buddynext_drive_folder_strings() ) ); ?>"
@@ -34,18 +40,19 @@ $bn_sft_back  = remove_query_arg( array( 'bn_trash', 'bn_files_page' ), (string)
 		<span class="bn-files__crumb bn-files__crumb--current" aria-current="page"><?php esc_html_e( 'Trash', 'buddynext' ); ?></span>
 	</nav>
 
-	<?php if ( empty( $bn_sft_items ) ) : ?>
+	<?php if ( empty( $bn_sft_items ) && empty( $bn_sft_files ) ) : ?>
 		<?php
 		buddynext_get_template(
 			'parts/empty-state.php',
 			array(
 				'icon'  => 'trash',
 				'title' => __( 'Trash is empty', 'buddynext' ),
-				'body'  => __( 'Folders you move to the trash appear here, and you can restore them.', 'buddynext' ),
+				'body'  => __( 'Files and folders you move to the trash appear here, and you can restore them.', 'buddynext' ),
 			)
 		);
 		?>
 	<?php else : ?>
+		<?php if ( ! empty( $bn_sft_items ) ) : ?>
 		<p class="bn-files__count"><?php esc_html_e( 'Restoring a folder brings back everything that was inside it.', 'buddynext' ); ?></p>
 		<ul class="bn-files__list" role="list">
 			<?php foreach ( $bn_sft_items as $bn_sft_f ) : ?>
@@ -104,6 +111,42 @@ $bn_sft_back  = remove_query_arg( array( 'bn_trash', 'bn_files_page' ), (string)
 				</li>
 			<?php endforeach; ?>
 		</ul>
+		<?php endif; ?>
+
+		<?php if ( ! empty( $bn_sft_files ) ) : ?>
+		<h3 class="bn-files-trash__heading"><?php esc_html_e( 'Files', 'buddynext' ); ?></h3>
+		<ul class="bn-files__list" role="list">
+			<?php foreach ( $bn_sft_files as $bn_sft_doc ) : ?>
+				<?php
+				$bn_sft_did = (int) ( $bn_sft_doc['id'] ?? 0 );
+				if ( $bn_sft_did <= 0 ) {
+					continue;
+				}
+				$bn_sft_dname = (string) ( $bn_sft_doc['title'] ?? '' );
+				$bn_sft_dtype = (string) ( $bn_sft_doc['doc_type'] ?? '' );
+				$bn_sft_dinfo = array();
+				if ( ! empty( $bn_sft_doc['file_size'] ) ) {
+					$bn_sft_dinfo[] = size_format( (int) $bn_sft_doc['file_size'] );
+				}
+				?>
+				<li class="bn-files__row bn-files-trash__row">
+					<span class="bn-files__chip bn-files__chip--<?php echo esc_attr( '' !== $bn_sft_dtype ? $bn_sft_dtype : 'file' ); ?>" aria-hidden="true"><?php echo esc_html( buddynext_doc_type_chip( $bn_sft_dtype ) ); ?></span>
+					<span class="bn-files-trash__main">
+						<span class="bn-files__name"><?php echo esc_html( $bn_sft_dname ); ?></span>
+						<?php if ( $bn_sft_dinfo ) : ?>
+							<span class="bn-files-trash__info"><?php echo esc_html( implode( ' · ', $bn_sft_dinfo ) ); ?></span>
+						<?php endif; ?>
+					</span>
+					<span class="bn-files-trash__actions">
+						<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-doc-restore data-bn-id="<?php echo esc_attr( (string) $bn_sft_did ); ?>"
+							aria-label="<?php echo esc_attr( sprintf( /* translators: %s: file name. */ __( 'Restore %s', 'buddynext' ), $bn_sft_dname ) ); ?>">
+							<?php buddynext_icon( 'rotate-ccw' ); ?> <?php esc_html_e( 'Restore', 'buddynext' ); ?>
+						</button>
+					</span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+		<?php endif; ?>
 
 		<?php if ( $bn_sft_pages > 1 ) : ?>
 			<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Trash pages', 'buddynext' ); ?>">

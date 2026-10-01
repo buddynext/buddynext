@@ -67,7 +67,7 @@ Remove from space is an *unlink*, not a delete. The item leaves the space and re
 
 A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Manage space -> Files tab** - and is **off by default**. It needs WPMediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
 
-Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove **deletes** the document, with WPMediaVerse's 30-day restore window.)
+Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove moves the document to **Trash**, where they can restore it within WPMediaVerse's 30-day window.)
 
 ### Who can add files
 
@@ -77,7 +77,7 @@ Members can upload and link files in a space's Files. The space owner and modera
 
 - **New folder** in the toolbar creates a folder in the folder you are looking at. Any member who can add files can create one.
 - Each folder row has **Rename** and **Move to trash**. The confirm says what goes with it ("It holds 12 files and 2 folders"): everything inside moves to the trash too.
-- **Trash** in the toolbar lists trashed folders you may restore. **Restore** brings a folder back with everything that was inside it.
+- **Trash** in the toolbar lists the trashed folders and files you may restore. **Restore** brings a folder back with everything that was inside it, or a single file back to where it was. A member always has **Trash** on their own profile Files, since that is where their removed files go.
 
 Who can rename, trash and restore a folder:
 
