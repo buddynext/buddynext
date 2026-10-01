@@ -181,15 +181,19 @@ final class SpaceNav {
 	}
 
 	/**
-	 * Clean-URL builder for a space tab — /spaces/{slug}/{tab}/ (feed = the base).
+	 * Clean-URL builder for a space tab — /spaces/{slug}/{tab}/.
+	 *
+	 * Every tab, Feed included, has its own address. The bare space URL renders
+	 * the space's landing tab (resolve_default_landing_tab()), which is not always
+	 * the feed, so Feed linking to the base sent members to About instead.
 	 *
 	 * @param int    $space_id Space ID.
-	 * @param string $tab      Tab slug ('' = the feed/base URL).
+	 * @param string $tab      Tab slug ('' = the base URL, i.e. the landing tab).
 	 * @return string
 	 */
 	private function tab_url( int $space_id, string $tab ): string {
 		$base = trailingslashit( PageRouter::space_url( $space_id ) );
-		return '' === $tab || 'feed' === $tab ? $base : $base . $tab . '/';
+		return '' === $tab ? $base : $base . $tab . '/';
 	}
 
 	/**

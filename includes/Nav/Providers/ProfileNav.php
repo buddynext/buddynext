@@ -60,15 +60,18 @@ final class ProfileNav {
 	}
 
 	/**
-	 * Clean-URL builder for a profile tab — /members/{slug}/{tab}/ (posts = base).
+	 * Clean-URL builder for a profile tab — /members/{slug}/{tab}/.
+	 *
+	 * Every tab, Posts included, has its own address; the bare profile URL is
+	 * the profile's landing view (Posts today).
 	 *
 	 * @param int    $uid Profile user ID.
-	 * @param string $tab Tab slug ('' = the posts/base URL).
+	 * @param string $tab Tab slug ('' = the base URL).
 	 * @return string
 	 */
 	private function tab_url( int $uid, string $tab ): string {
 		$base = trailingslashit( PageRouter::profile_url( $uid ) );
-		return '' === $tab || 'posts' === $tab ? $base : $base . $tab . '/';
+		return '' === $tab ? $base : $base . $tab . '/';
 	}
 
 	/**
