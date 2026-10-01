@@ -76,8 +76,6 @@ final class StateReset implements BeforeTestHook {
 		// survive a test whose bn_bookmarks rows have been rolled back underneath
 		// it, or one test's bookmark answers for the next test's fresh ids.
 		\BuddyNext\Feed\BookmarkService::class           => array( 'memo' => array() ),
-		// Per-request MediaVerse documents config, keyed by viewer.
-		\BuddyNext\Bridges\WPMediaVerseBridge::class    => array( 'documents_config_memo' => array() ),
 		\BuddyNext\Core\Installer::class                  => array(
 			'schema_check_result' => null,
 			'last_schema_errors'  => array(),
@@ -109,9 +107,12 @@ final class StateReset implements BeforeTestHook {
 		// later test silently skips the work they guard.
 		\BuddyNext\Bridges\JetonomyBridge::class          => array( 'syncing' => false ),
 		\BuddyNext\Feed\BlogCommentSync::class            => array( 'syncing' => false ),
+		// Re-entrancy flags, plus the per-request documents config keyed by viewer.
+		// One entry per class: a second key for the same class would silently replace this one.
 		\BuddyNext\Bridges\WPMediaVerseBridge::class      => array(
 			'suppress_upload_activity' => false,
 			'mirroring_comment'        => false,
+			'documents_config_memo'    => array(),
 		),
 		\BuddyNext\Feed\IntegrationActivity::class        => array(
 			'system_publish' => false,
