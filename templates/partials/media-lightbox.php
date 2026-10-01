@@ -179,9 +179,7 @@ $bn_lb_can_interact = is_user_logged_in();
 					// owner has one, wp_login_url() otherwise, and the current page as the
 					// return. Deliberately not hand-built from $_SERVER — a login link is
 					// not worth reading unsanitised superglobals for.
-					// The page the visitor is on, from the request path: get_permalink()
-					// answers the site's first post on a virtual route (MediaVerse pages).
-					$bn_lb_here  = home_url( user_trailingslashit( (string) ( $GLOBALS['wp']->request ?? '' ) ) );
+					$bn_lb_here  = \BuddyNext\Core\PageRouter::current_url();
 					$bn_lb_auth  = \BuddyNext\Core\PageRouter::auth_url();
 					$bn_lb_login = '' !== $bn_lb_auth
 						? add_query_arg( 'redirect_to', rawurlencode( $bn_lb_here ), $bn_lb_auth )

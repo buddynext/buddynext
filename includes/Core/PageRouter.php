@@ -3539,6 +3539,19 @@ class PageRouter {
 	}
 
 	/**
+	 * URL of the page being viewed, from the request path - the return URL for a
+	 * "Log in" link. get_permalink() is wrong for this on any hub sub-route (it
+	 * answers the hub's mapped page, e.g. /people/ for a profile) and on a virtual
+	 * route (it answers the site's first post).
+	 *
+	 * @return string
+	 */
+	public static function current_url(): string {
+		global $wp;
+		return home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
+	}
+
+	/**
 	 * Return the registration (signup) URL — a sub-route of the auth hub.
 	 *
 	 * @return string

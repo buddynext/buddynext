@@ -380,7 +380,8 @@ class ShortcodeService {
 	 */
 	private function login_required_html(): string {
 		$auth      = PageRouter::auth_url();
-		$login_url = '' !== $auth ? add_query_arg( 'redirect_to', get_permalink(), $auth ) : wp_login_url( get_permalink() );
+		$here      = PageRouter::current_url();
+		$login_url = '' !== $auth ? add_query_arg( 'redirect_to', rawurlencode( $here ), $auth ) : wp_login_url( $here );
 		return $this->wrap_embedded(
 			sprintf(
 				'<p class="bn-login-required">%s <a href="%s">%s</a></p>',
