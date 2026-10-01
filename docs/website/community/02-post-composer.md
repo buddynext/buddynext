@@ -32,7 +32,7 @@ Before sharing, a member picks an audience from the privacy menu in the composer
 
 ### Editing and deleting your own posts
 
-A member can edit their own post to fix or update the text and change its audience, as long as the edit window is still open (see the settings below). Edited content is re-scanned by the same content checks that run on a new post, so an edit cannot slip banned words or a blocked link past moderation. A member can delete their own post at any time.
+A member can edit their own post to fix or update the text, change its audience, and add or remove photos and videos, as long as the edit window is still open (see the settings below). In the edit form, **Add photo or video** uploads more, and the **×** on a thumbnail takes it off the post; a text post that gains a photo becomes a photo post, and one that loses its last photo becomes a text post again. Taking a photo off a post does not delete it: it stays in the member's media library. Edited content is re-scanned by the same content checks that run on a new post, so an edit cannot slip banned words or a blocked link past moderation. A member can delete their own post at any time.
 
 ### Rescheduling a post you have queued
 

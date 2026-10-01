@@ -2307,6 +2307,20 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	flex-wrap: wrap;
 }
 
+/* Photos on the edit form: the composer's own tiles (.bn-composer__media-preview /
+   __media-thumb / __media-remove) plus an "Add photo or video" button below them. */
+.bn-post-card__edit-media {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s2);
+	margin-block: var(--bn-s2);
+}
+
+.bn-post-card__edit-media .bn-composer__media-preview:empty {
+	display: none;
+}
+
 /* Reschedule control — only rendered while the post is still `scheduled`.
    Mirrors .bn-composer__schedule-input so the edit form and the composer offer the
    same control; theme-mapped tokens, not raw hex. */

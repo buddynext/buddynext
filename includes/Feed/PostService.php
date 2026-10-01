@@ -1891,7 +1891,9 @@ class PostService {
 	 *
 	 * @param int   $post_id  Post to update.
 	 * @param int   $user_id  Requesting user (must be owner).
-	 * @param array $data     Fields to change: content, privacy, content_warning, content_warning_type.
+	 * @param array $data     Fields to change: content, privacy, content_warning, content_warning_type,
+	 *                        media_ids (the full new list: add and remove), scheduled_at, members_only,
+	 *                        remove_link_preview.
 	 * @return true|WP_Error True on success, WP_Error on permission / edit-window / content-safeguard failure.
 	 */
 	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
@@ -2062,6 +2064,56 @@ class PostService {
 			}
 
 			$fields['scheduled_at'] = gmdate( 'Y-m-d H:i:s', $ts );
+			$formats[]              = '%s';
+		}
+
+		// MEDIA. media_ids is the post's complete new list, so one field both adds
+		// and removes. Ownership is checked exactly as create() checks it, against
+		// the post's AUTHOR (a moderator fixing someone's post cannot attach their
+		// own files to it; a site admin keeps create()'s curator exemption).
+		// Removing only detaches: the file stays in its owner's media library.
+		$media_change = null;
+		if ( array_key_exists( 'media_ids', $data ) ) {
+			$media_post = $this->get( $post_id );
+			if ( null === $media_post ) {
+				return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+			}
+			$media_owner = user_can( $user_id, 'manage_options' ) ? $user_id : (int) $media_post['user_id'];
+			$new_media   = $this->authorize_media_ids( (array) $data['media_ids'], $media_owner );
+			if ( is_wp_error( $new_media ) ) {
+				return $new_media;
+			}
+			$old_media = array_values( array_map( 'intval', (array) ( $media_post['media_ids'] ?? array() ) ) );
+
+			// The post's type follows what it carries: text gains a photo -> photo,
+			// photo loses its last one -> text. Every other type (poll, event, link,
+			// share...) keeps its type; its media is an attachment to it.
+			$type = (string) ( $media_post['type'] ?? 'text' );
+			if ( 'text' === $type && ! empty( $new_media ) ) {
+				$fields['type'] = 'photo';
+				$formats[]      = '%s';
+			} elseif ( 'photo' === $type && empty( $new_media ) ) {
+				$fields['type'] = 'text';
+				$formats[]      = '%s';
+			}
+
+			// A post may not end up empty, the same rule create() applies.
+			$next_text = trim( wp_strip_all_tags( (string) ( $data['content'] ?? $media_post['content'] ?? '' ) ) );
+			if ( empty( $new_media ) && '' === $next_text && in_array( $type, array( 'text', 'photo' ), true ) ) {
+				return new WP_Error(
+					'empty_post',
+					__( 'A post needs some text or at least one photo.', 'buddynext' ),
+					array( 'status' => 400 )
+				);
+			}
+
+			$fields['media_ids'] = empty( $new_media ) ? null : wp_json_encode( $new_media );
+			$formats[]           = '%s';
+			$media_change        = array(
+				'added'   => array_values( array_diff( $new_media, $old_media ) ),
+				'removed' => array_values( array_diff( $old_media, $new_media ) ),
+				'all'     => $new_media,
+			);
 		}
 
 		if ( isset( $data['privacy'] ) ) {
@@ -2107,6 +2159,23 @@ class PostService {
 		}
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// Keep the media indexes in step with media_ids, as create() does.
+		if ( null !== $media_change ) {
+			$this->index_media( $post_id, $media_change['added'] );
+			foreach ( $media_change['removed'] as $removed_id ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->delete(
+					$wpdb->prefix . 'bn_post_media',
+					array(
+						'post_id'  => $post_id,
+						'media_id' => $removed_id,
+					),
+					array( '%d', '%d' )
+				);
+			}
+			\BuddyNext\Media\ObjectMediaLink::set( \BuddyNext\Media\ObjectMediaLink::POST, $post_id, $media_change['all'] );
+		}
 
 		// Re-arm on a reschedule. set_schedule() and clear_schedule() both do this, and this is
 		// the third way scheduled_at changes: without it, moving a post EARLIER leaves the cron

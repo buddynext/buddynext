@@ -47,7 +47,7 @@ Post create/read/update/delete plus pin and the link-preview helper.
 |---|---|---|---|
 | POST | `/posts` | auth | Create a post. Role-mapped: a feed post needs `buddynext-feed/create-post`; a space post needs `buddynext-spaces/post` (with `space_id` context); scheduling additionally needs `buddynext-feed/schedule-post`. |
 | GET | `/posts/(?P<id>[\d]+)` | public | Read a single post (visibility enforced server-side). |
-| PUT | `/posts/(?P<id>[\d]+)` | auth | Update a post (owner only, enforced in the handler). Body: any of `content`, `privacy`, `content_warning`, `content_warning_type`, `scheduled_at`. Passing `scheduled_at` is a **reschedule** and additionally requires `buddynext-feed/schedule-post` - see below. |
+| PUT | `/posts/(?P<id>[\d]+)` | auth | Update a post (owner only, enforced in the handler). Body: any of `content`, `privacy`, `content_warning`, `content_warning_type`, `scheduled_at`, `media_ids`. Passing `scheduled_at` is a **reschedule** and additionally requires `buddynext-feed/schedule-post` - see below. `media_ids` is the post's complete new media list (send the kept ids plus new ones; omit an id to detach it). Every id must belong to the post's author (403 `media_forbidden`, 404 `media_not_found`; site admins may attach any existing media); a text post that gains media becomes `photo`, a `photo` post that loses its last one becomes `text`, and an edit that leaves no text and no media is refused (400 `empty_post`). Errors keep their own status. |
 | DELETE | `/posts/(?P<id>[\d]+)` | auth | Delete a post (owner only, enforced in the handler). |
 | POST | `/posts/(?P<id>[\d]+)/pin` | auth | Pin a post (owner action). |
 | DELETE | `/posts/(?P<id>[\d]+)/pin` | auth | Unpin a post (owner action). |

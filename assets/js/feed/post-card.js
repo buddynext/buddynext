@@ -17,6 +17,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
+import { uploadMedia, validateMedia } from '@buddynext/upload-core';
 import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 
@@ -2088,6 +2089,9 @@ store( 'buddynext/post-card', {
 			let rawContent  = '';
 			let isScheduled = false;
 			let schedUtc    = '';
+			let postType    = '';
+			let postSpaceId = 0;
+			let mediaItems  = [];
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
 					nonce: ctx.reactNonce,
@@ -2100,6 +2104,9 @@ store( 'buddynext/post-card', {
 					// control costs no extra request.
 					isScheduled = !! data && 'scheduled' === data.status;
 					schedUtc    = ( data && data.scheduled_at ) ? String( data.scheduled_at ) : '';
+					postType    = ( data && data.type ) ? String( data.type ) : '';
+					postSpaceId = ( data && data.space_id ) ? parseInt( data.space_id, 10 ) || 0 : 0;
+					mediaItems  = ( data && Array.isArray( data.media ) ) ? data.media : [];
 				}
 			} catch ( _e ) {
 				// Fall back to the visible text if the fetch fails.
@@ -2144,6 +2151,105 @@ store( 'buddynext/post-card', {
 				schedRow.appendChild( schedLabel );
 				schedRow.appendChild( schedInput );
 				form.appendChild( schedRow );
+			}
+
+			// Photos and videos: add and remove on a text or photo post, the same
+			// tiles as the composer. The list sent on Save is the post's whole new
+			// media set; the server checks every id is the author's and detaches the
+			// removed ones (they stay in the author's media library).
+			let mediaIds     = mediaItems.map( ( m ) => parseInt( m.id, 10 ) ).filter( Boolean );
+			const mediaStart = mediaIds.join( ',' );
+			let uploading    = 0;
+			if ( 'text' === postType || 'photo' === postType ) {
+				const mediaRow = document.createElement( 'div' );
+				mediaRow.className = 'bn-post-card__edit-media';
+
+				const tiles = document.createElement( 'div' );
+				tiles.className = 'bn-composer__media-preview';
+
+				const addTile = ( id, src, kind ) => {
+					const tile = document.createElement( 'div' );
+					tile.className = 'bn-composer__media-thumb bn-composer__media-thumb--' + ( kind || 'image' );
+					if ( id ) {
+						tile.dataset.mediaId = String( id );
+					} else {
+						tile.classList.add( 'is-uploading' );
+					}
+					if ( src ) {
+						const img = document.createElement( 'img' );
+						img.src = src;
+						img.alt = '';
+						img.width = 80;
+						img.height = 80;
+						img.loading = 'lazy';
+						tile.appendChild( img );
+					}
+					const remove = document.createElement( 'button' );
+					remove.type = 'button';
+					remove.className = 'bn-composer__media-remove';
+					remove.textContent = '×';
+					remove.setAttribute( 'aria-label', t( 'removeMedia', 'Remove from post' ) );
+					remove.hidden = ! id;
+					remove.addEventListener( 'click', () => {
+						const mid = parseInt( tile.dataset.mediaId, 10 );
+						mediaIds = mediaIds.filter( ( x ) => x !== mid );
+						tile.remove();
+						addBtn.focus();
+					} );
+					tile.appendChild( remove );
+					tiles.appendChild( tile );
+					return tile;
+				};
+				mediaItems.forEach( ( m ) => addTile( m.id, m.thumb_url || m.url || '', 'video' === m.type ? 'video' : 'image' ) );
+
+				const picker = document.createElement( 'input' );
+				picker.type = 'file';
+				picker.accept = 'image/*,video/*';
+				picker.multiple = true;
+				picker.hidden = true;
+
+				const addBtn = document.createElement( 'button' );
+				addBtn.type = 'button';
+				addBtn.className = 'bn-btn';
+				addBtn.dataset.variant = 'secondary';
+				addBtn.dataset.size = 'sm';
+				addBtn.textContent = t( 'addPhotoOrVideo', 'Add photo or video' );
+				addBtn.addEventListener( 'click', () => picker.click() );
+
+				picker.addEventListener( 'change', async () => {
+					const files = Array.from( picker.files || [] );
+					picker.value = '';
+					for ( const file of files ) {
+						const invalid = validateMedia( file, { badTypeMsg: t( 'mediaBadType', 'Only images, video and audio can be attached.' ) } );
+						if ( invalid ) {
+							bnToast( invalid, { tone: 'danger' } );
+							continue;
+						}
+						const kind = /^video\//.test( file.type || '' ) ? 'video' : 'image';
+						const tile = addTile( 0, 'image' === kind ? URL.createObjectURL( file ) : '', kind );
+						uploading++;
+						saveBtn.disabled = true;
+						// Staged private like the composer's uploads; the post's own
+						// privacy is applied to it when the edit is saved.
+						const out = await uploadMedia( file, { nonce: ctx.reactNonce, privacy: 'private', spaceId: postSpaceId } );
+						uploading--;
+						saveBtn.disabled = uploading > 0;
+						if ( out.ok && out.mediaId ) {
+							mediaIds.push( parseInt( out.mediaId, 10 ) );
+							tile.dataset.mediaId = String( out.mediaId );
+							tile.classList.remove( 'is-uploading' );
+							tile.querySelector( '.bn-composer__media-remove' ).hidden = false;
+						} else {
+							tile.remove();
+							bnToast( out.message || t( 'mediaUploadFailed', 'That file could not be uploaded.' ), { tone: 'danger' } );
+						}
+					}
+				} );
+
+				mediaRow.appendChild( tiles );
+				mediaRow.appendChild( addBtn );
+				mediaRow.appendChild( picker );
+				form.appendChild( mediaRow );
 			}
 
 			// Link preview — offer REMOVAL only.
@@ -2228,12 +2334,16 @@ store( 'buddynext/post-card', {
 			} );
 
 			saveBtn.addEventListener( 'click', async () => {
-				const next = ta.value.trim();
-				if ( '' === next ) {
+				const next         = ta.value.trim();
+				const mediaChanged = mediaIds.join( ',' ) !== mediaStart;
+				if ( '' === next && ! mediaIds.length ) {
 					bnToast( t( 'postContentEmpty', 'Post content cannot be empty.' ), { tone: 'info' } );
 					return;
 				}
 				const payload = { content: next };
+				if ( mediaChanged ) {
+					payload.media_ids = mediaIds;
+				}
 				if ( removePreview ) {
 					payload.remove_link_preview = true;
 				}
@@ -2259,7 +2369,14 @@ store( 'buddynext/post-card', {
 						body:    payload,
 					} );
 					if ( ! res.ok ) {
-						throw new Error( 'update failed' );
+						const msg = res.data && res.data.message ? String( res.data.message ) : '';
+						throw new Error( msg || 'update failed' );
+					}
+					// New or removed photos change the card's gallery, which is server
+					// rendered; reload it, the same as the composer does after posting.
+					if ( mediaChanged ) {
+						bnReloadWithToast( t( 'postUpdated', 'Post updated' ), 'success' );
+						return;
 					}
 					// Reflect the saved text immediately (line breaks preserved). Full
 					// mention/hashtag formatting re-applies on the next page load.
@@ -2277,9 +2394,10 @@ store( 'buddynext/post-card', {
 					}
 					teardown();
 					bnToast( t( 'postUpdated', 'Post updated' ), { tone: 'success' } );
-				} catch ( _e ) {
+				} catch ( err ) {
 					saveBtn.disabled = false;
-					bnToast( t( 'postUpdateFailed', 'Could not update the post. Try again.' ), { tone: 'danger' } );
+					const reason = err && err.message && 'update failed' !== err.message ? err.message : '';
+					bnToast( reason || t( 'postUpdateFailed', 'Could not update the post. Try again.' ), { tone: 'danger' } );
 				}
 			} );
 		},

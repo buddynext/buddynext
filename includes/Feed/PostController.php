@@ -459,11 +459,21 @@ class PostController extends BaseRestController {
 		if ( null !== $request->get_param( 'content_warning_type' ) ) {
 			$data['content_warning_type'] = $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) );
 		}
+		// The post's full media list after the edit (add and remove in one field);
+		// PostService::update() checks every id belongs to the post's author.
+		if ( null !== $request->get_param( 'media_ids' ) ) {
+			$data['media_ids'] = array_map( 'absint', (array) $request->get_param( 'media_ids' ) );
+		}
 
 		$result = $service->update( $post_id, $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			// Keep the service's own status (404 missing media, 409 not scheduled,
+			// 400 empty post); only an error that carries none reads as 403.
+			$error_data = $result->get_error_data();
+			if ( ! is_array( $error_data ) || empty( $error_data['status'] ) ) {
+				$result->add_data( array( 'status' => 403 ) );
+			}
 			return $result;
 		}
 

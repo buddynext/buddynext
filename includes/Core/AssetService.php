@@ -679,6 +679,7 @@ class AssetService {
 				array( 'id' => '@wordpress/interactivity' ),
 				array( 'id' => '@buddynext/shell-dialog' ),
 				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/upload-core' ),
 				array( 'id' => '@buddynext/feed-shared' ),
 				array( 'id' => '@buddynext/popover' ),
 			),
@@ -1091,6 +1092,10 @@ class AssetService {
 					'postUpdateFailed'          => __( 'Could not update the post. Try again.', 'buddynext' ),
 					'linkPreviewAttached'       => __( 'Link preview attached', 'buddynext' ),
 					'removeLinkPreview'         => __( 'Remove link preview', 'buddynext' ),
+					// Photos on the post-card edit form.
+					'addPhotoOrVideo'           => __( 'Add photo or video', 'buddynext' ),
+					'removeMedia'               => __( 'Remove from post', 'buddynext' ),
+					'mediaUploadFailed'         => __( 'That file could not be uploaded.', 'buddynext' ),
 					'postPinned'                => __( 'Post pinned', 'buddynext' ),
 					'postUnpinned'              => __( 'Post unpinned', 'buddynext' ),
 					'postPinFailed'             => __( 'Could not pin this post. Try again.', 'buddynext' ),
