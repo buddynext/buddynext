@@ -35,6 +35,13 @@ use BuddyNext\Feed\IntegrationActivity;
 class WPMediaVerseBridge {
 
 	/**
+	 * Per-request documents app config, keyed by viewer id (see documents_config()).
+	 *
+	 * @var array<int, array<string, mixed>>
+	 */
+	private static array $documents_config_memo = array();
+
+	/**
 	 * Re-entrancy guard for the two-way follow mirror: true while this bridge is
 	 * propagating a follow/unfollow into the other store, so the reciprocal
 	 * action it triggers there is ignored instead of looping back.
@@ -2004,18 +2011,17 @@ class WPMediaVerseBridge {
 		// The config cannot change inside one request, but building it costs a full
 		// internal REST call (~10 queries) and the composer plus a file page ask
 		// for it 2-3 times. Memoise per viewer for the request.
-		static $memo = array();
-		$uid         = get_current_user_id();
-		if ( isset( $memo[ $uid ] ) ) {
-			return $memo[ $uid ];
+		$uid = get_current_user_id();
+		if ( isset( self::$documents_config_memo[ $uid ] ) ) {
+			return self::$documents_config_memo[ $uid ];
 		}
 		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
 		if ( $res->is_error() ) {
 			return array();
 		}
-		$data         = (array) $res->get_data();
-		$memo[ $uid ] = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
-		return $memo[ $uid ];
+		$data                                = (array) $res->get_data();
+		self::$documents_config_memo[ $uid ] = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		return self::$documents_config_memo[ $uid ];
 	}
 
 	/**

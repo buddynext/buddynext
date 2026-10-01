@@ -76,6 +76,8 @@ final class StateReset implements BeforeTestHook {
 		// survive a test whose bn_bookmarks rows have been rolled back underneath
 		// it, or one test's bookmark answers for the next test's fresh ids.
 		\BuddyNext\Feed\BookmarkService::class           => array( 'memo' => array() ),
+		// Per-request MediaVerse documents config, keyed by viewer.
+		\BuddyNext\Bridges\WPMediaVerseBridge::class    => array( 'documents_config_memo' => array() ),
 		\BuddyNext\Core\Installer::class                  => array(
 			'schema_check_result' => null,
 			'last_schema_errors'  => array(),
