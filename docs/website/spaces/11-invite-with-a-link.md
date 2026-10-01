@@ -35,7 +35,11 @@ The tab shows the link, when it expires, and how many times it has been used ("E
 
 ### Resetting the link
 
-**Reset link** turns the current link off immediately and issues a new one with the same settings. Use it if a link was shared too widely or you simply want a fresh one. There is only ever one active link per space, and resetting is the only way to revoke it.
+**Reset link** turns the current link off immediately and issues a new one with the same settings. Use it if a link was shared too widely or you simply want a fresh one. There is only ever one active link per space.
+
+### Turning the link off
+
+**Turn off link** stops the current link working immediately without issuing a new one. Use it when you no longer want anyone joining by link at all. You are asked to confirm ("Turn off the invite link?"), because the link can't be restored. People who already joined stay members. To start sharing again later, create a new link. Owners and moderators (and site admins) can turn the link off; a member who only has the "who can invite" permission cannot.
 
 ## How it works (for the people you invite)
 
