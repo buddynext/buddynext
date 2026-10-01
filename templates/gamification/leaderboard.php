@@ -73,9 +73,37 @@ if ( ! in_array( $window, $allowed_windows, true ) ) {
 	$window = 10;
 }
 
-// Fetch the top ranked users via the plugin read API.
+// Fetch the ranked members via the plugin read API.
 // Each entry: ['rank'=>int,'user_id'=>int,'display_name'=>string,'avatar_url'=>string,'points'=>int,'rank_change'=>int,'is_new'=>bool].
-$leaderboard = wb_gam_get_leaderboard( $api_period, $window );
+//
+// Members browse the whole board one page at a time (wb-gamification 1.6.5+,
+// wb_gam_get_leaderboard_page()). Paging is forward-only by keyset cursor, on
+// purpose: a jump to page 3,000 of a 100k board would read every row before it.
+// "Back" is the browser's back button plus a Top link. Visitors see the first
+// page only: deep paging would let anyone read every member's name and points.
+// Older wb-gamification keeps the top-N view with no pager.
+$bn_lb_paging   = $current_user_id > 0 && function_exists( 'wb_gam_get_leaderboard_page' );
+$bn_lb_cursor   = $bn_lb_paging && isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_lb_has_more = false;
+$bn_lb_next     = '';
+$bn_lb_offset   = 0;
+$bn_lb_total    = 0;
+if ( $bn_lb_paging ) {
+	$bn_lb_page = (array) wb_gam_get_leaderboard_page( $api_period, $window, $bn_lb_cursor );
+	// A cursor from another board or a stale link: start from the top rather
+	// than show an empty page.
+	if ( ! empty( $bn_lb_page['invalid_cursor'] ) ) {
+		$bn_lb_cursor = '';
+		$bn_lb_page   = (array) wb_gam_get_leaderboard_page( $api_period, $window, '' );
+	}
+	$leaderboard    = (array) ( $bn_lb_page['rows'] ?? array() );
+	$bn_lb_has_more = ! empty( $bn_lb_page['has_more'] );
+	$bn_lb_next     = (string) ( $bn_lb_page['next_cursor'] ?? '' );
+	$bn_lb_offset   = (int) ( $bn_lb_page['offset'] ?? 0 );
+	$bn_lb_total    = (int) ( $bn_lb_page['total'] ?? 0 );
+} else {
+	$leaderboard = wb_gam_get_leaderboard( $api_period, $window );
+}
 if ( ! is_array( $leaderboard ) ) {
 	$leaderboard = array();
 }
@@ -423,11 +451,13 @@ $updated_iso = gmdate( 'c' );
 			<div class="bn-tabs bn-lb-period" role="tablist">
 				<?php
 				foreach ( $period_tabs as $pkey => $plabel ) :
+					// A new period is a new board: start at its top.
 					$phref     = esc_url(
 						add_query_arg(
 							array(
 								'period' => $pkey,
-							)
+							),
+							remove_query_arg( 'cursor' )
 						)
 					);
 					$is_active = ( $pkey === $period );
@@ -473,7 +503,8 @@ $updated_iso = gmdate( 'c' );
 	<?php else : ?>
 
 		<!-- Leaderboard list -->
-		<ol class="bn-lb-list" aria-label="<?php esc_attr_e( 'Ranked members', 'buddynext' ); ?>">
+		<h2 class="bn-sr-only" id="bn-lb-ranks" tabindex="-1"><?php esc_html_e( 'Ranked members', 'buddynext' ); ?></h2>
+		<ol class="bn-lb-list" aria-labelledby="bn-lb-ranks" start="<?php echo esc_attr( (string) ( $bn_lb_offset + 1 ) ); ?>">
 			<?php
 			foreach ( $leaderboard as $idx => $row ) :
 				$uid       = (int) ( $row['user_id'] ?? 0 );
@@ -657,10 +688,45 @@ $updated_iso = gmdate( 'c' );
 		</ol>
 
 		<?php
+		if ( $bn_lb_paging && ( $bn_lb_has_more || $bn_lb_offset > 0 ) ) :
+			$bn_lb_shown = count( $leaderboard );
+			$bn_lb_pages = (int) ceil( max( 1, $bn_lb_total ) / $window );
+			$bn_lb_pnum  = (int) floor( $bn_lb_offset / $window ) + 1;
+			?>
+			<nav class="bn-lb-pager" aria-label="<?php esc_attr_e( 'Leaderboard pages', 'buddynext' ); ?>">
+				<p class="bn-lb-pager__status">
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: 1: first rank shown, 2: last rank shown, 3: total members on the board, 4: page number, 5: total pages. */
+							__( 'Showing %1$s to %2$s of %3$s · Page %4$s of %5$s', 'buddynext' ),
+							number_format_i18n( $bn_lb_offset + 1 ),
+							number_format_i18n( $bn_lb_offset + $bn_lb_shown ),
+							number_format_i18n( $bn_lb_total ),
+							number_format_i18n( $bn_lb_pnum ),
+							number_format_i18n( $bn_lb_pages )
+						)
+					);
+					?>
+				</p>
+				<div class="bn-lb-pager__actions">
+					<?php if ( $bn_lb_offset > 0 ) : ?>
+						<a class="bn-btn" data-variant="ghost" href="<?php echo esc_url( remove_query_arg( 'cursor' ) . '#bn-lb-ranks' ); ?>"><?php esc_html_e( 'Top', 'buddynext' ); ?></a>
+					<?php endif; ?>
+					<?php if ( $bn_lb_has_more && '' !== $bn_lb_next ) : ?>
+						<a class="bn-btn" data-variant="secondary" rel="next" href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $bn_lb_next ) ) . '#bn-lb-ranks' ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+					<?php endif; ?>
+				</div>
+			</nav>
+			<?php
+		endif;
+
 		// Your position — pinned when the viewer ranks below the visible page, so a
 		// member at #5,000 still sees where they stand (and can jump to their
-		// profile). Only when they are NOT already listed above.
-		if ( $current_user_id && $current_user_rank > 0 && ! $bn_self_in_list ) :
+		// profile). Only when they are NOT already listed above, and not when a
+		// later page has already passed them (they are above it, on an earlier page).
+		$bn_lb_last_rank = empty( $leaderboard ) ? 0 : (int) ( end( $leaderboard )['rank'] ?? 0 );
+		if ( $current_user_id && $current_user_rank > 0 && ! $bn_self_in_list && $current_user_rank > $bn_lb_last_rank ) :
 			$bn_self_user   = get_userdata( $current_user_id );
 			$bn_self_name   = $bn_self_user ? $bn_self_user->display_name : __( 'You', 'buddynext' );
 			$bn_self_url    = \BuddyNext\Core\PageRouter::profile_url( $current_user_id );

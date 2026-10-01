@@ -42,7 +42,11 @@ The leaderboard can rank members over three windows, chosen with the period tabs
 | This month | Points earned in the current month (the default view) |
 | All time | Points earned since the member joined |
 
-The board opens on "This month" by default. The window is part of the link, so a member can share a leaderboard view and the recipient sees the same window. The list shows the top members for the selected window.
+The board opens on "This month" by default. The window is part of the link, so a member can share a leaderboard view and the recipient sees the same window. The list shows the top members for the selected window, 10, 25, 50 or 100 at a time (the **Show** menu).
+
+### Browsing the whole board
+
+Signed-in members can page through the entire board, not just the top: under the list, **Next** opens the following page and a status line reads "Showing 11 to 20 of 128 · Page 2 of 13". Ranks continue from page to page. **Top** returns to the first page, and the browser's back button steps back. There is no jump-to-page, by design: on a very large community that keeps every page fast. Changing the period or the page size starts again from the top. If you rank below the page you are viewing, your own row stays pinned under the list as **Your position**. Visitors who are not signed in see the first page only, so member names and points cannot be read out page by page. Paging needs WB Gamification 1.6.5 or newer; on older versions the board shows the top members with no pager.
 
 ## Setting it up (for owners)
 

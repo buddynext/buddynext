@@ -27,6 +27,7 @@ The engine functions below are all guarded with `function_exists`. The write-sid
 | `wb_gam_register_action( array $args )` | engine manifest (`integrations/buddynext.php`) | Register a BuddyNext action so admins can configure its point value. |
 | `wb_gam_get_actions()` | engine manifest (`integrations/buddynext.php`) | Dedup guard - skip already-registered slugs. |
 | `wb_gam_get_leaderboard( string $period, int $limit )` | leaderboard template | Ranked rows (`rank`, `user_id`, `display_name`, `avatar_url`, `points`). |
+| `wb_gam_get_leaderboard_page( string $period, int $limit, string $cursor )` | leaderboard template (signed-in viewers, 1.6.5+) | One keyset page: `rows` (absolute `rank`), `has_more`, `next_cursor`, `offset`, `total`, `invalid_cursor`. Forward-only; the template passes `?cursor=` through untouched and falls back to the first page on an invalid cursor. |
 | `wb_gam_get_user_points( int $user_id )` | leaderboard + Achievements tab | Points balance. |
 | `wb_gam_get_user_badges( int $user_id )` | leaderboard + Achievements tab | Earned badges. |
 | `wb_gam_get_user_streak( int $user_id )` | leaderboard | Streak data. |
