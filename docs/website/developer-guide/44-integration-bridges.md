@@ -67,7 +67,7 @@ Three surfaces read them:
 
 1. **Integration Settings** (Settings -> Integration Settings) shows one badge per integration: *Active*, *Update needed* (installed `< min_version`), or *Newer partner* (installed `> tested_version` — informational; the partner is ahead of the bridge, which still works and is due a refresh).
 2. **CLI gate** `wp buddynext bridge-status` walks the registry and prints installed / floor / tested / state per bridge. It exits non-zero when any bridge is below its floor; `--strict` also fails when a partner is ahead of `tested_version`. Run it in CI so bridges cannot silently fall behind as partners ship.
-3. Per-bridge deep audits (what the partner offers vs what the bridge consumes) are tracked as Basecamp cards, not in code.
+3. Per-bridge deep audits (what the partner offers vs what the bridge consumes) are tracked outside the code.
 
 Current declared values (update the row when you re-verify a bridge against a new partner release):
 
@@ -266,7 +266,7 @@ Career Board is two Pro files (jobs are an application layer on the social core,
   - **Job-edit sync:** `on_job_updated` (on `wcb_job_updated`) refreshes a published job's card in place via `IntegrationActivity::refresh` (`transition_post_status` ignores a no-status-change edit and `publish()` is idempotent, so a plain edit would otherwise leave a stale card). Resumes already re-fire `wcbp_resume_published` on update.
 - **`CareerBoardSocial`** (`AbstractSuitePanelProvider`) — the member profile Jobs panel (`/wcb/v1/jobs?author=`) and, with Pro (`WCBP_VERSION`), the Resume panel (`/wcb/v1/resumes?author=`). Both render on BuddyNext with BuddyNext identity.
 
-**Identity:** Career Board exposes no profile-URL / display-name / avatar filter (only generic `wcb_rest_prepare_*` REST shapers), so there is no seam to fill the way Jetonomy/MediaVerse are filled. Job/resume cards and profile panels are BuddyNext-rendered and already use BuddyNext identity; WCB's own `/jobs/` board and company pages remain WCB's surface. Whether to also own identity there (by rewriting author/employer fields in `wcb_rest_prepare_*`) is an open owner decision, tracked as a Basecamp card.
+**Identity:** Career Board exposes no profile-URL / display-name / avatar filter (only generic `wcb_rest_prepare_*` REST shapers), so there is no seam to fill the way Jetonomy/MediaVerse are filled. Job/resume cards and profile panels are BuddyNext-rendered and already use BuddyNext identity; WCB's own `/jobs/` board and company pages remain WCB's surface. Whether to also own identity there (by rewriting author/employer fields in `wcb_rest_prepare_*`) is an open owner decision.
 
 ## Listora bridge (registered in Pro)
 
@@ -275,7 +275,7 @@ Career Board is two Pro files (jobs are an application layer on the social core,
 - **Status-driven, not a dedicated approve hook.** WB Listora has no "listing approved" hook - listings move through post statuses (`pending` / `pending_verification` / `publish`) - so the bridge hooks WP-native `transition_post_status`: a transition INTO `publish` from any other status broadcasts + indexes; a transition OUT of `publish` withdraws the card (reversible - draft/trash, not deleted, so a re-publish restores the exact same card instead of orphaning its comments); `before_delete_post` removes the card permanently, because a hard delete of a published post skips the trash transition entirely.
 - **Card content:** rendered through the shared bridge-card seam (`IntegrationActivity::render_bridge_card`, type `store`) with an excerpt - the author's own excerpt, falling back to the opening of the content - and a featured-image thumbnail when set. Added because the card originally shipped as an icon, a label and a title with no description, the least informative shape the feed can carry for a listing.
 - **Both search and feed are gated on the owner's Integration Settings switches** (`buddynext_integration_enabled( 'listora', 'search' | 'feed' )`); `on_search_disabled()` purges the whole `listing` search-index type when the owner switches Listora's search off, the same behavior every other bridge's search toggle has.
-- **No notification mirror yet.** Listora owns its own dashboard notification center; the bridge only adds feed activity plus the profile Portfolio panel (`Integrations\Listora\ListoraSocial`), until Listora ships a creation hook to mirror from (tracked as a Basecamp card).
+- **No notification mirror yet.** Listora owns its own dashboard notification center; the bridge only adds feed activity plus the profile Portfolio panel (`Integrations\Listora\ListoraSocial`), until Listora ships a creation hook to mirror from.
 - **Businesses-in-Spaces** - the curated per-space listing showcase members submit to and a space team approves - is a separate class, `ListoraSpaceShowcase` under `Integrations\Listora`, not part of `ListoraBridge` itself. See the Listora integration page for the member/owner-facing walkthrough.
 
 ## Learnomy bridge (registered in Pro)
