@@ -309,16 +309,16 @@ class TokenService {
 			'--bn-accent-200' => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
 			'--bn-accent-300' => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
 			'--bn-accent-400' => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
-			'--bn-accent-600' => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
-			'--bn-accent-800' => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
-			'--bn-accent-900' => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
+			'--bn-accent-600' => 'color-mix(in oklab, var(--bn-accent-500) 85%, var(--bn-ink))',
+			'--bn-accent-800' => 'color-mix(in oklab, var(--bn-accent-500) 68%, var(--bn-ink))',
+			'--bn-accent-900' => 'color-mix(in oklab, var(--bn-accent-500) 52%, var(--bn-ink))',
 			// Surfaces.
 			'--bn-canvas'     => 'var(--reign-site-body-bg-color, oklch(99% 0.002 var(--bn-hue)))',
 			'--bn-surface'    => 'var(--reign-site-sections-bg-color, oklch(100% 0 0))',
 			'--bn-sunken'     => 'var(--reign-site-secondary-bg-color, oklch(97% 0.004 var(--bn-hue)))',
 			// Elevated surface — derive from the theme surface so it tracks the
 			// host palette and mode instead of BuddyNext's internal tint.
-			'--bn-raised'     => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
+			'--bn-raised'     => 'color-mix(in oklab, var(--bn-surface) 94%, var(--bn-ink))',
 			// Borders.
 			'--bn-line'       => 'var(--reign-site-border-color, oklch(92% 0.005 var(--bn-hue)))',
 			'--bn-line-faint' => 'var(--reign-site-hr-color, oklch(95% 0.003 var(--bn-hue)))',
@@ -356,15 +356,15 @@ class TokenService {
 			'--bn-accent-200' => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
 			'--bn-accent-300' => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
 			'--bn-accent-400' => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
-			'--bn-accent-600' => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
-			'--bn-accent-800' => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
-			'--bn-accent-900' => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
+			'--bn-accent-600' => 'color-mix(in oklab, var(--bn-accent-500) 85%, var(--bn-ink))',
+			'--bn-accent-800' => 'color-mix(in oklab, var(--bn-accent-500) 68%, var(--bn-ink))',
+			'--bn-accent-900' => 'color-mix(in oklab, var(--bn-accent-500) 52%, var(--bn-ink))',
 			// Surfaces — white-box is the card/section, theme-body the page wash,
 			// body-lightcolor the sunken tint.
 			'--bn-canvas'     => 'var(--color-theme-body, oklch(99% 0.002 var(--bn-hue)))',
 			'--bn-surface'    => 'var(--color-theme-white-box, oklch(100% 0 0))',
 			'--bn-sunken'     => 'var(--global-body-lightcolor, oklch(97% 0.004 var(--bn-hue)))',
-			'--bn-raised'     => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
+			'--bn-raised'     => 'color-mix(in oklab, var(--bn-surface) 94%, var(--bn-ink))',
 			// Borders.
 			'--bn-line'       => 'var(--global-border-color, oklch(92% 0.005 var(--bn-hue)))',
 			'--bn-line-faint' => 'color-mix(in oklch, var(--bn-line) 55%, var(--bn-surface))',
