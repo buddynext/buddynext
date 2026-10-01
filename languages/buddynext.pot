@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: BuddyNext 1.2.2\n"
+"Project-Id-Version: BuddyNext 1.2.3\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-30T09:07:02+00:00\n"
+"POT-Creation-Date: 2026-10-01T08:00:27+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: buddynext\n"
@@ -201,7 +201,7 @@ msgstr ""
 #: includes/Core/AssetService.php:1028
 #: includes/Core/AssetService.php:1343
 #: includes/Core/AssetService.php:1617
-#: includes/Core/PageRouter.php:1742
+#: includes/Core/PageRouter.php:1817
 #: templates/partials/create-space-modal.php:234
 #: templates/partials/media-tab.php:261
 #: templates/partials/media-tab.php:309
@@ -605,7 +605,7 @@ msgstr ""
 #: includes/Admin/Members.php:1792
 #: includes/Admin/NavManager.php:273
 #: includes/Admin/Spaces.php:616
-#: includes/Core/PageRouter.php:1755
+#: includes/Core/PageRouter.php:1830
 #: templates/partials/explore-card.php:129
 #: templates/parts/space-members-body.php:448
 msgid "View"
@@ -762,7 +762,7 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:362
 #: includes/Core/AssetService.php:1134
 #: includes/Core/AssetService.php:1342
-#: includes/Core/PageRouter.php:931
+#: includes/Core/PageRouter.php:954
 #: templates/feed/single-post.php:134
 #: templates/partials/composer.php:682
 #: templates/partials/explore-card.php:480
@@ -785,10 +785,10 @@ msgstr ""
 #: includes/Admin/ActivityAdmin.php:634
 #: includes/Admin/NavManager.php:809
 #: includes/Admin/NavManager.php:888
-#: includes/Bridges/WPMediaVerseBridge.php:540
-#: includes/Bridges/WPMediaVerseBridge.php:1193
-#: includes/Bridges/WPMediaVerseBridge.php:1220
-#: includes/Core/PageRouter.php:1018
+#: includes/Bridges/WPMediaVerseBridge.php:547
+#: includes/Bridges/WPMediaVerseBridge.php:1200
+#: includes/Bridges/WPMediaVerseBridge.php:1227
+#: includes/Core/PageRouter.php:1041
 #: includes/Core/Plugin.php:950
 #: includes/Nav/Providers/ProfileNav.php:203
 #: includes/Nav/Providers/SpaceNav.php:259
@@ -907,7 +907,7 @@ msgid "%s ago"
 msgstr ""
 
 #: includes/Admin/AdminHub.php:70
-#: includes/Core/PageRouter.php:937
+#: includes/Core/PageRouter.php:960
 msgid "Get Started"
 msgstr ""
 
@@ -928,8 +928,8 @@ msgstr ""
 #: includes/Admin/Spaces.php:591
 #: includes/Core/AssetService.php:1740
 #: includes/Core/CoreHubs.php:58
-#: includes/Core/PageRouter.php:932
-#: includes/Core/PageRouter.php:1012
+#: includes/Core/PageRouter.php:955
+#: includes/Core/PageRouter.php:1035
 #: includes/Core/Plugin.php:895
 #: includes/Core/SurfaceMeta.php:87
 #: includes/Nav/Providers/SpaceNav.php:225
@@ -954,7 +954,7 @@ msgstr ""
 #: templates/parts/space-members-panel.php:92
 #: templates/parts/space-members-panel.php:106
 #: templates/parts/space-settings-panel-members.php:88
-#: templates/profile/edit.php:203
+#: templates/profile/edit.php:204
 #: templates/search/results.php:326
 #: templates/spaces/admin.php:131
 #: templates/spaces/admin.php:169
@@ -980,7 +980,7 @@ msgstr ""
 #: includes/Admin/Spaces.php:798
 #: includes/Core/CoreHubs.php:59
 #: includes/Core/FeatureRegistry.php:436
-#: includes/Core/PageRouter.php:933
+#: includes/Core/PageRouter.php:956
 #: includes/Core/Plugin.php:899
 #: includes/Core/SurfaceMeta.php:78
 #: includes/Nav/ShellNavService.php:93
@@ -1014,7 +1014,7 @@ msgstr ""
 #: includes/Admin/Settings.php:2398
 #: includes/Core/CoreHubs.php:61
 #: includes/Core/FeatureRegistry.php:444
-#: includes/Core/PageRouter.php:935
+#: includes/Core/PageRouter.php:958
 #: includes/Core/Plugin.php:903
 #: includes/Nav/ShellNavService.php:100
 #: includes/Nav/UserLinks.php:95
@@ -1032,7 +1032,7 @@ msgstr ""
 #: includes/Admin/RolesTab.php:69
 #: includes/Admin/Settings.php:2400
 #: includes/Core/FeatureRegistry.php:456
-#: includes/Core/PageRouter.php:1006
+#: includes/Core/PageRouter.php:1029
 #: includes/Nav/Providers/SpaceNav.php:314
 #: includes/Notifications/NotificationPrefCatalogue.php:603
 #: templates/community-admin.php:342
@@ -1068,7 +1068,7 @@ msgstr ""
 #: includes/Admin/GetStartedScreen.php:218
 #: includes/Admin/NavManager.php:2393
 #: includes/Admin/Settings.php:93
-#: includes/Core/PageRouter.php:1003
+#: includes/Core/PageRouter.php:1026
 #: includes/Nav/ShellNavService.php:146
 #: includes/Nav/UserLinks.php:113
 #: templates/community-admin.php:355
@@ -1080,7 +1080,7 @@ msgid "Settings"
 msgstr ""
 
 #: includes/Admin/AdminHub.php:141
-#: templates/profile/edit.php:427
+#: templates/profile/edit.php:428
 msgid "Upgrade"
 msgstr ""
 
@@ -1120,7 +1120,7 @@ msgstr ""
 
 #: includes/Admin/AdminHub.php:1746
 #: includes/Bridges/JetonomyBridge.php:2516
-#: includes/Core/PageRouter.php:1105
+#: includes/Core/PageRouter.php:1128
 #: includes/Core/Plugin.php:907
 #: includes/Core/SurfaceMeta.php:134
 #: includes/Header/HeaderUserSection.php:110
@@ -1215,7 +1215,7 @@ msgstr ""
 #: includes/Admin/Members/ApprovalManager.php:356
 #: includes/Admin/Spaces.php:970
 #: includes/Core/AssetService.php:1393
-#: includes/Core/PageRouter.php:1740
+#: includes/Core/PageRouter.php:1815
 #: templates/partials/create-space-modal.php:75
 #: templates/partials/media-lightbox.php:56
 #: templates/partials/media-lightbox.php:69
@@ -2382,7 +2382,7 @@ msgstr ""
 #: templates/partials/composer.php:620
 #: templates/partials/media-upload-composer.php:141
 #: templates/parts/profile-edit-sidebar.php:155
-#: templates/profile/edit.php:205
+#: templates/profile/edit.php:206
 msgid "Connections"
 msgstr ""
 
@@ -2728,7 +2728,7 @@ msgstr[1] ""
 #: includes/Admin/Members.php:710
 #: includes/Admin/Members/MemberDisplay.php:56
 #: includes/Core/AssetService.php:1475
-#: includes/Core/PageRouter.php:1009
+#: includes/Core/PageRouter.php:1032
 #: includes/Messages/MessagesData.php:170
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:544
 #: templates/community-admin.php:324
@@ -3037,7 +3037,7 @@ msgstr ""
 
 #: includes/Admin/Members.php:1942
 #: includes/Core/AssetService.php:1395
-#: includes/Core/PageRouter.php:1741
+#: includes/Core/PageRouter.php:1816
 #: assets/js/admin/avatar-settings.js:83
 #: assets/js/admin/bn-admin-dialogs.js:67
 #: assets/js/admin/bn-admin-dialogs.js:116
@@ -3668,7 +3668,7 @@ msgstr ""
 
 #: includes/Admin/Members/MemberExport.php:80
 #: includes/Core/CoreHubs.php:62
-#: includes/Core/PageRouter.php:936
+#: includes/Core/PageRouter.php:959
 msgid "Login"
 msgstr ""
 
@@ -3914,7 +3914,7 @@ msgstr ""
 #: templates/partials/media-upload-composer.php:139
 #: templates/partials/post-card.php:399
 #: templates/parts/profile-edit-sidebar.php:134
-#: templates/profile/edit.php:202
+#: templates/profile/edit.php:203
 msgid "Public"
 msgstr ""
 
@@ -3949,7 +3949,7 @@ msgstr ""
 #: templates/partials/post-card.php:403
 #: templates/parts/profile-edit-sidebar.php:162
 #: templates/parts/settings-privacy-fields.php:49
-#: templates/profile/edit.php:206
+#: templates/profile/edit.php:207
 msgid "Only me"
 msgstr ""
 
@@ -4331,7 +4331,7 @@ msgstr ""
 #: includes/Admin/ModerationQueue.php:160
 #: includes/Admin/ModerationQueue.php:610
 #: includes/Admin/ModerationQueue.php:622
-#: includes/Core/PageRouter.php:1760
+#: includes/Core/PageRouter.php:1835
 #: templates/moderation/account-status.php:125
 msgid "Reason"
 msgstr ""
@@ -4455,7 +4455,7 @@ msgstr ""
 
 #: includes/Admin/ModerationQueue.php:530
 #: includes/Admin/Settings.php:459
-#: includes/Core/PageRouter.php:1754
+#: includes/Core/PageRouter.php:1829
 #: includes/Notifications/EmailDispatchListener.php:204
 #: templates/community-admin.php:1032
 #: templates/parts/notification-row.php:152
@@ -4851,7 +4851,7 @@ msgstr ""
 #: includes/Spaces/CoreSpaceFields.php:229
 #: templates/parts/space-hero.php:234
 #: templates/parts/space-settings-panel-notifications.php:91
-#: templates/profile/edit.php:788
+#: templates/profile/edit.php:789
 #: templates/settings/notifications.php:126
 msgid "None"
 msgstr ""
@@ -4918,7 +4918,7 @@ msgstr ""
 #: templates/partials/composer.php:608
 #: templates/partials/media-upload-composer.php:140
 #: templates/parts/profile-edit-sidebar.php:148
-#: templates/profile/edit.php:204
+#: templates/profile/edit.php:205
 msgid "Followers"
 msgstr ""
 
@@ -4985,7 +4985,7 @@ msgid "Media shared inside this space"
 msgstr ""
 
 #: includes/Admin/NavManager.php:896
-#: includes/Core/PageRouter.php:1015
+#: includes/Core/PageRouter.php:1038
 #: includes/Nav/Providers/ProfileNav.php:182
 #: includes/Nav/Providers/SpaceNav.php:299
 #: includes/Spaces/CoreSpaceFields.php:84
@@ -5025,7 +5025,7 @@ msgstr ""
 #: includes/Admin/NavManager.php:1028
 #: includes/Admin/NavManager.php:2366
 #: includes/Core/AssetService.php:1652
-#: includes/Core/PageRouter.php:1122
+#: includes/Core/PageRouter.php:1145
 #: includes/Nav/ShellNavService.php:119
 #: includes/Onboarding/OnboardingService.php:152
 #: templates/partials/nav.php:186
@@ -5367,7 +5367,7 @@ msgid "Main community feed"
 msgstr ""
 
 #: includes/Admin/NavManager.php:2301
-#: includes/Core/PageRouter.php:971
+#: includes/Core/PageRouter.php:994
 #: includes/Core/Plugin.php:891
 #: includes/Core/SurfaceMeta.php:140
 #: includes/Nav/ShellNavService.php:79
@@ -5385,7 +5385,7 @@ msgstr ""
 
 #: includes/Admin/NavManager.php:2322
 #: includes/Core/CoreHubs.php:60
-#: includes/Core/PageRouter.php:934
+#: includes/Core/PageRouter.php:957
 #: includes/Core/Plugin.php:926
 #: includes/Header/HeaderUserSection.php:141
 #: includes/Nav/ShellNavService.php:108
@@ -5427,7 +5427,7 @@ msgstr ""
 
 #. translators: %s: member display name.
 #: includes/Admin/NavManager.php:2375
-#: includes/Core/PageRouter.php:1118
+#: includes/Core/PageRouter.php:1141
 #: includes/Nav/ShellNavService.php:128
 #: includes/Nav/UserLinks.php:77
 msgid "Edit Profile"
@@ -5439,7 +5439,7 @@ msgstr ""
 
 #: includes/Admin/NavManager.php:2384
 #: includes/Core/FeatureRegistry.php:488
-#: includes/Core/PageRouter.php:967
+#: includes/Core/PageRouter.php:990
 #: includes/Nav/ShellNavService.php:137
 #: includes/Nav/UserLinks.php:101
 #: templates/feed/bookmarks.php:89
@@ -6043,7 +6043,7 @@ msgid "How many space cards per row on desktop in the Spaces directory. A fixed 
 msgstr ""
 
 #: includes/Admin/Settings.php:1032
-#: templates/shell/hub-shell.php:118
+#: templates/shell/hub-shell.php:122
 msgid "Community menu"
 msgstr ""
 
@@ -6072,7 +6072,7 @@ msgid "The bottom navigation bar on mobile hub pages. Turn off to hide the mobil
 msgstr ""
 
 #: includes/Admin/Settings.php:1075
-#: includes/Core/PageRouter.php:930
+#: includes/Core/PageRouter.php:953
 #: assets/js/blocks.js:529
 msgid "Activity Feed"
 msgstr ""
@@ -8970,14 +8970,14 @@ msgstr ""
 #: includes/Spaces/SpaceController.php:2109
 #: includes/Spaces/SpaceController.php:2171
 #: includes/Spaces/SpaceController.php:2244
-#: includes/Spaces/SpaceController.php:2517
-#: includes/Spaces/SpaceController.php:2627
-#: includes/Spaces/SpaceController.php:2668
-#: includes/Spaces/SpaceController.php:2745
-#: includes/Spaces/SpaceController.php:2821
-#: includes/Spaces/SpaceController.php:2861
-#: includes/Spaces/SpaceController.php:2951
-#: includes/Spaces/SpaceController.php:3229
+#: includes/Spaces/SpaceController.php:2521
+#: includes/Spaces/SpaceController.php:2631
+#: includes/Spaces/SpaceController.php:2672
+#: includes/Spaces/SpaceController.php:2749
+#: includes/Spaces/SpaceController.php:2825
+#: includes/Spaces/SpaceController.php:2865
+#: includes/Spaces/SpaceController.php:2955
+#: includes/Spaces/SpaceController.php:3233
 #: includes/Spaces/SpaceService.php:558
 #: includes/Spaces/SpaceService.php:733
 #: includes/Spaces/SpaceService.php:923
@@ -9010,7 +9010,7 @@ msgid "Jetonomy"
 msgstr ""
 
 #: includes/Bridges/JetonomyBridge.php:2521
-#: includes/Core/PageRouter.php:973
+#: includes/Core/PageRouter.php:996
 #: includes/Core/Plugin.php:914
 #: includes/Profile/GamificationAchievements.php:177
 #: templates/gamification/leaderboard.php:46
@@ -9027,30 +9027,30 @@ msgstr ""
 msgid "Articles"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:1071
+#: includes/Bridges/WPMediaVerseBridge.php:1078
 msgid "shared a video"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:1073
+#: includes/Bridges/WPMediaVerseBridge.php:1080
 msgid "shared an audio clip"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:1075
+#: includes/Bridges/WPMediaVerseBridge.php:1082
 msgid "shared a file"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:1229
+#: includes/Bridges/WPMediaVerseBridge.php:1236
 #: templates/partials/media-tab.php:114
 #: templates/partials/media-tab.php:192
 msgid "Albums"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:2507
-#: includes/Bridges/WPMediaVerseBridge.php:2548
+#: includes/Bridges/WPMediaVerseBridge.php:2525
+#: includes/Bridges/WPMediaVerseBridge.php:2566
 msgid "Document"
 msgstr ""
 
-#: includes/Bridges/WPMediaVerseBridge.php:2561
+#: includes/Bridges/WPMediaVerseBridge.php:2579
 msgid "This document isn’t available to you."
 msgstr ""
 
@@ -9429,7 +9429,7 @@ msgstr ""
 
 #: includes/Core/AssetService.php:1032
 #: includes/Core/AssetService.php:1233
-#: includes/Core/PageRouter.php:1757
+#: includes/Core/PageRouter.php:1832
 #: templates/community-admin.php:941
 #: templates/partials/media-lightbox.php:154
 #: templates/parts/member-card.php:249
@@ -9889,7 +9889,7 @@ msgstr ""
 #: includes/Moderation/ModerationService.php:2434
 #: templates/partials/composer.php:108
 #: templates/partials/composer.php:260
-#: templates/profile/edit.php:71
+#: templates/profile/edit.php:72
 msgid "Review your account status"
 msgstr ""
 
@@ -10126,7 +10126,7 @@ msgstr ""
 #: includes/Core/AssetService.php:1232
 #: includes/Core/AssetService.php:1507
 #: includes/Core/AssetService.php:1634
-#: includes/Core/PageRouter.php:1752
+#: includes/Core/PageRouter.php:1827
 #: templates/partials/media-lightbox.php:157
 #: templates/parts/member-card.php:243
 #: templates/parts/profile-actions-overflow.php:133
@@ -10194,13 +10194,13 @@ msgstr ""
 #. translators: %s: the member's display name
 #: includes/Core/AssetService.php:1275
 #: includes/Core/AssetService.php:1505
-#: includes/Core/PageRouter.php:1745
+#: includes/Core/PageRouter.php:1820
 #, php-format
 msgid "Block %s?"
 msgstr ""
 
 #: includes/Core/AssetService.php:1276
-#: includes/Core/PageRouter.php:1746
+#: includes/Core/PageRouter.php:1821
 msgid "Block this member?"
 msgstr ""
 
@@ -11173,7 +11173,7 @@ msgid "Could not unfollow. Try again."
 msgstr ""
 
 #: includes/Core/AssetService.php:1679
-#: includes/Core/PageRouter.php:1778
+#: includes/Core/PageRouter.php:1853
 msgid "Add a personal message to your connection request, or send it without one."
 msgstr ""
 
@@ -11329,7 +11329,7 @@ msgid "Could not unblock"
 msgstr ""
 
 #: includes/Core/AssetService.php:1738
-#: templates/profile/edit.php:274
+#: templates/profile/edit.php:275
 msgid "Who can see this field"
 msgstr ""
 
@@ -11916,7 +11916,7 @@ msgid "First-run member setup flow."
 msgstr ""
 
 #: includes/Core/CoreHubs.php:75
-#: includes/Core/PageRouter.php:938
+#: includes/Core/PageRouter.php:961
 #: templates/parts/settings-nav.php:72
 msgid "Community Admin"
 msgstr ""
@@ -12151,43 +12151,43 @@ msgstr ""
 msgid "Private message (content hidden)"
 msgstr ""
 
-#: includes/Core/PageRouter.php:949
+#: includes/Core/PageRouter.php:972
 #: templates/auth/login.php:226
 msgid "Create an account"
 msgstr ""
 
-#: includes/Core/PageRouter.php:951
+#: includes/Core/PageRouter.php:974
 msgid "Verify your email"
 msgstr ""
 
-#: includes/Core/PageRouter.php:953
+#: includes/Core/PageRouter.php:976
 msgid "Connect the app"
 msgstr ""
 
-#: includes/Core/PageRouter.php:969
+#: includes/Core/PageRouter.php:992
 #: templates/moderation/account-status.php:86
 #: templates/parts/settings-account-fields.php:351
 msgid "Account status"
 msgstr ""
 
-#: includes/Core/PageRouter.php:975
+#: includes/Core/PageRouter.php:998
 #: templates/parts/search-result-section-hashtags.php:126
 msgid "Hashtag"
 msgstr ""
 
 #. translators: 1: section name (Settings/Members/About/Moderation), 2: space name.
-#: includes/Core/PageRouter.php:1025
+#: includes/Core/PageRouter.php:1048
 #, php-format
 msgid "%1$s · %2$s"
 msgstr ""
 
 #. translators: %s: space name.
-#: includes/Core/PageRouter.php:1032
+#: includes/Core/PageRouter.php:1055
 #, php-format
 msgid "%s · Spaces"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1064
+#: includes/Core/PageRouter.php:1087
 #: templates/parts/notifications-hero.php:118
 #: templates/parts/notifications-hero.php:120
 #: templates/parts/notifications-sidecard-prefs.php:66
@@ -12196,75 +12196,75 @@ msgid "Notification preferences"
 msgstr ""
 
 #. translators: %s: unread notification count (formatted, e.g. "3" or "99+").
-#: includes/Core/PageRouter.php:1084
+#: includes/Core/PageRouter.php:1107
 #, php-format
 msgid "Notifications (%s)"
 msgstr ""
 
 #. translators: %s: search query string.
-#: includes/Core/PageRouter.php:1102
+#: includes/Core/PageRouter.php:1125
 #, php-format
 msgid "Search: %s"
 msgstr ""
 
 #. translators: %s: member display name.
-#: includes/Core/PageRouter.php:1117
-#: templates/profile/edit.php:357
+#: includes/Core/PageRouter.php:1140
+#: templates/profile/edit.php:358
 #, php-format
 msgid "Edit Profile · %s"
 msgstr ""
 
 #. translators: %s: member display name.
-#: includes/Core/PageRouter.php:1121
+#: includes/Core/PageRouter.php:1144
 #, php-format
 msgid "%s · Profile"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1737
+#: includes/Core/PageRouter.php:1812
 msgid "Show more"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1738
+#: includes/Core/PageRouter.php:1813
 msgid "Show less"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1747
+#: includes/Core/PageRouter.php:1822
 msgid "Blocking this person will:"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1748
+#: includes/Core/PageRouter.php:1823
 msgid "Hide their posts and replies from your feed."
 msgstr ""
 
-#: includes/Core/PageRouter.php:1749
+#: includes/Core/PageRouter.php:1824
 msgid "Stop them from following you or sending you messages."
 msgstr ""
 
-#: includes/Core/PageRouter.php:1750
+#: includes/Core/PageRouter.php:1825
 msgid "Remove any existing connection or follow between you."
 msgstr ""
 
-#: includes/Core/PageRouter.php:1751
+#: includes/Core/PageRouter.php:1826
 msgid "You can unblock from your settings at any time."
 msgstr ""
 
-#: includes/Core/PageRouter.php:1758
+#: includes/Core/PageRouter.php:1833
 msgid "Reports are reviewed by moderators. The person you report is not notified."
 msgstr ""
 
-#: includes/Core/PageRouter.php:1759
+#: includes/Core/PageRouter.php:1834
 msgid "Submit report"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1761
+#: includes/Core/PageRouter.php:1836
 msgid "Additional details (optional)"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1762
+#: includes/Core/PageRouter.php:1837
 msgid "Tell us more about what you saw…"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1770
+#: includes/Core/PageRouter.php:1845
 #: includes/Moderation/ModerationService.php:92
 #: includes/Moderation/ModerationService.php:175
 #: templates/spaces/moderation.php:369
@@ -12272,13 +12272,13 @@ msgstr ""
 msgid "Spam"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1771
+#: includes/Core/PageRouter.php:1846
 #: includes/Moderation/ModerationService.php:93
 #: assets/js/media/lightbox.js:619
 msgid "Harassment or hate speech"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1772
+#: includes/Core/PageRouter.php:1847
 #: includes/Moderation/ModerationService.php:94
 #: includes/Moderation/ModerationService.php:177
 #: templates/spaces/moderation.php:371
@@ -12286,37 +12286,37 @@ msgstr ""
 msgid "Misinformation"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1773
+#: includes/Core/PageRouter.php:1848
 #: includes/Moderation/ModerationService.php:95
 msgid "Inappropriate content"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1774
+#: includes/Core/PageRouter.php:1849
 #: includes/Moderation/ModerationService.php:97
 #: includes/Moderation/ModerationService.php:180
 #: templates/spaces/moderation.php:374
 msgid "Impersonation"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1775
+#: includes/Core/PageRouter.php:1850
 #: includes/Moderation/ModerationService.php:98
 #: assets/js/media/lightbox.js:624
 msgid "Something else"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1777
+#: includes/Core/PageRouter.php:1852
 msgid "Add a note"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1779
+#: includes/Core/PageRouter.php:1854
 msgid "Send request"
 msgstr ""
 
-#: includes/Core/PageRouter.php:1780
+#: includes/Core/PageRouter.php:1855
 msgid "e.g. We met at the design meetup: I’d love to stay connected."
 msgstr ""
 
-#: includes/Core/PageRouter.php:1782
+#: includes/Core/PageRouter.php:1857
 msgid "Could not update. Try again."
 msgstr ""
 
@@ -15049,7 +15049,7 @@ msgid "Colour"
 msgstr ""
 
 #: includes/Profile/FieldType.php:1037
-#: templates/profile/edit.php:641
+#: templates/profile/edit.php:642
 msgid "Not available on your current plan."
 msgstr ""
 
@@ -15070,7 +15070,7 @@ msgid "Select…"
 msgstr ""
 
 #: includes/Profile/FieldType.php:1342
-#: templates/profile/edit.php:774
+#: templates/profile/edit.php:775
 msgid "Set by the community: contact an admin to change it."
 msgstr ""
 
@@ -15385,12 +15385,12 @@ msgstr ""
 
 #: includes/Profile/ProfileController.php:2536
 #: includes/Profile/ProfileController.php:2662
-#: includes/Spaces/SpaceController.php:3095
+#: includes/Spaces/SpaceController.php:3099
 msgid "No file uploaded or upload error."
 msgstr ""
 
 #: includes/Profile/ProfileController.php:2564
-#: includes/Spaces/SpaceController.php:3116
+#: includes/Spaces/SpaceController.php:3120
 msgid "Only JPEG, PNG, or WebP images are accepted."
 msgstr ""
 
@@ -15548,14 +15548,14 @@ msgstr ""
 msgid "Untitled"
 msgstr ""
 
-#: includes/Shortcodes/ShortcodeService.php:387
+#: includes/Shortcodes/ShortcodeService.php:388
 msgid "You must be logged in to view this page."
 msgstr ""
 
-#: includes/Shortcodes/ShortcodeService.php:389
-#: templates/partials/media-lightbox.php:192
+#: includes/Shortcodes/ShortcodeService.php:390
+#: templates/partials/media-lightbox.php:193
 #: templates/partials/nav.php:193
-#: templates/parts/guest-cta.php:43
+#: templates/parts/guest-cta.php:40
 #: templates/parts/space-feed-panel.php:290
 msgid "Log in"
 msgstr ""
@@ -16174,84 +16174,84 @@ msgstr ""
 msgid "This space is invite only. You must be invited to join."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2520
+#: includes/Spaces/SpaceController.php:2524
 msgid "Only the space owner or a moderator can manage the invite link."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2634
+#: includes/Spaces/SpaceController.php:2638
 #: includes/Spaces/SpaceMemberService.php:371
 msgid "Only the space owner or a moderator can invite members."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2648
+#: includes/Spaces/SpaceController.php:2652
 msgid "No user found with that username or email."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2658
+#: includes/Spaces/SpaceController.php:2662
 msgid "A user_id or identifier parameter is required."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2722
+#: includes/Spaces/SpaceController.php:2726
 msgid "At least one user_id is required."
 msgstr ""
 
 #. translators: %d: maximum number of members per bulk decision.
-#: includes/Spaces/SpaceController.php:2735
+#: includes/Spaces/SpaceController.php:2739
 #, php-format
 msgid "Up to %d members can be decided at once."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2778
+#: includes/Spaces/SpaceController.php:2782
 msgid "Those join requests are no longer pending."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2779
+#: includes/Spaces/SpaceController.php:2783
 msgid "You do not have permission to decide these requests."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2811
-#: includes/Spaces/SpaceController.php:2851
+#: includes/Spaces/SpaceController.php:2815
+#: includes/Spaces/SpaceController.php:2855
 msgid "A user_id parameter is required."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2890
+#: includes/Spaces/SpaceController.php:2894
 msgid "Role must be moderator or member."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2918
+#: includes/Spaces/SpaceController.php:2922
 msgid "Only owners and moderators can remove members."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2924
+#: includes/Spaces/SpaceController.php:2928
 msgid "The space owner cannot be removed."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2928
+#: includes/Spaces/SpaceController.php:2932
 msgid "Could not remove the member."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2946
+#: includes/Spaces/SpaceController.php:2950
 msgid "A new_owner_id is required."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2957
+#: includes/Spaces/SpaceController.php:2961
 #: includes/Spaces/SpaceService.php:936
 msgid "Only the space owner can transfer ownership."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:2964
+#: includes/Spaces/SpaceController.php:2968
 msgid "The new owner must be an active member of the space."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:3102
+#: includes/Spaces/SpaceController.php:3106
 msgid "File must be under 5MB."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:3102
+#: includes/Spaces/SpaceController.php:3106
 msgid "File must be under 2MB."
 msgstr ""
 
-#: includes/Spaces/SpaceController.php:3232
+#: includes/Spaces/SpaceController.php:3236
 msgid "You do not have permission to manage this space."
 msgstr ""
 
@@ -16809,7 +16809,7 @@ msgid "Ask a member of this community to send you an invitation."
 msgstr ""
 
 #: templates/auth/signup.php:255
-#: templates/parts/guest-cta.php:39
+#: templates/parts/guest-cta.php:36
 msgid "Join the community"
 msgstr ""
 
@@ -18634,7 +18634,7 @@ msgid "Comment on this photo…"
 msgstr ""
 
 #. translators: %s: log-in link.
-#: templates/partials/media-lightbox.php:191
+#: templates/partials/media-lightbox.php:192
 #, php-format
 msgid "%s to comment."
 msgstr ""
@@ -19031,7 +19031,7 @@ msgid "Remove this file?"
 msgstr ""
 
 #: templates/partials/space-files-tab.php:217
-msgid "It moves to trash and leaves this list. You can restore it within 30 days."
+msgid "It is removed from this list."
 msgstr ""
 
 #: templates/partials/space-files-tab.php:220
@@ -19566,7 +19566,7 @@ msgstr ""
 msgid "You're browsing as a guest. Create an account to post, follow people, and join spaces."
 msgstr ""
 
-#: templates/parts/guest-cta.php:42
+#: templates/parts/guest-cta.php:39
 msgid "Sign up free"
 msgstr ""
 
@@ -20167,7 +20167,7 @@ msgid "Use the lock on each field to choose who sees it. You can make a field mo
 msgstr ""
 
 #: templates/parts/profile-field-group.php:68
-#: templates/profile/edit.php:578
+#: templates/profile/edit.php:579
 msgid "Add entry"
 msgstr ""
 
@@ -21942,46 +21942,46 @@ msgstr ""
 msgid "Connections page navigation"
 msgstr ""
 
-#: templates/profile/edit.php:42
+#: templates/profile/edit.php:43
 msgid "You do not have permission to edit this profile."
 msgstr ""
 
-#: templates/profile/edit.php:47
+#: templates/profile/edit.php:48
 msgid "Profile not found."
 msgstr ""
 
-#: templates/profile/edit.php:67
+#: templates/profile/edit.php:68
 msgid "Your account is suspended, so you cannot edit your profile right now."
 msgstr ""
 
-#: templates/profile/edit.php:363
+#: templates/profile/edit.php:364
 msgid "How others see you across the community."
 msgstr ""
 
-#: templates/profile/edit.php:365
+#: templates/profile/edit.php:366
 msgid "Account & settings"
 msgstr ""
 
-#: templates/profile/edit.php:430
+#: templates/profile/edit.php:431
 msgid "This section is not part of your current plan."
 msgstr ""
 
-#: templates/profile/edit.php:441
+#: templates/profile/edit.php:442
 msgid "See plans"
 msgstr ""
 
-#: templates/profile/edit.php:508
+#: templates/profile/edit.php:509
 msgid "Remove this entry"
 msgstr ""
 
-#: templates/profile/edit.php:780
-#: templates/profile/edit.php:786
-#: templates/profile/edit.php:815
+#: templates/profile/edit.php:781
+#: templates/profile/edit.php:787
+#: templates/profile/edit.php:816
 #: assets/js/blocks.js:387
 msgid "Member type"
 msgstr ""
 
-#: templates/profile/edit.php:816
+#: templates/profile/edit.php:817
 msgid "Pick the type that best describes you. Saved instantly."
 msgstr ""
 

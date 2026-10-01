@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -58,6 +58,23 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.3 - October 2026 =
+
+Bug-fix release: directory pagination, guest log-in return links, block theme support and a set of smaller fixes. Lockstep with BuddyNext Pro 1.2.3 - install and test both together.
+
+* Improve  - Pages with document uploads read the documents settings once per request instead of up to three times.
+* Fix      - Members and Spaces directory pages 2 and beyond open instead of showing Page not found.
+* Fix      - The Members directory no longer prints a line of code under the member grid, and the buddynext_members_after hook now fires.
+* Fix      - Log in links on the guest banner, the media lightbox, the profile editor and the login prompt return members to the page they were on.
+* Fix      - On block themes such as Twenty Twenty-Five, community pages show the theme's own header and footer and no longer log a deprecation notice on every load.
+* Fix      - Community pages expose a single main landmark when the theme already provides one, so screen reader skip links land in the right place.
+* Fix      - Dropdowns on BuddyNext admin screens show their arrow again.
+* Fix      - Report is no longer styled as a destructive action in the post options menu, matching the profile menu.
+* Fix      - Removing a file no longer promises a 30-day restore that the Files tab does not offer.
+* Fix      - The activity feed no longer fails on sites running an older WPMediaVerse.
+* Security - The invite-link endpoints answer "not found" for a secret space the member cannot see, so its existence is not revealed.
+* Dev      - The REST API reference documents the shared_post field on re-shared posts.
 
 = 1.2.2 - September 2026 =
 

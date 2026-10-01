@@ -507,7 +507,7 @@ if ( $current_user_id > 0 ) {
 	?>
 </div>
 
-
+<?php
 /**
  * Fires after the members directory inner content.
  *

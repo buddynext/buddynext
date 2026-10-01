@@ -2513,7 +2513,11 @@ class SpaceController extends BaseRestController {
 	 * @return WP_Error|null Error to return, or null when the current user may manage it.
 	 */
 	private function invite_link_denied( int $space_id ): ?WP_Error {
-		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+		// Same existence gate as GET /spaces/{id}: a space the viewer cannot see
+		// answers 404, never the manage-settings 403, so a secret space cannot be
+		// told apart from an id that does not exist.
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space || ! SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 		if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {

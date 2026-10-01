@@ -1033,6 +1033,7 @@ final class ResponseSchema {
 				'space_id'             => array( 'type' => array( 'integer', 'null' ) ),
 				'space_type'           => array( 'type' => array( 'string', 'null' ) ),
 				'shared_post_id'       => array( 'type' => array( 'integer', 'null' ) ),
+				'shared_post'          => array( 'type' => array( 'object', 'null' ) ),
 				'type'                 => array( 'type' => 'string' ),
 				'content'              => array( 'type' => 'string' ),
 				'media_ids'            => array(

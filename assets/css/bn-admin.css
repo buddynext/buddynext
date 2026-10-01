@@ -937,7 +937,7 @@ select.bn-select-input,
 	font-size: var(--bn-a-text-sm) !important;
 	line-height: 1.4 !important;
 	color: var(--bn-a-text-1) !important;
-	background: var(--bn-a-bg) !important;
+	background-color: var(--bn-a-bg) !important;
 	border: 1px solid var(--bn-a-input-border) !important;
 	border-radius: var(--bn-a-input-radius) !important;
 	box-shadow: none !important;
@@ -993,7 +993,7 @@ select.bn-text-input {
 	font-size: var(--bn-a-text-sm);
 	line-height: 1.4;
 	color: var(--bn-a-text-1);
-	background: var(--bn-a-bg);
+	background-color: var(--bn-a-bg);
 	border: 1px solid var(--bn-a-input-border);
 	border-radius: var(--bn-a-input-radius);
 	box-shadow: none;

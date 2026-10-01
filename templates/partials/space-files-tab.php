@@ -214,7 +214,7 @@ if ( $bn_sf_is_space ) {
 	$bn_sf_rm_i18n     = (string) wp_json_encode(
 		array(
 			'confirmTitle' => __( 'Remove this file?', 'buddynext' ),
-			'confirmBody'  => __( 'It moves to trash and leaves this list. You can restore it within 30 days.', 'buddynext' ),
+			'confirmBody'  => __( 'It is removed from this list.', 'buddynext' ),
 			'confirm'      => __( 'Remove', 'buddynext' ),
 			'cancel'       => __( 'Cancel', 'buddynext' ),
 			'done'         => __( 'File removed.', 'buddynext' ),

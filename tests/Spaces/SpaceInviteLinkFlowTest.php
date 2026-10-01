@@ -255,6 +255,24 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$this->assertWPError( $this->links->validate( $secret_id, 'bogusbogusbogusbogusbogusbogus00' ) );
 	}
 
+	/** @covers A secret space answers the invite-link routes like a missing id (404), so a member cannot probe it exists. */
+	public function test_secret_space_invite_link_routes_answer_404_to_outsider(): void {
+		$secret_id = (int) $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Secret probe',
+				'slug' => 'secret-probe',
+				'type' => 'secret',
+			)
+		);
+		wp_set_current_user( self::factory()->user->create() );
+
+		foreach ( array( 'GET', 'POST', 'DELETE' ) as $method ) {
+			$res = rest_do_request( new WP_REST_Request( $method, '/buddynext/v1/spaces/' . $secret_id . '/invite-link' ) );
+			$this->assertSame( 404, $res->get_status(), $method );
+		}
+	}
+
 	/** @covers Plan item: REST join with a token before onboarding returns onboarding_incomplete. */
 	public function test_join_before_onboarding_is_blocked(): void {
 		$this->enable_onboarding_gate();

@@ -167,7 +167,7 @@ do_action( 'buddynext_part_post_options_menu_before', $args );
 			<?php // Both items are present so the menu can flip Report -> Reported reactively after a report (state.hasReported), with the server-rendered hidden attribute matching the initial state to avoid a flash. ?>
 			<button
 				type="button"
-				class="bn-post-card__menu-item bn-post-card__menu-item--danger"
+				class="bn-post-card__menu-item"
 				role="menuitem"
 				data-wp-on--click="actions.reportPost"
 				data-wp-bind--hidden="state.hasReported"

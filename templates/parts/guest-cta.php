@@ -29,10 +29,7 @@ $bn_gc_lede = ( isset( $lede ) && '' !== (string) $lede )
 if ( isset( $redirect ) && '' !== (string) $redirect ) {
 	$bn_gc_redirect = (string) $redirect;
 } else {
-	$bn_gc_permalink = get_permalink();
-	$bn_gc_redirect  = $bn_gc_permalink
-		? (string) $bn_gc_permalink
-		: home_url( user_trailingslashit( (string) ( $GLOBALS['wp']->request ?? '' ) ) );
+	$bn_gc_redirect = \BuddyNext\Core\PageRouter::current_url();
 }
 ?>
 <div class="bn-guest-banner" role="banner">
