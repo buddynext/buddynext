@@ -411,7 +411,7 @@ $posts_pct_abs = abs( $posts_pct );
 		</aside>
 
 		<!-- Main content -->
-		<main class="bn-ca-main">
+		<div class="bn-ca-main">
 
 		<?php
 		// Section body router. The Members section renders its own list; every
@@ -1381,7 +1381,7 @@ $posts_pct_abs = abs( $posts_pct );
 
 		<?php endif; // 'members' section body vs the Overview dashboard. ?>
 
-		</main>
+		</div><!-- /.bn-ca-main -->
 
 	</div><!-- /.bn-ca-wrap -->
 

@@ -96,6 +96,7 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
+		add_filter( 'redirect_canonical', array( $this, 'keep_hub_paged_query' ), 10, 2 );
 
 		// Make a mapped hub page answer is_page()/is_singular() BEFORE
 		// template_redirect runs, so any code that keys on conditional tags at that
@@ -184,6 +185,28 @@ class PageRouter {
 		$query_vars['post__in'] = array( 0 );
 
 		return $query_vars;
+	}
+
+	/**
+	 * Keep a hub's `?paged=N` pager links as they are.
+	 *
+	 * Every hub pager (templates/parts/pagination.php, the members store) builds
+	 * `?paged=N`. With pretty permalinks core's redirect_canonical() 301s that to
+	 * `/{hub}/page/N/`, a URL no hub rewrite rule answers, so page 2 and beyond
+	 * landed on a 404. Cancel only that rewrite; every other canonical redirect
+	 * (trailing slash, host, scheme) still runs.
+	 *
+	 * @param string|false $redirect_url  Canonical URL core wants to send the visitor to.
+	 * @param string       $requested_url URL that was requested.
+	 * @return string|false
+	 */
+	public function keep_hub_paged_query( $redirect_url, $requested_url ) {
+		if ( ! is_string( $redirect_url ) || '' === (string) get_query_var( 'bn_hub', '' ) ) {
+			return $redirect_url;
+		}
+		$wants_pretty = (bool) preg_match( '#/page/\d+/?$#', (string) wp_parse_url( $redirect_url, PHP_URL_PATH ) );
+		$asked_query  = false !== strpos( (string) wp_parse_url( (string) $requested_url, PHP_URL_QUERY ), 'paged=' );
+		return ( $wants_pretty && $asked_query ) ? false : $redirect_url;
 	}
 
 	// ── Template dispatcher ───────────────────────────────────────────────────
@@ -1405,9 +1428,62 @@ class PageRouter {
 			? 'shell/auth-shell.php'
 			: 'shell/hub-shell.php';
 
+		// A block theme ships no header.php / footer.php, so locate_template() resolves
+		// to core's deprecated Kubrick fallback inside wp-includes. get_header() would
+		// load it (a deprecation line in the log on every hub load, and the theme's own
+		// header and footer template parts never render), so those themes get the
+		// block document instead.
+		if ( wp_is_block_theme() && 0 === strpos( wp_normalize_path( (string) locate_template( 'header.php' ) ), wp_normalize_path( ABSPATH . 'wp-includes' ) ) ) {
+			$this->render_shell_in_block_document( $shell_template, $shell_context );
+			return;
+		}
+
+		// The theme's header usually opens its own <main> (it closes in footer.php).
+		// Capture the header so the shell can render its content region as a plain
+		// <div> when the host already provides the page's single main landmark.
+		ob_start();
 		get_header();
+		$theme_header = (string) ob_get_clean();
+		echo $theme_header; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the theme's own header output, replayed unchanged.
+
+		$shell_context['host_has_main'] = (bool) preg_match( '/<main[\s>]/i', $theme_header );
 		buddynext_get_template( $shell_template, $shell_context );
 		get_footer();
+	}
+
+	/**
+	 * Render the shell between a block theme's header and footer template parts.
+	 *
+	 * Mirrors what the block template canvas outputs (head, body, the theme's
+	 * header part, content, the footer part, wp_footer) so the theme's own
+	 * chrome, global styles and wp_head output all apply.
+	 *
+	 * @param string               $shell_template Relative shell template.
+	 * @param array<string, mixed> $shell_context  Shell template context.
+	 * @return void
+	 */
+	private function render_shell_in_block_document( string $shell_template, array $shell_context ): void {
+		?>
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+	<meta charset="<?php bloginfo( 'charset' ); ?>">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+		<?php wp_head(); ?>
+</head>
+<body <?php body_class(); ?>>
+		<?php wp_body_open(); ?>
+<div class="wp-site-blocks">
+		<?php
+		block_template_part( 'header' );
+		buddynext_get_template( $shell_template, $shell_context );
+		block_template_part( 'footer' );
+		?>
+</div>
+		<?php wp_footer(); ?>
+</body>
+</html>
+		<?php
 	}
 
 	/**

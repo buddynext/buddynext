@@ -16581,6 +16581,12 @@
                             "null"
                         ]
                     },
+                    "shared_post": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
                     "type": {
                         "type": "string"
                     },

@@ -1884,8 +1884,11 @@ class WPMediaVerseBridge {
 	 */
 	public static function media_max_bytes( int $user_id = 0 ): int {
 		$server_ceiling = wp_max_upload_size();
-		$configured     = class_exists( '\\WPMediaVerse\\Core\\SettingsHelper' )
-			? \WPMediaVerse\Core\SettingsHelper::get_max_upload_size( $user_id )
+		// An older MediaVerse has the class but not this method; calling it
+		// unguarded fataled the composer (and so the whole feed).
+		$mvs_max    = array( '\\WPMediaVerse\\Core\\SettingsHelper', 'get_max_upload_size' );
+		$configured = is_callable( $mvs_max )
+			? (int) call_user_func( $mvs_max, $user_id )
 			: $server_ceiling;
 
 		/**
@@ -1998,12 +2001,21 @@ class WPMediaVerseBridge {
 		if ( ! self::documents_available() ) {
 			return array();
 		}
+		// The config cannot change inside one request, but building it costs a full
+		// internal REST call (~10 queries) and the composer plus a file page ask
+		// for it 2-3 times. Memoise per viewer for the request.
+		static $memo = array();
+		$uid         = get_current_user_id();
+		if ( isset( $memo[ $uid ] ) ) {
+			return $memo[ $uid ];
+		}
 		$res = rest_do_request( new \WP_REST_Request( 'GET', '/mvs/v1/app/config' ) );
 		if ( $res->is_error() ) {
 			return array();
 		}
-		$data = (array) $res->get_data();
-		return isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		$data         = (array) $res->get_data();
+		$memo[ $uid ] = isset( $data['documents'] ) && is_array( $data['documents'] ) ? $data['documents'] : array();
+		return $memo[ $uid ];
 	}
 
 	/**

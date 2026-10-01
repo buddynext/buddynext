@@ -25,6 +25,8 @@
  *   $hub                  string  Current hub slug.
  *   $context              array   Original context array — re-passed to the inner template.
  *   $show_right_sidebar   bool    Optional explicit override; otherwise detected from has_action.
+ *   $host_has_main        bool    True when the theme's header already opened a <main>; the
+ *                                 content region is then a <div> (one main landmark per page).
  *
  * @package BuddyNext
  */
@@ -36,6 +38,8 @@ defined( 'ABSPATH' ) || exit;
 if ( ! isset( $inner_template ) || '' === (string) $inner_template ) {
 	return;
 }
+$bn_main_tag = ! empty( $host_has_main ) ? 'div' : 'main';
+
 if ( ! isset( $hub ) ) {
 	$hub = (string) get_query_var( 'bn_hub', '' );
 }
@@ -106,7 +110,7 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 		// presence inside the swapped region — no class lives outside the region.
 		?>
 		<div class="bn-app__region"<?php echo $bn_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
-		<main class="bn-app__main" id="bn-main-content" tabindex="-1">
+		<<?php echo esc_attr( $bn_main_tag ); ?> class="bn-app__main" id="bn-main-content" tabindex="-1">
 			<?php
 			// Render a menu assigned to the "BuddyNext Community Nav" location. The
 			// location was registered (Plugin::register_nav_menus) but no template
@@ -133,7 +137,7 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 			// Trusted: buffered output from buddynext_get_template() — already escaped at point of emit.
 			echo $bn_main_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			?>
-		</main>
+		</<?php echo esc_attr( $bn_main_tag ); ?>>
 
 		<?php if ( $show_right_sidebar ) : ?>
 			<?php buddynext_get_template( 'shell/right-sidebar.php', array( 'hub' => $hub ) ); ?>

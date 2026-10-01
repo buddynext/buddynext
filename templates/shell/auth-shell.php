@@ -30,15 +30,18 @@ if ( ! isset( $context ) || ! is_array( $context ) ) {
 	$context = array();
 }
 
+// One main landmark per page: a host theme that already opened <main> keeps it.
+$bn_main_tag = ! empty( $host_has_main ) ? 'div' : 'main';
+
 ob_start();
 buddynext_get_template( (string) $inner_template, $context );
 $bn_auth_html = (string) ob_get_clean();
 ?>
 <div class="bn-app bn-app--auth" id="bn-app" data-bn-hub="<?php echo esc_attr( $hub ); ?>">
-	<main class="bn-auth" id="bn-main-content" tabindex="-1">
+	<<?php echo esc_attr( $bn_main_tag ); ?> class="bn-auth" id="bn-main-content" tabindex="-1">
 		<?php
 		// Trusted: buffered output from buddynext_get_template().
 		echo $bn_auth_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		?>
-	</main>
+	</<?php echo esc_attr( $bn_main_tag ); ?>>
 </div>
