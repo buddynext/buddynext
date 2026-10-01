@@ -92,6 +92,20 @@ class MemberBlogBridge {
 	}
 
 	/**
+	 * Whether profiles show the Articles tab: Member Blog is active and the
+	 * owner left the blog Integrations "nav" switch on.
+	 *
+	 * The one answer for the tab itself and for author links
+	 * (Profile\AuthorLinkListener), which go to the profile only while the
+	 * profile can list the author's posts.
+	 *
+	 * @return bool
+	 */
+	public static function articles_tab_available(): bool {
+		return self::available() && buddynext_integration_enabled( self::INTEGRATION, 'nav' );
+	}
+
+	/**
 	 * Declare the `nav` aspect on the existing blog integration entry.
 	 *
 	 * MERGES rather than replaces: BlogPostListener registers this same key for the
@@ -143,8 +157,7 @@ class MemberBlogBridge {
 	 * @param NavRegistry $registry Nav registry.
 	 */
 	public function register_nav_items( NavRegistry $registry ): void {
-		$enabled = static fn(): bool => self::available()
-			&& buddynext_integration_enabled( self::INTEGRATION, 'nav' );
+		$enabled = static fn(): bool => self::articles_tab_available();
 
 		$registry->register(
 			array(

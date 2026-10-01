@@ -14,8 +14,15 @@ use WP_UnitTestCase;
 
 /**
  * Every author link a theme builds with get_author_posts_url() is handed the member's
- * profile instead - but only where that viewer can open the profile and only on the
- * front end. Member Blog is not involved: the rule holds with or without it.
+ * profile instead - but only while the profile lists the author's posts (Member Blog
+ * active, Articles tab on), only where that viewer can open the profile and only on
+ * the front end.
+ *
+ * Each test runs in its own process: Member Blog is "active" when its version
+ * constant is defined, and a constant cannot be undefined for the inactive case.
+ *
+ * @runTestsInSeparateProcesses
+ * @preserveGlobalState disabled
  */
 class AuthorLinkListenerTest extends WP_UnitTestCase {
 
@@ -33,6 +40,9 @@ class AuthorLinkListenerTest extends WP_UnitTestCase {
 	 */
 	public function set_up(): void {
 		parent::set_up();
+		if ( 'test_without_member_blog_bylines_keep_the_author_archive' !== $this->getName( false ) && ! defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ) ) {
+			define( 'BUDDYPRESS_MEMBER_BLOG_VERSION', 'test' );
+		}
 		$this->author_id = self::factory()->user->create( array( 'user_login' => 'byline_author' ) );
 		wp_set_current_user( 0 );
 		remove_all_filters( 'author_link' );
@@ -122,5 +132,17 @@ class AuthorLinkListenerTest extends WP_UnitTestCase {
 		$this->assertNotSame( buddynext_member_url( $this->author_id ), get_author_posts_url( $this->author_id ) );
 
 		delete_option( 'buddynext_integration_blog_nav' );
+	}
+
+	/**
+	 * Without Member Blog the profile lists no posts, so a byline keeps the
+	 * WordPress author archive, which does.
+	 *
+	 * @return void
+	 */
+	public function test_without_member_blog_bylines_keep_the_author_archive(): void {
+		$this->assertFalse( defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ) );
+		$this->assertNotSame( buddynext_member_url( $this->author_id ), get_author_posts_url( $this->author_id ) );
+		$this->assertStringContainsString( 'author', get_author_posts_url( $this->author_id ) );
 	}
 }
