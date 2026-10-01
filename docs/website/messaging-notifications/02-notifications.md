@@ -44,7 +44,7 @@ A member never gets notified about their own actions, and notifications are supp
 
 ### Viewing notifications
 
-The bell icon sits in the site header. When you have unread notifications, a small badge shows the count (it caps at "99+"). Click the bell to open the full Notifications page, which lists everything addressed to you, newest first, grouped into Today, Yesterday, and Older. Each row shows who acted, what they did, and a relative time, and links to the post, profile, or space it refers to.
+The bell icon sits in the site header. When you have new notifications, a small badge shows the count (it caps at "99+"). On a computer or tablet, clicking the bell opens a preview of your latest eight notifications right under it, with **Mark all as read** and **See all notifications**; opening it clears the badge without marking anything read, the same as opening the page. Escape or a click elsewhere closes it. On a phone, the bell goes straight to the full Notifications page, which lists everything addressed to you, newest first, grouped into Today, Yesterday, and Older. Each row shows who acted, what they did, and a relative time, and links to the post, profile, or space it refers to.
 
 
 ### Marking as read and mark-all-read

@@ -18747,6 +18747,9 @@
                     "actor_name": {
                         "type": "string"
                     },
+                    "actor_avatar_url": {
+                        "type": "string"
+                    },
                     "created_at_gmt": {
                         "type": "string",
                         "format": "date-time"

@@ -36,7 +36,13 @@ $aria_label   = sprintf(
 // display_errors on) injecting the warning HTML mid-tag so `class="..." data-user-id="1">`
 // leaked as visible text before the bell. Use the block wrapper only when a block is
 // actually rendering; otherwise emit the same attributes by hand.
-$bn_nb_attrs = array(
+$bn_nb_panel_id = wp_unique_id( 'bn-notif-panel-' );
+$bn_nb_i18n     = array(
+	'loading' => __( 'Loading notifications…', 'buddynext' ),
+	'empty'   => __( 'You are all caught up.', 'buddynext' ),
+	'error'   => __( 'Could not load notifications. Open the notifications page instead.', 'buddynext' ),
+);
+$bn_nb_attrs    = array(
 	'class'        => 'bn-block-notification-bell',
 	'data-user-id' => (string) absint( $user_id ),
 );
@@ -60,6 +66,9 @@ echo $bn_nb_wrapper;
 		href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notifications_url() ); ?>"
 		class="bn-notification-bell-link"
 		aria-label="<?php echo esc_attr( $aria_label ); ?>"
+		aria-expanded="false"
+		aria-controls="<?php echo esc_attr( $bn_nb_panel_id ); ?>"
+		data-bn-notif-toggle
 	>
 		<span class="bn-notification-bell-icon" aria-hidden="true">
 			<?php buddynext_icon( 'bell' ); ?>
@@ -77,4 +86,26 @@ echo $bn_nb_wrapper;
 			</span>
 		<?php endif; ?>
 	</a>
+	<?php
+	// The preview panel (desktop + tablet). Filled on open by
+	// assets/js/header/user-menu.js from GET /me/notifications - nothing is
+	// fetched until the bell is clicked. On phones the bell stays a plain link to
+	// the notifications page, which is also what it does without JavaScript.
+	?>
+	<div
+		class="bn-notif-panel"
+		id="<?php echo esc_attr( $bn_nb_panel_id ); ?>"
+		role="region"
+		aria-label="<?php esc_attr_e( 'Notifications', 'buddynext' ); ?>"
+		data-endpoint="<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications' ) ); ?>"
+		data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+		data-i18n="<?php echo esc_attr( (string) wp_json_encode( $bn_nb_i18n ) ); ?>"
+	>
+		<div class="bn-notif-panel__head">
+			<span class="bn-notif-panel__title"><?php esc_html_e( 'Notifications', 'buddynext' ); ?></span>
+			<button type="button" class="bn-notif-panel__mark" data-bn-notif-markall hidden><?php esc_html_e( 'Mark all as read', 'buddynext' ); ?></button>
+		</div>
+		<ul class="bn-notif-panel__list" aria-busy="false"></ul>
+		<a class="bn-notif-panel__all" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notifications_url() ); ?>"><?php esc_html_e( 'See all notifications', 'buddynext' ); ?></a>
+	</div>
 </div>

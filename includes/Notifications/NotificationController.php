@@ -259,12 +259,14 @@ class NotificationController extends BaseRestController {
 			$result['items'][ $i ] = array_merge(
 				$item,
 				array(
-					'message'    => (string) ( $payload['message'] ?? '' ),
-					'url'        => (string) ( $payload['url'] ?? '' ),
-					'icon'       => (string) ( $payload['icon'] ?? 'bell' ),
-					'tone'       => (string) ( $payload['tone'] ?? 'info' ),
-					'label'      => (string) ( $payload['label'] ?? '' ),
-					'actor_name' => (string) ( $payload['actor_name'] ?? '' ),
+					'message'          => (string) ( $payload['message'] ?? '' ),
+					'url'              => (string) ( $payload['url'] ?? '' ),
+					'icon'             => (string) ( $payload['icon'] ?? 'bell' ),
+					'tone'             => (string) ( $payload['tone'] ?? 'info' ),
+					'label'            => (string) ( $payload['label'] ?? '' ),
+					'actor_name'       => (string) ( $payload['actor_name'] ?? '' ),
+					// compose_batch() primed the user cache, so this is a cache hit.
+					'actor_avatar_url' => (int) ( $payload['actor_id'] ?? 0 ) > 0 ? (string) get_avatar_url( (int) $payload['actor_id'], array( 'size' => 64 ) ) : '',
 				)
 			);
 		}
