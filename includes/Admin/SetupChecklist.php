@@ -60,6 +60,68 @@ final class SetupChecklist {
 	public function register(): void {
 		add_action( 'admin_post_bn_dismiss_setup', array( $this, 'handle_dismiss' ) );
 		add_action( 'admin_post_bn_ack_theme_tip', array( $this, 'handle_ack_theme_tip' ) );
+		add_action( 'admin_post_bn_use_pretty_permalinks', array( $this, 'handle_use_pretty_permalinks' ) );
+		add_action( 'admin_notices', array( self::class, 'render_permalink_notice' ) );
+	}
+
+	/**
+	 * True when WordPress runs Plain (?p=123) permalinks.
+	 *
+	 * BuddyNext's pages are rewrite routes (/members/, /spaces/{slug}/), so with
+	 * Plain permalinks every one of them falls through to the home page. It is a
+	 * hard requirement, not a preference.
+	 *
+	 * @return bool
+	 */
+	public static function needs_pretty_permalinks(): bool {
+		return '' === (string) get_option( 'permalink_structure' );
+	}
+
+	/**
+	 * Admin notice on every screen while permalinks are Plain.
+	 *
+	 * Not dismissible: until it is fixed no community page works. Shown to
+	 * owners only (manage_options), with a one-click switch to Post name and a
+	 * link to Settings > Permalinks for anyone who prefers another structure.
+	 *
+	 * @return void
+	 */
+	public static function render_permalink_notice(): void {
+		if ( ! self::needs_pretty_permalinks() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$switch_url = wp_nonce_url( admin_url( 'admin-post.php?action=bn_use_pretty_permalinks' ), 'bn_use_pretty_permalinks' );
+		?>
+		<div class="notice notice-error">
+			<p><strong><?php esc_html_e( 'BuddyNext needs pretty permalinks.', 'buddynext' ); ?></strong>
+			<?php esc_html_e( 'Your site uses Plain links (?p=123), so community pages such as Members and Spaces show your home page instead. Switch to a pretty structure to turn the community on.', 'buddynext' ); ?></p>
+			<p>
+				<a class="button button-primary" href="<?php echo esc_url( $switch_url ); ?>"><?php esc_html_e( 'Use Post name permalinks', 'buddynext' ); ?></a>
+				<a class="button" href="<?php echo esc_url( admin_url( 'options-permalink.php' ) ); ?>"><?php esc_html_e( 'Choose another structure', 'buddynext' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Handle admin_post_bn_use_pretty_permalinks — switch to /%postname%/.
+	 *
+	 * The same setting the owner would pick on Settings > Permalinks, saved the
+	 * way that screen saves it (WP_Rewrite::set_permalink_structure() then a hard
+	 * flush so .htaccess is written where the server allows it).
+	 *
+	 * @return void
+	 */
+	public function handle_use_pretty_permalinks(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'bn_use_pretty_permalinks' );
+		global $wp_rewrite;
+		$wp_rewrite->set_permalink_structure( '/%postname%/' );
+		flush_rewrite_rules( true );
+		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=buddynext' ) );
+		exit;
 	}
 
 	/**
@@ -94,6 +156,15 @@ final class SetupChecklist {
 	 */
 	public static function steps(): array {
 		return array(
+			array(
+				'key'       => 'permalinks',
+				'label'     => __( 'Pretty permalinks', 'buddynext' ),
+				'desc'      => __( 'Community pages need readable links (Settings > Permalinks, not Plain). Post name works for most sites.', 'buddynext' ),
+				'done'      => ! self::needs_pretty_permalinks(),
+				'cta'       => admin_url( 'options-permalink.php' ),
+				'cta_label' => __( 'Set permalinks', 'buddynext' ),
+				'icon'      => 'link',
+			),
 			array(
 				'key'       => 'pages',
 				'label'     => __( 'Community pages created', 'buddynext' ),

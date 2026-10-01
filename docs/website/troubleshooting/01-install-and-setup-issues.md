@@ -6,7 +6,7 @@ Problems you might hit activating BuddyNext, running the Setup Wizard, or gettin
 
 **Symptom:** The feed, members, spaces, or another BuddyNext page 404s immediately after activating the plugin.
 
-**Likely cause:** WordPress's rewrite rules have not picked up BuddyNext's new page routes yet, or the site is set to Plain permalinks.
+**Likely cause:** WordPress's rewrite rules have not picked up BuddyNext's new page routes yet, or the site is set to Plain permalinks (then every community page shows your home page, and wp-admin shows a "BuddyNext needs pretty permalinks" notice with a one-click fix).
 
 **Fix:**
 1. Go to **Settings > Permalinks** in wp-admin.
