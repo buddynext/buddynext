@@ -1,7 +1,7 @@
 /* BuddyNext — Spaces Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
-import { onNavReady } from '@buddynext/nav-init';
+import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { bnConfirm, bnReloadWithToast } from '@buddynext/shell-dialog';
@@ -2506,7 +2506,7 @@ function applySpacesFilter() {
 
 /* Rebuild the directory pager for the reactive (filtered) result set. The reactive
  * view always lands on page 1; pages 2+ are SSR <a> links carrying the current
- * filters + bn_page=N, so they reload server-side via the indexed OFFSET (no reactive
+ * filters at /spaces/page/N/, so they reload server-side via the indexed OFFSET (no reactive
  * deep-offset fetches). Markup mirrors parts/pagination.php (.bn-pagination/.bn-page-btn). */
 function rebuildReactivePager( totalPages ) {
 	var container = document.querySelector( '[data-bn-sd-pager]' );
@@ -2515,12 +2515,8 @@ function rebuildReactivePager( totalPages ) {
 	totalPages = parseInt( totalPages, 10 ) || 1;
 	if ( totalPages < 2 ) { return; }
 
-	var base = new URL( window.location.href );
-	base.searchParams.delete( 'bn_page' );
 	function href( n ) {
-		var u = new URL( base.href );
-		if ( n > 1 ) { u.searchParams.set( 'bn_page', String( n ) ); }
-		return u.pathname + u.search;
+		return bnPageUrl( window.location.href, n );
 	}
 	function item( label, n, isCurrent, isDots ) {
 		var el;
@@ -2672,10 +2668,10 @@ async function executeSpacesFilter() {
 			if ( state.categorySlug ) { url.searchParams.set( 'bn_cat', state.categorySlug ); }
 			else { url.searchParams.delete( 'bn_cat' ); }
 			url.searchParams.delete( 'bn_type' );
-			url.searchParams.delete( 'bn_page' );
 			if ( state.sort && 'popular' !== state.sort ) { url.searchParams.set( 'bn_sort', state.sort ); }
 			else { url.searchParams.delete( 'bn_sort' ); }
-			window.history.replaceState( {}, '', url.toString() );
+			// A filter change lands on page 1.
+			window.history.replaceState( {}, '', bnPageUrl( url.toString(), 1 ) );
 		} catch ( _e ) {}
 
 		// Rebuild the pager AFTER the URL is updated so its SSR page-links carry the

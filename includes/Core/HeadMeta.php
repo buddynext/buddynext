@@ -127,6 +127,21 @@ final class HeadMeta {
 			1
 		);
 
+		// One canonical tag per page. WordPress core (rel_canonical() on a
+		// page-backed hub), Yoast and Rank Math each print their own; hand them
+		// this surface's URL instead of printing a second tag beside theirs.
+		$canonical = static fn(): string => self::canonical_url( $descriptor );
+		add_filter(
+			'get_canonical_url',
+			// Only for the page being viewed; any other post's canonical (an embed,
+			// a related-post block) is left as core computed it.
+			static fn( $url, $post = null ) => ( ! $post instanceof \WP_Post || get_queried_object_id() === (int) $post->ID ) ? $canonical() : $url,
+			10,
+			2
+		);
+		add_filter( 'wpseo_canonical', $canonical );
+		add_filter( 'rank_math/frontend/canonical', $canonical );
+
 		/*
 		 * Two guards, for two different ways this emitter used to take a title
 		 * that was not its to take.
@@ -313,12 +328,7 @@ final class HeadMeta {
 	 * @return void
 	 */
 	private static function print_tags( array $d ): void {
-		$url = (string) $d['url'];
-		// A hub set as the static front page lives at the site root; its own slug
-		// 301s back there, so the canonical must be the root (card 10343760220).
-		if ( is_front_page() ) {
-			$url = home_url( '/' );
-		}
+		$url     = self::canonical_url( $d );
 		$type    = (string) ( $d['type'] ?? 'website' );
 		$noindex = ! empty( $d['noindex'] );
 
@@ -360,7 +370,9 @@ final class HeadMeta {
 			$image = self::site_image();
 		}
 
-		printf( "<link rel=\"canonical\" href=\"%s\" />\n", esc_url( $url ) );
+		if ( ! self::canonical_printed_elsewhere() ) {
+			printf( "<link rel=\"canonical\" href=\"%s\" />\n", esc_url( $url ) );
+		}
 
 		if ( $noindex ) {
 			echo "<meta name=\"robots\" content=\"noindex, nofollow\" />\n";
@@ -410,6 +422,44 @@ final class HeadMeta {
 		if ( '' !== $image ) {
 			printf( "<meta name=\"twitter:image\" content=\"%s\" />\n", esc_url( $image ) );
 		}
+	}
+
+	/**
+	 * The canonical URL for a surface descriptor.
+	 *
+	 * A hub set as the static front page lives at the site root; its own slug
+	 * 301s back there, so the canonical is the root (card 10343760220). Page N
+	 * of a list is its own canonical (/members/page/2/), as on any WordPress
+	 * archive; pointing it at page 1 would tell search engines to drop it.
+	 *
+	 * @param array<string,mixed> $d Surface descriptor.
+	 * @return string
+	 */
+	public static function canonical_url( array $d ): string {
+		$url = is_front_page() ? home_url( '/' ) : (string) ( $d['url'] ?? '' );
+
+		$paged = (int) get_query_var( 'paged', 0 );
+		if ( $paged > 1 && '' !== $url && ! preg_match( '#/page/\d+/?(\?|$)#', $url ) ) {
+			$parts = explode( '?', $url, 2 );
+			$url   = trailingslashit( $parts[0] ) . user_trailingslashit( 'page/' . $paged, 'paged' ) . ( isset( $parts[1] ) ? '?' . $parts[1] : '' );
+		}
+		return $url;
+	}
+
+	/**
+	 * Will WordPress core or an SEO plugin print the canonical tag for this page?
+	 *
+	 * Core's rel_canonical() prints only on a singular view with a real queried
+	 * object; an SEO plugin owns the tag whenever it is active. In both cases the
+	 * URL reaches them through the filters registered in emit().
+	 *
+	 * @return bool
+	 */
+	private static function canonical_printed_elsewhere(): bool {
+		if ( PageRouter::seo_plugin_active() ) {
+			return true;
+		}
+		return is_singular() && get_queried_object_id() > 0 && false !== has_action( 'wp_head', 'rel_canonical' );
 	}
 
 	/**

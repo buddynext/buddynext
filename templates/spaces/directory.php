@@ -44,7 +44,7 @@ $bn_search       = isset( $_GET['bn_search'] ) ? sanitize_text_field( wp_unslash
 $bn_cat_slug     = isset( $_GET['bn_cat'] ) ? sanitize_key( wp_unslash( $_GET['bn_cat'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_visibility   = isset( $_GET['bn_type'] ) ? sanitize_key( wp_unslash( $_GET['bn_type'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_orderby      = isset( $_GET['bn_sort'] ) ? sanitize_key( wp_unslash( $_GET['bn_sort'] ) ) : 'popular'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_paged        = isset( $_GET['bn_page'] ) ? max( 1, absint( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_paged        = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $bn_per_page     = 18;
 // Opt-in: include sub-spaces in the directory (off by default — the directory is
 // roots-only so it stays uncrowded and bounded at 20-30k member-created spaces).
@@ -746,7 +746,6 @@ $bn_subtitle = sprintf(
 				array(
 					'current'    => $bn_paged,
 					'total'      => $total_pages,
-					'query_var'  => 'bn_page',
 					'aria_label' => __( 'Spaces directory pages', 'buddynext' ),
 				)
 			);

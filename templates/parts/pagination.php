@@ -13,7 +13,8 @@
  * @var int    $total        Required. Total number of pages.
  * @var string $base_url     Optional. Base URL pattern with %#% placeholder. When
  *                           omitted, uses the current page URL.
- * @var string $query_var    Optional. Query var used in the base URL. Default 'paged'.
+ * @var string $query_var    Optional. Query var used in the base URL. Default 'paged',
+ *                           which produces core's /page/N/ links.
  * @var int    $end_size     Optional. Number of page numbers shown at the edges. Default 1.
  * @var int    $mid_size     Optional. Number of page numbers shown around the current page. Default 2.
  * @var string $prev_text    Optional. Previous-link text. Defaults to a localized arrow.
@@ -72,16 +73,7 @@ $bn_class   = trim(
 	)
 );
 
-if ( '' === (string) $args['base_url'] ) {
-	$bn_current_url = remove_query_arg( (string) $args['query_var'] );
-	$bn_base        = add_query_arg( (string) $args['query_var'], '%#%', $bn_current_url );
-} else {
-	$bn_base = (string) $args['base_url'];
-}
-
 $bn_paginate_args = array(
-	'base'      => $bn_base,
-	'format'    => '',
 	'current'   => (int) $args['current'],
 	'total'     => (int) $args['total'],
 	'end_size'  => (int) $args['end_size'],
@@ -90,6 +82,17 @@ $bn_paginate_args = array(
 	'next_text' => (string) $args['next_text'],
 	'type'      => 'array',
 );
+
+// 'paged' with no explicit base: leave base/format to core, which builds the
+// same /page/N/ links every WordPress archive uses (and keeps the page's other
+// query args). A custom query var keeps the ?var=N form.
+if ( '' !== (string) $args['base_url'] ) {
+	$bn_paginate_args['base']   = (string) $args['base_url'];
+	$bn_paginate_args['format'] = '';
+} elseif ( 'paged' !== (string) $args['query_var'] ) {
+	$bn_paginate_args['base']   = add_query_arg( (string) $args['query_var'], '%#%', remove_query_arg( (string) $args['query_var'] ) );
+	$bn_paginate_args['format'] = '';
+}
 
 /** Computed paginate_links() args. @var array<string,mixed> $bn_paginate_args */
 $bn_paginate_args = (array) apply_filters( 'buddynext_part_pagination_paginate_args', $bn_paginate_args, $args );

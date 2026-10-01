@@ -96,7 +96,6 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
-		add_filter( 'redirect_canonical', array( $this, 'keep_hub_paged_query' ), 10, 2 );
 
 		// Make a mapped hub page answer is_page()/is_singular() BEFORE
 		// template_redirect runs, so any code that keys on conditional tags at that
@@ -271,7 +270,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-09-26-retire-moderation-hub';
+	private const ROUTER_VERSION = '2026-10-01-hub-page-n';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -299,28 +298,6 @@ class PageRouter {
 		$query_vars['post__in'] = array( 0 );
 
 		return $query_vars;
-	}
-
-	/**
-	 * Keep a hub's `?paged=N` pager links as they are.
-	 *
-	 * Every hub pager (templates/parts/pagination.php, the members store) builds
-	 * `?paged=N`. With pretty permalinks core's redirect_canonical() 301s that to
-	 * `/{hub}/page/N/`, a URL no hub rewrite rule answers, so page 2 and beyond
-	 * landed on a 404. Cancel only that rewrite; every other canonical redirect
-	 * (trailing slash, host, scheme) still runs.
-	 *
-	 * @param string|false $redirect_url  Canonical URL core wants to send the visitor to.
-	 * @param string       $requested_url URL that was requested.
-	 * @return string|false
-	 */
-	public function keep_hub_paged_query( $redirect_url, $requested_url ) {
-		if ( ! is_string( $redirect_url ) || '' === (string) get_query_var( 'bn_hub', '' ) ) {
-			return $redirect_url;
-		}
-		$wants_pretty = (bool) preg_match( '#/page/\d+/?$#', (string) wp_parse_url( $redirect_url, PHP_URL_PATH ) );
-		$asked_query  = false !== strpos( (string) wp_parse_url( (string) $requested_url, PHP_URL_QUERY ), 'paged=' );
-		return ( $wants_pretty && $asked_query ) ? false : $redirect_url;
 	}
 
 	// ── Template dispatcher ───────────────────────────────────────────────────
@@ -480,6 +457,18 @@ class PageRouter {
 				? sanitize_text_field( wp_unslash( $_GET['q'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				: '';
 			wp_safe_redirect( self::search_url( $q ), 301 );
+			exit;
+		}
+
+		// Spaces directory pages were ?bn_page=N before 1.2.4; send old links and
+		// bookmarks to the /spaces/page/N/ address with their filters kept.
+		if ( 'spaces' === (string) get_query_var( 'bn_hub', '' ) && '' === (string) get_query_var( 'bn_space_slug', '' )
+			&& isset( $_GET['bn_page'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		) {
+			$page = absint( $_GET['bn_page'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$dest = trailingslashit( self::spaces_url() ) . ( $page > 1 ? user_trailingslashit( 'page/' . $page, 'paged' ) : '' );
+			$keep = array_diff_key( wp_unslash( $_GET ), array( 'bn_page' => true ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			wp_safe_redirect( add_query_arg( array_map( 'rawurlencode', array_map( 'strval', array_filter( $keep, 'is_scalar' ) ) ), $dest ), 301 );
 			exit;
 		}
 
@@ -2837,6 +2826,21 @@ class PageRouter {
 	public static function register_people_rules(): void {
 		$p = self::hub_slug( 'buddynext_slug_people', 'members' );
 
+		// WordPress-style pagination, the same /page/N/ shape every archive uses:
+		// /members/page/N/ and any paginated profile tab /members/{slug}/{tab}/page/N/.
+		// Registered first so "page" is never read as a username (as core does
+		// for /author/page/N/). core's redirect_canonical() sends ?paged=N here.
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/page/([0-9]+)/?$',
+			'index.php?bn_hub=people&paged=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/([^/]+)/page/([0-9]+)/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=$matches[2]&paged=$matches[3]',
+			'top'
+		);
+
 		// Generic profile sub-route: ANY tab slug becomes a pretty URL
 		// (/members/{slug}/{tab}/). Replaces the per-action rules so core tabs
 		// (edit, connections, followers, following, media, badges, replies,
@@ -2916,6 +2920,14 @@ class PageRouter {
 	 */
 	public static function register_spaces_rules(): void {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
+
+		// WordPress-style directory pagination: /spaces/page/N/. First, so "page"
+		// is not read as a space slug.
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/page/([0-9]+)/?$',
+			'index.php?bn_hub=spaces&paged=$matches[1]',
+			'top'
+		);
 
 		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
 		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
