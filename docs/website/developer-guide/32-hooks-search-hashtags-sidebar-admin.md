@@ -26,6 +26,7 @@ The action and filter seams for unified search, the hashtag system, the search i
 | `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line | `string $html, ...` |
 | `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | - |
 | `buddynext_search_space_object_type` | filter | A space is (re)indexed. Return another slug to list that space in its own search section and tab instead of Spaces (since 1.2.2) | `string $type = 'space', array $space_row` |
+| `buddynext_route_core_search` | filter | A front-end core `?s=` search runs (not a BuddyNext hub). Return `true` to redirect it to the community search page. Default `false` since 1.2.4: core, theme and WooCommerce search stay with WordPress, and the theme's results page links to community results instead | `bool $route` |
 | `buddynext_search_type_labels` | filter | The search page names its extra-type sections and tabs | `array<string,string> $labels` (type slug => plural label) |
 
 > **Note:** `buddynext_search_query_args` is where the `member_label`, `tier_slug`, `space_id`, and `joined_after` keys enter the query. BuddyNext Free reads any of those keys if present, but only BuddyNext Pro populates them (and populates `buddynext_search_filter_options` so the controls appear). The page degrades cleanly with Pro inactive: no provider, no control.

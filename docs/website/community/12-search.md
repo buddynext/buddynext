@@ -75,6 +75,12 @@ You can place a search input anywhere on your site with the Search Bar block. Ad
 
 The block also supports the standard editor controls for background and text color, font size, padding, and margin, so it fits the design of whatever page you place it on.
 
+### Your site's own search stays yours
+
+BuddyNext does not take over WordPress search. The search box in your theme, WooCommerce product search and any other directory search keep working exactly as before. When someone runs a site search, the theme's results page shows a short note at the top - "Looking for people, spaces or community posts? See community results for ..." - that opens the same terms in community search. Product and other catalogue searches do not get the note.
+
+If you would rather every site search open community search instead, add `add_filter( 'buddynext_route_core_search', '__return_true' );` to a small plugin or your child theme.
+
 ### Public explore and search visibility
 
 The search page is safe to expose to logged-out visitors: a signed-out search matches public content only, and it never reaches the members-only plan of the index. The related visibility control for guests is the public explore feed - see Explore for how to make discovery surfaces members-only.

@@ -113,9 +113,123 @@ class PageRouter {
 
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
+		// The theme's search results page links to the community results.
+		add_action( 'loop_start', array( $this, 'community_search_note' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_community_search_note_style' ) );
+		add_filter( 'render_block_core/query-no-results', array( $this, 'prepend_community_search_note' ) );
+		add_action( 'get_template_part', array( $this, 'community_search_note_on_no_results' ), 10, 2 );
+
 		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
 		// "Edit Page" resolves to wp-admin/edit.php. Drop that node on hub routes.
 		add_action( 'admin_bar_menu', array( $this, 'remove_hub_edit_node' ), 999 );
+	}
+
+	/**
+	 * The "community results" link for the theme's own search results page.
+	 *
+	 * Members, spaces and posts live in BuddyNext's tables, so a core search
+	 * cannot list them; this points the searcher at the community search for the
+	 * same terms. Only on an unscoped front-end search (a WooCommerce product or
+	 * other post-type search is about that catalogue), and only once per page.
+	 *
+	 * @return string The note markup, or '' when it does not apply.
+	 */
+	private function community_search_note_html(): string {
+		static $printed = false;
+
+		$term = (string) get_search_query( false );
+		// 'any' (set by themes/plugins on a plain search) is still unscoped.
+		$post_type = get_query_var( 'post_type', '' );
+		$scoped    = ! in_array( $post_type, array( '', 'any', array() ), true );
+		if ( $printed || ! is_search() || is_admin() || '' === trim( $term ) || $scoped ) {
+			return '';
+		}
+		$printed = true;
+		return sprintf(
+			'<div class="bn-community-search-note" role="note"><span>%1$s</span> <a href="%2$s">%3$s</a></div>',
+			esc_html__( 'Looking for people, spaces or community posts?', 'buddynext' ),
+			esc_url( self::search_url( $term ) ),
+			/* translators: %s: the search terms. */
+			sprintf( esc_html__( 'See community results for &#8220;%s&#8221;', 'buddynext' ), esc_html( $term ) )
+		);
+	}
+
+	/**
+	 * Style the community results note on the theme's search page.
+	 *
+	 * The note sits inside the theme's markup, so it takes the theme's font and
+	 * colours and draws its frame from currentColor: right on any theme, light or
+	 * dark, without BuddyNext's token sheet on a non-BuddyNext page.
+	 *
+	 * @return void
+	 */
+	public function enqueue_community_search_note_style(): void {
+		if ( ! is_search() ) {
+			return;
+		}
+		wp_register_style( 'buddynext-search-note', false, array(), BUDDYNEXT_VERSION );
+		wp_enqueue_style( 'buddynext-search-note' );
+		wp_add_inline_style(
+			'buddynext-search-note',
+			'.bn-community-search-note{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25em .5em;margin:0 0 1.5em;padding:.75em 1em;'
+			. 'border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:8px;'
+			. 'background:color-mix(in srgb,currentColor 4%,transparent);font-size:.9375em;line-height:1.5}'
+			. '.bn-community-search-note a{font-weight:600;text-decoration:underline;text-underline-offset:.2em}'
+		);
+	}
+
+	/**
+	 * Print the community results link at the top of the theme's results loop.
+	 *
+	 * @param \WP_Query $query The loop's query.
+	 * @return void
+	 */
+	public function community_search_note( $query ): void {
+		if ( $query instanceof \WP_Query && $query->is_main_query() ) {
+			echo $this->community_search_note_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in community_search_note_html().
+		}
+	}
+
+	/**
+	 * Print the community results link above a classic theme's "nothing found" part.
+	 *
+	 * With zero hits the loop never starts, so loop_start cannot carry the link;
+	 * classic themes load a no-results part instead (`content-none` in Reign and
+	 * the Twenty* line, `content/error` in BuddyX). A member searching a person's
+	 * name lands here most often, so this is the case that matters.
+	 *
+	 * @param string      $slug Template part slug.
+	 * @param string|null $name Template part name.
+	 * @return void
+	 */
+	public function community_search_note_on_no_results( $slug, $name = null ): void {
+		global $wp_query;
+		if ( ! $wp_query instanceof \WP_Query || $wp_query->post_count > 0 ) {
+			return;
+		}
+		if ( ! preg_match( '/(^|[-\/])(none|error|no-results)$/', (string) $slug . ( $name ? '-' . $name : '' ) ) ) {
+			return;
+		}
+		echo $this->community_search_note_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in community_search_note_html().
+	}
+
+	/**
+	 * Add the community results link to a block theme's "no results" block.
+	 *
+	 * @param string $content Rendered block content.
+	 * @return string
+	 */
+	public function prepend_community_search_note( $content ): string {
+		$content = (string) $content;
+		$note    = $this->community_search_note_html();
+		if ( '' === $note ) {
+			return $content;
+		}
+		// Inside the block's wrapper, so the note shares its content edges.
+		$open = strpos( $content, '>' );
+		return ( 0 === strpos( ltrim( $content ), '<div' ) && false !== $open )
+			? substr_replace( $content, $note, $open + 1, 0 )
+			: $note . $content;
 	}
 
 	/**
@@ -369,14 +483,23 @@ class PageRouter {
 			exit;
 		}
 
-		// Theme search box (core ?s=) finds no community content: members, spaces
-		// and activity live in custom tables, invisible to a core wp_posts query,
-		// so a visitor's search returns an empty theme results page. Route the core
-		// search to BuddyNext's own search, which does cover community content.
-		// Filterable so an owner who prefers the theme's native search can opt out.
+		// Core search (?s=) belongs to WordPress and the theme: WooCommerce product
+		// search, CPT directories and the blog all run through it, and BuddyNext's
+		// own search cannot see wp_posts. So it is left alone; the theme's results
+		// page carries a link to the community results instead (see
+		// community_search_note()). An owner who wants the whole site search to be
+		// the community search can opt back in.
 		if ( is_search() && is_main_query()
 			&& '' === (string) get_query_var( 'bn_hub', '' )
-			&& apply_filters( 'buddynext_route_core_search', true )
+			/**
+			 * Filters whether the core ?s= search redirects to BuddyNext's search.
+			 *
+			 * @since 1.2.1
+			 * @since 1.2.4 Defaults to false: core search stays with WordPress.
+			 *
+			 * @param bool $route True to send every front-end ?s= search to /activity/search/.
+			 */
+			&& apply_filters( 'buddynext_route_core_search', false )
 		) {
 			wp_safe_redirect( self::search_url( get_search_query() ) );
 			exit;
