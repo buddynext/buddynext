@@ -107,7 +107,7 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 		<?php
 		$bn_as_since   = $bn_as_date( $bn_as_suspension['created_at'] ?? '' );
 		$bn_as_expires = $bn_as_date( $bn_as_suspension['expires_at'] ?? '' );
-		$bn_as_reason  = trim( (string) ( $bn_as_suspension['reason'] ?? '' ) );
+		$bn_as_reason  = \BuddyNext\Moderation\ModerationService::member_facing_reason( (string) ( $bn_as_suspension['reason'] ?? '' ) );
 		?>
 		<section class="bn-acct-banner" data-severity="urgent" aria-labelledby="bn-acct-susp-title">
 			<span class="bn-acct-banner__icon" aria-hidden="true"><?php buddynext_icon( 'ban' ); ?></span>
@@ -120,12 +120,21 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 				</p>
 
 				<dl class="bn-acct-details">
-					<?php if ( '' !== $bn_as_reason ) : ?>
-						<div class="bn-acct-details__row">
-							<dt class="bn-acct-details__key"><?php esc_html_e( 'Reason', 'buddynext' ); ?></dt>
-							<dd class="bn-acct-details__val"><?php echo esc_html( $bn_as_reason ); ?></dd>
-						</div>
-					<?php endif; ?>
+					<div class="bn-acct-details__row">
+						<dt class="bn-acct-details__key"><?php esc_html_e( 'Reason', 'buddynext' ); ?></dt>
+						<dd class="bn-acct-details__val">
+							<?php
+							// A suspension recorded without a real reason (before 1.2.4, or by an
+							// integration calling the service directly) gets a plain line, not an
+							// internal-sounding string or a missing row.
+							echo esc_html(
+								'' !== $bn_as_reason
+									? $bn_as_reason
+									: __( 'No reason was recorded. Contact the site team if you think this is a mistake.', 'buddynext' )
+							);
+							?>
+						</dd>
+					</div>
 					<?php if ( '' !== $bn_as_since ) : ?>
 						<div class="bn-acct-details__row">
 							<dt class="bn-acct-details__key"><?php esc_html_e( 'Suspended on', 'buddynext' ); ?></dt>

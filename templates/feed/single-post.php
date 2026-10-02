@@ -64,7 +64,10 @@ if ( $bn_visible ) {
 
 	// Gate 5: author suspended or shadow-banned (skip for the author + admins).
 	if ( $bn_visible && $bn_author_id > 0 && $bn_author_id !== $bn_viewer_id && ! user_can( $bn_viewer_id, 'manage_options' ) ) {
-		$bn_author_suspended = (bool) get_user_meta( $bn_author_id, 'bn_suspended', true );
+		// The bn_suspended meta this used to read was retired (schema v23 deletes it), so
+		// the check never fired. Ask the suspension table, with the same rule the feeds
+		// use: a suspension hides posts only when the moderator chose to hide them.
+		$bn_author_suspended = buddynext_service( 'moderation' )->hides_posts( $bn_author_id );
 		$bn_author_shadow    = (bool) get_user_meta( $bn_author_id, 'bn_shadow_banned', true );
 		if ( $bn_author_suspended || $bn_author_shadow ) {
 			$bn_visible = false;

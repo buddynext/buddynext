@@ -30,7 +30,9 @@ Each action below is a deliberate step a moderator or admin takes against a memb
 | Suspend (temporary) | Blocks the member from posting for a set number of days, or indefinitely. Their existing content stays visible unless you choose to hide it. The suspension lifts automatically when the duration expires. |
 | Shadow-ban | Silently hides the member's content from everyone else. The member still sees their own posts as normal and gets no error - they simply stop reaching anyone. Useful for persistent low-grade spammers who would just make a new account if openly banned. |
 
-> **Note:** Warning, strike, suspension, and shadow-ban each take a reason. Write it for the record - it is what you will rely on if the member appeals, and it is the context the member sees in their notification.
+> **Note:** Warning, strike, suspension, and shadow-ban each take a reason. Write it for the record - it is what you will rely on if the member appeals.
+
+A suspension always needs a reason. Every suspend screen (the moderation queue in Community Admin and in wp-admin, Members, and bulk suspend) asks you to pick one - Spam or scams, Harassment or abuse, Hate speech, Impersonation, Off-topic or disruptive, or Other - and add an optional note (required for Other, up to 300 characters). The same dialog sets the length and whether their posts are hidden. The member sees the reason and the end date on their account status page and in the suspension email, and can appeal from there. Developers can change the list with the `buddynext_suspension_reasons` filter.
 
 ## How strike thresholds escalate
 

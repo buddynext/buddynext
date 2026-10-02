@@ -49,7 +49,7 @@ $heading = $is_self
 			<?php if ( $is_suspended ) : ?>
 				<li class="bn-pf-standing__item">
 					<?php
-					$reason  = (string) ( $suspension['reason'] ?? '' );
+					$reason  = \BuddyNext\Moderation\ModerationService::member_facing_reason( (string) ( $suspension['reason'] ?? '' ) );
 					$expires = ! empty( $suspension['expires_at'] )
 						? date_i18n( (string) get_option( 'date_format' ), (int) strtotime( (string) $suspension['expires_at'] ) )
 						: '';

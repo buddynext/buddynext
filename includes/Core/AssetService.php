@@ -1771,7 +1771,7 @@ class AssetService {
 		wp_interactivity_state(
 			'buddynext/moderation',
 			array(
-				'i18n' => array(
+				'i18n'              => array(
 					'dismissFailed'         => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
 					'removeContentTitle'    => __( 'Remove this content?', 'buddynext' ),
 					'removeContentBody'     => __( 'The reported item will be taken down from public view and the report marked resolved.', 'buddynext' ),
@@ -1794,10 +1794,21 @@ class AssetService {
 					'noActiveStrikes'       => __( 'This member has no active strikes.', 'buddynext' ),
 					/* translators: %d: number of active strikes. */
 					'reverseStrikeAria'     => __( 'Reverse the most recent strike (%d active)', 'buddynext' ),
-					'suspendUserTitle'      => __( 'Suspend this user?', 'buddynext' ),
-					'suspendUserBody'       => __( 'They will be unable to post or interact for 7 days, and their posts will be hidden.', 'buddynext' ),
+					'suspendUserTitle'      => __( 'Suspend this member?', 'buddynext' ),
+					'suspendUserBody'       => __( 'They lose posting access, and see the reason you choose on their account page and in the suspension email.', 'buddynext' ),
 					'suspendLabel'          => __( 'Suspend', 'buddynext' ),
-					'userSuspended'         => __( 'User suspended for 7 days.', 'buddynext' ),
+					'suspendReasonLabel'    => __( 'Reason (shown to the member)', 'buddynext' ),
+					'suspendReasonPick'     => __( 'Choose a reason', 'buddynext' ),
+					'suspendNoteLabel'      => __( 'Note (optional, required for Other)', 'buddynext' ),
+					'suspendLengthLabel'    => __( 'Suspension length', 'buddynext' ),
+					'suspendIndefinite'     => __( 'Indefinite (until lifted)', 'buddynext' ),
+					/* translators: %d: number of days. */
+					'suspendDays'           => __( '%d days', 'buddynext' ),
+					'suspendOneDay'         => __( '1 day', 'buddynext' ),
+					'suspendHidePosts'      => __( 'Hide their posts while suspended', 'buddynext' ),
+					'suspendNeedReason'     => __( 'Choose a reason. The member will see it.', 'buddynext' ),
+					'suspendNeedNote'       => __( 'Add a note to explain the reason when you choose Other.', 'buddynext' ),
+					'userSuspended'         => __( 'Member suspended.', 'buddynext' ),
 					'suspendUserFailed'     => __( 'Could not suspend the user.', 'buddynext' ),
 					'appealTooShort'        => __( 'Describe why you are appealing (at least 10 characters).', 'buddynext' ),
 					'appealSubmitted'       => __( 'Your appeal has been submitted.', 'buddynext' ),
@@ -1824,6 +1835,15 @@ class AssetService {
 					'approveRequestFailed'  => __( 'Could not approve the join request. Try again.', 'buddynext' ),
 					'declineRequestFailed'  => __( 'Could not decline the join request. Try again.', 'buddynext' ),
 				),
+				// The suspend dialog's reason list (one source: ModerationService) and
+				// whether this viewer may suspend with no end date (admins only).
+				'suspensionReasons' => array_map(
+					static fn( $code, $label ): array => array( (string) $code, (string) $label ),
+					array_keys( \BuddyNext\Moderation\ModerationService::suspension_reasons() ),
+					array_values( \BuddyNext\Moderation\ModerationService::suspension_reasons() )
+				),
+				'suspendNoteMax'    => \BuddyNext\Moderation\ModerationService::SUSPENSION_NOTE_MAX,
+				'canSuspendForever' => current_user_can( 'manage_options' ),
 			)
 		);
 	}

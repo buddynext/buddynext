@@ -92,6 +92,13 @@ class ModerationQueue {
 			$version,
 			true
 		);
+
+		// Suspend asks for a reason, length and hide-posts in the same confirm modal
+		// the Members screen uses (one dialog, one reader: Members::suspension_from_request()).
+		wp_enqueue_style( 'bn-admin-members', $plugin_url . 'assets/css/bn-admin-members.css', array( 'bn-admin' ), $version );
+		wp_enqueue_script( 'bn-admin-members', $plugin_url . 'assets/js/admin/members.js', array( 'wp-i18n', 'bn-admin-more-menu' ), $version, true );
+		wp_set_script_translations( 'bn-admin-members', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+		add_action( 'admin_footer', array( Members::class, 'render_confirm_modal' ) );
 	}
 
 	// ── Renderers ───────────────────────────────────────────────────────────
@@ -560,9 +567,9 @@ class ModerationQueue {
 								$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary', '', true );
 							}
 							if ( $author_id > 0 && 'user' !== $object_type ) {
-								$this->user_inline_actions( $author_id );
+								$this->user_inline_actions( $author_id, 'author' );
 							} elseif ( 'user' === $object_type && $object_id > 0 ) {
-								$this->user_inline_actions( $object_id );
+								$this->user_inline_actions( $object_id, 'member' );
 							}
 							?>
 						</div>
@@ -1202,7 +1209,20 @@ class ModerationQueue {
 				$result = $service->issue_strike( $user_id, $actor, __( 'Issued from the moderation queue.', 'buddynext' ) );
 				break;
 			case 'suspend':
-				$result = $service->suspend_user( $user_id, $actor, __( 'Suspended from the moderation queue.', 'buddynext' ) );
+				$bn_req = Members::suspension_from_request();
+				$result = is_wp_error( $bn_req )
+					? $bn_req
+					: $service->suspend_user(
+						$user_id,
+						$actor,
+						$bn_req['reason'],
+						array_filter(
+							array(
+								'duration_days' => $bn_req['duration_days'],
+								'hide_posts'    => $bn_req['hide_posts'],
+							)
+						)
+					);
 				break;
 			case 'unsuspend':
 				$result = $service->unsuspend_user( $user_id, $actor );
@@ -1433,13 +1453,16 @@ class ModerationQueue {
 	}
 
 	/**
-	 * Render strike + suspend buttons for a content author.
+	 * Render strike + suspend buttons for the person a report is about.
 	 *
-	 * @param int $user_id Author user ID.
+	 * @param int    $user_id User ID.
+	 * @param string $who     'author' for a content report, 'member' for a profile report,
+	 *                        so the label names the right person (the front-end queue does the same).
 	 * @return void
 	 */
-	private function user_inline_actions( int $user_id ): void {
-		$this->user_button( $user_id, 'strike', __( 'Strike author', 'buddynext' ), 'secondary', '', true );
+	private function user_inline_actions( int $user_id, string $who = 'author' ): void {
+		$is_member = 'member' === $who;
+		$this->user_button( $user_id, 'strike', $is_member ? __( 'Strike member', 'buddynext' ) : __( 'Strike author', 'buddynext' ), 'secondary', '', true );
 
 		// Already suspended: show the state, not a Suspend button. Re-suspending is
 		// a server-side no-op (suspend_user() returns the existing active
@@ -1451,7 +1474,30 @@ class ModerationQueue {
 			return;
 		}
 
-		$this->user_button( $user_id, 'suspend', __( 'Suspend author', 'buddynext' ), 'delete', __( 'Suspend this member?', 'buddynext' ), true );
+		$bn_user = get_userdata( $user_id );
+		$this->action_form(
+			'bn_mod_user_action',
+			array(
+				'user_id'    => $user_id,
+				'op'         => 'suspend',
+				'return_tab' => 'reports',
+			),
+			$is_member ? __( 'Suspend member', 'buddynext' ) : __( 'Suspend author', 'buddynext' ),
+			'delete',
+			'',
+			true,
+			array(
+				'data-bn-confirm'         => '1',
+				'data-bn-confirm-suspend' => '1',
+				'data-bn-confirm-title'   => __( 'Suspend this member?', 'buddynext' ),
+				'data-bn-confirm-body'    => sprintf(
+					/* translators: %s: member display name. */
+					__( 'Suspend %s? They lose posting access and see the reason you choose on their account page and in the suspension email.', 'buddynext' ),
+					$bn_user ? $bn_user->display_name : '#' . $user_id
+				),
+				'data-bn-confirm-label'   => __( 'Suspend member', 'buddynext' ),
+			)
+		);
 	}
 
 	/**
@@ -1506,18 +1552,20 @@ class ModerationQueue {
 	/**
 	 * Render a tiny inline admin-post form carrying one action.
 	 *
-	 * @param string              $action      admin-post action (also the nonce).
-	 * @param array<string,mixed> $fields      Hidden field name => value.
-	 * @param string              $label       Button label.
-	 * @param string              $variant     Button class hint.
-	 * @param string              $confirm     Optional confirm() prompt.
-	 * @param bool                $in_dropdown Render the submit as a `.bn-dropdown-item`
-	 *                                         (for a `.bn-more-dropdown` overflow menu,
-	 *                                         see assets/js/admin/more-menu.js) instead
-	 *                                         of an inline `.bn-btn`.
+	 * @param string               $action      admin-post action (also the nonce).
+	 * @param array<string,mixed>  $fields      Hidden field name => value.
+	 * @param string               $label       Button label.
+	 * @param string               $variant     Button class hint.
+	 * @param string               $confirm     Optional confirm() prompt.
+	 * @param bool                 $in_dropdown Render the submit as a `.bn-dropdown-item`
+	 *                                          (for a `.bn-more-dropdown` overflow menu,
+	 *                                          see assets/js/admin/more-menu.js) instead
+	 *                                          of an inline `.bn-btn`.
+	 * @param array<string,string> $attrs      Extra form attributes, e.g. the Members
+	 *                                         confirm-modal flags for suspend.
 	 * @return void
 	 */
-	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm, bool $in_dropdown = false ): void {
+	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm, bool $in_dropdown = false, array $attrs = array() ): void {
 		$data_variant = 'secondary';
 		if ( 'primary' === $variant ) {
 			$data_variant = 'primary';
@@ -1531,7 +1579,10 @@ class ModerationQueue {
 			// every buddynext-* admin page); replaces the native browser confirm().
 			if ( '' !== $confirm ) :
 				?>
-				data-bn-confirm="<?php echo esc_attr( $confirm ); ?>" data-bn-confirm-tone="<?php echo esc_attr( 'delete' === $variant ? 'danger' : 'neutral' ); ?>"<?php endif; ?>>
+				data-bn-confirm="<?php echo esc_attr( $confirm ); ?>" data-bn-confirm-tone="<?php echo esc_attr( 'delete' === $variant ? 'danger' : 'neutral' ); ?>"<?php endif; ?>
+			<?php foreach ( $attrs as $bn_attr => $bn_value ) : ?>
+				<?php echo esc_attr( (string) $bn_attr ); ?>="<?php echo esc_attr( (string) $bn_value ); ?>"
+			<?php endforeach; ?>>
 			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
 			<?php wp_nonce_field( $action ); ?>
 			<?php foreach ( $fields as $name => $value ) : ?>

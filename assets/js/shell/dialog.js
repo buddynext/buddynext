@@ -587,6 +587,167 @@ export function bnReportDialog( opts ) {
 }
 
 /**
+ * Suspend dialog: a reason the member will see, an optional note (required for
+ * "other"), a length, and whether to hide their posts.
+ *
+ * Mirrors the wp-admin suspend modal field for field, and the server composes the
+ * member-facing text from reason_code + note (ModerationService::compose_suspension_reason()),
+ * so where a member was suspended from never changes what they read.
+ *
+ * Resolves to `{ reason_code, note, duration_days, hide_posts }`, or `null` on cancel.
+ *
+ * @param {Object} opts
+ * @param {Array<[string,string]>} opts.reasons     [code, label] pairs (server list).
+ * @param {boolean} [opts.allowIndefinite]          Offer "Indefinite" (admins only).
+ * @param {number}  [opts.noteMax]                  Note length cap.
+ * @param {Object}  [opts.labels]                   Translated labels (see keys below).
+ * @return {Promise<Object|null>}
+ */
+export function bnSuspendDialog( opts ) {
+	const o = opts || {};
+	const L = Object.assign( {
+		reason: 'Reason (shown to the member)',
+		pick: 'Choose a reason',
+		note: 'Note (optional, required for Other)',
+		length: 'Suspension length',
+		indefinite: 'Indefinite (until lifted)',
+		oneDay: '1 day',
+		days: '%d days',
+		hide: 'Hide their posts while suspended',
+		needReason: 'Choose a reason. The member will see it.',
+		needNote: 'Add a note to explain the reason when you choose Other.',
+	}, o.labels || {} );
+	const cfg = Object.assign( {
+		title: si( 'suspendTitle', 'Suspend this member?' ),
+		body: '',
+		confirmLabel: si( 'suspend', 'Suspend' ),
+		cancelLabel: si( 'cancel', 'Cancel' ),
+		tone: 'danger',
+	}, o );
+
+	const wrap = document.createElement( 'div' );
+	wrap.className = 'bn-suspend-dialog';
+
+	function field( labelText, control ) {
+		const row = document.createElement( 'div' );
+		row.className = 'bn-suspend-dialog__field';
+		const label = document.createElement( 'label' );
+		label.className = 'bn-suspend-dialog__label';
+		label.textContent = labelText;
+		const id = 'bn-sd-' + Math.random().toString( 36 ).slice( 2 );
+		control.id = id;
+		label.htmlFor = id;
+		row.appendChild( label );
+		row.appendChild( control );
+		wrap.appendChild( row );
+	}
+
+	const reason = document.createElement( 'select' );
+	reason.className = 'bn-input';
+	[ [ '', L.pick ] ].concat( Array.isArray( o.reasons ) ? o.reasons : [] ).forEach( function ( pair ) {
+		const opt = document.createElement( 'option' );
+		opt.value = pair[ 0 ];
+		opt.textContent = pair[ 1 ];
+		reason.appendChild( opt );
+	} );
+	field( L.reason, reason );
+
+	const note = document.createElement( 'textarea' );
+	note.className = 'bn-textarea';
+	note.rows = 3;
+	note.maxLength = o.noteMax || 300;
+	field( L.note, note );
+
+	const length = document.createElement( 'select' );
+	length.className = 'bn-input';
+	const lengths = [ [ '1', L.oneDay ], [ '7', L.days.replace( '%d', '7' ) ], [ '30', L.days.replace( '%d', '30' ) ], [ '90', L.days.replace( '%d', '90' ) ] ];
+	if ( o.allowIndefinite ) {
+		lengths.push( [ '0', L.indefinite ] );
+	}
+	lengths.forEach( function ( pair ) {
+		const opt = document.createElement( 'option' );
+		opt.value = pair[ 0 ];
+		opt.textContent = pair[ 1 ];
+		length.appendChild( opt );
+	} );
+	length.value = '7';
+	field( L.length, length );
+
+	const hideRow = document.createElement( 'label' );
+	hideRow.className = 'bn-suspend-dialog__check';
+	const hide = document.createElement( 'input' );
+	hide.type = 'checkbox';
+	hide.checked = true;
+	hideRow.appendChild( hide );
+	hideRow.appendChild( document.createTextNode( ' ' + L.hide ) );
+	wrap.appendChild( hideRow );
+
+	const error = document.createElement( 'p' );
+	error.className = 'bn-suspend-dialog__error';
+	error.setAttribute( 'role', 'alert' );
+	error.hidden = true;
+	wrap.appendChild( error );
+
+	// A fixed field clears the error at once, rather than waiting for the next submit.
+	function clearError() {
+		error.hidden = true;
+		reason.removeAttribute( 'aria-invalid' );
+		note.removeAttribute( 'aria-invalid' );
+	}
+	reason.addEventListener( 'change', clearError );
+	note.addEventListener( 'input', clearError );
+
+	cfg.extraNode = wrap;
+
+	return new Promise( function ( resolve ) {
+		const trigger = document.activeElement;
+		const frame = buildModalFrame( cfg );
+		const releaseTrap = trapFocus( frame.panel );
+
+		function close( result ) {
+			window.removeEventListener( 'keydown', onEscape, true );
+			releaseTrap();
+			frame.backdrop.remove();
+			if ( trigger && typeof trigger.focus === 'function' ) {
+				trigger.focus();
+			}
+			resolve( result );
+		}
+		function onEscape( ev ) {
+			if ( ev.key === 'Escape' ) { ev.preventDefault(); close( null ); }
+		}
+		function fail( msg, focusEl ) {
+			error.textContent = msg;
+			error.hidden = false;
+			focusEl.setAttribute( 'aria-invalid', 'true' );
+			focusEl.focus();
+		}
+
+		frame.confirmBtn.addEventListener( 'click', function () {
+			reason.removeAttribute( 'aria-invalid' );
+			note.removeAttribute( 'aria-invalid' );
+			if ( '' === reason.value ) { fail( L.needReason, reason ); return; }
+			if ( 'other' === reason.value && '' === note.value.trim() ) { fail( L.needNote, note ); return; }
+			close( {
+				reason_code: reason.value,
+				note: note.value.trim(),
+				duration_days: parseInt( length.value, 10 ) || 0,
+				hide_posts: hide.checked,
+			} );
+		} );
+		frame.cancelBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.closeBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.backdrop.addEventListener( 'click', function ( ev ) {
+			if ( ev.target === frame.backdrop ) { close( null ); }
+		} );
+		window.addEventListener( 'keydown', onEscape, true );
+
+		document.body.appendChild( frame.backdrop );
+		window.requestAnimationFrame( function () { reason.focus(); } );
+	} );
+}
+
+/**
  * Connection-note dialog — LinkedIn-style "Add a note" before sending a
  * connection request. Promise-based, mirrors bnPrompt() but adds a 280-char
  * cap matching ConnectionService::send_request() and a live character counter.

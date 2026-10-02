@@ -49,8 +49,9 @@ final class EmailDefaults {
 		 * @since 1.2.4
 		 *
 		 * @param array $history Template type => array{ current: array, previous: array[] }.
+		 *                       Starts with BuddyNext's own (Installer::email_default_history()).
 		 */
-		return (array) apply_filters( 'buddynext_email_default_history', array() );
+		return (array) apply_filters( 'buddynext_email_default_history', \BuddyNext\Core\Installer::email_default_history() );
 	}
 
 	/**

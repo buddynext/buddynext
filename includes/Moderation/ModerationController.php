@@ -363,6 +363,20 @@ class ModerationController extends BaseRestController {
 						'required'          => false,
 						'type'              => 'string',
 						'default'           => '',
+						'description'       => 'Free-text reason shown to the member. Required unless reason_code is sent.',
+						'sanitize_callback' => 'sanitize_textarea_field',
+					),
+					'reason_code'   => array(
+						'required'          => false,
+						'type'              => 'string',
+						'description'       => 'A code from GET /moderation/suspension-reasons. Takes precedence over reason.',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'note'          => array(
+						'required'          => false,
+						'type'              => 'string',
+						'default'           => '',
+						'description'       => 'Optional note added to reason_code (required for "other"), max 300 characters.',
 						'sanitize_callback' => 'sanitize_textarea_field',
 					),
 					'duration_days' => array(
@@ -376,6 +390,17 @@ class ModerationController extends BaseRestController {
 						'default'  => false,
 					),
 				),
+			)
+		);
+
+		// The reasons a moderator chooses from when suspending (same list as the web dialogs).
+		register_rest_route(
+			'buddynext/v1',
+			'/moderation/suspension-reasons',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'suspension_reasons' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 			)
 		);
 
@@ -1249,6 +1274,14 @@ class ModerationController extends BaseRestController {
 		$reason   = (string) ( $request->get_param( 'reason' ) ?? '' );
 		$opts     = array();
 
+		$code = (string) ( $request->get_param( 'reason_code' ) ?? '' );
+		if ( '' !== $code ) {
+			$reason = ModerationService::compose_suspension_reason( $code, (string) $request->get_param( 'note' ) );
+			if ( is_wp_error( $reason ) ) {
+				return $reason;
+			}
+		}
+
 		$duration = $request->get_param( 'duration_days' );
 		if ( null !== $duration ) {
 			$opts['duration_days'] = absint( $duration );
@@ -1261,13 +1294,39 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->suspend_user( $user_id, $actor_id, $reason, $opts );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$data = $result->get_error_data();
+			if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+				$result->add_data( array( 'status' => 403 ) );
+			}
 			return $result;
 		}
 
 		// Audit row is written inside suspend_user() (card 10264294456).
 
 		return new WP_REST_Response( array( 'suspension_id' => $result ), 201 );
+	}
+
+	/**
+	 * GET /moderation/suspension-reasons: the reasons a moderator chooses from.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function suspension_reasons(): WP_REST_Response {
+		$items = array();
+		foreach ( ModerationService::suspension_reasons() as $code => $label ) {
+			$items[] = array(
+				'code'          => (string) $code,
+				'label'         => (string) $label,
+				'note_required' => 'other' === $code,
+			);
+		}
+		return new WP_REST_Response(
+			array(
+				'items'    => $items,
+				'note_max' => ModerationService::SUSPENSION_NOTE_MAX,
+			),
+			200
+		);
 	}
 
 	/**

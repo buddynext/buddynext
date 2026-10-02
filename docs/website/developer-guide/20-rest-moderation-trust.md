@@ -145,13 +145,16 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/users/42/suspend" \
   -H "Content-Type: application/json" \
   --cookie "<admin auth cookies>" \
   -d '{
-        "reason": "Repeated harassment after warnings.",
+        "reason_code": "harassment",
+        "note": "Repeated harassment after warnings.",
         "duration_days": 7,
         "hide_posts": true
       }'
 ```
 
-All body fields are optional: omit `duration_days` for an indefinite suspension, set `hide_posts` to `true` to hide the user's content for the duration. Lift the suspension with `DELETE /users/42/suspend`.
+A reason is required (since 1.2.4): send `reason_code` from `GET /moderation/suspension-reasons` (with an optional `note`, required for `other`, max 300 characters), or a free-text `reason`. The member is shown the composed reason. A suspension with no reason returns `400 reason_required`. Omit `duration_days` for an indefinite suspension (administrators only), and set `hide_posts` to `true` to hide the user's content for the duration. Lift the suspension with `DELETE /users/42/suspend`.
+
+`GET /moderation/suspension-reasons` (moderators) returns `{ items: [{ code, label, note_required }], note_max }`, the same list the web dialogs use.
 
 ## Notes / gotchas
 

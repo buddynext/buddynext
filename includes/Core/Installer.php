@@ -451,6 +451,12 @@ class Installer {
 	private const SCHEMA_VERSION = 64;
 
 	/**
+	 * Bump when a default in email_default_history() changes, so the upgrade moves
+	 * unedited copies to the new wording.
+	 */
+	private const EMAIL_DEFAULTS_VERSION = 1;
+
+	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
 	 *
 	 * Deliberately NOT the schema version. This runs once per stamp and then
@@ -957,6 +963,15 @@ class Installer {
 	 * @return void
 	 */
 	public static function maybe_upgrade(): void {
+		// Move unedited email templates to their current default wording (see
+		// email_default_history()). Marker-gated, ahead of the schema early return,
+		// because a wording change bumps no schema. One synchronous, idempotent
+		// update; Tools > Repair "Restore default emails" runs the same call.
+		if ( (int) get_option( 'buddynext_email_defaults', 0 ) < self::EMAIL_DEFAULTS_VERSION ) {
+			\BuddyNext\Notifications\EmailDefaults::refresh_unedited();
+			update_option( 'buddynext_email_defaults', self::EMAIL_DEFAULTS_VERSION, false );
+		}
+
 		// Captured before run() below stamps buddynext_schema_version to the current
 		// value - a couple of the option-cleanup steps key on how far behind the
 		// site actually was, and would otherwise read the just-written new number.
@@ -3138,13 +3153,15 @@ class Installer {
 	}
 
 	/**
-	 * Seed the default email-template rows (INSERT IGNORE - existing rows kept).
+	 * The default email-template rows: the seed list plus a row for every type the
+	 * Email Templates screen defines but the list does not.
 	 *
-	 * @param string $p Table prefix.
+	 * One list for the seeder and for email_default_history(), so the wording a fresh
+	 * site gets and the wording an upgrade moves unedited copies to cannot drift.
+	 *
+	 * @return array<int, array{type: string, subject: string, preview_text: string, body_html: string}>
 	 */
-	private static function seed_email_templates( string $p ): void {
-		global $wpdb;
-
+	public static function email_template_seeds(): array {
 		$templates = array(
 			array(
 				'type'         => 'email_verify',
@@ -3240,7 +3257,7 @@ class Installer {
 				'type'         => 'bn.member_suspended',
 				'subject'      => 'Your {{site_name}} account has been suspended',
 				'preview_text' => 'Your account has been suspended',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. While it is suspended you cannot post or interact with the community.</p><p><strong>Reason:</strong> {{reason}}<br><strong>Suspended until:</strong> {{expires_at}}</p><p>If you think this was a mistake, you can appeal from your account page.</p><p><a href="{{action_url}}">See your account status</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.appeal_resolved',
@@ -3332,6 +3349,56 @@ class Installer {
 				}
 			}
 		}
+
+		return $templates;
+	}
+
+	/**
+	 * Previous default wording of Free's email templates, for EmailDefaults: a site
+	 * that never edited one of these emails is moved to the current seed; an edited
+	 * one is left alone. Add an entry whenever a seeded default changes.
+	 *
+	 * @return array<string, array<string, mixed>> Template type => current + previous defaults.
+	 */
+	public static function email_default_history(): array {
+		$current = array();
+		foreach ( self::email_template_seeds() as $row ) {
+			$current[ (string) $row['type'] ] = $row;
+		}
+
+		$previous = array(
+			// 1.2.4: the suspension email names the reason and the end date (card 10240365173).
+			'bn.member_suspended' => array(
+				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>' ),
+			),
+		);
+
+		$history = array();
+		foreach ( $previous as $type => $versions ) {
+			if ( ! isset( $current[ $type ] ) ) {
+				continue;
+			}
+			$history[ $type ] = array(
+				'current'  => array(
+					'subject'      => (string) $current[ $type ]['subject'],
+					'preview_text' => (string) $current[ $type ]['preview_text'],
+					'body_html'    => (string) $current[ $type ]['body_html'],
+				),
+				'previous' => $versions,
+			);
+		}
+		return $history;
+	}
+
+	/**
+	 * Seed the default email-template rows (INSERT IGNORE - existing rows kept).
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function seed_email_templates( string $p ): void {
+		global $wpdb;
+
+		$templates = self::email_template_seeds();
 
 		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared

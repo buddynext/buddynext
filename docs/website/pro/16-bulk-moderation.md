@@ -28,7 +28,7 @@ Dismiss closes the reports as no action needed. Remove takes down the reported c
 
 1. Scroll to the Bulk User Actions panel on the same page.
 2. Enter a comma-separated list in the Members field - usernames, emails, or numeric IDs.
-3. Type a reason.
+3. Type a reason. Each member sees it on their account status page and in the suspension email, so it is required to suspend.
 4. For a suspension, set the duration in days.
 5. Choose Warn Users or Suspend Users.
 

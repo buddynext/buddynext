@@ -631,7 +631,9 @@ class ModerationService {
 								'action'      => 'suspend',
 								'object_type' => 'user',
 								'object_id'   => (int) $auto_action['user_id'],
-								'note'        => 'Automated rule suspension: ' . (string) ( $auto_action['reason'] ?? '' ),
+								// The member reads `reason`; the log keeps the rule detail when the
+								// rules engine sends it separately as `audit_note`.
+								'note'        => 'Automated rule suspension: ' . (string) ( $auto_action['audit_note'] ?? $auto_action['reason'] ?? '' ),
 							)
 						);
 					}
@@ -2086,6 +2088,95 @@ class ModerationService {
 	}
 
 	/**
+	 * The reasons a moderator picks from when suspending a member.
+	 *
+	 * One list for every suspend screen (front-end queue, wp-admin queue, Members,
+	 * bulk) and the app (GET /moderation/suspension-reasons), so the wording a member
+	 * reads does not depend on where they were suspended from. "other" requires a note.
+	 *
+	 * @return array<string, string> Reason code => member-facing label.
+	 */
+	public static function suspension_reasons(): array {
+		$reasons = array(
+			'spam'          => __( 'Spam or scams', 'buddynext' ),
+			'harassment'    => __( 'Harassment or abuse', 'buddynext' ),
+			'hate'          => __( 'Hate speech', 'buddynext' ),
+			'impersonation' => __( 'Impersonation', 'buddynext' ),
+			'disruptive'    => __( 'Off-topic or disruptive', 'buddynext' ),
+			'other'         => __( 'Other', 'buddynext' ),
+		);
+
+		/**
+		 * Filters the suspension reasons moderators choose from.
+		 *
+		 * Keep 'other': it is the free-text fallback and requires a note.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param array<string, string> $reasons Reason code => member-facing label.
+		 */
+		$reasons = (array) apply_filters( 'buddynext_suspension_reasons', $reasons );
+		if ( ! isset( $reasons['other'] ) ) {
+			$reasons['other'] = __( 'Other', 'buddynext' );
+		}
+		return $reasons;
+	}
+
+	/**
+	 * The stored suspension reason as a member should read it, or '' when there is none.
+	 *
+	 * Before 1.2.4 two moderation queues stored fixed internal strings instead of a
+	 * reason ("Moderation action", "Suspended from the moderation queue."). Those tell
+	 * the member nothing, so they read as "no reason given" and the caller shows its
+	 * neutral line instead.
+	 *
+	 * @param string $stored Stored reason.
+	 * @return string
+	 */
+	public static function member_facing_reason( string $stored ): string {
+		$stored = trim( $stored );
+		$legacy = array( 'Moderation action', 'Suspended from the moderation queue.', __( 'Suspended from the moderation queue.', 'buddynext' ) );
+		return in_array( $stored, $legacy, true ) ? '' : $stored;
+	}
+
+	/**
+	 * Longest note a moderator may add to a suspension reason.
+	 */
+	public const SUSPENSION_NOTE_MAX = 300;
+
+	/**
+	 * Build the reason text a member is shown, from a reason code and an optional note.
+	 *
+	 * "Spam or scams" / "Spam or scams: posted the same link in 40 spaces" /
+	 * "Other" requires the note and shows the note alone.
+	 *
+	 * @param string $code Reason code from suspension_reasons().
+	 * @param string $note Optional moderator note (required for 'other').
+	 * @return string|WP_Error Member-facing reason, or a 400 for an unknown code or missing note.
+	 */
+	public static function compose_suspension_reason( string $code, string $note = '' ): string|WP_Error {
+		$reasons = self::suspension_reasons();
+		$note    = trim( sanitize_textarea_field( $note ) );
+		if ( mb_strlen( $note ) > self::SUSPENSION_NOTE_MAX ) {
+			$note = mb_substr( $note, 0, self::SUSPENSION_NOTE_MAX );
+		}
+
+		if ( ! isset( $reasons[ $code ] ) ) {
+			return new WP_Error( 'invalid_reason', __( 'Choose a reason from the list.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+		if ( 'other' === $code ) {
+			return '' !== $note
+				? $note
+				: new WP_Error( 'reason_required', __( 'Describe the reason when you choose Other.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+
+		return '' !== $note
+			/* translators: 1: suspension reason, 2: moderator's note. */
+			? sprintf( __( '%1$s: %2$s', 'buddynext' ), $reasons[ $code ], $note )
+			: $reasons[ $code ];
+	}
+
+	/**
 	 * Suspend a user.
 	 *
 	 * Creates a row in bn_user_suspensions. A user may have multiple historical
@@ -2123,6 +2214,18 @@ class ModerationService {
 		// passed by server code.
 		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend users.', 'buddynext' ) );
+		}
+
+		// A person suspending someone must say why: the member is shown this text on
+		// their account status page and in the suspension email, so an empty or
+		// internal-sounding reason leaves them with nothing to act on or appeal
+		// (card 10240365173). Automated rules (actor 0) supply their own wording.
+		if ( $actor_id > 0 && '' === trim( $reason ) ) {
+			return new WP_Error(
+				'reason_required',
+				__( 'Choose a reason for the suspension. The member will see it.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
 		}
 
 		// An INDEFINITE suspension (no fixed term) is an administrator power. A
@@ -3551,6 +3654,15 @@ class ModerationService {
 	public function suspend( int $user_id, string $reason, int $duration_days, bool $hide_content = false, int $suspended_by = 0 ): bool|WP_Error {
 		if ( $user_id <= 0 ) {
 			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+		}
+
+		// Same rule as suspend_user(): a person must give the member a reason.
+		if ( $suspended_by > 0 && '' === trim( $reason ) ) {
+			return new WP_Error(
+				'reason_required',
+				__( 'Choose a reason for the suspension. The member will see it.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
 		}
 
 		// Already actively suspended — don't insert a duplicate active row.

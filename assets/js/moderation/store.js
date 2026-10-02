@@ -4,7 +4,7 @@
  * moderation panel (spaces/moderation.php) and the account-status appeal form.
  */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnReloadWithToast, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnReloadWithToast, bnSuspendDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -308,22 +308,41 @@ const moderationStore = store( 'buddynext/moderation', {
 		* suspendUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
-			const ok = yield bnConfirm( {
-				title: t( 'suspendUserTitle', 'Suspend this user?' ),
-				body: t( 'suspendUserBody', 'They will be unable to post or interact for 7 days, and their posts will be hidden.' ),
+			const st = ( moderationStore && moderationStore.state ) || {};
+			const choice = yield bnSuspendDialog( {
+				title: t( 'suspendUserTitle', 'Suspend this member?' ),
+				body: t( 'suspendUserBody', 'They lose posting access, and see the reason you choose on their account page and in the suspension email.' ),
 				confirmLabel: t( 'suspendLabel', 'Suspend' ),
-				tone: 'danger',
+				reasons: st.suspensionReasons || [],
+				noteMax: st.suspendNoteMax || 300,
+				allowIndefinite: !! st.canSuspendForever,
+				labels: {
+					reason: t( 'suspendReasonLabel', 'Reason (shown to the member)' ),
+					pick: t( 'suspendReasonPick', 'Choose a reason' ),
+					note: t( 'suspendNoteLabel', 'Note (optional, required for Other)' ),
+					length: t( 'suspendLengthLabel', 'Suspension length' ),
+					indefinite: t( 'suspendIndefinite', 'Indefinite (until lifted)' ),
+					oneDay: t( 'suspendOneDay', '1 day' ),
+					days: t( 'suspendDays', '%d days' ),
+					hide: t( 'suspendHidePosts', 'Hide their posts while suspended' ),
+					needReason: t( 'suspendNeedReason', 'Choose a reason. The member will see it.' ),
+					needNote: t( 'suspendNeedNote', 'Add a note to explain the reason when you choose Other.' ),
+				},
 			} );
-			if ( ! ok ) { return; }
-			// Real route: POST /users/{id}/suspend { reason, duration_days, hide_posts }.
+			if ( ! choice ) { return; }
+			// POST /users/{id}/suspend: the server composes the member-facing reason
+			// from reason_code + note, exactly as the wp-admin modal's does.
+			const body = { reason_code: choice.reason_code, note: choice.note, hide_posts: choice.hide_posts };
+			if ( choice.duration_days > 0 ) { body.duration_days = choice.duration_days; }
 			const res = yield restFetch( 'users/' + ctx.userId + '/suspend', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { reason: 'Moderation action', duration_days: 7, hide_posts: true },
+				body,
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? t( 'userSuspended', 'User suspended for 7 days.' ) : t( 'suspendUserFailed', 'Could not suspend the user.' ), { tone: res.ok ? 'success' : 'danger' } );
+			const emsg = ( ! res.ok && res.data && res.data.message ) ? res.data.message : t( 'suspendUserFailed', 'Could not suspend the user.' );
+			bnToast( res.ok ? t( 'userSuspended', 'Member suspended.' ) : emsg, { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		/* ── Account-status (member-facing) ────────────────────────── */

@@ -59,7 +59,7 @@ Everything else is in the row's **More** menu:
 - **Warn author** - sends the author a warning without a penalty.
 - **Strike author** - records a moderation strike against the author.
 - **Reverse last strike** - undoes the author's most recent strike. Shown only while the author has an active strike, and only to moderators who may issue strikes.
-- **Suspend author** - suspends the account. An author who is already suspended shows an "Already suspended" badge instead.
+- **Suspend author** (or **Suspend member** on a profile report) - opens a dialog for the reason the member will see, a note, the length, and whether to hide their posts, then suspends the account. An author who is already suspended shows an "Already suspended" badge instead.
 
 Warning, striking, and suspending act on the person rather than the single item. For how strikes, suspensions, warnings, and appeals work, see Moderating a Member.
 

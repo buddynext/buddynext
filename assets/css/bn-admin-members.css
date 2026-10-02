@@ -1921,3 +1921,27 @@ dialog.bn-approval-details .bn-approval-details__title {
 	line-height: 1.3;
 	color: var(--bn-ink, #1f2937);
 }
+
+/* Suspend fields in the shared confirm modal (reason, note, length, hide posts).
+   Same inline padding as .bn-modal__body so the fields line up with its text. */
+.bn-modal__suspend {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	padding: 0 var(--bn-s5) var(--bn-s4);
+}
+
+.bn-modal__suspend .bn-field {
+	margin: 0;
+}
+
+.bn-modal__suspend .bn-input,
+.bn-modal__suspend .bn-textarea {
+	width: 100%;
+}
+
+.bn-modal__suspend-error {
+	margin: 0;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}

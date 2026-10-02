@@ -14028,6 +14028,41 @@
                 ]
             }
         },
+        "/buddynext/v1/moderation/suspension-reasons": {
+            "get": {
+                "tags": [
+                    "Moderation and Trust"
+                ],
+                "operationId": "get_buddynext_v1_moderation_suspension_reasons",
+                "summary": "GET /buddynext/v1/moderation/suspension-reasons",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SuspensionReasons"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/posts": {
             "post": {
                 "tags": [
@@ -22088,7 +22123,17 @@
                                 "properties": {
                                     "reason": {
                                         "type": "string",
-                                        "default": ""
+                                        "default": "",
+                                        "description": "Free-text reason shown to the member. Required unless reason_code is sent."
+                                    },
+                                    "reason_code": {
+                                        "type": "string",
+                                        "description": "A code from GET /moderation/suspension-reasons. Takes precedence over reason."
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "Optional note added to reason_code (required for \"other\"), max 300 characters."
                                     },
                                     "duration_days": {
                                         "type": "integer"
@@ -27706,6 +27751,31 @@
                             "array",
                             "object"
                         ]
+                    }
+                }
+            },
+            "SuspensionReasons": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "note_required": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    },
+                    "note_max": {
+                        "type": "integer"
                     }
                 }
             },

@@ -3553,6 +3553,45 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	line-height: 1.5;
 }
 
+/* Suspend dialog (bnSuspendDialog): reason, note, length, hide posts. */
+.bn-suspend-dialog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	margin-block-start: var(--bn-s3);
+}
+.bn-suspend-dialog__field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+.bn-suspend-dialog__label {
+	font-weight: var(--bn-fw-semibold);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+}
+.bn-suspend-dialog .bn-input,
+.bn-suspend-dialog .bn-textarea {
+	width: 100%;
+	box-sizing: border-box;
+}
+.bn-suspend-dialog .bn-textarea {
+	resize: vertical;
+}
+.bn-suspend-dialog__check {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-height: 40px;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+.bn-suspend-dialog__error {
+	margin: 0;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+
 /* ── Notice (front end) ────────────────────────────────────────────────────
  * One inline status box for member-facing surfaces: an archived space, a kudos
  * result. Info by default; --success / --error tones; an optional

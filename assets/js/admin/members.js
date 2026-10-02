@@ -30,10 +30,12 @@
 		var bodyEl    = modal.querySelector( '[data-bn-confirm-body]' );
 		var confirmEl = modal.querySelector( '[data-bn-confirm-accept]' );
 		var cancelEls = modal.querySelectorAll( '[data-bn-confirm-cancel]' );
-		var reasonWrap  = modal.querySelector( '[data-bn-confirm-reason-wrap]' );
-		var reasonField = modal.querySelector( '[data-bn-confirm-reason-field]' );
-		var durationWrap  = modal.querySelector( '[data-bn-confirm-duration-wrap]' );
+		var suspendWrap   = modal.querySelector( '[data-bn-confirm-suspend-wrap]' );
+		var reasonField   = modal.querySelector( '[data-bn-confirm-reason-field]' );
+		var noteField     = modal.querySelector( '[data-bn-confirm-note-field]' );
 		var durationField = modal.querySelector( '[data-bn-confirm-duration-field]' );
+		var hideField     = modal.querySelector( '[data-bn-confirm-hide-field]' );
+		var suspendError  = modal.querySelector( '[data-bn-confirm-suspend-error]' );
 		var tokenWrap   = modal.querySelector( '[data-bn-confirm-token-wrap]' );
 		var tokenField  = modal.querySelector( '[data-bn-confirm-token-field]' );
 		var tokenLabel  = modal.querySelector( '[data-bn-confirm-token-label]' );
@@ -61,20 +63,16 @@
 			if ( titleEl ) { titleEl.textContent = title; }
 			if ( bodyEl )  { bodyEl.textContent = body; }
 			if ( confirmEl && label ) { confirmEl.textContent = label; }
-			// Optional reason field — shown only for forms that opt in
-			// (data-bn-confirm-reason). Reset on every open so a prior entry
-			// doesn't leak into the next action.
-			if ( reasonWrap ) {
-				var wantsReason = form.getAttribute( 'data-bn-confirm-reason' ) === '1';
-				reasonWrap.hidden = ! wantsReason;
-				if ( reasonField ) { reasonField.value = ''; }
-			}
-			// Optional suspension-length field — shown only for forms that opt in
-			// (data-bn-confirm-duration). Reset to indefinite on every open.
-			if ( durationWrap ) {
-				var wantsDuration = form.getAttribute( 'data-bn-confirm-duration' ) === '1';
-				durationWrap.hidden = ! wantsDuration;
+			// Suspension fields (reason, note, length, hide posts): shown only for
+			// forms that opt in with data-bn-confirm-suspend, and reset on every
+			// open so one member's reason never carries over to the next.
+			if ( suspendWrap ) {
+				suspendWrap.hidden = form.getAttribute( 'data-bn-confirm-suspend' ) !== '1';
+				if ( reasonField )   { reasonField.value = ''; }
+				if ( noteField )     { noteField.value = ''; }
 				if ( durationField ) { durationField.value = '0'; }
+				if ( hideField )     { hideField.checked = false; }
+				if ( suspendError )  { suspendError.hidden = true; }
 			}
 			// Type-to-confirm. Reset on every open so a token typed for one item
 			// cannot authorise the next one.
@@ -94,6 +92,8 @@
 			window.setTimeout( function () {
 				if ( '' !== token && tokenField ) {
 					tokenField.focus();
+				} else if ( suspendWrap && ! suspendWrap.hidden && reasonField ) {
+					reasonField.focus();
 				} else if ( confirmEl ) {
 					confirmEl.focus();
 				}
@@ -121,6 +121,46 @@
 			} );
 		}
 
+		/**
+		 * Why the suspension cannot be sent yet, or '' when it can. Mirrors
+		 * ModerationService::compose_suspension_reason(); the server re-checks.
+		 */
+		function suspendProblem() {
+			if ( ! reasonField || '' === reasonField.value ) {
+				return __( 'Choose a reason. The member will see it.', 'buddynext' );
+			}
+			if ( 'other' === reasonField.value && ( ! noteField || '' === noteField.value.trim() ) ) {
+				return __( 'Add a note to explain the reason when you choose Other.', 'buddynext' );
+			}
+			return '';
+		}
+
+		/** Set (or create) a hidden input on the form being confirmed. */
+		function carry( form, name, value ) {
+			var input = form.querySelector( 'input[type="hidden"][name="' + name + '"]' );
+			if ( ! input ) {
+				input = document.createElement( 'input' );
+				input.type = 'hidden';
+				input.name = name;
+				form.appendChild( input );
+			}
+			input.value = value;
+		}
+
+		// Bulk "Suspend" asks for the same reason as a single suspend; other bulk
+		// actions submit as before.
+		var bulkForm = document.getElementById( 'bn-members-bulk' );
+		if ( bulkForm ) {
+			bulkForm.addEventListener( 'submit', function ( e ) {
+				var select = bulkForm.querySelector( 'select[name="bulk_action"]' );
+				if ( bulkForm.dataset.bnConfirmed === '1' || ! select || 'suspend' !== select.value ) {
+					return;
+				}
+				e.preventDefault();
+				open( bulkForm );
+			} );
+		}
+
 		document.querySelectorAll( 'form[data-bn-confirm="1"]' ).forEach( function ( form ) {
 			form.addEventListener( 'submit', function ( e ) {
 				if ( form.dataset.bnConfirmed === '1' ) {
@@ -133,6 +173,17 @@
 
 		if ( confirmEl ) {
 			confirmEl.addEventListener( 'click', function () {
+				if ( pendingForm && suspendWrap && ! suspendWrap.hidden ) {
+					var problem = suspendProblem();
+					if ( problem ) {
+						if ( suspendError ) {
+							suspendError.textContent = problem;
+							suspendError.hidden = false;
+						}
+						( '' === ( reasonField && reasonField.value ) ? reasonField : noteField ).focus();
+						return;
+					}
+				}
 				if ( pendingForm ) {
 					// Carry the typed token into the submitting form under the name
 					// the server handler reads. The server re-checks it; this only
@@ -147,29 +198,13 @@
 						}
 						tokenInput.value = tokenField.value;
 					}
-					// Carry the optional reason into the submitting form as a hidden
-					// field so the server handler can persist it.
-					if ( reasonWrap && ! reasonWrap.hidden && reasonField ) {
-						var hidden = pendingForm.querySelector( 'input[name="reason"]' );
-						if ( ! hidden ) {
-							hidden = document.createElement( 'input' );
-							hidden.type = 'hidden';
-							hidden.name = 'reason';
-							pendingForm.appendChild( hidden );
-						}
-						hidden.value = reasonField.value;
-					}
-					// Carry the chosen suspension length into the submitting form as a
-					// hidden field the server handler reads (0 = indefinite).
-					if ( durationWrap && ! durationWrap.hidden && durationField ) {
-						var durInput = pendingForm.querySelector( 'input[name="duration_days"]' );
-						if ( ! durInput ) {
-							durInput = document.createElement( 'input' );
-							durInput.type = 'hidden';
-							durInput.name = 'duration_days';
-							pendingForm.appendChild( durInput );
-						}
-						durInput.value = durationField.value;
+					// Carry the suspension fields into the submitting form under the
+					// names Members::suspension_from_request() reads.
+					if ( suspendWrap && ! suspendWrap.hidden ) {
+						carry( pendingForm, 'reason_code', reasonField ? reasonField.value : '' );
+						carry( pendingForm, 'note', noteField ? noteField.value : '' );
+						carry( pendingForm, 'duration_days', durationField ? durationField.value : '0' );
+						carry( pendingForm, 'hide_posts', hideField && hideField.checked ? '1' : '' );
 					}
 					pendingForm.dataset.bnConfirmed = '1';
 					pendingForm.submit();

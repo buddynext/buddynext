@@ -37,7 +37,7 @@ The built-in emails live under BuddyNext > Notifications > Email Templates. Budd
 
 - **Social** - new follower, connection requested, connection accepted, mention, post reacted, post commented, post shared, new message, media favorited.
 - **Spaces** - space invite, join requested, join request approved, space ownership received.
-- **Moderation** - strike issued, warning, member suspended, appeal resolved, unsuspension confirmation, new report (to the team).
+- **Moderation** - strike issued, warning, member suspended, appeal resolved, unsuspension confirmation, new report (to the team). The member suspended email includes the reason and the end date (`{{reason}}`, `{{expires_at}}`).
 - **Gamification** - badge awarded, level up.
 - **Auth** - account and sign-in lifecycle emails.
 - **Digests** - daily digest, weekly digest (see Email Digests).

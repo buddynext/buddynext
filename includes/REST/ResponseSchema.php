@@ -121,6 +121,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/moderation/suspension-reasons',
+				'resource' => 'suspension_reasons',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/me/drafts',
 				'resource' => 'draft',
 				'shape'    => 'item',
@@ -1123,6 +1129,33 @@ final class ResponseSchema {
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
+			),
+		);
+	}
+
+	/**
+	 * The reasons a moderator picks when suspending (GET /moderation/suspension-reasons).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function suspension_reasons(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'suspension_reasons',
+			'type'       => 'object',
+			'properties' => array(
+				'items'    => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'code'          => array( 'type' => 'string' ),
+							'label'         => array( 'type' => 'string' ),
+							'note_required' => array( 'type' => 'boolean' ),
+						),
+					),
+				),
+				'note_max' => array( 'type' => 'integer' ),
 			),
 		);
 	}

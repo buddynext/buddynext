@@ -295,10 +295,10 @@ class EmailEditor {
 				'bn.member_suspended' => array(
 					'name'    => __( 'Member Suspended', 'buddynext' ),
 					'trigger' => __( 'When a member is suspended', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Your account on {{site_name}} has been suspended',
-					'preview' => 'Your account has been suspended.',
-					'body'    => "Hi {{recipient_name}},\n\nYour account at <strong>{{site_name}}</strong> has been suspended following a review of community guideline violations. If you believe this was a mistake, you can submit an appeal.",
+					'tokens'  => array( '{{user_name}}', '{{reason}}', '{{expires_at}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'subject' => 'Your {{site_name}} account has been suspended',
+					'preview' => 'Your account has been suspended',
+					'body'    => "Hi {{user_name}},\n\nYour account on {{site_name}} has been suspended. While it is suspended you cannot post or interact with the community.\n\n<strong>Reason:</strong> {{reason}}\n<strong>Suspended until:</strong> {{expires_at}}\n\nIf you think this was a mistake, you can appeal from your account page.\n\n<a href=\"{{action_url}}\">See your account status</a>",
 				),
 				'bn.appeal_resolved'  => array(
 					'name'    => __( 'Appeal Resolved', 'buddynext' ),
