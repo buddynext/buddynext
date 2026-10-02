@@ -39,6 +39,8 @@ You can rename the pricing slug, or point it at a different page, from Settings 
 The pricing page shows each plan as a card: name, description, price in your currency ("$19 / month"), what the plan includes, and the spaces it opens. When your plans are offered both monthly and yearly, a Monthly / Yearly switch at the top changes every price at once.
 
 - **A visitor** sees an invitation on each card ("Get Supporter", or "Start free trial" for a plan with a trial). Clicking it goes to sign-up with that plan chosen.
+- **When visitors cannot sign up** (registration closed or invite-only), each card says "Sign in to get Supporter" instead. Signing in brings an existing member straight back to that plan. On an invite-only community the card adds "New members join by invitation." Both lines can be reworded in the plans block's Wording panel.
+- **When new accounts need approval**, the sign-up screen says the visitor can finish joining once an admin approves the account. No payment is taken before approval; after approval the member can pick the plan from the welcome wizard or the pricing page.
 - **A signed-in member** sees what each plan adds over the one they have: new features are marked, their own plan says "Your current plan", and a cancelled plan says until when they keep it.
 
 Choosing a paid plan opens a short **order summary** for that plan before anyone pays:
@@ -303,7 +305,7 @@ Every entitlement row in the plan editor carries a one-line explanation of what 
 ## Good to know
 
 - The plan's identifier is permanent. Pick it carefully when you create a plan; you can rename the plan freely afterwards, but its underlying identifier stays fixed.
-- Only Active plans are public. Inactive and Archived plans are hidden from the pricing page but kept in your admin, so you can prepare a plan before launch or retire one without deleting its history.
+- Only Active plans are public. Inactive and Archived plans are hidden from the pricing page but kept in your admin, so you can prepare a plan before launch or retire one without deleting its history. Unlisted plans are also left out of the plan list the mobile app and other API clients read; a member who already holds one still sees it.
 - The free plan is the baseline. For anyone without an active paid subscription, what they can do falls back to the free plan's perks, then to the standard default. Set the free plan up deliberately.
 - Deleting a plan cancels its active subscriptions. This is on purpose, so no member is left holding access to a plan that no longer exists. Cancelled and expired records are kept for your reporting.
 - One active plan per member. BuddyNext treats a member as being on their most recent active subscription when deciding what they can do.
