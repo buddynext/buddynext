@@ -103,6 +103,24 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/users/{id}/likes',
+				'resource' => 'post',
+				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/users/{id}/replies',
+				'resource' => 'profile_reply',
+				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/me/scheduled-posts',
+				'resource' => 'post',
+				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/me/drafts',
 				'resource' => 'draft',
 				'shape'    => 'item',
@@ -1033,7 +1051,12 @@ final class ResponseSchema {
 				'space_id'             => array( 'type' => array( 'integer', 'null' ) ),
 				'space_type'           => array( 'type' => array( 'string', 'null' ) ),
 				'shared_post_id'       => array( 'type' => array( 'integer', 'null' ) ),
-				'shared_post'          => array( 'type' => array( 'object', 'null' ) ),
+				// Only re-shares carry it (FeedController::embed_shared_posts), so a
+				// sample of ordinary posts is not drift.
+				'shared_post'          => array(
+					'type'             => array( 'object', 'null' ),
+					'x-bn-conditional' => true,
+				),
 				'type'                 => array( 'type' => 'string' ),
 				'content'              => array( 'type' => 'string' ),
 				'media_ids'            => array(
@@ -1100,6 +1123,31 @@ final class ResponseSchema {
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
+			),
+		);
+	}
+
+	/**
+	 * A reply on a member's profile Replies list (GET /users/{id}/replies): the
+	 * reply plus a short excerpt of the post it answers.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function profile_reply(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'profile_reply',
+			'type'       => 'object',
+			'properties' => array(
+				'id'               => array( 'type' => 'integer' ),
+				'content'          => array( 'type' => 'string' ),
+				'content_html'     => array( 'type' => 'string' ),
+				'created_at'       => array( 'type' => 'string' ),
+				'post_id'          => array( 'type' => 'integer' ),
+				'post_type'        => array( 'type' => 'string' ),
+				'post_author_name' => array( 'type' => 'string' ),
+				'post_excerpt'     => array( 'type' => 'string' ),
+				'post_url'         => array( 'type' => 'string' ),
 			),
 		);
 	}

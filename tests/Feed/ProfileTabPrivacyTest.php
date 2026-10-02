@@ -112,7 +112,7 @@ class ProfileTabPrivacyTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_replies_tab_hides_a_private_parent_from_a_logged_out_viewer(): void {
-		$rows = ( new PostService() )->user_replies( $this->replier, 20, 0 );
+		$rows = ( new PostService() )->user_replies( $this->replier, 20, 0 )['items'];
 
 		$contexts = wp_list_pluck( $rows, 'post_content' );
 
@@ -132,7 +132,7 @@ class ProfileTabPrivacyTest extends \WP_UnitTestCase {
 	public function test_replies_tab_hides_a_private_parent_from_an_unrelated_member(): void {
 		$stranger = self::factory()->user->create();
 
-		$contexts = wp_list_pluck( ( new PostService() )->user_replies( $this->replier, 20, $stranger ), 'post_content' );
+		$contexts = wp_list_pluck( ( new PostService() )->user_replies( $this->replier, 20, $stranger )['items'], 'post_content' );
 
 		$this->assertNotContains( 'SECRET private plans', $contexts );
 	}
@@ -146,7 +146,7 @@ class ProfileTabPrivacyTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_replies_tab_shows_the_parent_to_its_own_author(): void {
-		$contexts = wp_list_pluck( ( new PostService() )->user_replies( $this->replier, 20, $this->author ), 'post_content' );
+		$contexts = wp_list_pluck( ( new PostService() )->user_replies( $this->replier, 20, $this->author )['items'], 'post_content' );
 
 		$this->assertContains(
 			'SECRET private plans',
@@ -162,7 +162,7 @@ class ProfileTabPrivacyTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_likes_tab_hides_a_private_post_from_a_logged_out_viewer(): void {
-		$rows = ( new PostService() )->user_liked_posts( $this->replier, 20, 0 );
+		$rows = ( new PostService() )->user_liked_posts( $this->replier, 20, 0 )['items'];
 
 		$ids = array_map( 'intval', wp_list_pluck( $rows, 'id' ) );
 
@@ -180,7 +180,7 @@ class ProfileTabPrivacyTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_likes_tab_shows_the_post_to_its_own_author(): void {
-		$ids = array_map( 'intval', wp_list_pluck( ( new PostService() )->user_liked_posts( $this->replier, 20, $this->author ), 'id' ) );
+		$ids = array_map( 'intval', wp_list_pluck( ( new PostService() )->user_liked_posts( $this->replier, 20, $this->author )['items'], 'id' ) );
 
 		$this->assertContains( $this->private_post, $ids );
 	}

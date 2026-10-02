@@ -32,6 +32,8 @@ The feed controller serves the home, explore, profile, and space timelines, plus
 | GET | `/feed/home/page` | auth | Next page of the home feed (cursor pagination). Accepts `?filter=`. |
 | GET | `/feed/explore/page` | public* | Next page of the explore feed (cursor pagination). |
 | GET | `/users/(?P<id>[\d]+)/feed` | public | A member's profile timeline. Private posts are filtered server-side by the viewer's relationship. |
+| GET | `/users/(?P<id>[\d]+)/likes` | public* | Posts the member has reacted to, newest reaction first (the profile Likes tab). `cursor` + `per_page`, returns `{items, next_cursor}`. 404 when the viewer may not see the profile; posts the viewer may not see are left out. |
+| GET | `/users/(?P<id>[\d]+)/replies` | public* | The member's replies, newest first, each with `post_id`, `post_excerpt` and `post_url` of the post it answers (the profile Replies tab). `cursor` + `per_page`, returns `{items, next_cursor}`. Same gates as likes. |
 | GET | `/spaces/(?P<id>[\d]+)/feed` | public | A space's timeline. Secret spaces are gated to members server-side. |
 | GET | `/feed/announcements` | auth | The active announcements the viewer should see: the site-wide announcement plus one per space the viewer belongs to, each respecting the viewer's dismissals and expiry. |
 | POST | `/feed/announcements/(?P<id>[\d]+)/dismiss` | auth | Dismiss a pinned announcement for the current user only. |
@@ -51,6 +53,7 @@ Post create/read/update/delete plus pin and the link-preview helper.
 | DELETE | `/posts/(?P<id>[\d]+)` | auth | Delete a post (owner only, enforced in the handler). |
 | POST | `/posts/(?P<id>[\d]+)/pin` | auth | Pin a post (owner action). |
 | DELETE | `/posts/(?P<id>[\d]+)/pin` | auth | Unpin a post (owner action). |
+| GET | `/me/scheduled-posts` | auth | The current member's scheduled posts, soonest first (the profile Scheduled tab). `cursor` + `per_page` (1-100), returns `{items, next_cursor}` with the same post shape as the feeds. |
 | GET | `/me/pending-posts` | auth | The current member's own posts held for approval. Accepts `?per_page=` (1-100). |
 | GET | `/link-preview` | auth | Resolve link-preview metadata for a `?url=`. Gated by the `buddynext_enable_link_preview` setting. |
 

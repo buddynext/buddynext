@@ -38,20 +38,14 @@ $current_user_id = get_current_user_id();
  * pages and to six pages so a crafted URL cannot ask for an unbounded render.
  */
 $bn_bm_page_size = 15;
-// Six pages, capped by what one feed read returns - see templates/feed/home.php.
-$bn_bm_max_shown = min( $bn_bm_page_size * 6, \BuddyNext\Feed\FeedService::MAX_PER_PAGE );
-$bn_bm_raw_shown = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_bm_shown     = max(
-	$bn_bm_page_size,
-	min( $bn_bm_max_shown, (int) ( ceil( $bn_bm_raw_shown / $bn_bm_page_size ) * $bn_bm_page_size ) )
-);
-
-$bn_bookmarks_per_page = $bn_bm_shown;
+// Six pages, clamped to what one feed read returns - see FeedWindow.
+$bn_bm_window          = \BuddyNext\Feed\FeedWindow::read( $bn_bm_page_size );
+$bn_bookmarks_per_page = $bn_bm_window['shown'];
 
 // Cursor: opaque base64( "bookmark_created_at|post_id" ), decoded and validated
 // inside the service. bn_bookmarks has a composite (user_id, post_id) primary
 // key and no surrogate `id` column, so post_id is the stable tiebreaker.
-$bn_bm_raw_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_bm_raw_cursor = $bn_bm_window['cursor'];
 
 // One service call owns the keyset pagination, the canonical post-visibility
 // gate (blocks, secret-space, followers-only, private, author suspension) and
@@ -70,7 +64,6 @@ $bn_bm_next_cursor = is_string( $bn_bm_page['next_cursor'] ?? null ) ? $bn_bm_pa
 if ( function_exists( 'buddynext_service' ) ) {
 	buddynext_service( 'feed' )->prime_viewer_state( $bn_visible_posts, $current_user_id );
 }
-$bn_bm_has_more = '' !== $bn_bm_next_cursor;
 
 /**
  * Fires before the bookmarks hub renders.
@@ -116,46 +109,18 @@ $bn_bm_rest_nonce = wp_create_nonce( 'wp_rest' );
 			<?php endforeach; ?>
 		</div>
 
-		<?php if ( $bn_bm_has_more && '' !== $bn_bm_next_cursor && $bn_bm_shown < $bn_bm_max_shown ) : ?>
-			<?php
-			$bn_bm_more_args = array( 'shown' => $bn_bm_shown + $bn_bm_page_size );
-
-			// Keep the cursor while growing, or a member reading a continuation
-			// page is thrown back to their newest bookmarks. Same rule as the
-			// activity feed.
-			if ( '' !== $bn_bm_raw_cursor ) {
-				$bn_bm_more_args['cursor'] = rawurlencode( $bn_bm_raw_cursor );
-			}
-
-			buddynext_get_template(
-				'parts/feed-load-more.php',
-				array( 'more_url' => add_query_arg( $bn_bm_more_args, PageRouter::bookmarks_url() ) )
-			);
-			?>
-		<?php elseif ( $bn_bm_has_more && '' !== $bn_bm_next_cursor ) : ?>
-			<?php
-			/*
-			 * The render ceiling, not the end. Growing one page forever re-renders
-			 * everything on every click, so past the ceiling the member continues on
-			 * a fresh page from the cursor. Deliberately NOT the Load-more control:
-			 * that grows `shown`, which is clamped here, so it would re-render the
-			 * same bookmarks and appear broken.
-			 */
-			$bn_bm_next_url = add_query_arg(
-				array( 'cursor' => rawurlencode( $bn_bm_next_cursor ) ),
-				PageRouter::bookmarks_url()
-			);
-			?>
-			<div class="bn-load-more bn-load-more--next-page">
-				<a class="bn-btn bn-load-more__btn" href="<?php echo esc_url( $bn_bm_next_url ); ?>">
-					<?php esc_html_e( 'Older bookmarks', 'buddynext' ); ?>
-				</a>
-			</div>
-		<?php else : ?>
-			<div class="bn-feed-end" role="status">
-				<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
-			</div>
-		<?php endif; ?>
+		<?php
+		buddynext_get_template(
+			'parts/feed-load-more.php',
+			array_merge(
+				\BuddyNext\Feed\FeedWindow::links( PageRouter::bookmarks_url(), $bn_bm_window, $bn_bm_next_cursor ),
+				array(
+					'next_label' => __( 'Older bookmarks', 'buddynext' ),
+					'show_end'   => true,
+				)
+			)
+		);
+		?>
 
 	<?php else : ?>
 		<div class="bn-feed-empty" role="status" data-filter="bookmarks">

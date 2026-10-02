@@ -143,6 +143,8 @@ Two-factor lives under `/account/2fa/*`; password, email, and session controls l
 | POST | `/users/{id}/cover` | require_edit_any_profile | Admin upload of a user's cover image |
 | DELETE | `/users/{id}/cover` | require_edit_any_profile | Admin removal of a user's cover image |
 | GET | `/users/{id}/feed` | public | A user's own post timeline (gated by `buddynext_public_explore`) |
+| GET | `/users/{id}/likes` | public* | Posts the member reacted to (profile Likes tab), keyset `cursor` paging. See the feed reference. |
+| GET | `/users/{id}/replies` | public* | The member's replies with the post each answers (profile Replies tab), keyset `cursor` paging. See the feed reference. |
 
 ### Companion-gated member routes
 

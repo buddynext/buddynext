@@ -37,9 +37,6 @@ if ( ! in_array( $explore_filter, ExploreService::FILTERS, true ) ) {
 	$explore_filter = 'all';
 }
 
-// ── First-page cursor (deep links / no-JS pagination) ──────────────────────
-$explore_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
 // ── Per-viewer visibility gate (first-paint, at the data source) ────────────
 /**
  * Whether the current viewer may see the Explore discovery deck at all.
@@ -103,19 +100,15 @@ if ( ! $bn_can_view_explore ) {
  * free-internal/docs/plans/feed-hydrated-pagination-2026-07-24.md
  */
 $bn_explore_page_size = 12;
-// Six pages, capped by what one feed read returns - see templates/feed/home.php.
-$bn_explore_max_shown = min( $bn_explore_page_size * 6, \BuddyNext\Feed\FeedService::MAX_PER_PAGE );
-$bn_explore_raw_shown = isset( $_GET['shown'] ) ? absint( wp_unslash( $_GET['shown'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_explore_shown     = max(
-	$bn_explore_page_size,
-	min( $bn_explore_max_shown, (int) ( ceil( $bn_explore_raw_shown / $bn_explore_page_size ) * $bn_explore_page_size ) )
-);
-$bn_explore_per_page  = $bn_explore_shown;
-$bn_explore_service   = new ExploreService();
-$bn_deck              = $bn_explore_service->deck( $explore_filter, '' !== $explore_cursor ? $explore_cursor : null, $bn_explore_per_page );
-$bn_cards             = (array) ( $bn_deck['items'] ?? array() );
-$bn_next_cursor       = $bn_deck['next_cursor'] ?? null;
-$bn_pulse             = $bn_explore_service->pulse();
+// Six pages, clamped to what one feed read returns - see FeedWindow.
+$bn_explore_window   = \BuddyNext\Feed\FeedWindow::read( $bn_explore_page_size );
+$explore_cursor      = $bn_explore_window['cursor'];
+$bn_explore_per_page = $bn_explore_window['shown'];
+$bn_explore_service  = new ExploreService();
+$bn_deck             = $bn_explore_service->deck( $explore_filter, '' !== $explore_cursor ? $explore_cursor : null, $bn_explore_per_page );
+$bn_cards            = (array) ( $bn_deck['items'] ?? array() );
+$bn_next_cursor      = $bn_deck['next_cursor'] ?? null;
+$bn_pulse            = $bn_explore_service->pulse();
 
 // ── REST nonce ─────────────────────────────────────────────────────────────
 $rest_nonce = wp_create_nonce( 'wp_rest' );
@@ -291,39 +284,15 @@ $bn_explore_filters = array(
 		</div>
 
 		<!-- Load more: a real link the router upgrades to an in-place region swap -->
-		<?php if ( $bn_next_cursor && $bn_explore_shown < $bn_explore_max_shown ) : ?>
-			<?php
-			// The cursor is KEPT while growing. Stripping it sent a member reading a
-			// continuation page back to the newest cards - the ones they had already
-			// scrolled past to get there.
-			$bn_explore_more_url = add_query_arg(
-				array( 'shown' => $bn_explore_shown + $bn_explore_page_size )
-			);
-			?>
-			<?php buddynext_get_template( 'parts/feed-load-more.php', array( 'more_url' => $bn_explore_more_url ) ); ?>
-		<?php elseif ( $bn_next_cursor ) : ?>
-			<?php
-			/*
-			 * The render ceiling, not the end. Past it the member continues on a fresh
-			 * page from the cursor, so the render stays bounded while the reach does
-			 * not. Not the Load-more control: that grows `shown`, which is clamped
-			 * here, so it would re-render the same cards and read as broken.
-			 */
-			$bn_explore_next_url = add_query_arg(
-				array( 'cursor' => rawurlencode( (string) $bn_next_cursor ) ),
-				remove_query_arg( 'shown' )
-			);
-			?>
-			<div class="bn-load-more bn-load-more--next-page">
-				<a class="bn-btn bn-load-more__btn" href="<?php echo esc_url( $bn_explore_next_url ); ?>">
-					<?php esc_html_e( 'Older posts', 'buddynext' ); ?>
-				</a>
-			</div>
-		<?php elseif ( ! empty( $bn_cards ) ) : ?>
-			<div class="bn-feed-end" role="status">
-				<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
-			</div>
-		<?php endif; ?>
+		<?php
+		buddynext_get_template(
+			'parts/feed-load-more.php',
+			array_merge(
+				\BuddyNext\Feed\FeedWindow::links( remove_query_arg( array( 'shown', 'cursor' ) ), $bn_explore_window, is_string( $bn_next_cursor ) ? $bn_next_cursor : null ),
+				array( 'show_end' => ! empty( $bn_cards ) )
+			)
+		);
+		?>
 		</div><!-- /.bn-feed-region -->
 
 	</div><!-- /.bn-explore-content -->

@@ -191,6 +191,29 @@ class FeedController extends BaseRestController {
 			)
 		);
 
+		// The profile's Likes and Replies tabs, paged by keyset cursor like the feed.
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/likes',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'profile_likes' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/replies',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'profile_replies' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/feed',
@@ -932,6 +955,90 @@ class FeedController extends BaseRestController {
 		}
 
 		return $this->enriched_response( $result, $viewer_id );
+	}
+
+	/**
+	 * Whether the viewer may see this member's profile lists.
+	 *
+	 * The same gate the profile page applies before rendering any tab: the owner
+	 * and site admins always pass, everyone else needs can_view_profile() (block +
+	 * public / followers / connections). Each list then filters its rows by the
+	 * viewer, as the web tabs do.
+	 *
+	 * @param int $profile_user_id Profile owner.
+	 * @param int $viewer_id       Current user (0 = logged out).
+	 * @return bool
+	 */
+	private function can_view_profile_lists( int $profile_user_id, int $viewer_id ): bool {
+		if ( $profile_user_id <= 0 || ! get_userdata( $profile_user_id ) ) {
+			return false;
+		}
+		if ( $profile_user_id === $viewer_id || current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		$privacy = buddynext_service( 'privacy' );
+		return ! ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) || $privacy->can_view_profile( $viewer_id, $profile_user_id );
+	}
+
+	/**
+	 * The posts a member has reacted to, newest reaction first (profile Likes tab).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function profile_likes( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$profile_user_id = (int) $request->get_param( 'id' );
+		$viewer_id       = get_current_user_id();
+		if ( ! $this->can_view_profile_lists( $profile_user_id, $viewer_id ) ) {
+			return new WP_Error( 'user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$page   = buddynext_service( 'post_service' )->user_liked_posts( $profile_user_id, (int) $request->get_param( 'per_page' ), $viewer_id, $cursor );
+
+		return $this->enriched_response( $page, $viewer_id );
+	}
+
+	/**
+	 * A member's replies, newest first, each with the post it answers (profile
+	 * Replies tab).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function profile_replies( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$profile_user_id = (int) $request->get_param( 'id' );
+		$viewer_id       = get_current_user_id();
+		if ( ! $this->can_view_profile_lists( $profile_user_id, $viewer_id ) ) {
+			return new WP_Error( 'user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$page   = buddynext_service( 'post_service' )->user_replies( $profile_user_id, (int) $request->get_param( 'per_page' ), $viewer_id, $cursor );
+
+		$items = array();
+		foreach ( $page['items'] as $row ) {
+			$items[] = array(
+				'id'               => (int) $row['id'],
+				'content'          => (string) $row['content'],
+				'content_html'     => buddynext_format_content( (string) $row['content'] ),
+				'created_at'       => (string) $row['created_at'],
+				'post_id'          => (int) $row['object_id'],
+				'post_type'        => (string) $row['post_type'],
+				'post_author_name' => (string) $row['post_author_name'],
+				// The same short context the web tab shows, never the whole post.
+				'post_excerpt'     => wp_trim_words( wp_strip_all_tags( (string) $row['post_content'] ), 15 ),
+				'post_url'         => \BuddyNext\Core\PageRouter::post_url( (int) $row['object_id'] ),
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'       => $items,
+				'next_cursor' => $page['next_cursor'],
+			),
+			200
+		);
 	}
 
 	/**

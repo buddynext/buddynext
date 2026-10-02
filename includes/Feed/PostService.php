@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use WP_Error;
+use BuddyNext\Core\CursorCodec;
 use BuddyNext\Profile\Handle;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Moderation\ModerationService;
@@ -1112,34 +1113,34 @@ class PostService {
 
 	/**
 	 * List a user's own scheduled (future) posts, soonest first, hydrated through
-	 * the canonical mapper. Powers the owner-only profile "Scheduled" tab.
+	 * the canonical mapper. Powers the owner-only profile "Scheduled" tab and
+	 * GET /me/scheduled-posts.
 	 *
-	 * @param int $user_id Author user ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id Author user ID.
+	 * @param int         $limit   Rows per page (1-100). Default 20.
+	 * @param string|null $cursor  Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_scheduled_posts( int $user_id, int $limit = 20 ): array {
+	public function user_scheduled_posts( int $user_id, int $limit = 20, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_posts
-				 WHERE user_id = %d AND status = 'scheduled'
-				 ORDER BY scheduled_at ASC
-				 LIMIT %d",
-				$user_id,
-				$limit
-			),
-			ARRAY_A
+		$page          = $this->keyset_page(
+			"SELECT *, scheduled_at AS bn_cursor_ts, id AS bn_cursor_id FROM {$wpdb->prefix}bn_posts
+			 WHERE user_id = %d AND status = 'scheduled'",
+			array( $user_id ),
+			array( 'scheduled_at', 'id' ),
+			true,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
+		return $page;
 	}
 
 	/**
@@ -1173,32 +1174,31 @@ class PostService {
 	 *
 	 * @since 1.1.6
 	 *
-	 * @param int $user_id Author user ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id Author user ID.
+	 * @param int         $limit   Rows per page (1-100). Default 20.
+	 * @param string|null $cursor  Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_pending_posts( int $user_id, int $limit = 20 ): array {
+	public function user_pending_posts( int $user_id, int $limit = 20, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_posts
-				 WHERE user_id = %d AND status = 'pending'
-				 ORDER BY created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$limit
-			),
-			ARRAY_A
+		$page          = $this->keyset_page(
+			"SELECT *, created_at AS bn_cursor_ts, id AS bn_cursor_id FROM {$wpdb->prefix}bn_posts
+			 WHERE user_id = %d AND status = 'pending'",
+			array( $user_id ),
+			array( 'created_at', 'id' ),
+			false,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
+		return $page;
 	}
 
 	/**
@@ -1245,43 +1245,39 @@ class PostService {
 	 * relationship clauses (follow / connection / space membership) rather than a flat
 	 * predicate.
 	 *
-	 * @param int $user_id   Comment author user ID.
-	 * @param int $limit     Max rows (1-50). Default 20.
-	 * @param int $viewer_id Who is looking (0 = logged out). Gates the PARENT post.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id   Comment author user ID.
+	 * @param int         $limit     Rows per page (1-100). Default 20.
+	 * @param int         $viewer_id Who is looking (0 = logged out). Gates the PARENT post.
+	 * @param string|null $cursor    Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_replies( int $user_id, int $limit = 20, int $viewer_id = 0 ): array {
+	public function user_replies( int $user_id, int $limit = 20, int $viewer_id = 0, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT c.id, c.content, c.created_at, c.object_id,
-				        p.content AS post_content, p.type AS post_type,
-				        u.display_name AS post_author_name
-				 FROM {$wpdb->prefix}bn_comments c
-				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
-				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-				 WHERE c.user_id = %d
-				   AND ( c.is_hidden = 0 OR c.user_id = %d )
-				   AND p.status = 'published'
-				   AND ( p.privacy = 'public' OR p.user_id = %d )
-				 ORDER BY c.created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$viewer_id,
-				$viewer_id,
-				$limit
-			),
-			ARRAY_A
+		return $this->keyset_page(
+			"SELECT c.id, c.content, c.created_at, c.object_id,
+			        p.content AS post_content, p.type AS post_type,
+			        u.display_name AS post_author_name,
+			        c.created_at AS bn_cursor_ts, c.id AS bn_cursor_id
+			 FROM {$wpdb->prefix}bn_comments c
+			 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
+			 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+			 WHERE c.user_id = %d
+			   AND ( c.is_hidden = 0 OR c.user_id = %d )
+			   AND p.status = 'published'
+			   AND ( p.privacy = 'public' OR p.user_id = %d )",
+			array( $user_id, $viewer_id, $viewer_id ),
+			array( 'c.created_at', 'c.id' ),
+			false,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**
@@ -1293,38 +1289,93 @@ class PostService {
 	 * published its text to anyone who opened your profile. See user_replies() for
 	 * the full note.
 	 *
-	 * @param int $user_id   Reacting user ID.
-	 * @param int $limit     Max rows (1-50). Default 20.
-	 * @param int $viewer_id Who is looking (0 = logged out). Gates the LIKED post.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id   Reacting user ID.
+	 * @param int         $limit     Rows per page (1-100). Default 20.
+	 * @param int         $viewer_id Who is looking (0 = logged out). Gates the LIKED post.
+	 * @param string|null $cursor    Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_liked_posts( int $user_id, int $limit = 20, int $viewer_id = 0 ): array {
+	public function user_liked_posts( int $user_id, int $limit = 20, int $viewer_id = 0, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT p.*
-				 FROM {$wpdb->prefix}bn_reactions r
-				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
-				 WHERE r.user_id = %d
-				   AND p.status = 'published'
-				   AND ( p.privacy = 'public' OR p.user_id = %d )
-				 ORDER BY r.created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$viewer_id,
-				$limit
-			),
-			ARRAY_A
+		// bn_reactions has no surrogate id (PRIMARY KEY user_id, object_type,
+		// object_id), so the liked post's id breaks ties on the reaction time.
+		$page          = $this->keyset_page(
+			"SELECT p.*, r.created_at AS bn_cursor_ts, r.object_id AS bn_cursor_id
+			 FROM {$wpdb->prefix}bn_reactions r
+			 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
+			 WHERE r.user_id = %d
+			   AND p.status = 'published'
+			   AND ( p.privacy = 'public' OR p.user_id = %d )",
+			array( $user_id, $viewer_id ),
+			array( 'r.created_at', 'r.object_id' ),
+			false,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
+		return $page;
+	}
 
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	/**
+	 * One keyset page of a profile list (Scheduled, Pending, Replies, Likes).
+	 *
+	 * Appends the cursor predicate, a two-key ORDER BY and LIMIT n+1 to $sql,
+	 * then builds the next cursor from the last row kept. $sql must select the
+	 * two sort keys as `bn_cursor_ts` and `bn_cursor_id`; both are stripped from
+	 * the returned rows. Never OFFSET: page 500 of a long history costs what
+	 * page 1 does, on the (user_id, created_at) indexes these tables carry.
+	 *
+	 * @param string                      $sql      SELECT ... WHERE ... with %-placeholders, no ORDER BY/LIMIT.
+	 * @param array<int, mixed>           $params   Values for $sql's placeholders.
+	 * @param array{0: string, 1: string} $keys Timestamp and id columns, as written in $sql.
+	 * @param bool                        $asc      Oldest first (true) or newest first (false).
+	 * @param string|null                 $cursor   Cursor from a previous page; null or invalid = first page.
+	 * @param int                         $per_page Rows per page, clamped to 1-100.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
+	 */
+	private function keyset_page( string $sql, array $params, array $keys, bool $asc, ?string $cursor, int $per_page ): array {
+		global $wpdb;
+
+		$per_page        = max( 1, min( FeedService::MAX_PER_PAGE, $per_page ) );
+		$dir             = $asc ? 'ASC' : 'DESC';
+		$cmp             = $asc ? '>' : '<';
+		list( $ts, $id ) = $keys;
+
+		$decoded = null !== $cursor && '' !== $cursor ? CursorCodec::decode( $cursor ) : null;
+		if ( null !== $decoded ) {
+			$sql     .= " AND ( {$ts} {$cmp} %s OR ( {$ts} = %s AND {$id} {$cmp} %d ) )";
+			$params[] = $decoded['created_at'];
+			$params[] = $decoded['created_at'];
+			$params[] = $decoded['id'];
+		}
+		$sql     .= " ORDER BY {$ts} {$dir}, {$id} {$dir} LIMIT %d";
+		$params[] = $per_page + 1;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is built from fixed fragments; every value is a placeholder.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A );
+
+		$next = null;
+		if ( count( $rows ) > $per_page ) {
+			$rows = array_slice( $rows, 0, $per_page );
+			$last = end( $rows );
+			$next = CursorCodec::encode( (string) $last['bn_cursor_ts'], (int) $last['bn_cursor_id'] );
+		}
+
+		foreach ( $rows as $i => $row ) {
+			unset( $rows[ $i ]['bn_cursor_ts'], $rows[ $i ]['bn_cursor_id'] );
+		}
+
+		return array(
+			'items'       => array_values( $rows ),
+			'next_cursor' => $next,
+		);
 	}
 
 	/**

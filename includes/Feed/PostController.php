@@ -154,6 +154,31 @@ class PostController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/me/scheduled-posts',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'my_scheduled_posts' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'cursor'   => array(
+						'type'              => 'string',
+						'required'          => false,
+						'description'       => 'Opaque keyset cursor from a previous response.',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 100,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/me/pending-posts',
 			array(
 				'methods'             => 'GET',
@@ -297,6 +322,22 @@ class PostController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( $post, 201 );
+	}
+
+	/**
+	 * The current member's scheduled posts, soonest first (profile Scheduled tab).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function my_scheduled_posts( WP_REST_Request $request ): WP_REST_Response {
+		$user_id = get_current_user_id();
+		$cursor  = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$page    = ( new PostService() )->user_scheduled_posts( $user_id, absint( $request->get_param( 'per_page' ) ), $cursor );
+
+		$page['items'] = ( new FeedController() )->enrich_for_rest( $page['items'], $user_id );
+
+		return new WP_REST_Response( $page, 200 );
 	}
 
 	/**

@@ -14,6 +14,7 @@
  *                                'pending' has no empty state: its tab only exists while
  *                                the count is above zero, so the list is never empty.
  * @var array        $posts        Post arrays for the list.
+ * @var array        $pager        Optional FeedWindow::links() result: Load more / older posts.
  * @var int          $viewer_id    Current viewer user ID.
  * @var bool         $is_owner     Whether the viewer owns this profile.
  * @var string       $display_name Profile display name (empty states).
@@ -31,6 +32,7 @@ $bn_pl_is_owner = ! empty( $is_owner );
 $bn_pl_name     = isset( $display_name ) ? (string) $display_name : '';
 $bn_pl_user     = isset( $current_user ) ? $current_user : null;
 $bn_pl_subject  = isset( $subject_id ) ? (int) $subject_id : 0;
+$bn_pl_pager    = isset( $pager ) && is_array( $pager ) ? $pager : array();
 
 // Posts tab: the owner posts directly from their activity tab via the shared
 // composer (same Interactivity context as the home feed).
@@ -45,6 +47,12 @@ if ( 'posts' === $bn_pl_kind && $bn_pl_is_owner ) :
 endif;
 
 if ( ! empty( $bn_pl_posts ) ) :
+	// Router region around the list + its Load more, as on the home feed: the
+	// router hydrates what it swaps, so paging never yields dead cards.
+	$bn_pl_region = (bool) apply_filters( 'buddynext_feed_client_pagination', true )
+		? ' data-wp-interactive="buddynext/feed" data-wp-router-region="buddynext/feed"'
+		: '';
+	echo '<div class="bn-feed-region"' . $bn_pl_region . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute string.
 	// Wrap in .bn-feed-stack so cards get the same vertical gap as the main feeds
 	// (.bn-post-card carries no margin — spacing comes from the stack's gap).
 	echo '<div class="bn-feed-stack">';
@@ -63,6 +71,8 @@ if ( ! empty( $bn_pl_posts ) ) :
 			)
 		);
 	}
+	echo '</div>';
+	buddynext_get_template( 'parts/feed-load-more.php', $bn_pl_pager );
 	echo '</div>';
 else :
 	// Per-kind empty state.
