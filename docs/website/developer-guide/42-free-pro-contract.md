@@ -24,7 +24,7 @@ Boot order is fixed and load-bearing: Free boots at `plugins_loaded:15` (firing 
 
 Pro reads existing Free services out of the container by key rather than instantiating Free classes itself. These are the keys Pro depends on; renaming or removing one in Free breaks Pro.
 
-**All 16 of them.** This list is derived from code (every `buddynext_service( '…' )` call and every `$c->get( '…' )` inside a Pro bind closure), not from a manifest field. If you rename a Free container key, every row here is a break.
+**All 17 of them.** This list is derived from code (every `buddynext_service( '…' )` call and every `$c->get( '…' )` inside a Pro bind closure), not from a manifest field. If you rename a Free container key, every row here is a break.
 
 | Key | Free class | Consumed by (Pro) | Purpose |
 |---|---|---|---|
@@ -32,6 +32,7 @@ Pro reads existing Free services out of the container by key rather than instant
 | `email_sender` | `EmailSender` | `Email\DripService`, `Email\BroadcastService`, `Membership\SubscriptionEmailListener` | Send Pro campaign, drip, and subscription mail through Free's sender (so Free's per-type prefs and suppression still apply). |
 | `feed_cache` | `Feed\FeedCache` | `Core\Plugin` (feed rebind) | Passed to the AI feed subclass so the page-1 feed cache still engages. |
 | `follows` | `SocialGraph\FollowService` | `Core\Plugin` (feed rebind) | Follow graph for affinity-weighted ranking. |
+| `member_directory` | `Profile\MemberDirectoryService` | `Membership\MembershipSections` | Count members and list the newest ones for the pricing page's community proof, with the directory's own privacy and block rules. |
 | `moderation` | `Moderation\ModerationService` | `Admin\BulkModAdmin`, `Moderation\BulkModService` | Route Pro bulk actions through Free's moderation pipeline. |
 | `notification_message` | `Notifications\NotificationMessageService` | `Push\PushDispatcher` | Render the notification body for a push payload. |
 | `notification_prefs` | `Notifications\NotificationPrefService` | `Push\PushDispatcher` | Master per-channel gate before a push is sent. |

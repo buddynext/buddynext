@@ -166,9 +166,21 @@ The plan's own edit screen shows the link to share. Members already on the plan 
 
 The pricing page will render an unlisted plan when the link names it explicitly (`?plan=<id>`), and only that one - every other unlisted plan stays hidden, and a visitor without the link sees nothing extra.
 
-### How plans read on the pricing page (1.2.4)
+### Your pricing page, block by block (1.2.4)
 
-Select the **Membership plans** block on your pricing page to shape it in the block settings:
+The pricing page is made of five BuddyNext blocks. Each fills itself from your site, so the page is complete before you touch it, and each can be edited, moved or removed in the block editor like any block. Add them to any page; each also has a shortcode for page builders.
+
+| Block | Shows | You can change |
+|---|---|---|
+| **Membership header** (`[buddynext_membership_header]`) | The page title and one line. Signed-in members also see the plan they are on. | Title and line. |
+| **Community proof** (`[buddynext_membership_proof]`) | Your member count, space count, posts this week, and your newest members. | Which figures show, and the minimum a figure must reach before it appears (default 10). Newest members only show when your member directory is open to visitors. |
+| **Membership plans** (`[buddynext_membership_pricing]`) | Your plans as cards, and the order summary. | See below. |
+| **Plan comparison** (`[buddynext_membership_compare]`) | A table of what each plan includes, from the same features as the cards. | Start open or closed. Shows only with two or more plans. |
+| **Membership FAQ** (`[buddynext_membership_faq]`) | Answers built from your settings: cancelling, free trials, how to pay. | Switch any answer off, add your own questions. |
+
+Pricing pages created before 1.2.4 that still have the original one-block layout are moved to these blocks on update. A pricing page you have edited is never rewritten; its original block keeps working and now shows the same sections.
+
+Select the **Membership plans** block to shape the plans in the block settings:
 
 - **Recommended plan**: one plan gets a highlighted card and a "Recommended" badge.
 - **Plans**: tick the plans this block shows. Leave all unticked to show every listed plan. Three or four plans read best.
