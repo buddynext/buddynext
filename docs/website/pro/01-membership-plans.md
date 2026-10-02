@@ -186,6 +186,11 @@ Select the **Membership plans** block to shape the plans in the block settings:
 - **Plans**: tick the plans this block shows. Leave all unticked to show every listed plan. Three or four plans read best.
 - **Feature wording**: each plan lists the features it actually enables by default. Type your own lines (one per line, up to six) to say it your way; leave a plan empty to keep the default.
 - **Heading**: the title and line above the plans.
+- **Wording**: your words for what members read around the plans: the buttons ("Get {plan}", "Start free trial", "Upgrade to {plan}", "Join for free"), the Recommended badge, the line under the plans, the order summary's title, intro and pay button, and the welcome wizard's plan step. Leave a field empty to keep the default. `{plan}` becomes the plan name and `{providers}` your payment providers. Because these are saved with the pricing page's plans block, the same wording appears on the pricing page, in the welcome wizard and in Settings > Membership.
+
+Every section block has fields for its own text too: the header's member line, the community proof's words (say "photographers" instead of "members"), the comparison's title, and each automatic FAQ answer, which you can reword or switch off. Text that states what billing will actually do (prices, "Billed monthly", renewal and trial terms) stays as BuddyNext writes it so it is always true; it can be translated like any other text.
+
+The welcome wizard's plan step and Settings > Membership show the same plan cards. In the wizard, choosing a paid plan completes the wizard and opens the order summary (or goes straight to payment when there is nothing to choose). In Settings > Membership, the other plans appear as cards with the switch action, showing how many days the member's paid time becomes on that plan.
 
 These settings are saved on the pricing page itself, and the app's plan list reads the same ones.
 
