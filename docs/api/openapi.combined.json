@@ -28518,6 +28518,18 @@
                     "annual_savings_pct": {
                         "type": "integer"
                     },
+                    "owned": {
+                        "type": "boolean"
+                    },
+                    "access_until": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "can_purchase": {
+                        "type": "boolean"
+                    },
                     "buyable": {
                         "type": "boolean"
                     }

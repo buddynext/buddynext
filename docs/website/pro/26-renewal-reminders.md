@@ -15,7 +15,7 @@ There is also a legal dimension. EU and California auto-renewal rules require ad
 | Email | Sent when | What it says |
 |---|---|---|
 | **Membership renewing** | The subscription will auto-renew | Your plan renews on this date, and this is what you will be charged |
-| **Membership ending** | The subscription will lapse rather than renew | Your access ends on this date, and here is how to keep it |
+| **Membership ending** | The subscription will lapse rather than renew | Your access ends on this date, and you can buy it again after that |
 
 Both are ordinary BuddyNext email templates, so you can edit the wording under Settings > Notifications > Email Templates like any other message.
 

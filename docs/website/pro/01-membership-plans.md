@@ -51,7 +51,7 @@ To show the pricing table somewhere else as well - a marketing landing page, for
 The member's billing area shows their current plan, price and interval, status, and renewal date - plus, since 1.0.4:
 
 - **Payment history** with a **downloadable invoice** for every charge, showing the 24 most recent.
-- **Cancel** - protected by a proper confirmation dialog. Cancelling keeps access until the paid period ends; the plan shows as cancelling until then, and afterwards the member lands in a lapsed state (free plan) rather than being cut off mid-period.
+- **Cancel** - protected by a proper confirmation dialog. Cancelling keeps access until the paid period ends; the plan shows as cancelling until then, and afterwards the member lands in a lapsed state (free plan) rather than being cut off mid-period. While a cancelled plan is still running, the member cannot buy that same plan again (it would charge them twice for days they already have); the pricing page and their billing area show the end date, and the plan can be bought again after it. Other plans can be bought at any time. Plans you grant to a member by hand are not affected.
 - **Change plan (1.1.6)** - switch to a different paid plan without cancelling first. The page shows every other plan the member could move to, so they pick and confirm from their own billing area.
 
 To surface a compact version of this plan summary on another page, the shortcode remains available:

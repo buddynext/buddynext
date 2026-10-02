@@ -36,9 +36,9 @@ Plans are the membership plans. Plan CRUD lives under `/tiers`; the buyer-facing
 |---|---|---|---|
 | GET, POST | `/tiers` | Public (GET) / Admin (POST) | List plans; create a plan. |
 | GET, DELETE | `/tiers/{id}` | Public (GET) / Admin (DELETE) | Get a plan; delete a plan. |
-| GET | `/membership/plans` | Public | List purchasable plans. |
+| GET | `/membership/plans` | Public | List purchasable plans. Since 1.2.4 each plan also carries the viewer's state: `owned` (they have access now, including a cancelled plan until it ends), `access_until` (UTC ISO 8601, `null` for lifetime or not owned) and `can_purchase` (`buyable` and not owned). Logged out, `owned` is always `false`. |
 | GET | `/membership/gateways` | Public | List enabled payment gateways. |
-| POST | `/membership/checkout` | Logged in | Start a checkout for a plan (`plan_id`, optional `gateway`, `mode`, `coupon`, `country`). |
+| POST | `/membership/checkout` | Logged in | Start a checkout for a plan (`plan_id`, optional `gateway`, `mode`, `coupon`, `country`). Buying a plan the member still has (active, trialing, past due, or cancelled before its end date) returns `409 already_has_access` with `data.access_until`; the one exception is switching between a plan's monthly and annual prices while still billing. |
 | GET | `/membership/checkout-nonce` | Public | Mint a checkout CSRF nonce for an anonymous visitor. Public by design: a nonce is session-bound CSRF protection, not a secret, and anonymous checkout (which registers the account on submit) needs to work while logged out. |
 | POST | `/membership/register` | Public | Register + buy in one call, for the native app's paid-signup funnel where `/membership/checkout` (which requires a session) has no account to attach to. Re-dispatches into Free's `POST /auth/register` first - so the spam guard, registration policy, approval hold, 2FA, and session issuer all still run with no second copy - then hands the new member to the same `run_checkout()` the web form uses. Body: `plan_id` (required), optional `gateway`, `mode`. |
 | POST | `/membership/quote` | Logged in | Return a price quote (subtotal, tax, discount, total) for a plan without charging. |
