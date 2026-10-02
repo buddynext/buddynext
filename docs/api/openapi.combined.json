@@ -28608,6 +28608,32 @@
                     "url": {
                         "type": "string",
                         "format": "uri"
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "spaces": {
+                        "type": "object",
+                        "properties": {
+                            "names": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "more": {
+                                "type": "integer"
+                            },
+                            "all": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "recommended": {
+                        "type": "boolean"
                     }
                 }
             },

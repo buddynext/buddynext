@@ -36,7 +36,19 @@ You can rename the pricing slug, or point it at a different page, from Settings 
 
 ### View the plans and subscribe
 
-The pricing page lists every active plan with its name, description, price, and billing interval. Each paid plan has its own button that starts checkout; the free plan is marked as the member's current plan. The button submits a standard form, so the buy flow works even with JavaScript disabled. After a member completes checkout, they are returned to their Settings > Membership tab with a confirmation, and their subscription becomes active.
+The pricing page shows each plan as a card: name, description, price in your currency ("$19 / month"), what the plan includes, and the spaces it opens. When your plans are offered both monthly and yearly, a Monthly / Yearly switch at the top changes every price at once.
+
+- **A visitor** sees an invitation on each card ("Get Supporter", or "Start free trial" for a plan with a trial). Clicking it goes to sign-up with that plan chosen.
+- **A signed-in member** sees what each plan adds over the one they have: new features are marked, their own plan says "Your current plan", and a cancelled plan says until when they keep it.
+
+Choosing a paid plan opens a short **order summary** for that plan before anyone pays:
+
+- a **coupon** field, only when your site has a coupon a buyer could use;
+- a **billing country**, only when you set different tax rates for some countries;
+- the price, any discount, tax and the **total**, updated as the buyer types;
+- **Continue to secure payment** (or one button per provider when several are on), and **Redeem points** when the plan has a points price.
+
+Card details are never typed on your site. The button hands the buyer to Stripe or PayPal with the final amount, and they come back to Settings > Membership with a confirmation. A member who signs up through a plan link lands on this summary when there is something to choose, and goes straight to payment when there is not.
 
 A visitor who is not logged in and picks a paid plan is sent to registration first, carrying that plan with them. Once they create their account, they land straight in checkout for the plan they picked rather than back on the pricing table - so choosing a plan and signing up feels like one continuous step, not two separate ones.
 
@@ -154,15 +166,26 @@ The plan's own edit screen shows the link to share. Members already on the plan 
 
 The pricing page will render an unlisted plan when the link names it explicitly (`?plan=<id>`), and only that one - every other unlisted plan stays hidden, and a visitor without the link sees nothing extra.
 
+### How plans read on the pricing page (1.2.4)
+
+Select the **Membership plans** block on your pricing page to shape it in the block settings:
+
+- **Recommended plan**: one plan gets a highlighted card and a "Recommended" badge.
+- **Plans**: tick the plans this block shows. Leave all unticked to show every listed plan. Three or four plans read best.
+- **Feature wording**: each plan lists the features it actually enables by default. Type your own lines (one per line, up to six) to say it your way; leave a plan empty to keep the default.
+- **Heading**: the title and line above the plans.
+
+These settings are saved on the pricing page itself, and the app's plan list reads the same ones.
+
 ### Plan buy links (1.2.4)
 
 Every live plan has a buy link: your pricing page address with `?plan=<id>` on the end. Copy it with **Copy link** on the plan's card in Monetization > Plans, or from **Direct link to this plan** on its edit screen, and paste it into any button: a page-builder pricing table (Elementor, Divi, the block editor), an email, a menu item.
 
 - **A visitor** who follows it goes straight to sign-up with that plan already chosen, and on to checkout once their account exists. They never have to find the plan on your pricing page.
-- **A signed-in member** sees that one plan on its own with its buy button, and a link to see all plans. A plan they already have shows as theirs (with its end date if they cancelled), never a button checkout would refuse.
+- **A signed-in member** lands on that plan's order summary. A plan they already have shows as theirs (with its end date if they cancelled), never a button checkout would refuse.
 - **An unknown or closed plan** simply opens the full pricing page.
 
-Apps and other sites get the same link from the plan list API (`url` on `GET /buddynext-pro/v1/membership/plans`). Links shared before 1.2.4 (with `#bnpro-plan-<id>` on the end) keep working.
+Apps and other sites get the same link from the plan list API (`url` on `GET /buddynext-pro/v1/membership/plans`), along with each plan's `features`, `spaces` and whether it is `recommended`. Links shared before 1.2.4 (with `#bnpro-plan-<id>` on the end) keep working.
 
 > **It is not a way to hide a plan.** An unlisted plan is live and taking money. If you want a plan to stop selling, set it Inactive.
 
