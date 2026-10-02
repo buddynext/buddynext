@@ -211,6 +211,12 @@ class OnboardingListener implements ListenerInterface {
 			return;
 		}
 
+		// Yield to an add-on's hold (Pro "Paying members only"): the member is
+		// sent to the plans page first and meets the wizard once the hold clears.
+		if ( null !== \BuddyNext\Auth\MemberHold::get( $user_id ) ) {
+			return;
+		}
+
 		$onboarding_url = \BuddyNext\Core\PageRouter::onboarding_url();
 
 		// Loop guard for the edge case where the onboarding hub is the site's

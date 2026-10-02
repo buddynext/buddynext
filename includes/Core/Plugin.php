@@ -407,6 +407,10 @@ class Plugin {
 		// anonymous gate at 10.
 		( new \BuddyNext\Auth\RestHoldGate() )->register();
 
+		// A hold an add-on places on a member (Pro: "Paying members only"), on the
+		// web. RestHoldGate enforces the same hold over REST.
+		( new \BuddyNext\Auth\MemberHold() )->register();
+
 		// Enforce 2FA enrolment for the roles the owner requires it of. The setting
 		// used to be read and then ignored — purely advisory, surfaced as a UI hint
 		// while nothing enforced it, so an owner could "require 2FA for

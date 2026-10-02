@@ -24,7 +24,7 @@ Boot order is fixed and load-bearing: Free boots at `plugins_loaded:15` (firing 
 
 Pro reads existing Free services out of the container by key rather than instantiating Free classes itself. These are the keys Pro depends on; renaming or removing one in Free breaks Pro.
 
-**All 17 of them.** This list is derived from code (every `buddynext_service( '…' )` call and every `$c->get( '…' )` inside a Pro bind closure), not from a manifest field. If you rename a Free container key, every row here is a break.
+**All 18 of them.** This list is derived from code (every `buddynext_service( '…' )` call and every `$c->get( '…' )` inside a Pro bind closure), not from a manifest field. If you rename a Free container key, every row here is a break.
 
 | Key | Free class | Consumed by (Pro) | Purpose |
 |---|---|---|---|
@@ -41,6 +41,7 @@ Pro reads existing Free services out of the container by key rather than instant
 | `post_service` | `Feed\PostService` | `Core\Plugin`, `Admin\ScheduledPostsAdmin`, `Feed\ScheduledPostsService`, `Feed\ScheduledPostsIntegration`, `Feed\Controllers\ScheduledPostsController` | Create/read posts for scheduling and AI ranking. |
 | `privacy` | `PrivacyService` | `Suite\Controllers\PortfolioController` | Visibility checks before exposing portfolio panels. |
 | `profiles` | `Profile\ProfileService` | `Profile\AdvancedFieldRenderer` | Read profile field values for the Pro field types. |
+| `roles` | `Core\RoleService` | `Membership\PaidAccess` | Never hold an admin or community moderator under "Paying members only" (`can_moderate_site()`). |
 | `reactions` | `Reactions\ReactionService` | `Reactions\CustomReactionsService` | Extend Free's reaction set. |
 | `search` | `Search\SearchService` | `Search\SavedSearchService` | Run a saved search through the live search service. |
 | `spaces` | `Spaces\SpaceService` | `Admin\BroadcastAdmin`, `Admin\MembershipAdmin`, `Search\AdvancedSearchFilters`, `Realtime\RealtimeAssets` | Resolve spaces for targeting, filtering, and realtime channels. |
@@ -94,6 +95,8 @@ These are the Free-defined extension points Pro attaches to. They are public sea
 | `buddynext_reaction_meta` | filter | Merge Pro reaction metadata. |
 | `buddynext_search_query_args` | filter | Add Pro search filter args (`tier_slug`, `space_id`, `member_label`, `joined_after`, `active_within_days`) before the SQL is built. |
 | `buddynext_search_filter_options` | filter | Provide the Pro filter options surfaced in the search UI. |
+| `buddynext_member_hold` | filter | "Paying members only": hold a member without an active paid plan on the plans page, on the web (`Auth\MemberHold`) and over REST (`Auth\RestHoldGate`), with account and billing left open. |
+| `buddynext_email_payload` | filter | Skip community activity emails to a member held for lack of a paid plan. |
 | `buddynext_post_pin_limit` | filter | Raise the pinned-post limit from Free's 1 to 10. |
 | `buddynext_profile_labels` | filter | Inject custom member labels into profile responses. |
 | `buddynext_notification_prefs` | filter | Inject push-notification preferences. |
