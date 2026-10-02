@@ -116,6 +116,7 @@ class PageRouter {
 		add_action( 'loop_start', array( $this, 'community_search_note' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_community_search_note_style' ) );
 		add_filter( 'render_block_core/query-no-results', array( $this, 'prepend_community_search_note' ) );
+		add_filter( 'render_block_core/query', array( $this, 'prepend_community_search_note_to_query' ), 10, 2 );
 		add_action( 'get_template_part', array( $this, 'community_search_note_on_no_results' ), 10, 2 );
 
 		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
@@ -170,7 +171,7 @@ class PageRouter {
 		wp_enqueue_style( 'buddynext-search-note' );
 		wp_add_inline_style(
 			'buddynext-search-note',
-			'.bn-community-search-note{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25em .5em;margin:0 0 1.5em;padding:.75em 1em;'
+			'.bn-community-search-note{box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:baseline;gap:.25em .5em;margin:0 0 1.5em;padding:.75em 1em;'
 			. 'border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:8px;'
 			. 'background:color-mix(in srgb,currentColor 4%,transparent);font-size:.9375em;line-height:1.5}'
 			. '.bn-community-search-note a{font-weight:600;text-decoration:underline;text-underline-offset:.2em}'
@@ -184,6 +185,12 @@ class PageRouter {
 	 * @return void
 	 */
 	public function community_search_note( $query ): void {
+		// A block theme renders its whole template to a string before printing
+		// it, so an echo here would land above the header; the query block
+		// carries the note there instead (prepend_community_search_note_to_query()).
+		if ( wp_is_block_theme() ) {
+			return;
+		}
 		if ( $query instanceof \WP_Query && $query->is_main_query() ) {
 			echo $this->community_search_note_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in community_search_note_html().
 		}
@@ -213,16 +220,44 @@ class PageRouter {
 	}
 
 	/**
+	 * Add the community results link inside a block theme's search results.
+	 *
+	 * Only the query block that inherits the main (search) query; any other
+	 * query block on the page is left alone.
+	 *
+	 * @param string               $content Rendered block content.
+	 * @param array<string, mixed> $block   Parsed block.
+	 * @return string
+	 */
+	public function prepend_community_search_note_to_query( $content, $block = array() ): string {
+		if ( empty( $block['attrs']['query']['inherit'] ) ) {
+			return (string) $content;
+		}
+		// The query wrapper is usually full width; core's constrained layout
+		// gives the note the theme's own content width and side padding.
+		return $this->prepend_community_search_note( $content, 'has-global-padding is-layout-constrained' );
+	}
+
+	/**
 	 * Add the community results link to a block theme's "no results" block.
 	 *
 	 * @param string $content Rendered block content.
+	 * @param string $layout  Optional wrapper classes (core layout) for the note.
 	 * @return string
 	 */
-	public function prepend_community_search_note( $content ): string {
+	public function prepend_community_search_note( $content, string $layout = '' ): string {
 		$content = (string) $content;
-		$note    = $this->community_search_note_html();
+		// The no-results block runs this filter with empty content when there
+		// ARE results; the note belongs to the query block then, not here.
+		if ( '' === trim( $content ) ) {
+			return $content;
+		}
+		$note = $this->community_search_note_html();
 		if ( '' === $note ) {
 			return $content;
+		}
+		if ( '' !== $layout ) {
+			$note = '<div class="' . esc_attr( $layout ) . '">' . $note . '</div>';
 		}
 		// Inside the block's wrapper, so the note shares its content edges.
 		$open = strpos( $content, '>' );
