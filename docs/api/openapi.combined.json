@@ -28604,6 +28604,10 @@
                     },
                     "buyable": {
                         "type": "boolean"
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
                     }
                 }
             },

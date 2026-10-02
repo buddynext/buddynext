@@ -29,7 +29,7 @@ For the member, a plan is a clear promise. For you, it is a single place to defi
 
 Members never touch the admin. They see two surfaces, and BuddyNext creates both for you automatically - you do not have to build them by hand. (Both were reworked in 1.0.4.)
 
-- **The pricing page** - a normal, editable WordPress page at `/membership-plans/` by default. It carries the pricing shortcode, and because it is a real page you can restyle the plan showcase with the editor you already use: add a hero, testimonials, an FAQ, anything.
+- **The pricing page** - a normal, editable WordPress page at `/membership-plans/` by default. It carries the pricing block, and because it is a real page you can add a hero, testimonials, an FAQ, anything, with the editor you already use. Since 1.2.4 it renders inside the community layout (same header, menu, light and dark mode and phone layout as every community page) instead of the theme's page template, and it stays open to visitors when the community is private, so people can buy before they join.
 - **Settings > Membership** - the member's own billing area, at `/settings/membership/`, sitting alongside their notification settings.
 
 You can rename the pricing slug, or point it at a different page, from Settings → Pages & URLs. The default slug avoids the bare `/membership/` path, which other plugins sometimes claim. If the page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on. The billing area is a settings tab rather than a page, so it needs no Pages & URLs row.
@@ -153,6 +153,16 @@ Each plan card on the Plans tab carries the controls you need:
 The plan's own edit screen shows the link to share. Members already on the plan keep it whether it is Active or Unlisted, so moving a plan to Unlisted quietly closes it to new sign-ups without disturbing anyone who already pays for it.
 
 The pricing page will render an unlisted plan when the link names it explicitly (`?plan=<id>`), and only that one - every other unlisted plan stays hidden, and a visitor without the link sees nothing extra.
+
+### Plan buy links (1.2.4)
+
+Every live plan has a buy link: your pricing page address with `?plan=<id>` on the end. Copy it with **Copy link** on the plan's card in Monetization > Plans, or from **Direct link to this plan** on its edit screen, and paste it into any button: a page-builder pricing table (Elementor, Divi, the block editor), an email, a menu item.
+
+- **A visitor** who follows it goes straight to sign-up with that plan already chosen, and on to checkout once their account exists. They never have to find the plan on your pricing page.
+- **A signed-in member** sees that one plan on its own with its buy button, and a link to see all plans. A plan they already have shows as theirs (with its end date if they cancelled), never a button checkout would refuse.
+- **An unknown or closed plan** simply opens the full pricing page.
+
+Apps and other sites get the same link from the plan list API (`url` on `GET /buddynext-pro/v1/membership/plans`). Links shared before 1.2.4 (with `#bnpro-plan-<id>` on the end) keep working.
 
 > **It is not a way to hide a plan.** An unlisted plan is live and taking money. If you want a plan to stop selling, set it Inactive.
 

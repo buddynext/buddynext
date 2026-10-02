@@ -614,7 +614,19 @@ class PageRouter {
 		// the page they wanted. This closes the routing gap where BuddyNext's own
 		// pages bypassed membership plugins: they are simply unreachable when logged
 		// out. The matching REST data gate lives in PrivateCommunity::gate_rest().
-		if ( 'auth' !== $hub
+		/**
+		 * Filters whether a hub stays reachable by guests on a private community.
+		 *
+		 * A guest must be able to reach a few hubs to join at all: the auth hub, and
+		 * an add-on's sales page (Pro's membership pricing). Default: only auth.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param bool   $public Whether guests may open this hub.
+		 * @param string $hub    Hub key (bn_hub).
+		 */
+		$bn_public_hub = (bool) apply_filters( 'buddynext_private_community_public_hub', 'auth' === $hub, $hub );
+		if ( ! $bn_public_hub
 			&& PrivateCommunity::is_enabled()
 			&& ! PrivateCommunity::can_access()
 		) {
