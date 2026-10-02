@@ -240,9 +240,11 @@
 	}
 
 	/**
-	 * Copy-to-clipboard for the social-login redirect URIs (and any
-	 * [data-bn-copy] button pointing at an input id). Falls back to select+focus
-	 * when the async clipboard API is unavailable.
+	 * Copy-to-clipboard for every [data-bn-copy] button in the BuddyNext admin,
+	 * Free and Pro (redirect URIs, webhook secrets, plan buy links): the one
+	 * handler, so two scripts never fight over the same button. Text buttons say
+	 * "Copied"; icon buttons (.bn-icon-action) show a check mark and tooltip.
+	 * Falls back to select+focus when the async clipboard API is unavailable.
 	 */
 	function initCopyButtons() {
 		document.addEventListener( 'click', function ( e ) {
@@ -252,8 +254,27 @@
 			var input = document.getElementById( btn.getAttribute( 'data-bn-copy' ) );
 			if ( ! input ) { return; }
 			var done = function () {
+				var copied = __( 'Copied', 'buddynext' );
+				// Icon buttons (.bn-icon-action) have no text to swap: show the check
+				// mark their markup carries and say it in the tooltip and the name.
+				if ( btn.classList.contains( 'bn-icon-action' ) ) {
+					var tip = btn.querySelector( '.bn-tooltip' );
+					if ( ! btn.hasAttribute( 'data-label' ) ) {
+						btn.setAttribute( 'data-label', btn.getAttribute( 'aria-label' ) || '' );
+						btn.setAttribute( 'data-tip', tip ? tip.textContent : '' );
+					}
+					btn.classList.add( 'is-copied' );
+					btn.setAttribute( 'aria-label', copied );
+					if ( tip ) { tip.textContent = copied; tip.setAttribute( 'data-show', '' ); }
+					setTimeout( function () {
+						btn.classList.remove( 'is-copied' );
+						btn.setAttribute( 'aria-label', btn.getAttribute( 'data-label' ) );
+						if ( tip ) { tip.textContent = btn.getAttribute( 'data-tip' ); tip.removeAttribute( 'data-show' ); }
+					}, 1600 );
+					return;
+				}
 				if ( ! btn.getAttribute( 'data-label' ) ) { btn.setAttribute( 'data-label', btn.textContent ); }
-				btn.textContent = __( 'Copied', 'buddynext' );
+				btn.textContent = copied;
 				setTimeout( function () { btn.textContent = btn.getAttribute( 'data-label' ); }, 1600 );
 			};
 			input.focus();

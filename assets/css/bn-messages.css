@@ -586,7 +586,7 @@
 }
 
 .bn-dm-bubble.is-mine {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	border-color: var(--bn-accent);
 	color: var(--bn-accent-fg);
 	border-radius: 16px 16px 4px 16px;

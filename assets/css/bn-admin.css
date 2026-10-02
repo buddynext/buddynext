@@ -56,7 +56,9 @@
 	 * reference --bn-* directly. Dark mode flips through the v2 source. */
 
 	/* -- Brand ------------------------------------------------------------ */
-	--bn-a-brand:             var(--bn-accent);
+	/* The accent, deepened just enough to read on the admin's light surfaces and
+	   behind a white label (bn-base.css, --bn-accent-solid). */
+	--bn-a-brand:             var(--bn-accent-solid);
 	--bn-a-brand-hover:       var(--bn-accent-700);
 	--bn-a-brand-light:       var(--bn-accent-100);
 
@@ -266,19 +268,18 @@
 	border: 0;
 	border-radius: var(--bn-a-r-sm);
 	background: none;
-	/* Inherit so the button reads as part of its own notice rather than
-	   introducing a third colour on a green or red ground. */
-	color: inherit;
+	/* Body ink, full strength: the notice's own tint at reduced opacity read at
+	   under 3:1 on the amber and blue grounds (an icon button needs 3:1). */
+	color: var(--bn-a-text-2);
 	font-size: var(--bn-a-text-lg);
 	line-height: 1;
-	opacity: 0.7;
 	cursor: pointer;
 }
 
 .bn-notice__dismiss:hover,
 .bn-notice__dismiss:focus-visible {
-	opacity: 1;
-	background: rgba( 0, 0, 0, 0.06 );
+	color: var(--bn-a-text-1);
+	background: color-mix(in oklch, var(--bn-a-text-1) 8%, transparent);
 }
 
 .bn-notice__dismiss:focus-visible {
@@ -1916,7 +1917,7 @@ table.bn-table tr:hover td {
 	border-radius: var(--bn-a-r-lg);
 	margin-inline-start: var(--bn-a-s2);
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg);
+	color: var(--bn-accent-fg);
 	vertical-align: middle;
 }
 
@@ -1957,13 +1958,13 @@ table.bn-table tr:hover td {
 
 .bn-btn-primary {
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg);
+	color: var(--bn-accent-fg);
 	border-color: transparent;
 }
 
 .bn-btn-primary:hover {
-	background: var(--bn-a-brand-hover);
-	color: var(--bn-a-bg);
+	background: color-mix(in oklch, var(--bn-a-brand) 82%, black);
+	color: var(--bn-accent-fg);
 }
 
 .bn-btn-secondary {
@@ -2090,7 +2091,7 @@ button.bn-btn-danger:hover {
 
 .bn-page-link.current {
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg) !important;
+	color: var(--bn-accent-fg) !important;
 	border-color: var(--bn-a-brand);
 }
 
@@ -2244,7 +2245,7 @@ button.bn-btn-danger:hover {
 
 .bn-filter-tab.active {
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg);
+	color: var(--bn-accent-fg);
 }
 
 .bn-filter-tab:hover:not(.active) {

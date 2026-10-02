@@ -66,6 +66,9 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
+	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
+	   white label needs (see the @supports block below). */
+	--bn-accent-solid: var(--bn-accent-solid-auto, var(--bn-accent-600));
 
 	/* Surfaces (three-layer system) */
 	--bn-canvas:   oklch(99% 0.002 var(--bn-hue));
@@ -81,7 +84,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	/* Text (AAA contrast) */
 	--bn-ink:    oklch(20% 0.01 var(--bn-hue));
 	--bn-ink-2:  oklch(40% 0.01 var(--bn-hue));
-	--bn-ink-3:  oklch(58% 0.008 var(--bn-hue));
+	--bn-ink-3:  oklch(52% 0.008 var(--bn-hue)); /* AA (4.5:1) on canvas, sunken surfaces and WP's #f0f0f0 */
 	--bn-ink-4:  oklch(72% 0.005 var(--bn-hue));
 
 	/* Semantic */
@@ -440,6 +443,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
+	--bn-accent-solid: var(--bn-accent);
 
 	--bn-success-bg: oklch(25% 0.05 145);
 	--bn-warn-bg:    oklch(25% 0.05 75);
@@ -487,6 +491,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
+		--bn-accent-solid: var(--bn-accent);
 	}
 }
 
@@ -507,18 +512,23 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
  * ────────────────────────────────────────────────────────────────────── */
 
 /*
- * Label colour on a filled accent, derived from the accent actually in use:
- * white or black, whichever contrasts more. The switch is the accent's WCAG
- * relative luminance (Y = 0.2126R + 0.7152G + 0.0722B in linear sRGB) at 0.179,
- * where white and black give the same contrast ratio. It must be luminance,
- * not OKLCH lightness: the two disagree on saturated hues, and an L-based
- * switch put white on teal, emerald, cyan and sky accents at under 4:1 where
- * black passes. One rule for BN's own palette, the Appearance picker and every
- * host theme that remaps --bn-accent (Reign, BuddyX). Declared on every element
- * that can set --bn-accent so it is computed from that element's accent.
- * sign() makes it a hard switch: a scaled clamp produced a grey for accents
- * right at the crossover (pink-600). Browsers without relative colour or
- * sign() keep the literal fallbacks in the light and dark blocks above.
+ * The filled accent and its label, derived from the accent actually in use.
+ *
+ * Brand buttons carry white labels. A mid-tone accent (this blue, purple, red,
+ * green) can sit just short of 4.5:1 behind white; the old rule then switched
+ * the label to black, which passed the number but read as broken. Now the fill
+ * is deepened instead, just far enough: --bn-accent-solid scales the accent in
+ * linear sRGB so its WCAG luminance is at most 0.15 (white then reads at 5.25:1,
+ * and the same colour as link text still passes on WordPress's grey #f0f0f0). Scaling linear RGB lowers luminance without changing the hue, so
+ * the fill is the same colour, deeper. Only a genuinely light accent (luminance
+ * 0.45 and up: yellow, lime, pastels) keeps its own fill with a dark label.
+ *
+ * Luminance, not OKLCH lightness: the two disagree on saturated hues (teal, cyan,
+ * emerald). One rule for BN's palette, the Appearance picker and every host theme
+ * that remaps --bn-accent (Reign, BuddyX); declared on every element that can set
+ * --bn-accent so it follows that element's accent. Dark mode keeps its own rule
+ * below: its accent is light by design, with a dark label on it.
+ * Browsers without relative colour or sign() keep the literal fallbacks above.
  */
 @supports (color: color(from red srgb-linear r g b)) and (width: calc(1px * sign(1))) {
 	:root,
@@ -526,9 +536,32 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	[data-theme],
 	[data-bx-mode] {
 		--bn-accent-fg-auto: color(from var(--bn-accent) srgb-linear
+			clamp(0, sign(0.45 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+			clamp(0, sign(0.45 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+			clamp(0, sign(0.45 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+		--bn-accent-solid-auto: color(from var(--bn-accent) srgb-linear
+			calc(r * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))))
+			calc(g * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))))
+			calc(b * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b)))));
+	}
+
+	/* Dark mode: the accent is light by design; whichever label contrasts more. */
+	[data-bn-theme="dark"],
+	[data-theme="dark"],
+	[data-bx-mode="dark"] {
+		--bn-accent-fg-auto: color(from var(--bn-accent) srgb-linear
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+	}
+
+	@media (prefers-color-scheme: dark) {
+		[data-bn-theme="auto"] {
+			--bn-accent-fg-auto: color(from var(--bn-accent) srgb-linear
+				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+		}
 	}
 }
 
@@ -547,6 +580,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
 		--bn-accent-fg:  #ffffff;
+		--bn-accent-solid: #4754ad;
 
 		--bn-canvas:  #fbfbfd;
 		--bn-surface: #ffffff;
@@ -559,7 +593,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 		--bn-ink:   #1f2030;
 		--bn-ink-2: #4d4f60;
-		--bn-ink-3: #7a7c8c;
+		--bn-ink-3: #666877;
 		--bn-ink-4: #aaabb8;
 
 		--bn-success:    #2fa66f;
@@ -612,6 +646,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
 		--bn-accent-fg:  #15161f;
+		--bn-accent-solid: #8d96e0;
 
 		--bn-success-bg: #1a3a2a;
 		--bn-warn-bg:    #3a2e1a;
@@ -878,7 +913,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	display: grid;
 	place-items: center;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 }
 .bn-toast__icon svg { width: 16px; height: 16px; }
@@ -1134,7 +1169,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 .bn-page-btn.current,
 .bn-page-btn[aria-current="page"] {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	border-color: var(--bn-accent);
 	color: var(--bn-accent-fg);
 }
@@ -2424,7 +2459,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	color: var(--bn-ink-3);
 }
 .bn-greeting-streak__cell.is-active {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 }
 .bn-greeting-streak__cell.is-today {
@@ -2819,10 +2854,10 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 .bn-btn[data-variant="primary"] {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 }
-.bn-btn[data-variant="primary"]:hover { background: var(--bn-accent-700); }
+.bn-btn[data-variant="primary"]:hover { background: color-mix(in oklch, var(--bn-accent-solid) 82%, black); }
 
 .bn-btn[data-variant="secondary"] {
 	background: var(--bn-surface);
@@ -4671,7 +4706,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
    was never highlighted. */
 .bn-stepper__item.is-active .bn-stepper__dot,
 .bn-stepper__item[data-state="active"] .bn-stepper__dot {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	border-color: transparent;
 }

@@ -244,12 +244,6 @@
 	color: var(--bn-ink);
 }
 
-.bn-pagination .bn-page-link.current {
-	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
-	border-color: var(--bn-accent-200, var(--bn-line));
-}
-
 .bn-pagination .bn-page-link:focus-visible {
 	outline: 2px solid var(--bn-ring);
 	outline-offset: 2px;

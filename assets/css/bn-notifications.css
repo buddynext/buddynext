@@ -427,7 +427,7 @@
 	height: 18px;
 	padding: 0 var(--bn-s1);
 	border-radius: var(--bn-r-full);
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	font-size: var(--bn-text-2xs);
 	font-weight: var(--bn-fw-bold);

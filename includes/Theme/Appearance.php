@@ -234,16 +234,15 @@ class Appearance {
 		// Some host themes (e.g. Reign) restyle BuddyNext primary buttons with
 		// their own hard-coded brand colour, beating the token-based rule. Reassert
 		// the admin accent on BN primary buttons inside the community surface only.
-		// The label is --bn-accent-fg (black or white by contrast, bn-base.css),
-		// never a fixed white: white on a teal or cyan brand colour fails AA.
-		$css .= sprintf(
-			'.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]{'
-			. 'background-color:%1$s!important;border-color:%1$s!important;color:var(--bn-accent-fg)!important;}'
+		// Fill and label come from bn-base.css: --bn-accent-solid is the picked
+		// colour, deepened only as far as a white label needs (--bn-accent-fg),
+		// and a genuinely light colour keeps its fill with a dark label. Both
+		// follow the --bn-accent pinned above, so they never disagree.
+		$css .= '.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]{'
+			. 'background-color:var(--bn-accent-solid)!important;border-color:var(--bn-accent-solid)!important;color:var(--bn-accent-fg)!important;}'
 			. '.bn-app .bn-btn--primary:hover,.bn-app .bn-btn[data-variant="primary"]:hover{'
-			. 'background-color:color-mix(in oklch,%1$s 86%%,black)!important;'
-			. 'border-color:color-mix(in oklch,%1$s 86%%,black)!important;}',
-			$hex
-		);
+			. 'background-color:color-mix(in oklch,var(--bn-accent-solid) 82%,black)!important;'
+			. 'border-color:color-mix(in oklch,var(--bn-accent-solid) 82%,black)!important;}';
 
 		wp_add_inline_style( 'bn-base', $css );
 	}
