@@ -192,11 +192,14 @@
 
 /* ── Leaderboard list ───────────────────────────────────────────────────── */
 
-.bn-lb-list {
+.bn-lb-shell .bn-lb-list {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
-	margin-bottom: var(--bn-s5);
+	/* The host theme's `ol` indent (Reign 1.5em, BuddyX 45px) must not push the
+	   rows off the edge the filters, pager and "Your position" share. */
+	margin-block: 0 var(--bn-s5);
+	margin-inline: 0;
 	/* Semantic <ol> for a11y, but the per-row rank pill is the visible rank —
 	   suppress the native list markers so the number never shows twice. */
 	list-style: none;

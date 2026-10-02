@@ -72,7 +72,32 @@
 			toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
 		}
 		if ( open && root.querySelector( '.bn-notif-panel' ) ) {
+			keepInView( root.querySelector( '.bn-notif-panel' ) );
 			loadNotifications( root.querySelector( '.bn-notif-panel' ), root );
+		}
+	}
+
+	/**
+	 * Keep the panel off the screen edge.
+	 *
+	 * It hangs from the bell's end edge, and a theme that puts the bell at the
+	 * very edge of a narrow (tablet) header would leave the panel's border flush
+	 * against the screen. Nudge it inward to an 8px gutter, in either direction.
+	 *
+	 * @param {HTMLElement} panel Panel.
+	 * @return {void}
+	 */
+	function keepInView( panel ) {
+		var gutter = 8;
+		var rtl    = 'rtl' === getComputedStyle( panel ).direction;
+		var r;
+
+		panel.style.marginInlineEnd = '';
+		r = panel.getBoundingClientRect();
+
+		var overflow = rtl ? gutter - r.left : r.right - ( document.documentElement.clientWidth - gutter );
+		if ( overflow > 0 ) {
+			panel.style.marginInlineEnd = overflow + 'px';
 		}
 	}
 
