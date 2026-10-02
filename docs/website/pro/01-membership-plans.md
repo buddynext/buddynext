@@ -103,6 +103,21 @@ The switch is refused until you have at least one active paid plan and a payment
 
 Developers can exempt more members with the `buddynextpro_paid_access_exempt` filter.
 
+### Monthly renewal day (1.2.4)
+
+Below Who can join, **Monthly renewal day** puts every new monthly member on the same billing day, for example the 1st:
+
+| Choice | What happens |
+| --- | --- |
+| **The day each member joined** (default) | A member who joins on the 14th renews on the 14th of each month. |
+| **Day N of every month** (1-28) | A member who joins on the 2nd pays for the days up to the next renewal day, then the full monthly price on that day every month. |
+
+The order summary shows the part-month total before the member pays (for example "Today covers you until November 1"), and the card is charged exactly that, tax included. If the part-month is too small to charge, those days are free.
+
+- Applies to new monthly subscriptions paid by card (Stripe). PayPal cannot bill on a set day, so a member who picks PayPal is asked to pay by card instead.
+- Yearly plans, plans with a free trial, one-time passes, points, and a plan that starts when the member's current plan ends keep their own dates.
+- Members who joined before keep their date. Move one with **Change date** on the Subscriptions tab (below).
+
 ### Create a plan
 
 Open the Plans tab and choose Add Plan. A plan is defined by three groups of settings: plan details, pricing and billing, and perks.
@@ -252,14 +267,14 @@ The edit-member screen carries that member's recent payments and links through t
 
 > **Note:** Subscriptions expire automatically. A daily background job flips any subscription whose expiry date has passed to Expired and re-locks the content it unlocked. Subscriptions with no expiry date never time out.
 
-#### Extending a subscription
+#### Extending a subscription or changing its renewal date
 
-There is no single "extend" button in the Subscriptions table. A subscription's expiry date is set by the source that created it:
+Each live subscription has two controls in the Subscriptions table:
 
-- Gateway subscriptions (such as Stripe) extend themselves. When the next payment goes through, the expiry date moves to the new period end and the status stays Active.
-- Manual access can be extended by granting it again the same way you first granted it, which issues a fresh subscription period.
+- **Add days** - adds the number of days you type to the end date.
+- **Change date** - sets the end date directly, for example to move a member onto the 1st of the month.
 
-So extending access is a matter of the next successful payment or a renewed grant, not a date you edit by hand in this table.
+For a member who pays by card (Stripe), the next charge moves to the same date, and the extra time is free. The notice after saving says when Stripe will charge them next. PayPal subscriptions cannot be moved from here: the notice tells you to change the date in PayPal instead, and nothing is changed. Granted plans, the default plan and one-time passes simply get the new end date.
 
 ### Changing plan mid-cycle (1.1.6)
 
