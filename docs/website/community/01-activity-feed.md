@@ -38,6 +38,10 @@ The count is capped at **99+**, the way every mainstream feed caps it. A busy co
 
 The feed loads a page of posts at a time. As a member scrolls toward the bottom, the next page loads and appends automatically, so reading is continuous without a "next page" click. This keeps the feed fast even in a large community because only what is on screen is ever loaded.
 
+### Long posts
+
+A long text post shows its first few lines in the feed, with **See more** underneath. Clicking it opens the rest of the post right there, so members keep their place in the feed. Opening See more in a new tab (or with JavaScript off) goes to the post's own page instead. Owners can change where a post is cut with the `buddynext_post_preview_char_limit` and `buddynext_post_preview_line_limit` filters (defaults: 300 characters or 6 line breaks).
+
 ### The announcement banner
 
 An administrator can pin one announcement to the top of the feed. It shows as a banner above the stream. A member can dismiss it, and once dismissed it stays gone for that member. Announcements can also carry an expiry, after which they stop pinning on their own. See Post Composer for how announcements are created.

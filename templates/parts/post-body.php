@@ -193,7 +193,14 @@ do_action( 'buddynext_part_post_body_before', $args );
 >
 
 	<?php if ( 'text' === $bn_body_post_type || 'activity' === $bn_body_post_type ) : ?>
-		<div class="bn-post-card__content<?php echo $bn_body_is_long ? ' bn-post-card__content--preview' : ''; ?>">
+		<div
+			class="bn-post-card__content<?php echo $bn_body_is_long ? ' bn-post-card__content--preview' : ''; ?>"
+			<?php if ( $bn_body_is_long ) : ?>
+				id="bn-post-body-<?php echo (int) $args['bn_post_id']; ?>"
+				tabindex="-1"
+				data-wp-class--bn-post-card__content--preview="!context.bodyExpanded"
+			<?php endif; ?>
+		>
 			<?php
 			echo wp_kses(
 				nl2br( buddynext_format_content( $bn_body_content ) ),
@@ -212,17 +219,23 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php if ( $bn_body_is_long ) : ?>
 			<?php
 			/*
-			 * A real link, not a JS toggle.
+			 * Expands in place, and is still a real link.
 			 *
-			 * It points at the canonical permalink, so it works with JS off, it
-			 * middle-clicks into a new tab, it is keyboard reachable for free, and
-			 * a crawler follows it to the page that carries the full text and the
-			 * Open Graph card. A button that expanded in place would have none of
-			 * those properties and would restore the oversized card anyway.
+			 * A plain click reveals the rest of the post right here in the feed
+			 * (the full text is already on the page, clipped by CSS), so the reader
+			 * keeps their place, as on Facebook and LinkedIn. The href stays the
+			 * canonical permalink: with JS off, on a modified or middle click, or for
+			 * a crawler, it opens the post's own page with the full text and its
+			 * Open Graph card.
 			 */
 			?>
-			<p class="bn-post-card__more">
-				<a class="bn-post-card__more-link" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::post_url( (int) $args['bn_post_id'] ) ); ?>">
+			<p class="bn-post-card__more" data-wp-bind--hidden="context.bodyExpanded">
+				<a
+					class="bn-post-card__more-link"
+					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::post_url( (int) $args['bn_post_id'] ) ); ?>"
+					aria-controls="bn-post-body-<?php echo (int) $args['bn_post_id']; ?>"
+					data-wp-on--click="actions.expandBody"
+				>
 					<?php esc_html_e( 'See more', 'buddynext' ); ?>
 				</a>
 			</p>

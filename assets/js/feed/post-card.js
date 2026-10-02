@@ -1609,6 +1609,30 @@ store( 'buddynext/post-card', {
 		},
 	},
 	actions: {
+		/**
+		 * See more: show the rest of a long post in place.
+		 *
+		 * The control is a link to the permalink. A modified or non-primary click
+		 * keeps that job (new tab / window); a plain click expands the card instead
+		 * and hands focus to the revealed text, since the link itself disappears.
+		 *
+		 * @param {MouseEvent} event Click event.
+		 */
+		expandBody( event ) {
+			if ( event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ) {
+				return;
+			}
+			event.preventDefault();
+			const ctx = getContext();
+			ctx.bodyExpanded = true;
+
+			const link = getElement()?.ref || null;
+			const body = link ? document.getElementById( link.getAttribute( 'aria-controls' ) || '' ) : null;
+			if ( body ) {
+				body.focus( { preventScroll: true } );
+			}
+		},
+
 		toggleReactionPicker() {
 			const ctx     = getContext();
 			const willOpen = ! ctx.reactionPickerOpen;

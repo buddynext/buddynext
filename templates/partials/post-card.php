@@ -567,6 +567,8 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 				'currentUserId'     => $current_user_id,
 				'postType'          => $bn_post_type,
 				'showContent'       => ! $has_cw,
+				// A long text post previews its first lines; See more expands it here.
+				'bodyExpanded'      => false,
 				// Raw pin state (drives the pin/unpin action + options menu label);
 				// showPinBadge gates whether the "Pinned" label is shown on this
 				// surface. The badge is visible only when both are true — so pinning
