@@ -189,7 +189,7 @@ Individual fields within a group. Each field has a data type, optional select op
 | `description` | VARCHAR(255) DEFAULT NULL | Optional help/description text shown under the field. |
 | `placeholder` | VARCHAR(255) DEFAULT NULL | Optional placeholder text for the input. |
 | `is_required` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field must be filled. |
-| `is_searchable` | TINYINT(1) NOT NULL DEFAULT 0 | Whether values feed the member directory search. |
+| `is_searchable` | TINYINT(1) NOT NULL DEFAULT 0 | Whether values are added to the member search index (the directory's search box and global search). It does not create a directory filter. Shown to owners as "Include in search". |
 | `show_on_register` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field appears on the registration form. |
 | `is_system` | TINYINT(1) NOT NULL DEFAULT 0 | `1` for built-in seeded fields. |
 | `visibility` | ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public' | Field-level visibility override. |
@@ -220,7 +220,7 @@ Indexes:
 
 - PRIMARY KEY `(id)`.
 - UNIQUE KEY `user_field_entry (user_id, field_id, entry_index)` - one value per member/field/entry; the upsert key.
-- KEY `field_idx (field_id)` - directory queries that filter on a searchable field.
+- KEY `field_idx (field_id)` - lookups of every member's value for one field.
 - KEY `user_idx (user_id)` - load a member's full profile.
 - KEY `field_value (field_id, value(20))` - prefix-indexed value lookups for directory filters on a specific field.
 

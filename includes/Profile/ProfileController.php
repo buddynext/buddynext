@@ -239,8 +239,9 @@ class ProfileController extends BaseRestController {
 			// Stored only where it can do something — see
 			// FieldType::is_searchable_applicable(), applied in the service.
 			'is_searchable'    => array(
-				'required' => false,
-				'type'     => 'boolean',
+				'required'    => false,
+				'type'        => 'boolean',
+				'description' => 'Add the value to member search (directory search box and global search). Does not create a directory filter.',
 			),
 			'show_on_register' => array(
 				'required' => false,

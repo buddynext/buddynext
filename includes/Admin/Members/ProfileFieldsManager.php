@@ -2117,8 +2117,9 @@ class ProfileFieldsManager {
 											</div>
 											<div id="bn-ef-search-<?php echo absint( $fid ); ?>" class="bn-pf-af-req-row" style="<?php echo $is_search_capable ? '' : 'display:none;'; ?>">
 												<input type="checkbox" id="bn-ef-search-c-<?php echo absint( $fid ); ?>" name="is_searchable" value="1" <?php checked( $field_searchable ); ?>>
-												<label for="bn-ef-search-c-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
+												<label for="bn-ef-search-c-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Include in search', 'buddynext' ); ?></label>
 											</div>
+											<p class="bn-pf-opts-hint" data-bn-search-hint style="<?php echo $is_search_capable ? '' : 'display:none;'; ?>"><?php esc_html_e( 'Members can be found by typing this field\'s value into search. It does not add a filter to the member directory.', 'buddynext' ); ?></p>
 											<?php // Registration form opt-in. Single-entry groups only — a signup form cannot collect repeating entries. ?>
 											<?php if ( 'repeater' !== $group['type'] ) : ?>
 												<div class="bn-pf-af-req-row">
@@ -2273,8 +2274,9 @@ class ProfileFieldsManager {
 						?>
 						<div id="bn-af-search-<?php echo absint( $gid ); ?>" class="bn-pf-af-req-row" style="<?php echo $first_type_searchable ? '' : 'display:none;'; ?>">
 							<input type="checkbox" id="bn-af-search-c-<?php echo absint( $gid ); ?>" name="is_searchable" value="1">
-							<label for="bn-af-search-c-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
+							<label for="bn-af-search-c-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Include in search', 'buddynext' ); ?></label>
 						</div>
+						<p class="bn-pf-opts-hint" data-bn-search-hint><?php esc_html_e( 'Members can be found by typing this field\'s value into search. It does not add a filter to the member directory.', 'buddynext' ); ?></p>
 						<?php // Registration form opt-in. Single-entry groups only — a signup form cannot collect repeating entries, and ProfileService::get_registration_fields() skips repeater groups, so offering the toggle here made it settable-but-inert. Mirrors the edit panel. ?>
 						<?php if ( 'repeater' !== $group['type'] ) : ?>
 							<div class="bn-pf-af-req-row">

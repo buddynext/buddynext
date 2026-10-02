@@ -442,8 +442,8 @@
 		 * Two gates, one rule: only offer the control where it can do something.
 		 *
 		 * The type gate was already here. The VISIBILITY gate was not, so an owner
-		 * could set a field to Followers only, tick "Searchable in the member
-		 * directory", save — and nothing happened, with nothing saying why. The
+		 * could set a field to Followers only, tick "Include in search" (then
+		 * labelled "Searchable in the member directory"), save — and nothing happened, with nothing saying why. The
 		 * combination is unsatisfiable: those values never reach an index.
 		 *
 		 * Hidden rather than explained. This is a configuration screen, not a
@@ -461,6 +461,11 @@
 			&& -1 !== PF_SEARCHABLE_VISIBILITY.indexOf( visValue );
 
 		wrap.style.display = applicable ? '' : 'none';
+		// The hint under the checkbox shows and hides with it.
+		var hint = wrap.nextElementSibling;
+		if ( hint && hint.hasAttribute( 'data-bn-search-hint' ) ) {
+			hint.style.display = wrap.style.display;
+		}
 		if ( ! applicable ) {
 			var box = wrap.querySelector( 'input[type="checkbox"][name="is_searchable"]' );
 			if ( box ) {

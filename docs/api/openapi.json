@@ -8593,7 +8593,8 @@
                                         "default": false
                                     },
                                     "is_searchable": {
-                                        "type": "boolean"
+                                        "type": "boolean",
+                                        "description": "Add the value to member search (directory search box and global search). Does not create a directory filter."
                                     },
                                     "show_on_register": {
                                         "type": "boolean"
@@ -8693,7 +8694,8 @@
                                         "type": "boolean"
                                     },
                                     "is_searchable": {
-                                        "type": "boolean"
+                                        "type": "boolean",
+                                        "description": "Add the value to member search (directory search box and global search). Does not create a directory filter."
                                     },
                                     "show_on_register": {
                                         "type": "boolean"
