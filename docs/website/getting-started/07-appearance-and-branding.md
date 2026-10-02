@@ -26,6 +26,16 @@ The **Default theme** setting chooses what new visitors see to start with. It of
 
 BuddyNext does not add its own light/dark switch. Instead it follows the toggle your WordPress theme already provides. If your site runs a theme with a color-mode toggle, such as BuddyX or Reign, flipping that toggle switches BuddyNext along with it, with no extra setup. Dark mode reaches the whole community - including form controls, profile skill chips, and badges - so a dark layout stays dark end to end.
 
+## Layout (page width)
+
+Under **Settings > Appearance > Layout** you choose how wide the community pages are on desktop:
+
+- **Full width** (the default) - the navigation, content and sidebar use the whole screen.
+- **Theme default** - the community is centred at your theme's width, so it lines up with your other pages. BuddyNext reads the width from the theme (shown next to the option, 1200px when the theme does not say).
+- **Custom** - centred at the width you enter, from 1025 to 2400px. Use this when your theme's boxed width is a theme setting BuddyNext cannot read, for example a 1300px BuddyX Pro container.
+
+The page background still spans the screen; only the community columns are centred. Phones always use the full screen, and sign-up and onboarding keep their own layout. Developers can supply a theme's real width with the `buddynext_theme_container_width` filter.
+
 ## Custom CSS
 
 For finer visual tweaks, the **Custom CSS** box under Settings > Appearance lets you add your own styles. It is injected on community pages after the theme's own styles. Where you can, use BuddyNext's built-in design variables (for example the accent color variable) so your tweaks track your brand color and dark mode automatically instead of fighting them.

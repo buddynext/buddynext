@@ -39,6 +39,7 @@ class Appearance {
 		// tokens AND the host-theme adoption block. Later source order lets an
 		// explicitly-set BN accent win over the active theme's palette.
 		add_action( 'wp_enqueue_scripts', array( $this, 'attach_accent' ), 22 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'attach_container_width' ), 22 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'seed_default_theme' ), 21 );
 		add_action( 'wp_head', array( $this, 'print_custom_css' ), 99 );
 
@@ -86,6 +87,77 @@ class Appearance {
 	 * explanation — change it here and every default follows.
 	 */
 	public const DEFAULT_BRAND = '#0073aa';
+
+	/**
+	 * Narrowest boxed width. At or below 1024px the shell already switches to two
+	 * columns, so a box any narrower would only squeeze the content.
+	 */
+	public const CONTAINER_MIN = 1025;
+
+	/**
+	 * Widest boxed width offered.
+	 */
+	public const CONTAINER_MAX = 2400;
+
+	/**
+	 * Width of the community pages, from Appearance > Layout.
+	 *
+	 * 'full' (default, how BuddyNext has always looked) returns 0. 'theme' follows the
+	 * active theme: theme.json layout.wideSize, then the `buddynext_theme_container_width`
+	 * filter (for a theme that keeps its container width in its own setting), then
+	 * 1200. 'custom' is the owner's number. Both boxed widths are clamped to
+	 * CONTAINER_MIN..CONTAINER_MAX.
+	 *
+	 * @return int Max width in px, or 0 for full width.
+	 */
+	public static function container_width(): int {
+		return self::container_width_for( (string) get_option( 'buddynext_container_width', 'full' ) );
+	}
+
+	/**
+	 * Width a given layout mode resolves to (lets the settings screen show the
+	 * theme's width next to "Theme default" without saving anything).
+	 *
+	 * @param string $mode 'full' | 'theme' | 'custom'.
+	 * @return int Max width in px, or 0 for full width.
+	 */
+	public static function container_width_for( string $mode ): int {
+		if ( 'custom' === $mode ) {
+			$px = (int) get_option( 'buddynext_container_width_custom', 1280 );
+		} elseif ( 'theme' === $mode ) {
+			$settings = function_exists( 'wp_get_global_settings' ) ? (array) wp_get_global_settings( array( 'layout' ) ) : array();
+			$px       = (int) ( $settings['wideSize'] ?? 0 ); // "1200px" -> 1200; rem/vw values read as 0 and fall back.
+
+			/**
+			 * Filters the width BuddyNext uses for "Theme default".
+			 *
+			 * Classic themes often keep their container width in a theme setting rather
+			 * than theme.json; a theme or bridge can return it here.
+			 *
+			 * @since 1.2.4
+			 *
+			 * @param int $px Width from theme.json (0 when the theme has none).
+			 */
+			$px = (int) apply_filters( 'buddynext_theme_container_width', $px );
+			$px = $px > 0 ? $px : 1200;
+		} else {
+			return 0;
+		}
+
+		return max( self::CONTAINER_MIN, min( self::CONTAINER_MAX, $px ) );
+	}
+
+	/**
+	 * Print the boxed width as --bn-container-w (only when a boxed layout is chosen).
+	 *
+	 * @return void
+	 */
+	public function attach_container_width(): void {
+		$px = self::container_width();
+		if ( $px > 0 ) {
+			wp_add_inline_style( 'bn-base', ':root{--bn-container-w:' . $px . 'px;}' );
+		}
+	}
 
 	/**
 	 * The accent BuddyNext actually renders when no brand colour has been picked.

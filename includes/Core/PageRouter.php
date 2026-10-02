@@ -1453,6 +1453,12 @@ class PageRouter {
 				$classes[] = 'bn-page';
 				$classes[] = 'bn-hub-' . $hub_snapshot;
 				$classes[] = 'no-sidebar';
+				// Boxed layout (Appearance > Layout). Not on sign-up and onboarding,
+				// which keep their own full-viewport shell.
+				if ( ! in_array( $hub_snapshot, array( 'auth', 'onboarding' ), true )
+					&& \BuddyNext\Theme\Appearance::container_width() > 0 ) {
+					$classes[] = 'bn-width-boxed';
+				}
 				return $classes;
 			}
 		);

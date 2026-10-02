@@ -4340,3 +4340,17 @@ code.bn-ep-code {
 .bn-more-dropdown .bn-badge {
 	margin: var(--bn-a-s1) var(--bn-a-s4);
 }
+
+/* Appearance > Layout: one option per line, the custom width beside "Custom". */
+.bn-cw-options {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s2);
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.bn-cw-options .bn-cw-options__px {
+	width: 8em;
+}
