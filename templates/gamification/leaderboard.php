@@ -24,7 +24,14 @@
  * All visual styling lives in assets/css/bn-gamification.css —
  * no inline <style>, no inline <script>.
  *
+ * Space mode: rendered by a space's Leaderboard tab with `space_id` set. The same
+ * board, limited to that space's members (GamificationBridge answers the engine's
+ * `bn_space` scope), still ranked by site-wide points. It drops the site-wide
+ * "your stats" strip and the page-level heading, which belong to the hub page.
+ *
  * @package BuddyNext
+ *
+ * @var int $space_id Optional. Space whose members the board is limited to.
  */
 
 declare( strict_types=1 );
@@ -35,7 +42,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Declares this fine-grained surface for the sidebar registry (SidebarRegistry
 // reads it via Surface::current()) before the shell renders the right column.
-\BuddyNext\Sidebar\Surface::set( 'leaderboard' );
+$bn_lb_space = isset( $space_id ) ? (int) $space_id : 0;
+if ( 0 === $bn_lb_space ) {
+	\BuddyNext\Sidebar\Surface::set( 'leaderboard' );
+}
 
 // Guard: wb-gamification must be active (public API present).
 if ( ! function_exists( 'wb_gam_get_leaderboard' ) ) {
@@ -82,19 +92,26 @@ if ( ! in_array( $window, $allowed_windows, true ) ) {
 // "Back" is the browser's back button plus a Top link. Visitors see the first
 // page only: deep paging would let anyone read every member's name and points.
 // Older wb-gamification keeps the top-N view with no pager.
-$bn_lb_paging   = $current_user_id > 0 && function_exists( 'wb_gam_get_leaderboard_page' );
+$bn_lb_paging = $current_user_id > 0 && function_exists( 'wb_gam_get_leaderboard_page' );
+// A space board reads the engine directly: the public helper has no scope argument.
+// Its availability (engine 1.6.5+) is already checked before the tab renders.
+$bn_lb_fetch    = static function ( string $cursor ) use ( $bn_lb_space, $api_period, $window ): array {
+	return $bn_lb_space > 0
+		? (array) \WBGam\Engine\LeaderboardEngine::get_leaderboard_page( $api_period, $window, \BuddyNext\Bridges\GamificationBridge::SPACE_SCOPE, $bn_lb_space, '', $cursor )
+		: (array) wb_gam_get_leaderboard_page( $api_period, $window, $cursor );
+};
 $bn_lb_cursor   = $bn_lb_paging && isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_lb_has_more = false;
 $bn_lb_next     = '';
 $bn_lb_offset   = 0;
 $bn_lb_total    = 0;
-if ( $bn_lb_paging ) {
-	$bn_lb_page = (array) wb_gam_get_leaderboard_page( $api_period, $window, $bn_lb_cursor );
+if ( $bn_lb_paging || $bn_lb_space > 0 ) {
+	$bn_lb_page = $bn_lb_fetch( $bn_lb_cursor );
 	// A cursor from another board or a stale link: start from the top rather
 	// than show an empty page.
 	if ( ! empty( $bn_lb_page['invalid_cursor'] ) ) {
 		$bn_lb_cursor = '';
-		$bn_lb_page   = (array) wb_gam_get_leaderboard_page( $api_period, $window, '' );
+		$bn_lb_page   = $bn_lb_fetch( '' );
 	}
 	$leaderboard    = (array) ( $bn_lb_page['rows'] ?? array() );
 	$bn_lb_has_more = ! empty( $bn_lb_page['has_more'] );
@@ -318,6 +335,12 @@ $updated_iso = gmdate( 'c' );
 
 	<!-- Page header -->
 	<header class="bn-lb-header">
+		<?php if ( $bn_lb_space > 0 ) : ?>
+		<div class="bn-lb-header__row">
+			<h2 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h2>
+		</div>
+		<p class="bn-lb-subtitle"><?php esc_html_e( 'This space\'s members, ranked by their points across the community.', 'buddynext' ); ?></p>
+		<?php else : ?>
 		<div class="bn-lb-header__row">
 			<h1 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h1>
 			<span class="bn-badge" data-tone="success">
@@ -332,9 +355,10 @@ $updated_iso = gmdate( 'c' );
 				<?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?>
 			</time>
 		</div>
+		<?php endif; ?>
 	</header>
 
-	<?php if ( $current_user_id ) : ?>
+	<?php if ( $current_user_id && 0 === $bn_lb_space ) : ?>
 		<!-- Hero strip — your-rank / points / level -->
 		<section class="bn-lb-hero" aria-label="<?php esc_attr_e( 'Your stats', 'buddynext' ); ?>">
 			<div class="bn-stat-grid">

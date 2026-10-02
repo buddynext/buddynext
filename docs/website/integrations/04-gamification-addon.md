@@ -58,6 +58,10 @@ That is the whole connection. Once both plugins are active and the actions have 
 
 This integration has no settings of its own in BuddyNext. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. You can hide the Leaderboard link (and the Achievements feed activity) from the **Platform > Integration Settings** tab if you would rather not surface them.
 
+### A leaderboard for a space
+
+A space can have its own **Leaderboard** tab, ranking only that space's members. It is off by default; the space owner turns it on under **Manage space -> Integrations -> Leaderboard tab**. Members are ranked by the points they have earned across the whole community, so a space board never disagrees with the site leaderboard; the space only decides who appears on it. A space board is visible to whoever can see the space's member list, so a private space's board is for its members only.
+
 ## Good to know
 
 - **Inert when WB Gamification is not active.** Without the companion plugin, the integration does nothing - no Achievements tab, no leaderboard link, no badge feed activity. BuddyNext checks for WB Gamification before wiring anything in, so there is no error or empty surface on a site that does not run it.

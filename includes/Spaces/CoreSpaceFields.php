@@ -262,6 +262,18 @@ final class CoreSpaceFields {
 			)
 		);
 		$registry->register(
+			'gamification_leaderboard_tab',
+			array(
+				'label'      => __( 'Show the Leaderboard tab in this space', 'buddynext' ),
+				'type'       => 'boolean',
+				'default'    => '0',
+				'section'    => 'integrations',
+				'sort_order' => 40,
+				'visibility' => 'members',
+				'core'       => true,
+			)
+		);
+		$registry->register(
 			'mvs_documents_tab',
 			array(
 				'label'      => __( 'Show the Files tab in this space', 'buddynext' ),

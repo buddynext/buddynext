@@ -2356,6 +2356,10 @@ class PageRouter {
 				}
 				// The space Files tab is a server-rendered document-drive browser
 				// (no store) — it needs only its stylesheet, keyed on the action.
+				// Space Leaderboard tab renders the shared leaderboard template.
+				if ( 'leaderboard' === $space_action_v || 'leaderboard' === $bn_space_tab ) {
+					$assets->enqueue( 'gamification' );
+				}
 				if ( 'files' === $space_action_v || 'files' === $bn_space_tab ) {
 					$assets->enqueue( 'space-files' );
 					// The Files-tab uploader (drag/click a document straight into this

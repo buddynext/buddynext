@@ -216,6 +216,12 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 					$bn_integration_values['mvs_documents_tab'] = isset( $_POST['mvs_documents_tab'] ) ? '1' : '0';
 				}
 
+				// Leaderboard (WB Gamification). Same guard: only written while the
+				// row renders, so saving with the plugin off keeps the owner's choice.
+				if ( \BuddyNext\Bridges\GamificationBridge::space_leaderboards_available() ) {
+					$bn_integration_values['gamification_leaderboard_tab'] = isset( $_POST['gamification_leaderboard_tab'] ) ? '1' : '0';
+				}
+
 				// Events (Eventonomy). Only write when the field is registered — i.e.
 				// the Eventonomy bridge (Pro) is active — so saving this tab with it
 				// absent does not zero the owner's choice, the same guard the toggles
@@ -509,6 +515,7 @@ $require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_j
 $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
 $mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' );
+$bn_leaderboard_tab    = (bool) buddynext_get_space_field( $space_id, 'gamification_leaderboard_tab' );
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
 $events_tab            = (bool) buddynext_get_space_field( $space_id, 'events_tab' );
 $event_creators        = (string) buddynext_get_space_field( $space_id, 'event_creators' );
@@ -904,6 +911,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
 					'mvs_documents_tab'     => $mvs_documents_tab,
+					'leaderboard_tab'       => $bn_leaderboard_tab,
 					'album_creators'        => $album_creators,
 					'events_tab'            => $events_tab,
 					'event_creators'        => $event_creators,

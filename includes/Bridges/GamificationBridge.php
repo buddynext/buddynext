@@ -97,6 +97,9 @@ class GamificationBridge {
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
+		// Space leaderboards: BuddyNext tells the engine who belongs to a space board.
+		add_filter( 'wb_gam_leaderboard_scope_user_ids', array( $this, 'space_scope_user_ids' ), 10, 3 );
+
 		// WB Gamification sends its bell rows through the notification contract with a
 		// link to the member's profile front page. Where a row opens inside the
 		// community is BuddyNext's profile tabs, so the row is pointed at the right one.
@@ -247,6 +250,83 @@ class GamificationBridge {
 			return '';
 		}
 		return (string) get_permalink( $page_id );
+	}
+
+	/**
+	 * Scope type BuddyNext answers for wb-gamification: a board limited to one space's members.
+	 */
+	public const SPACE_SCOPE = 'bn_space';
+
+	/**
+	 * Whether this site can show space leaderboards at all.
+	 *
+	 * Needs wb-gamification's scoped, paged board (LeaderboardEngine::get_leaderboard_page(),
+	 * 1.6.5+) and the owner's site-wide Gamification switch.
+	 *
+	 * @return bool
+	 */
+	public static function space_leaderboards_available(): bool {
+		return is_callable( array( 'WBGam\\Engine\\LeaderboardEngine', 'get_leaderboard_page' ) )
+			&& buddynext_integration_enabled( 'gamification', 'nav' );
+	}
+
+	/**
+	 * Whether a space shows its Leaderboard tab (the space owner's switch, default off).
+	 *
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	public static function space_leaderboard_on( int $space_id ): bool {
+		return $space_id > 0
+			&& self::space_leaderboards_available()
+			&& (bool) buddynext_get_space_field( $space_id, 'gamification_leaderboard_tab' );
+	}
+
+	/**
+	 * Resolve a space leaderboard scope to the members who may appear on it.
+	 *
+	 * Hooked on wb-gamification's `wb_gam_leaderboard_scope_user_ids`. Ranking stays
+	 * on site-wide points (owner decision 2026-10-02); the space only limits WHO is
+	 * listed. An empty list means an empty board - the engine never widens an empty
+	 * scope to the whole site - so this returns nothing when the space has the tab
+	 * off, or when the viewer may not see the space's member list. That also closes
+	 * the public /wb-gamification/v1/leaderboard route as a way to list a private or
+	 * secret space's members (same gate as the roster: SpaceVisibility::can_view_roster()).
+	 *
+	 * ponytail: the engine filters by `user_id IN (...)`; fine for spaces in the
+	 * thousands, a JOIN-based scope in the engine is the upgrade for far larger ones.
+	 *
+	 * @param mixed  $user_ids   Ids resolved so far.
+	 * @param string $scope_type Scope type.
+	 * @param int    $scope_id   Scope id (space id for ours).
+	 * @return mixed
+	 */
+	public function space_scope_user_ids( $user_ids, $scope_type, $scope_id ) {
+		if ( self::SPACE_SCOPE !== (string) $scope_type ) {
+			return $user_ids;
+		}
+
+		$space_id = (int) $scope_id;
+		if ( ! self::space_leaderboard_on( $space_id ) ) {
+			return array();
+		}
+
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_roster( $space, get_current_user_id() ) ) {
+			return array();
+		}
+
+		$members = buddynext_service( 'space_members' );
+		$ids     = array();
+		$offset  = 0;
+		do {
+			$page    = (array) $members->get_member_ids( $space_id, 0, 1000, $offset );
+			$fetched = count( $page );
+			$ids     = array_merge( $ids, array_map( 'intval', $page ) );
+			$offset += 1000;
+		} while ( 1000 === $fetched );
+
+		return $ids;
 	}
 
 	/**

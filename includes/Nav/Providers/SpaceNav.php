@@ -271,6 +271,21 @@ final class SpaceNav {
 				},
 			),
 			array(
+				'id'        => 'leaderboard',
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => __( 'Leaderboard', 'buddynext' ),
+				'priority'  => 46,
+				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'leaderboard' ),
+				// The space owner's switch (default off) on top of the site-wide
+				// Gamification switch, like every space integration tab. The board ranks
+				// site-wide points and lists this space's members only.
+				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\GamificationBridge::space_leaderboard_on( (int) $c->subject_id ),
+				'render'    => static function ( NavContext $c ): void {
+					buddynext_get_template( 'gamification/leaderboard.php', array( 'space_id' => (int) $c->subject_id ) );
+				},
+			),
+			array(
 				'id'        => 'files',
 				'surface'   => 'space',
 				'layer'     => 'primary',
