@@ -473,7 +473,8 @@ final class SpaceNav {
 		// search is big enough to overflow one page of it, so the twentieth match
 		// cannot be the last one a member can reach.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination on a GET form.
-		$search_page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+		// /spaces/{slug}/feed/page/N/?bn_sf_q= (an old ?paged=N link redirects there).
+		$search_page = max( 1, absint( get_query_var( 'paged', 0 ) ), isset( $_GET['paged'] ) ? absint( $_GET['paged'] ) : 1 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only page number.
 		$has_prev    = false;
 		$has_next    = false;
 

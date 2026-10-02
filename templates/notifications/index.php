@@ -62,7 +62,8 @@ $filter_type_map = array(
 // Pagination (simple offset; cap at 25 per page).
 $bn_per_page = 25;
 // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_paged  = isset( $_GET['paged'] ) ? max( 1, (int) sanitize_text_field( wp_unslash( $_GET['paged'] ) ) ) : 1;
+// /notifications/page/N/ (core sends an old ?paged=N link there).
+$bn_paged  = max( 1, (int) get_query_var( 'paged', 0 ), isset( $_GET['paged'] ) ? (int) sanitize_text_field( wp_unslash( $_GET['paged'] ) ) : 1 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only page number.
 $bn_offset = ( $bn_paged - 1 ) * $bn_per_page;
 
 $notification_service = new NotificationService();
@@ -470,7 +471,7 @@ $initial_context = wp_json_encode(
 		<nav class="bn-notif-pagination" aria-label="<?php esc_attr_e( 'Notifications pagination', 'buddynext' ); ?>">
 			<?php if ( $bn_paged > 1 ) : ?>
 				<a class="bn-btn" data-variant="ghost" data-size="sm"
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>">
+					href="<?php echo esc_url( get_pagenum_link( $bn_paged - 1 ) ); ?>">
 					<?php buddynext_icon( 'chevron-left' ); ?>
 					<?php esc_html_e( 'Previous', 'buddynext' ); ?>
 				</a>
@@ -489,7 +490,7 @@ $initial_context = wp_json_encode(
 			</span>
 			<?php if ( $bn_paged < $total_pages ) : ?>
 				<a class="bn-btn" data-variant="ghost" data-size="sm"
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>">
+					href="<?php echo esc_url( get_pagenum_link( $bn_paged + 1 ) ); ?>">
 					<?php esc_html_e( 'Next', 'buddynext' ); ?>
 					<?php buddynext_icon( 'chevron-right' ); ?>
 				</a>

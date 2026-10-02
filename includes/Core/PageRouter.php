@@ -96,6 +96,7 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
+		add_filter( 'redirect_canonical', array( $this, 'keep_paged_query_without_page_route' ), 10, 2 );
 
 		// Make a mapped hub page answer is_page()/is_singular() BEFORE
 		// template_redirect runs, so any code that keys on conditional tags at that
@@ -305,7 +306,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-10-01-hub-page-n';
+	private const ROUTER_VERSION = '2026-10-02-hub-page-n-feed';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -333,6 +334,69 @@ class PageRouter {
 		$query_vars['post__in'] = array( 0 );
 
 		return $query_vars;
+	}
+
+	/**
+	 * Let core's ?paged=N -> /page/N/ redirect happen only where a route answers it.
+	 *
+	 * Core's redirect_canonical() rewrites `?paged=N` into `/…/page/N/` on every URL.
+	 * BuddyNext hubs answer that address only where a `/page/N/` rewrite rule
+	 * exists (the directories, profile tabs, notifications, space tabs); anywhere
+	 * else the redirect lands on a 404 or on the wrong view. So the redirect goes
+	 * ahead only when the target matches one of BuddyNext's own page rules - the
+	 * same first-match test WordPress applies - and otherwise `?paged=N` stays as
+	 * it was. A hub that gains a page rule gets the pretty address automatically.
+	 *
+	 * @param string|false $redirect_url  Canonical URL core wants to send the visitor to.
+	 * @param string       $requested_url URL that was requested.
+	 * @return string|false
+	 */
+	public function keep_paged_query_without_page_route( $redirect_url, $requested_url ) {
+		if ( ! is_string( $redirect_url ) || '' === (string) get_query_var( 'bn_hub', '' ) ) {
+			return $redirect_url;
+		}
+
+		// Already a BuddyNext /page/N/ address: it is canonical as it is. Core
+		// otherwise "corrects" some of them - it treats the space Feed tab's
+		// `/feed/` segment as the RSS endpoint and drops it, landing page 2 of a
+		// space search on the space's landing tab.
+		if ( self::is_page_route( (string) wp_parse_url( (string) $requested_url, PHP_URL_PATH ) ) ) {
+			return false;
+		}
+
+		$target = (string) wp_parse_url( $redirect_url, PHP_URL_PATH );
+		if ( ! preg_match( '#/page/\d+/?$#', $target ) || false === strpos( (string) wp_parse_url( (string) $requested_url, PHP_URL_QUERY ), 'paged=' ) ) {
+			return $redirect_url;
+		}
+
+		return self::is_page_route( $target ) ? $redirect_url : false;
+	}
+
+	/**
+	 * Does this URL path resolve to one of BuddyNext's /page/N/ rewrite rules?
+	 *
+	 * Resolves the path against the live rule set with the same first-match
+	 * rule WP::parse_request() uses, so it answers for any hub that registers a
+	 * page rule, including ones added later or by an addon.
+	 *
+	 * @param string $path URL path (with or without the home path prefix).
+	 * @return bool
+	 */
+	private static function is_page_route( string $path ): bool {
+		if ( ! preg_match( '#/page/\d+/?$#', $path ) ) {
+			return false;
+		}
+		$home = rtrim( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ), '/' );
+		if ( '' !== $home && 0 === strpos( $path, $home ) ) {
+			$path = (string) substr( $path, strlen( $home ) );
+		}
+		$path = ltrim( $path, '/' );
+		foreach ( (array) $GLOBALS['wp_rewrite']->wp_rewrite_rules() as $regex => $query ) {
+			if ( preg_match( '#' . $regex . '#', $path ) || preg_match( '#' . $regex . '#', urldecode( $path ) ) ) {
+				return false !== strpos( (string) $query, 'bn_hub=' ) && false !== strpos( (string) $query, 'paged=' );
+			}
+		}
+		return false;
 	}
 
 	// ── Template dispatcher ───────────────────────────────────────────────────
@@ -2963,6 +3027,15 @@ class PageRouter {
 			'index.php?bn_hub=spaces&paged=$matches[1]',
 			'top'
 		);
+		// Pages of the in-space search on the Feed tab: /spaces/{slug}/feed/page/N/.
+		// Only the Feed tab numbers its pages (Members pages by cursor), so only it
+		// gets a page rule - and with it core's ?paged redirect (see
+		// keep_paged_query_without_page_route()).
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/feed/page/([0-9]+)/?$',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=feed&paged=$matches[2]',
+			'top'
+		);
 
 		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
 		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
@@ -3035,6 +3108,13 @@ class PageRouter {
 	 */
 	public static function register_notifications_rules(): void {
 		$n = self::hub_slug( 'buddynext_slug_notifications', 'notifications' );
+
+		// WordPress-style pages of the inbox: /notifications/page/N/.
+		add_rewrite_rule(
+			'^' . preg_quote( $n, '/' ) . '/page/([0-9]+)/?$',
+			'index.php?bn_hub=notifications&paged=$matches[1]',
+			'top'
+		);
 
 		// /notifications/preferences/ — the legacy alias. It resolves to the SETTINGS
 		// hub now, like /settings/notifications/, so the old URL keeps working while

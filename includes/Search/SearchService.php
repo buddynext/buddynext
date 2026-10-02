@@ -1134,8 +1134,8 @@ class SearchService {
 			// fragment (same safe-to-embed pattern as $search_condition) sorts an
 			// exact title/content match first (0), then a prefix match (1), then the
 			// rest (2) — so searching a member's name puts that member at the top.
-			$boost_like   = $wpdb->esc_like( $safe_query );
-			$name_boost   = $wpdb->prepare(
+			$boost_like = $wpdb->esc_like( $safe_query );
+			$name_boost = $wpdb->prepare(
 				'(CASE WHEN si.title = %s OR si.content = %s THEN 0'
 				. ' WHEN si.title LIKE %s OR si.content LIKE %s THEN 1 ELSE 2 END)',
 				$safe_query,
@@ -1143,9 +1143,11 @@ class SearchService {
 				$boost_like . '%',
 				$boost_like . '%'
 			);
+			// si.id last: rows that tie on every other key (bulk-imported members
+			// share updated_at) need a fixed order, or OFFSET pages repeat rows.
 			$order_clause = $sort_recent
-				? 'si.updated_at DESC'
-				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC';
+				? 'si.updated_at DESC, si.id DESC'
+				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC, si.id DESC';
 
 			// SCALE-CONTRACT §3: bound the COUNT so it never scans past the
 			// 1000-row ceiling. Totals beyond it render as "1000+" in the UI.
@@ -1275,7 +1277,7 @@ class SearchService {
 					   {$advanced_where}
 					   {$date_where}
 					   {$space_where}
-					 ORDER BY si.updated_at DESC
+					 ORDER BY si.updated_at DESC, si.id DESC
 					 LIMIT %d OFFSET %d",
 					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
