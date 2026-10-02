@@ -637,7 +637,11 @@ class Installer {
 				'color' => 'red',
 			),
 			'description' => $detail,
-			'actions'     => '',
+			'actions'     => sprintf(
+				'<a href="%s">%s</a>',
+				esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'tools' ) ),
+				esc_html__( 'Check and repair the database', 'buddynext' )
+			),
 			'test'        => 'buddynext_schema',
 		);
 	}
@@ -880,16 +884,24 @@ class Installer {
 	/**
 	 * Expected column count per owned table, parsed from the CREATE TABLE schema.
 	 *
-	 * The schema() DDL is the single source of truth, so deriving the count from it
-	 * (rather than a hand-maintained list) means a new column is covered the moment
-	 * it is declared. A column line has a SQL type as its second token; index/key
-	 * lines start with PRIMARY/UNIQUE/KEY/INDEX/CONSTRAINT/FOREIGN and are skipped.
-	 * Undercounting is harmless (never a false "not intact"); the type list is kept
-	 * complete so it never overcounts.
-	 *
 	 * @return array<string,int> Prefixed table name => declared column count.
 	 */
 	private static function expected_column_counts(): array {
+		return array_map( 'count', self::expected_columns() );
+	}
+
+	/**
+	 * Declared column names per owned table, parsed from the CREATE TABLE schema.
+	 *
+	 * The schema() DDL is the single source of truth, so a new column is covered
+	 * the moment it is declared. A column line has a SQL type as its second token;
+	 * index/key lines start with PRIMARY/UNIQUE/KEY/INDEX/CONSTRAINT/FOREIGN and are
+	 * skipped. Undercounting is harmless (never a false "not intact"); the type
+	 * list is kept complete so it never overcounts.
+	 *
+	 * @return array<string,array<int,string>> Prefixed table name => column names.
+	 */
+	private static function expected_columns(): array {
 		global $wpdb;
 
 		$types = 'TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE|BIT'
@@ -901,22 +913,62 @@ class Installer {
 			if ( ! preg_match( '/CREATE\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s*\(/i', (string) $bn_stmt, $bn_m ) ) {
 				continue;
 			}
-			$bn_count = 0;
+			$bn_cols = array();
 			foreach ( preg_split( '/\r?\n/', (string) $bn_stmt ) as $bn_line ) {
 				$bn_line = trim( (string) $bn_line );
 				if ( '' === $bn_line || preg_match( '/^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY|INDEX|CONSTRAINT|FOREIGN\s+KEY|CREATE\s+TABLE|\))/i', $bn_line ) ) {
 					continue;
 				}
-				if ( preg_match( '/^`?[A-Za-z_][A-Za-z0-9_]*`?\s+(' . $types . ')\b/i', $bn_line ) ) {
-					++$bn_count;
+				if ( preg_match( '/^`?([A-Za-z_][A-Za-z0-9_]*)`?\s+(' . $types . ')\b/i', $bn_line, $bn_c ) ) {
+					$bn_cols[] = $bn_c[1];
 				}
 			}
-			if ( $bn_count > 0 ) {
-				$out[ $bn_m[1] ] = $bn_count;
+			if ( array() !== $bn_cols ) {
+				$out[ $bn_m[1] ] = $bn_cols;
 			}
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Which declared columns are not in the database, per existing table.
+	 *
+	 * For Tools > Repair: a column can go missing after an interrupted update, a
+	 * host restore of an old backup or a migrated site, and every query that names
+	 * it then fails. Missing TABLES are reported by missing_tables(), not here.
+	 *
+	 * @return array<string,array<int,string>> Unprefixed table name => missing column names.
+	 */
+	public static function missing_columns(): array {
+		global $wpdb;
+
+		$expected = self::expected_columns();
+		if ( array() === $expected ) {
+			return array();
+		}
+
+		// One prepared query over every BuddyNext table, read the expected ones below.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- live schema probe, must not be cached.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name LIKE %s', $wpdb->esc_like( $wpdb->prefix . 'bn_' ) . '%' ) );
+
+		$have = array();
+		foreach ( $rows as $row ) {
+			$have[ (string) $row->t ][ strtolower( (string) $row->c ) ] = true;
+		}
+
+		$missing = array();
+		foreach ( $expected as $table => $cols ) {
+			if ( ! isset( $have[ $table ] ) ) {
+				continue; // The whole table is missing; missing_tables() reports it.
+			}
+			foreach ( $cols as $col ) {
+				if ( ! isset( $have[ $table ][ strtolower( $col ) ] ) ) {
+					$missing[ substr( $table, strlen( $wpdb->prefix ) ) ][] = $col;
+				}
+			}
+		}
+		return $missing;
 	}
 
 	/**

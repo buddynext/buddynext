@@ -39,6 +39,8 @@ class ToolsTab {
 	 */
 	public function register(): void {
 		add_action( 'admin_post_bn_tools_recount', array( $this, 'handle_recount' ) );
+		add_action( 'admin_post_bn_tools_repair_database', array( $this, 'handle_repair_database' ) );
+		add_action( 'admin_post_bn_tools_restore_emails', array( $this, 'handle_restore_emails' ) );
 		add_action( 'admin_post_bn_tools_flush_cache', array( $this, 'handle_flush_cache' ) );
 		add_action( 'admin_post_bn_tools_export', array( $this, 'handle_export' ) );
 		add_action( 'admin_post_bn_tools_import', array( $this, 'handle_import' ) );
@@ -66,7 +68,7 @@ class ToolsTab {
 		if ( '' !== $done ) {
 			$msg = $this->result_message( $done );
 			if ( '' !== $msg ) {
-				$is_error = in_array( $done, array( 'import_failed', 'import_empty' ), true );
+				$is_error = in_array( $done, array( 'import_failed', 'import_empty', 'db_partial' ), true );
 				printf(
 					'<div class="notice %s is-dismissible"><p>%s</p></div>',
 					$is_error ? 'notice-error' : 'notice-success',
@@ -77,6 +79,7 @@ class ToolsTab {
 
 		$this->render_background_tasks_section();
 		$this->render_search_index_section();
+		$this->render_database_section();
 		$this->render_repair_section();
 		$this->render_cache_section();
 		$this->render_export_import_section();
@@ -380,6 +383,90 @@ class ToolsTab {
 	}
 
 	/**
+	 * Database and default emails: show what is missing or outdated, repair on click.
+	 *
+	 * Both repairs are synchronous and idempotent and share their code with the
+	 * upgrade path (Installer::run(), EmailDefaults::refresh_unedited()), so the
+	 * button does exactly what an update would have done. Nothing is ever dropped
+	 * or changed beyond what is missing or still on an old default.
+	 *
+	 * @return void
+	 */
+	private function render_database_section(): void {
+		$missing_tables  = \BuddyNext\Core\Installer::missing_tables();
+		$missing_columns = \BuddyNext\Core\Installer::missing_columns();
+		$missing_count   = count( $missing_tables ) + array_sum( array_map( 'count', $missing_columns ) );
+		$outdated_emails = \BuddyNext\Notifications\EmailDefaults::outdated_count();
+		$failure         = get_option( \BuddyNext\Core\Installer::SCHEMA_FAILURE_OPTION );
+		$failure_errors  = is_array( $failure ) && is_array( $failure['errors'] ?? null ) ? array_slice( $failure['errors'], 0, 5, true ) : array();
+		?>
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Database and default emails', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<p class="bn-av-section-desc">
+					<?php esc_html_e( 'An interrupted update, a restored backup or a moved site can leave a BuddyNext table or column missing. BuddyNext repairs this by itself when you open wp-admin, and if the database refuses it waits an hour before trying again. Once your host has fixed the cause, use this button to retry straight away. Repair only creates what is missing: nothing is deleted or overwritten.', 'buddynext' ); ?>
+				</p>
+				<?php if ( 0 === $missing_count ) : ?>
+					<p><?php esc_html_e( 'Status: every BuddyNext table and column is present.', 'buddynext' ); ?></p>
+				<?php else : ?>
+					<div class="notice notice-warning inline">
+						<p><strong><?php esc_html_e( 'Some database structure is missing:', 'buddynext' ); ?></strong></p>
+						<ul>
+							<?php foreach ( $missing_tables as $bn_table ) : ?>
+								<li>
+									<?php
+									/* translators: %s: database table name. */
+									echo esc_html( sprintf( __( 'Table %s', 'buddynext' ), $bn_table ) );
+									?>
+								</li>
+							<?php endforeach; ?>
+							<?php foreach ( $missing_columns as $bn_table => $bn_cols ) : ?>
+								<li>
+									<?php
+									/* translators: 1: database table name, 2: comma-separated column names. */
+									echo esc_html( sprintf( __( 'Table %1$s, columns: %2$s', 'buddynext' ), $bn_table, implode( ', ', $bn_cols ) ) );
+									?>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+						<?php foreach ( $failure_errors as $bn_table => $bn_error ) : ?>
+							<p>
+								<?php
+								/* translators: 1: database table name, 2: error message from the database server. */
+								echo esc_html( sprintf( __( 'Last attempt, %1$s: %2$s', 'buddynext' ), (string) $bn_table, (string) $bn_error ) );
+								?>
+							</p>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+				<div class="bn-mod-actions">
+					<?php $this->tool_button( 'bn_tools_repair_database', __( 'Check and repair database', 'buddynext' ) ); ?>
+				</div>
+
+				<p class="bn-av-section-desc">
+					<?php esc_html_e( 'When BuddyNext improves the wording of a default email, sites update the emails nobody has edited. Use this if your site skipped that step. Emails you have customised are never changed.', 'buddynext' ); ?>
+				</p>
+				<p>
+					<?php
+					echo esc_html(
+						0 === $outdated_emails
+							? __( 'Status: every unedited email uses the latest default wording.', 'buddynext' )
+							/* translators: %d: number of email templates. */
+							: sprintf( _n( 'Status: %d unedited email is on older wording.', 'Status: %d unedited emails are on older wording.', $outdated_emails, 'buddynext' ), $outdated_emails )
+					);
+					?>
+				</p>
+				<div class="bn-mod-actions">
+					<?php $this->tool_button( 'bn_tools_restore_emails', __( 'Restore default emails', 'buddynext' ) ); ?>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Cache flush.
 	 *
 	 * @return void
@@ -522,6 +609,53 @@ class ToolsTab {
 		}
 
 		$this->redirect_back( 'recounted' );
+	}
+
+	/**
+	 * Create any missing BuddyNext table or column, then report what changed.
+	 *
+	 * Installer::run() is the activation/upgrade path: dbDelta() creates missing
+	 * tables and adds missing columns, never drops or alters data, and its seeders
+	 * only INSERT IGNORE. Calling it here skips the hourly back-off maybe_upgrade()
+	 * applies after a refused attempt. Synchronous: one click, one result.
+	 *
+	 * @return void
+	 */
+	public function handle_repair_database(): void {
+		$this->guard( 'bn_tools_repair_database' );
+
+		$before = self::missing_schema_count();
+		if ( $before > 0 ) {
+			\BuddyNext\Core\Installer::run();
+			\BuddyNext\Core\Installer::flush_schema_check();
+		}
+		$after = self::missing_schema_count();
+
+		if ( 0 === $before ) {
+			$this->redirect_back( 'db_ok' );
+		}
+		$this->redirect_back( $after > 0 ? 'db_partial' : 'db_repaired', array( 'bn_n' => $before - $after ) );
+	}
+
+	/**
+	 * Missing BuddyNext tables plus missing columns.
+	 *
+	 * @return int
+	 */
+	private static function missing_schema_count(): int {
+		return count( \BuddyNext\Core\Installer::missing_tables() ) + (int) array_sum( array_map( 'count', \BuddyNext\Core\Installer::missing_columns() ) );
+	}
+
+	/**
+	 * Move unedited email templates to the current default wording.
+	 *
+	 * @return void
+	 */
+	public function handle_restore_emails(): void {
+		$this->guard( 'bn_tools_restore_emails' );
+		$updated = \BuddyNext\Notifications\EmailDefaults::outdated_count();
+		\BuddyNext\Notifications\EmailDefaults::refresh_unedited();
+		$this->redirect_back( 'emails_restored', array( 'bn_n' => $updated ) );
 	}
 
 	/**
@@ -725,6 +859,30 @@ class ToolsTab {
 	 * @param string $label Button label.
 	 * @return void
 	 */
+	/**
+	 * Render a one-click tool form posting to admin-post with its own nonce.
+	 *
+	 * @param string $action admin-post action (also the nonce action).
+	 * @param string $label  Button label.
+	 * @return void
+	 */
+	private function tool_button( string $action, string $label ): void {
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-mod-action-form">
+			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
+			<?php wp_nonce_field( $action ); ?>
+			<button type="submit" class="bn-btn" data-variant="secondary"><?php echo esc_html( $label ); ?></button>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Render a single recount button form.
+	 *
+	 * @param string $what  Recount family key.
+	 * @param string $label Button label.
+	 * @return void
+	 */
 	private function recount_button( string $what, string $label ): void {
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-mod-action-form">
@@ -752,18 +910,29 @@ class ToolsTab {
 	/**
 	 * Redirect back to the Tools tab with a result flag.
 	 *
-	 * @param string $result Result slug.
+	 * @param string               $result Result slug.
+	 * @param array<string, mixed> $extra  Extra query args (e.g. bn_n, a count the notice reports).
 	 * @return void
 	 */
-	private function redirect_back( string $result ): void {
+	private function redirect_back( string $result, array $extra = array() ): void {
 		// Use the canonical Hub URL builder (origin section 'settings', slug
 		// 'tools') so the redirect honours the IA placement map. Hardcoding
 		// page=buddynext sent the user to General Settings whenever the Tools tab
 		// was relocated to another section's page.
 		wp_safe_redirect(
-			AdminHub::tab_url( 'settings', 'tools', array( 'bn_tools' => $result ) )
+			AdminHub::tab_url( 'settings', 'tools', array_merge( array( 'bn_tools' => $result ), $extra ) )
 		);
 		exit;
+	}
+
+	/**
+	 * The count a result notice reports (bn_n on the redirect).
+	 *
+	 * @return int
+	 */
+	private function result_count(): int {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice value.
+		return isset( $_GET['bn_n'] ) ? absint( wp_unslash( $_GET['bn_n'] ) ) : 0;
 	}
 
 	/**
@@ -776,6 +945,16 @@ class ToolsTab {
 		switch ( $result ) {
 			case 'recounted':
 				return __( 'Counters recomputed.', 'buddynext' );
+			case 'db_ok':
+				return __( 'Database checked: every BuddyNext table and column is present. Nothing to repair.', 'buddynext' );
+			case 'db_repaired':
+				/* translators: %d: number of tables and columns created. */
+				return sprintf( _n( 'Database repaired: %d missing table or column was created.', 'Database repaired: %d missing tables and columns were created.', $this->result_count(), 'buddynext' ), $this->result_count() );
+			case 'db_partial':
+				return __( 'Some missing database structure could not be created. The reason from the database is shown below. The usual cause is a database user without permission to create or alter tables, which your host can fix.', 'buddynext' );
+			case 'emails_restored':
+				/* translators: %d: number of email templates. */
+				return sprintf( _n( '%d unedited email was updated to the latest default wording.', '%d unedited emails were updated to the latest default wording.', $this->result_count(), 'buddynext' ), $this->result_count() );
 			case 'flushed':
 				return __( 'Cache flushed.', 'buddynext' );
 			case 'search_reindexing':

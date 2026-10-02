@@ -26,6 +26,16 @@ Global search reads a single index of members, posts, and spaces. Normally Buddy
 
 If search ever looks empty or out of date - it returns nothing, or misses recent content - this panel shows the index status and a **Rebuild** button. Rebuilding re-reads your content and restores the fast full-text index. The panel also shows how many rows are indexed, whether the fast full-text index is present, and when the last full rebuild ran, so you can tell at a glance whether a rebuild is worth doing.
 
+## Database and default emails
+
+BuddyNext keeps its own database tables. An interrupted update, a restored backup or a moved site can leave one of them, or one column, missing, and the features that use it stop saving. BuddyNext notices this and repairs it by itself the next time you open wp-admin.
+
+If your database refuses the repair (usually because the database user is not allowed to create or alter tables), this panel lists exactly what is missing and the reason the database gave. BuddyNext then waits an hour before trying again by itself. Once your host has fixed the cause, click **Check and repair database** to retry straight away. The repair only creates what is missing; it never deletes or overwrites your data.
+
+When an update improves the wording of a default email, BuddyNext also updates every email you have not edited. The panel shows how many unedited emails still use older wording; **Restore default emails** brings them up to date. Emails you have customised are never changed, field by field: if you rewrote a subject, the subject stays yours and only the untouched body is updated.
+
+WordPress **Tools > Site Health** also reports missing BuddyNext tables and links to this panel.
+
 ## Demo data
 
 A brand-new community has nothing in it, which makes it hard to judge what a real one will look like. This panel seeds realistic sample members, spaces, posts, comments, reactions, follows, and connections (using bundled offline images, no external requests) so you can walk every surface before inviting anyone. It reports what was installed as a count of members, spaces, posts, and profile fields, and a single **Remove Demo Data** button clears all of it again. You will also see the same option offered on the last step of the setup wizard.
