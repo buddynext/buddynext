@@ -1009,7 +1009,9 @@ function paintToast( toast, o, dismiss ) {
 		link.addEventListener( 'click', function ( e ) {
 			e.stopPropagation();
 		} );
-		toast.appendChild( link );
+		// Under the text on a two-line toast: beside it, the unwrappable link took the
+		// width and squeezed a sentence into a column of single words.
+		( o.body ? text : toast ).appendChild( link );
 	}
 
 	if ( o.persist ) {

@@ -978,6 +978,11 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	white-space: nowrap;
 }
 .bn-toast__action { align-self: center; }
+/* On a two-line toast the action sits under the text, aligned with it. */
+.bn-toast__text > .bn-toast__action {
+	align-self: flex-start;
+	margin-inline-start: 0;
+}
 .bn-toast__action:hover,
 .bn-toast__action:focus-visible {
 	color: inherit;
