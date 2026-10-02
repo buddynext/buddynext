@@ -4355,3 +4355,36 @@ code.bn-ep-code {
 .bn-cw-options .bn-cw-options__px {
 	width: 8em;
 }
+
+/* --------------------------------------------------------------------------
+   Email Log: one filter row (search, type, status) above the log.
+   -------------------------------------------------------------------------- */
+
+.bn-email-log__filters .bn-segment {
+	margin-inline-start: auto;
+}
+
+/* A smaller starting width keeps search, type, Filter and status on one row down
+   to a 1280px window; below that the status switch wraps under them. */
+.bn-email-log__filters input[type="search"] {
+	flex: 1 1 12rem;
+}
+
+/* Failures are the reason the owner opens this screen: the count reads as an alert. */
+.bn-email-log__filters .bn-segment__item.is-alert:not(.is-active) {
+	color: var(--bn-a-red);
+}
+
+.bn-email-log__error {
+	margin-top: var(--bn-a-s1);
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+
+.bn-email-log td {
+	vertical-align: middle;
+}
+
+.bn-email-log time {
+	white-space: nowrap;
+}

@@ -88,12 +88,20 @@ Because every email uses the same shell, your whole outbound mail looks consiste
 
 ![The Email Log listing every message the community has sent](../images/admin-email-log.webp)
 
-**BuddyNext > Notifications > Email Log** lists every email the community has sent - recipient, type, and when it went out. It is read-only and exists to answer one question fast: *"did that email actually go out?"* When a member says they never received their verification message or a digest, check the log before debugging your mail server - if the row is there, BuddyNext handed the message to WordPress and the trail continues with your email delivery (SMTP plugin or host).
+**BuddyNext > Notifications > Email Log** lists every email the community has sent, newest first. It is read-only and exists to answer one question fast: *"did that email actually go out?"*
+
+- **Search** by the member's name, username or email to see everything sent to them.
+- **All emails** narrows the list to one kind of email. They are grouped by area: Account, Connections and followers, Posts and messages, Spaces, Moderation, Membership, Announcements and digests.
+- **All / Sent / Failed** filters by delivery status. Failed shows how many sends failed, and each failed row gives the reason under its status.
+
+Each row shows the recipient, the email (a digest also shows the day it covers), the status, and how long ago it went out. Hover the time to see the exact date and time.
+
+When a member says they never received their verification message or a digest, search for them here before debugging your mail server. A **Sent** row means BuddyNext handed the message to WordPress, and the trail continues with your email delivery (SMTP plugin or host). A **Failed** row shows the error WordPress returned.
 
 ## Good to know
 
 - **Emails are sent in the background.** When a member action triggers an email, BuddyNext sends it just after, in the background, rather than making the member wait. The action that triggered it (following, commenting, and so on) stays fast, and the email goes out a moment later. If the background path is ever unavailable, BuddyNext sends the email right away instead, so it is never lost.
-- **The email log.** Every successful send is recorded in an email log with the recipient, the email type, and the time sent. This is the reliable way to confirm an email actually went out - useful when a member says they did not receive something, or when you are verifying delivery on a new install.
+- **The email log.** Every send is recorded with the recipient, the email type, the time sent, and whether it was sent or failed. This is the reliable way to confirm an email actually went out - useful when a member says they did not receive something, or when you are verifying delivery on a new install.
 - **Disabling a template is per-email.** Turning off a template stops that one event email; it does not affect any other email or any member's in-app notifications.
 - **Identity applies only to BuddyNext mail.** The From name, From address, and Reply-To are attached per message and detached immediately after, so WordPress password resets and other plugins' email are never changed.
 

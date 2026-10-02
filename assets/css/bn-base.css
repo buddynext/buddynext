@@ -2912,6 +2912,12 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	transition: border-color var(--bn-dur) var(--bn-ease),
 				box-shadow var(--bn-dur) var(--bn-ease);
 }
+/* Safari on macOS draws a search field with its own rounded native style and
+   ignores our border and radius until the native appearance is dropped. */
+.bn-input[type="search"] {
+	-webkit-appearance: none;
+	appearance: none;
+}
 .bn-textarea {
 	padding: var(--bn-s3);
 	height: auto;

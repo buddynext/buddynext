@@ -7,9 +7,10 @@
  * tests. Gives the site owner a way to see and debug what mail BuddyNext has
  * actually sent (the third entry point — backend read — for that data store).
  *
- * Reverse-chronological + paginated (big-site safe: ORDER BY the PK, COUNT(*)
- * total, LIMIT/OFFSET window) with type and status filters. Lists who, what
- * type, delivery status (with the failure reason), digest date and when. A
+ * Answers the owner's question "did member X get email Y, and is anything
+ * failing?": one filter row (recipient search, email type grouped by area,
+ * All / Sent / Failed with the failed count), newest first, paginated
+ * (big-site safe: ORDER BY the PK, COUNT(*) total, LIMIT/OFFSET window). A
  * proactive admin banner warns when failures pile up in the last 24h.
  *
  * @package BuddyNext\Admin
@@ -215,7 +216,7 @@ class EmailLog {
 			return;
 		}
 
-		// Filter + page from the query string (read-only listing, nonce not
+		// Filters + page from the query string (read-only listing, nonce not
 		// required for a GET-driven, capability-gated view).
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$type_filter = isset( $_GET['log_type'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['log_type'] ) ) : '';
@@ -225,19 +226,43 @@ class EmailLog {
 			$status_filter = '';
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$search = isset( $_GET['log_q'] ) ? trim( sanitize_text_field( wp_unslash( (string) $_GET['log_q'] ) ) ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$paged    = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
 		$per_page = self::PER_PAGE;
 		$offset   = ( $paged - 1 ) * $per_page;
 
-		// Build the WHERE from whichever of the two filters are set — a plain
-		// prepared clause list so both type and status compose without a
-		// combinatorial branch. $table is a trusted {$wpdb->prefix} literal.
+		// Type and recipient narrow the list; status is applied on top so the
+		// Failed count can be read for the same type and recipient.
 		$where = array();
 		$args  = array();
 		if ( '' !== $type_filter ) {
 			$where[] = 'type = %s';
 			$args[]  = $type_filter;
 		}
+		if ( '' !== $search ) {
+			// Recipient search resolves matching accounts first, then filters the
+			// log by user_id (indexed), so it stays cheap on a large log.
+			// ponytail: first 500 matching accounts; a vaguer term should be narrowed.
+			$match_ids = get_users(
+				array(
+					'search'         => '*' . $search . '*',
+					'search_columns' => array( 'user_login', 'user_email', 'display_name' ),
+					'fields'         => 'ID',
+					'number'         => 500,
+				)
+			);
+			$match_ids = array_map( 'intval', (array) $match_ids );
+			if ( $match_ids ) {
+				$where[] = 'user_id IN (' . implode( ',', array_fill( 0, count( $match_ids ), '%d' ) ) . ')';
+				$args    = array_merge( $args, $match_ids );
+			} else {
+				$where[] = '1 = 0';
+			}
+		}
+		$base_where = $where;
+		$base_args  = $args;
+		$failed_sql = 'WHERE ' . implode( ' AND ', array_merge( $base_where, array( "status = 'failed'" ) ) );
 		if ( '' !== $status_filter ) {
 			$where[] = 'status = %s';
 			$args[]  = $status_filter;
@@ -245,19 +270,34 @@ class EmailLog {
 		$where_sql = $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '';
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders -- admin-only debug read, intentionally uncached; WHERE built from a fixed set of prepared clauses.
-		$total = $where
+		$total  = $args
 			? (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} {$where_sql}", $args ) )
-			: (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-		$rows  = $wpdb->get_results(
+			: (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} {$where_sql}" );
+		$failed = $base_args
+			? (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} {$failed_sql}", $base_args ) )
+			: (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} {$failed_sql}" );
+		$rows   = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, user_id, type, digest_date, status, error, sent_at FROM {$table} {$where_sql} ORDER BY id DESC LIMIT %d OFFSET %d",
 				array_merge( $args, array( $per_page, $offset ) )
 			)
 		);
 
-		// Distinct types for the filter chips (small, fixed set of template labels).
+		// Distinct types for the Type dropdown (small set, served by the type index).
 		$types = $wpdb->get_col( "SELECT DISTINCT type FROM {$table} ORDER BY type ASC" );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders
+
+		// Group the types by area so the dropdown reads as a short menu.
+		$grouped = array();
+		foreach ( (array) $types as $t ) {
+			$t                                        = (string) $t;
+			$grouped[ $this->type_group( $t ) ][ $t ] = $this->type_label( $t );
+		}
+		$grouped = array_filter( array_merge( array_fill_keys( $this->type_groups(), array() ), $grouped ) );
+		foreach ( $grouped as &$bn_group_types ) {
+			asort( $bn_group_types );
+		}
+		unset( $bn_group_types );
 
 		// Resolve every recipient on the page in one query (no per-row lookup).
 		$user_ids = array_values( array_unique( array_filter( array_map( static fn( $r ) => (int) $r->user_id, (array) $rows ) ) ) );
@@ -281,10 +321,12 @@ class EmailLog {
 			),
 			admin_url( 'admin.php' )
 		);
-		// Base URLs that keep the OTHER filter set, so type and status compose
-		// instead of clobbering each other.
-		$tab_url_status   = '' !== $status_filter ? add_query_arg( 'log_status', $status_filter, $tab_url ) : $tab_url;
-		$tab_url_filtered = '' !== $type_filter ? add_query_arg( 'log_type', $type_filter, $tab_url ) : $tab_url;
+		$filters     = array(
+			'log_type'   => '' !== $type_filter ? $type_filter : false,
+			'log_q'      => '' !== $search ? rawurlencode( $search ) : false,
+			'log_status' => '' !== $status_filter ? $status_filter : false,
+		);
+		$has_filters = '' !== $type_filter || '' !== $search || '' !== $status_filter;
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -293,57 +335,71 @@ class EmailLog {
 			</div>
 			<div class="bn-ss-body">
 
-				<?php if ( ! empty( $types ) ) : ?>
-					<?php // B5: --wrap lets a long run of event-type chips break to new lines instead of clipping at the card edge. ?>
-					<div class="bn-segment bn-segment--wrap" role="group" aria-label="<?php esc_attr_e( 'Filter email log by type', 'buddynext' ); ?>">
-						<a href="<?php echo esc_url( remove_query_arg( array( 'log_type', 'paged' ), $tab_url_status ) ); ?>"
-							class="bn-segment__item<?php echo '' === $type_filter ? ' is-active' : ''; ?>"
-							aria-selected="<?php echo '' === $type_filter ? 'true' : 'false'; ?>">
-							<?php esc_html_e( 'All', 'buddynext' ); ?>
-						</a>
-						<?php foreach ( $types as $t ) : ?>
-							<?php $t = (string) $t; ?>
-							<a href="<?php echo esc_url( add_query_arg( array( 'log_type' => $t ), remove_query_arg( 'paged', $tab_url_status ) ) ); ?>"
-								class="bn-segment__item<?php echo $type_filter === $t ? ' is-active' : ''; ?>"
-								aria-selected="<?php echo $type_filter === $t ? 'true' : 'false'; ?>">
-								<?php echo esc_html( $this->type_label( $t ) ); ?>
+				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="bn-filter-bar bn-email-log__filters bn-admin-hub__form-bare" role="search">
+					<input type="hidden" name="page" value="buddynext-notifications">
+					<input type="hidden" name="tab" value="email-log">
+					<?php if ( '' !== $status_filter ) : ?>
+						<input type="hidden" name="log_status" value="<?php echo esc_attr( $status_filter ); ?>">
+					<?php endif; ?>
+					<label for="bn-email-log-q" class="screen-reader-text"><?php esc_html_e( 'Search by recipient name, username or email', 'buddynext' ); ?></label>
+					<input type="search" id="bn-email-log-q" name="log_q" class="bn-input"
+						value="<?php echo esc_attr( $search ); ?>"
+						placeholder="<?php esc_attr_e( 'Search recipient name or email…', 'buddynext' ); ?>">
+					<label for="bn-email-log-type" class="screen-reader-text"><?php esc_html_e( 'Filter by email', 'buddynext' ); ?></label>
+					<select id="bn-email-log-type" name="log_type" class="bn-select">
+						<option value=""><?php esc_html_e( 'All emails', 'buddynext' ); ?></option>
+						<?php foreach ( $grouped as $group_label => $group_types ) : ?>
+							<optgroup label="<?php echo esc_attr( $group_label ); ?>">
+								<?php foreach ( $group_types as $t => $t_label ) : ?>
+									<option value="<?php echo esc_attr( (string) $t ); ?>" <?php selected( $type_filter, (string) $t ); ?>><?php echo esc_html( $t_label ); ?></option>
+								<?php endforeach; ?>
+							</optgroup>
+						<?php endforeach; ?>
+					</select>
+					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Filter', 'buddynext' ); ?></button>
+					<?php if ( '' !== $type_filter || '' !== $search ) : ?>
+						<a class="bn-btn" data-variant="ghost" href="<?php echo esc_url( add_query_arg( 'log_status', $filters['log_status'], $tab_url ) ); ?>"><?php esc_html_e( 'Clear', 'buddynext' ); ?></a>
+					<?php endif; ?>
+
+					<?php
+					$status_links = array(
+						''       => __( 'All', 'buddynext' ),
+						'sent'   => __( 'Sent', 'buddynext' ),
+						'failed' => $failed > 0
+							/* translators: %s: number of failed emails. */
+							? sprintf( __( 'Failed (%s)', 'buddynext' ), number_format_i18n( $failed ) )
+							: __( 'Failed', 'buddynext' ),
+					);
+					?>
+					<div class="bn-segment" role="group" aria-label="<?php esc_attr_e( 'Filter by delivery status', 'buddynext' ); ?>">
+						<?php foreach ( $status_links as $s_key => $s_label ) : ?>
+							<a href="<?php echo esc_url( add_query_arg( array_merge( $filters, array( 'log_status' => '' !== $s_key ? $s_key : false ) ), $tab_url ) ); ?>"
+								class="bn-segment__item<?php echo $status_filter === $s_key ? ' is-active' : ''; ?><?php echo 'failed' === $s_key && $failed > 0 ? ' is-alert' : ''; ?>"
+								<?php echo $status_filter === $s_key ? 'aria-current="true"' : ''; ?>>
+								<?php echo esc_html( $s_label ); ?>
 							</a>
 						<?php endforeach; ?>
 					</div>
-				<?php endif; ?>
-
-				<?php
-				// Status filter: All / Sent / Failed. Kept separate from the type
-				// chips so an owner can jump straight to failures.
-				$status_links = array(
-					''       => __( 'All statuses', 'buddynext' ),
-					'sent'   => __( 'Sent', 'buddynext' ),
-					'failed' => __( 'Failed', 'buddynext' ),
-				);
-				?>
-				<div class="bn-segment" role="group" aria-label="<?php esc_attr_e( 'Filter email log by status', 'buddynext' ); ?>">
-					<?php foreach ( $status_links as $s_key => $s_label ) : ?>
-						<a href="<?php echo esc_url( add_query_arg( array( 'log_status' => '' !== $s_key ? $s_key : false ), remove_query_arg( 'paged', $tab_url_filtered ) ) ); ?>"
-							class="bn-segment__item<?php echo $status_filter === $s_key ? ' is-active' : ''; ?>"
-							aria-selected="<?php echo $status_filter === $s_key ? 'true' : 'false'; ?>">
-							<?php echo esc_html( $s_label ); ?>
-						</a>
-					<?php endforeach; ?>
-				</div>
+				</form>
 
 				<?php if ( empty( $rows ) ) : ?>
 					<div class="bn-empty">
-						<p class="bn-empty__title"><?php esc_html_e( 'No sent email recorded for this filter yet', 'buddynext' ); ?></p>
+						<?php if ( $has_filters ) : ?>
+							<p class="bn-empty__title"><?php esc_html_e( 'No emails match these filters', 'buddynext' ); ?></p>
+							<p class="bn-empty__sub"><a href="<?php echo esc_url( $tab_url ); ?>"><?php esc_html_e( 'Clear filters', 'buddynext' ); ?></a></p>
+						<?php else : ?>
+							<p class="bn-empty__title"><?php esc_html_e( 'No email sent yet', 'buddynext' ); ?></p>
+							<p class="bn-empty__sub"><?php esc_html_e( 'Every email BuddyNext sends is listed here, with its delivery status.', 'buddynext' ); ?></p>
+						<?php endif; ?>
 					</div>
 				<?php else : ?>
-					<table class="widefat">
+					<table class="widefat bn-email-log">
 						<thead>
 							<tr>
-								<th><?php esc_html_e( 'Recipient', 'buddynext' ); ?></th>
-								<th><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
-								<th><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
-								<th><?php esc_html_e( 'Digest date', 'buddynext' ); ?></th>
-								<th><?php esc_html_e( 'Sent', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Recipient', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Sent', 'buddynext' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -351,34 +407,55 @@ class EmailLog {
 						foreach ( $rows as $row ) :
 							$uid       = (int) $row->user_id;
 							$user      = $user_map[ $uid ] ?? null;
-							$sent_disp = buddynext_date_local( (string) $row->sent_at, 'M j, Y g:i a' );
+							$email     = $this->type_label( (string) $row->type );
+							$is_failed = 'failed' === (string) $row->status;
+							if ( ! empty( $row->digest_date ) ) {
+								$email .= ' · ' . date_i18n( (string) get_option( 'date_format' ), (int) strtotime( (string) $row->digest_date ) );
+							}
 							?>
 							<tr>
 								<td>
-									<?php if ( $user ) : ?>
-										<strong><?php echo esc_html( (string) $user->display_name ); ?></strong>
-										<span class="bn-text-muted">&lt;<?php echo esc_html( (string) $user->user_email ); ?>&gt;</span>
-									<?php elseif ( $uid > 0 ) : ?>
-										<?php
-										/* translators: %d: user ID of a recipient whose account no longer exists. */
-										echo esc_html( sprintf( __( 'Deleted user #%d', 'buddynext' ), $uid ) );
-										?>
-									<?php else : ?>
-										<span class="bn-text-muted"><?php esc_html_e( 'Guest / unknown', 'buddynext' ); ?></span>
-									<?php endif; ?>
+									<div class="bn-member-cell">
+										<?php if ( $user ) : ?>
+											<div class="bn-avatar bn-avatar-initials <?php echo esc_attr( Members\MemberDisplay::get_avatar_color( $uid ) ); ?>" aria-hidden="true">
+												<?php echo esc_html( Members\MemberDisplay::get_initials( (string) $user->display_name ) ); ?>
+											</div>
+											<div class="bn-member-info">
+												<div class="bn-member-name"><?php echo esc_html( (string) $user->display_name ); ?></div>
+												<div class="bn-member-meta"><span class="bn-member-email"><?php echo esc_html( (string) $user->user_email ); ?></span></div>
+											</div>
+										<?php elseif ( $uid > 0 ) : ?>
+											<span class="bn-text-muted">
+												<?php
+												/* translators: %d: user ID of a recipient whose account no longer exists. */
+												echo esc_html( sprintf( __( 'Deleted user #%d', 'buddynext' ), $uid ) );
+												?>
+											</span>
+										<?php else : ?>
+											<span class="bn-text-muted"><?php esc_html_e( 'Guest / unknown', 'buddynext' ); ?></span>
+										<?php endif; ?>
+									</div>
 								</td>
-								<td><span title="<?php echo esc_attr( (string) $row->type ); ?>"><?php echo esc_html( $this->type_label( (string) $row->type ) ); ?></span></td>
+								<td><span title="<?php echo esc_attr( (string) $row->type ); ?>"><?php echo esc_html( $email ); ?></span></td>
 								<td>
-									<?php $is_failed = 'failed' === (string) $row->status; ?>
 									<span class="bn-badge" data-tone="<?php echo $is_failed ? 'danger' : 'success'; ?>">
 										<?php echo esc_html( $is_failed ? __( 'Failed', 'buddynext' ) : __( 'Sent', 'buddynext' ) ); ?>
 									</span>
 									<?php if ( $is_failed && '' !== (string) $row->error ) : ?>
-										<div class="bn-text-muted bn-email-log__error"><?php echo esc_html( (string) $row->error ); ?></div>
+										<div class="bn-email-log__error"><?php echo esc_html( (string) $row->error ); ?></div>
 									<?php endif; ?>
 								</td>
-								<td><?php echo $row->digest_date ? esc_html( (string) $row->digest_date ) : esc_html( '—' ); ?></td>
-								<td><?php echo '' !== $sent_disp ? $sent_disp : esc_html( '—' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output. ?></td>
+								<td>
+									<?php
+									$sent_ago   = buddynext_time_ago( (string) $row->sent_at );
+									$sent_exact = buddynext_date_local( (string) $row->sent_at, 'M j, Y g:i a' );
+									?>
+									<?php if ( '' !== $sent_ago ) : ?>
+										<time datetime="<?php echo esc_attr( (string) $row->sent_at ); ?>Z" title="<?php echo $sent_exact; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output, quotes encoded. ?>"><?php echo $sent_ago; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_time_ago() returns escaped output. ?></time>
+									<?php else : ?>
+										<?php echo esc_html( '—' ); ?>
+									<?php endif; ?>
+								</td>
 							</tr>
 						<?php endforeach; ?>
 						</tbody>
@@ -389,15 +466,8 @@ class EmailLog {
 						$total_pages,
 						$total,
 						$per_page,
-						static function ( int $p ) use ( $tab_url, $type_filter, $status_filter ): string {
-							return add_query_arg(
-								array(
-									'log_type'   => '' !== $type_filter ? $type_filter : false,
-									'log_status' => '' !== $status_filter ? $status_filter : false,
-									'paged'      => $p > 1 ? $p : false,
-								),
-								$tab_url
-							);
+						static function ( int $p ) use ( $tab_url, $filters ): string {
+							return add_query_arg( array_merge( $filters, array( 'paged' => $p > 1 ? $p : false ) ), $tab_url );
 						},
 						__( 'Email log pagination', 'buddynext' )
 					);
@@ -406,5 +476,47 @@ class EmailLog {
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Areas the Type dropdown groups emails under, in display order.
+	 *
+	 * @return array<string, string> Group label => pipe-separated keywords matched against the type key.
+	 */
+	private function type_group_map(): array {
+		return array(
+			__( 'Account', 'buddynext' )                   => 'verify|welcome|transactional|onboarding|password',
+			__( 'Connections and followers', 'buddynext' ) => 'follower|connection',
+			__( 'Posts and messages', 'buddynext' )        => 'mention|comment|react|share|message',
+			__( 'Spaces', 'buddynext' )                    => 'space',
+			__( 'Moderation', 'buddynext' )                => 'suspend|report|appeal|warn|strike|removed',
+			__( 'Membership', 'buddynext' )                => 'membership|subscription',
+			__( 'Announcements and digests', 'buddynext' ) => 'announcement|broadcast|digest|drip',
+		);
+	}
+
+	/**
+	 * Group labels in display order, with "Other" last.
+	 *
+	 * @return string[]
+	 */
+	private function type_groups(): array {
+		return array_merge( array_keys( $this->type_group_map() ), array( __( 'Other', 'buddynext' ) ) );
+	}
+
+	/**
+	 * Area an email type belongs to. Matching on keywords also places partner
+	 * and future types without a list to keep in step.
+	 *
+	 * @param string $type Stored type key.
+	 * @return string Group label.
+	 */
+	private function type_group( string $type ): string {
+		foreach ( $this->type_group_map() as $label => $keywords ) {
+			if ( preg_match( '/' . $keywords . '/', $type ) ) {
+				return $label;
+			}
+		}
+		return __( 'Other', 'buddynext' );
 	}
 }
