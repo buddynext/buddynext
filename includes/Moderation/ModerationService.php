@@ -27,6 +27,13 @@ use WP_Error;
 class ModerationService {
 
 	/**
+	 * Per-request answers of is_suspended(), keyed by user id.
+	 *
+	 * @var array<int,bool>
+	 */
+	private static array $suspended_memo = array();
+
+	/**
 	 * Object-cache group.
 	 */
 	private const CACHE_GROUP = 'buddynext_moderation';
@@ -2273,6 +2280,7 @@ class ModerationService {
 			),
 			array( '%d', '%d', '%s', '%d', '%d', '%s', '%s' )
 		);
+		self::$suspended_memo = array(); // A suspension changed: forget the per-request answers.
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$suspension_id = (int) $wpdb->insert_id;
@@ -2341,7 +2349,7 @@ class ModerationService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$lifted = $wpdb->query(
+		$lifted               = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
@@ -2353,6 +2361,7 @@ class ModerationService {
 				$user_id
 			)
 		);
+		self::$suspended_memo = array(); // A suspension changed: forget the per-request answers.
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		// No active suspension to lift — report it instead of a silent success, so
@@ -2551,6 +2560,12 @@ class ModerationService {
 	 * @return bool
 	 */
 	public function is_suspended( int $user_id ): bool {
+		// Asked once per card on a feed (the viewer's write checks), so memoise per
+		// request; every write to bn_user_suspensions clears it.
+		if ( isset( self::$suspended_memo[ $user_id ] ) ) {
+			return self::$suspended_memo[ $user_id ];
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2565,7 +2580,8 @@ class ModerationService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return $count > 0;
+		self::$suspended_memo[ $user_id ] = $count > 0;
+		return self::$suspended_memo[ $user_id ];
 	}
 
 	/**
@@ -3678,7 +3694,7 @@ class ModerationService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$inserted = $wpdb->insert(
+		$inserted             = $wpdb->insert(
 			$wpdb->prefix . 'bn_user_suspensions',
 			array(
 				'user_id'      => $user_id,
@@ -3702,6 +3718,7 @@ class ModerationService {
 			),
 			array( '%d', '%d', '%s', '%s', '%d', '%s' )
 		);
+		self::$suspended_memo = array(); // A suspension changed: forget the per-request answers.
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( false === $inserted || '' !== $wpdb->last_error ) {
@@ -3776,7 +3793,7 @@ class ModerationService {
 		// that history. Mirrors unsuspend_user(); lifted_by = 0 marks a system or
 		// capability-gated lift where no specific actor was threaded in.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$lifted = $wpdb->query(
+		$lifted               = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
@@ -3786,6 +3803,7 @@ class ModerationService {
 				$user_id
 			)
 		);
+		self::$suspended_memo = array(); // A suspension changed: forget the per-request answers.
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		/**
@@ -3993,7 +4011,7 @@ class ModerationService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$lifted = $wpdb->query(
+		$lifted               = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
@@ -4003,6 +4021,7 @@ class ModerationService {
 				$suspension_id
 			)
 		);
+		self::$suspended_memo = array(); // A suspension changed: forget the per-request answers.
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( $lifted && $user_id > 0 ) {

@@ -63,11 +63,14 @@ final class StateReset implements BeforeTestHook {
 	 */
 	public const MEMOS = array(
 		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
+		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
 		\BuddyNext\Core\PermissionService::class          => array( 'role_map_cache' => null ),
 		// Both report-reason memos: the slug list and its labels. Each applies a
 		// filter once per request, so a test that adds a reason must not inherit
 		// the previous test's answer.
 		\BuddyNext\Moderation\ModerationService::class    => array(
+			// is_suspended() per user: a suspension written then rolled back must not leak.
+			'suspended_memo' => array(),
 			'reasons_cache'       => null,
 			'reason_labels_cache' => null,
 		),

@@ -24,6 +24,13 @@ use WP_Error;
 class ConnectionService {
 
 	/**
+	 * Per-request answers of connection_degree(), keyed "viewer:subject".
+	 *
+	 * @var array<string,int>
+	 */
+	private static array $degree_memo = array();
+
+	/**
 	 * Cache group for all connection data.
 	 */
 	/**
@@ -773,6 +780,14 @@ class ConnectionService {
 			wp_cache_set( "pair_row_{$low}_{$high}", $row, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
+		// Peers with no row are answered too ('' is pair_row()'s "no row"), or each
+		// of them still costs a query when a card asks about it.
+		foreach ( $peer_ids as $peer ) {
+			if ( ! isset( $map[ $peer ] ) && $peer !== $viewer_id ) {
+				wp_cache_set( 'pair_row_' . min( $viewer_id, $peer ) . '_' . max( $viewer_id, $peer ), '', self::CACHE_GROUP, self::CACHE_TTL );
+			}
+		}
+
 		return $map;
 	}
 
@@ -1375,6 +1390,72 @@ class ConnectionService {
 	}
 
 	/**
+	 * Connection degree of many members at once, for a page of feed cards.
+	 *
+	 * Each connection_degree() call costs a pair lookup plus a mutual-connection query per
+	 * author; a feed page asked it once per distinct author. This answers the whole
+	 * page in two queries (statuses_for(), then one mutual query for everyone not
+	 * directly connected) and memoises the answers connection_degree() returns.
+	 *
+	 * @param int   $viewer_id   The viewing member.
+	 * @param int[] $subject_ids Members to rate.
+	 * @return array<int,int> subject id => 1, 2 or 3.
+	 */
+	public function degrees_for( int $viewer_id, array $subject_ids ): array {
+		$subject_ids = array_values( array_diff( array_unique( array_filter( array_map( 'intval', $subject_ids ) ) ), array( $viewer_id ) ) );
+		if ( $viewer_id <= 0 || ! $subject_ids ) {
+			return array();
+		}
+
+		$degrees = array();
+		$rest    = array();
+		foreach ( $this->statuses_for( $viewer_id, $subject_ids ) + array_fill_keys( $subject_ids, '' ) as $id => $status ) {
+			if ( 'accepted' === $status ) {
+				$degrees[ (int) $id ] = 1;
+			} else {
+				$rest[] = (int) $id;
+			}
+		}
+
+		if ( $rest ) {
+			global $wpdb;
+			$in = implode( ', ', array_fill( 0, count( $rest ), '%d' ) );
+			// Both directions of each author's connections (UNION ALL, not CASE), so two
+			// authors connected to each other still each see the other as a mutual.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $in is a generated %d list bound by the merged params.
+			$second = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT DISTINCT ab.author FROM (
+					     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS uid
+					       FROM {$wpdb->prefix}bn_connections
+					      WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+					 ) va
+					 INNER JOIN (
+					     SELECT requester_id AS author, recipient_id AS uid FROM {$wpdb->prefix}bn_connections
+					      WHERE requester_id IN ( {$in} ) AND status = 'accepted'
+					     UNION ALL
+					     SELECT recipient_id AS author, requester_id AS uid FROM {$wpdb->prefix}bn_connections
+					      WHERE recipient_id IN ( {$in} ) AND status = 'accepted'
+					 ) ab ON ab.uid = va.uid
+					 WHERE va.uid <> ab.author",
+					array_merge( array( $viewer_id, $viewer_id, $viewer_id ), $rest, $rest )
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			$second = array_map( 'intval', (array) $second );
+			foreach ( $rest as $id ) {
+				$degrees[ $id ] = in_array( $id, $second, true ) ? 2 : 3;
+			}
+		}
+
+		foreach ( $degrees as $id => $degree ) {
+			self::$degree_memo[ "{$viewer_id}:{$id}" ] = $degree;
+		}
+
+		return $degrees;
+	}
+
+	/**
 	 * Return the connection degree between two users.
 	 *
 	 * Degree 1 means the users are directly connected. Degree 2 means they
@@ -1385,6 +1466,10 @@ class ConnectionService {
 	 * @return int 1, 2, or 3.
 	 */
 	public function connection_degree( int $viewer_id, int $subject_id ): int {
+		if ( isset( self::$degree_memo[ "{$viewer_id}:{$subject_id}" ] ) ) {
+			return self::$degree_memo[ "{$viewer_id}:{$subject_id}" ];
+		}
+
 		if ( $this->are_connected( $viewer_id, $subject_id ) ) {
 			return 1;
 		}
@@ -1521,6 +1606,7 @@ class ConnectionService {
 		$high = max( $user_a, $user_b );
 
 		wp_cache_delete( "pair_row_{$low}_{$high}", self::CACHE_GROUP );
+		self::$degree_memo = array(); // Any connection change can change a degree.
 
 		$this->invalidate_connection_counts( $user_a, $user_b );
 

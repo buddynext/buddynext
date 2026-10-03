@@ -31,6 +31,37 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		$this->scheduler = new CronScheduler();
+		// Scheduled actions outlive a test's transaction: start each test with none,
+		// and in the cron runner, the request where jobs are armed.
+		as_unschedule_all_actions( '', array(), CronScheduler::GROUP );
+		add_filter( 'wp_doing_cron', '__return_true' );
+	}
+
+	/**
+	 * Clear the cron context.
+	 */
+	public function tear_down(): void {
+		remove_filter( 'wp_doing_cron', '__return_true' );
+		parent::tear_down();
+	}
+
+	/**
+	 * An ordinary front-end, REST or AJAX request never checks or arms schedules:
+	 * that lookup used to run on every request, images and heartbeats included.
+	 */
+	public function test_ordinary_request_does_not_touch_schedules(): void {
+		remove_filter( 'wp_doing_cron', '__return_true' );
+		global $wpdb;
+		$before = $wpdb->num_queries;
+		$this->scheduler->schedule_events();
+		$this->assertSame( $before, $wpdb->num_queries, 'No database work on an ordinary request.' );
+		$this->assertFalse( as_has_scheduled_action( 'buddynext_daily_digest', array(), CronScheduler::GROUP ) );
+		$this->assertFalse( CronScheduler::is_scheduling_request() );
+
+		add_filter( 'wp_doing_cron', '__return_true' );
+		$this->assertTrue( CronScheduler::is_scheduling_request() );
+		$this->scheduler->schedule_events();
+		$this->assertTrue( as_has_scheduled_action( 'buddynext_daily_digest', array(), CronScheduler::GROUP ), 'The cron runner arms it.' );
 	}
 
 	/**

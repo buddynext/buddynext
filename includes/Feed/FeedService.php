@@ -2466,6 +2466,17 @@ class FeedService {
 
 		if ( ! empty( $author_ids ) ) {
 			cache_users( array_values( array_unique( $author_ids ) ) );
+
+			// Each card's byline asks follow / pending / blocked / connection degree
+			// about its author. Answer the whole page here, one query each, so the
+			// per-card calls are cache hits instead of five queries per author.
+			$peers = array_values( array_diff( array_unique( $author_ids ), array( $viewer ) ) );
+			if ( $peers ) {
+				buddynext_service( 'follows' )->following_map( $viewer, $peers );
+				buddynext_service( 'follows' )->pending_map( $viewer, $peers );
+				buddynext_service( 'blocks' )->blocking_either_map( $viewer, $peers );
+				buddynext_service( 'connections' )->degrees_for( $viewer, $peers );
+			}
 		}
 
 		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );

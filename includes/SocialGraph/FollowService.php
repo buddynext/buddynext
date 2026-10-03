@@ -444,6 +444,11 @@ class FollowService {
 			$map[ (int) $tid ] = true;
 		}
 
+		// Prime the per-pair keys the single-pair lookup reads, so each card's
+		// check after this is a cache hit, not a query.
+		foreach ( $map as $tid => $hit ) {
+			wp_cache_set( "is_following_{$follower_id}_{$tid}", $hit ? 1 : 0, self::CACHE_GROUP, self::CACHE_TTL );
+		}
 		return $map;
 	}
 
@@ -495,6 +500,11 @@ class FollowService {
 			$map[ (int) $tid ] = true;
 		}
 
+		// Prime the per-pair keys the single-pair lookup reads, so each card's
+		// check after this is a cache hit, not a query.
+		foreach ( $map as $tid => $hit ) {
+			wp_cache_set( "pending_{$follower_id}_{$tid}", $hit ? 1 : 0, self::CACHE_GROUP, self::CACHE_TTL );
+		}
 		return $map;
 	}
 
@@ -507,17 +517,18 @@ class FollowService {
 	 */
 	public function has_pending_request( int $follower_id, int $following_id ): bool {
 		// follow-button.php calls this for each distinct user across the feed and
-		// sidebar; memoise per request, keyed by the directed pair.
-		static $cache = array();
-		$key          = "{$follower_id}:{$following_id}";
-		if ( isset( $cache[ $key ] ) ) {
-			return $cache[ $key ];
+		// sidebar. Cached per directed pair in the request cache (pending_map() primes
+		// a whole page; invalidate_follow_cache() clears it on every follow change).
+		$cache_key = "pending_{$follower_id}_{$following_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (bool) $cached;
 		}
 
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$cache[ $key ] = (bool) $wpdb->get_var(
+		$pending = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT 1
 				 FROM {$wpdb->prefix}bn_follows
@@ -527,8 +538,9 @@ class FollowService {
 				$following_id
 			)
 		);
+		wp_cache_set( $cache_key, $pending, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return $cache[ $key ];
+		return $pending > 0;
 	}
 
 	/**
@@ -1586,6 +1598,7 @@ class FollowService {
 	 */
 	private function invalidate_follow_cache( int $follower_id, int $following_id ): void {
 		wp_cache_delete( "is_following_{$follower_id}_{$following_id}", self::CACHE_GROUP );
+		wp_cache_delete( "pending_{$follower_id}_{$following_id}", self::CACHE_GROUP );
 		wp_cache_delete( "followers_{$following_id}", self::CACHE_GROUP );
 		wp_cache_delete( "following_{$follower_id}", self::CACHE_GROUP );
 

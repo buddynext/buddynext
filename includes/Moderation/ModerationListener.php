@@ -75,6 +75,9 @@ class ModerationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function schedule_queue_check(): void {
+		if ( ! \BuddyNext\Core\CronScheduler::is_scheduling_request() ) {
+			return;
+		}
 		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
 			if ( false === as_next_scheduled_action( 'buddynext_daily_queue_check', array(), 'buddynext' ) ) {
 				if ( wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {

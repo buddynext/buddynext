@@ -112,12 +112,6 @@ class CronScheduler {
 	 */
 	public const GROUP = 'buddynext';
 
-	/**
-	 * Transient that limits schedule_events() to one Action Scheduler check per
-	 * hour instead of once per request. See schedule_events().
-	 */
-	public const SCHEDULE_GUARD = 'bn_cron_scheduled';
-
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -172,6 +166,25 @@ class CronScheduler {
 	}
 
 	/**
+	 * Is this a request where recurring schedules should be checked and armed?
+	 *
+	 * Checking a schedule is a database lookup per job (as_next_scheduled_action),
+	 * and doing it on every page, REST call, image and heartbeat made it the
+	 * largest part of every request's query floor. A recurring job only needs to
+	 * be checked where it is cheap and still reliable: the cron runner (which runs
+	 * on any live site and re-arms a lost job within one tick), wp-admin page
+	 * loads and WP-CLI. Never front-end, REST or AJAX. Every ensure_*() in Free
+	 * and Pro asks this first.
+	 *
+	 * @return bool
+	 */
+	public static function is_scheduling_request(): bool {
+		return wp_doing_cron()
+			|| ( is_admin() && ! wp_doing_ajax() )
+			|| ( defined( 'WP_CLI' ) && WP_CLI );
+	}
+
+	/**
 	 * Ensure every recurring event is scheduled.
 	 *
 	 * Called on wp_loaded — safe to call on every request because
@@ -180,16 +193,9 @@ class CronScheduler {
 	 * @return void
 	 */
 	public function schedule_events(): void {
-		// maybe_schedule() does an as_next_scheduled_action() lookup per job — six
-		// DB reads. Running them on every wp_loaded (including non-BN admin and
-		// front-end pages) is pure overhead once the jobs are armed, so a short
-		// transient limits the whole check to once an hour. If a job is ever
-		// unscheduled it re-arms within the hour, which is fine for recurring
-		// housekeeping. ponytail: transient guard, re-checks hourly.
-		if ( get_transient( self::SCHEDULE_GUARD ) ) {
+		if ( ! self::is_scheduling_request() ) {
 			return;
 		}
-		set_transient( self::SCHEDULE_GUARD, 1, HOUR_IN_SECONDS );
 
 		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );

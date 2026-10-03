@@ -129,6 +129,9 @@ class LogRetentionService {
 	 * @return void
 	 */
 	public static function arm(): void {
+		if ( ! \BuddyNext\Core\CronScheduler::is_scheduling_request() ) {
+			return;
+		}
 		if ( ! function_exists( 'as_has_scheduled_action' ) || ! function_exists( 'as_schedule_recurring_action' ) ) {
 			return;
 		}
