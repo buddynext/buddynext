@@ -1350,6 +1350,7 @@ class FeedController extends BaseRestController {
 			return '';
 		}
 
+		$this->feed_service()->prime_media( array_filter( array_column( $cards, 'post' ) ) );
 		ob_start();
 		foreach ( $cards as $card ) {
 			buddynext_get_template(

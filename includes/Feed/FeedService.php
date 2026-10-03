@@ -2424,6 +2424,32 @@ class FeedService {
 	}
 
 	/**
+	 * Load every media item a page of posts shows in two queries.
+	 *
+	 * Each card's photo, video or audio URL reads several MediaVerse fields
+	 * (sizes, paths, privacy), one query per field per item when nothing is
+	 * loaded: 80+ queries on one feed page. MediaVerse's prefetch() reads the
+	 * index rows and all meta for the whole page at once, and every later read
+	 * is a request-cache hit.
+	 *
+	 * @param array<int,array<string,mixed>> $items Hydrated posts (each may carry media_ids).
+	 * @return void
+	 */
+	public function prime_media( array $items ): void {
+		$ids = array();
+		foreach ( $items as $item ) {
+			foreach ( (array) ( is_array( $item ) ? ( $item['media_ids'] ?? array() ) : array() ) as $mid ) {
+				$ids[] = (int) $mid;
+			}
+		}
+		$ids  = array_values( array_unique( array_filter( $ids ) ) );
+		$repo = $ids ? \BuddyNext\Media\MediaClient::repo() : null;
+		if ( $repo && method_exists( $repo, 'prefetch' ) ) {
+			$repo->prefetch( $ids );
+		}
+	}
+
+	/**
 	 * Warm every per-viewer cache the post-card reads, in one query per service for
 	 * a whole page of feed items instead of ~3 per card.
 	 *
@@ -2439,6 +2465,10 @@ class FeedService {
 	 * @return void
 	 */
 	public function prime_viewer_state( array $items, int $viewer ): void {
+		// Media is the same for every viewer, guests included, so it is primed
+		// before the viewer check below.
+		$this->prime_media( $items );
+
 		if ( $viewer <= 0 || empty( $items ) ) {
 			return;
 		}

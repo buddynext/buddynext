@@ -225,6 +225,7 @@ $bn_explore_filters = array(
 		<div class="bn-explore-grid" role="feed" aria-label="<?php esc_attr_e( 'Explore', 'buddynext' ); ?>">
 			<?php if ( ! empty( $bn_cards ) ) : ?>
 				<?php
+				buddynext_service( 'feed' )->prime_media( array_filter( array_column( $bn_cards, 'post' ) ) );
 				foreach ( $bn_cards as $bn_card ) :
 					buddynext_get_template(
 						'partials/explore-card.php',
