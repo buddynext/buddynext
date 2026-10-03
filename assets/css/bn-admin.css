@@ -965,6 +965,15 @@ select.bn-select-input {
 	min-width: var(--bn-a-input-min-w);
 }
 
+/* The uniform padding above is the same on both sides and !important, which
+ * beat the arrow-room rule below: a long option ran under the dropdown arrow
+ * ("The day each member joined"). Every class-styled select keeps that room. */
+select.bn-text-input,
+select.bn-select-input,
+select.bn-select {
+	padding-inline-end: var(--bn-a-s6) !important;
+}
+
 select.bn-text-input {
 	display: block;
 	width: 100%;

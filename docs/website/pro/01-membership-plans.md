@@ -81,13 +81,13 @@ Monetization is an optional layer and is off by default with Pro. You turn the w
 
 All plan and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage plans, review subscriptions, issue coupons, configure the upgrade prompt and connect gateways across five tabs: Plans, Subscriptions, Coupons, Paywall and Payment Gateways. (Paywall is covered in Gating Spaces, coupons and tax in Coupons and Tax, and gateways in Payment Gateways.)
 
-### Who can join
+### Community access
 
-The Plans tab starts with **Who can join**, which sets what membership means on your site:
+The Plans tab starts with **Community access**, which sets who can use the community after signing up (registration itself is set under Members > Registration & Login):
 
 | Choice | What members get |
 | --- | --- |
-| **Anyone** (default) | Members join free and use the community. Paid plans unlock more features and members-only spaces. A member with no paid plan is on your default (free) plan. |
+| **Everyone who signs up** (default) | Members join free and use the community. Paid plans unlock more features and members-only spaces. A member with no paid plan is on your default (free) plan. |
 | **Paying members only** | Members need an active paid plan to use the community. Free plans are not offered. |
 
 With **Paying members only**:
@@ -99,13 +99,13 @@ With **Paying members only**:
 - **Emails:** they do not get community activity emails (follows, mentions, comments, digests). Account, billing, announcement and broadcast emails still go out, so you can invite them back.
 - **Never held:** administrators and community moderators. A cancelled plan keeps working until its end date, and a plan you grant by hand counts as a paid plan.
 
-The switch is refused until you have at least one active paid plan and a payment method switched on, so nobody is locked out with no way in. Switch back to **Anyone** at any time; members without a paid plan return to your default plan at once.
+The switch is refused until you have at least one active paid plan and a payment method switched on, so nobody is locked out with no way in. Switch back to **Everyone who signs up** at any time; members without a paid plan return to your default plan at once.
 
 Developers can exempt more members with the `buddynextpro_paid_access_exempt` filter.
 
 ### Monthly renewal day (1.2.4)
 
-Below Who can join, **Monthly renewal day** puts every new monthly member on the same billing day, for example the 1st:
+Below Community access, **Monthly renewal day** puts every new monthly member on the same billing day, for example the 1st:
 
 | Choice | What happens |
 | --- | --- |
@@ -343,7 +343,7 @@ Every entitlement row in the plan editor carries a one-line explanation of what 
 
 - The plan's identifier is permanent. Pick it carefully when you create a plan; you can rename the plan freely afterwards, but its underlying identifier stays fixed.
 - Only Active plans are public. Inactive and Archived plans are hidden from the pricing page but kept in your admin, so you can prepare a plan before launch or retire one without deleting its history. Unlisted plans are also left out of the plan list the mobile app and other API clients read; a member who already holds one still sees it.
-- The free plan is the baseline. For anyone without an active paid subscription, what they can do falls back to the free plan's perks, then to the standard default. Set the free plan up deliberately. Turning the free plan off does not make the community paid; for that, choose **Paying members only** under Who can join.
+- The free plan is the baseline. For anyone without an active paid subscription, what they can do falls back to the free plan's perks, then to the standard default. Set the free plan up deliberately. Turning the free plan off does not make the community paid; for that, choose **Paying members only** under Community access.
 - Deleting a plan cancels its active subscriptions. This is on purpose, so no member is left holding access to a plan that no longer exists. Cancelled and expired records are kept for your reporting.
 - One active plan per member. BuddyNext treats a member as being on their most recent active subscription when deciding what they can do.
 
