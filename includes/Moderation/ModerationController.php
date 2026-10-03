@@ -224,8 +224,23 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_moderation_log' ),
-				'permission_callback' => array( $this, 'require_moderator' ),
+				// Site moderators read the whole log; a space owner/moderator reads
+				// their own space's (space_id required, checked in the handler) -
+				// the space Moderation tab's Activity log and its counts.
+				'permission_callback' => array( $this, 'require_queue_access' ),
 				'args'                => array(
+					'space_id'   => array(
+						'type'              => 'integer',
+						'required'          => false,
+						'sanitize_callback' => 'absint',
+					),
+					'since_days' => array(
+						'type'              => 'integer',
+						'required'          => false,
+						'minimum'           => 1,
+						'maximum'           => 366,
+						'sanitize_callback' => 'absint',
+					),
 					'user_id'  => array(
 						'type'              => 'integer',
 						'required'          => false,
@@ -898,15 +913,28 @@ class ModerationController extends BaseRestController {
 	 * GET /moderation/log — read the moderation audit trail (admin only).
 	 *
 	 * Returns a paginated, newest-first slice of bn_mod_log with optional
-	 * user_id and action filters. The log is append-only; this is read access
-	 * to the trail the spec promised but never exposed over REST.
+	 * space_id, since_days, user_id and action filters. The log is append-only;
+	 * this is read access to the trail the spec promised but never exposed over
+	 * REST. Site moderators read everything; a space owner/moderator only a
+	 * space they moderate, as on that space's Moderation tab.
 	 *
 	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function get_moderation_log( WP_REST_Request $request ): WP_REST_Response {
+	public function get_moderation_log( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'space_id' );
+		if ( ! $this->moderates_site() ) {
+			$allowed = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
+			if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
+				return new WP_Error( 'bn_forbidden', __( 'You can only view the log of a space you moderate.', 'buddynext' ), array( 'status' => 403 ) );
+			}
+		}
+
+		$days   = (int) $request->get_param( 'since_days' );
 		$result = ( new ModerationLogService() )->get_log(
 			array(
+				'space_id' => $space_id,
+				'since'    => $days > 0 ? '-' . $days . ' days' : '',
 				'user_id'  => (int) $request->get_param( 'user_id' ),
 				'action'   => (string) ( $request->get_param( 'action' ) ?? '' ),
 				'per_page' => (int) $request->get_param( 'per_page' ),
