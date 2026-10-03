@@ -2000,17 +2000,15 @@ class PostService {
 		// pre-moderation alike: the window guards against rewriting history members
 		// have already read, and neither has been read. An `under_review` post is
 		// NOT exempt, because it was published before it was hidden.
-		if ( (int) get_option( 'buddynext_post_edit_window', 60 ) > 0 && ! user_can( $user_id, 'manage_options' ) ) {
-			global $wpdb;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$row = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
-			if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
-				return new WP_Error(
-					'edit_window_closed',
-					__( 'The time window for editing this post has passed.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
-			}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+		if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
+			return new WP_Error(
+				'edit_window_closed',
+				__( 'The time window for editing this post has passed.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		// Re-scan edited content through the content safeguards (banned words +

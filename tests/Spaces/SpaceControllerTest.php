@@ -302,12 +302,11 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 		}
 		( new \BuddyNext\Moderation\ModerationService() )->suspend( $gone, 'test', 7, true ); // A suspension that hides their content (the roster rule).
 
-		$get = function ( array $query ): \WP_REST_Response {
-			$request = new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $GLOBALS['bn_roster_space'] . '/members' );
+		$get = static function ( array $query ) use ( $space_id ): \WP_REST_Response {
+			$request = new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $space_id . '/members' );
 			$request->set_query_params( $query );
 			return rest_do_request( $request );
 		};
-		$GLOBALS['bn_roster_space'] = $space_id;
 		wp_set_current_user( $owner );
 
 		$all = $get( array() );
@@ -321,7 +320,6 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( array( $owner ), array_map( 'intval', wp_list_pluck( $owners->get_data(), 'user_id' ) ) );
 
 		$this->assertSame( 400, $get( array( 'role' => 'banana' ) )->get_status() );
-		unset( $GLOBALS['bn_roster_space'] );
 	}
 
 	public function test_create_space_invalid_type_returns_422(): void {

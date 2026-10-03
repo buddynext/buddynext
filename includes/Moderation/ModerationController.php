@@ -1245,8 +1245,7 @@ class ModerationController extends BaseRestController {
 		}
 		$post     = ( new \BuddyNext\Feed\PostService() )->get( $post_id );
 		$space_id = (int) ( $post['space_id'] ?? 0 );
-		$allowed  = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
-		if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
+		if ( ! $this->moderates_space( $space_id ) ) {
 			return new WP_Error( 'bn_forbidden', __( 'You cannot moderate this post.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
@@ -1271,8 +1270,7 @@ class ModerationController extends BaseRestController {
 		}
 		$report   = ( new ModerationService() )->get_report( $report_id );
 		$space_id = (int) ( $report['space_id'] ?? 0 );
-		$allowed  = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
-		if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
+		if ( ! $this->moderates_space( $space_id ) ) {
 			return new WP_Error( 'bn_forbidden', __( 'You cannot moderate this report.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
