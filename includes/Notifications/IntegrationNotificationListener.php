@@ -242,8 +242,17 @@ class IntegrationNotificationListener implements ListenerInterface {
 			}
 		}
 
+		$declared = (array) apply_filters( (string) ( self::sources()[ $source ]['prefix'] ?? '' ) . '_community_notification_types', array() );
+		$email    = isset( $declared[ $type ] ) && is_array( $declared[ $type ] ) && self::type_emails( $source, $type, $declared[ $type ] )
+			? array(
+				// The plugin wrote the sentence; the email says it and links to it.
+				'subject'   => $message,
+				'body_html' => '<p>' . esc_html( $message ) . '</p><p><a href="' . esc_url( $url ) . '">' . esc_html__( 'View', 'buddynext' ) . '</a></p>',
+			)
+			: array();
+
 		return (int) buddynext_service( 'notifications' )->create(
-			array(
+			$email + array(
 				'recipient_id' => $recipient,
 				'sender_id'    => $actor > 0 ? $actor : null,
 				'type'         => $source . '.' . $type,
@@ -297,17 +306,47 @@ class IntegrationNotificationListener implements ListenerInterface {
 				if ( '' === $slug || ! is_array( $type ) ) {
 					continue;
 				}
+				$emails                             = self::type_emails( $source, $slug, $type );
 				$catalogue[ $source . '.' . $slug ] = array(
 					'label'              => (string) ( $type['label'] ?? $slug ),
 					'description'        => (string) ( $type['description'] ?? '' ),
 					'group'              => $source,
 					'default_on_site'    => (bool) ( $type['default_on'] ?? true ),
-					'default_email_freq' => 'off',
-					'can_email'          => false,
+					// Bell-only unless the type asks for email; then on by default and
+					// the member can turn it off in their notification settings.
+					'default_email_freq' => $emails ? 'immediate' : 'off',
+					'can_email'          => $emails,
 				);
 			}
 		}
 		return $catalogue;
+	}
+
+	/**
+	 * Does this contract type send BuddyNext email?
+	 *
+	 * BuddyNext owns member email when it is active, and a plugin defers its own,
+	 * so a plugin opts a type in by declaring it with 'email' => true. The filter
+	 * lets BuddyNext, a site or any plugin opt a type in (or out) without the
+	 * source plugin changing.
+	 *
+	 * @param string              $source Source slug.
+	 * @param string              $slug   Type slug as declared.
+	 * @param array<string,mixed> $type   The plugin's declaration.
+	 * @return bool
+	 */
+	private static function type_emails( string $source, string $slug, array $type ): bool {
+		/**
+		 * Filter whether a contract notification type sends BuddyNext email.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param bool                $emails Whether the plugin declared 'email' => true.
+		 * @param string              $source Source slug (mediaverse, eventonomy, ...).
+		 * @param string              $slug   Type slug.
+		 * @param array<string,mixed> $type   The plugin's declaration.
+		 */
+		return (bool) apply_filters( 'buddynext_notification_type_email', ! empty( $type['email'] ), $source, $slug, $type );
 	}
 
 	/**

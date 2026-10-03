@@ -280,6 +280,15 @@ class WPMediaVerseBridge {
 		// the photo has a feed card yet (its card is created two minutes after the
 		// upload, by Action Scheduler). The copy on the card is display only and
 		// notifies nobody (card 10344509261).
+		// MediaVerse stops emailing when BuddyNext is active. Mentions are personal
+		// and rare, so BuddyNext emails them (member can turn it off); reactions stay
+		// bell-only, like BuddyNext's own post reactions.
+		add_filter(
+			'buddynext_notification_type_email',
+			static fn( $emails, $source, $slug ) => ( 'mediaverse' === $source && 'media_mention' === $slug ) ? true : $emails,
+			10,
+			3
+		);
 		add_action( 'mvs_comment_created', array( $this, 'notify_media_comment' ), 10, 3 );
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
 		// Withdraw the copy when the lightbox comment goes: MediaVerse deletes its
