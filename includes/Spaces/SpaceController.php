@@ -1650,18 +1650,21 @@ class SpaceController extends BaseRestController {
 		// An invite link (?invite=token) unlocks the preview exactly as the web
 		// link does (SpaceInviteLinkService::prime_from_request skips REST). A dead
 		// token gets the web's own "no longer valid" answer.
-		$invite = (string) $request->get_param( 'invite' );
-		if ( '' !== $invite ) {
-			$valid = ( new SpaceInviteLinkService() )->validate( $space_id, $invite );
-			if ( is_wp_error( $valid ) ) {
-				return $valid;
-			}
+		$invite       = (string) $request->get_param( 'invite' );
+		$invite_check = '' !== $invite ? ( new SpaceInviteLinkService() )->validate( $space_id, $invite ) : null;
+		if ( true === $invite_check ) {
 			SpaceVisibility::unlock_via_invite( $space_id );
 		}
 
 		// Existence gate — the canonical resolver, the same one the server-rendered
-		// space page consults, so the app and the page can never disagree.
+		// space page consults, so the app and the page can never disagree. A dead
+		// token only matters when it was the way in; on a space the viewer can see
+		// anyway the page still opens (with invite_link 'invalid', as the web
+		// shows its notice).
 		if ( ! SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			if ( is_wp_error( $invite_check ) ) {
+				return $invite_check;
+			}
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Space not found.', 'buddynext' ),
@@ -1710,6 +1713,9 @@ class SpaceController extends BaseRestController {
 			new \BuddyNext\Nav\NavContext( 'space', $bn_space_id, $viewer_id, (string) $space['membership_role'] )
 		);
 		$space['landing_tab'] = ( new SpaceService() )->landing_tab( $space, $viewer_id, $bn_landing_nav->layer( 'primary' ) );
+		if ( null !== $invite_check ) {
+			$space['invite_link'] = true === $invite_check ? 'valid' : 'invalid';
+		}
 		// The tab bar the web space header renders for this viewer: same resolved
 		// nav (order, gates, owner overrides, integration tabs, counts).
 		$space['nav'] = array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_landing_nav->layer( 'primary' ) ) );

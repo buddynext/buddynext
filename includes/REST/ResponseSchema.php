@@ -981,6 +981,10 @@ final class ResponseSchema {
 				'fields'            => array( 'type' => array( 'object', 'array' ) ),
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
 				'landing_tab'       => array( 'type' => 'string' ),
+				'invite_link'       => array(
+					'type' => 'string',
+					'enum' => array( 'valid', 'invalid' ),
+				),
 				'nav'               => array(
 					'type'  => 'array',
 					'items' => array(

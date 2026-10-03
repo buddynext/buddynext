@@ -32,6 +32,17 @@ class SpaceInviteLinkRestTest extends WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
+		$this->forget_unlocks();
+	}
+
+	/**
+	 * An invite unlock lasts for one request; a PHPUnit run is one process,
+	 * so clear it where a new request would start clean.
+	 *
+	 * @return void
+	 */
+	private function forget_unlocks(): void {
+		( new \ReflectionProperty( \BuddyNext\Spaces\SpaceVisibility::class, 'invite_unlocked' ) )->setValue( null, array() );
 	}
 
 	/**
@@ -62,8 +73,6 @@ class SpaceInviteLinkRestTest extends WP_UnitTestCase {
 		$token = (string) ( ( new SpaceInviteLinkService() )->get( $id )['token'] ?? '' );
 		$this->assertNotSame( '', $token, 'Link created.' );
 
-		// The unlock lasts for the request, and every request in a PHPUnit run
-		// shares one process: check the locked cases before any token is used.
 		wp_set_current_user( self::factory()->user->create() );
 		$this->assertSame( 404, $this->status( '/spaces/' . $id ), 'Secret stays hidden without a token.' );
 		$this->assertSame( 404, $this->status( '/spaces/slug/' . $slug ), 'By slug, still hidden without a token.' );
@@ -74,6 +83,26 @@ class SpaceInviteLinkRestTest extends WP_UnitTestCase {
 		$this->assertSame( 200, $this->status( '/spaces/slug/' . $slug, $token ), 'The shared link resolves by slug.' );
 
 		( new SpaceInviteLinkService() )->revoke( $id );
+		$this->forget_unlocks();
 		$this->assertSame( 403, $this->status( '/spaces/' . $id, $token ), 'A revoked link no longer unlocks.' );
+	}
+
+	/**
+	 * A stale token never blocks a space the viewer could open anyway; the
+	 * response just says the link is no longer valid.
+	 *
+	 * @return void
+	 */
+	public function test_stale_token_on_an_open_space_still_opens(): void {
+		$owner = self::factory()->user->create();
+		$id    = (int) ( new SpaceService() )->create( $owner, array( 'name' => 'Open', 'slug' => 'open-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+
+		wp_set_current_user( self::factory()->user->create() );
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $id );
+		$request->set_param( 'invite', 'stale' );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 'invalid', $response->get_data()['invite_link'] );
 	}
 }
