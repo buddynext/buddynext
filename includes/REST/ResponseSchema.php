@@ -975,6 +975,20 @@ final class ResponseSchema {
 				'fields'            => array( 'type' => array( 'object', 'array' ) ),
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
 				'landing_tab'       => array( 'type' => 'string' ),
+				'nav'               => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'       => array( 'type' => 'string' ),
+							'label'    => array( 'type' => 'string' ),
+							'icon'     => array( 'type' => array( 'string', 'null' ) ),
+							'url'      => array( 'type' => array( 'string', 'null' ) ),
+							'count'    => array( 'type' => array( 'integer', 'null' ) ),
+							'children' => array( 'type' => 'array' ),
+						),
+					),
+				),
 				'subspace_count'    => array( 'type' => 'integer' ),
 				'join_method'       => array( 'type' => 'string' ),
 				'membership_role'   => array( 'type' => array( 'string', 'null' ) ),

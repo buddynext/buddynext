@@ -239,6 +239,29 @@ final class NavItem {
 	}
 
 	/**
+	 * This resolved item as plain data for REST: what the tab bar renders.
+	 *
+	 * Call on items from a ResolvedNav (url, count and label are resolved there).
+	 *
+	 * @return array{id:string,label:string,icon:?string,url:?string,count:?int,children:array<int,array<string,mixed>>}
+	 */
+	public function to_array(): array {
+		return array(
+			'id'       => $this->id,
+			'label'    => $this->label,
+			'icon'     => $this->icon,
+			'url'      => $this->url_value,
+			'count'    => $this->count_value,
+			'children' => array_values(
+				array_map(
+					static fn( NavItem $kid ): array => $kid->to_array(),
+					array_filter( $this->children, static fn( $kid ): bool => $kid instanceof NavItem )
+				)
+			),
+		);
+	}
+
+	/**
 	 * Whether the item is visible in this context — BOTH the capability gate and
 	 * the condition callable must pass (a missing gate passes).
 	 *

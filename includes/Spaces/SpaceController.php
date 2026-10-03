@@ -1654,6 +1654,9 @@ class SpaceController extends BaseRestController {
 			new \BuddyNext\Nav\NavContext( 'space', $bn_space_id, $viewer_id, (string) $space['membership_role'] )
 		);
 		$space['landing_tab'] = ( new SpaceService() )->landing_tab( $space, $viewer_id, $bn_landing_nav->layer( 'primary' ) );
+		// The tab bar the web space header renders for this viewer: same resolved
+		// nav (order, gates, owner overrides, integration tabs, counts).
+		$space['nav'] = array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_landing_nav->layer( 'primary' ) ) );
 
 		return new WP_REST_Response( $space, 200 );
 	}
