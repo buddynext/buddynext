@@ -232,6 +232,22 @@ if ( ! empty( $bn_card['hashtag'] ) ) {
 	$bn_kicker = '#' . ltrim( (string) $bn_card['hashtag'], '#' );
 }
 
+// Members-only gate: the same PostService::members_only_gate() the post card and
+// the REST feed apply. A viewer without access gets the teaser, never the body;
+// link-preview text and media go too (they would give the post away). The card
+// still links to the post, whose page carries the full join/log-in prompt.
+if ( ! empty( $bn_post['members_only'] ) ) {
+	$bn_mo_gate = buddynext_service( 'post_service' )->members_only_gate( $bn_post, $bn_viewer );
+	if ( ! empty( $bn_mo_gate['locked'] ) ) {
+		$bn_teaser            = trim( wp_strip_all_tags( (string) $bn_mo_gate['teaser'] ) );
+		$bn_headline          = '' !== $bn_teaser ? $bn_teaser : __( 'This post is for members.', 'buddynext' );
+		$bn_excerpt           = '';
+		$bn_post['media_ids'] = array();
+		$bn_kicker            = __( 'Members only', 'buddynext' )
+			. ( ! empty( $bn_mo_gate['cta']['label'] ) ? ' · ' . (string) $bn_mo_gate['cta']['label'] : '' );
+	}
+}
+
 /**
  * Render the shared byline foot (avatar · name · stats). The name gets the row;
  * no Follow button here — discovery cards link through instead.

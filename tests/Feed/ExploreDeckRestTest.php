@@ -80,4 +80,35 @@ class ExploreDeckRestTest extends WP_UnitTestCase {
 		$bad->set_param( 'filter', 'nope' );
 		$this->assertSame( 400, rest_do_request( $bad )->get_status(), 'Unknown filter is refused.' );
 	}
+
+	/**
+	 * The web Explore card gates a members-only post like the post card does:
+	 * a guest never gets the body; the author does.
+	 *
+	 * @return void
+	 */
+	public function test_explore_card_hides_members_only_body(): void {
+		// Only someone who may gate posts can mark one members-only (can_gate_post).
+		$author = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$id     = (int) ( new \BuddyNext\Feed\PostService() )->create( $author, array( 'content' => 'Explore card members only body must stay hidden from visitors', 'members_only' => 1 ) );
+		$this->assertSame( 1, (int) ( new \BuddyNext\Feed\PostService() )->get( $id )['members_only'], 'Fixture is members-only.' );
+		$render = static function ( int $viewer ) use ( $id ): string {
+			ob_start();
+			buddynext_get_template(
+				'partials/explore-card.php',
+				array(
+					'card'            => array(
+						'kind' => 'post-text',
+						'post' => ( new \BuddyNext\Feed\PostService() )->get( $id ),
+					),
+					'current_user_id' => $viewer,
+				)
+			);
+			return (string) ob_get_clean();
+		};
+
+		$this->assertStringNotContainsString( 'stay hidden from visitors', $render( 0 ) );
+		$this->assertStringContainsString( 'Members only', $render( 0 ) );
+		$this->assertStringContainsString( 'stay hidden from visitors', $render( $author ), 'The author sees their own post.' );
+	}
 }

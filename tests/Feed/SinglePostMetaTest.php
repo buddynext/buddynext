@@ -92,4 +92,48 @@ class SinglePostMetaTest extends \WP_UnitTestCase {
 
 		$this->assertTrue( has_action( 'wp_head' ) > 0 );
 	}
+
+	/**
+	 * Head meta for a guest (what link scrapers and search engines see): a
+	 * members-only post shares only its teaser, a public post its full text.
+	 *
+	 * @return void
+	 */
+	public function test_members_only_post_shares_no_body_but_public_post_does(): void {
+		$seen    = array();
+		$capture = static function ( array $descriptor ) use ( &$seen ): array {
+			$seen[] = $descriptor;
+			return $descriptor;
+		};
+		add_filter( 'buddynext_head_meta', $capture );
+		$reset = new \ReflectionProperty( \BuddyNext\Core\HeadMeta::class, 'emitted' );
+		wp_set_current_user( 0 );
+
+		$secret = 'Members only body that must never reach a link preview or a search engine snippet';
+		SinglePostMeta::emit_for_post(
+			array(
+				'id'           => 10,
+				'user_id'      => 1,
+				'content'      => $secret,
+				'privacy'      => 'public',
+				'members_only' => 1,
+				'created_at'   => '2026-05-22 10:00:00',
+			)
+		);
+		$reset->setValue( null, false );
+		SinglePostMeta::emit_for_post(
+			array(
+				'id'         => 11,
+				'user_id'    => 1,
+				'content'    => 'Public post everyone may share',
+				'privacy'    => 'public',
+				'created_at' => '2026-05-22 10:00:00',
+			)
+		);
+		$reset->setValue( null, false );
+		remove_filter( 'buddynext_head_meta', $capture );
+
+		$this->assertStringNotContainsString( 'search engine snippet', $seen[0]['description'] . $seen[0]['title'] );
+		$this->assertStringContainsString( 'Public post everyone may share', $seen[1]['description'] );
+	}
 }

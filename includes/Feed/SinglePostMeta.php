@@ -51,6 +51,19 @@ class SinglePostMeta {
 	 * @return void
 	 */
 	public static function emit_for_post( array $post ): void {
+		// A members-only post describes itself to this viewer the way its card does:
+		// link scrapers and search engines visit as guests, so they get the teaser
+		// (PostService::members_only_gate()), never the body, its media or its link
+		// preview. Public posts are untouched and stay fully shareable.
+		if ( ! empty( $post['members_only'] ) ) {
+			$gate = buddynext_service( 'post_service' )->members_only_gate( $post, get_current_user_id() );
+			if ( ! empty( $gate['locked'] ) ) {
+				$post['content']   = (string) $gate['teaser'];
+				$post['media_ids'] = array();
+				$post['link_meta'] = null;
+			}
+		}
+
 		$post_id   = (int) ( $post['id'] ?? 0 );
 		$author_id = (int) ( $post['user_id'] ?? 0 );
 		$author    = $author_id > 0 ? get_userdata( $author_id ) : null;
