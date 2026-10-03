@@ -1930,11 +1930,16 @@ class SpaceMemberService {
 	 * (name/slug) plus the viewer's role per space without a per-row lookup.
 	 * Ordered newest-joined first; capped by $limit.
 	 *
-	 * @param int $user_id Member to look up.
-	 * @param int $limit   Max rows (1-50). Default 5.
-	 * @return object[] Each row: id, name, slug, role.
+	 * Pass $viewer_id when someone else is looking (another member's profile):
+	 * secret/unlisted spaces are then dropped unless the viewer belongs to them
+	 * too, or is a site admin. The member's own rail passes no viewer.
+	 *
+	 * @param int      $user_id   Member to look up.
+	 * @param int      $limit     Max rows (1-50). Default 5.
+	 * @param int|null $viewer_id Who is looking; null = the member themselves.
+	 * @return object[] Each row: id, name, slug, type, role.
 	 */
-	public function membership_rows( int $user_id, int $limit = 5 ): array {
+	public function membership_rows( int $user_id, int $limit = 5, ?int $viewer_id = null ): array {
 		$user_id = absint( $user_id );
 		if ( $user_id <= 0 ) {
 			return array();
@@ -1954,7 +1959,7 @@ class SpaceMemberService {
 		// that only changes when the member joins or leaves something. Cache the
 		// unfiltered ceiling once per member (not per requested limit); the addon
 		// filter + the slice run per call so an exclusion change is never served stale.
-		$cache_key = 'membership_rows_v' . self::membership_summary_version( $user_id ) . "_{$user_id}";
+		$cache_key = 'membership_rows2_v' . self::membership_summary_version( $user_id ) . "_{$user_id}"; // v2: rows carry type.
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -1968,7 +1973,7 @@ class SpaceMemberService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.id, s.name, s.slug, s.category_id, sm.role
+					"SELECT s.id, s.name, s.slug, s.type, s.category_id, sm.role
 					 FROM {$wpdb->prefix}bn_spaces s
 					 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id
 					 WHERE sm.user_id = %d AND sm.status = 'active'
@@ -2002,7 +2007,20 @@ class SpaceMemberService {
 		 */
 		$rows = apply_filters( 'buddynext_membership_rows', $rows, $user_id, $limit );
 
-		// Slice to the requested cap AFTER the addon exclusion, so a member always
+		// Space privacy wins: another viewer never learns a secret space exists
+		// unless they are in it too (a logged-out visitor saw them all).
+		if ( null !== $viewer_id && $viewer_id !== $user_id && ! user_can( $viewer_id, 'manage_options' ) ) {
+			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+			$shared   = $viewer_id > 0 ? array_flip( $this->spaces_for_user( $viewer_id ) ) : array();
+			$rows     = array_values(
+				array_filter(
+					$rows,
+					static fn( $row ): bool => ! in_array( (string) ( $row->type ?? '' ), $unlisted, true ) || isset( $shared[ (int) $row->id ] )
+				)
+			);
+		}
+
+		// Slice to the requested cap AFTER the exclusions, so a member always
 		// sees up to $limit VISIBLE spaces, not $limit-minus-hidden.
 		return array_slice( $rows, 0, $limit );
 	}

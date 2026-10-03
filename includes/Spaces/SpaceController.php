@@ -298,6 +298,26 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// The spaces a member belongs to: the profile "Member of" card.
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/spaces',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_member_spaces' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 5,
+						'minimum'           => 1,
+						'maximum'           => 50,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/subspaces',
@@ -1636,6 +1656,42 @@ class SpaceController extends BaseRestController {
 		$space['landing_tab'] = ( new SpaceService() )->landing_tab( $space, $viewer_id, $bn_landing_nav->layer( 'primary' ) );
 
 		return new WP_REST_Response( $space, 200 );
+	}
+
+	/**
+	 * GET /users/{id}/spaces - the member's spaces, as the profile "Member of"
+	 * card shows them to this viewer (secret spaces only when the viewer is in
+	 * them too). Hidden like the profile itself when the viewer cannot see it.
+	 *
+	 * @param WP_REST_Request $request REST request (id, per_page).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_member_spaces( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = (int) $request->get_param( 'id' );
+		$viewer  = get_current_user_id();
+		$privacy = buddynext_service( 'privacy' );
+		if ( ! get_userdata( $user_id ) || ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService && ! $privacy->can_view_profile( $viewer, $user_id ) ) ) {
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// ponytail: capped list (max 50), the card shows 5; no paging until a
+		// member's space list needs it.
+		$rows = buddynext_service( 'space_members' )->membership_rows( $user_id, (int) $request->get_param( 'per_page' ), $viewer );
+
+		return new WP_REST_Response(
+			array_map(
+				static fn( $row ): array => array(
+					'id'   => (int) $row->id,
+					'name' => (string) $row->name,
+					'slug' => (string) $row->slug,
+					'type' => (string) $row->type,
+					'role' => (string) $row->role,
+					'url'  => \BuddyNext\Core\PageRouter::space_url( (int) $row->id ),
+				),
+				$rows
+			),
+			200
+		);
 	}
 
 	/**

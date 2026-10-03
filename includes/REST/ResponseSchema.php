@@ -643,6 +643,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/users/{id}/spaces',
+				'resource' => 'member_space',
+				'shape'    => 'array',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/users/{id}/media',
 				'resource' => 'users_media',
 				'shape'    => 'item',
@@ -5491,6 +5497,30 @@ final class ResponseSchema {
 				),
 				'per_page' => array(
 					'type' => 'integer',
+				),
+			),
+		);
+	}
+
+	/**
+	 * A space in a member's "Member of" list (GET /users/{id}/spaces).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function member_space(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'member-space',
+			'type'       => 'object',
+			'properties' => array(
+				'id'   => array( 'type' => 'integer' ),
+				'name' => array( 'type' => 'string' ),
+				'slug' => array( 'type' => 'string' ),
+				'type' => array( 'type' => 'string' ),
+				'role' => array( 'type' => 'string' ),
+				'url'  => array(
+					'type'   => 'string',
+					'format' => 'uri',
 				),
 			),
 		);

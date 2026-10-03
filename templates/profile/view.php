@@ -237,7 +237,7 @@ if ( '' === $profile_slug ) {
 // --- Spaces, interests, completion, presence ------------------------------
 // Member's active spaces (id/name/slug/role) via the membership service, shared
 // with the right-sidebar widget so both surfaces agree.
-$member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id, 5 );
+$member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id, 5, get_current_user_id() );
 
 $skills     = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'skills' ) ) ) );
 $completion = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
