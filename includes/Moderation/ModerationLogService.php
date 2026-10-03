@@ -291,4 +291,107 @@ class ModerationLogService {
 			'created_at'     => $row['created_at'],
 		);
 	}
+
+	/**
+	 * Human labels for moderation-log action slugs.
+	 *
+	 * ONE map, so the filter dropdown, the Action column and the CSV export all
+	 * read the same way. The column used to print the raw slug (dismiss_report)
+	 * while the filter above it showed the label ("Report dismissed"), so an owner
+	 * could not tell they were the same thing.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function action_labels(): array {
+		return array(
+			// Member sanctions. 'suspend' (automatic, from the strike threshold) and
+			// 'suspend_user' (a moderator/admin acting directly) are BOTH written and
+			// are distinct slugs — labelled distinctly so filtering by one does not
+			// silently drop the other (card 10284912236). The dead 'unsuspend' slug
+			// nothing ever wrote is gone; the real one is 'unsuspend_user'.
+			// 'warn' is a high-volume, filterable sanction written by
+			// ModerationService::warn(); without a label the dropdown and the column
+			// badge disagreed for it (card 10284912236 item 1). 'warned' is the legacy
+			// slug some older rows carry.
+			'warn'              => __( 'Warning issued', 'buddynext' ),
+			'warned'            => __( 'Warning issued', 'buddynext' ),
+			'issue_strike'      => __( 'Strike issued', 'buddynext' ),
+			'reverse_strike'    => __( 'Strike reversed', 'buddynext' ),
+			'suspend_user'      => __( 'Suspended', 'buddynext' ),
+			'suspend'           => __( 'Suspended (automatic)', 'buddynext' ),
+			'unsuspend_user'    => __( 'Unsuspended', 'buddynext' ),
+			'perma_ban'         => __( 'Permanent ban', 'buddynext' ),
+			'shadow_ban'        => __( 'Shadow ban', 'buddynext' ),
+			'remove_shadow_ban' => __( 'Shadow ban removed', 'buddynext' ),
+			// Space sanctions.
+			'space_ban'         => __( 'Banned from space', 'buddynext' ),
+			'space_unban'       => __( 'Space ban lifted', 'buddynext' ),
+			// Reports + content.
+			'dismiss_report'    => __( 'Report dismissed', 'buddynext' ),
+			'escalate_report'   => __( 'Report escalated', 'buddynext' ),
+			'resolve_report'    => __( 'Report resolved', 'buddynext' ),
+			'remove_content'    => __( 'Content removed', 'buddynext' ),
+			'approve_pending'   => __( 'Post approved', 'buddynext' ),
+			'reject_pending'    => __( 'Post rejected', 'buddynext' ),
+			// Appeals.
+			'approve_appeal'    => __( 'Appeal approved', 'buddynext' ),
+			'deny_appeal'       => __( 'Appeal denied', 'buddynext' ),
+			'resolve_appeal'    => __( 'Appeal resolved', 'buddynext' ),
+			// AI sweep (pro), written with the ai_ prefix + the system actor.
+			'ai_remove_content' => __( 'AI: content removed', 'buddynext' ),
+			'ai_escalate'       => __( 'AI: escalated', 'buddynext' ),
+			'ai_dismiss'        => __( 'AI: dismissed', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Label for one action slug, with a humanised fallback for anything not in the
+	 * map (a partner-registered action, say) so the column never shows a bare slug.
+	 *
+	 * @param string $slug Action slug.
+	 * @return string
+	 */
+	public static function action_label( string $slug ): string {
+		$labels = self::action_labels();
+		if ( isset( $labels[ $slug ] ) ) {
+			return $labels[ $slug ];
+		}
+		return '' === $slug ? '—' : ucfirst( str_replace( '_', ' ', $slug ) );
+	}
+
+	/**
+	 * Icon slug for a moderation-log action, by the action's family (sanction,
+	 * ban, report, removal, appeal, approval). One map for every front-end list.
+	 *
+	 * @param string $slug Action slug.
+	 * @return string Lucide icon slug.
+	 */
+	public static function action_icon( string $slug ): string {
+		$map = array(
+			'warn'              => 'alert-triangle',
+			'warned'            => 'alert-triangle',
+			'issue_strike'      => 'alert-triangle',
+			'reverse_strike'    => 'check-circle',
+			'suspend_user'      => 'ban',
+			'suspend'           => 'ban',
+			'perma_ban'         => 'ban',
+			'shadow_ban'        => 'ban',
+			'space_ban'         => 'ban',
+			'unsuspend_user'    => 'check-circle',
+			'remove_shadow_ban' => 'check-circle',
+			'space_unban'       => 'check-circle',
+			'dismiss_report'    => 'check-circle',
+			'resolve_report'    => 'check-circle',
+			'escalate_report'   => 'flag',
+			'remove_content'    => 'trash',
+			'ai_remove_content' => 'trash',
+			'ai_escalate'       => 'flag',
+			'approve_pending'   => 'check-circle',
+			'reject_pending'    => 'x-circle',
+			'approve_appeal'    => 'check-circle',
+			'deny_appeal'       => 'x-circle',
+			'resolve_appeal'    => 'check-circle',
+		);
+		return $map[ $slug ] ?? 'shield';
+	}
 }

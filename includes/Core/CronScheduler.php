@@ -13,7 +13,6 @@
  *   buddynext_weekly_digest        — weekly (first run at activation time, then every 7 days)
  *   buddynext_cleanup_tokens       — daily
  *   buddynext_cleanup_notifications— weekly (prune 90-day-old read rows)
- *   buddynext_cleanup_activity_log — weekly (honours data-retention window)
  *   buddynext_recount_stats        — daily (counters maintained incrementally on write;
  *                                    daily run is a reconcile pass only)
  *
@@ -67,7 +66,13 @@ class CronScheduler {
 	public const JOB_CLEANUP_NOTIFICATIONS = 'buddynext_cleanup_notifications';
 
 	/**
-	 * Weekly activity-log pruning job hook (honours the data-retention window).
+	 * RETIRED — no longer registered or scheduled.
+	 *
+	 * The bn_activity_log table was never written and is retired (Installer::LEGACY_TABLES).
+	 * Kept only so clear_events() and the upgrade migration can unschedule it where
+	 * it is still armed. See JOB_CLEANUP_NOTIFICATIONS above.
+	 *
+	 * @var string
 	 */
 	public const JOB_CLEANUP_ACTIVITY_LOG = 'buddynext_cleanup_activity_log';
 
@@ -142,7 +147,6 @@ class CronScheduler {
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
 		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
-		add_action( self::JOB_CLEANUP_ACTIVITY_LOG, array( $handlers, 'handle_cleanup_activity_log' ) );
 		add_action( self::JOB_CLEANUP_REPORTS, array( $handlers, 'handle_cleanup_reports' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 	}
@@ -190,7 +194,6 @@ class CronScheduler {
 		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
-		$this->maybe_schedule( self::JOB_CLEANUP_ACTIVITY_LOG, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_REPORTS, 'weekly' );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
@@ -274,7 +277,7 @@ class CronScheduler {
 		// it simply fires into nothing, forever, staying in the cron array (and in
 		// Action Scheduler's tables) as permanent litter that every future debugger has
 		// to explain. Clear both explicitly, on both schedulers.
-		foreach ( array( self::JOB_CLEANUP_NOTIFICATIONS, self::JOB_CLEANUP_EMAIL_LOG ) as $bn_retired ) {
+		foreach ( array( self::JOB_CLEANUP_NOTIFICATIONS, self::JOB_CLEANUP_EMAIL_LOG, self::JOB_CLEANUP_ACTIVITY_LOG ) as $bn_retired ) {
 			if ( function_exists( 'as_unschedule_all_actions' ) ) {
 				as_unschedule_all_actions( $bn_retired, array(), self::GROUP );
 			}

@@ -51,6 +51,7 @@ class InstallerOwnedTablesTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_retired_tables_are_still_owned_for_cleanup(): void {
+		$this->assertContains( 'bn_activity_log', Installer::LEGACY_TABLES, 'Retired (never written); uninstall must still drop it on older installs.' );
 		$this->assertContains(
 			'bn_feed_items',
 			Installer::LEGACY_TABLES,

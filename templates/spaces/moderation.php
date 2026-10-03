@@ -124,29 +124,6 @@ $mod_log = $bn_mod_log_svc->get_log(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-if ( ! function_exists( 'bn_mod_action_icon' ) ) {
-	/**
-	 * Return an SVG icon slug for a mod log action type.
-	 *
-	 * @param string $action Moderation action slug.
-	 * @return string Icon slug.
-	 */
-	function bn_mod_action_icon( string $action ): string {
-		$map = array(
-			'dismiss'        => 'check-circle',
-			'remove'         => 'trash',
-			'warn'           => 'alert-triangle',
-			'ban'            => 'ban',
-			'approve_member' => 'check-circle',
-			'decline_member' => 'x-circle',
-			'remove_member'  => 'ban',
-			'pin'            => 'bookmark',
-			'unpin'          => 'bookmark',
-		);
-		return $map[ $action ] ?? 'copy';
-	}
-}
-
 if ( ! function_exists( 'bn_report_priority' ) ) {
 	/**
 	 * Return a report priority tone based on reporter count.
@@ -592,16 +569,17 @@ $mod_privacy = array(
 							<ul class="bn-space-mod__log-list" role="list">
 								<?php foreach ( $mod_log as $log ) : ?>
 									<?php
-									$log_action_slug = bn_mod_action_icon( (string) ( $log['action'] ?? 'note' ) );
-									$log_time        = ! empty( $log['created_at'] ) ? bn_time_diff( (string) $log['created_at'] ) : '';
-									$log_actor_id    = (int) ( $log['actor_id'] ?? 0 );
-									$log_is_me       = ( $log_actor_id === $current_uid );
-									$log_actor       = ( ! $log_is_me && $log_actor_id ) ? get_userdata( $log_actor_id ) : false;
-									$log_actor_name  = ( $log_actor instanceof WP_User ) ? $log_actor->display_name : '';
+									$log_action     = (string) ( $log['action'] ?? '' );
+									$log_note       = trim( (string) ( $log['note'] ?? '' ) );
+									$log_time       = ! empty( $log['created_at'] ) ? bn_time_diff( (string) $log['created_at'] ) : '';
+									$log_actor_id   = (int) ( $log['actor_id'] ?? 0 );
+									$log_is_me      = ( $log_actor_id === $current_uid );
+									$log_actor      = ( ! $log_is_me && $log_actor_id ) ? get_userdata( $log_actor_id ) : false;
+									$log_actor_name = ( $log_actor instanceof WP_User ) ? $log_actor->display_name : '';
 									?>
 									<li class="bn-space-mod__log-row" role="listitem">
-										<span class="bn-space-mod__log-icon" aria-hidden="true"><?php buddynext_icon( $log_action_slug ); ?></span>
-										<span class="bn-space-mod__log-desc"><?php echo esc_html( (string) ( $log['note'] ?? '' ) ); ?></span>
+										<span class="bn-space-mod__log-icon" aria-hidden="true"><?php buddynext_icon( \BuddyNext\Moderation\ModerationLogService::action_icon( $log_action ) ); ?></span>
+										<span class="bn-space-mod__log-desc"><?php echo esc_html( '' !== $log_note ? $log_note : \BuddyNext\Moderation\ModerationLogService::action_label( $log_action ) ); ?></span>
 										<?php if ( $log_is_me ) : ?>
 											<span class="bn-space-mod__log-actor"><?php esc_html_e( 'by You', 'buddynext' ); ?></span>
 										<?php elseif ( '' !== $log_actor_name ) : ?>

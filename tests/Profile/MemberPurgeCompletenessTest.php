@@ -138,7 +138,10 @@ class MemberPurgeCompletenessTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Seed one row into each of the three log tables for the victim.
+	 * Seed one row into each of the log tables for the victim.
+	 *
+	 * bn_activity_log is retired (never written; Installer::LEGACY_TABLES), so it
+	 * holds no member data and is no longer purged.
 	 *
 	 * @return void
 	 */
@@ -146,17 +149,6 @@ class MemberPurgeCompletenessTest extends WP_UnitTestCase {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$this->assertNotFalse(
-			$wpdb->insert(
-				$wpdb->prefix . 'bn_activity_log',
-				array(
-					'user_id' => $this->victim,
-					'action'  => 'post_created',
-				),
-				array( '%d', '%s' )
-			),
-			'the activity-log fixture must insert'
-		);
 		$this->assertNotFalse(
 			$wpdb->insert(
 				$wpdb->prefix . 'bn_email_log',
@@ -287,11 +279,11 @@ class MemberPurgeCompletenessTest extends WP_UnitTestCase {
 	// ── the residue ───────────────────────────────────────────────────────────────
 
 	/**
-	 * The three log tables must be erased with the member.
+	 * The log tables must be erased with the member.
 	 *
 	 * They are not permanent residue — the retention crons age them out in 30–365 days. But GDPR
 	 * requires erasure "without undue delay", and a year is not without undue delay. A member who
-	 * asks to be forgotten should not sit in the activity log until next summer.
+	 * asks to be forgotten should not sit in a log until next summer.
 	 *
 	 * EXPECTED TO FAIL: none of the three is in the purge today.
 	 *
@@ -302,7 +294,6 @@ class MemberPurgeCompletenessTest extends WP_UnitTestCase {
 
 		$this->cleanup->purge_user_relations( $this->victim, 'delete' );
 
-		$this->assertSame( 0, $this->rows_left( 'bn_activity_log', 'user_id' ), 'activity log must be erased' );
 		$this->assertSame( 0, $this->rows_left( 'bn_email_log', 'user_id' ), 'email log must be erased' );
 		$this->assertSame( 0, $this->rows_left( 'bn_webhook_log', 'user_id' ), 'webhook log must be erased' );
 	}
@@ -426,6 +417,5 @@ class MemberPurgeCompletenessTest extends WP_UnitTestCase {
 			(int) get_user_meta( $this->peer, 'bn_follower_count', true ),
 			'a second purge must not drive an already-reconciled counter negative — GREATEST(0, …) guards it'
 		);
-		$this->assertSame( 0, $this->rows_left( 'bn_activity_log', 'user_id' ), 'still erased after a re-run' );
 	}
 }

@@ -812,7 +812,7 @@ class ModerationQueue {
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td>
 								<?php $bn_action_slug = (string) ( $row['action'] ?? '' ); ?>
-								<span class="bn-badge" data-tone="neutral" title="<?php echo esc_attr( $bn_action_slug ); ?>"><?php echo esc_html( $this->action_label( $bn_action_slug ) ); ?></span>
+								<span class="bn-badge" data-tone="neutral" title="<?php echo esc_attr( $bn_action_slug ); ?>"><?php echo esc_html( \BuddyNext\Moderation\ModerationLogService::action_label( $bn_action_slug ) ); ?></span>
 							</td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ) ); ?></td>
 								<td><?php echo esc_html( $object ); ?></td>
@@ -897,72 +897,6 @@ class ModerationQueue {
 	 * @param array{page:int, query:array<string,mixed>} $filters Active filters.
 	 * @return void
 	 */
-	/**
-	 * Human labels for moderation-log action slugs.
-	 *
-	 * ONE map, so the filter dropdown, the Action column and the CSV export all
-	 * read the same way. The column used to print the raw slug (dismiss_report)
-	 * while the filter above it showed the label ("Report dismissed"), so an owner
-	 * could not tell they were the same thing.
-	 *
-	 * @return array<string,string>
-	 */
-	private function action_labels(): array {
-		return array(
-			// Member sanctions. 'suspend' (automatic, from the strike threshold) and
-			// 'suspend_user' (a moderator/admin acting directly) are BOTH written and
-			// are distinct slugs — labelled distinctly so filtering by one does not
-			// silently drop the other (card 10284912236). The dead 'unsuspend' slug
-			// nothing ever wrote is gone; the real one is 'unsuspend_user'.
-			// 'warn' is a high-volume, filterable sanction written by
-			// ModerationService::warn(); without a label the dropdown and the column
-			// badge disagreed for it (card 10284912236 item 1). 'warned' is the legacy
-			// slug some older rows carry.
-			'warn'              => __( 'Warning issued', 'buddynext' ),
-			'warned'            => __( 'Warning issued', 'buddynext' ),
-			'issue_strike'      => __( 'Strike issued', 'buddynext' ),
-			'reverse_strike'    => __( 'Strike reversed', 'buddynext' ),
-			'suspend_user'      => __( 'Suspended', 'buddynext' ),
-			'suspend'           => __( 'Suspended (automatic)', 'buddynext' ),
-			'unsuspend_user'    => __( 'Unsuspended', 'buddynext' ),
-			'perma_ban'         => __( 'Permanent ban', 'buddynext' ),
-			'shadow_ban'        => __( 'Shadow ban', 'buddynext' ),
-			'remove_shadow_ban' => __( 'Shadow ban removed', 'buddynext' ),
-			// Space sanctions.
-			'space_ban'         => __( 'Banned from space', 'buddynext' ),
-			'space_unban'       => __( 'Space ban lifted', 'buddynext' ),
-			// Reports + content.
-			'dismiss_report'    => __( 'Report dismissed', 'buddynext' ),
-			'escalate_report'   => __( 'Report escalated', 'buddynext' ),
-			'resolve_report'    => __( 'Report resolved', 'buddynext' ),
-			'remove_content'    => __( 'Content removed', 'buddynext' ),
-			'approve_pending'   => __( 'Post approved', 'buddynext' ),
-			'reject_pending'    => __( 'Post rejected', 'buddynext' ),
-			// Appeals.
-			'approve_appeal'    => __( 'Appeal approved', 'buddynext' ),
-			'deny_appeal'       => __( 'Appeal denied', 'buddynext' ),
-			'resolve_appeal'    => __( 'Appeal resolved', 'buddynext' ),
-			// AI sweep (pro), written with the ai_ prefix + the system actor.
-			'ai_remove_content' => __( 'AI: content removed', 'buddynext' ),
-			'ai_escalate'       => __( 'AI: escalated', 'buddynext' ),
-			'ai_dismiss'        => __( 'AI: dismissed', 'buddynext' ),
-		);
-	}
-
-	/**
-	 * Label for one action slug, with a humanised fallback for anything not in the
-	 * map (a partner-registered action, say) so the column never shows a bare slug.
-	 *
-	 * @param string $slug Action slug.
-	 * @return string
-	 */
-	private function action_label( string $slug ): string {
-		$labels = $this->action_labels();
-		if ( isset( $labels[ $slug ] ) ) {
-			return $labels[ $slug ];
-		}
-		return '' === $slug ? '—' : ucfirst( str_replace( '_', ' ', $slug ) );
-	}
 
 	/**
 	 * Render the moderation-log filter toolbar: action dropdown, moderator / target
@@ -974,7 +908,7 @@ class ModerationQueue {
 	 */
 	private function render_log_toolbar( array $filters ): void {
 		$q          = $filters['query'];
-		$actions    = $this->action_labels();
+		$actions    = \BuddyNext\Moderation\ModerationLogService::action_labels();
 		$cur_action = (string) ( $q['action'] ?? '' );
 
 		// Legacy slugs folded into a canonical option (e.g. 'warned' -> 'warn')
@@ -1090,7 +1024,7 @@ class ModerationQueue {
 					array(
 						(string) ( $row['created_at'] ?? '' ),
 						buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ),
-						$this->action_label( (string) ( $row['action'] ?? '' ) ),
+						\BuddyNext\Moderation\ModerationLogService::action_label( (string) ( $row['action'] ?? '' ) ),
 						buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ),
 						(string) ( $row['object_type'] ?? '' ),
 						(int) ( $row['object_id'] ?? 0 ),

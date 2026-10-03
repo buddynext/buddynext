@@ -842,7 +842,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							//
 							// An owner cannot consent to a deletion they were never told about,
 							// and they cannot rely on a promise the code does not keep.
-							'hint'         => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted.', 'buddynext' ),
+							'hint'         => __( 'Automatically delete records older than this: closed moderation reports and (with Pro) analytics events. Open reports and the moderation log are never deleted.', 'buddynext' ),
 						)
 					),
 					// NOTE: a second control for buddynext_log_retention_days used to sit

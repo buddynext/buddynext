@@ -103,7 +103,6 @@ class Installer {
 	public const SCHEMA_FAILURE_OPTION = 'buddynext_schema_failure';
 
 	public const OWNED_TABLES = array(
-		'bn_activity_log',
 		'bn_appeals',
 		'bn_blocks',
 		'bn_bookmarks',
@@ -156,11 +155,14 @@ class Installer {
 	 * dropping it from the code alone only stops NEW installs from getting it.
 	 *
 	 * bn_feed_items — dead fan-out table, removed from the schema in 85b20825.
+	 * bn_activity_log — never written; the community admin's Recent actions now
+	 *                   reads the moderation log (bn_mod_log).
 	 *
 	 * @var string[]
 	 */
 	public const LEGACY_TABLES = array(
 		'bn_feed_items',
+		'bn_activity_log',
 	);
 
 	/**
@@ -4605,20 +4607,6 @@ class Installer {
 				KEY user_id (user_id),
 				KEY created_at (created_at),
 				KEY signature (signature)
-			) {$cs};",
-
-			// ── Activity Log ───────────────────────────────────────────────────
-
-			"CREATE TABLE {$p}bn_activity_log (
-				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id BIGINT(20) UNSIGNED NOT NULL,
-				action VARCHAR(64) NOT NULL,
-				object_type VARCHAR(32) DEFAULT NULL,
-				object_id BIGINT(20) UNSIGNED DEFAULT NULL,
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (id),
-				KEY         user_action (user_id, action, created_at),
-				KEY         created_at (created_at)
 			) {$cs};",
 
 			// ── Moderation ─────────────────────────────────────────────────────

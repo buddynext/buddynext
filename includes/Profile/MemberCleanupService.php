@@ -249,10 +249,6 @@ class MemberCleanupService {
 			// The logs. Missing from the purge entirely until this card. The retention crons do age
 			// them out (activity 365d, email 60-365d, webhook 30d) — but GDPR says "without undue
 			// delay", and a year is not without undue delay.
-			'bn_activity_log'            => array(
-				'where' => 'user_id = %d',
-				'sweep' => true,
-			),
 			'bn_email_log'               => array(
 				'where' => 'user_id = %d',
 				'sweep' => true,
