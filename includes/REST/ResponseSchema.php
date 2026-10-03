@@ -4581,6 +4581,16 @@ final class ResponseSchema {
 			'title'      => 'me-standing',
 			'type'       => 'object',
 			'properties' => array(
+				'warnings'   => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'note'       => array( 'type' => 'string' ),
+							'created_at' => array( 'type' => 'string' ),
+						),
+					),
+				),
 				'strikes'    => array(
 					'type' => 'integer',
 				),

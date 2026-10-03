@@ -1775,10 +1775,21 @@ class ModerationController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function get_my_standing(): WP_REST_Response {
-		return new WP_REST_Response(
-			( new ModerationService() )->get_standing( get_current_user_id() ),
-			200
+		$service  = new ModerationService();
+		$user_id  = get_current_user_id();
+		$standing = $service->get_standing( $user_id );
+
+		// The account-status page's warnings list: the note and when. Who issued
+		// it stays private, as on the web page.
+		$standing['warnings'] = array_map(
+			static fn( array $row ): array => array(
+				'note'       => (string) ( $row['note'] ?? '' ),
+				'created_at' => (string) ( $row['created_at'] ?? '' ),
+			),
+			$service->get_warnings( $user_id )
 		);
+
+		return new WP_REST_Response( $standing, 200 );
 	}
 
 	/**

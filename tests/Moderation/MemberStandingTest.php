@@ -157,6 +157,7 @@ class MemberStandingTest extends \WP_UnitTestCase {
 		$this->moderation->issue_strike( $this->member, $this->admin, 'A strike' );
 		$this->moderation->suspend_user( $this->member, $this->admin, 'A suspension', array( 'duration_days' => 3 ) );
 		$this->moderation->shadow_ban( $this->member, $this->admin, 'Quietly muted' );
+		$this->moderation->warn( $this->member, $this->admin, 'Please keep it civil' );
 
 		$json = (string) wp_json_encode( $this->standing()['data'] );
 
@@ -168,9 +169,15 @@ class MemberStandingTest extends \WP_UnitTestCase {
 		// occurs inside timestamps, so a substring check would fail on noise and
 		// pass on nothing useful.
 		$data = $this->standing()['data'];
-		$this->assertSame( array( 'strikes', 'history', 'suspension' ), array_keys( $data ) );
+		$this->assertSame( array( 'strikes', 'history', 'suspension', 'warnings' ), array_keys( $data ) );
 		foreach ( $data['history'] as $row ) {
 			$this->assertSame( array( 'id', 'reason', 'created_at', 'created_at_gmt' ), array_keys( $row ) );
+		}
+		// Warnings, as the account-status page lists them: the note and when,
+		// never who issued it.
+		$this->assertSame( 'Please keep it civil', $data['warnings'][0]['note'] );
+		foreach ( $data['warnings'] as $row ) {
+			$this->assertSame( array( 'note', 'created_at', 'created_at_gmt' ), array_keys( $row ) );
 		}
 	}
 
