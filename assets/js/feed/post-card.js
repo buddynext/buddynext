@@ -1989,6 +1989,8 @@ store( 'buddynext/post-card', {
 						excerpt,
 						nonce:     ctx.shareNonce,
 						restUrl:   ctx.restUrl,
+						canRepost: !! btn && '1' === btn.getAttribute( 'data-can-repost' ),
+						shareable: !! btn && '1' === btn.getAttribute( 'data-shareable' ),
 					},
 				} )
 			);

@@ -455,16 +455,14 @@ $bn_pf_ctx = array(
 	</div>
 	<?php
 
-	// Share modal: any logged-in viewer can share posts shown in the profile
-	// feed, so the modal must be present here too (mirrors home.php and
-	// single-post.php). Without it the post Share button's bn-open-share-modal
-	// event has no element to bind to and the click does nothing.
-	if ( $current_user_id ) :
-		buddynext_get_template(
-			'partials/share-modal.php',
-			array( 'current_user_id' => $current_user_id )
-		);
-	endif;
+	// Share modal: any viewer can share posts shown in the profile feed (members
+	// repost; anyone can share a public post outside), so the modal must be present
+	// here too (mirrors home.php and single-post.php). Without it the post Share
+	// button's bn-open-share-modal event has no element to bind to.
+	buddynext_get_template(
+		'partials/share-modal.php',
+		array( 'current_user_id' => $current_user_id )
+	);
 	?>
 
 </div><!-- /.bn-pf-stack -->

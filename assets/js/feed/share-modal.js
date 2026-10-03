@@ -41,6 +41,9 @@ store( 'buddynext/share-modal', {
 		get excerpt() {
 			try { return getContext().excerpt || ''; } catch ( _e ) { return ''; }
 		},
+		get cannotNativeShare() {
+			return ! ( typeof navigator !== 'undefined' && navigator.share );
+		},
 		get hasNoPreview() {
 			try {
 				const ctx = getContext();
@@ -67,6 +70,16 @@ store( 'buddynext/share-modal', {
 			ctx.excerpt   = detail.excerpt || '';
 			ctx.nonce     = detail.nonce || ctx.nonce;
 			ctx.restUrl   = detail.restUrl || ctx.restUrl;
+			ctx.canRepost = !! detail.canRepost;
+			ctx.shareable = !! detail.shareable;
+			// Fill each network's link template with this post's URL and excerpt.
+			const url   = encodeURIComponent( ctx.permalink );
+			const text  = encodeURIComponent( ctx.excerpt || ctx.author || '' );
+			const links = {};
+			Object.keys( ctx.templates || {} ).forEach( function ( key ) {
+				links[ key ] = String( ctx.templates[ key ] ).replace( /\{url\}/g, url ).replace( /\{text\}/g, text );
+			} );
+			ctx.links = links;
 			ctx.note      = '';
 			ctx.error     = '';
 			ctx.busy      = false;
@@ -120,6 +133,13 @@ store( 'buddynext/share-modal', {
 				ctx.error = t( 'networkError', 'Network error. Try again.' );
 				ctx.busy  = false;
 			}
+		},
+		* nativeShare() {
+			const ctx = getContext();
+			try {
+				yield navigator.share( { title: ctx.excerpt || ctx.author || '', url: ctx.permalink } );
+				ctx.open = false;
+			} catch ( _e ) {} // The member closed the share sheet.
 		},
 		* copyLink() {
 			const ctx = getContext();

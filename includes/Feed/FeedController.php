@@ -600,6 +600,9 @@ class FeedController extends BaseRestController {
 				$item = $this->apply_members_only_gate( $item, $viewer, $format );
 			}
 
+			// Whether the app may offer its share sheet (link works for anyone).
+			$item['shareable'] = buddynext_service( 'post_service' )->is_publicly_shareable( $item );
+
 			$item['viewer_state'] = $this->viewer_state_for( $pid, $maps ) + array(
 				// Stable, so it rides the initial shape only and not the refresh route.
 				// The web post card's rule: own post inside the edit window, or admin,

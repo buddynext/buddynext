@@ -1574,6 +1574,37 @@ class PostService {
 	}
 
 	/**
+	 * May this post be shared outside the community (social networks, messaging)?
+	 *
+	 * Yes when anyone who opens the link sees it: the site is not a private
+	 * community, the post is published, public and not members-only, and its
+	 * space (if any) shows content to logged-out visitors. Link scrapers visit as
+	 * guests, so this is also exactly when a link preview carries the post. The
+	 * web share dialog and the REST `shareable` field both read this one answer.
+	 *
+	 * @param array<string,mixed> $post Hydrated post (privacy, members_only, space_id, status).
+	 * @return bool
+	 */
+	public function is_publicly_shareable( array $post ): bool {
+		$space_id  = (int) ( $post['space_id'] ?? 0 );
+		$shareable = ! \BuddyNext\Core\PrivateCommunity::is_enabled()
+			&& 'public' === (string) ( $post['privacy'] ?? 'public' )
+			&& empty( $post['members_only'] )
+			&& 'published' === (string) ( $post['status'] ?? 'published' )
+			&& ( 0 === $space_id || \BuddyNext\Spaces\SpaceVisibility::can_view_content( ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ), 0 ) );
+
+		/**
+		 * Filter whether a post may be shared outside the community.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param bool                $shareable Whether the post is public to anyone with the link.
+		 * @param array<string,mixed> $post      Hydrated post.
+		 */
+		return (bool) apply_filters( 'buddynext_post_publicly_shareable', $shareable, $post );
+	}
+
+	/**
 	 * The most of a members-only post that may ever be shown as a teaser.
 	 *
 	 * A teaser exists to withhold the rest, so it is capped below 1.0 — the gate

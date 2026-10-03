@@ -306,6 +306,9 @@ $can_comment         = ( $current_user_id > 0 && $bn_comments_enabled && $bn_can
 // just no-op — both default ON when the option is unset.
 $can_share    = ( $current_user_id > 0 && buddynext_feature_enabled( 'shares' ) && $bn_can_interact );
 $can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks' ) && $bn_can_interact );
+// Sharing the link outside the community is open to anyone, guests included,
+// when the post is public to anyone with the link (PostService::is_publicly_shareable()).
+$can_share_out = buddynext_service( 'post_service' )->is_publicly_shareable( (array) $bn_post );
 
 // A post that is not published yet has nothing to engage with. React, Comment,
 // Share and Save render on the author's own Scheduled and Pending tabs, and none
@@ -319,10 +322,11 @@ $can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks'
 // write endpoint calls it, so hiding these controls now agrees with what the REST
 // routes actually do rather than being cosmetic.
 if ( $bn_is_unpublished ) {
-	$can_react    = false;
-	$can_comment  = false;
-	$can_share    = false;
-	$can_bookmark = false;
+	$can_react     = false;
+	$can_comment   = false;
+	$can_share     = false;
+	$can_share_out = false;
+	$can_bookmark  = false;
 }
 
 // ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
@@ -863,6 +867,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			'can_react'     => $can_react,
 			'can_comment'   => $can_comment,
 			'can_share'     => $can_share,
+			'can_share_out' => $can_share_out,
 			'can_bookmark'  => $can_bookmark,
 			'comment_count' => $comment_count,
 			'share_count'   => $share_count,

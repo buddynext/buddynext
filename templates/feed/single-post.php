@@ -163,12 +163,12 @@ $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
 	?>
 
 	<?php
-	if ( $bn_viewer_id > 0 ) {
-		buddynext_get_template(
-			'partials/share-modal.php',
-			array( 'current_user_id' => $bn_viewer_id )
-		);
-	} else {
+	// Everyone gets the share dialog: guests can share a public post outside the community.
+	buddynext_get_template(
+		'partials/share-modal.php',
+		array( 'current_user_id' => $bn_viewer_id )
+	);
+	if ( 0 === $bn_viewer_id ) {
 		// A shared post link is the page most first-time visitors land on (a DM, a
 		// Slack message, an X post) — and for a guest it ended on a dead end with no
 		// route in (card 10297709339). Invite them to join, returning here after

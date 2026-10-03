@@ -3898,6 +3898,24 @@ a.bn-composer__error-retry[hidden] { display: none; }
 .bn-share-modal__repost { flex: 1; justify-content: center; }
 /* Ghost variant rests at a muted ink; lift the Copy-link label to full ink for AA contrast. */
 .bn-share-modal__copy { color: var(--bn-ink); }
+/* Share to: outside networks for a public post. Brand marks render in ink so the row reads as one set. */
+.bn-share-modal__repost-block[hidden],
+.bn-share-modal__out[hidden],
+.bn-share-modal__net[hidden] { display: none; }
+.bn-share-modal__out { display: flex; flex-direction: column; gap: var(--bn-s2); margin-block-end: var(--bn-s3); }
+.bn-share-modal__out-label { font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-ink-2); }
+.bn-share-modal__nets { display: flex; flex-wrap: wrap; gap: var(--bn-s2); }
+.bn-share-modal__net {
+	display: inline-flex; align-items: center; gap: var(--bn-s1);
+	min-height: 36px; padding-block: var(--bn-s1); padding-inline: var(--bn-s3);
+	border: 1px solid var(--bn-line); border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-surface); color: var(--bn-ink);
+	font: inherit; font-size: var(--bn-text-sm); text-decoration: none; cursor: pointer;
+}
+.bn-share-modal__net:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.bn-share-modal__net:focus-visible { outline: 2px solid var(--bn-accent); outline-offset: 2px; }
+.bn-share-modal__net svg { width: 16px; height: 16px; flex: none; }
+.bn-share-modal__net svg path { fill: currentColor; }
 .bn-share-modal__error { margin: var(--bn-s2) 0 0; color: var(--bn-danger); font-size: var(--bn-text-sm); }
 .bn-share-modal__error[hidden] { display: none; }
 
