@@ -2267,6 +2267,46 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * What the web roster card shows besides the row: the member's cover, add-on
+	 * fields such as Pro labels (the directory's buddynext_directory_members_primed
+	 * + buddynext_rest_member_item hooks, so no add-on needs a second seam), and,
+	 * for the space's owner/moderators and site admins only, joined_via_link.
+	 * Batched: one prime and one invite-link lookup per page.
+	 *
+	 * @param int                            $space_id  Space.
+	 * @param int                            $viewer_id Viewer.
+	 * @param array<int,array<string,mixed>> $items     Roster rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function roster_card_fields( int $space_id, int $viewer_id, array $items ): array {
+		if ( empty( $items ) ) {
+			return $items;
+		}
+
+		$ids = array_map( static fn( $row ) => (int) $row['user_id'], $items );
+		/** This action is documented in includes/Profile/MemberDirectoryController.php */
+		do_action( 'buddynext_directory_members_primed', $ids, $viewer_id );
+
+		$role       = $viewer_id > 0 ? (string) ( new SpaceMemberService() )->get_role( $space_id, $viewer_id ) : '';
+		$manages    = in_array( $role, array( 'owner', 'moderator' ), true ) || ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) );
+		$via_link   = $manages ? ( new SpaceInviteLinkService() )->joined_via_link_map( $space_id ) : array();
+		$with_cover = function_exists( 'buddynext_user_cover_url' );
+
+		foreach ( $items as &$row ) {
+			$uid              = (int) $row['user_id'];
+			$row['cover_url'] = $with_cover ? buddynext_user_cover_url( $uid ) : '';
+			if ( $manages ) {
+				$row['joined_via_link'] = isset( $via_link[ $uid ] );
+			}
+			/** This filter is documented in includes/Profile/MemberDirectoryController.php */
+			$row = (array) apply_filters( 'buddynext_rest_member_item', $row, $uid );
+		}
+		unset( $row );
+
+		return $items;
+	}
+
+	/**
 	 * GET /spaces/{id}/members — the space roster.
 	 *
 	 * @param WP_REST_Request $request Request object.
@@ -2319,7 +2359,7 @@ class SpaceController extends BaseRestController {
 		$page  = $member_service->get_members_keyset( $space_id, $viewer_id, ( '' !== $cursor ? $cursor : null ), $per_page, $args );
 		$total = $member_service->count_members( $space_id, $viewer_id, $args );
 
-		$response = new WP_REST_Response( $page['items'], 200 );
+		$response = new WP_REST_Response( $this->roster_card_fields( $space_id, $viewer_id, $page['items'] ), 200 );
 		$response->header( 'X-WP-Total', (string) $total );
 		$response->header( 'X-BN-Next-Cursor', (string) ( $page['next_cursor'] ?? '' ) );
 

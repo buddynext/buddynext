@@ -322,6 +322,39 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 400, $get( array( 'role' => 'banana' ) )->get_status() );
 	}
 
+	/**
+	 * Roster rows carry the web card's extras: cover, add-on member fields via
+	 * buddynext_rest_member_item, and joined_via_link for space managers only.
+	 *
+	 * @return void
+	 */
+	public function test_roster_rows_carry_card_fields(): void {
+		$owner    = self::factory()->user->create();
+		$member   = self::factory()->user->create();
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Cards', 'slug' => 'cards-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		buddynext_service( 'space_members' )->join( $space_id, $member );
+		$addon = static function ( array $item, int $uid ): array {
+			$item['addon_field'] = 'for-' . $uid;
+			return $item;
+		};
+		add_filter( 'buddynext_rest_member_item', $addon, 10, 2 );
+		$rows = static fn(): array => rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $space_id . '/members' ) )->get_data();
+
+		wp_set_current_user( $owner );
+		foreach ( $rows() as $row ) {
+			$this->assertArrayHasKey( 'cover_url', $row );
+			$this->assertSame( 'for-' . $row['user_id'], $row['addon_field'], 'Add-ons (Pro labels) reach the roster.' );
+			$this->assertArrayHasKey( 'joined_via_link', $row, 'The owner sees how members joined.' );
+		}
+
+		wp_set_current_user( $member );
+		foreach ( $rows() as $row ) {
+			$this->assertArrayNotHasKey( 'joined_via_link', $row, 'A member does not.' );
+		}
+
+		remove_filter( 'buddynext_rest_member_item', $addon, 10 );
+	}
+
 	public function test_create_space_invalid_type_returns_422(): void {
 		wp_set_current_user( $this->owner_id );
 
