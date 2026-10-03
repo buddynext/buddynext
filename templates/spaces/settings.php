@@ -262,39 +262,15 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// setup only) link one the caller is allowed to.
 				// - later on/off : just flip the enabled flag; same discussion.
 				if ( class_exists( 'Jetonomy\\Jetonomy' ) && 'error' !== $save_notice ) {
-					$bn_disc_bridge  = new \BuddyNext\Bridges\JetonomyBridge();
-					$bn_disc_on      = isset( $_POST['bn_discussion_enabled'] );
-					$bn_disc_link_id = isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0;
-
-					if ( $bn_disc_on ) {
-						// Establish the dedicated discussion once, if it has none yet.
-						if ( ! $bn_disc_bridge->space_has_discussion( $space_id ) ) {
-							// Initial-setup link is role-aware: a SITE ADMIN may adopt any
-							// existing discussion; a space owner may only adopt one THEY
-							// authored. Re-validated here so a crafted POST cannot widen it.
-							$bn_disc_owner    = (int) ( $space->owner_id ?? 0 );
-							$bn_disc_is_admin = current_user_can( 'manage_options' );
-							$bn_disc_may_link = $bn_disc_link_id > 0 && (
-								$bn_disc_is_admin
-									? $bn_disc_bridge->discussion_exists( $bn_disc_link_id )
-									: $bn_disc_bridge->discussion_owned_by( $bn_disc_link_id, $bn_disc_owner )
-							);
-							if ( $bn_disc_may_link ) {
-								update_space_meta( $space_id, 'jetonomy_forum_id', $bn_disc_link_id );
-							} elseif ( $bn_disc_bridge->provision_space_forum( $space_id ) <= 0 ) {
-								// Provisioning failed. Leaving the toggle on would give
-								// every member a Discussion tab with no discussion behind
-								// it — so refuse to enable, and say why.
-								$save_notice           = 'error';
-								$bn_save_error_message = __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' );
-							}
-						}
-
-						if ( 'error' !== $save_notice ) {
-							$bn_disc_bridge->set_discussion_enabled( $space_id, true );
-						}
-					} else {
-						$bn_disc_bridge->set_discussion_enabled( $space_id, false );
+					$bn_disc_result = ( new \BuddyNext\Bridges\JetonomyBridge() )->apply_discussion_choice(
+						$space_id,
+						isset( $_POST['bn_discussion_enabled'] ),
+						isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0,
+						get_current_user_id()
+					);
+					if ( is_wp_error( $bn_disc_result ) ) {
+						$save_notice           = 'error';
+						$bn_save_error_message = __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' );
 					}
 				}
 			}

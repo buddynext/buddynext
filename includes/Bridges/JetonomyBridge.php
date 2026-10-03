@@ -882,6 +882,49 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Apply the owner's Discussion on/off choice for a space.
+	 *
+	 * The one path behind Space settings > Integrations and
+	 * POST /spaces/{id}/discussion:
+	 * - first enable: create the dedicated discussion, or (initial setup only)
+	 *   link one the actor may adopt: a site admin any existing discussion, a
+	 *   space owner only one they authored (re-validated, a crafted request
+	 *   cannot widen it);
+	 * - later on/off: only the enabled flag flips; the discussion and its
+	 *   content are never discarded or duplicated.
+	 *
+	 * @param int  $space_id BuddyNext space ID.
+	 * @param bool $enabled  Desired state.
+	 * @param int  $link_id  Existing discussion to link on first enable, or 0.
+	 * @param int  $actor_id Who is making the change.
+	 * @return true|\WP_Error Error when the discussion could not be created.
+	 */
+	public function apply_discussion_choice( int $space_id, bool $enabled, int $link_id, int $actor_id ) {
+		if ( ! $enabled ) {
+			$this->set_discussion_enabled( $space_id, false );
+			return true;
+		}
+
+		if ( ! $this->space_has_discussion( $space_id ) ) {
+			$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			$may_link = $link_id > 0 && (
+				user_can( $actor_id, 'manage_options' )
+					? $this->discussion_exists( $link_id )
+					: $this->discussion_owned_by( $link_id, (int) ( $space['owner_id'] ?? 0 ) )
+			);
+			if ( $may_link ) {
+				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
+			} elseif ( $this->provision_space_forum( $space_id ) <= 0 ) {
+				// Leaving it on would give members a Discussion tab with nothing behind it.
+				return new \WP_Error( 'bn_discussion_not_created', __( 'The discussion could not be created, so it was not enabled.', 'buddynext' ), array( 'status' => 500 ) );
+			}
+		}
+
+		$this->set_discussion_enabled( $space_id, true );
+		return true;
+	}
+
+	/**
 	 * Resolve the per-space Discussion status for the owner control + tab.
 	 *
 	 * `has_discussion` — the space has a dedicated discussion (permanent, 1:1).
@@ -1759,6 +1802,36 @@ class JetonomyBridge {
 			)
 		);
 
+		// The owner's Discussion on/off control (Space settings > Integrations):
+		// read the status, or turn it on (optionally linking an existing one) / off.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>\d+)/discussion',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'rest_discussion_status' ),
+					'permission_callback' => array( $this, 'rest_discussion_manage_permission' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'rest_set_discussion' ),
+					'permission_callback' => array( $this, 'rest_discussion_manage_permission' ),
+					'args'                => array(
+						'enabled' => array(
+							'required' => true,
+							'type'     => 'boolean',
+						),
+						'link_id' => array(
+							'type'              => 'integer',
+							'default'           => 0,
+							'sanitize_callback' => 'absint',
+						),
+					),
+				),
+			)
+		);
+
 		// Typeahead for the "link an existing discussion" picker. Bounded search so
 		// it scales past a bounded <select> on sites with thousands of discussions.
 		// Same manage-space gate as provisioning; scope is role-derived server-side
@@ -1886,6 +1959,48 @@ class JetonomyBridge {
 			array( 'results' => $this->search_discussions( $q, $owner_id ) ),
 			200
 		);
+	}
+
+	/**
+	 * Permission: the same space-settings capability the web settings page uses.
+	 *
+	 * @param \WP_REST_Request $request Request (id).
+	 * @return true|\WP_Error
+	 */
+	public function rest_discussion_manage_permission( \WP_REST_Request $request ) {
+		$visible = $this->rest_forum_access_permission( $request );
+		if ( true !== $visible ) {
+			return $visible;
+		}
+		if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => (int) $request['id'] ) ) ) {
+			return new \WP_Error( 'rest_forbidden', __( 'You cannot manage this space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		return true;
+	}
+
+	/**
+	 * GET /spaces/{id}/discussion - has_discussion, enabled, forum_id, name, url.
+	 *
+	 * @param \WP_REST_Request $request Request (id).
+	 * @return \WP_REST_Response
+	 */
+	public function rest_discussion_status( \WP_REST_Request $request ): \WP_REST_Response {
+		return new \WP_REST_Response( $this->space_discussion_status( (int) $request['id'] ), 200 );
+	}
+
+	/**
+	 * POST /spaces/{id}/discussion - apply the on/off choice, return the new status.
+	 *
+	 * @param \WP_REST_Request $request Request (id, enabled, link_id).
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function rest_set_discussion( \WP_REST_Request $request ) {
+		$space_id = (int) $request['id'];
+		$result   = $this->apply_discussion_choice( $space_id, (bool) $request['enabled'], (int) $request['link_id'], get_current_user_id() );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		return new \WP_REST_Response( $this->space_discussion_status( $space_id ), 200 );
 	}
 
 	/**

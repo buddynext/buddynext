@@ -47,6 +47,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}jt_spaces (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				slug VARCHAR(200) NOT NULL DEFAULT '',
+				title VARCHAR(200) NOT NULL DEFAULT '',
 				visibility VARCHAR(20) NOT NULL DEFAULT 'public',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
@@ -392,6 +393,54 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$after  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" );
 		$this->assertSame( $forum_id, $again );
 		$this->assertSame( $before, $after );
+	}
+
+	/**
+	 * The owner's on/off choice: first on creates the discussion, off keeps it,
+	 * on again restores the same one. Web settings and REST share this path.
+	 *
+	 * @return void
+	 */
+	public function test_discussion_choice_round_trip_keeps_one_discussion(): void {
+		global $wpdb;
+		$owner    = self::factory()->user->create();
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Choice', 'slug' => 'choice-' . wp_rand( 1000, 9999 ) ) );
+
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $space_id, true, 0, $owner ) );
+		$first = $this->bridge->space_discussion_status( $space_id );
+		$this->assertTrue( $first['enabled'] );
+		$this->assertGreaterThan( 0, $first['forum_id'] );
+
+		$this->assertTrue( $this->bridge->apply_discussion_choice( $space_id, false, 0, $owner ) );
+		$off = $this->bridge->space_discussion_status( $space_id );
+		$this->assertFalse( $off['enabled'] );
+		$this->assertSame( $first['forum_id'], $off['forum_id'], 'Off keeps the discussion.' );
+
+		$rows = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" );
+		$this->bridge->apply_discussion_choice( $space_id, true, 0, $owner );
+		$this->assertSame( $first['forum_id'], $this->bridge->space_discussion_status( $space_id )['forum_id'], 'On again restores the same one.' );
+		$this->assertSame( $rows, (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" ), 'No second discussion.' );
+	}
+
+	/**
+	 * Only someone who can manage the space's settings may read or change it.
+	 *
+	 * @return void
+	 */
+	public function test_discussion_route_is_for_space_managers(): void {
+		$owner    = self::factory()->user->create();
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Gate', 'slug' => 'gate-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$request  = new \WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $space_id . '/discussion' );
+		$request->set_url_params( array( 'id' => $space_id ) );
+
+		wp_set_current_user( $owner );
+		$this->assertTrue( $this->bridge->rest_discussion_manage_permission( $request ) );
+
+		wp_set_current_user( self::factory()->user->create() );
+		$this->assertSame( 403, $this->bridge->rest_discussion_manage_permission( $request )->get_error_data()['status'] );
+
+		wp_set_current_user( 0 );
+		$this->assertSame( 401, $this->bridge->rest_discussion_manage_permission( $request )->get_error_data()['status'] );
 	}
 
 	/**

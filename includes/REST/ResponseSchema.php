@@ -649,6 +649,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/spaces/{id}/discussion',
+				'resource' => 'space_discussion',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/users/{id}/media',
 				'resource' => 'users_media',
 				'shape'    => 'item',
@@ -5512,6 +5518,26 @@ final class ResponseSchema {
 				'per_page' => array(
 					'type' => 'integer',
 				),
+			),
+		);
+	}
+
+	/**
+	 * A space's Discussion (Jetonomy) status (GET/POST /spaces/{id}/discussion).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function space_discussion(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'space-discussion',
+			'type'       => 'object',
+			'properties' => array(
+				'has_discussion' => array( 'type' => 'boolean' ),
+				'enabled'        => array( 'type' => 'boolean' ),
+				'forum_id'       => array( 'type' => 'integer' ),
+				'name'           => array( 'type' => 'string' ),
+				'url'            => array( 'type' => 'string' ),
 			),
 		);
 	}
