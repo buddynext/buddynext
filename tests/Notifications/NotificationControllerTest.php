@@ -228,4 +228,30 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 		$count_data = $count_res->get_data();
 		$this->assertSame( 0, $count_data['count'] );
 	}
+
+	/**
+	 * by_tab: the notifications page's per-tab unread badges.
+	 *
+	 * @return void
+	 */
+	public function test_unread_count_by_tab(): void {
+		wp_set_current_user( $this->user_id );
+		foreach ( array( 'bn.new_follower', 'bn.connection_accepted', 'bn.mention' ) as $type ) {
+			$this->notif_service->create(
+				array(
+					'recipient_id' => $this->user_id,
+					'sender_id'    => $this->sender_id,
+					'type'         => $type,
+				)
+			);
+		}
+
+		$tabs = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications/unread-count' ) )->get_data()['by_tab'];
+
+		$this->assertSame( 3, $tabs['unread'] );
+		$this->assertSame( 2, $tabs['follow'], 'Follows tab: a follow and a connection.' );
+		$this->assertSame( 1, $tabs['mention'] );
+		$this->assertSame( 0, $tabs['message'] );
+		$this->assertSame( array_merge( array( 'unread' ), array_keys( \BuddyNext\Notifications\NotificationService::TAB_TYPES ) ), array_keys( $tabs ) );
+	}
 }

@@ -410,7 +410,7 @@ final class ResponseSchema {
 			array(
 				'method'   => 'GET',
 				'path'     => '/me/notifications/unread-count',
-				'resource' => 'me_follow_requests_count',
+				'resource' => 'me_notifications_unread_count',
 				'shape'    => 'item',
 			),
 			array(
@@ -2820,6 +2820,27 @@ final class ResponseSchema {
 						'array',
 						'object',
 					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * The bell badge and the notifications page's per-tab unread counts
+	 * (GET /me/notifications/unread-count).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function me_notifications_unread_count(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'me-notifications-unread-count',
+			'type'       => 'object',
+			'properties' => array(
+				'count'  => array( 'type' => 'integer' ),
+				'by_tab' => array(
+					'type'                 => 'object',
+					'additionalProperties' => array( 'type' => 'integer' ),
 				),
 			),
 		);

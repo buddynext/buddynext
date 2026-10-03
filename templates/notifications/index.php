@@ -50,14 +50,7 @@ if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 // Filter-key -> notification type list. Shared between the type-filtered fetch
 // below and the per-type unread tally (so the in-template SQL is gone but the
 // "which types belong to which tab" mapping stays declarative).
-$filter_type_map = array(
-	'reaction' => array( 'bn.post_reacted', 'mediaverse.media_reaction' ),
-	'comment'  => array( 'bn.post_commented', 'bn.media_commented' ),
-	'mention'  => array( 'bn.mention', 'mediaverse.media_mention' ),
-	'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
-	'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
-	'message'  => array( 'bn.new_message' ),
-);
+$filter_type_map = NotificationService::TAB_TYPES;
 
 // Pagination (simple offset; cap at 25 per page).
 $bn_per_page = 25;
@@ -111,26 +104,18 @@ $total_pages = (int) max( 1, ceil( $total_count / $bn_per_page ) );
 
 // Per-type unread counts -> tab + sidebar badges (replaces the in-template
 // conditional-SUM query). Aggregate the per-type map onto each filter tab.
-$type_unread = $notification_service->unread_counts_by_type( $current_user_id );
-$sum_types   = static function ( array $types ) use ( $type_unread ): int {
-	$sum = 0;
-	foreach ( $types as $t ) {
-		$sum += (int) ( $type_unread[ $t ] ?? 0 );
-	}
-	return $sum;
-};
-
-$total_unread = array_sum( array_map( 'intval', $type_unread ) );
+$tab_unread   = $notification_service->unread_counts_by_tab( $current_user_id );
+$total_unread = $tab_unread['unread'];
 // Badge (bell / nav) = UNSEEN, distinct from the Unread TAB count above. By the
 // time this hub renders, the list has been marked seen (PageRouter), so this is
 // 0 here — keeping the mobile badge consistent with every other surface.
 $badge_unseen    = (int) $notification_service->unseen_count( $current_user_id );
-$reaction_unread = $sum_types( $filter_type_map['reaction'] );
-$comment_unread  = $sum_types( $filter_type_map['comment'] );
-$mention_unread  = $sum_types( $filter_type_map['mention'] );
-$follow_unread   = $sum_types( $filter_type_map['follow'] );
-$space_unread    = $sum_types( $filter_type_map['space'] );
-$message_unread  = $sum_types( $filter_type_map['message'] );
+$reaction_unread = $tab_unread['reaction'];
+$comment_unread  = $tab_unread['comment'];
+$mention_unread  = $tab_unread['mention'];
+$follow_unread   = $tab_unread['follow'];
+$space_unread    = $tab_unread['space'];
+$message_unread  = $tab_unread['message'];
 
 // Message composer service: composes per-row copy/url/icon/tone/label AND
 // primes the WP user cache (compose_batch -> cache_users), so the actor avatar

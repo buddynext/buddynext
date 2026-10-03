@@ -286,9 +286,17 @@ class NotificationController extends BaseRestController {
 		// viewed). Viewing the list (mark_seen) clears it without marking items
 		// read, so the Unread tab stays intact. The route name is kept for
 		// backward compatibility.
-		$count = ( new NotificationService() )->unseen_count( $user_id );
+		$service = new NotificationService();
+		$count   = $service->unseen_count( $user_id );
 
-		return new WP_REST_Response( array( 'count' => $count ), 200 );
+		// by_tab: the notifications page's per-tab unread badges ('unread' = all).
+		return new WP_REST_Response(
+			array(
+				'count'  => $count,
+				'by_tab' => $service->unread_counts_by_tab( $user_id ),
+			),
+			200
+		);
 	}
 
 	/**

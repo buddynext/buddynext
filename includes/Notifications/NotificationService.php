@@ -24,6 +24,20 @@ use WP_Error;
  * Handles notification creation, read-state, and listing.
  */
 class NotificationService {
+	/**
+	 * Notification types behind each filter tab of the notifications page.
+	 *
+	 * @var array<string,string[]>
+	 */
+	public const TAB_TYPES = array(
+		'reaction' => array( 'bn.post_reacted', 'mediaverse.media_reaction' ),
+		'comment'  => array( 'bn.post_commented', 'bn.media_commented' ),
+		'mention'  => array( 'bn.mention', 'mediaverse.media_mention' ),
+		'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
+		'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
+		'message'  => array( 'bn.new_message' ),
+	);
+
 
 	/**
 	 * Cache group.
@@ -1101,6 +1115,25 @@ class NotificationService {
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Unread counts per notifications-page tab (TAB_TYPES) plus the Unread tab's
+	 * total: the badges the web page and the app show. One query.
+	 *
+	 * @param int $user_id Recipient user ID.
+	 * @return array<string,int> tab => unread count ('unread' = all types).
+	 */
+	public function unread_counts_by_tab( int $user_id ): array {
+		$by_type = $this->unread_counts_by_type( $user_id );
+		$tabs    = array( 'unread' => array_sum( array_map( 'intval', $by_type ) ) );
+		foreach ( self::TAB_TYPES as $tab => $types ) {
+			$tabs[ $tab ] = 0;
+			foreach ( $types as $type ) {
+				$tabs[ $tab ] += (int) ( $by_type[ $type ] ?? 0 );
+			}
+		}
+		return $tabs;
 	}
 
 	/**
