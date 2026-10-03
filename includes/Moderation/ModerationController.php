@@ -241,24 +241,24 @@ class ModerationController extends BaseRestController {
 						'maximum'           => 366,
 						'sanitize_callback' => 'absint',
 					),
-					'user_id'  => array(
+					'user_id'    => array(
 						'type'              => 'integer',
 						'required'          => false,
 						'sanitize_callback' => 'absint',
 					),
-					'action'   => array(
+					'action'     => array(
 						'type'              => 'string',
 						'required'          => false,
 						'sanitize_callback' => 'sanitize_key',
 					),
-					'per_page' => array(
+					'per_page'   => array(
 						'type'              => 'integer',
 						'default'           => 20,
 						'minimum'           => 1,
 						'maximum'           => 100,
 						'sanitize_callback' => 'absint',
 					),
-					'page'     => array(
+					'page'       => array(
 						'type'              => 'integer',
 						'default'           => 1,
 						'minimum'           => 1,
