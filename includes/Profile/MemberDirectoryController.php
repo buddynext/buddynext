@@ -522,6 +522,10 @@ class MemberDirectoryController extends BaseRestController {
 		 * can attach their own fields. Per-member data should be batch-primed on the
 		 * buddynext_directory_members_primed action so this stays free of N+1.
 		 *
+		 * Also applied to space roster rows (GET /spaces/{id}/members), which carry
+		 * fewer keys (user_id, role, joined_at, display_name, user_nicename,
+		 * avatar_url, cover_url): only add fields, never assume directory-only keys.
+		 *
 		 * @param array $item The shaped member item.
 		 * @param int   $uid  Member user ID.
 		 */
