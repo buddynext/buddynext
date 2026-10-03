@@ -97,6 +97,31 @@ class PrivacyService {
 	}
 
 	/**
+	 * A member's privacy settings as stored, with their defaults.
+	 *
+	 * The one read behind Settings > Privacy and GET /me/profile, keyed by the
+	 * same names PUT /me/profile accepts, so a client reads and writes one shape.
+	 *
+	 * @param int $user_id User ID.
+	 * @return array<string,string|bool>
+	 */
+	public function member_settings( int $user_id ): array {
+		$mention = (string) get_user_meta( $user_id, 'bn_privacy_mention', true );
+
+		return array(
+			'bn_privacy_profile_visibility' => $this->get_preference( $user_id, 'profile_visibility' ),
+			'bn_privacy_who_can_follow'     => $this->get_preference( $user_id, 'who_can_follow' ),
+			'bn_privacy_who_can_connect'    => $this->get_preference( $user_id, 'who_can_connect' ),
+			'bn_privacy_mention'            => '' === $mention ? 'everyone' : $mention,
+			'bn_account_private'            => (bool) get_user_meta( $user_id, 'bn_account_private', true ),
+			'bn_privacy_show_in_directory'  => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_show_in_directory', true ),
+			'bn_privacy_search_indexable'   => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_search_indexable', true ),
+			// The canonical Pro-shared key (Pro reads it for who-viewed-your-profile).
+			'bn_pro_hide_profile_views'     => '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true ),
+		);
+	}
+
+	/**
 	 * Persist a privacy preference value for a user.
 	 *
 	 * @param int    $user_id User ID.

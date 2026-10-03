@@ -4416,6 +4416,19 @@ final class ResponseSchema {
 						),
 					),
 				),
+				'privacy'           => array(
+					'type'       => 'object',
+					'properties' => array(
+						'bn_privacy_profile_visibility' => array( 'type' => 'string' ),
+						'bn_privacy_who_can_follow'     => array( 'type' => 'string' ),
+						'bn_privacy_who_can_connect'    => array( 'type' => 'string' ),
+						'bn_privacy_mention'            => array( 'type' => 'string' ),
+						'bn_account_private'            => array( 'type' => 'boolean' ),
+						'bn_privacy_show_in_directory'  => array( 'type' => 'boolean' ),
+						'bn_privacy_search_indexable'   => array( 'type' => 'boolean' ),
+						'bn_pro_hide_profile_views'     => array( 'type' => 'boolean' ),
+					),
+				),
 				'strength'          => array(
 					'type'       => 'object',
 					'properties' => array(

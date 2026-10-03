@@ -158,4 +158,35 @@ class ProfileControllerPrivacyTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( '1', get_user_meta( $this->user_id, 'bn_pref_email_follows', true ) );
 		$this->assertSame( '0', get_user_meta( $this->user_id, 'bn_pref_email_digest', true ) );
 	}
+
+	/**
+	 * What PUT saves, GET returns under `privacy` with the same keys, and the
+	 * defaults match the web settings page for a member who never chose.
+	 *
+	 * @return void
+	 */
+	public function test_get_reads_back_what_put_saved(): void {
+		$read = function (): array {
+			wp_set_current_user( $this->user_id );
+			return rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/buddynext/v1/me/profile' ) )->get_data()['privacy'];
+		};
+
+		$defaults = $read();
+		$this->assertSame( 'everyone', $defaults['bn_privacy_mention'] );
+		$this->assertTrue( $defaults['bn_privacy_show_in_directory'] );
+		$this->assertFalse( $defaults['bn_account_private'] );
+
+		$saved = array(
+			'bn_privacy_profile_visibility' => 'connections',
+			'bn_privacy_who_can_follow'     => 'nobody',
+			'bn_privacy_who_can_connect'    => 'followers',
+			'bn_privacy_mention'            => 'connections',
+			'bn_account_private'            => true,
+			'bn_privacy_show_in_directory'  => false,
+			'bn_privacy_search_indexable'   => false,
+			'bn_pro_hide_profile_views'     => true,
+		);
+		$this->assertSame( 200, $this->authed_put( $saved )->get_status() );
+		$this->assertSame( $saved, $read() );
+	}
 }

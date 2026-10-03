@@ -1177,6 +1177,8 @@ class ProfileController extends BaseRestController {
 
 		$profile['completion'] = $service->get_completion_score( $user_id );
 		$profile['strength']   = $service->get_strength( $user_id, is_array( $profile ) && ! empty( $profile['groups'] ) ? $profile : null );
+		// Own profile only: the stored privacy choices, keyed as PUT accepts them.
+		$profile['privacy'] = buddynext_service( 'privacy' )->member_settings( $user_id );
 
 		return new WP_REST_Response( $profile, 200 );
 	}
@@ -1548,12 +1550,7 @@ class ProfileController extends BaseRestController {
 
 		// Profile-view / follow / connect gates: each key has its own enum,
 		// mirroring the PrivacyService gate that reads it back.
-		$gate_enums = array(
-			'bn_privacy_profile_visibility' => array( 'public', 'followers', 'connections', 'private' ),
-			'bn_privacy_who_can_follow'     => array( 'everyone', 'nobody' ),
-			'bn_privacy_who_can_connect'    => array( 'everyone', 'followers', 'nobody' ),
-		);
-		foreach ( $gate_enums as $gate_key => $allowed ) {
+		foreach ( self::PROFILE_META_GATES as $gate_key => $allowed ) {
 			if ( ! array_key_exists( $gate_key, $data ) ) {
 				continue;
 			}
