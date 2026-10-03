@@ -1188,6 +1188,8 @@ class ProfileController extends BaseRestController {
 		$profile['strength']   = $service->get_strength( $user_id, is_array( $profile ) && ! empty( $profile['groups'] ) ? $profile : null );
 		// Own profile only: the stored privacy choices, keyed as PUT accepts them.
 		$profile['privacy'] = buddynext_service( 'privacy' )->member_settings( $user_id );
+		// An email change waiting for verification (Settings > Account notice); '' when none.
+		$profile['pending_email'] = (string) get_user_meta( $user_id, 'bn_pending_email', true );
 
 		return new WP_REST_Response( $profile, 200 );
 	}

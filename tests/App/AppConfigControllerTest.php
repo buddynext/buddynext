@@ -631,4 +631,20 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 		$this->assertFalse( $data['ask_name'] );
 		$this->assertTrue( $data['ask_username'] );
 	}
+
+	/**
+	 * The settings sections, add-on ones included, as the web tab strip lists them.
+	 *
+	 * @return void
+	 */
+	public function test_settings_tabs_match_the_web_strip(): void {
+		$extra = static fn( array $tabs ): array => $tabs + array( 'addon' => 'Add-on' );
+		add_filter( 'buddynext_settings_tabs', $extra );
+
+		$tabs = rest_get_server()->dispatch( new \WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) )->get_data()['settings_tabs'];
+		$this->assertSame( array_keys( \BuddyNext\Core\PageRouter::settings_tabs() ), wp_list_pluck( $tabs, 'slug' ) );
+		$this->assertContains( 'addon', wp_list_pluck( $tabs, 'slug' ), 'Add-on sections reach the app.' );
+
+		remove_filter( 'buddynext_settings_tabs', $extra );
+	}
 }

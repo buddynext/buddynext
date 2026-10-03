@@ -1179,6 +1179,7 @@ final class ResponseSchema {
 						'my_voted_option_id' => array( 'type' => array( 'integer', 'null' ) ),
 						'my_share'           => array( 'type' => array( 'object', 'null' ) ),
 						'can_edit'           => array( 'type' => 'boolean' ),
+						'has_reported'       => array( 'type' => 'boolean' ),
 					),
 				),
 				'media'                => array(
@@ -1691,6 +1692,10 @@ final class ResponseSchema {
 				'legal'            => array( 'type' => 'object' ),
 				'auth'             => array( 'type' => 'object' ),
 				'realtime'         => array( 'type' => 'object' ),
+				'settings_tabs'    => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'object' ),
+				),
 				'spaces'           => array(
 					'type'       => 'object',
 					'properties' => array(
@@ -2225,6 +2230,9 @@ final class ResponseSchema {
 							'type' => 'boolean',
 						),
 						'can_edit'           => array(
+							'type' => 'boolean',
+						),
+						'has_reported'       => array(
 							'type' => 'boolean',
 						),
 					),
@@ -4489,6 +4497,7 @@ final class ResponseSchema {
 						),
 					),
 				),
+				'pending_email'     => array( 'type' => 'string' ),
 				'privacy'           => array(
 					'type'       => 'object',
 					'properties' => array(

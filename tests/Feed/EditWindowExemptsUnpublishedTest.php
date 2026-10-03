@@ -132,4 +132,19 @@ class EditWindowExemptsUnpublishedTest extends \WP_UnitTestCase {
 		update_option( 'buddynext_post_edit_window', 0 );
 		$this->assertTrue( $can_edit( $stale, $this->author ), '0 means no window.' );
 	}
+
+	/**
+	 * viewer_state.has_reported is true only for the member who reported the post.
+	 *
+	 * @return void
+	 */
+	public function test_viewer_state_carries_has_reported(): void {
+		$post     = (int) $this->posts->create( $this->author, array( 'content' => 'Report me' ) );
+		$reporter = self::factory()->user->create();
+		( new \BuddyNext\Moderation\ModerationService() )->report( $reporter, 'post', $post, 'spam' );
+		$state = static fn( int $viewer ): bool => (bool) ( new \BuddyNext\Feed\FeedController() )->enrich_for_rest( array( ( new PostService() )->get( $post ) ), $viewer )[0]['viewer_state']['has_reported'];
+
+		$this->assertTrue( $state( $reporter ) );
+		$this->assertFalse( $state( self::factory()->user->create() ), 'Someone else has not reported it.' );
+	}
 }

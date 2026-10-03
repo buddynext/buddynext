@@ -3782,6 +3782,36 @@ class PageRouter {
 	}
 
 	/**
+	 * The Settings hub's sections: slug => tab label, add-on sections included.
+	 *
+	 * The one list behind the web tab strip (parts/settings-nav.php) and the app
+	 * config. Each slug resolves through settings_url().
+	 *
+	 * @param string $active Active section slug ('' when none, e.g. the app).
+	 * @return array<string,string>
+	 */
+	public static function settings_tabs( string $active = '' ): array {
+		$tabs = array(
+			'account'       => __( 'Account', 'buddynext' ),
+			'notifications' => __( 'Notifications', 'buddynext' ),
+			'privacy'       => __( 'Privacy', 'buddynext' ),
+			'appearance'    => __( 'Appearance', 'buddynext' ),
+		);
+
+		/**
+		 * Filter the Settings hub tab strip so addons can register their own sections.
+		 *
+		 * Each entry is `section-slug => Tab label`. The slug must resolve through
+		 * PageRouter::settings_url() (a bare slug maps to /settings/{slug}/) and the
+		 * addon is responsible for routing that URL + providing its section template.
+		 *
+		 * @param array<string,string> $tabs   Section slug => tab label.
+		 * @param string               $active Active section slug.
+		 */
+		return (array) apply_filters( 'buddynext_settings_tabs', $tabs, $active );
+	}
+
+	/**
 	 * Return a Settings hub URL.
 	 *
 	 * `/settings/` (default → Account), or `/settings/{section}/` for a specific

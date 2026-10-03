@@ -189,4 +189,15 @@ class ProfileControllerPrivacyTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 200, $this->authed_put( $saved )->get_status() );
 		$this->assertSame( $saved, $read() );
 	}
+
+	/**
+	 * An email change waiting for verification is readable by its owner.
+	 *
+	 * @return void
+	 */
+	public function test_pending_email_is_returned_to_its_owner(): void {
+		update_user_meta( $this->user_id, 'bn_pending_email', 'next@example.test' );
+		wp_set_current_user( $this->user_id );
+		$this->assertSame( 'next@example.test', rest_get_server()->dispatch( new WP_REST_Request( 'GET', '/buddynext/v1/me/profile' ) )->get_data()['pending_email'] );
+	}
 }

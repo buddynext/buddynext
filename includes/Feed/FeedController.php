@@ -359,7 +359,7 @@ class FeedController extends BaseRestController {
 	 * @param int   $viewer   Current user ID (0 when logged out).
 	 * @param int[] $post_ids Posts on this page.
 	 * @param int[] $poll_ids The subset that are polls.
-	 * @return array{reactions:array,votes:array,bookmarks:array,shares:array}
+	 * @return array{reactions:array,votes:array,bookmarks:array,shares:array,reported:array}
 	 */
 	private function prime_viewer_maps( int $viewer, array $post_ids, array $poll_ids = array() ): array {
 		if ( $viewer <= 0 || empty( $post_ids ) ) {
@@ -368,6 +368,7 @@ class FeedController extends BaseRestController {
 				'votes'     => array(),
 				'bookmarks' => array(),
 				'shares'    => array(),
+				'reported'  => array(),
 			);
 		}
 
@@ -379,6 +380,8 @@ class FeedController extends BaseRestController {
 			// replace.
 			'bookmarks' => buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids ),
 			'shares'    => buddynext_service( 'shares' )->shared_among( $viewer, $post_ids ),
+			// The post card's "Reported" state (one batched lookup, as the web feed primes it).
+			'reported'  => buddynext_service( 'moderation' )->user_reported_map( $viewer, 'post', $post_ids ),
 		);
 	}
 
@@ -433,6 +436,7 @@ class FeedController extends BaseRestController {
 			'is_bookmarked'      => isset( $maps['bookmarks'][ $post_id ] ),
 			'my_voted_option_id' => isset( $maps['votes'][ $post_id ] ) ? (int) $maps['votes'][ $post_id ] : 0,
 			'my_share'           => isset( $maps['shares'][ $post_id ] ),
+			'has_reported'       => ! empty( $maps['reported'][ $post_id ] ),
 		);
 	}
 

@@ -283,6 +283,17 @@ class AppConfigController {
 			// What the create-space form needs: may this viewer create one, the
 			// types with their join rule, and the owner's defaults. Additive block.
 			'spaces'           => $this->spaces(),
+
+			// The Settings hub's sections, add-on sections (Pro Membership) included.
+			'settings_tabs'    => array_map(
+				static fn( string $slug, string $label ): array => array(
+					'slug'  => $slug,
+					'label' => $label,
+					'url'   => \BuddyNext\Core\PageRouter::settings_url( $slug ),
+				),
+				array_keys( \BuddyNext\Core\PageRouter::settings_tabs() ),
+				array_values( \BuddyNext\Core\PageRouter::settings_tabs() )
+			),
 		);
 
 		/**
