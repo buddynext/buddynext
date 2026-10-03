@@ -46,7 +46,7 @@ class MediaClient {
 	public static function can_upload( int $user_id ): bool {
 		return $user_id > 0
 			&& self::available()
-			&& ( user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'upload_mvs_media' ) );
+			&& ( user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'upload_mvs_media' ) ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- MediaVerse's own capability.
 	}
 
 	/**
