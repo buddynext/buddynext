@@ -1402,7 +1402,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							// purpose — their consumer has no 0-guard, so 0 there would
 							// mean "act on the first strike", not "off".
 							'min'     => 0,
-							'hint'    => __( 'Content is hidden automatically once it reaches this number of reports. Reviewable in the moderation queue. Set to 0 to turn automatic hiding off.', 'buddynext' ),
+							'hint'    => __( 'Content is hidden automatically once it reaches this number of reports, and waits in the moderation queue. Reports from accounts younger than 7 days do not count, and an automatic flag (a new member\'s post, a duplicate, a rule) counts as one. Set to 0 to turn automatic hiding off.', 'buddynext' ),
 						)
 					),
 					new Field(

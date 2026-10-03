@@ -3231,7 +3231,7 @@ class Installer {
 				'type'         => 'welcome',
 				'subject'      => 'Welcome to {{site_name}}',
 				'preview_text' => 'Your community account is ready',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}} Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{site_url}}">start exploring</a>.</p>',
 			),
 			array(
 				'type'         => 'bn.new_follower',
@@ -3419,6 +3419,11 @@ class Installer {
 		}
 
 		$previous = array(
+			// 1.2.4: the welcome body ran the site name into the next sentence
+			// ("Welcome to X Your account...") and used an em-dash.
+			'welcome'             => array(
+				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}} Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>' ),
+			),
 			// 1.2.4: the suspension email names the reason and the end date (card 10240365173).
 			'bn.member_suspended' => array(
 				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>' ),
