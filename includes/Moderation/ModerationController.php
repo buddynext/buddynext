@@ -232,7 +232,7 @@ class ModerationController extends BaseRestController {
 				// Site moderators read the whole log; a space owner/moderator reads
 				// their own space's (space_id required, checked in the handler) -
 				// the space Moderation tab's Activity log and its counts.
-				'permission_callback' => array( $this, 'require_queue_access' ),
+				'permission_callback' => array( $this, 'require_log_access' ),
 				'args'                => array(
 					'space_id'   => array(
 						'type'              => 'integer',
@@ -1497,6 +1497,18 @@ class ModerationController extends BaseRestController {
 	 */
 	private function moderates_space( int $space_id ): bool {
 		return $space_id > 0 && in_array( $space_id, array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) ), true );
+	}
+
+	/**
+	 * Permission callback for the moderation log.
+	 *
+	 * Everyone who held it before (any moderation ability, require_moderator())
+	 * plus space owners/moderators, whom the handler limits to their own space.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function require_log_access(): bool|WP_Error {
+		return $this->holds_moderation_authority( get_current_user_id() ) ? true : $this->require_queue_access();
 	}
 
 	/**

@@ -117,4 +117,24 @@ class SpaceModerationLogRestTest extends \WP_Test_REST_TestCase {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		$this->assertCount( 1, $queue( array( 'space_id' => $theirs ) )->get_data()['items'], 'A site moderator may narrow to any space.' );
 	}
+
+	/**
+	 * Regression guard: anyone who could read the log before (any moderation
+	 * ability, e.g. a role that may only issue strikes) still reads all of it.
+	 *
+	 * @return void
+	 */
+	public function test_any_moderation_ability_still_reads_the_whole_log(): void {
+		$striker = self::factory()->user->create();
+		( new ModerationLogService() )->log( $striker, 'warn', array( 'space_id' => 0 ) );
+		$grant = static function ( $can, $user_id, $ability ) use ( $striker ) {
+			return ( (int) $user_id === $striker && 'buddynext-moderation/issue-strike' === $ability ) ? true : $can;
+		};
+		add_filter( 'buddynext_user_can', $grant, 10, 3 );
+
+		wp_set_current_user( $striker );
+		$this->assertSame( 200, $this->get_log( array() )->get_status() );
+
+		remove_filter( 'buddynext_user_can', $grant, 10 );
+	}
 }
