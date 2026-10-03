@@ -250,6 +250,40 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 'active', $this->service->get_status( $private_id, $user_id ) );
 	}
 
+	/**
+	 * Approving is a join: a buddynext_can_join_space refusal (seat cap, plan,
+	 * invite-only) is shown to the admin and the member stays pending.
+	 *
+	 * @return void
+	 */
+	public function test_approve_request_honours_the_join_gate(): void {
+		$user_id    = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Gated Approve',
+				'slug' => 'gated-approve-' . wp_rand( 1000, 9999 ),
+				'type' => 'private',
+			)
+		);
+		$this->service->request_join( $private_id, $user_id );
+
+		$seen = '';
+		$deny = static function ( $can, $space, $uid, $action ) use ( &$seen ) {
+			$seen = $action;
+			return false;
+		};
+		add_filter( 'buddynext_can_join_space', $deny, 10, 4 );
+		$result = $this->service->approve_request( $private_id, $this->owner_id, $user_id );
+		remove_filter( 'buddynext_can_join_space', $deny, 10 );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'cannot_join_space', $result->get_error_code() );
+		$this->assertStringContainsString( 'stays pending', $result->get_error_message() );
+		$this->assertSame( 'approve', $seen, 'Listeners can tell an approval from a self-join.' );
+		$this->assertSame( 'pending', $this->service->get_status( $private_id, $user_id ) );
+	}
+
 	public function test_approve_request_no_pending_returns_error(): void {
 		$user_id = self::factory()->user->create();
 

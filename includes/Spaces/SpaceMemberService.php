@@ -126,7 +126,8 @@ class SpaceMemberService {
 		 * @param bool   $can      Whether the user may proceed. Default true.
 		 * @param array  $space    Space row from bn_spaces (empty array when row missing).
 		 * @param int    $user_id  User attempting to join.
-		 * @param string $action   Action being performed — always 'join' from this method.
+		 * @param string $action   Action being performed: 'join' here, 'request' from
+		 *                         request_join(), 'approve' when an admin approves a request.
 		 */
 		$can = (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'join' );
 		if ( ! $can ) {
@@ -431,7 +432,8 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
-		if ( empty( $this->load_space_row( $space_id ) ) ) {
+		$space = $this->load_space_row( $space_id );
+		if ( empty( $space ) ) {
 			return new WP_Error(
 				'space_not_found',
 				__( 'This space no longer exists.', 'buddynext' ),
@@ -455,6 +457,14 @@ class SpaceMemberService {
 				'no_pending_request',
 				__( 'No pending join request found for this member.', 'buddynext' )
 			);
+		}
+
+		// Approval is a join: the same buddynext_can_join_space gate join() and
+		// request_join() run (seat caps, paid plans, invite-only rules), or an admin
+		// approval bypassed every limit. A refused request stays pending.
+		/** This filter is documented in includes/Spaces/SpaceMemberService.php (join()). */
+		if ( ! (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'approve' ) ) {
+			return $this->denied_join_error( $space_id, $user_id, $space, 'approve' );
 		}
 
 		global $wpdb;
@@ -2712,7 +2722,7 @@ class SpaceMemberService {
 		 * @param int                  $space_id Space the user was denied.
 		 * @param int                  $user_id  User attempting to join.
 		 * @param array<string, mixed> $space    Space row (may be empty on miss).
-		 * @param string               $action   'join' or 'request'.
+		 * @param string               $action   'join', 'request' or 'approve' (an admin approving a request).
 		 */
 		$data = (array) apply_filters( 'buddynext_space_join_denied_data', $data, $space_id, $user_id, $space, $action );
 
@@ -2720,9 +2730,12 @@ class SpaceMemberService {
 			$data['status'] = 403;
 		}
 
+		$default = 'approve' === $action
+			? __( 'This member cannot join this space, so the request stays pending.', 'buddynext' )
+			: __( 'You cannot join this space.', 'buddynext' );
 		$message = isset( $data['message'] ) && is_string( $data['message'] ) && '' !== $data['message']
 			? $data['message']
-			: __( 'You cannot join this space.', 'buddynext' );
+			: $default;
 		unset( $data['message'] );
 
 		return new WP_Error( 'cannot_join_space', $message, $data );
