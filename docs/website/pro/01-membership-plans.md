@@ -217,6 +217,8 @@ The pricing page is made of five BuddyNext blocks. Each fills itself from your s
 | **Plan comparison** (`[buddynext_membership_compare]`) | A table of what each plan includes, from the same features as the cards. | Start open or closed. Shows only with two or more plans. |
 | **Membership FAQ** (`[buddynext_membership_faq]`) | Answers built from your settings: cancelling, free trials, how to pay. | Switch any answer off, add your own questions. |
 
+All five are in the block inserter under **BuddyNext** (search "membership"). If you delete blocks by mistake, insert the **Membership pricing page** pattern (also under BuddyNext, or search "membership pricing page") to put the whole layout back in one click, then remove any section you had already restored.
+
 Pricing pages created before 1.2.4 that still have the original one-block layout are moved to these blocks on update. A pricing page you have edited is never rewritten; its original block keeps working and now shows the same sections.
 
 Select the **Membership plans** block to shape the plans in the block settings:
