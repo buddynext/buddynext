@@ -779,7 +779,10 @@ class JetonomyBridge {
 		// authored), not the global forum landing page. Only shown when logged in —
 		// there is no "my discussions" for a guest.
 		$uid = get_current_user_id();
-		if ( $uid <= 0 ) {
+		// Hidden under Integration Settings > Show in navigation: the profile tab
+		// this links to is gated on the same flag, so the rail must follow it (the
+		// Leaderboard, Media and Events rail items already do).
+		if ( $uid <= 0 || ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
 			return $items;
 		}
 
