@@ -132,6 +132,32 @@ class MemberDirectoryService {
 			return (int) $cached;
 		}
 
+		// The header's community size differs from the grid's total only by the
+		// viewer (count_viewer drops the self-exclusion). Counting the whole user
+		// table twice for that one row cost ~230ms per page at 100k members with
+		// no object cache. The grid total plus a primary-key check of the viewer's
+		// own row (same clauses, so the same answer) gives the exact number.
+		if ( ! empty( $filters['count_viewer'] ) && $viewer_id > 0 && empty( $filters['viewer_row_only'] ) ) {
+			$grid_filters = $filters;
+			unset( $grid_filters['count_viewer'] );
+			$viewer_set = isset( $filters['include'] ) && is_array( $filters['include'] )
+				? ( in_array( $viewer_id, array_map( 'intval', $filters['include'] ), true ) ? array( $viewer_id ) : array() )
+				: array( $viewer_id );
+			$total      = $this->directory_total( $viewer_id, $grid_filters )
+				+ ( $viewer_set ? $this->directory_total(
+					$viewer_id,
+					array_merge(
+						$filters,
+						array(
+							'include'         => $viewer_set,
+							'viewer_row_only' => true,
+						)
+					)
+				) : 0 );
+			wp_cache_set( $cache_key, $total, self::CACHE_GROUP, self::CACHE_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+			return $total;
+		}
+
 		$user_col = $wpdb->users . '.ID';
 
 		// Same exclusion set the GRID uses, or the number will not match what it shows.
@@ -231,12 +257,14 @@ class MemberDirectoryService {
 	 *   'online_only'       (bool)    — restrict to users active within the last 5 minutes.
 	 *   'sort'              (string)  — 'newest' (default), 'alphabetical', 'most_active',
 	 *                                   or 'online' (alias: implies online_only + most_active order).
+	 *   'with_total'        (bool)    — false skips the exact COUNT (total is null) for
+	 *                                   callers that never show it. Default true.
 	 *
 	 * @param int         $viewer_id ID of the viewing user (excluded from results).
 	 * @param string|null $cursor    Opaque pagination cursor from a previous page.
 	 * @param int         $per_page  Number of members per page (max 50).
 	 * @param array       $filters   Optional associative filter/sort options.
-	 * @return array{items: array[], next_cursor: string|null, total: int}
+	 * @return array{items: array[], next_cursor: string|null, total: int|null} total is null when $filters['with_total'] is false.
 	 */
 	public function list_members( int $viewer_id = 0, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, array $filters = array() ): array {
 		global $wpdb;
@@ -610,12 +638,17 @@ class MemberDirectoryService {
 		// so phpcs can't see them in the literal string — UnfinishedPrepare is a
 		// false positive here.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->users} u {$join_sql} WHERE {$count_where_sql}",
-				...$count_params
+		// A caller that never shows the total (the sidebar's newest-members widgets)
+		// passes with_total => false: at 100k members this COUNT is the most
+		// expensive query on the page when there is no persistent object cache.
+		$total = ( ! array_key_exists( 'with_total', $filters ) || ! empty( $filters['with_total'] ) )
+			? (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->users} u {$join_sql} WHERE {$count_where_sql}",
+					...$count_params
+				)
 			)
-		);
+			: null;
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$rows     = (array) $rows;

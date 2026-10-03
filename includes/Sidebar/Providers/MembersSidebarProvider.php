@@ -170,7 +170,18 @@ class MembersSidebarProvider {
 		if ( is_object( $directory ) ) {
 			// New members — the most recently joined, so the directory always shows
 			// the community growing even to a logged-out visitor.
-			$new_members = (array) ( $directory->list_members( $current_user_id, null, 5, array( 'sort' => 'newest' ) )['items'] ?? array() );
+			// One newest-members page feeds both widgets (new members + spotlight), and
+			// neither shows a total, so the full-directory COUNT is skipped.
+			$pool        = (array) ( $directory->list_members(
+				$current_user_id,
+				null,
+				30,
+				array(
+					'sort'       => 'newest',
+					'with_total' => false,
+				)
+			)['items'] ?? array() );
+			$new_members = array_slice( $pool, 0, 5 );
 			if ( ! empty( $new_members ) ) {
 				$descriptors[] = array(
 					'id'       => 'members-new',
@@ -188,7 +199,6 @@ class MembersSidebarProvider {
 			// UTC date) so the sidebar surfaces someone new every day and the column
 			// stays fresh across return visits without any owner config. The pool is
 			// the recent-members page; the date seed walks it one member per day.
-			$pool = (array) ( $directory->list_members( $current_user_id, null, 30, array( 'sort' => 'newest' ) )['items'] ?? array() );
 			if ( ! empty( $pool ) ) {
 				$spotlight     = $pool[ (int) gmdate( 'Ymd' ) % count( $pool ) ];
 				$descriptors[] = array(
