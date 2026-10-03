@@ -178,6 +178,25 @@ class SpaceController extends BaseRestController {
 		// Suggested spaces for the current viewer (ranked discovery). Auth-required —
 		// suggestions are per-viewer. Registered before '/spaces/(?P<id>\d+)' so the
 		// literal 'suggestions' segment is unambiguous.
+		// The site's featured spaces as members see them (directory strip and
+		// sidebar): curated order, visibility-scoped, guests included.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/featured',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'featured_for_viewer' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'limit' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/suggestions',
@@ -1152,6 +1171,20 @@ class SpaceController extends BaseRestController {
 		$spaces = $this->enrich_directory_rows( (array) $spaces, $viewer );
 
 		return new WP_REST_Response( $spaces, 200 );
+	}
+
+	/**
+	 * GET /spaces/featured - SpaceService::featured_spaces() for this viewer, the
+	 * list the web directory strip and sidebar show ('app' surface for the
+	 * buddynext_featured_spaces filter), as directory rows.
+	 *
+	 * @param WP_REST_Request $request REST request (limit; 0 = the site's limit).
+	 * @return WP_REST_Response
+	 */
+	public function featured_for_viewer( WP_REST_Request $request ): WP_REST_Response {
+		$viewer = get_current_user_id();
+		$rows   = ( new SpaceService() )->featured_spaces( $viewer, min( 24, absint( $request->get_param( 'limit' ) ) ), 'app' );
+		return new WP_REST_Response( $this->enrich_directory_rows( $rows, $viewer ), 200 );
 	}
 
 	/**

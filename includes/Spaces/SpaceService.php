@@ -1566,7 +1566,7 @@ class SpaceService {
 	 *
 	 * @param int    $viewer_id Viewer user ID (0 = logged out).
 	 * @param int    $limit     Max spaces. 0 = the configured limit.
-	 * @param string $surface   Surface tag for the filter ('sidebar'|'directory_mobile'|'onboarding'|'suggestions').
+	 * @param string $surface   Surface tag for the filter ('sidebar'|'directory_mobile'|'onboarding'|'suggestions'|'app').
 	 * @return array[] Hydrated space rows in resolved order.
 	 */
 	public function featured_spaces( int $viewer_id, int $limit = 0, string $surface = 'sidebar' ): array {

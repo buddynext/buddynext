@@ -649,6 +649,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/spaces/featured',
+				'resource' => 'space',
+				'shape'    => 'array',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/me/social',
 				'resource' => 'social_account',
 				'shape'    => 'array',
