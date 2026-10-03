@@ -637,6 +637,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/users/{id}/connections',
+				'resource' => 'users_followers',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/users/{id}/media',
 				'resource' => 'users_media',
 				'shape'    => 'item',

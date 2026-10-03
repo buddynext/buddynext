@@ -132,4 +132,59 @@ class FollowControllerTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 400, $response->get_status() );
 	}
+
+	// ── Another member's connections ───────────────────────────────────────
+
+	/**
+	 * Connect two members through the service (request + accept).
+	 *
+	 * @param int $a Requester.
+	 * @param int $b Recipient.
+	 * @return void
+	 */
+	private function connect( int $a, int $b ): void {
+		$conn = buddynext_service( 'connections' );
+		$conn->send_request( $a, $b );
+		$conn->accept_request( $b, $a );
+	}
+
+	public function test_member_connections_are_listed_and_paged(): void {
+		$carol = self::factory()->user->create();
+		$dave  = self::factory()->user->create();
+		$this->connect( $this->alice, $this->bob );
+		$this->connect( $carol, $this->bob );
+		$this->connect( $dave, $this->bob );
+
+		wp_set_current_user( self::factory()->user->create() );
+		$first = rest_do_request( new WP_REST_Request( 'GET', "/buddynext/v1/users/{$this->bob}/connections" ) );
+		$this->assertSame( 200, $first->get_status() );
+		$this->assertSame( 3, $first->get_data()['total'] );
+
+		$seen    = array();
+		$request = new WP_REST_Request( 'GET', "/buddynext/v1/users/{$this->bob}/connections" );
+		$request->set_param( 'per_page', 2 );
+		do {
+			$page = rest_do_request( $request )->get_data();
+			$seen = array_merge( $seen, $page['ids'] );
+			$request->set_param( 'cursor', (string) $page['next_cursor'] );
+		} while ( null !== $page['next_cursor'] );
+
+		sort( $seen );
+		$expected = array( $this->alice, $carol, $dave );
+		sort( $expected );
+		$this->assertSame( $expected, $seen, 'Paging walks every connection once.' );
+	}
+
+	public function test_member_connections_follow_profile_privacy(): void {
+		$this->connect( $this->alice, $this->bob );
+		buddynext_service( 'privacy' )->set_preference( $this->bob, 'profile_visibility', 'private' );
+
+		wp_set_current_user( self::factory()->user->create() );
+		$this->assertSame( 404, rest_do_request( new WP_REST_Request( 'GET', "/buddynext/v1/users/{$this->bob}/connections" ) )->get_status(), 'A stranger cannot see a private member\'s connections.' );
+
+		wp_set_current_user( $this->bob );
+		$this->assertSame( 200, rest_do_request( new WP_REST_Request( 'GET', "/buddynext/v1/users/{$this->bob}/connections" ) )->get_status(), 'The member sees their own.' );
+
+		$this->assertSame( 404, rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/users/999999/connections' ) )->get_status() );
+	}
 }

@@ -47,6 +47,22 @@ class FollowController extends BaseRestController {
 			)
 		);
 
+		// One page contract for the three network lists (followers, following,
+		// connections). expand=members hydrates member cards (maybe_expand_members()).
+		$network_args = array(
+			'per_page' => array(
+				'type'              => 'integer',
+				'default'           => 20,
+				'sanitize_callback' => 'absint',
+			),
+			'cursor'   => array(
+				'type'              => 'string',
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+				'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
+			),
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/users/(?P<id>[\d]+)/followers',
@@ -54,19 +70,7 @@ class FollowController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_followers' ),
 				'permission_callback' => '__return_true',
-				'args'                => array(
-					'per_page' => array(
-						'type'              => 'integer',
-						'default'           => 20,
-						'sanitize_callback' => 'absint',
-					),
-					'cursor'   => array(
-						'type'              => 'string',
-						'default'           => '',
-						'sanitize_callback' => 'sanitize_text_field',
-						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
-					),
-				),
+				'args'                => $network_args,
 			)
 		);
 
@@ -77,19 +81,20 @@ class FollowController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_following' ),
 				'permission_callback' => '__return_true',
-				'args'                => array(
-					'per_page' => array(
-						'type'              => 'integer',
-						'default'           => 20,
-						'sanitize_callback' => 'absint',
-					),
-					'cursor'   => array(
-						'type'              => 'string',
-						'default'           => '',
-						'sanitize_callback' => 'sanitize_text_field',
-						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
-					),
-				),
+				'args'                => $network_args,
+			)
+		);
+
+		// Another member's accepted connections: the profile Network > Connections
+		// tab. /me/connections stays the viewer's own list.
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/connections',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_connections' ),
+				'permission_callback' => '__return_true',
+				'args'                => $network_args,
 			)
 		);
 
@@ -367,6 +372,49 @@ class FollowController extends BaseRestController {
 		$response = new WP_REST_Response( $body, 200 );
 		$this->flag_deprecated_page_param( $request, $response );
 		return $response;
+	}
+
+	/**
+	 * A member's accepted connections, keyset-paged like followers and following.
+	 *
+	 * Same visibility gate (connections_visible()) and block filtering as the
+	 * other network lists, and the same ConnectionService page the web tab reads.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_connections( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id   = (int) $request->get_param( 'id' );
+		$viewer_id = get_current_user_id();
+
+		if ( ! get_userdata( $user_id ) || ! $this->connections_visible( $user_id, $viewer_id ) ) {
+			return $this->connections_hidden_error();
+		}
+
+		$per_page = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
+		$cursor   = (string) $request->get_param( 'cursor' );
+
+		$service = buddynext_service( 'connections' );
+		$result  = $this->filled_keyset_page(
+			static fn( ?string $c, int $pp ): array => $service->connections_keyset( $user_id, $c, $pp ),
+			( '' !== $cursor ? $cursor : null ),
+			$per_page,
+			$viewer_id
+		);
+
+		$body     = array(
+			'total'       => $service->connection_count( $user_id ),
+			'per_page'    => $per_page,
+			'next_cursor' => $result['next_cursor'],
+		);
+		$expanded = $this->maybe_expand_members( $request, $result['ids'], $viewer_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $result['ids'];
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**
