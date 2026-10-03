@@ -138,4 +138,24 @@ class SpaceNavRestTest extends WP_UnitTestCase {
 		$this->assertArrayHasKey( 'cover_tone', $data );
 		$this->assertSame( 'owner', $data['membership_role'], 'Existing viewer keys are kept.' );
 	}
+
+	/**
+	 * Add-ons can attach fields to the single-space item (buddynext_rest_space_item).
+	 *
+	 * @return void
+	 */
+	public function test_space_item_filter_lets_add_ons_add_fields(): void {
+		$owner = self::factory()->user->create();
+		$id    = (int) ( new SpaceService() )->create( $owner, array( 'name' => 'Seam', 'slug' => 'seam-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$addon = static function ( array $space, int $viewer ): array {
+			$space['addon_banner'] = 'for-' . $viewer;
+			return $space;
+		};
+		add_filter( 'buddynext_rest_space_item', $addon, 10, 2 );
+
+		wp_set_current_user( $owner );
+		$this->assertSame( 'for-' . $owner, rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $id ) )->get_data()['addon_banner'] );
+
+		remove_filter( 'buddynext_rest_space_item', $addon, 10 );
+	}
 }

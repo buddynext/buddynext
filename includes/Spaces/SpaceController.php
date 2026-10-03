@@ -1802,6 +1802,17 @@ class SpaceController extends BaseRestController {
 		// nav (order, gates, owner overrides, integration tabs, counts).
 		$space['nav'] = array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_landing_nav->layer( 'primary' ) ) );
 
+		/**
+		 * Filter the single-space REST item, so add-ons can attach what they show
+		 * on the space page (e.g. Pro's linked-course banner). Add fields only.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param array<string,mixed> $space     The space item.
+		 * @param int                 $viewer_id Current viewer (0 = guest).
+		 */
+		$space = (array) apply_filters( 'buddynext_rest_space_item', $space, $viewer_id );
+
 		return new WP_REST_Response( $space, 200 );
 	}
 

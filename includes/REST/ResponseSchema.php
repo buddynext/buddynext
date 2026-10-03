@@ -994,6 +994,10 @@ final class ResponseSchema {
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
 				'landing_tab'       => array( 'type' => 'string' ),
 				'can_add_subspace'  => array( 'type' => 'boolean' ),
+				'linked_source'     => array(
+					'type'        => array( 'object', 'null' ),
+					'description' => 'Pro + Learnomy: the course or Learnomy Space this community belongs to.',
+				),
 				'post_count'        => array( 'type' => 'integer' ),
 				'brand_color'       => array( 'type' => 'string' ),
 				'cover_focal'       => array(
