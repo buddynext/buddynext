@@ -1417,13 +1417,27 @@ class SetupWizard {
 					</p>
 				<?php else : ?>
 					<p class="bn-wizard__sample-note"><?php esc_html_e( 'New community feeling empty? Add sample members, spaces, and posts to visualise the layout. You can remove it cleanly later from Tools.', 'buddynext' ); ?></p>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-						<input type="hidden" name="action" value="bn_demo_seed">
-						<?php wp_nonce_field( 'bn_demo_seed' ); ?>
-						<button type="submit" class="bn-wizard__btn-secondary">
-							<?php esc_html_e( 'Add sample content', 'buddynext' ); ?>
-						</button>
-					</form>
+					<?php
+					// This step renders inside the wizard's own form, and a form cannot
+					// nest: the browser dropped this one's start tag and its fields joined
+					// the wizard form, so "Go to dashboard" ran the sample-content seed
+					// (a fresh site got 13 demo members). The form is printed after the
+					// page and this button points at it.
+					add_action(
+						'admin_footer',
+						static function (): void {
+							?>
+							<form id="bn-wizard-sample" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" hidden>
+								<input type="hidden" name="action" value="bn_demo_seed">
+								<?php wp_nonce_field( 'bn_demo_seed' ); ?>
+							</form>
+							<?php
+						}
+					);
+					?>
+					<button type="submit" form="bn-wizard-sample" class="bn-wizard__btn-secondary">
+						<?php esc_html_e( 'Add sample content', 'buddynext' ); ?>
+					</button>
 				<?php endif; ?>
 			</div>
 
