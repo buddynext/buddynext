@@ -119,15 +119,12 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	// gradient on .bn-sh-hero__cover remains the fallback when no image is set.
 	$bn_sh_cover_style = '';
 	if ( ! empty( $bn_space->cover_image_url ) ) {
-		$bn_sh_focal       = (array) get_space_meta( $bn_space_id, 'buddynext_cover_focal', true );
-		$bn_sh_fx          = isset( $bn_sh_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_sh_focal['x'] ) ) : 50.0;
-		$bn_sh_fy          = isset( $bn_sh_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_sh_focal['y'] ) ) : 50.0;
-		$bn_sh_zoom        = isset( $bn_sh_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_sh_focal['zoom'] ) ) : 1.0;
+		$bn_sh_focal       = \BuddyNext\Spaces\SpaceService::cover_focal( (int) $bn_space_id );
 		$bn_sh_cover_style = sprintf(
 			'object-position:%s%% %s%%;transform:scale(%s);',
-			esc_attr( (string) $bn_sh_fx ),
-			esc_attr( (string) $bn_sh_fy ),
-			esc_attr( (string) $bn_sh_zoom )
+			esc_attr( (string) $bn_sh_focal['x'] ),
+			esc_attr( (string) $bn_sh_focal['y'] ),
+			esc_attr( (string) $bn_sh_focal['zoom'] )
 		);
 	}
 	?>

@@ -742,15 +742,12 @@ foreach ( $builtin_tabs as $bn_t ) {
 	// hero and the reposition modal use.
 	$bn_settings_cover_style = '';
 	if ( ! empty( $space->cover_image_url ) ) {
-		$bn_settings_focal       = (array) get_space_meta( (int) ( $space->id ?? 0 ), 'buddynext_cover_focal', true );
-		$bn_settings_fx          = isset( $bn_settings_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['x'] ) ) : 50.0;
-		$bn_settings_fy          = isset( $bn_settings_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['y'] ) ) : 50.0;
-		$bn_settings_zoom        = isset( $bn_settings_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_settings_focal['zoom'] ) ) : 1.0;
+		$bn_settings_focal       = \BuddyNext\Spaces\SpaceService::cover_focal( (int) ( $space->id ?? 0 ) );
 		$bn_settings_cover_style = sprintf(
 			'object-fit:cover;object-position:%s%% %s%%;transform:scale(%s);transform-origin:center;',
-			esc_attr( (string) $bn_settings_fx ),
-			esc_attr( (string) $bn_settings_fy ),
-			esc_attr( (string) $bn_settings_zoom )
+			esc_attr( (string) $bn_settings_focal['x'] ),
+			esc_attr( (string) $bn_settings_focal['y'] ),
+			esc_attr( (string) $bn_settings_focal['zoom'] )
 		);
 	}
 	?>

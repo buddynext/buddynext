@@ -115,4 +115,27 @@ class SpaceNavRestTest extends WP_UnitTestCase {
 		wp_set_current_user( $owner );
 		$this->assertSame( array( $owner ), array_map( 'intval', wp_list_pluck( $read()['top_contributors'], 'user_id' ) ) );
 	}
+
+	/**
+	 * The header and hero fields: post count, display fields, a clamped focal
+	 * point; the viewer's own keys are not overwritten by the directory fields.
+	 *
+	 * @return void
+	 */
+	public function test_header_and_hero_fields(): void {
+		$owner = self::factory()->user->create();
+		$id    = (int) ( new SpaceService() )->create( $owner, array( 'name' => 'Hero', 'slug' => 'hero-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		( new \BuddyNext\Feed\PostService() )->create( $owner, array( 'content' => 'One', 'space_id' => $id ) );
+		update_space_meta( $id, 'buddynext_cover_focal', array( 'x' => 250, 'y' => -5, 'zoom' => 9 ) );
+
+		wp_set_current_user( $owner );
+		$data = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $id ) )->get_data();
+
+		$this->assertSame( 1, $data['post_count'] );
+		$this->assertSame( array( 'x' => 100.0, 'y' => 0.0, 'zoom' => 3.0 ), $data['cover_focal'], 'Clamped as the hero clamps it.' );
+		$this->assertSame( SpaceService::cover_focal( $id ), $data['cover_focal'] );
+		$this->assertArrayHasKey( 'type_label', $data );
+		$this->assertArrayHasKey( 'cover_tone', $data );
+		$this->assertSame( 'owner', $data['membership_role'], 'Existing viewer keys are kept.' );
+	}
 }

@@ -1732,6 +1732,16 @@ class SpaceController extends BaseRestController {
 		$space['can_add_subspace'] = \BuddyNext\Nav\Providers\SpaceNav::can_add_subspace_to( (int) $space['id'], $viewer_id )
 			&& ( 0 === $bn_sub_max || $bn_sub_used < $bn_sub_max );
 
+		// The header and hero as the web space page draws them: the directory row's
+		// display fields (category, privacy label/tone, cover tone; existing keys are
+		// kept), the viewer-scoped post count, the cover focal point, and the brand
+		// colour (the hero applies it for every visitor, though the field itself is
+		// members-only in `fields`).
+		$space                = $space + ( $this->enrich_directory_rows( array( $space ), $viewer_id )[0] ?? array() );
+		$space['post_count']  = (int) buddynext_service( 'feed' )->space_post_count( (int) $space['id'], $viewer_id );
+		$space['cover_focal'] = SpaceService::cover_focal( (int) $space['id'] );
+		$space['brand_color'] = (string) buddynext_get_space_field( (int) $space['id'], 'brand_color' );
+
 		// The space sidebar's "Owner & moderators" card (shown to anyone who can see
 		// the space, members or not) and "Top contributors" (roster viewers only),
 		// from the same SpaceMemberService / SpaceService calls the sidebar makes.

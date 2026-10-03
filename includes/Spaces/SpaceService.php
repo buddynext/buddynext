@@ -1548,6 +1548,23 @@ class SpaceService {
 	}
 
 	/**
+	 * A space cover's focal point as the owner set it, clamped: x/y in percent
+	 * (default centre), zoom 1-3 (default 1). The one read the space hero and
+	 * GET /spaces/{id} share.
+	 *
+	 * @param int $space_id Space.
+	 * @return array{x:float,y:float,zoom:float}
+	 */
+	public static function cover_focal( int $space_id ): array {
+		$focal = (array) get_space_meta( $space_id, 'buddynext_cover_focal', true );
+		return array(
+			'x'    => isset( $focal['x'] ) ? max( 0.0, min( 100.0, (float) $focal['x'] ) ) : 50.0,
+			'y'    => isset( $focal['y'] ) ? max( 0.0, min( 100.0, (float) $focal['y'] ) ) : 50.0,
+			'zoom' => isset( $focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $focal['zoom'] ) ) : 1.0,
+		);
+	}
+
+	/**
 	 * Resolve the featured spaces for a viewer — the single source of truth for
 	 * every surface (directory sidebar, mobile strip, onboarding, suggestions).
 	 *

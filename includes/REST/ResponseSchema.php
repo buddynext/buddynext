@@ -994,6 +994,16 @@ final class ResponseSchema {
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
 				'landing_tab'       => array( 'type' => 'string' ),
 				'can_add_subspace'  => array( 'type' => 'boolean' ),
+				'post_count'        => array( 'type' => 'integer' ),
+				'brand_color'       => array( 'type' => 'string' ),
+				'cover_focal'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'x'    => array( 'type' => 'number' ),
+						'y'    => array( 'type' => 'number' ),
+						'zoom' => array( 'type' => 'number' ),
+					),
+				),
 				'team'              => array(
 					'type'  => 'array',
 					'items' => array( 'type' => 'object' ),
