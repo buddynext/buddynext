@@ -5675,6 +5675,39 @@ final class ResponseSchema {
 			'title'      => 'users-profile',
 			'type'       => 'object',
 			'properties' => array(
+				'nav'               => array(
+					'type'       => 'object',
+					'properties' => array(
+						'tabs'    => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'id'       => array( 'type' => 'string' ),
+									'label'    => array( 'type' => 'string' ),
+									'icon'     => array( 'type' => array( 'string', 'null' ) ),
+									'url'      => array( 'type' => array( 'string', 'null' ) ),
+									'count'    => array( 'type' => array( 'integer', 'null' ) ),
+									'children' => array( 'type' => 'array' ),
+								),
+							),
+						),
+						'metrics' => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'id'       => array( 'type' => 'string' ),
+									'label'    => array( 'type' => 'string' ),
+									'icon'     => array( 'type' => array( 'string', 'null' ) ),
+									'url'      => array( 'type' => array( 'string', 'null' ) ),
+									'count'    => array( 'type' => array( 'integer', 'null' ) ),
+									'children' => array( 'type' => 'array' ),
+								),
+							),
+						),
+					),
+				),
 				'user_id'           => array(
 					'type' => 'integer',
 				),

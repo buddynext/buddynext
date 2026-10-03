@@ -1124,6 +1124,15 @@ class ProfileController extends BaseRestController {
 			do_action( 'buddynext_profile_viewed', $profile_user_id, $viewer_id );
 		}
 
+		// The profile's tabs and metric pills as the web profile renders them for
+		// this viewer: same resolved nav (order, owner overrides, integration and
+		// Pro tabs, sub-tabs, counts).
+		$bn_nav         = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', $profile_user_id, $viewer_id ) );
+		$profile['nav'] = array(
+			'tabs'    => array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_nav->layer( 'primary' ) ) ),
+			'metrics' => array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_nav->layer( 'metric' ) ) ),
+		);
+
 		return new WP_REST_Response( $profile, 200 );
 	}
 
