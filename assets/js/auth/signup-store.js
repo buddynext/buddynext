@@ -150,6 +150,12 @@ function showFieldErrors( form, fields ) {
 		el.removeAttribute( 'aria-invalid' );
 	} );
 
+	// Nothing to place: the refusal is not about a field (rate limit, closed
+	// sign-ups), and the server still sends `fields: []`. Reporting that as
+	// "all placed" cleared the banner, so the visitor clicked a button that did
+	// nothing and was never told why.
+	if ( ! fields || ! Object.keys( fields ).length ) { return false; }
+
 	let allPlaced = true;
 	let first = null;
 
