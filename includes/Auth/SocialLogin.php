@@ -274,11 +274,21 @@ class SocialLogin {
 	}
 
 	/**
-	 * Register the unlink REST route.
+	 * Register the connected-accounts REST routes (list + unlink).
 	 *
 	 * @return void
 	 */
 	public function register_rest(): void {
+		register_rest_route(
+			'buddynext/v1',
+			'/me/social',
+			array(
+				'methods'             => 'GET',
+				'callback'            => static fn(): \WP_REST_Response => new \WP_REST_Response( self::account_rows( get_current_user_id() ), 200 ),
+				'permission_callback' => 'is_user_logged_in',
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/social/(?P<provider>[a-z0-9_-]+)',
@@ -470,6 +480,46 @@ class SocialLogin {
 			$out[ $id ] = '' !== (string) get_user_meta( $user_id, 'bn_social_' . $id . '_id', true );
 		}
 		return $out;
+	}
+
+	/**
+	 * The member's sign-in accounts as Settings > Connected accounts lists them.
+	 *
+	 * A provider appears when the member has it linked, or it is configured and
+	 * ready to connect. only_credential: unlinking it would lock them out (no
+	 * password, no other provider), so the unlink is refused.
+	 *
+	 * @param int $user_id Member.
+	 * @return array<int,array{id:string,label:string,icon:string,linked:bool,only_credential:bool,connect_url:string}>
+	 */
+	public static function account_rows( int $user_id ): array {
+		$ready = array();
+		foreach ( (array) apply_filters( 'buddynext_auth_social_providers', array() ) as $provider ) {
+			if ( is_array( $provider ) && isset( $provider['id'] ) ) {
+				$ready[ (string) $provider['id'] ] = true;
+			}
+		}
+
+		$linked = self::linked_for( $user_id );
+		$defs   = self::get_providers();
+
+		$rows = array();
+		foreach ( self::labels() as $id => $label ) {
+			$is_linked = ! empty( $linked[ $id ] );
+			if ( ! $is_linked && ! isset( $ready[ $id ] ) ) {
+				continue;
+			}
+			$rows[] = array(
+				'id'              => (string) $id,
+				'label'           => (string) $label,
+				'icon'            => (string) ( $defs[ $id ]['icon'] ?? '' ),
+				'linked'          => $is_linked,
+				// The same rule the unlink endpoint enforces.
+				'only_credential' => $is_linked && self::is_last_credential( $user_id, (string) $id ),
+				'connect_url'     => $is_linked ? '' : home_url( '/oauth/' . $id . '/' ), // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
+			);
+		}
+		return $rows;
 	}
 
 	/**

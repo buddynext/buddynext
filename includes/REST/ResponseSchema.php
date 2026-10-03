@@ -649,6 +649,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/me/social',
+				'resource' => 'social_account',
+				'shape'    => 'array',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/spaces/{id}/discussion',
 				'resource' => 'space_discussion',
 				'shape'    => 'item',
@@ -5552,6 +5558,27 @@ final class ResponseSchema {
 				'forum_id'       => array( 'type' => 'integer' ),
 				'name'           => array( 'type' => 'string' ),
 				'url'            => array( 'type' => 'string' ),
+			),
+		);
+	}
+
+	/**
+	 * One of the member's sign-in accounts (GET /me/social).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function social_account(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'social-account',
+			'type'       => 'object',
+			'properties' => array(
+				'id'              => array( 'type' => 'string' ),
+				'label'           => array( 'type' => 'string' ),
+				'icon'            => array( 'type' => 'string' ),
+				'linked'          => array( 'type' => 'boolean' ),
+				'only_credential' => array( 'type' => 'boolean' ),
+				'connect_url'     => array( 'type' => 'string' ),
 			),
 		);
 	}
