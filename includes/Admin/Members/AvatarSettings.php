@@ -82,7 +82,7 @@ class AvatarSettings {
 			'bn-avatar-settings',
 			'bnAvatarSettingsL10n',
 			array(
-				'pickerTitle'  => __( 'Select Image', 'buddynext' ),
+				'pickerTitle'  => __( 'Select image', 'buddynext' ),
 				'pickerButton' => __( 'Use this image', 'buddynext' ),
 				'confirmTitle' => __( 'Remove image?', 'buddynext' ),
 				'confirm'      => __( 'Remove', 'buddynext' ),
@@ -183,7 +183,7 @@ class AvatarSettings {
 			<?php $this->render_default_cover_section( $cover_url ); ?>
 
 			<div class="bn-save-bar">
-				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Avatar Settings', 'buddynext' ); ?></button>
+				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 			</div>
 		</form>
 		<?php
@@ -201,7 +201,7 @@ class AvatarSettings {
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Default Avatar Style', 'buddynext' ); ?></span>
+				<span class="bn-ss-title"><?php esc_html_e( 'Default avatar style', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">
@@ -223,7 +223,7 @@ class AvatarSettings {
 						<div class="bn-av-style-icon">
 							<?php buddynext_icon( 'image' ); ?>
 						</div>
-						<div class="bn-av-style-label"><?php esc_html_e( 'Default Image', 'buddynext' ); ?></div>
+						<div class="bn-av-style-label"><?php esc_html_e( 'Default image', 'buddynext' ); ?></div>
 						<div class="bn-av-style-desc"><?php esc_html_e( 'A single image you upload shown for all members without an avatar.', 'buddynext' ); ?></div>
 					</label>
 					<label class="bn-av-style-card">
@@ -265,7 +265,7 @@ class AvatarSettings {
 		?>
 		<div class="bn-settings-section bn-av-dependent<?php echo $is_active ? '' : ' is-inactive'; ?>" data-bn-avatar-dependent>
 			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Default Avatar Image', 'buddynext' ); ?></span>
+				<span class="bn-ss-title"><?php esc_html_e( 'Default avatar image', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">
@@ -328,7 +328,7 @@ class AvatarSettings {
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Default Cover Photo', 'buddynext' ); ?></span>
+				<span class="bn-ss-title"><?php esc_html_e( 'Default cover photo', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">

@@ -2081,7 +2081,7 @@ class PageRouter {
 				'connectTitle'           => __( 'Add a note', 'buddynext' ),
 				'connectBody'            => __( 'Add a personal message to your connection request, or send it without one.', 'buddynext' ),
 				'connectSubmit'          => __( 'Send request', 'buddynext' ),
-				'connectPlaceholder'     => __( 'e.g. We met at the design meetup: I’d love to stay connected.', 'buddynext' ),
+				'connectPlaceholder'     => __( 'For example: We met at the design meetup: I’d love to stay connected.', 'buddynext' ),
 				// Generic fallback toast (relation-remove.js).
 				'updateFailed'           => __( 'Could not update. Try again.', 'buddynext' ),
 			),

@@ -443,7 +443,7 @@ class MemberTypeController extends BaseRestController {
 		$user_id = absint( $request->get_param( 'id' ) );
 
 		if ( get_current_user_id() !== $user_id ) {
-			return new WP_Error( 'forbidden', __( 'You cannot set a member type for another user.', 'buddynext' ), array( 'status' => 403 ) );
+			return new WP_Error( 'forbidden', __( 'You cannot set a member type for another member.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		// Type-specific self_select check happens in the handler after type lookup.

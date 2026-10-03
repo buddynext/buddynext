@@ -990,7 +990,7 @@ class FeedController extends BaseRestController {
 		$profile_user_id = (int) $request->get_param( 'id' );
 		$viewer_id       = get_current_user_id();
 		if ( ! $this->can_view_profile_lists( $profile_user_id, $viewer_id ) ) {
-			return new WP_Error( 'user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
@@ -1010,7 +1010,7 @@ class FeedController extends BaseRestController {
 		$profile_user_id = (int) $request->get_param( 'id' );
 		$viewer_id       = get_current_user_id();
 		if ( ! $this->can_view_profile_lists( $profile_user_id, $viewer_id ) ) {
-			return new WP_Error( 'user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;

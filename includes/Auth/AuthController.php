@@ -2225,7 +2225,7 @@ class AuthController {
 		$user_id = (int) $request['id'];
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'rest_user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'rest_user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		if ( ! get_user_meta( $user_id, 'bn_pending_approval', true ) ) {

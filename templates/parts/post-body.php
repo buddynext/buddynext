@@ -386,7 +386,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 						disabled
 						<?php endif; ?>
 						data-option-id="<?php echo absint( $opt_id ); ?>"
-						aria-label="<?php echo esc_attr( sprintf( '%s — %d%%', $opt_text, $opt_pct ) ); ?>"
+						aria-label="<?php echo esc_attr( sprintf( '%s: %d%%', $opt_text, $opt_pct ) ); ?>"
 					>
 						<div
 							class="bn-post-card__poll-fill"

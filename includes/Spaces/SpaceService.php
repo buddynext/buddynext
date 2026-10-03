@@ -424,7 +424,7 @@ class SpaceService {
 						'max_sub_spaces_exceeded',
 						sprintf(
 							/* translators: %d: maximum number of sub-spaces allowed per parent. */
-							__( 'This space already has the maximum of %d sub-spaces.', 'buddynext' ),
+							_n( 'This space already has the maximum of %d sub-space.', 'This space already has the maximum of %d sub-spaces.', $max_sub, 'buddynext' ),
 							$max_sub
 						),
 						array( 'status' => 422 )
@@ -924,7 +924,7 @@ class SpaceService {
 		}
 
 		if ( $new_owner_id <= 0 || ! get_userdata( $new_owner_id ) ) {
-			return new WP_Error( 'invalid_owner', __( 'That user does not exist.', 'buddynext' ), array( 'status' => 422 ) );
+			return new WP_Error( 'invalid_owner', __( 'That member does not exist.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
 		// User context: owner-only (or manage_options, via PermissionService's
@@ -944,7 +944,7 @@ class SpaceService {
 		// is_space_banned() covers BOTH surfaces (bn_space_bans + the
 		// status = 'banned' membership row), so it is the single check here.
 		if ( buddynext_service( 'permissions' )->is_space_banned( $new_owner_id, $space_id ) ) {
-			return new WP_Error( 'heir_banned', __( 'A banned user cannot be made the owner of this space.', 'buddynext' ), array( 'status' => 409 ) );
+			return new WP_Error( 'heir_banned', __( 'A banned member cannot be made the owner of this space.', 'buddynext' ), array( 'status' => 409 ) );
 		}
 
 		$previous_owner_id = (int) ( $space['owner_id'] ?? 0 );

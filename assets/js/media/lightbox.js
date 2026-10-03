@@ -636,7 +636,7 @@
 				method: 'POST',
 				json: { reason: result.reason, details: result.notes || '' },
 			} ).then( function () {
-				notify( __( 'Thanks — this has been sent to the moderators.', 'buddynext' ), 'success' );
+				notify( __( 'Thanks, this has been sent to the moderators.', 'buddynext' ), 'success' );
 			} ).catch( function () {
 				notify( __( 'Could not send that report. Try again.', 'buddynext' ), 'error' );
 			} );

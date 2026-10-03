@@ -122,7 +122,7 @@ class FollowService {
 		if ( $follower_id === $following_id ) {
 			return new WP_Error(
 				'cannot_follow_self',
-				__( 'A user cannot follow themselves.', 'buddynext' )
+				__( 'You cannot follow yourself.', 'buddynext' )
 			);
 		}
 
@@ -167,7 +167,7 @@ class FollowService {
 			&& $blocks->is_blocking_either( $follower_id, $following_id ) ) {
 			return new WP_Error(
 				'blocked',
-				__( 'Cannot follow a blocked user.', 'buddynext' )
+				__( 'You cannot follow a blocked member.', 'buddynext' )
 			);
 		}
 

@@ -304,7 +304,7 @@ class CommentController extends BaseRestController {
 		// keeps its shape (nested replies stay attached) without leaking
 		// the original author's identity.
 		$anonymize = static function ( array &$c ): void {
-			$c['author_name']       = __( 'Deleted user', 'buddynext' );
+			$c['author_name']       = __( 'Deleted member', 'buddynext' );
 			$c['author_avatar_url'] = '';
 			$c['content']           = __( '[deleted]', 'buddynext' );
 		};

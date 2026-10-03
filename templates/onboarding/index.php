@@ -34,7 +34,7 @@ $ob_user_id = get_current_user_id();
 
 $ob_user = get_userdata( $ob_user_id );
 if ( ! $ob_user ) {
-	wp_die( esc_html__( 'User not found.', 'buddynext' ) );
+	wp_die( esc_html__( 'Member not found.', 'buddynext' ) );
 }
 
 $display_name  = $ob_user->display_name;

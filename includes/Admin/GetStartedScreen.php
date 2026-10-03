@@ -198,7 +198,7 @@ class GetStartedScreen {
 			),
 			array(
 				'title' => __( 'Spaces', 'buddynext' ),
-				'desc'  => __( 'Create and manage groups your members join.', 'buddynext' ),
+				'desc'  => __( 'Create and manage the spaces your members join.', 'buddynext' ),
 				'icon'  => 'grid',
 				'url'   => $section_url( 'spaces' ),
 			),

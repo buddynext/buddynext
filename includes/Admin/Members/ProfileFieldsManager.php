@@ -63,13 +63,13 @@ class ProfileFieldsManager {
 		// Fallback mirrors contracts.field_types from the build spec.
 		return array(
 			'text'        => array(
-				'label'                 => __( 'Short Text', 'buddynext' ),
+				'label'                 => __( 'Short text', 'buddynext' ),
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 				'value_kind'            => 'scalar',
 			),
 			'textarea'    => array(
-				'label'                 => __( 'Long Text', 'buddynext' ),
+				'label'                 => __( 'Long text', 'buddynext' ),
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 				'value_kind'            => 'scalar',
@@ -117,7 +117,7 @@ class ProfileFieldsManager {
 				'value_kind'            => 'scalar',
 			),
 			'radio'       => array(
-				'label'                 => __( 'Radio Buttons', 'buddynext' ),
+				'label'                 => __( 'Radio buttons', 'buddynext' ),
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 				'value_kind'            => 'scalar',
@@ -1686,7 +1686,7 @@ class ProfileFieldsManager {
 						<a href="#<?php echo esc_attr( $panel_id ); ?>"
 							class="bn-pf-add-btn"
 							data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>">
-							+ <?php esc_html_e( 'Add Field', 'buddynext' ); ?>
+							+ <?php esc_html_e( 'Add field', 'buddynext' ); ?>
 						</a>
 
 						<?php if ( ! $is_system ) : ?>
@@ -1726,7 +1726,7 @@ class ProfileFieldsManager {
 								<input type="hidden" name="action" value="bn_delete_profile_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $del_nonce ); ?>">
-								<button type="submit" class="bn-pf-del-group-btn"><?php esc_html_e( 'Delete Group', 'buddynext' ); ?></button>
+								<button type="submit" class="bn-pf-del-group-btn"><?php esc_html_e( 'Delete group', 'buddynext' ); ?></button>
 							</form>
 						<?php endif; ?>
 					</div><!-- .bn-pf-head-actions -->
@@ -1744,7 +1744,7 @@ class ProfileFieldsManager {
 						<input type="text" id="bn-pf-rename-input-<?php echo absint( $gid ); ?>"
 							name="label" class="regular-text"
 							value="<?php echo esc_attr( $group['label'] ); ?>" required>
-						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Name', 'buddynext' ); ?></button>
+						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 					</form>
 				</div>
 
@@ -1766,7 +1766,7 @@ class ProfileFieldsManager {
 						<thead>
 							<tr>
 								<th class="bn-a-pf-swatch"><?php esc_html_e( 'Order', 'buddynext' ); ?></th>
-								<th><?php esc_html_e( 'Field Name', 'buddynext' ); ?></th>
+								<th><?php esc_html_e( 'Field name', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Required', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Visible to', 'buddynext' ); ?></th>
@@ -1940,7 +1940,7 @@ class ProfileFieldsManager {
 											<?php wp_nonce_field( 'bn_edit_profile_field_' . $fid ); ?>
 											<div class="bn-pf-af-row">
 												<div class="bn-pf-af-field">
-													<label for="bn-ef-lbl-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field Name', 'buddynext' ); ?></label>
+													<label for="bn-ef-lbl-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field name', 'buddynext' ); ?></label>
 													<input type="text"
 														id="bn-ef-lbl-<?php echo absint( $fid ); ?>"
 														name="label"
@@ -1948,7 +1948,7 @@ class ProfileFieldsManager {
 														required>
 												</div>
 												<div class="bn-pf-af-field bn-a-pf-col">
-													<label for="bn-ef-type-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
+													<label for="bn-ef-type-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field type', 'buddynext' ); ?></label>
 													<select id="bn-ef-type-<?php echo absint( $fid ); ?>" name="type"
 														data-bn-pf-opts-wrap="bn-ef-opts-<?php echo absint( $fid ); ?>"
 														data-bn-pf-date-wrap="bn-ef-date-<?php echo absint( $fid ); ?>"
@@ -2133,7 +2133,7 @@ class ProfileFieldsManager {
 												</div>
 											<?php endif; ?>
 											<div class="bn-pf-af-actions">
-												<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Changes', 'buddynext' ); ?></button>
+												<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 												<button type="button" class="bn-btn" data-variant="secondary" data-bn-pf-toggle-edit="<?php echo esc_attr( $edit_panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 											</div>
 										</form>
@@ -2160,15 +2160,15 @@ class ProfileFieldsManager {
 						<?php wp_nonce_field( 'bn_create_profile_field' ); ?>
 						<div class="bn-pf-af-row">
 							<div class="bn-pf-af-field">
-								<label for="bn-af-lbl-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field Name', 'buddynext' ); ?></label>
+								<label for="bn-af-lbl-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field name', 'buddynext' ); ?></label>
 								<input type="text"
 									id="bn-af-lbl-<?php echo absint( $gid ); ?>"
 									name="label"
-									placeholder="<?php esc_attr_e( 'e.g. Job Title', 'buddynext' ); ?>"
+									placeholder="<?php esc_attr_e( 'For example: Job Title', 'buddynext' ); ?>"
 									required>
 							</div>
 							<div class="bn-pf-af-field bn-a-pf-col">
-								<label for="bn-af-type-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
+								<label for="bn-af-type-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field type', 'buddynext' ); ?></label>
 								<select id="bn-af-type-<?php echo absint( $gid ); ?>" name="type"
 									data-bn-pf-opts-wrap="bn-af-opts-<?php echo absint( $gid ); ?>"
 									data-bn-pf-date-wrap="bn-af-date-<?php echo absint( $gid ); ?>"
@@ -2206,7 +2206,7 @@ class ProfileFieldsManager {
 								<input type="text"
 									id="bn-af-desc-<?php echo absint( $gid ); ?>"
 									name="description"
-									placeholder="<?php esc_attr_e( 'e.g. Shown under the field name to explain what to enter', 'buddynext' ); ?>"
+									placeholder="<?php esc_attr_e( 'For example: Shown under the field name to explain what to enter', 'buddynext' ); ?>"
 									maxlength="255">
 							</div>
 							<div class="bn-pf-af-field">
@@ -2214,7 +2214,7 @@ class ProfileFieldsManager {
 								<input type="text"
 									id="bn-af-ph-<?php echo absint( $gid ); ?>"
 									name="placeholder"
-									placeholder="<?php esc_attr_e( 'e.g. Example value shown inside the empty input', 'buddynext' ); ?>"
+									placeholder="<?php esc_attr_e( 'For example: Example value shown inside the empty input', 'buddynext' ); ?>"
 									maxlength="255">
 							</div>
 						</div>
@@ -2289,7 +2289,7 @@ class ProfileFieldsManager {
 							</div>
 						<?php endif; ?>
 						<div class="bn-pf-af-actions">
-							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>
+							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 							<button type="button" class="bn-btn" data-variant="secondary" data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 						</div>
 					</form>
@@ -2320,7 +2320,7 @@ class ProfileFieldsManager {
 		<div>
 			<details class="bn-pf-add-group"<?php echo $show_add_group ? ' open' : ''; ?>>
 				<summary class="bn-pf-add-group-btn">
-					+ <?php esc_html_e( 'Add Group', 'buddynext' ); ?>
+					+ <?php esc_html_e( 'Add group', 'buddynext' ); ?>
 				</summary>
 				<div class="bn-pf-ag-card">
 					<h3><?php esc_html_e( 'Add a new profile group', 'buddynext' ); ?></h3>
@@ -2329,15 +2329,15 @@ class ProfileFieldsManager {
 						<?php wp_nonce_field( 'bn_create_profile_group' ); ?>
 						<div class="bn-pf-ag-row">
 							<div class="bn-pf-ag-field">
-								<label for="bn-ag-label"><?php esc_html_e( 'Group Name', 'buddynext' ); ?></label>
+								<label for="bn-ag-label"><?php esc_html_e( 'Group name', 'buddynext' ); ?></label>
 								<input type="text" id="bn-ag-label" name="label"
-									placeholder="<?php esc_attr_e( 'e.g. Work Experience', 'buddynext' ); ?>" required>
+									placeholder="<?php esc_attr_e( 'For example: Work Experience', 'buddynext' ); ?>" required>
 							</div>
 							<div class="bn-pf-ag-field bn-a-pf-col-wide">
-								<label for="bn-ag-type"><?php esc_html_e( 'Group Type', 'buddynext' ); ?></label>
+								<label for="bn-ag-type"><?php esc_html_e( 'Group type', 'buddynext' ); ?></label>
 								<select id="bn-ag-type" name="type">
 									<option value="flat"><?php esc_html_e( 'Single entry', 'buddynext' ); ?></option>
-									<option value="repeater"><?php esc_html_e( 'Multiple entries (e.g. past jobs)', 'buddynext' ); ?></option>
+									<option value="repeater"><?php esc_html_e( 'Multiple entries (for example past jobs)', 'buddynext' ); ?></option>
 								</select>
 							</div>
 							<div class="bn-pf-ag-field bn-a-pf-col">
@@ -2350,10 +2350,10 @@ class ProfileFieldsManager {
 							</div>
 						</div>
 						<p class="bn-pf-ag-note">
-							<?php esc_html_e( 'Single entry: one value per field (e.g. bio, headline). Multiple entries: members can add several items (e.g. multiple jobs).', 'buddynext' ); ?>
+							<?php esc_html_e( 'Single entry: one value per field (for example bio, headline). Multiple entries: members can add several items (for example multiple jobs).', 'buddynext' ); ?>
 						</p>
 						<div class="bn-pf-ag-actions">
-							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Create Group', 'buddynext' ); ?></button>
+							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Create group', 'buddynext' ); ?></button>
 							<a href="<?php echo esc_url( $base_url ); ?>" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
 						</div>
 					</form>

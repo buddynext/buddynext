@@ -61,7 +61,7 @@ class RolesTabTest extends \WP_UnitTestCase {
 		$html = $this->render();
 
 		$this->assertStringContainsString( 'bn-save-bar', $html );
-		$this->assertStringContainsString( 'Save permissions', $html );
+		$this->assertStringContainsString( 'Save changes', $html );
 	}
 
 	/**

@@ -271,7 +271,7 @@ class ConnectionController extends BaseRestController {
 		if ( ! get_userdata( $target_id ) ) {
 			return new WP_Error(
 				'buddynext_user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -279,7 +279,7 @@ class ConnectionController extends BaseRestController {
 		if ( buddynext_service( 'blocks' )->is_blocking_either( $current_id, $target_id ) ) {
 			return new WP_Error(
 				'buddynext_blocked',
-				__( 'You cannot connect with this user.', 'buddynext' ),
+				__( 'You cannot connect with this member.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}

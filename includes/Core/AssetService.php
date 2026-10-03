@@ -922,8 +922,8 @@ class AssetService {
 					'follow'                  => __( 'Follow', 'buddynext' ),
 					'following'               => __( 'Following', 'buddynext' ),
 					'requested'               => __( 'Requested', 'buddynext' ),
-					'ariaFollow'              => __( 'Follow this user', 'buddynext' ),
-					'ariaUnfollow'            => __( 'Unfollow this user', 'buddynext' ),
+					'ariaFollow'              => __( 'Follow this member', 'buddynext' ),
+					'ariaUnfollow'            => __( 'Unfollow this member', 'buddynext' ),
 					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
 					/* translators: %s: member display name. */
 					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
@@ -1019,10 +1019,10 @@ class AssetService {
 					'timeHoursAgo'              => __( '%dh ago', 'buddynext' ),
 					/* translators: %d: number of days. */
 					'timeDaysAgo'               => __( '%dd ago', 'buddynext' ),
-					'user'                      => __( 'User', 'buddynext' ),
+					'user'                      => __( 'Member', 'buddynext' ),
 					'you'                       => __( 'You', 'buddynext' ),
 					/* translators: %s: user ID */
-					'userNumber'                => __( 'User #%s', 'buddynext' ),
+					'userNumber'                => __( 'Member #%s', 'buddynext' ),
 					'loading'                   => __( 'Loading…', 'buddynext' ),
 					'retry'                     => __( 'Retry', 'buddynext' ),
 					'save'                      => __( 'Save', 'buddynext' ),
@@ -1783,7 +1783,7 @@ class AssetService {
 					'reportEscalated'       => __( 'Report escalated', 'buddynext' ),
 					'escalateFailed'        => __( 'Could not escalate the report. Try again.', 'buddynext' ),
 					'warningSent'           => __( 'Warning sent.', 'buddynext' ),
-					'warnUserFailed'        => __( 'Could not warn the user.', 'buddynext' ),
+					'warnUserFailed'        => __( 'Could not warn the member.', 'buddynext' ),
 					'strikeIssued'          => __( 'Strike issued.', 'buddynext' ),
 					'strikeUserFailed'      => __( 'Could not issue a strike.', 'buddynext' ),
 					// Reverse strike — the counterpart to the above. The report row's
@@ -1809,7 +1809,7 @@ class AssetService {
 					'suspendNeedReason'     => __( 'Choose a reason. The member will see it.', 'buddynext' ),
 					'suspendNeedNote'       => __( 'Add a note to explain the reason when you choose Other.', 'buddynext' ),
 					'userSuspended'         => __( 'Member suspended.', 'buddynext' ),
-					'suspendUserFailed'     => __( 'Could not suspend the user.', 'buddynext' ),
+					'suspendUserFailed'     => __( 'Could not suspend the member.', 'buddynext' ),
 					'appealTooShort'        => __( 'Describe why you are appealing (at least 10 characters).', 'buddynext' ),
 					'appealSubmitted'       => __( 'Your appeal has been submitted.', 'buddynext' ),
 					'appealSubmitFailed'    => __( 'Could not submit your appeal. Try again.', 'buddynext' ),

@@ -2213,7 +2213,7 @@ class ModerationService {
 		// behind require_admin) or from the admin queue's own actor. A 0 can only be
 		// passed by server code.
 		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend users.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ) );
 		}
 
 		// A person suspending someone must say why: the member is shown this text on
@@ -2359,7 +2359,7 @@ class ModerationService {
 		// a moderator who unsuspends the wrong/already-active user sees a real
 		// notice rather than a false "Done.".
 		if ( ! $lifted ) {
-			return new WP_Error( 'bn_not_suspended', __( 'That user is not currently suspended.', 'buddynext' ) );
+			return new WP_Error( 'bn_not_suspended', __( 'That member is not currently suspended.', 'buddynext' ) );
 		}
 
 		/**

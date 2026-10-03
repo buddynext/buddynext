@@ -875,7 +875,7 @@ abstract class AdminPageBase {
 	 */
 	protected function render_save_bar( string $button_label = '' ): void {
 		if ( '' === $button_label ) {
-			$button_label = __( 'Save Settings', 'buddynext' );
+			$button_label = __( 'Save changes', 'buddynext' );
 		}
 		?>
 		<div class="bn-save-bar">

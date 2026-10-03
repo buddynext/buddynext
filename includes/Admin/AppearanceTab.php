@@ -145,13 +145,13 @@ class AppearanceTab {
 			<div class="bn-settings-section">
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Custom CSS', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
-					<p class="bn-av-section-desc"><?php esc_html_e( 'Injected on community pages after the theme styles. Use the BuddyNext token variables (e.g. var(--bn-accent)) where you can.', 'buddynext' ); ?></p>
+					<p class="bn-av-section-desc"><?php esc_html_e( 'Injected on community pages after the theme styles. Use the BuddyNext token variables (for example var(--bn-accent)) where you can.', 'buddynext' ); ?></p>
 					<?php // #bn-custom-css is upgraded to the core code editor (CodeMirror) by AssetService when the tab is active; without it this stays a plain textarea. ?>
 					<textarea id="bn-custom-css" name="bn_custom_css" class="bn-textarea large-text code" rows="10" spellcheck="false"><?php echo esc_textarea( $css ); ?></textarea>
 				</div>
 			</div>
 
-			<p><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save appearance', 'buddynext' ); ?></button></p>
+			<p><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button></p>
 		</form>
 		<?php
 	}

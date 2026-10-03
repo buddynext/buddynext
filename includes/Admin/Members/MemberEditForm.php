@@ -70,7 +70,7 @@ class MemberEditForm {
 		$wp_user = $user_id > 0 ? get_userdata( $user_id ) : false;
 
 		if ( ! $wp_user || $user_id <= 0 ) {
-			AdminPageBase::render_notice( __( 'User not found.', 'buddynext' ), 'error' );
+			AdminPageBase::render_notice( __( 'Member not found.', 'buddynext' ), 'error' );
 			return;
 		}
 
@@ -180,7 +180,7 @@ class MemberEditForm {
 
 		<a href="<?php echo esc_url( $back_url ); ?>" class="bn-edit-member-back">
 			<?php echo \BuddyNext\Core\IconService::render( 'chevron-left' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-			<?php esc_html_e( 'Back to Members', 'buddynext' ); ?>
+			<?php esc_html_e( 'Back to members', 'buddynext' ); ?>
 		</a>
 
 		<div class="bn-member-hero">
@@ -250,7 +250,7 @@ class MemberEditForm {
 					data-variant="secondary"
 					data-size="sm">
 					<?php echo \BuddyNext\Core\IconService::render( 'external-link' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-					<?php esc_html_e( 'View Profile', 'buddynext' ); ?>
+					<?php esc_html_e( 'View profile', 'buddynext' ); ?>
 				</a>
 				<?php
 				// Verify control: only when the feature is on AND this member is not
@@ -293,7 +293,7 @@ class MemberEditForm {
 						<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'saved', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
 						<?php wp_nonce_field( 'bn_suspend_member' ); ?>
 						<button type="submit" class="bn-btn" data-variant="danger" data-size="sm">
-							<?php esc_html_e( 'Suspend Member', 'buddynext' ); ?>
+							<?php esc_html_e( 'Suspend member', 'buddynext' ); ?>
 						</button>
 					</form>
 				<?php endif; ?>
@@ -351,10 +351,10 @@ class MemberEditForm {
 			<div id="bn-panel-account" class="bn-tab-panel is-active" role="tabpanel" aria-labelledby="bn-edit-tab-account">
 				<?php
 				$existing_avatar = (string) get_user_meta( $user_id, 'bn_avatar', true );
-				$this->open_section( __( 'Profile Photo', 'buddynext' ) );
+				$this->open_section( __( 'Profile photo', 'buddynext' ) );
 				?>
 				<div class="bn-field-row">
-					<div class="bn-label"><?php esc_html_e( 'Current Photo', 'buddynext' ); ?></div>
+					<div class="bn-label"><?php esc_html_e( 'Current photo', 'buddynext' ); ?></div>
 					<div class="bn-control">
 						<?php if ( '' !== $existing_avatar ) : ?>
 							<img src="<?php echo esc_url( $existing_avatar ); ?>" alt="" class="bn-avatar-preview">
@@ -380,10 +380,10 @@ class MemberEditForm {
 
 				// ── Cover Photo ───────────────────────────────────────────────
 				$existing_cover = ( new \BuddyNext\Profile\AvatarService() )->get_cover_url( (int) $user_id );
-				$this->open_section( __( 'Cover Photo', 'buddynext' ) );
+				$this->open_section( __( 'Cover photo', 'buddynext' ) );
 				?>
 				<div class="bn-field-row">
-					<div class="bn-label"><?php esc_html_e( 'Current Cover', 'buddynext' ); ?></div>
+					<div class="bn-label"><?php esc_html_e( 'Current cover', 'buddynext' ); ?></div>
 					<div class="bn-control">
 						<?php if ( '' !== $existing_cover ) : ?>
 							<img src="<?php echo esc_url( $existing_cover ); ?>" alt="" class="bn-cover-preview">
@@ -411,13 +411,13 @@ class MemberEditForm {
 				$this->open_section( __( 'Account', 'buddynext' ) );
 				$this->render_text_row(
 					'display_name',
-					__( 'Display Name', 'buddynext' ),
+					__( 'Display name', 'buddynext' ),
 					$wp_user->display_name,
 					__( 'Shown publicly across the community.', 'buddynext' )
 				);
 				?>
 				<div class="bn-field-row">
-					<div class="bn-label"><label for="bn-user-email"><?php esc_html_e( 'Email Address', 'buddynext' ); ?></label></div>
+					<div class="bn-label"><label for="bn-user-email"><?php esc_html_e( 'Email address', 'buddynext' ); ?></label></div>
 					<div class="bn-control">
 						<input type="email" id="bn-user-email" name="bn_user_email" value="<?php echo esc_attr( $wp_user->user_email ); ?>" class="bn-input">
 					</div>
@@ -435,7 +435,7 @@ class MemberEditForm {
 					</div>
 				</div>
 				<div class="bn-field-row">
-					<div class="bn-label"><label for="bn-profile-slug"><?php esc_html_e( 'Profile URL Slug', 'buddynext' ); ?></label></div>
+					<div class="bn-label"><label for="bn-profile-slug"><?php esc_html_e( 'Profile URL slug', 'buddynext' ); ?></label></div>
 					<div class="bn-control">
 						<input type="text" id="bn-profile-slug" name="bn_profile_slug" value="<?php echo esc_attr( $slug ); ?>" class="bn-input">
 						<p class="bn-edit-hint"><?php esc_html_e( 'Leave blank to use the default (user-{id}). Must be unique.', 'buddynext' ); ?></p>
@@ -561,7 +561,7 @@ class MemberEditForm {
 
 
 			<div class="bn-save-bar">
-				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Profile', 'buddynext' ); ?></button>
+				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 			</div>
 		</form>
 		<?php

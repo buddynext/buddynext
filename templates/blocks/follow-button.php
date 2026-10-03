@@ -82,7 +82,7 @@ $bn_fb_is_active = $is_following || $is_pending;
 		data-wp-bind--data-state="state.btnState"
 		data-wp-text="state.label"
 		aria-pressed="<?php echo $bn_fb_is_active ? 'true' : 'false'; ?>"
-		aria-label="<?php echo $is_pending ? esc_attr__( 'Cancel follow request', 'buddynext' ) : ( $is_following ? esc_attr__( 'Unfollow user', 'buddynext' ) : esc_attr__( 'Follow user', 'buddynext' ) ); ?>"
+		aria-label="<?php echo $is_pending ? esc_attr__( 'Cancel follow request', 'buddynext' ) : ( $is_following ? esc_attr__( 'Unfollow member', 'buddynext' ) : esc_attr__( 'Follow member', 'buddynext' ) ); ?>"
 	>
 		<?php echo $bn_fb_initial_label; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html__ applied above. ?>
 	</button>

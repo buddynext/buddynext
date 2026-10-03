@@ -183,7 +183,7 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
 
         await section.locator('#bn-assign-tier').selectOption(String(tierA.id));
         await section.locator('input[name="bn_membership[never]"]').check();
-        await page.getByRole('button', { name: 'Save Profile' }).click();
+        await page.getByRole('button', { name: 'Save changes' }).click();
         await page.waitForLoadState('domcontentloaded');
 
         await expect.poll(async () => activeTierId(adminTargetId), { timeout: 10_000 }).toBe(tierA.id);
@@ -194,7 +194,7 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
         await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
         await section.locator('#bn-assign-tier').selectOption(String(tierB.id));
         await section.locator('input[name="bn_membership[never]"]').check();
-        await page.getByRole('button', { name: 'Save Profile' }).click();
+        await page.getByRole('button', { name: 'Save changes' }).click();
         await page.waitForLoadState('domcontentloaded');
 
         // EFFECT: Plan A is superseded, Plan B is the member's one active plan -

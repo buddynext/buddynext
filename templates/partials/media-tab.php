@@ -226,7 +226,7 @@ $bn_mt_ctx = array(
 				<label class="bn-field">
 					<span class="bn-field__label"><?php esc_html_e( 'Name', 'buddynext' ); ?></span>
 					<input class="bn-input" type="text" maxlength="120"
-						placeholder="<?php esc_attr_e( 'e.g. Summer trip', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'For example: Summer trip', 'buddynext' ); ?>"
 						data-wp-bind--value="context.createTitle"
 						data-wp-on--input="actions.setCreateTitle" />
 				</label>

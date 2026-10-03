@@ -138,7 +138,7 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 					$bn_default_type = (string) get_option( 'buddynext_space_default_type', 'open' );
 					foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $bn_type_key => $bn_type_cfg ) :
 						$bn_hint  = $bn_join_hints[ $bn_type_cfg['join'] ] ?? '';
-						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ' — ' . $bn_hint : '' );
+						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ': ' . $bn_hint : '' );
 						?>
 						<option value="<?php echo esc_attr( (string) $bn_type_key ); ?>" <?php selected( $bn_default_type, (string) $bn_type_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>

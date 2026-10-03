@@ -74,7 +74,7 @@ class ConnectionService {
 		if ( $requester_id === $recipient_id ) {
 			return new WP_Error(
 				'cannot_connect_self',
-				__( 'A user cannot connect with themselves.', 'buddynext' )
+				__( 'You cannot connect with yourself.', 'buddynext' )
 			);
 		}
 

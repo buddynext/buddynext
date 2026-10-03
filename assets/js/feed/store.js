@@ -1016,11 +1016,11 @@ function bnPillRender() {
 	const capped = n > BN_PILL_CAP;
 
 	if ( capped ) {
-		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts — refresh to view' ), BN_PILL_CAP );
+		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts: refresh to view' ), BN_PILL_CAP );
 	} else if ( n === 1 ) {
-		bnPill.pill.textContent = t( 'oneNewPost', '1 new post — refresh to view' );
+		bnPill.pill.textContent = t( 'oneNewPost', '1 new post: refresh to view' );
 	} else {
-		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts — refresh to view' ), n );
+		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts: refresh to view' ), n );
 	}
 }
 
@@ -1242,7 +1242,7 @@ function initRealtimeCommentIndicator() {
 		}
 		const n = parseInt( pill.dataset.count, 10 ) + 1;
 		pill.dataset.count = String( n );
-		pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment — show' ) : fmt( t( 'manyNewComments', '%d new comments — show' ), n );
+		pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment: show' ) : fmt( t( 'manyNewComments', '%d new comments: show' ), n );
 	} );
 }
 

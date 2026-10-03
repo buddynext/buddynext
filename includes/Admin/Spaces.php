@@ -311,7 +311,7 @@ class Spaces extends AdminPageBase {
 
 		<div class="bn-stat-grid">
 			<div class="bn-stat">
-				<div class="bn-stat__label"><?php esc_html_e( 'Total Spaces', 'buddynext' ); ?></div>
+				<div class="bn-stat__label"><?php esc_html_e( 'Total spaces', 'buddynext' ); ?></div>
 				<div class="bn-stat__value"><?php echo esc_html( (string) $counts['total'] ); ?></div>
 			</div>
 			<div class="bn-stat">
@@ -504,8 +504,8 @@ class Spaces extends AdminPageBase {
 							<th scope="col" class="column-primary"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
-							<th scope="col"><?php esc_html_e( 'Join Requests', 'buddynext' ); ?></th>
-							<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last Activity', 'buddynext' ); ?></a></th>
+							<th scope="col"><?php esc_html_e( 'Join requests', 'buddynext' ); ?></th>
+							<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last activity', 'buddynext' ); ?></a></th>
 							<th scope="col"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'created_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Created', 'buddynext' ); ?></a></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
@@ -589,14 +589,14 @@ class Spaces extends AdminPageBase {
 										</span>
 									</td>
 									<td data-colname="<?php esc_attr_e( 'Members', 'buddynext' ); ?>"><?php echo esc_html( (string) $space['member_count'] ); ?></td>
-									<td data-colname="<?php esc_attr_e( 'Join Requests', 'buddynext' ); ?>">
+									<td data-colname="<?php esc_attr_e( 'Join requests', 'buddynext' ); ?>">
 										<?php if ( $space['pending_count'] > 0 ) : ?>
 											<span class="bn-badge" data-tone="info"><?php echo esc_html( (string) $space['pending_count'] ); ?></span>
 										<?php else : ?>
 											<span class="bn-row-meta" aria-hidden="true">-</span>
 										<?php endif; ?>
 									</td>
-									<td data-colname="<?php esc_attr_e( 'Last Activity', 'buddynext' ); ?>">
+									<td data-colname="<?php esc_attr_e( 'Last activity', 'buddynext' ); ?>">
 										<?php
 										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
 										if ( '' !== $bn_last_active ) {

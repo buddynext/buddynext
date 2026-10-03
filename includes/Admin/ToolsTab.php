@@ -558,7 +558,7 @@ class ToolsTab {
 					<p class="description">
 						<?php esc_html_e( 'Default is off: a delete keeps your spaces, posts, members and settings so a reinstall restores everything. Turn this on only if you want deleting the plugin to permanently erase all community content. Financial records (invoices and subscriptions) are always kept.', 'buddynext' ); ?>
 					</p>
-					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Save', 'buddynext' ); ?></button>
+					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 				</form>
 			</div>
 		</div>

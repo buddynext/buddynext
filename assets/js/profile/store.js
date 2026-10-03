@@ -1774,7 +1774,7 @@ const profileStore = store( 'buddynext/profile', {
 				// Mark dirty so Save enables and the beforeunload guard arms.
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
-				bnToast( t( 'avatarReady', 'Avatar ready — click Save changes to keep it' ), { tone: 'info' } );
+				bnToast( t( 'avatarReady', 'Avatar ready: click Save changes to keep it' ), { tone: 'info' } );
 			} catch ( err ) {
 				bnToast( t( 'couldNotPrepareImage', 'Could not prepare image. Try again.' ), { tone: 'danger' } );
 			} finally {
@@ -1839,7 +1839,7 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.coverUrl = '';
 					setCoverPreview( '' ); // revert to the empty cover state
 					toggleCoverRemove( false );
-					bnToast( t( 'coverRemoved', 'Cover photo removed' ), { tone: 'success' } );
+					bnToast( t( 'coverRemoved', 'Cover removed.' ), { tone: 'success' } );
 				} else {
 					bnToast( t( 'coverRemoveFailed', 'Could not remove your cover. Try again.' ), { tone: 'danger' } );
 				}
@@ -1886,7 +1886,7 @@ const profileStore = store( 'buddynext/profile', {
 				// Mark dirty so Save enables and the beforeunload guard arms.
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
-				bnToast( t( 'coverReady', 'Cover ready — click Save changes to keep it' ), { tone: 'info' } );
+				bnToast( t( 'coverReady', 'Cover ready: click Save changes to keep it' ), { tone: 'info' } );
 			} catch ( err ) {
 				bnToast( t( 'couldNotPrepareImage', 'Could not prepare image. Try again.' ), { tone: 'danger' } );
 			} finally {
@@ -2048,7 +2048,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( res.ok ) {
 					ctx.connectionReceived = false;
 					ctx.showConnect        = true;
-					bnToast( t( 'requestDeclined', 'Request declined' ), { tone: 'info' } );
+					bnToast( t( 'requestDeclined', 'Request declined.' ), { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},

@@ -387,7 +387,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 				if ( wasUnread ) {
 					adjustUnreadTabBadges( ctx, 1, row.dataset.notifType );
 				}
-				toast( t( 'dismissFailed', 'Could not dismiss. Try again.' ), 'error' );
+				toast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), 'error' );
 				return;
 			}
 		},
@@ -504,7 +504,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 							adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 						}
 					}
-					toast( t( 'inviteAccepted', 'Invitation accepted — you have joined the space.' ), 'success' );
+					toast( t( 'inviteAccepted', 'Invitation accepted: you have joined the space.' ), 'success' );
 					if ( row.dataset.notifLink ) {
 						window.location.href = row.dataset.notifLink;
 					} else {

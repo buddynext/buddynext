@@ -770,7 +770,7 @@ export function bnConnectNoteDialog( opts ) {
 		body:         si( 'connectBody', 'Add a personal message to your connection request, or send it without one.' ),
 		confirmLabel: si( 'connectSubmit', 'Send request' ),
 		cancelLabel:  si( 'cancel', 'Cancel' ),
-		placeholder:  si( 'connectPlaceholder', 'e.g. We met at the design meetup — I’d love to stay connected.' ),
+		placeholder:  si( 'connectPlaceholder', 'For example: We met at the design meetup. I’d love to stay connected.' ),
 		tone:         'default',
 	}, opts || {} );
 

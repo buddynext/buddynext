@@ -702,7 +702,7 @@ class Members extends AdminPageBase {
 		?>
 		<div class="bn-settings-section bn-community-role-section">
 			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Community Role', 'buddynext' ); ?></span>
+				<span class="bn-ss-title"><?php esc_html_e( 'Community role', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
 				<div class="bn-field-row">
@@ -1328,7 +1328,7 @@ class Members extends AdminPageBase {
 		$bn_tabs = array(
 			'members'         => __( 'Members', 'buddynext' ),
 			'profile-fields'  => __( 'Profile Fields', 'buddynext' ),
-			'avatar-settings' => __( 'Avatar & Cover', 'buddynext' ),
+			'avatar-settings' => __( 'Avatar & cover', 'buddynext' ),
 			'member-types'    => __( 'Member Types', 'buddynext' ),
 			'invites'         => __( 'Invites', 'buddynext' ),
 		);
@@ -1623,7 +1623,7 @@ class Members extends AdminPageBase {
 		?>
 		<div class="bn-stat-grid">
 			<div class="bn-stat">
-				<div class="bn-stat__label"><?php esc_html_e( 'Total Members', 'buddynext' ); ?></div>
+				<div class="bn-stat__label"><?php esc_html_e( 'Total members', 'buddynext' ); ?></div>
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $stats['total'] ) ); ?></div>
 			</div>
 			<div class="bn-stat">
@@ -1631,7 +1631,7 @@ class Members extends AdminPageBase {
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $active_count ) ); ?></div>
 			</div>
 			<div class="bn-stat">
-				<div class="bn-stat__label"><?php esc_html_e( 'New This Week', 'buddynext' ); ?></div>
+				<div class="bn-stat__label"><?php esc_html_e( 'New this week', 'buddynext' ); ?></div>
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $stats['new_week'] ) ); ?></div>
 			</div>
 			<div class="bn-stat">
@@ -1681,7 +1681,7 @@ class Members extends AdminPageBase {
 						value="<?php echo esc_attr( $search ); ?>">
 					<label for="bn-members-role" class="screen-reader-text"><?php esc_html_e( 'Filter by role', 'buddynext' ); ?></label>
 					<select id="bn-members-role" name="role" class="bn-select">
-						<option value=""><?php esc_html_e( 'All Roles', 'buddynext' ); ?></option>
+						<option value=""><?php esc_html_e( 'All roles', 'buddynext' ); ?></option>
 						<?php foreach ( wp_roles()->get_names() as $rk => $rl ) : ?>
 							<option value="<?php echo esc_attr( $rk ); ?>" <?php selected( $role_filter, $rk ); ?>>
 								<?php echo esc_html( translate_user_role( $rl ) ); ?>
@@ -1762,7 +1762,7 @@ class Members extends AdminPageBase {
 									?>
 												"
 										class="bn-th-sort<?php echo $bn_la_active ? ' is-active' : ''; ?>">
-										<?php esc_html_e( 'Last Active', 'buddynext' ); ?>
+										<?php esc_html_e( 'Last active', 'buddynext' ); ?>
 									</a>
 								</th>
 								<th scope="col" data-align="end"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
@@ -1835,7 +1835,7 @@ class Members extends AdminPageBase {
 									<?php if ( $member['suspended'] ) : ?>
 										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
 									<?php elseif ( ! empty( $member['pending_approval'] ) ) : ?>
-										<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Pending Approval', 'buddynext' ); ?></span>
+										<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Pending approval', 'buddynext' ); ?></span>
 									<?php else : ?>
 										<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 									<?php endif; ?>
@@ -1845,7 +1845,7 @@ class Members extends AdminPageBase {
 										<?php echo esc_html( gmdate( 'M j, Y', strtotime( $member['registered'] ) ) ); ?>
 									</time>
 								</td>
-								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last Active', 'buddynext' ); ?>">
+								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">
 									<?php if ( $member['last_active'] > 0 ) : ?>
 										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_active'] ) ); ?>">
 											<?php echo esc_html( MemberDisplay::human_time_diff_short( $member['last_active'] ) ); ?>

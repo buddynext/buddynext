@@ -192,7 +192,7 @@ class RolesTab extends AdminPageBase {
 				</div>
 			</div>
 
-			<?php $this->render_save_bar( __( 'Save permissions', 'buddynext' ) ); ?>
+			<?php $this->render_save_bar( __( 'Save changes', 'buddynext' ) ); ?>
 		</form>
 		<?php
 		// Restore defaults: the same form and confirm as every settings tab, listing

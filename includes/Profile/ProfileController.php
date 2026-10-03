@@ -1002,7 +1002,7 @@ class ProfileController extends BaseRestController {
 			&& ! $privacy->can_view_profile( $viewer_id, $profile_user_id ) ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -1013,7 +1013,7 @@ class ProfileController extends BaseRestController {
 		if ( null === $profile ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -1773,7 +1773,7 @@ class ProfileController extends BaseRestController {
 		if ( ! get_userdata( $user_id ) ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -2254,7 +2254,7 @@ class ProfileController extends BaseRestController {
 		if ( ! get_userdata( $user_id ) ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -2272,7 +2272,7 @@ class ProfileController extends BaseRestController {
 		$user_id = (int) $request->get_param( 'id' );
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		buddynext_service( 'profiles' )->delete_avatar( $user_id );
@@ -2296,7 +2296,7 @@ class ProfileController extends BaseRestController {
 		$user_id = absint( $request->get_param( 'id' ) );
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		return $this->handle_cover_upload( $user_id );
@@ -2312,7 +2312,7 @@ class ProfileController extends BaseRestController {
 		$user_id = absint( $request->get_param( 'id' ) );
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		$this->purge_user_cover( $user_id );

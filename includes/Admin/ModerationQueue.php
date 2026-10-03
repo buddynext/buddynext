@@ -509,7 +509,7 @@ class ModerationQueue {
 				if ( $bn_report_count > 1 ) {
 					printf(
 						/* translators: %d: number of users who reported this content */
-						esc_html( _n( 'Reported by %d user', 'Reported by %d users', $bn_report_count, 'buddynext' ) ),
+						esc_html( _n( 'Reported by %d member', 'Reported by %d members', $bn_report_count, 'buddynext' ) ),
 						(int) $bn_report_count
 					);
 				} elseif ( $reporter ) {
@@ -522,7 +522,7 @@ class ModerationQueue {
 					// so this is the common case rather than a curiosity.
 					echo esc_html__( 'System (auto-flagged)', 'buddynext' );
 				} else {
-					echo esc_html__( '(deleted user)', 'buddynext' );
+					echo esc_html__( '(deleted member)', 'buddynext' );
 				}
 				?>
 			</td>
@@ -1184,7 +1184,7 @@ class ModerationQueue {
 				break;
 		}
 
-		$this->redirect_back( 'reports', $result );
+		$this->redirect_back( 'reports', $result, $op );
 	}
 
 	/**
@@ -1232,7 +1232,7 @@ class ModerationQueue {
 		// issue_strike() / suspend_user() / unsuspend_user() each write their own
 		// bn_mod_log row now (card 10264294456), so no log() call here.
 
-		$this->redirect_back( $tab, $result );
+		$this->redirect_back( $tab, $result, $op );
 	}
 
 	/**
@@ -1264,7 +1264,7 @@ class ModerationQueue {
 			);
 		}
 
-		$this->redirect_back( 'appeals', $result );
+		$this->redirect_back( 'appeals', $result, 'appeal' );
 	}
 
 	/**
@@ -1319,7 +1319,7 @@ class ModerationQueue {
 			);
 		}
 
-		$this->redirect_back( 'pending', $result );
+		$this->redirect_back( 'pending', $result, $op_action );
 	}
 
 	// ── Small render + flow helpers ─────────────────────────────────────────
@@ -1611,6 +1611,30 @@ class ModerationQueue {
 	}
 
 	/**
+	 * What a moderation action did, in the words the moderator expects to read.
+	 *
+	 * @param string $done Op key from redirect_back().
+	 * @return string
+	 */
+	private static function done_message( string $done ): string {
+		$messages = array(
+			'dismiss'         => __( 'Report dismissed.', 'buddynext' ),
+			'resolve'         => __( 'Report resolved.', 'buddynext' ),
+			'remove'          => __( 'Content removed.', 'buddynext' ),
+			'escalate'        => __( 'Report escalated.', 'buddynext' ),
+			'cw_set'          => __( 'Content warning added.', 'buddynext' ),
+			'cw_clear'        => __( 'Content warning removed.', 'buddynext' ),
+			'strike'          => __( 'Strike issued.', 'buddynext' ),
+			'suspend'         => __( 'Member suspended.', 'buddynext' ),
+			'unsuspend'       => __( 'Suspension lifted.', 'buddynext' ),
+			'appeal'          => __( 'Appeal decided.', 'buddynext' ),
+			'approve_pending' => __( 'Post approved.', 'buddynext' ),
+			'reject_pending'  => __( 'Post rejected.', 'buddynext' ),
+		);
+		return $messages[ $done ] ?? __( 'Done.', 'buddynext' );
+	}
+
+	/**
 	 * Redirect back to a moderation tab, reflecting the action's outcome.
 	 *
 	 * A WP_Error result (e.g. unsuspending a user who is not suspended, or acting
@@ -1620,9 +1644,10 @@ class ModerationQueue {
 	 *
 	 * @param string          $tab    Tab slug.
 	 * @param mixed|\WP_Error $result Service return value; WP_Error means failure.
+	 * @param string          $done   What succeeded (an op key, see done_message()).
 	 * @return void
 	 */
-	private function redirect_back( string $tab, $result = true ): void {
+	private function redirect_back( string $tab, $result = true, string $done = '' ): void {
 		$args = array(
 			'page' => 'buddynext-moderation',
 			'tab'  => $tab,
@@ -1631,7 +1656,7 @@ class ModerationQueue {
 		if ( is_wp_error( $result ) ) {
 			$args['bn_error'] = rawurlencode( $result->get_error_message() );
 		} else {
-			$args['bn_done'] = '1';
+			$args['bn_done'] = '' !== $done ? sanitize_key( $done ) : '1';
 		}
 
 		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
@@ -1646,7 +1671,7 @@ class ModerationQueue {
 	private function maybe_notice(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
 		if ( ! empty( $_GET['bn_done'] ) ) {
-			AdminPageBase::render_notice( __( 'Done.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
+			AdminPageBase::render_notice( self::done_message( sanitize_key( wp_unslash( (string) $_GET['bn_done'] ) ) ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
 		}
 
 		if ( ! empty( $_GET['bn_error'] ) ) {

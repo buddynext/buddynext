@@ -87,7 +87,7 @@ test.describe('pro / admin subscription overview', () => {
         // Admin assigns the plan.
         await section.locator('#bn-assign-tier').selectOption(String(tierId));
         await section.locator('input[name="bn_membership[never]"]').check();
-        await page.getByRole('button', { name: 'Save Profile' }).click();
+        await page.getByRole('button', { name: 'Save changes' }).click();
         await page.waitForLoadState('domcontentloaded');
 
         // EFFECT: the DB actually holds the new subscription...

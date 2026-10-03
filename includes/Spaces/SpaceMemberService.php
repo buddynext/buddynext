@@ -453,7 +453,7 @@ class SpaceMemberService {
 		if ( 'pending' !== $current_status ) {
 			return new WP_Error(
 				'no_pending_request',
-				__( 'No pending join request found for this user.', 'buddynext' )
+				__( 'No pending join request found for this member.', 'buddynext' )
 			);
 		}
 
@@ -521,7 +521,7 @@ class SpaceMemberService {
 		if ( 'pending' !== $current_status ) {
 			return new WP_Error(
 				'no_pending_request',
-				__( 'No pending join request found for this user.', 'buddynext' )
+				__( 'No pending join request found for this member.', 'buddynext' )
 			);
 		}
 

@@ -1376,7 +1376,7 @@ class SocialLogin {
 			'pending_approval' => __( 'Your account is awaiting administrator approval.', 'buddynext' ),
 			'reg_closed'       => __( 'Registration is closed on this community.', 'buddynext' ),
 			'reg_invite'       => __( 'This community is invite-only. You need an invitation to join.', 'buddynext' ),
-			'reg_domain'       => __( 'Only users from allowed email domains may register.', 'buddynext' ),
+			'reg_domain'       => __( 'Sign-ups here need an email address from an approved domain.', 'buddynext' ),
 		);
 
 		$code = sanitize_key( $code );

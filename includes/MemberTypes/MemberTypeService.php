@@ -475,7 +475,7 @@ class MemberTypeService {
 		}
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'invalid_user', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'invalid_user', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// Record the previous type slug for the action hook.

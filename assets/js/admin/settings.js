@@ -303,9 +303,9 @@
 		var nonce    = list.getAttribute( 'data-nonce' );
 		var i18nData = {
 			installing: list.getAttribute( 'data-i18n-installing' ) || __( 'Installing…', 'buddynext' ),
-			installed:  list.getAttribute( 'data-i18n-installed' ) || __( 'Installed — reloading…', 'buddynext' ),
+			installed:  list.getAttribute( 'data-i18n-installed' ) || __( 'Installed. Reloading…', 'buddynext' ),
 			failed:     list.getAttribute( 'data-i18n-failed' ) || __( 'Install failed.', 'buddynext' ),
-			network:    list.getAttribute( 'data-i18n-network' ) || __( 'Install failed — network error.', 'buddynext' )
+			network:    list.getAttribute( 'data-i18n-network' ) || __( 'Install failed: network error.', 'buddynext' )
 		};
 
 		list.querySelectorAll( '.bn-companion-install' ).forEach( function ( btn ) {

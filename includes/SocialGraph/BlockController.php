@@ -144,7 +144,7 @@ class BlockController extends BaseRestController {
 		if ( ! get_userdata( $target_id ) ) {
 			return new WP_Error(
 				'buddynext_user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -185,7 +185,7 @@ class BlockController extends BaseRestController {
 		if ( ! get_userdata( $target_id ) ) {
 			return new WP_Error(
 				'buddynext_user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -340,7 +340,7 @@ class BlockController extends BaseRestController {
 		if ( ! get_userdata( $target_id ) ) {
 			return new WP_Error(
 				'buddynext_user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}

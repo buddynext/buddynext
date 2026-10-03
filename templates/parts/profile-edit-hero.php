@@ -80,7 +80,7 @@ $bn_class   = trim(
 $bn_ep_name       = (string) $args['display_name'];
 $bn_ep_headline   = (string) $args['headline'];
 $bn_ep_hl_label   = '' !== (string) $args['headline_label'] ? (string) $args['headline_label'] : __( 'Headline', 'buddynext' );
-$bn_ep_hl_ph      = '' !== (string) $args['headline_placeholder'] ? (string) $args['headline_placeholder'] : __( 'e.g. Software Engineer at Acme Co.', 'buddynext' );
+$bn_ep_hl_ph      = '' !== (string) $args['headline_placeholder'] ? (string) $args['headline_placeholder'] : __( 'For example: Software Engineer at Acme Co.', 'buddynext' );
 $bn_ep_hl_hint    = '' !== (string) $args['headline_hint'] ? (string) $args['headline_hint'] : __( 'Shown under your name across the community.', 'buddynext' );
 $bn_ep_login      = (string) $args['username'];
 $bn_ep_avatar     = (string) $args['avatar_url'];

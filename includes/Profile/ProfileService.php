@@ -1667,7 +1667,7 @@ class ProfileService {
 		if ( $is_suspended && ! current_user_can( 'manage_options' ) ) {
 			return array(
 				'user_id'      => $profile_user_id,
-				'display_name' => __( 'Suspended User', 'buddynext' ),
+				'display_name' => __( 'Suspended member', 'buddynext' ),
 				'is_suspended' => true,
 				'groups'       => array(),
 				'avatar_url'   => '',

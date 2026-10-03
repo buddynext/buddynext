@@ -240,7 +240,7 @@ async function renderParentResults( picker, q ) {
 			status.textContent = t( 'parentNoMatch', 'No top-level spaces you manage match that name.' );
 			status.hidden = false;
 		} else if ( items.length >= PARENT_PAGE ) {
-			status.textContent = t( 'parentMoreExist', 'Showing the first matches — keep typing to narrow the list.' );
+			status.textContent = t( 'parentMoreExist', 'Showing the first matches: keep typing to narrow the list.' );
 			status.hidden = false;
 		} else {
 			status.textContent = '';
@@ -870,7 +870,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					// Reflect a pending state instead of falsely erroring.
 					swapButtonState( btn, 'pending' );
 					if ( window.bnToast ) {
-						window.bnToast( ( data && data.message ) || t( 'joinRequested', 'Request sent — you’ll be notified when it’s approved.' ), 'success' );
+						window.bnToast( ( data && data.message ) || t( 'joinRequested', 'Request sent: you’ll be notified when it’s approved.' ), 'success' );
 					}
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
@@ -1284,7 +1284,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( ! spaceId ) { return; }
 
 			var submitBtn = composer.querySelector( '.bn-composer__submit' );
-			if ( submitBtn ) { submitBtn.disabled = true; submitBtn.textContent = t( 'posting', 'Posting\u2026' ); }
+			if ( submitBtn ) { submitBtn.disabled = true; submitBtn.textContent = t( 'posting', 'Posting…' ); }
 
 			try {
 				var res  = await restFetch( '/posts', {
@@ -1417,7 +1417,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				var reportItem = document.createElement( 'button' );
 				reportItem.type        = 'button';
-				reportItem.textContent = t( 'reportPost', 'Report post' );
+				reportItem.textContent = t( 'reportPost', 'Report this post' );
 				reportItem.className   = 'bn-post-card__menu-item';
 				reportItem.addEventListener( 'click', function () {
 					dropdown.classList.remove( 'bn-post-card__menu-dropdown--open' );
@@ -1480,7 +1480,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 
 				if ( res.ok ) {
-					btn.textContent = t( 'shared', 'Shared!' );
+					btn.textContent = t( 'shared', 'Shared' );
 					setTimeout( function () {
 						btn.textContent = origText;
 						btn.disabled    = false;

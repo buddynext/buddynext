@@ -428,7 +428,7 @@ class EmailLog {
 											<span class="bn-text-muted">
 												<?php
 												/* translators: %d: user ID of a recipient whose account no longer exists. */
-												echo esc_html( sprintf( __( 'Deleted user #%d', 'buddynext' ), $uid ) );
+												echo esc_html( sprintf( __( 'Deleted member #%d', 'buddynext' ), $uid ) );
 												?>
 											</span>
 										<?php else : ?>
