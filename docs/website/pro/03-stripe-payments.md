@@ -65,7 +65,14 @@ If it says **Connected** but you have not finished the webhook step, the badge t
 
 A webhook is how Stripe tells your site when a payment succeeds, renews, or fails, so access stays in sync. The Payment Gateways tab shows a webhook address for you to copy. In your Stripe dashboard, under Developers then Webhooks, add a new endpoint and paste in that address.
 
-When Stripe asks which events to send, choose the subscription and invoice events. After Stripe creates the endpoint, it shows you a signing secret - copy that back into the Webhook signing secret field on the Stripe tab and save.
+When Stripe asks which events to send, add all of these (the same list the Stripe tab shows):
+
+- `checkout.session.completed` and `checkout.session.async_payment_succeeded` - a purchase finished.
+- `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted` - subscriptions started, changed or cancelled, including ones you manage in Stripe.
+- `invoice.paid` and `invoice.payment_failed` - renewals and failed payments.
+- `charge.refunded`, `charge.refund.updated` and `charge.dispute.created` - refunds you issue in Stripe and chargebacks, which end the member's access.
+
+ After Stripe creates the endpoint, it shows you a signing secret - copy that back into the Webhook signing secret field on the Stripe tab and save.
 
 > **Warning:** Set the webhook up before you go live. The webhook is how Stripe tells your site about renewals, cancellations, and failed payments - without it, those never reach your members and subscriptions drift out of sync with what Stripe thinks. BuddyNext does have a safety net for the moment of purchase (when a buyer returns from Stripe, the site checks the payment directly rather than waiting for a webhook that may never arrive, so a first purchase is not lost), but that net only covers that one moment. It is not a substitute for the webhook.
 
