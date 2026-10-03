@@ -54,6 +54,28 @@ class RedirectSettings {
 	public static function register(): void {
 		add_filter( 'login_redirect', array( self::class, 'filter_login_redirect' ), 10, 3 );
 		add_filter( 'logout_redirect', array( self::class, 'filter_logout_redirect' ) );
+		add_action( 'login_form_login', array( self::class, 'seed_wp_login_return' ) );
+	}
+
+	/**
+	 * Carry the visitor's page through a wp-login.php sign-in.
+	 *
+	 * Themes that link to wp_login_url() with no argument (BuddyX's header) land
+	 * on wp-login.php, whose form then posts back to itself, so by sign-in time
+	 * the page the visitor came from is gone and they were sent to the default.
+	 * Seeding redirect_to while the form renders puts that page in core's hidden
+	 * field, the same rule BuddyNext's own login page applies.
+	 *
+	 * @return void
+	 */
+	public static function seed_wp_login_return(): void {
+		if ( isset( $_REQUEST['redirect_to'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only presence check.
+			return;
+		}
+		$destination = \BuddyNext\Auth\AuthController::referer_destination();
+		if ( '' !== $destination ) {
+			$_REQUEST['redirect_to'] = $destination;
+		}
 	}
 
 	/**

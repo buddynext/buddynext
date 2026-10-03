@@ -56,4 +56,25 @@ class LoginRefererDestinationTest extends \WP_UnitTestCase {
 		remove_filter( 'buddynext_default_login_redirect', '__return_empty_string' );
 		unset( $_SERVER['HTTP_REFERER'] );
 	}
+
+	/**
+	 * wp-login.php keeps the page in its hidden redirect_to; an explicit value is untouched.
+	 *
+	 * @return void
+	 */
+	public function test_wp_login_form_carries_the_page(): void {
+		$page = home_url( '/members/' );
+		unset( $_REQUEST['redirect_to'] );
+		$this->from( $page );
+		\BuddyNext\Core\RedirectSettings::seed_wp_login_return();
+		$this->assertSame( $page, $_REQUEST['redirect_to'] );
+
+		$_REQUEST['redirect_to'] = home_url( '/spaces/' );
+		\BuddyNext\Core\RedirectSettings::seed_wp_login_return();
+		$this->assertSame( home_url( '/spaces/' ), $_REQUEST['redirect_to'], 'An explicit redirect wins.' );
+
+		unset( $_REQUEST['redirect_to'], $_SERVER['HTTP_REFERER'] );
+		\BuddyNext\Core\RedirectSettings::seed_wp_login_return();
+		$this->assertArrayNotHasKey( 'redirect_to', $_REQUEST, 'No referrer: core default stays.' );
+	}
 }
