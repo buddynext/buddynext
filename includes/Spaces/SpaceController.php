@@ -238,6 +238,19 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// A shared space link carries the slug, not the id: resolve it to the
+		// same response as GET /spaces/{id} (and the same invite handling).
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/slug/(?P<slug>[a-z0-9-]+)',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_space_by_slug' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->invite_token_args(),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)',
@@ -246,6 +259,7 @@ class SpaceController extends BaseRestController {
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'get_space' ),
 					'permission_callback' => '__return_true',
+					'args'                => $this->invite_token_args(),
 				),
 				array(
 					'methods'             => 'PUT',
@@ -1586,6 +1600,36 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * GET /spaces/slug/{slug} - the space a shared link points at, as GET /spaces/{id}.
+	 *
+	 * @param WP_REST_Request $request REST request (slug, invite).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_space_by_slug( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space = ( new SpaceService() )->get_by_slug( (string) $request->get_param( 'slug' ) );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		$request->set_param( 'id', (int) $space['id'] );
+		return $this->get_space( $request );
+	}
+
+	/**
+	 * The optional invite-link token GET /spaces/{id} and /spaces/slug/{slug} take.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function invite_token_args(): array {
+		return array(
+			'invite' => array(
+				'type'              => 'string',
+				'description'       => 'Invite-link token from a shared link (?invite=). A valid one unlocks the preview of a private or secret space.',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+		);
+	}
+
+	/**
 	 * Get a single space.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -1601,6 +1645,18 @@ class SpaceController extends BaseRestController {
 				__( 'Space not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
+		}
+
+		// An invite link (?invite=token) unlocks the preview exactly as the web
+		// link does (SpaceInviteLinkService::prime_from_request skips REST). A dead
+		// token gets the web's own "no longer valid" answer.
+		$invite = (string) $request->get_param( 'invite' );
+		if ( '' !== $invite ) {
+			$valid = ( new SpaceInviteLinkService() )->validate( $space_id, $invite );
+			if ( is_wp_error( $valid ) ) {
+				return $valid;
+			}
+			SpaceVisibility::unlock_via_invite( $space_id );
 		}
 
 		// Existence gate — the canonical resolver, the same one the server-rendered
