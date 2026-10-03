@@ -76,4 +76,45 @@ class SpaceModerationLogRestTest extends \WP_Test_REST_TestCase {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		$this->assertSame( 3, $this->get_log( array() )->get_data()['total'], 'Site moderators still read everything.' );
 	}
+
+	/**
+	 * GET /reports/queue?space_id: one space's open reports, with the offender
+	 * name and strike count the space Moderation tab shows; scoped like the log.
+	 *
+	 * @return void
+	 */
+	public function test_space_report_queue_is_scoped_and_enriched(): void {
+		$owner   = self::factory()->user->create();
+		$other   = self::factory()->user->create();
+		$author  = self::factory()->user->create( array( 'display_name' => 'Rule Breaker' ) );
+		$spaces  = new SpaceService();
+		$members = buddynext_service( 'space_members' );
+		$mine    = (int) $spaces->create( $owner, array( 'name' => 'Mine', 'slug' => 'mq-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$theirs  = (int) $spaces->create( $other, array( 'name' => 'Theirs', 'slug' => 'tq-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$members->join( $mine, $author );
+		$members->join( $theirs, $author );
+
+		$posts = new \BuddyNext\Feed\PostService();
+		$mod   = new \BuddyNext\Moderation\ModerationService();
+		$in    = (int) $posts->create( $author, array( 'content' => 'Reported here', 'space_id' => $mine ) );
+		$out   = (int) $posts->create( $author, array( 'content' => 'Reported there', 'space_id' => $theirs ) );
+		$mod->report( self::factory()->user->create(), 'post', $in, 'spam' );
+		$mod->report( self::factory()->user->create(), 'post', $out, 'spam' );
+
+		$queue = function ( array $query ): \WP_REST_Response {
+			$request = new WP_REST_Request( 'GET', '/buddynext/v1/reports/queue' );
+			$request->set_query_params( $query );
+			return rest_do_request( $request );
+		};
+
+		wp_set_current_user( $owner );
+		$data = $queue( array( 'space_id' => $mine ) )->get_data();
+		$this->assertSame( array( $in ), array_map( 'intval', wp_list_pluck( $data['items'], 'object_id' ) ), 'Only my space\'s report.' );
+		$this->assertSame( 'Rule Breaker', $data['items'][0]['offender_name'] );
+		$this->assertArrayHasKey( 'strikes_count', $data['items'][0] );
+		$this->assertSame( 403, $queue( array( 'space_id' => $theirs ) )->get_status(), 'Not someone else\'s space.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->assertCount( 1, $queue( array( 'space_id' => $theirs ) )->get_data()['items'], 'A site moderator may narrow to any space.' );
+	}
 }

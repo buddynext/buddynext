@@ -124,6 +124,11 @@ class ModerationController extends BaseRestController {
 				'callback'            => array( $this, 'get_queue' ),
 				'permission_callback' => array( $this, 'require_queue_access' ),
 				'args'                => array(
+					'space_id'    => array(
+						'type'              => 'integer',
+						'description'       => 'One space\'s open reports (a space moderator: a space they moderate).',
+						'sanitize_callback' => 'absint',
+					),
 					'per_page'    => array(
 						'type'              => 'integer',
 						'default'           => 20,
@@ -923,11 +928,8 @@ class ModerationController extends BaseRestController {
 	 */
 	public function get_moderation_log( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id = (int) $request->get_param( 'space_id' );
-		if ( ! $this->moderates_site() ) {
-			$allowed = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
-			if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
-				return new WP_Error( 'bn_forbidden', __( 'You can only view the log of a space you moderate.', 'buddynext' ), array( 'status' => 403 ) );
-			}
+		if ( ! $this->moderates_site() && ! $this->moderates_space( $space_id ) ) {
+			return new WP_Error( 'bn_forbidden', __( 'You can only view the log of a space you moderate.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		$days   = (int) $request->get_param( 'since_days' );
@@ -1106,14 +1108,17 @@ class ModerationController extends BaseRestController {
 	 * moderate. If a space moderator manages no spaces the result is always empty.
 	 *
 	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function get_queue( WP_REST_Request $request ): WP_REST_Response {
+	public function get_queue( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$service = new ModerationService();
 
+		// enrich: offender name + strike count on user reports, as the space
+		// Moderation tab shows them (batched in the service).
 		$args = array(
 			'per_page' => absint( $request->get_param( 'per_page' ) ),
 			'page'     => absint( $request->get_param( 'page' ) ),
+			'enrich'   => true,
 		);
 
 		$object_type_param = $request->get_param( 'object_type' );
@@ -1127,8 +1132,14 @@ class ModerationController extends BaseRestController {
 		}
 
 		// Space-only moderators see reports for their own spaces; site-wide
-		// moderators (and admins) see everything.
-		if ( ! $this->moderates_site() ) {
+		// moderators (and admins) see everything. space_id narrows to one space.
+		$space_id = absint( $request->get_param( 'space_id' ) );
+		if ( $space_id > 0 ) {
+			if ( ! $this->moderates_site() && ! $this->moderates_space( $space_id ) ) {
+				return new WP_Error( 'bn_forbidden', __( 'You can only view the reports of a space you moderate.', 'buddynext' ), array( 'status' => 403 ) );
+			}
+			$args['space_ids'] = array( $space_id );
+		} elseif ( ! $this->moderates_site() ) {
 			$args['space_ids'] = $service->get_moderated_space_ids( get_current_user_id() );
 		}
 
@@ -1478,6 +1489,16 @@ class ModerationController extends BaseRestController {
 	 */
 	private function moderates_site(): bool {
 		return $this->holds_moderation_authority( get_current_user_id() );
+	}
+
+	/**
+	 * Whether the current user owns or moderates this one space.
+	 *
+	 * @param int $space_id Space ID (0 = none named).
+	 * @return bool
+	 */
+	private function moderates_space( int $space_id ): bool {
+		return $space_id > 0 && in_array( $space_id, array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) ), true );
 	}
 
 	/**
