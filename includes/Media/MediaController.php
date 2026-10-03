@@ -3,11 +3,11 @@
  * Member-facing media REST controller (buddynext/v1).
  *
  * Powers the BuddyNext-native upload + gallery experience on a member's own
- * profile Media tab. Members upload to their OWN profile only; the engine's own
- * upload REST is NOT used (it requires the upload_mvs_media capability that most
- * members lack). Instead this controller consumes the WPMediaVerse engine purely
- * through the BuddyNext\Media\MediaClient seam, server-side, and BuddyNext's own
- * ownership gate (logged-in + acting on own media) is the authority.
+ * profile Media tab. Members upload to their OWN profile only. This controller
+ * consumes the WPMediaVerse engine through the BuddyNext\Media\MediaClient seam,
+ * server-side; uploading needs MediaClient::can_upload() (the owner's "Who can
+ * upload media" choice in MediaVerse) and every other action BuddyNext's own
+ * ownership gate (logged-in + acting on own media).
  *
  *   POST   /me/media               — upload one file to own profile (auth)
  *   GET    /users/{id}/media       — paginated gallery HTML for a profile (auth)
@@ -63,7 +63,7 @@ class MediaController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'upload_own_media' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					'permission_callback' => array( $this, 'require_upload' ),
 				),
 			)
 		);
@@ -1222,6 +1222,27 @@ class MediaController extends BaseRestController {
 
 		return $viewer > 0
 			&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer );
+	}
+
+	/**
+	 * Permission for POST /me/media: logged in and allowed to upload on this site.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function require_upload(): bool|WP_Error {
+		$auth = $this->require_auth();
+		if ( true !== $auth ) {
+			return $auth;
+		}
+		// Engine absent: let the callback answer 503 (unavailable), not "not allowed".
+		if ( MediaClient::available() && ! MediaClient::can_upload( get_current_user_id() ) ) {
+			return new WP_Error(
+				'upload_not_allowed',
+				__( 'Your account cannot upload media on this site.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+		return true;
 	}
 
 	/**

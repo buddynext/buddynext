@@ -72,6 +72,34 @@ class MediaControllerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Uploading follows the owner's "Who can upload media" choice (upload_mvs_media).
+	 */
+	public function test_upload_needs_the_upload_capability(): void {
+		wp_set_current_user( $this->member );
+		// MediaVerse grants the capability per role on activation; grant it here.
+		$allow = static function ( array $caps ): array {
+			$caps['upload_mvs_media'] = true;
+			return $caps;
+		};
+		add_filter( 'user_has_cap', $allow );
+		$this->assertTrue( $this->controller->require_upload(), 'A member whose role may upload is let through.' );
+		remove_filter( 'user_has_cap', $allow );
+
+		$deny = static function ( array $caps ): array {
+			$caps['upload_mvs_media'] = false;
+			return $caps;
+		};
+		add_filter( 'user_has_cap', $deny );
+		$result = $this->controller->require_upload();
+		remove_filter( 'user_has_cap', $deny );
+
+		$this->assertTrue( \BuddyNext\Media\MediaClient::available(), 'The test bootstrap stubs the engine.' );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'upload_not_allowed', $result->get_error_code() );
+		$this->assertFalse( \BuddyNext\Media\MediaClient::can_upload( 0 ), 'Guests never upload.' );
+	}
+
+	/**
 	 * Delete reports the engine is unavailable when the media repository is
 	 * absent (the guard fires before any ownership check).
 	 */

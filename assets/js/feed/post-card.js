@@ -2273,8 +2273,11 @@ store( 'buddynext/post-card', {
 				} );
 
 				mediaRow.appendChild( tiles );
-				mediaRow.appendChild( addBtn );
-				mediaRow.appendChild( picker );
+				// Removing is always allowed; adding only where the site lets this member upload.
+				if ( ctx.canUploadMedia ) {
+					mediaRow.appendChild( addBtn );
+					mediaRow.appendChild( picker );
+				}
 				form.appendChild( mediaRow );
 			}
 

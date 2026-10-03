@@ -519,6 +519,7 @@ function enhanceDetailTiles( grid ) {
 		cover.className = 'bn-media-cell__cover';
 		cover.setAttribute( 'data-bn-album-cover', id );
 		cover.setAttribute( 'aria-label', t( 'setCover', 'Set as cover' ) );
+		cover.title = t( 'setCover', 'Set as cover' );
 		cover.textContent = '★';
 		cell.appendChild( cover );
 
@@ -527,6 +528,7 @@ function enhanceDetailTiles( grid ) {
 		del.className = 'bn-media-cell__delete';
 		del.setAttribute( 'data-bn-album-remove', id );
 		del.setAttribute( 'aria-label', t( 'removeFromAlbum', 'Remove from album' ) );
+		del.title = t( 'removeFromAlbum', 'Remove from album' );
 		del.textContent = '×';
 		cell.appendChild( del );
 	} );

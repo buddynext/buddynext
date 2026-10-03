@@ -133,8 +133,9 @@ $composer_has_pro = defined( 'BUDDYNEXTPRO_VERSION' );
 // Media uploads route through WPMediaVerse. When the engine is absent the Image
 // affordance must not render — otherwise pickMedia() POSTs to a non-existent
 // mvs/v1 route and 404s. BN degrades gracefully: no button, no console error.
+// The same check hides it from a member the site does not let upload.
 $composer_media_enabled = class_exists( '\BuddyNext\Media\MediaClient' )
-	&& \BuddyNext\Media\MediaClient::available();
+	&& \BuddyNext\Media\MediaClient::can_upload( get_current_user_id() );
 
 // Document attach (WPMediaVerse Pro 2.4.0). enabled/accept/max_size come from
 // MVS's own app config — never BN constants — so the composer cannot offer a

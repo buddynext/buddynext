@@ -585,6 +585,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 				'reactDefaultLabel' => __( 'React', 'buddynext' ),
 				'reactNonce'        => $react_nonce,
 				'shareNonce'        => $share_nonce,
+				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $current_user_id ),
 				'bookmarkNonce'     => $bookmark_nonce,
 				'reportNonce'       => $report_nonce,
 				'dismissNonce'      => $dismiss_nonce,

@@ -25,6 +25,9 @@ $bn_mt_is_owner = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
 // this file.
 $bn_mt_space_id  = isset( $bn_mt_space_id ) ? (int) $bn_mt_space_id : 0;
 $bn_mt_media_ids = isset( $bn_mt_media_ids ) ? (array) $bn_mt_media_ids : array();
+// Upload controls only for someone the site lets upload (MediaVerse "Who can
+// upload media"); a member who may not upload still manages what they have.
+$bn_mt_can_upload = \BuddyNext\Media\MediaClient::can_upload( get_current_user_id() );
 // Owner control: the Albums sub-view can be hidden via BuddyNext -> Integrations
 // (Media -> Albums sub-tab). Default on. When off, only the flat Media gallery shows.
 $bn_mt_albums_enabled = ! isset( $bn_mt_albums_enabled ) || (bool) $bn_mt_albums_enabled;
@@ -118,7 +121,7 @@ $bn_mt_ctx = array(
 	<?php // ── MEDIA VIEW ─────────────────────────────────────────────────────── ?>
 	<div class="bn-media-view" data-wp-bind--hidden="!state.viewIsMedia">
 		<?php
-		if ( $bn_mt_is_owner ) {
+		if ( $bn_mt_is_owner && $bn_mt_can_upload ) {
 			buddynext_get_template(
 				'partials/media-upload-composer.php',
 				array(
@@ -284,6 +287,7 @@ $bn_mt_ctx = array(
 				// dressed up as a workflow. The file input goes through the SAME upload
 				// path as the composer; what lands is pre-selected, so "Add" just works.
 				?>
+				<?php if ( $bn_mt_can_upload ) : ?>
 				<div class="bn-album-picker__actions">
 					<label class="bn-btn bn-album-picker__upload" data-variant="secondary">
 						<?php buddynext_icon( 'upload', 'bn-album-picker__upload-icon' ); ?>
@@ -303,6 +307,7 @@ $bn_mt_ctx = array(
 					</span>
 				</div>
 				<p class="bn-album-picker__hint"><?php esc_html_e( 'Tap media to select, or upload something new.', 'buddynext' ); ?></p>
+				<?php endif; ?>
 				<div class="bn-album-picker__grid" data-bn-picker-grid></div>
 			</div>
 			<div class="bn-modal__foot">
