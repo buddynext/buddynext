@@ -284,6 +284,46 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 
 	/* ── Surface 1 (directory) ─────────────────────────────────────── */
 
+	/**
+	 * The roster takes the web members tab's search and role filters, leaves
+	 * suspended members out as the web does, and counts the filtered set.
+	 *
+	 * @return void
+	 */
+	public function test_get_space_members_search_role_and_suspended(): void {
+		$owner    = self::factory()->user->create( array( 'display_name' => 'Owner Person' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Roster', 'slug' => 'roster-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$members  = buddynext_service( 'space_members' );
+		$marla    = self::factory()->user->create( array( 'display_name' => 'Marla Stone' ) );
+		$benny    = self::factory()->user->create( array( 'display_name' => 'Benny Fields' ) );
+		$gone     = self::factory()->user->create( array( 'display_name' => 'Marlon Gone' ) );
+		foreach ( array( $marla, $benny, $gone ) as $uid ) {
+			$members->join( $space_id, $uid );
+		}
+		( new \BuddyNext\Moderation\ModerationService() )->suspend( $gone, 'test', 7, true ); // A suspension that hides their content (the roster rule).
+
+		$get = function ( array $query ): \WP_REST_Response {
+			$request = new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $GLOBALS['bn_roster_space'] . '/members' );
+			$request->set_query_params( $query );
+			return rest_do_request( $request );
+		};
+		$GLOBALS['bn_roster_space'] = $space_id;
+		wp_set_current_user( $owner );
+
+		$all = $get( array() );
+		$this->assertSame( '3', (string) $all->get_headers()['X-WP-Total'], 'Owner + two active members; the hidden-by-suspension one is left out, as on the web.' );
+
+		$search = $get( array( 'search' => 'marl' ) );
+		$this->assertSame( array( $marla ), array_map( 'intval', wp_list_pluck( $search->get_data(), 'user_id' ) ) );
+		$this->assertSame( '1', (string) $search->get_headers()['X-WP-Total'] );
+
+		$owners = $get( array( 'role' => 'owner' ) );
+		$this->assertSame( array( $owner ), array_map( 'intval', wp_list_pluck( $owners->get_data(), 'user_id' ) ) );
+
+		$this->assertSame( 400, $get( array( 'role' => 'banana' ) )->get_status() );
+		unset( $GLOBALS['bn_roster_space'] );
+	}
+
 	public function test_create_space_invalid_type_returns_422(): void {
 		wp_set_current_user( $this->owner_id );
 

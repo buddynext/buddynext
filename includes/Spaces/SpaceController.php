@@ -2041,6 +2041,15 @@ class SpaceController extends BaseRestController {
 				'minimum' => 1,
 				'maximum' => 100,
 			),
+			'search'   => array(
+				'type'              => 'string',
+				'description'       => 'Name search, as the web members tab.',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'role'     => array(
+				'type' => 'string',
+				'enum' => array( 'owner', 'moderator', 'member' ),
+			),
 		);
 	}
 
@@ -2194,8 +2203,15 @@ class SpaceController extends BaseRestController {
 		$per_page       = $per_page > 0 ? min( 100, $per_page ) : 50;
 		$cursor         = (string) $request->get_param( 'cursor' );
 
-		$page  = $member_service->get_members_keyset( $space_id, $viewer_id, ( '' !== $cursor ? $cursor : null ), $per_page );
-		$total = $member_service->count_members( $space_id, $viewer_id );
+		// The web members tab's own query args: search, role, and suspended
+		// members left out. X-WP-Total counts the same filtered set.
+		$args  = array(
+			'search'            => (string) $request->get_param( 'search' ),
+			'role'              => (string) $request->get_param( 'role' ),
+			'exclude_suspended' => true,
+		);
+		$page  = $member_service->get_members_keyset( $space_id, $viewer_id, ( '' !== $cursor ? $cursor : null ), $per_page, $args );
+		$total = $member_service->count_members( $space_id, $viewer_id, $args );
 
 		$response = new WP_REST_Response( $page['items'], 200 );
 		$response->header( 'X-WP-Total', (string) $total );
