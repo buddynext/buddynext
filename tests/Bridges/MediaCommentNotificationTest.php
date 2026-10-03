@@ -118,6 +118,39 @@ class MediaCommentNotificationTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $this->bell( 'bn.post_commented' ), 'mirroring onto the card does not notify again' );
 	}
 
+	/**
+	 * Deleting, trashing or spamming the MediaVerse comment withdraws its copy on the card.
+	 *
+	 * @return void
+	 */
+	public function test_removing_the_lightbox_comment_withdraws_its_copy(): void {
+		global $wpdb;
+		$this->bridge->publish_media_activity( self::MEDIA, $this->owner, 'photo' );
+		$live = static function ( string $text ) use ( $wpdb ): int {
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE media_id = %d AND content = %s AND is_deleted = 0", self::MEDIA, $text ) );
+		};
+
+		foreach ( array( 'deleted' => 'Gone soon', 'trashed' => 'Trash me', 'spammed' => 'Spam me' ) as $how => $text ) {
+			$id = $this->comment( $text );
+			add_comment_meta( $id, 'mvs_media_id', self::MEDIA );
+			$this->assertSame( 1, $live( $text ), "the copy of '$text' is on the card" );
+
+			if ( 'deleted' === $how ) {
+				wp_delete_comment( $id, true ); // MediaVerse's own delete.
+			} elseif ( 'trashed' === $how ) {
+				wp_trash_comment( $id );
+			} else {
+				wp_spam_comment( $id );
+			}
+			$this->assertSame( 0, $live( $text ), "a $how comment leaves no copy" );
+		}
+
+		// A comment with no MediaVerse meta (any other site comment) is left alone.
+		$keep = $this->comment( 'Not from MediaVerse' );
+		wp_delete_comment( $keep, true );
+		$this->assertSame( 1, $live( 'Not from MediaVerse' ) );
+	}
+
 	public function test_own_comment_and_blocked_commenter_notify_nobody(): void {
 		buddynext_service( 'blocks' )->block( $this->owner, $this->commenter );
 		$this->comment( 'Blocked' );

@@ -282,6 +282,11 @@ class WPMediaVerseBridge {
 		// notifies nobody (card 10344509261).
 		add_action( 'mvs_comment_created', array( $this, 'notify_media_comment' ), 10, 3 );
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
+		// Withdraw the copy when the lightbox comment goes: MediaVerse deletes its
+		// comments with wp_delete_comment(); an admin may trash or spam one.
+		add_action( 'delete_comment', array( $this, 'withdraw_lightbox_comment' ) );
+		add_action( 'trashed_comment', array( $this, 'withdraw_lightbox_comment' ) );
+		add_action( 'spammed_comment', array( $this, 'withdraw_lightbox_comment' ) );
 		add_filter( 'buddynext_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
 		// Media notifications open the post the media is in, or the media page.
 		add_filter( 'buddynext_media_notification_url', array( $this, 'media_notification_url' ), 10, 2 );
@@ -2768,6 +2773,60 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * The BuddyNext copy of a MediaVerse lightbox comment, if there is one.
+	 *
+	 * The copy keeps no id of its source, so it is found by what it was made
+	 * from: the photo, the author and the text, on a post showing that photo.
+	 *
+	 * @param int         $media_id   MediaVerse media id.
+	 * @param \WP_Comment $comment    The MediaVerse comment.
+	 * @param int         $bn_post_id Limit to this post (0 = any post).
+	 * @return int bn_comments id, or 0.
+	 */
+	private static function mirror_comment_id( int $media_id, \WP_Comment $comment, int $bn_post_id = 0 ): int {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_comments
+				 WHERE object_type = 'post' AND user_id = %d AND content = %s AND media_id = %d AND is_deleted = 0
+				   AND ( %d = 0 OR object_id = %d )
+				 ORDER BY id DESC LIMIT 1",
+				(int) $comment->user_id,
+				wp_kses_post( $comment->comment_content ),
+				$media_id,
+				$bn_post_id,
+				$bn_post_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Withdraw the BuddyNext copy when a MediaVerse lightbox comment is deleted,
+	 * trashed or marked spam, so nobody can still read it on the post.
+	 *
+	 * Soft-deletes through CommentService (count, cache and hooks follow) as the
+	 * comment's own author, the same way the Jetonomy bridge withdraws replies.
+	 * ponytail: an untrash does not bring the copy back (delete() blanks the text
+	 * the copy is matched by); add a source-id column if restore is ever needed.
+	 *
+	 * @param int|string $comment_id WordPress comment id.
+	 * @return void
+	 */
+	public function withdraw_lightbox_comment( $comment_id ): void {
+		$comment  = get_comment( (int) $comment_id );
+		$media_id = $comment ? (int) get_comment_meta( (int) $comment->comment_ID, 'mvs_media_id', true ) : 0;
+		if ( ! $comment || $media_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$mirror = self::mirror_comment_id( $media_id, $comment );
+		if ( $mirror > 0 ) {
+			buddynext_service( 'comments' )->delete( $mirror, (int) $comment->user_id );
+		}
+	}
+
+	/**
 	 * Sync a WPMediaVerse lightbox comment to the BuddyNext activity feed.
 	 *
 	 * When a user comments on a photo via the MVS lightbox, find the bn_posts
@@ -2810,20 +2869,7 @@ class WPMediaVerseBridge {
 		// media_id: the same natural phrase ("Nice shot!") on two photos of ONE
 		// post is two distinct comments, and a post+author+content-only key would
 		// silently swallow the second — so scope the match to this media too.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$existing = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = 'post' AND object_id = %d AND user_id = %d AND content = %s AND media_id = %d
-				 LIMIT 1",
-				$bn_post_id,
-				$user_id,
-				wp_kses_post( $comment->comment_content ),
-				$media_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		if ( $existing > 0 ) {
+		if ( self::mirror_comment_id( $media_id, $comment, $bn_post_id ) > 0 ) {
 			return;
 		}
 
