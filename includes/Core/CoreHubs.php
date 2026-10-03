@@ -111,6 +111,13 @@ final class CoreHubs {
 	 * @return void
 	 */
 	private static function persist_hub_slugs( HubRegistry $reg ): void {
+		// A slug option exists only once an owner customises that URL, so on most
+		// sites each hub's read was its own query, on every request. One query for
+		// all of them (add-on hubs included); missing ones are remembered too.
+		wp_prime_option_caches(
+			array_map( static fn( $descriptor ) => $descriptor->slug_option, $reg->all() )
+		);
+
 		$slugs = array();
 		foreach ( $reg->all() as $descriptor ) {
 			$slug = trim( (string) get_option( $descriptor->slug_option, $descriptor->default_slug ) );

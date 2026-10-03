@@ -85,6 +85,19 @@ use BuddyNext\SocialGraph\PrivacyService;
 class Plugin {
 
 	/**
+	 * Options read on every request (see init()). Hub slug options are primed by
+	 * the hub registry itself. Keep this list current: RequestOptionsPrimedTest
+	 * fails when an every-request reader queries an option on its own.
+	 *
+	 * @var string[]
+	 */
+	public const REQUEST_OPTIONS = array(
+		'buddynext_features',
+		'buddynext_cookie_consent',
+		'buddynext_isolation_strip',
+	);
+
+	/**
 	 * Guards against double-boot.
 	 *
 	 * @var bool
@@ -102,6 +115,12 @@ class Plugin {
 		}
 
 		self::$booted = true;
+
+		// Options read on every request, loaded in ONE query. Without a persistent
+		// object cache each get_option() of a non-autoloaded or never-saved option
+		// is its own query on every page, REST call, image and heartbeat; priming
+		// also remembers the missing ones for the rest of the request.
+		wp_prime_option_caches( self::REQUEST_OPTIONS );
 
 		$container = Container::instance();
 		self::register_services( $container );
