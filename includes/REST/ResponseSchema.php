@@ -994,6 +994,14 @@ final class ResponseSchema {
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
 				'landing_tab'       => array( 'type' => 'string' ),
 				'can_add_subspace'  => array( 'type' => 'boolean' ),
+				'team'              => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'object' ),
+				),
+				'top_contributors'  => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'object' ),
+				),
 				'subspace_limit'    => array(
 					'type'       => 'object',
 					'properties' => array(

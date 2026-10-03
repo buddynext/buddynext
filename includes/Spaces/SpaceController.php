@@ -1732,6 +1732,34 @@ class SpaceController extends BaseRestController {
 		$space['can_add_subspace'] = \BuddyNext\Nav\Providers\SpaceNav::can_add_subspace_to( (int) $space['id'], $viewer_id )
 			&& ( 0 === $bn_sub_max || $bn_sub_used < $bn_sub_max );
 
+		// The space sidebar's "Owner & moderators" card (shown to anyone who can see
+		// the space, members or not) and "Top contributors" (roster viewers only),
+		// from the same SpaceMemberService / SpaceService calls the sidebar makes.
+		$bn_members                = new SpaceMemberService();
+		$space['team']             = array_map(
+			static fn( $row ): array => array(
+				'user_id'      => (int) ( (array) $row )['user_id'],
+				'role'         => (string) ( (array) $row )['role'],
+				'display_name' => (string) ( (array) $row )['display_name'],
+				'avatar_url'   => (string) ( (array) $row )['avatar_url'],
+			),
+			array_merge(
+				$bn_members->get_members( (int) $space['id'], $viewer_id, 0, 0, array( 'role' => 'owner' ) ),
+				$bn_members->get_members( (int) $space['id'], $viewer_id, 0, 0, array( 'role' => 'moderator' ) )
+			)
+		);
+		$space['top_contributors'] = SpaceVisibility::can_view_roster( $space, $viewer_id )
+			? array_map(
+				static fn( $row ): array => array(
+					'user_id'      => (int) ( (array) $row )['user_id'],
+					'display_name' => (string) ( (array) $row )['display_name'],
+					'avatar_url'   => get_avatar_url( (int) ( (array) $row )['user_id'], array( 'size' => 96 ) ),
+					'post_count'   => (int) ( (array) $row )['post_count'],
+				),
+				( new SpaceService() )->top_contributors( (int) $space['id'], 3 )
+			)
+			: array();
+
 		// Viewer-relative membership — the SAME block list_spaces() attaches, so the space
 		// header and the directory row can never disagree on join state (member / pending /
 		// none). Without this the app's detail fetch overwrites the optimistic "Requested".

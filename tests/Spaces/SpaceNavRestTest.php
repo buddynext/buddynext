@@ -94,4 +94,25 @@ class SpaceNavRestTest extends WP_UnitTestCase {
 
 		delete_option( 'buddynext_space_max_sub_spaces' );
 	}
+
+	/**
+	 * The sidebar's team card shows to anyone who can see the space; top
+	 * contributors only to roster viewers (a private space's outsiders don't).
+	 *
+	 * @return void
+	 */
+	public function test_team_and_top_contributors_follow_the_sidebar_rules(): void {
+		$owner   = self::factory()->user->create( array( 'display_name' => 'Space Owner' ) );
+		$private = (int) ( new SpaceService() )->create( $owner, array( 'name' => 'Priv', 'slug' => 'priv-' . wp_rand( 1000, 9999 ), 'type' => 'private' ) );
+		( new \BuddyNext\Feed\PostService() )->create( $owner, array( 'content' => 'Hello space', 'space_id' => $private ) );
+		$read = static fn(): array => rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $private ) )->get_data();
+
+		wp_set_current_user( self::factory()->user->create() );
+		$outsider = $read();
+		$this->assertSame( array( 'Space Owner' ), wp_list_pluck( $outsider['team'], 'display_name' ), 'An outsider still sees who runs the space.' );
+		$this->assertSame( array(), $outsider['top_contributors'], 'But not who posts in it.' );
+
+		wp_set_current_user( $owner );
+		$this->assertSame( array( $owner ), array_map( 'intval', wp_list_pluck( $read()['top_contributors'], 'user_id' ) ) );
+	}
 }
