@@ -1555,6 +1555,9 @@ class AuthController {
 				'mode'           => $requirements['mode'],
 				'terms'          => $requirements['terms'],
 				'terms_url'      => $requirements['terms_url'],
+				// The same two owner levers the web signup form follows.
+				'ask_name'       => ! empty( $requirements['ask_name'] ),
+				'ask_username'   => ! empty( $requirements['ask_username'] ),
 				'fields'         => $fields,
 				'reg_token'      => RegistrationGuard::issue_token(),
 				'honeypot_field' => RegistrationGuard::honeypot_field(),

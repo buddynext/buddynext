@@ -1442,6 +1442,28 @@ class PostService {
 	}
 
 	/**
+	 * Whether a post is still inside the edit window for this user.
+	 *
+	 * The one rule behind update(), the web post card and the REST can_edit flag:
+	 * buddynext_post_edit_window minutes (0 = unlimited) after created_at.
+	 * Administrators and posts nobody has read yet (see is_pre_publication())
+	 * are always inside it.
+	 *
+	 * @param string $created_at Post created_at (UTC, MySQL format).
+	 * @param string $status     Post status.
+	 * @param int    $user_id    The would-be editor.
+	 * @return bool
+	 */
+	public static function within_edit_window( string $created_at, string $status, int $user_id ): bool {
+		$window = (int) get_option( 'buddynext_post_edit_window', 60 );
+		if ( $window <= 0 || self::is_pre_publication( $status ) || user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+		$created = (int) strtotime( $created_at . ' UTC' );
+		return $created > 0 && ( time() - $created ) <= $window * MINUTE_IN_SECONDS;
+	}
+
+	/**
 	 * Whether a post card renders text the feed's inline editor can edit.
 	 *
 	 * The Edit control and the editor must agree. The editor edits the card's
@@ -1978,14 +2000,11 @@ class PostService {
 		// pre-moderation alike: the window guards against rewriting history members
 		// have already read, and neither has been read. An `under_review` post is
 		// NOT exempt, because it was published before it was hidden.
-		$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
-		if ( $edit_window > 0 && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( (int) get_option( 'buddynext_post_edit_window', 60 ) > 0 && ! user_can( $user_id, 'manage_options' ) ) {
 			global $wpdb;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$row            = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
-			$created_at     = $row['created_at'] ?? '';
-			$is_unpublished = self::is_pre_publication( (string) ( $row['status'] ?? '' ) );
-			if ( ! $is_unpublished && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
+			$row = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+			if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
 				return new WP_Error(
 					'edit_window_closed',
 					__( 'The time window for editing this post has passed.', 'buddynext' ),

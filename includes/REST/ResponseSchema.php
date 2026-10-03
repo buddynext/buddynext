@@ -1627,6 +1627,26 @@ final class ResponseSchema {
 				'legal'            => array( 'type' => 'object' ),
 				'auth'             => array( 'type' => 'object' ),
 				'realtime'         => array( 'type' => 'object' ),
+				'posting'          => array(
+					'type'       => 'object',
+					'properties' => array(
+						'default_privacy'     => array( 'type' => 'string' ),
+						'edit_window_minutes' => array( 'type' => 'integer' ),
+						'link_preview'        => array( 'type' => 'boolean' ),
+						'emoji_picker'        => array( 'type' => 'boolean' ),
+						'media_max_mb'        => array( 'type' => 'integer' ),
+						'report_reasons'      => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'slug'  => array( 'type' => 'string' ),
+									'label' => array( 'type' => 'string' ),
+								),
+							),
+						),
+					),
+				),
 			),
 		);
 	}
@@ -1898,6 +1918,12 @@ final class ResponseSchema {
 							),
 						),
 					),
+				),
+				'ask_name'       => array(
+					'type' => 'boolean',
+				),
+				'ask_username'   => array(
+					'type' => 'boolean',
 				),
 				'reg_token'      => array(
 					'type' => 'string',

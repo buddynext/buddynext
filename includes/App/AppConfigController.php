@@ -275,6 +275,10 @@ class AppConfigController {
 			// legacy wp-admin authorize flow": absent means degrade, never
 			// break.
 			'auth'             => $this->auth(),
+
+			// What the web composer and report dialog read, so the app posts and
+			// reports the same way. Additive block.
+			'posting'          => $this->posting(),
 		);
 
 		/**
@@ -291,6 +295,34 @@ class AppConfigController {
 		$data = apply_filters( 'buddynext_app_config', $data, $request );
 
 		return new WP_REST_Response( $data, 200 );
+	}
+
+	/**
+	 * Composer defaults and the report vocabulary, from the same sources the web
+	 * composer (partials/composer.php) and report dialog (PageRouter) read.
+	 *
+	 * The media size limit is per viewer (a plan can raise it), so a guest gets the
+	 * site default.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function posting(): array {
+		$reasons = array();
+		foreach ( \BuddyNext\Moderation\ModerationService::reason_choices() as $slug => $label ) {
+			$reasons[] = array(
+				'slug'  => (string) $slug,
+				'label' => (string) $label,
+			);
+		}
+
+		return array(
+			'default_privacy'     => (string) get_option( 'buddynext_default_post_privacy', 'public' ),
+			'edit_window_minutes' => max( 0, (int) get_option( 'buddynext_post_edit_window', 60 ) ),
+			'link_preview'        => (bool) get_option( 'buddynext_enable_link_preview', true ),
+			'emoji_picker'        => (bool) get_option( 'buddynext_enable_emoji_picker', true ),
+			'media_max_mb'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
+			'report_reasons'      => $reasons,
+		);
 	}
 
 	/**

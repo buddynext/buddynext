@@ -570,15 +570,22 @@ class FeedController extends BaseRestController {
 			// viewer without access. Applied here, in the single feed builder, so
 			// every surface (home / space / explore / profile / single / bookmark /
 			// shared-embed) gates identically and web + app get the same shape.
+			// Read before the members-only gate swaps the body for a teaser.
+			$editable_text = PostService::has_editable_text( (string) ( $item['type'] ?? '' ), (string) ( $item['content'] ?? '' ) );
+
 			if ( ! empty( $item['members_only'] ) ) {
 				$item = $this->apply_members_only_gate( $item, $viewer, $format );
 			}
 
 			$item['viewer_state'] = $this->viewer_state_for( $pid, $maps ) + array(
 				// Stable, so it rides the initial shape only and not the refresh route.
-				// Baseline: author or admin. Under-reports for space moderators
-				// (safe direction — never shows an edit affordance the API rejects).
-				'can_edit' => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
+				// The web post card's rule: own post inside the edit window, or admin,
+				// and only when the card has text to edit. Under-reports for space
+				// moderators (safe direction: never offers an edit the API rejects).
+				'can_edit' => $viewer > 0 && $editable_text && (
+					( $viewer === $aid && PostService::within_edit_window( (string) ( $item['created_at'] ?? '' ), (string) ( $item['status'] ?? 'published' ), $viewer ) )
+					|| user_can( $viewer, 'manage_options' )
+				),
 			);
 
 			// Resolve attachment IDs to real URLs so a client can render the image. Without

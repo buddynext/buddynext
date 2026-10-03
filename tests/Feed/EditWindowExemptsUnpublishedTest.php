@@ -107,4 +107,29 @@ class EditWindowExemptsUnpublishedTest extends \WP_UnitTestCase {
 		$this->assertFalse( PostService::is_pre_publication( 'under_review' ) );
 		$this->assertFalse( PostService::is_pre_publication( 'nonsense' ) );
 	}
+
+	/**
+	 * The app's can_edit follows the same window as the save check, so the app
+	 * never offers an Edit that the server refuses.
+	 *
+	 * @return void
+	 */
+	public function test_rest_can_edit_follows_the_window(): void {
+		$stale = $this->seed_stale_post( 'published' );
+		$fresh = (int) $this->posts->create( $this->author, array( 'content' => 'Just posted' ) );
+		$this->assertGreaterThan( 0, $fresh );
+
+		$can_edit = static function ( int $post_id, int $viewer ): bool {
+			$item = ( new \BuddyNext\Feed\FeedController() )->enrich_for_rest( array( ( new PostService() )->get( $post_id ) ), $viewer );
+			return (bool) $item[0]['viewer_state']['can_edit'];
+		};
+
+		$this->assertTrue( $can_edit( $fresh, $this->author ), 'Inside the window.' );
+		$this->assertFalse( $can_edit( $stale, $this->author ), 'Window closed: no Edit offered.' );
+		$this->assertTrue( $can_edit( $stale, self::factory()->user->create( array( 'role' => 'administrator' ) ) ), 'Admins are not bound by the window.' );
+		$this->assertFalse( $can_edit( $fresh, self::factory()->user->create() ), 'Never for someone else\'s post.' );
+
+		update_option( 'buddynext_post_edit_window', 0 );
+		$this->assertTrue( $can_edit( $stale, $this->author ), '0 means no window.' );
+	}
 }
