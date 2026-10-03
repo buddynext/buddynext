@@ -67,4 +67,31 @@ class SpaceNavRestTest extends WP_UnitTestCase {
 		wp_set_current_user( 0 );
 		$this->assertNotContains( 'moderation', wp_list_pluck( $this->rest_nav( $space_id ), 'id' ), 'A guest does not.' );
 	}
+
+	/**
+	 * Add sub-space follows the one rule and the per-parent cap; the app config
+	 * says whether this viewer may create a space at all.
+	 *
+	 * @return void
+	 */
+	public function test_subspace_limit_and_create_permission(): void {
+		$owner    = self::factory()->user->create();
+		$service  = new SpaceService();
+		$parent   = (int) $service->create( $owner, array( 'name' => 'Parent', 'slug' => 'par-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$read     = static fn(): array => rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $parent ) )->get_data();
+		update_option( 'buddynext_space_max_sub_spaces', 1 );
+
+		wp_set_current_user( $owner );
+		$this->assertTrue( $read()['can_add_subspace'] );
+		$service->create( $owner, array( 'name' => 'Child', 'slug' => 'ch-' . wp_rand( 1000, 9999 ), 'type' => 'open', 'parent_id' => $parent ) );
+		$after = $read();
+		$this->assertSame( array( 'max' => 1, 'used' => 1 ), $after['subspace_limit'] );
+		$this->assertFalse( $after['can_add_subspace'], 'Cap reached: no Add sub-space.' );
+
+		$config = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) )->get_data()['spaces'];
+		$this->assertSame( buddynext_can( $owner, 'buddynext-spaces/create' ), $config['can_create'] );
+		$this->assertSame( array_keys( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() ), wp_list_pluck( $config['types'], 'key' ) );
+
+		delete_option( 'buddynext_space_max_sub_spaces' );
+	}
 }

@@ -993,6 +993,14 @@ final class ResponseSchema {
 				'fields'            => array( 'type' => array( 'object', 'array' ) ),
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
 				'landing_tab'       => array( 'type' => 'string' ),
+				'can_add_subspace'  => array( 'type' => 'boolean' ),
+				'subspace_limit'    => array(
+					'type'       => 'object',
+					'properties' => array(
+						'max'  => array( 'type' => 'integer' ),
+						'used' => array( 'type' => 'integer' ),
+					),
+				),
 				'invite_link'       => array(
 					'type' => 'string',
 					'enum' => array( 'valid', 'invalid' ),
@@ -1675,6 +1683,15 @@ final class ResponseSchema {
 				'legal'            => array( 'type' => 'object' ),
 				'auth'             => array( 'type' => 'object' ),
 				'realtime'         => array( 'type' => 'object' ),
+				'spaces'           => array(
+					'type'       => 'object',
+					'properties' => array(
+						'can_create'       => array( 'type' => 'boolean' ),
+						'types'            => array( 'type' => 'array' ),
+						'default_type'     => array( 'type' => 'string' ),
+						'default_category' => array( 'type' => 'integer' ),
+					),
+				),
 				'posting'          => array(
 					'type'       => 'object',
 					'properties' => array(

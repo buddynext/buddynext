@@ -279,6 +279,10 @@ class AppConfigController {
 			// What the web composer and report dialog read, so the app posts and
 			// reports the same way. Additive block.
 			'posting'          => $this->posting(),
+
+			// What the create-space form needs: may this viewer create one, the
+			// types with their join rule, and the owner's defaults. Additive block.
+			'spaces'           => $this->spaces(),
 		);
 
 		/**
@@ -295,6 +299,30 @@ class AppConfigController {
 		$data = apply_filters( 'buddynext_app_config', $data, $request );
 
 		return new WP_REST_Response( $data, 200 );
+	}
+
+	/**
+	 * The create-space form's facts, from the sources the web form reads
+	 * (directory Create button, partials/create-space-modal.php).
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function spaces(): array {
+		$types = array();
+		foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $key => $cfg ) {
+			$types[] = array(
+				'key'   => (string) $key,
+				'label' => (string) ( $cfg['label'] ?? $key ),
+				'join'  => (string) ( $cfg['join'] ?? '' ),
+			);
+		}
+
+		return array(
+			'can_create'       => buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ),
+			'types'            => $types,
+			'default_type'     => (string) get_option( 'buddynext_space_default_type', 'open' ),
+			'default_category' => (int) get_option( 'buddynext_space_default_category', 0 ),
+		);
 	}
 
 	/**

@@ -1721,6 +1721,17 @@ class SpaceController extends BaseRestController {
 		// open — never leak a total that includes secret/unlisted sub-spaces.
 		$space['subspace_count'] = ( new SpaceService() )->count_visible_subspaces( (int) $space['id'], $viewer_id, current_user_can( 'manage_options' ) );
 
+		// The Sub-spaces tab's "Add sub-space": the one rule every Add control reads,
+		// and the per-parent cap (0 = unlimited) counted as the create path counts it.
+		$bn_sub_max                = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+		$bn_sub_used               = $bn_sub_max > 0 ? ( new SpaceService() )->count_subspaces( (int) $space['id'] ) : 0;
+		$space['subspace_limit']   = array(
+			'max'  => $bn_sub_max,
+			'used' => $bn_sub_used,
+		);
+		$space['can_add_subspace'] = \BuddyNext\Nav\Providers\SpaceNav::can_add_subspace_to( (int) $space['id'], $viewer_id )
+			&& ( 0 === $bn_sub_max || $bn_sub_used < $bn_sub_max );
+
 		// Viewer-relative membership — the SAME block list_spaces() attaches, so the space
 		// header and the directory row can never disagree on join state (member / pending /
 		// none). Without this the app's detail fetch overwrites the optimistic "Requested".
