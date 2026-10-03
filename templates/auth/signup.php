@@ -225,6 +225,12 @@ if ( 'invite' === $bn_reg_mode ) {
 				'askUsername'      => ! empty( $bn_requirements['ask_username'] ),
 				'password'         => '',
 				'termsAgreed'      => false,
+				// Whether the form shows the consent checkbox at all: only when the
+				// owner requires consent AND a terms page is readable (the server's own
+				// rule). The store demanded consent regardless, so on a new site, with
+				// the privacy page still a draft and no checkbox on screen, nobody could
+				// sign up ("Please agree to the Terms...").
+				'termsRequired'    => ! empty( $bn_requirements['terms'] ),
 				'passwordStrength' => 0,
 				'strengthLabel'    => '',
 				'submitting'       => false,

@@ -345,7 +345,9 @@ const signupStore = store( 'buddynext/auth-signup', {
 				c.error = t( 'fillUsername', 'Please choose a username.' );
 				return;
 			}
-			if ( ! c.termsAgreed ) {
+			// Only when the form asked: with no readable terms page there is no
+			// checkbox, and the server does not require consent either.
+			if ( c.termsRequired && ! c.termsAgreed ) {
 				c.error = t( 'agreeTerms', 'Please agree to the Terms of Service and Privacy Policy to continue.' );
 				return;
 			}
