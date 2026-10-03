@@ -1441,6 +1441,10 @@ class FeedService {
 	 * Returns raw rows (newest first) so the admin can compute active / scheduled /
 	 * expired without hydrating the full post payload.
 	 *
+	 * Matched on type alone: before 1.2.4, ending an announcement from its card
+	 * cleared is_announcement, so those rows would otherwise never show here.
+	 * type leads the link_lookup index.
+	 *
 	 * @param int $limit Max rows (1-500).
 	 * @return array<int,array<string,mixed>>
 	 */
@@ -1453,7 +1457,7 @@ class FeedService {
 			$wpdb->prepare(
 				"SELECT id, user_id, space_id, content, status, created_at, site_pin_expires_at, scheduled_at
 				 FROM {$wpdb->prefix}bn_posts
-				 WHERE is_announcement = 1 AND type = 'announcement'
+				 WHERE type = 'announcement'
 				 ORDER BY created_at DESC
 				 LIMIT %d",
 				$limit
@@ -1479,23 +1483,9 @@ class FeedService {
 		if ( $post_id <= 0 ) {
 			return false;
 		}
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
-				'updated_at'          => current_time( 'mysql', true ),
-			),
-			array(
-				'id'              => $post_id,
-				'is_announcement' => 1,
-			),
-			array( '%s', '%s' ),
-			array( '%d', '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// One writer for the row (PostService); this adds what ending means for the
+		// whole community: the featured pointer and every cached home feed.
+		$updated = $this->post_service->end_announcement( $post_id );
 
 		if ( (int) get_option( 'buddynext_featured_announcement', 0 ) === $post_id ) {
 			delete_option( 'buddynext_featured_announcement' );
@@ -1507,18 +1497,11 @@ class FeedService {
 		// has ended it, which is the one moment they most need it gone (they usually end
 		// an announcement because it is wrong or no longer true). Busted here, at the
 		// write, so both callers — the admin screen and the REST route — are covered.
+		// PostService::end_announcement() already drops the post's cached row and the
+		// cached announcement candidate lists.
 		$this->flush_all_home_caches();
-		self::flush_announcement_ids();
 
-		// And the post's own cached row. This method writes bn_posts DIRECTLY, so the
-		// copy PostService is holding still says the announcement has no expiry — and
-		// every reader that goes through PostService::get() (which is now how the
-		// announcement surfaces re-check whether one is still live) would keep being told
-		// it is. The sibling end path in PostService busts this; this one never did,
-		// because until now nothing read the announcement through that cache.
-		PostService::flush_cache( $post_id );
-
-		return false !== $updated;
+		return $updated;
 	}
 
 	/**

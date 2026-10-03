@@ -4143,6 +4143,23 @@ class PostService {
 	}
 
 	/**
+	 * Is this row an announcement that is still running?
+	 *
+	 * Flagged as an announcement and not past its end time. Ending one (by hand
+	 * or when its time runs out) only stamps the end time.
+	 *
+	 * @param array<string,mixed> $row Raw bn_posts row.
+	 * @return bool
+	 */
+	public static function is_live_announcement( array $row ): bool {
+		if ( 1 !== (int) ( $row['is_announcement'] ?? 0 ) ) {
+			return false;
+		}
+		$expires = (string) ( $row['site_pin_expires_at'] ?? '' );
+		return '' === $expires || strtotime( $expires . ' UTC' ) > time();
+	}
+
+	/**
 	 * End an announcement by expiring its site pin now. Returns true if a row changed.
 	 *
 	 * @param int $post_id Post id.
@@ -4155,15 +4172,14 @@ class PostService {
 
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// Clear is_announcement so the post stops rendering the announcement
-		// banner/End button on its post card (post-card.php gates only on
-		// is_announcement). site_pin_expires_at is also stamped so any expiry-
-		// based reads settle immediately; the feed-prepend queries already honour
-		// both. The post itself stays in the feed as a normal post.
+		// Stamp the end time and keep is_announcement: the post stays an
+		// announcement on record (Engagement > Announcements lists it as Ended),
+		// and hydrate() reports it as no longer live, so its card drops the
+		// banner and End button. This used to clear the flag instead, which made
+		// every announcement ended from its card vanish from the admin list.
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
 			array(
-				'is_announcement'     => 0,
 				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
 				'updated_at'          => current_time( 'mysql', true ),
 			),
@@ -4171,7 +4187,7 @@ class PostService {
 				'id'              => $post_id,
 				'is_announcement' => 1,
 			),
-			array( '%d', '%s', '%s' ),
+			array( '%s', '%s' ),
 			array( '%d', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -4470,7 +4486,10 @@ class PostService {
 			'comment_count'        => (int) ( $row['comment_count'] ?? 0 ),
 			'share_count'          => (int) ( $row['share_count'] ?? 0 ),
 			'is_pinned'            => (int) ( $row['is_pinned'] ?? 0 ),
-			'is_announcement'      => (int) ( $row['is_announcement'] ?? 0 ),
+			// Live, not merely flagged: an announcement past its end time (ended by
+			// hand or run its course) keeps the column for the admin record, but
+			// every card, API reader and app must treat it as an ordinary post.
+			'is_announcement'      => self::is_live_announcement( $row ) ? 1 : 0,
 			'content_warning'      => (bool) ( $row['content_warning'] ?? false ),
 			'content_warning_type' => $row['content_warning_type'] ?? null,
 			'members_only'         => (bool) ( $row['members_only'] ?? false ),

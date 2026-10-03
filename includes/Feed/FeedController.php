@@ -1154,17 +1154,15 @@ class FeedController extends BaseRestController {
 
 		$post_id = (int) $request->get_param( 'id' );
 
-		if ( ! buddynext_service( 'post_service' )->end_announcement( $post_id ) ) {
+		// Same path as Engagement > Announcements > End now, so ending from the
+		// card also clears the featured pointer and every cached home feed.
+		if ( ! $this->feed_service()->end_announcement_now( $post_id ) ) {
 			return new WP_Error(
 				'not_found',
 				__( 'Announcement not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
-
-		// Ending an announcement affects everyone — bust all page-1 home feeds so it
-		// disappears immediately rather than after the 30s TTL.
-		$this->feed_service()->flush_all_home_caches();
 
 		return new WP_REST_Response( array( 'ended' => true ), 200 );
 	}
