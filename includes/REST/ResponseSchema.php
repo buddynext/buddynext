@@ -4342,6 +4342,17 @@ final class ResponseSchema {
 				'step'     => array(
 					'type' => 'integer',
 				),
+				'steps'    => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'key'   => array( 'type' => 'string' ),
+							'label' => array( 'type' => 'string' ),
+							'icon'  => array( 'type' => 'string' ),
+						),
+					),
+				),
 				'total'    => array(
 					'type' => 'integer',
 				),

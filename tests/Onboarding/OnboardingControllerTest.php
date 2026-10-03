@@ -210,4 +210,29 @@ class OnboardingControllerTest extends \WP_Test_REST_TestCase {
 			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_space_categories WHERE slug = %s", sanitize_title( $name ) )
 		);
 	}
+
+	/**
+	 * GET /me/onboarding lists the steps the web stepper draws, add-on steps included.
+	 *
+	 * @return void
+	 */
+	public function test_state_lists_the_steps(): void {
+		$plan = static function ( array $steps ): array {
+			$steps[] = array(
+				'key'   => 'plan',
+				'label' => 'Membership',
+				'icon'  => 'crown',
+			);
+			return $steps;
+		};
+		add_filter( 'buddynext_onboarding_steps', $plan );
+		wp_set_current_user( self::factory()->user->create() );
+
+		$data = rest_do_request( new \WP_REST_Request( 'GET', '/buddynext/v1/me/onboarding' ) )->get_data();
+		$this->assertSame( wp_list_pluck( array_values( buddynext_service( 'onboarding' )->step_list() ), 'key' ), wp_list_pluck( $data['steps'], 'key' ) );
+		$this->assertSame( 'plan', end( $data['steps'] )['key'], 'An add-on step (Pro plan) is listed.' );
+		$this->assertSame( count( $data['steps'] ), $data['total'] );
+
+		remove_filter( 'buddynext_onboarding_steps', $plan );
+	}
 }

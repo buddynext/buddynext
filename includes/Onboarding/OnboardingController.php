@@ -229,12 +229,16 @@ class OnboardingController {
 	 */
 	public function get_state(): WP_REST_Response {
 		$user_id = get_current_user_id();
+		$steps   = array_values( $this->service->step_list() );
 
 		return new WP_REST_Response(
 			array(
 				'complete' => $this->service->is_complete( $user_id ),
 				'step'     => $this->service->get_step( $user_id ),
-				'total'    => count( $this->service->step_list() ),
+				'total'    => count( $steps ),
+				// The wizard's steps in order (key, label, icon), add-on steps such as
+				// Pro's 'plan' included, as the web stepper draws them.
+				'steps'    => $steps,
 			),
 			200
 		);
