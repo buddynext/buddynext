@@ -1227,7 +1227,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		?>
 		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
 			<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
-			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
+			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments, including your custom reactions. If you untick them all, every reaction stays on: to switch reactions off, use Platform → Features.', 'buddynext' ); ?></span>
 			<?php if ( ! $bn_reactions_on ) : ?>
 				<p class="bn-field-note bn-reaction-field__off-note">
 					<?php esc_html_e( 'Reactions are turned off under Platform → Features. Enable the Reactions feature there to choose which emoji members can use.', 'buddynext' ); ?>

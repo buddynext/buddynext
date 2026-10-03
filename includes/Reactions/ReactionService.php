@@ -204,28 +204,34 @@ class ReactionService {
 	 * Allowed reaction types — the canonical six.
 	 *
 	 * Use reaction_types() instead of this constant when you need the filterable
-	 * list — Pro extends this via the buddynext_reaction_types filter.
+	 * list — Pro offers more via the buddynext_reaction_choices filter.
 	 */
 	public const REACTION_TYPES = array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' );
 
 	/**
-	 * Return the filterable list of allowed reaction type slugs.
+	 * Return the reaction type slugs members can use right now.
 	 *
-	 * Pro plugins extend this by hooking buddynext_reaction_types to inject
-	 * additional reaction types (e.g. 'celebrate', 'insightful'). Free returns
-	 * the canonical six defined in REACTION_TYPES.
+	 * The owner's pick from available_reaction_types() (extensions offer more
+	 * through buddynext_reaction_choices), then buddynext_reaction_types, where
+	 * Pro trims the set to the member's plan.
 	 *
 	 * @since 1.0.0
 	 *
 	 * @return string[] Ordered list of reaction type slugs.
 	 */
 	public static function reaction_types(): array {
-		// Site-owner control: buddynext_enabled_reactions (Settings → Activity Feed)
-		// is the owner-chosen subset of the canonical six, in canonical order.
-		// Empty/unset falls back to all six so reactions are never fully disabled.
-		$enabled = array_values( array_intersect( self::REACTION_TYPES, (array) get_option( 'buddynext_enabled_reactions', self::REACTION_TYPES ) ) );
+		// Site-owner control: buddynext_enabled_reactions (Engagement → Social) is
+		// the owner's pick from every reaction on offer, built-in and custom, in
+		// that order. It used to be applied to the built-in six only, so an
+		// extension's reactions ignored the owner's ticks: unticking a custom
+		// reaction on Social did nothing. Unset = all on offer; an empty pick
+		// falls back to all of them, so reactions are never fully disabled here
+		// (the Reactions feature switch does that).
+		$choices = self::available_reaction_types();
+		$picked  = get_option( 'buddynext_enabled_reactions', null );
+		$enabled = is_array( $picked ) ? array_values( array_intersect( $choices, $picked ) ) : $choices;
 		if ( empty( $enabled ) ) {
-			$enabled = self::REACTION_TYPES;
+			$enabled = $choices;
 		}
 
 		/**
@@ -260,7 +266,16 @@ class ReactionService {
 	 * @return string[] Ordered, de-duplicated slugs (built-ins first, then custom).
 	 */
 	public static function available_reaction_types(): array {
-		$types = array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reaction_types', self::REACTION_TYPES ) );
+		/**
+		 * Filter every reaction the owner can offer: the built-in six plus any an
+		 * extension adds (Pro custom reactions). The owner picks from this list on
+		 * Engagement → Social; buddynext_reaction_types then receives their pick.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param string[] $types Reaction type slugs, built-ins first.
+		 */
+		$types = array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reaction_choices', self::REACTION_TYPES ) );
 		return array_values( array_unique( array_filter( $types ) ) );
 	}
 

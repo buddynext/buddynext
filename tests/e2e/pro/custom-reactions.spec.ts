@@ -19,8 +19,8 @@ type ReactionCount = { count: number; has_reacted?: boolean; emoji?: string | nu
  * (`CustomReactionsAdmin`, tab registered under `settings:reactions`, relocated
  * by the IA placement map to `buddynext-engagement&tab=reactions`); "Add
  * Reaction" posts to `admin-post.php?action=buddynextpro_add_custom_reaction`
- * and `CustomReactionsService::add_reaction()` stores it enabled by default.
- * `CustomReactionsService` hooks Free's `buddynext_reaction_types` filter
+ * and `CustomReactionsService::add_reaction()` stores it and ticks it on the
+ * Social picker. `CustomReactionsService` hooks Free's `buddynext_reaction_choices` filter
  * (`Core\Plugin`), so the new slug is merged into the SAME picker every post
  * card renders (`templates/parts/post-actions.php`,
  * `button[data-reaction-type="<slug>"]`) — no separate Pro picker to test.
@@ -107,7 +107,10 @@ test.describe('pro / custom reactions', () => {
             await page.goto(reactionsAdminUrl);
             const row = page.locator(reactionRow(slug));
             await expect(row).toBeVisible({ timeout: 10_000 });
-            await expect(row.locator('.bn-cr-status.is-on')).toBeVisible();
+            // The owner picks every reaction members see on Engagement -> Social;
+            // a reaction just added starts ticked there.
+            await page.goto(reactionsAdminUrl.replace('tab=reactions', 'tab=social'));
+            await expect(page.locator(`input[name="buddynext_enabled_reactions[]"][value="${slug}"]`)).toBeChecked();
 
             // ── Member: react to a fresh own post with the custom reaction ──
             await loginAs(page, MEMBER_LOGIN);
