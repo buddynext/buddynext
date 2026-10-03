@@ -180,6 +180,25 @@ class FeedController extends BaseRestController {
 			)
 		);
 
+		// The Explore page's discovery deck as typed JSON cards (post, member,
+		// space), per filter: what /feed/explore/page renders as HTML.
+		register_rest_route(
+			'buddynext/v1',
+			'/feed/explore/deck',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'explore_deck' ),
+				'permission_callback' => array( $this, 'require_public_explore' ),
+				'args'                => $this->feed_pagination_args() + array(
+					'filter' => array(
+						'type'    => 'string',
+						'default' => 'all',
+						'enum'    => ExploreService::FILTERS,
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/users/(?P<id>[\d]+)/feed',
@@ -1205,6 +1224,72 @@ class FeedController extends BaseRestController {
 				'html'        => $html,
 				'next_cursor' => $result['next_cursor'] ?? null,
 				'count'       => count( (array) ( $result['items'] ?? array() ) ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /feed/explore/deck - the Explore deck as typed cards for the app.
+	 *
+	 * The same ExploreService::deck() the web grid renders. Post cards go through
+	 * enrich_for_rest() (author, viewer state, members-only gate) and member cards
+	 * through the directory's hydrate_members(), each in one batch; space cards
+	 * are already viewer-scoped by the deck. A card whose subject can no longer be
+	 * shown is dropped.
+	 *
+	 * @param WP_REST_Request $request Request (filter, cursor, per_page).
+	 * @return WP_REST_Response
+	 */
+	public function explore_deck( WP_REST_Request $request ): WP_REST_Response {
+		$viewer = get_current_user_id();
+		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$result = ( new ExploreService( $this->feed_service() ) )->deck( (string) $request->get_param( 'filter' ), $cursor, (int) $request->get_param( 'per_page' ) );
+		$cards  = (array) ( $result['items'] ?? array() );
+
+		$posts   = array_values( array_filter( array_map( static fn( $c ) => is_array( $c['post'] ?? null ) ? $c['post'] : null, $cards ) ) );
+		$by_post = array();
+		foreach ( $posts ? $this->enrich_for_rest( $posts, $viewer ) : array() as $post ) {
+			$by_post[ (int) $post['id'] ] = $post;
+		}
+		$member_ids = array_values( array_filter( array_map( static fn( $c ) => 'member' === ( $c['kind'] ?? '' ) ? (int) $c['user_id'] : 0, $cards ) ) );
+		$by_member  = array();
+		foreach ( $member_ids ? ( new \BuddyNext\Profile\MemberDirectoryController() )->hydrate_members( $member_ids, $viewer ) : array() as $member ) {
+			$by_member[ (int) $member['user_id'] ] = $member;
+		}
+
+		$items = array();
+		foreach ( $cards as $card ) {
+			$kind = (string) ( $card['kind'] ?? '' );
+			if ( is_array( $card['post'] ?? null ) ) {
+				$post = $by_post[ (int) $card['post']['id'] ] ?? null;
+				if ( null !== $post ) {
+					$items[] = array_filter(
+						array(
+							'kind'    => $kind,
+							'post'    => $post,
+							'hashtag' => (string) ( $card['hashtag'] ?? '' ),
+						)
+					);
+				}
+			} elseif ( 'member' === $kind && isset( $by_member[ (int) $card['user_id'] ] ) ) {
+				$items[] = array(
+					'kind'   => $kind,
+					'member' => $by_member[ (int) $card['user_id'] ],
+				);
+			} elseif ( is_array( $card['space'] ?? null ) ) {
+				$items[] = array(
+					'kind'  => $kind,
+					'space' => $card['space'],
+				);
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'       => $items,
+				'next_cursor' => $result['next_cursor'] ?? null,
+				'filter'      => (string) ( $result['filter'] ?? 'all' ),
 			),
 			200
 		);
