@@ -159,8 +159,14 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 						<option value="">
 							<?php esc_html_e( '- Select a category -', 'buddynext' ); ?>
 						</option>
-						<?php foreach ( $bn_csm_categories as $bn_csm_cat ) : ?>
-							<option value="<?php echo esc_attr( (string) $bn_csm_cat->id ); ?>">
+						<?php
+						// Pre-select the owner's default category, as the visibility select
+						// above does. Without it the member saw "Select a category" while the
+						// server quietly filed the space under the default anyway.
+						$bn_default_cat = (int) get_option( 'buddynext_space_default_category', 0 );
+						foreach ( $bn_csm_categories as $bn_csm_cat ) :
+							?>
+							<option value="<?php echo esc_attr( (string) $bn_csm_cat->id ); ?>" <?php selected( $bn_default_cat, (int) $bn_csm_cat->id ); ?>>
 								<?php echo esc_html( $bn_csm_cat->name ); ?>
 							</option>
 						<?php endforeach; ?>
