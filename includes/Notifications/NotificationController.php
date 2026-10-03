@@ -83,6 +83,18 @@ class NotificationController extends BaseRestController {
 			)
 		);
 
+		// The notifications page's "This week" card (notifications, read rate,
+		// new followers, engagement, week-over-week), cached per member.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/notifications/this-week',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'this_week' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/notifications/unread-count',
@@ -272,6 +284,21 @@ class NotificationController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * GET /me/notifications/this-week - the "This week" card's numbers, from the
+	 * same Sidebar\WidgetService::weekly_stats() the web card renders. That
+	 * service (and the card) exist only while the Sidebar feature is on.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function this_week(): WP_REST_Response|WP_Error {
+		$widgets = buddynext_service( 'sidebar_widgets' );
+		if ( ! $widgets instanceof \BuddyNext\Sidebar\WidgetService ) {
+			return new WP_Error( 'bn_feature_disabled', __( 'This feature is turned off.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		return new WP_REST_Response( $widgets->weekly_stats( get_current_user_id() ), 200 );
 	}
 
 	/**

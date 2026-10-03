@@ -409,6 +409,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/me/notifications/this-week',
+				'resource' => 'me_notifications_this_week',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/me/notifications/unread-count',
 				'resource' => 'me_notifications_unread_count',
 				'shape'    => 'item',
@@ -2821,6 +2827,28 @@ final class ResponseSchema {
 						'object',
 					),
 				),
+			),
+		);
+	}
+
+	/**
+	 * The notifications page's "This week" card (GET /me/notifications/this-week).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function me_notifications_this_week(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'me-notifications-this-week',
+			'type'       => 'object',
+			'properties' => array(
+				'notifications'   => array( 'type' => 'integer' ),
+				'read'            => array( 'type' => 'integer' ),
+				'new_followers'   => array( 'type' => 'integer' ),
+				'engagement'      => array( 'type' => 'integer' ),
+				'wow_delta_label' => array( 'type' => 'string' ),
+				'wow_trend'       => array( 'type' => 'string' ),
+				'read_rate_label' => array( 'type' => 'string' ),
 			),
 		);
 	}
