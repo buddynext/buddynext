@@ -2020,29 +2020,32 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_login_redirect',
-							'default' => '',
-							'type'    => 'url',
-							'label'   => __( 'After login', 'buddynext' ),
-							'hint'    => __( 'Where members go after logging in. Blank = activity feed.', 'buddynext' ),
+							'key'      => 'buddynext_login_redirect',
+							'default'  => '',
+							'type'     => 'url',
+							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
+							'label'    => __( 'After login', 'buddynext' ),
+							'hint'     => __( 'Where members go after logging in: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_logout_redirect',
-							'default' => '',
-							'type'    => 'url',
-							'label'   => __( 'After logout', 'buddynext' ),
-							'hint'    => __( 'Where members go after logging out. Blank = the login page.', 'buddynext' ),
+							'key'      => 'buddynext_logout_redirect',
+							'default'  => '',
+							'type'     => 'url',
+							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
+							'label'    => __( 'After logout', 'buddynext' ),
+							'hint'     => __( 'Where members go after logging out: a page on your site, for example /welcome/, or a full address. Leave empty for the login page.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_onboarding_redirect',
-							'default' => '',
-							'type'    => 'url',
-							'label'   => __( 'After onboarding', 'buddynext' ),
-							'hint'    => __( 'Where new members go after onboarding. Blank = their profile.', 'buddynext' ),
+							'key'      => 'buddynext_onboarding_redirect',
+							'default'  => '',
+							'type'     => 'url',
+							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
+							'label'    => __( 'After onboarding', 'buddynext' ),
+							'hint'     => __( 'Where new members go after onboarding: a page on your site, for example /spaces/, or a full address. Leave empty for their profile.', 'buddynext' ),
 						)
 					),
 				)
@@ -2756,7 +2759,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			$this->render_select_row(
 				'buddynext_verify_enforcement',
 				__( 'How strictly to enforce verification', 'buddynext' ),
-				\BuddyNext\Auth\VerificationListener::enforcement(),
+				// The stored choice, not enforcement(): that answers 'off' while
+				// verification is switched off, which matched no option, so the
+				// select showed Restricted and saving the page overwrote Full.
+				(string) get_option( 'buddynext_verify_enforcement', 'restricted' ),
 				self::verify_enforcement_choices(),
 				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);

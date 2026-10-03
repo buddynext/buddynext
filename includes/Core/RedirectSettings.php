@@ -57,6 +57,28 @@ class RedirectSettings {
 	}
 
 	/**
+	 * Save-time clean-up for the three redirect settings.
+	 *
+	 * Owners type a page, not a URL: "activity", "/spaces/" or a full address.
+	 * Run through esc_url_raw alone, "activity" became "http://activity", which
+	 * resolve() then threw away as off-site, so the setting silently did nothing.
+	 * Anything without a scheme is a path on this site.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string Absolute URL, or '' for the built-in default.
+	 */
+	public static function sanitize( $value ): string {
+		$raw = trim( (string) $value );
+		if ( '' === $raw ) {
+			return '';
+		}
+		if ( ! preg_match( '#^[a-z][a-z0-9+.-]*://#i', $raw ) ) {
+			$raw = home_url( '/' . ltrim( $raw, '/' ) );
+		}
+		return esc_url_raw( $raw );
+	}
+
+	/**
 	 * Resolve a configured redirect option to a safe URL.
 	 *
 	 * @param string $option  Option key (one of the OPT_* constants).
