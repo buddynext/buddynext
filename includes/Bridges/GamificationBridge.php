@@ -121,6 +121,12 @@ class GamificationBridge {
 		// cap notices are informative (a real limit that resets) and are left alone.
 		add_filter( 'wb_gam_toast_data', array( $this, 'suppress_cooldown_toast' ), 10, 2 );
 
+		// Hold earned-points toasts on the sign-up, verify and onboarding screens:
+		// the welcome toast landed over the form a new member was filling in. It is
+		// shown, not lost, on the first community page (wb-gamification 1.6.6+;
+		// older versions ignore the filter).
+		add_filter( 'wb_gam_hold_toasts', array( $this, 'hold_toasts_on_entry_screens' ) );
+
 		// wb-gamification is the canonical source for streaks. Without this, a member
 		// sees TWO different streaks with the same label: the sidebar greeting reads
 		// BuddyNext's own StreakService (which infers a streak from post dates) while
@@ -456,6 +462,17 @@ class GamificationBridge {
 		// Fall back to BN's own figure if the engine has no row for this member yet,
 		// rather than showing a hard 0 to someone who has been posting all week.
 		return isset( $data['current_streak'] ) ? (int) $data['current_streak'] : $streak;
+	}
+
+	/**
+	 * Hold gamification toasts on BuddyNext's sign-up, verify and onboarding
+	 * screens (the auth and onboarding hubs).
+	 *
+	 * @param bool $hold Whether another host already holds toasts here.
+	 * @return bool
+	 */
+	public function hold_toasts_on_entry_screens( $hold ): bool {
+		return (bool) $hold || in_array( (string) get_query_var( 'bn_hub', '' ), array( 'auth', 'onboarding' ), true );
 	}
 
 	/**

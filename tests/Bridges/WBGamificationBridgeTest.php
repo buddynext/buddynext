@@ -272,4 +272,19 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 		wp_set_current_user( 0 );
 		$this->assertSame( $plugin, $this->bridge->filter_notification_url( $plugin, 'wb_gamification.kudos_received', 0, 0, array() ), 'No member, no tab.' );
 	}
+
+	/**
+	 * Toasts are held on the sign-up/verify (auth) and onboarding hubs, not on
+	 * ordinary pages, and another host's hold is kept.
+	 */
+	public function test_toasts_are_held_on_entry_screens_only(): void {
+		set_query_var( 'bn_hub', 'auth' );
+		$this->assertTrue( $this->bridge->hold_toasts_on_entry_screens( false ) );
+		set_query_var( 'bn_hub', 'onboarding' );
+		$this->assertTrue( $this->bridge->hold_toasts_on_entry_screens( false ) );
+		set_query_var( 'bn_hub', 'feed' );
+		$this->assertFalse( $this->bridge->hold_toasts_on_entry_screens( false ) );
+		$this->assertTrue( $this->bridge->hold_toasts_on_entry_screens( true ), 'another host holding is kept' );
+		set_query_var( 'bn_hub', '' );
+	}
 }
