@@ -3826,6 +3826,23 @@ class PageRouter {
 	}
 
 	/**
+	 * The same address on page 1: drops a /page/N/ segment (and ?paged=N), keeps
+	 * every filter in the query string.
+	 *
+	 * For links that change WHAT a list shows (a filter tab, a toggle). Built
+	 * from the current URL, they kept /page/2/, so the new list opened on its
+	 * page 2, which is past the end of a shorter list and now answers 404.
+	 *
+	 * @param string $url Address to reset; '' means the current request.
+	 * @return string
+	 */
+	public static function first_page( string $url = '' ): string {
+		$url = '' === $url ? add_query_arg( array() ) : $url;
+		$url = (string) preg_replace( '~/page/\d+/?(?=[?#]|$)~', '/', remove_query_arg( 'paged', $url ) );
+		return $url;
+	}
+
+	/**
 	 * Return the Notifications hub base URL.
 	 *
 	 * @return string

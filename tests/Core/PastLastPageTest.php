@@ -68,7 +68,6 @@ class PastLastPageTest extends \WP_UnitTestCase {
 		$this->go_to( home_url( $path ) );
 
 		$gate = new \ReflectionMethod( PageRouter::class, 'is_past_last_page' );
-		$gate->setAccessible( true );
 
 		return (bool) $gate->invoke( new PageRouter(), (string) get_query_var( 'bn_hub' ), $context );
 	}
@@ -133,5 +132,44 @@ class PastLastPageTest extends \WP_UnitTestCase {
 		$this->assertFalse( $this->past( '/notifications/' ) );
 		$this->assertTrue( $this->past( '/notifications/page/2/' ) );
 		$this->assertTrue( $this->past( '/notifications/page/2/?filter=mention' ) );
+	}
+
+	/**
+	 * first_page() drops the page segment and ?paged, and keeps every filter.
+	 *
+	 * @return void
+	 */
+	public function test_first_page_keeps_filters_and_drops_the_page(): void {
+		$this->assertSame( home_url( '/notifications/?filter=mention' ), PageRouter::first_page( home_url( '/notifications/page/2/?filter=mention' ) ) );
+		$this->assertSame( home_url( '/spaces/?bn_subspaces=1' ), PageRouter::first_page( home_url( '/spaces/page/3/?bn_subspaces=1' ) ) );
+		$this->assertSame( home_url( '/spaces/?bn_sort=newest' ), PageRouter::first_page( home_url( '/spaces/?bn_sort=newest&paged=4' ) ) );
+		$this->assertSame( home_url( '/spaces/page-turner/' ), PageRouter::first_page( home_url( '/spaces/page-turner/' ) ), 'a slug containing "page" is not a page segment' );
+	}
+
+	/**
+	 * On inbox page 2 every tab links to page 1 of that tab (QA bounce: Mentions
+	 * from /notifications/page/2/ landed on a 404).
+	 *
+	 * @return void
+	 */
+	public function test_inbox_tabs_on_page_two_link_to_page_one(): void {
+		wp_set_current_user( self::factory()->user->create() );
+		$this->go_to( home_url( '/notifications/page/2/' ) );
+
+		ob_start();
+		buddynext_get_template(
+			'parts/notifications-filter-bar.php',
+			array(
+				'tabs'          => array(
+					array( 'key' => 'all', 'label' => 'All' ),
+					array( 'key' => 'mention', 'label' => 'Mentions' ),
+				),
+				'active_filter' => 'all',
+			)
+		);
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'filter=mention', $html );
+		$this->assertStringNotContainsString( '/page/2/', $html );
 	}
 }

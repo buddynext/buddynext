@@ -408,7 +408,7 @@ $bn_subtitle = sprintf(
 				class="bn-btn bn-sd-subspaces-toggle"
 				data-variant="<?php echo $bn_include_subspaces ? 'primary' : 'secondary'; ?>"
 				data-size="sm"
-				href="<?php echo esc_url( $bn_include_subspaces ? remove_query_arg( 'bn_subspaces' ) : add_query_arg( 'bn_subspaces', '1' ) ); ?>"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::first_page( $bn_include_subspaces ? remove_query_arg( 'bn_subspaces' ) : add_query_arg( 'bn_subspaces', '1' ) ) ); ?>"
 				aria-pressed="<?php echo $bn_include_subspaces ? 'true' : 'false'; ?>"
 			>
 				<?php buddynext_icon( 'layers' ); ?>
