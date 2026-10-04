@@ -68,6 +68,9 @@ class HashtagListener implements ListenerInterface {
 
 		// One-time Unicode re-sync (schema v24 / R11) — self-chaining batch worker.
 		add_action( 'buddynext_resync_hashtags', array( $this, 'resync_batch' ), 10, 1 );
+
+		// Chained after the re-sync: recount tags whose posts were all deleted.
+		add_action( 'buddynext_recount_hashtags', array( $this, 'recount_batch' ), 10, 1 );
 	}
 
 	/**
@@ -288,6 +291,48 @@ class HashtagListener implements ListenerInterface {
 
 		// Final batch complete — reconcile follows for unambiguously mangled tags.
 		$this->service->merge_mangled_follows();
+
+		// The re-sync recounts every tag a live post still carries. A tag whose posts
+		// were ALL deleted before 1.2.4 kept its old count (deletes never lowered it),
+		// so recount every tag still showing one.
+		$this->dispatch( 'buddynext_recount_hashtags', array( 0 ) );
+	}
+
+	/**
+	 * Recount post_count for tags that show one, 200 per batch, self-chaining.
+	 *
+	 * Keyed on id, not OFFSET, so a recount that drops a tag to zero cannot shift
+	 * the next window.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param int $after_id Last tag id done.
+	 * @return void
+	 */
+	public function recount_batch( int $after_id = 0 ): void {
+		global $wpdb;
+		$batch_size = 200;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_hashtags WHERE id > %d AND post_count > 0 ORDER BY id LIMIT %d",
+					$after_id,
+					$batch_size
+				)
+			)
+		);
+		if ( ! $ids ) {
+			return;
+		}
+
+		$this->service->recount( $ids );
+
+		if ( count( $ids ) === $batch_size ) {
+			$this->dispatch( 'buddynext_recount_hashtags', array( end( $ids ) ) );
+		}
 	}
 
 	/**

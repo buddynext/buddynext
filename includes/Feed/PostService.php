@@ -2497,6 +2497,11 @@ class PostService {
 		// includes notifications whose post was just deleted, for up to the 30s TTL —
 		// the "3 over a list of 2" mismatch (card 10264293036).
 		$notif_recipients = array();
+		// Hashtags these posts carried, gathered before their links go, so the tags'
+		// post_count is recounted afterwards. The bn_post_hashtags rows were deleted
+		// here BEFORE buddynext_post_deleted fired, so the listener's sync() found
+		// nothing to recount and a tag page kept "Posts 15" over an empty list.
+		$hashtag_ids = array();
 
 		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
 			$in = implode( ',', array_map( 'absint', $chunk ) );
@@ -2525,7 +2530,10 @@ class PostService {
 			$del( "DELETE FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
-			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			// Only the posts' own links: the table also holds media, discussions and
+			// jobs (object_type), whose ids can equal a post id.
+			$hashtag_ids = array_merge( $hashtag_ids, (array) $wpdb->get_col( "SELECT DISTINCT hashtag_id FROM {$wpdb->prefix}bn_post_hashtags WHERE object_type = 'post' AND post_id IN ({$in})" ) );
+			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE object_type = 'post' AND post_id IN ({$in})" );
 			// create() mirrors attached media into MediaVerse's link store; detach
 			// it here or the link outlives the post (the media itself stays in its
 			// owner's library). Through the engine seam, never its table directly.
@@ -2538,6 +2546,14 @@ class PostService {
 			$del( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		}
+
+		$hashtag_ids = array_values( array_unique( array_filter( array_map( 'intval', $hashtag_ids ) ) ) );
+		if ( $hashtag_ids && function_exists( 'buddynext_service' ) ) {
+			$bn_hashtags = buddynext_service( 'hashtags' );
+			if ( $bn_hashtags instanceof \BuddyNext\Hashtags\HashtagService ) {
+				$bn_hashtags->recount( $hashtag_ids );
+			}
 		}
 
 		$notif_recipients = array_values( array_unique( array_map( 'intval', $notif_recipients ) ) );

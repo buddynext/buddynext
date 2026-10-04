@@ -449,8 +449,13 @@ class Installer {
 	 *  64: seed the bn.media_commented email template (BuddyNext now sends the
 	 *      media-comment notification itself, card 10344509261). run() seeds it on
 	 *      upgrade; no data touched.
+	 *  65: recount hashtag post_count. Deleting a post never lowered its tags'
+	 *      counts (card 10369496615), so a tag whose posts were all deleted kept
+	 *      "Posts 15" over an empty page. The upgrade's hashtag re-sync now ends with
+	 *      a chained recount of every tag showing a count (HashtagListener::
+	 *      recount_batch, 200 per batch). Counts only; no table change.
 	 */
-	private const SCHEMA_VERSION = 64;
+	private const SCHEMA_VERSION = 65;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
