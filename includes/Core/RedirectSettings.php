@@ -164,7 +164,7 @@ class RedirectSettings {
 	 * Let core's wp_safe_redirect() follow the owner's off-site address for this
 	 * request only.
 	 *
-	 * wp-login.php validates the login_redirect / logout_redirect result with
+	 * WordPress (wp-login.php) validates the login_redirect / logout_redirect result with
 	 * wp_safe_redirect() right after these filters run, which refuses any host
 	 * but this site's. The host is allowed only when the filter is returning the
 	 * owner's saved address, so a visitor-supplied redirect_to never gains it.
