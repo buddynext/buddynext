@@ -148,7 +148,7 @@ class InstallerTest extends \WP_UnitTestCase {
 				// DM tables (bn_conversations, bn_conversation_participants,
 				// bn_messages, bn_message_reactions) deliberately removed —
 				// DM is owned by WPMediaVerse per 14-wpmediaverse-bridge spec.
-				'bn_activity_log',
+				// bn_activity_log is retired (Installer::LEGACY_TABLES).
 				// BLOCK 1 additions.
 				'bn_user_suspensions',
 				'bn_appeals',
