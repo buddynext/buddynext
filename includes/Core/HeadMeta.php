@@ -446,7 +446,7 @@ final class HeadMeta {
 		// base. Query args are left off, as on page 1.
 		$paged = (int) get_query_var( 'paged', 0 );
 		if ( $paged > 1 && '' !== $url ) {
-			$here = PageRouter::first_page( PageRouter::current_url() );
+			$here = PageRouter::current_url();
 			$base = str_starts_with( $here, trailingslashit( strtok( $url, '?#' ) ) ) ? $here : $url;
 			$url  = PageRouter::page_url( $base, $paged );
 		}
