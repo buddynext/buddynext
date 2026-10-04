@@ -327,9 +327,10 @@ class SearchService {
 		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
 
 		if ( null === $space ) {
-			$ceilings[ $space_id ] = 'private';
-
-			return $ceilings[ $space_id ];
+			// Fail closed, but do not remember it: the space may be created later in
+			// this same request (an import, the demo seeder), and a memoised 'private'
+			// would then hide every public post written into it from guest search.
+			return 'private';
 		}
 
 		$members_only = \BuddyNext\Spaces\SpaceTypeRegistry::instance()

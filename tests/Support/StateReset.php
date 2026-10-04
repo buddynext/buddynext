@@ -135,6 +135,23 @@ final class StateReset implements BeforeTestHook {
 	);
 
 	/**
+	 * Memos held in FUNCTION-local statics (`static $x` inside a method), which
+	 * reflection cannot reach, so MEMOS cannot reset them. Each is cleared through
+	 * the owner's own flush method instead.
+	 *
+	 * SearchService's space-ceiling memo leaked across tests this way: a test that
+	 * indexed into a not-yet-created space id left 'private' memoised for it, and a
+	 * later test whose new space received that id had every public post hidden
+	 * from guest search (InSpaceSearchTest, seed 1791094368).
+	 *
+	 * @var array<int, array{0: class-string, 1: string}>
+	 */
+	public const FLUSHERS = array(
+		array( \BuddyNext\Search\SearchService::class, 'flush_space_ceiling' ),
+		array( \BuddyNext\Search\SearchService::class, 'flush_viewer_space_memo' ),
+	);
+
+	/**
 	 * Statics that are deliberately NOT reset, each with the reason.
 	 *
 	 * Read by the inventory test, so a decision to leave something alone is
@@ -166,6 +183,11 @@ final class StateReset implements BeforeTestHook {
 	 * @return void
 	 */
 	public function executeBeforeTest( string $test ): void {
+		foreach ( self::FLUSHERS as $flusher ) {
+			if ( is_callable( $flusher ) ) {
+				call_user_func( $flusher );
+			}
+		}
 		foreach ( self::MEMOS as $class => $properties ) {
 			if ( ! class_exists( $class ) ) {
 				continue;
