@@ -150,7 +150,7 @@ $bn_lb_can_interact = is_user_logged_in();
 							<button type="button" class="bn-lightbox__menu-item" data-bn-lb-unlink hidden role="menuitem">
 								<?php buddynext_icon( 'log-out' ); ?><span><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></span>
 							</button>
-							<button type="button" class="bn-lightbox__menu-item bn-lightbox__menu-item--danger" data-bn-lb-report hidden role="menuitem">
+							<button type="button" class="bn-lightbox__menu-item" data-bn-lb-report hidden role="menuitem">
 								<?php buddynext_icon( 'flag' ); ?><span><?php esc_html_e( 'Report', 'buddynext' ); ?></span>
 							</button>
 							<button type="button" class="bn-lightbox__menu-item bn-lightbox__menu-item--danger" data-bn-lb-block hidden role="menuitem">

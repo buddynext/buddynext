@@ -243,7 +243,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
 				<button
 					type="button"
-					class="bn-md-card__menu-item bn-md-card__menu-item--danger"
+					class="bn-md-card__menu-item"
 					role="menuitem"
 					data-wp-on--click="actions.openReport"
 				><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
