@@ -1574,6 +1574,37 @@ class PostService {
 	}
 
 	/**
+	 * The post as this viewer may see it: the members-only paywall applied.
+	 *
+	 * The one place that knows which fields carry a post's body. A viewer without
+	 * access gets the teaser instead of the content, and no media, link URL or link
+	 * preview (title, description, image); `is_locked` and `members_only_cta` say
+	 * so. The author and viewers the access filter grants get the post unchanged.
+	 *
+	 * Every surface (REST feeds and single post, the post card, the Explore card,
+	 * the single-post head meta) renders the result of this, so a field added to
+	 * posts later is redacted everywhere at once. Each surface used to strip its own
+	 * list and the REST copy missed link_url and link_meta (card 10369172985).
+	 *
+	 * @param array<string,mixed> $post   Hydrated post.
+	 * @param int                 $viewer Viewer user ID (0 = guest).
+	 * @return array<string,mixed>
+	 */
+	public function members_only_view( array $post, int $viewer ): array {
+		$gate              = $this->members_only_gate( $post, $viewer );
+		$post['is_locked'] = $gate['locked'];
+		if ( ! $gate['locked'] ) {
+			return $post;
+		}
+		$post['content']          = $gate['teaser'];
+		$post['media_ids']        = array();
+		$post['link_url']         = '';
+		$post['link_meta']        = null;
+		$post['members_only_cta'] = $gate['cta'];
+		return $post;
+	}
+
+	/**
 	 * May this post be shared outside the community (social networks, messaging)?
 	 *
 	 * Yes when anyone who opens the link sees it: the site is not a private

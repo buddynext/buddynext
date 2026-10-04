@@ -389,9 +389,9 @@ class FeedController extends BaseRestController {
 	 * Apply the members-only paywall to one enriched item for the current viewer.
 	 *
 	 * The author of the post, and any viewer the access filter grants, see the
-	 * post unchanged. Everyone else gets `is_locked = true`, the body replaced by
-	 * a teaser (a fraction of the words, owner-tunable, nothing for short posts),
-	 * media stripped, and a `members_only_cta` describing how to gain access.
+	 * post unchanged. Everyone else gets PostService::members_only_view(): the
+	 * body replaced by a teaser, no media, link URL or link preview, and a
+	 * `members_only_cta` describing how to gain access.
 	 *
 	 * Free→Pro seam: the access decision defaults to "any logged-in member" and
 	 * the CTA to a login prompt for guests; Pro filters both — requiring a paid
@@ -405,16 +405,10 @@ class FeedController extends BaseRestController {
 	 * @return array<string,mixed>
 	 */
 	private function apply_members_only_gate( array $item, int $viewer, bool $format ): array {
-		$gate              = buddynext_service( 'post_service' )->members_only_gate( $item, $viewer );
-		$item['is_locked'] = $gate['locked'];
-		if ( ! $gate['locked'] ) {
-			return $item;
+		$item = buddynext_service( 'post_service' )->members_only_view( $item, $viewer );
+		if ( $item['is_locked'] ) {
+			$item['content_html'] = $format ? buddynext_format_content( (string) $item['content'] ) : (string) $item['content'];
 		}
-
-		$item['content']          = $gate['teaser'];
-		$item['content_html']     = $format ? buddynext_format_content( $gate['teaser'] ) : $gate['teaser'];
-		$item['media_ids']        = array(); // Do not leak the media that sits behind the wall.
-		$item['members_only_cta'] = $gate['cta'];
 
 		return $item;
 	}

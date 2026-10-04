@@ -52,27 +52,24 @@ $bn_post_id     = absint( $bn_post['id'] );
 $bn_post_type   = $bn_post['type'] ?? 'text';
 $bn_space_id    = absint( $bn_post['space_id'] ?? 0 );
 $post_author_id = absint( $bn_post['user_id'] ?? 0 );
-$post_content   = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
 
-// Members-only paywall (SSR). Uses the SAME gate as the REST/app feed
-// (PostService::members_only_gate), so the web card and the app card hide
-// exactly the same body. When locked, the body becomes the teaser and a lock
+// Members-only paywall (SSR). Uses the SAME redaction as the REST/app feed
+// (PostService::members_only_view), so the web card and the app card hide
+// exactly the same fields. When locked, the body becomes the teaser and a lock
 // notice + CTA render below it (see the $bn_members_locked block).
-$bn_members_locked = false;
-$bn_members_cta    = array();
+// PostService::members_only_view() redacts the WHOLE post (teaser for the
+// body, no media, no link URL or preview) before any later branch reads it.
 if ( ! empty( $bn_post['members_only'] ) ) {
-	$bn_mo_gate = buddynext_service( 'post_service' )->members_only_gate( $bn_post, $current_user_id );
-	if ( $bn_mo_gate['locked'] ) {
-		$bn_members_locked = true;
-		$bn_members_cta    = $bn_mo_gate['cta'];
-		$post_content      = $bn_mo_gate['teaser'];
-	}
+	$bn_post = buddynext_service( 'post_service' )->members_only_view( $bn_post, $current_user_id );
 }
-$post_privacy = $bn_post['privacy'] ?? 'public';
-$post_privacy = in_array( $post_privacy, PostService::valid_privacy_values(), true )
+$bn_members_locked = ! empty( $bn_post['is_locked'] );
+$bn_members_cta    = $bn_members_locked ? (array) ( $bn_post['members_only_cta'] ?? array() ) : array();
+$post_content      = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
+$post_privacy      = $bn_post['privacy'] ?? 'public';
+$post_privacy      = in_array( $post_privacy, PostService::valid_privacy_values(), true )
 	? $post_privacy
 	: 'public';
-$is_pinned    = ! empty( $bn_post['is_pinned'] );
+$is_pinned         = ! empty( $bn_post['is_pinned'] );
 // The "Pinned" badge is surface-relative: a post is pinned to a member's PROFILE
 // strip, never to the global home/explore/single/bookmarks feed — and no longer
 // to a space (spaces surface important content through Announcements, not pins).

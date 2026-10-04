@@ -193,7 +193,13 @@ if ( 'space' === $bn_kind ) {
 // POST CARDS (post-media / post-quote / post-forum / post-text)
 // ─────────────────────────────────────────────────────────────────────────────
 $bn_post = isset( $bn_card['post'] ) && is_array( $bn_card['post'] ) ? $bn_card['post'] : array();
-$bn_pid  = (int) ( $bn_post['id'] ?? 0 );
+// Members-only paywall, applied before anything reads the post: a viewer without
+// access gets PostService::members_only_view() (teaser, no media, no link URL or
+// preview), so no later branch can show what sits behind the wall.
+if ( ! empty( $bn_post['members_only'] ) ) {
+	$bn_post = buddynext_service( 'post_service' )->members_only_view( $bn_post, $bn_viewer );
+}
+$bn_pid = (int) ( $bn_post['id'] ?? 0 );
 if ( $bn_pid <= 0 ) {
 	return;
 }
@@ -232,20 +238,14 @@ if ( ! empty( $bn_card['hashtag'] ) ) {
 	$bn_kicker = '#' . ltrim( (string) $bn_card['hashtag'], '#' );
 }
 
-// Members-only gate: the same PostService::members_only_gate() the post card and
-// the REST feed apply. A viewer without access gets the teaser, never the body;
-// link-preview text and media go too (they would give the post away). The card
-// still links to the post, whose page carries the full join/log-in prompt.
-if ( ! empty( $bn_post['members_only'] ) ) {
-	$bn_mo_gate = buddynext_service( 'post_service' )->members_only_gate( $bn_post, $bn_viewer );
-	if ( ! empty( $bn_mo_gate['locked'] ) ) {
-		$bn_teaser            = trim( wp_strip_all_tags( (string) $bn_mo_gate['teaser'] ) );
-		$bn_headline          = '' !== $bn_teaser ? $bn_teaser : __( 'This post is for members.', 'buddynext' );
-		$bn_excerpt           = '';
-		$bn_post['media_ids'] = array();
-		$bn_kicker            = __( 'Members only', 'buddynext' )
-			. ( ! empty( $bn_mo_gate['cta']['label'] ) ? ' · ' . (string) $bn_mo_gate['cta']['label'] : '' );
-	}
+// Locked for this viewer (redacted above by members_only_view, as the post card
+// and the REST feed are): headline from the teaser, a members-only kicker. The
+// card still links to the post, whose page carries the full join/log-in prompt.
+if ( ! empty( $bn_post['is_locked'] ) ) {
+	$bn_headline = '' !== $bn_plain ? $bn_plain : __( 'This post is for members.', 'buddynext' );
+	$bn_excerpt  = '';
+	$bn_kicker   = __( 'Members only', 'buddynext' )
+		. ( ! empty( $bn_post['members_only_cta']['label'] ) ? ' · ' . (string) $bn_post['members_only_cta']['label'] : '' );
 }
 
 /**
