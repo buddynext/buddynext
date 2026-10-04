@@ -156,6 +156,12 @@ class SpaceController extends BaseRestController {
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
+		// One existence gate for every /spaces/{id} route (Free and Pro), ahead of
+		// each route's own permission check. remove first: register_routes() can
+		// run more than once in a request (tests, rest_api_init re-fires).
+		remove_filter( 'rest_request_before_callbacks', array( self::class, 'hide_unseen_space' ), 5 );
+		add_filter( 'rest_request_before_callbacks', array( self::class, 'hide_unseen_space' ), 5, 3 );
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces',
@@ -2768,6 +2774,52 @@ class SpaceController extends BaseRestController {
 		( new SpaceInviteLinkService() )->revoke( $space_id );
 
 		return new WP_REST_Response( array( 'invite_link' => null ), 200 );
+	}
+
+	/**
+	 * Answer every /spaces/{id}/... request about a space the viewer may not know
+	 * exists exactly as for an id that does not exist: 404 space_not_found.
+	 *
+	 * "Secret" promises a non-member cannot tell the space is there. GET
+	 * /spaces/{id} and /invite-link kept that promise; 14 other routes answered
+	 * 403 (or 200, or another error code) instead of 404, so secret ids could be
+	 * enumerated (card 10369170447). Running here, before each route's own
+	 * permission callback, closes every route at once, including ones added
+	 * later and Pro's.
+	 *
+	 * Who still gets through: anyone SpaceVisibility::can_view_space() lets see
+	 * the space (members, the owner, admins, any visible type), anyone with a
+	 * membership row (an invited person knows it exists), and a request carrying
+	 * a VALID invite token for this space (an invalid one must not answer
+	 * differently from a missing space). Visible spaces, private ones included,
+	 * keep their existing answers.
+	 *
+	 * @param mixed           $response Response so far (WP_Error or null).
+	 * @param array           $handler  Matched route handler.
+	 * @param WP_REST_Request $request  Request.
+	 * @return mixed
+	 */
+	public static function hide_unseen_space( $response, $handler, $request ) {
+		unset( $handler );
+		if ( is_wp_error( $response ) || ! $request instanceof WP_REST_Request ) {
+			return $response;
+		}
+		// Normalised: WordPress matches routes case-insensitively, so /SPACES/6
+		// reaches the same handler and must reach this gate too.
+		if ( ! preg_match( '#^/buddynext(?:-pro)?/v1/spaces/(\d+)(?:/|$)#', \BuddyNext\Core\RestRoute::normalize( $request ), $m ) ) {
+			return $response;
+		}
+		$space_id = (int) $m[1];
+		$viewer   = get_current_user_id();
+		$space    = ( new SpaceService() )->get( $space_id );
+		if ( null !== $space && (
+			SpaceVisibility::can_view_space( $space, $viewer )
+			|| ( $viewer > 0 && null !== ( new SpaceMemberService() )->get_status( $space_id, $viewer ) )
+			|| true === ( new SpaceInviteLinkService() )->validate( $space_id, (string) $request->get_param( 'invite' ) )
+		) ) {
+			return $response;
+		}
+		return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 	}
 
 	/**
