@@ -199,4 +199,32 @@ class PostControllerTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 403, $response->get_status() );
 	}
+
+	/**
+	 * A post that does not exist answers 404 on every write route, not 403:
+	 * "not allowed" for a missing post sent the app down the permissions path.
+	 * Someone else's existing post still answers 403 (the test above).
+	 *
+	 * @return void
+	 */
+	public function test_writes_to_a_missing_post_return_404(): void {
+		wp_set_current_user( $this->alice );
+		$missing = 987654321;
+
+		$routes = array(
+			array( 'PUT', "/buddynext/v1/posts/{$missing}" ),
+			array( 'DELETE', "/buddynext/v1/posts/{$missing}" ),
+			array( 'POST', "/buddynext/v1/posts/{$missing}/pin" ),
+			array( 'DELETE', "/buddynext/v1/posts/{$missing}/pin" ),
+		);
+
+		foreach ( $routes as $route ) {
+			$request = new WP_REST_Request( $route[0], $route[1] );
+			if ( 'PUT' === $route[0] ) {
+				$request->set_body_params( array( 'content' => 'Edit' ) );
+			}
+			$response = self::$server->dispatch( $request );
+			$this->assertSame( 404, $response->get_status(), implode( ' ', $route ) );
+		}
+	}
 }

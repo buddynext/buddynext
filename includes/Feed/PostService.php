@@ -4337,7 +4337,7 @@ class PostService {
 		$post = $this->get( $post_id );
 
 		if ( null === $post ) {
-			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ) );
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// The post owner may manage their own post; a site admin

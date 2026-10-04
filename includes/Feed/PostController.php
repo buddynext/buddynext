@@ -509,13 +509,7 @@ class PostController extends BaseRestController {
 		$result = $service->update( $post_id, $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			// Keep the service's own status (404 missing media, 409 not scheduled,
-			// 400 empty post); only an error that carries none reads as 403.
-			$error_data = $result->get_error_data();
-			if ( ! is_array( $error_data ) || empty( $error_data['status'] ) ) {
-				$result->add_data( array( 'status' => 403 ) );
-			}
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( $service->get( $post_id ), 200 );
@@ -545,8 +539,7 @@ class PostController extends BaseRestController {
 		$result = $service->delete( $post_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
@@ -568,8 +561,7 @@ class PostController extends BaseRestController {
 		$result  = ( new PostService() )->pin( $post_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( array( 'pinned' => true ), 200 );
@@ -589,11 +581,27 @@ class PostController extends BaseRestController {
 		$result  = ( new PostService() )->unpin( $post_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( array( 'pinned' => false ), 200 );
+	}
+
+	/**
+	 * A service refusal as a REST error: the service's own status wins (404 for a
+	 * missing post, 409 not scheduled, 400 empty post); only an error that carries
+	 * none reads as 403. Forcing 403 on every error answered "not allowed" for a
+	 * post that does not exist.
+	 *
+	 * @param WP_Error $error Service error.
+	 * @return WP_Error
+	 */
+	private static function forbidden_unless_status( WP_Error $error ): WP_Error {
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+			$error->add_data( array( 'status' => 403 ) );
+		}
+		return $error;
 	}
 
 	/**
