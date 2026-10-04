@@ -36,59 +36,20 @@ use BuddyNext\Profile\AvatarService;
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
-// Resolve active filter tab (sanitized).
-$allowed_filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
-// No Messages filter while messaging is off in WPMediaVerse (card 10344001598).
-if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
-	$allowed_filters = array_values( array_diff( $allowed_filters, array( 'message' ) ) );
-}
-$active_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
-	$active_filter = 'all';
-}
-
-// Filter-key -> notification type list. Shared between the type-filtered fetch
-// below and the per-type unread tally (so the in-template SQL is gone but the
-// "which types belong to which tab" mapping stays declarative).
-$filter_type_map = NotificationService::TAB_TYPES;
-
-// Pagination (simple offset; cap at 25 per page).
-$bn_per_page = 25;
-// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-// /notifications/page/N/ (core sends an old ?paged=N link there).
-$bn_paged  = max( 1, (int) get_query_var( 'paged', 0 ), isset( $_GET['paged'] ) ? (int) sanitize_text_field( wp_unslash( $_GET['paged'] ) ) : 1 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only page number.
-$bn_offset = ( $bn_paged - 1 ) * $bn_per_page;
-
+// Tab + page, read by the service (the same call PageRouter makes to answer 404
+// for a page past the end).
+$allowed_filters      = NotificationService::inbox_filters();
 $notification_service = new NotificationService();
-
-// Map the active filter tab onto the service's read-state filter. The 'unread'
-// tab maps to the read-state filter; the type tabs all list 'all' read-states
-// and are narrowed in PHP after fetch (the type set is small and capped at one
-// page, so this stays a single query + a cheap in-memory filter).
-$svc_filter     = ( 'unread' === $active_filter ) ? 'unread' : 'all';
-$active_types   = $filter_type_map[ $active_filter ] ?? array();
-$is_type_filter = ! empty( $active_types );
-
-// For type tabs we cannot push the type set through count_for_user(), so fetch
-// a generous page and count the matched rows; All / Unread use the service
-// count directly. Type tabs are inherently small.
-if ( $is_type_filter ) {
-	$listed      = $notification_service->list_for_user( $current_user_id, null, 200, 'all', 0 );
-	$all_items   = array_values(
-		array_filter(
-			$listed['items'] ?? array(),
-			static function ( array $item ) use ( $active_types ): bool {
-				return in_array( (string) ( $item['type'] ?? '' ), $active_types, true );
-			}
-		)
-	);
-	$total_count = count( $all_items );
-	$items       = array_slice( $all_items, $bn_offset, $bn_per_page );
-} else {
-	$listed      = $notification_service->list_for_user( $current_user_id, null, $bn_per_page, $svc_filter, $bn_offset );
-	$items       = $listed['items'] ?? array();
-	$total_count = $notification_service->count_for_user( $current_user_id, $svc_filter );
-}
+$bn_inbox             = $notification_service->inbox_page(
+	$current_user_id,
+	isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all', // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	max( 1, absint( get_query_var( 'paged', 1 ) ) )
+);
+$active_filter        = $bn_inbox['filter'];
+$bn_paged             = $bn_inbox['page'];
+$bn_per_page          = $bn_inbox['per_page'];
+$items                = $bn_inbox['items'];
+$total_count          = $bn_inbox['total'];
 
 // Hydrated service rows are associative; the row/group parts read them as
 // objects, so coerce. They carry id/type/sender_id/object_id/object_type/

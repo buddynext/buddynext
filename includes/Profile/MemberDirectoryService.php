@@ -1093,6 +1093,103 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * Turn a directory request into the query the server-rendered page runs.
+	 *
+	 * One place for it, because two callers need the same answer: the directory
+	 * template, to render the page, and PageRouter, which must know BEFORE any
+	 * output whether /members/page/N/ is past the end (a real 404, as core does
+	 * for /blog/page/999/). Two copies of this parsing would drift, and the
+	 * router would then 404 a page the template could render, or the reverse.
+	 *
+	 * @param int                  $viewer_id Viewing user (0 = logged out).
+	 * @param array<string, mixed> $request   Raw query args ($_GET): s, orderby, relation, online, type.
+	 * @param int                  $page      1-based page number.
+	 * @return array{page:int, per_page:int, search:string, orderby:string, relation:string, online_only:bool, member_type:string, filters_active:bool, query_args:array<string,mixed>, filters:array<string,mixed>}
+	 */
+	public function ssr_request( int $viewer_id, array $request, int $page ): array {
+		$page        = max( 1, $page );
+		$search      = sanitize_text_field( wp_unslash( (string) ( $request['s'] ?? '' ) ) );
+		$orderby     = sanitize_key( (string) ( $request['orderby'] ?? 'registered' ) );
+		$relation    = sanitize_key( (string) ( $request['relation'] ?? 'all' ) );
+		$online_only = '1' === sanitize_key( wp_unslash( (string) ( $request['online'] ?? '' ) ) );
+		// Member type comes from ?type=, the one filter contract on this screen.
+		$member_type = sanitize_key( wp_unslash( (string) ( $request['type'] ?? '' ) ) );
+
+		$orderby  = in_array( $orderby, array( 'registered', 'display_name', 'post_count' ), true ) ? $orderby : 'registered';
+		$relation = in_array( $relation, array( 'all', 'following', 'connections' ), true ) ? $relation : 'all';
+
+		// "Newest" and "most active" paint as ID DESC: ID is registration order and
+		// the primary key, so it is filesort-free and matches list_members()'s
+		// newest sort exactly (the JS re-sorts most-active over REST).
+		$query_orderby = 'display_name' === $orderby ? 'display_name' : 'ID';
+
+		$query_args = array(
+			'number'      => self::DEFAULT_LIMIT,
+			'paged'       => $page,
+			'orderby'     => $query_orderby,
+			'order'       => 'display_name' === $query_orderby ? 'ASC' : 'DESC',
+			'fields'      => 'all',
+			// No SQL_CALC_FOUND_ROWS: directory_total() sizes the pager, cached.
+			'count_total' => false,
+		);
+
+		// Search resolves to user IDs so the server render matches REST exactly
+		// (name/login/email + searchable field mirrors). A term that matches
+		// nobody forces zero results.
+		$search_ids = null;
+		if ( '' !== $search ) {
+			$search_ids = $this->matching_user_ids( $search );
+			if ( empty( $search_ids ) ) {
+				$search_ids = array( 0 );
+			}
+		}
+
+		// Following / Connections only mean something when logged in. Approved
+		// follows only, matching list_members()'s following JOIN.
+		if ( $viewer_id > 0 && 'all' !== $relation ) {
+			$relation_ids = 'following' === $relation
+				? buddynext_service( 'follows' )->following( $viewer_id )
+				: buddynext_service( 'connections' )->connections( $viewer_id, 500, 0 );
+			$relation_ids = array_map( 'intval', (array) $relation_ids );
+
+			$query_args['include'] = empty( $relation_ids ) ? array( 0 ) : $relation_ids;
+		}
+
+		// Search intersects any relation constraint (most restrictive wins).
+		if ( null !== $search_ids ) {
+			if ( isset( $query_args['include'] ) ) {
+				$both                  = array_values( array_intersect( $query_args['include'], $search_ids ) );
+				$query_args['include'] = empty( $both ) ? array( 0 ) : $both;
+			} else {
+				$query_args['include'] = $search_ids;
+			}
+		}
+
+		$filters = array(
+			'member_type' => $member_type,
+			'online_only' => $online_only,
+		);
+		// The total counts the same population the grid renders, or the header
+		// says "227 members" over 7 Following cards.
+		if ( isset( $query_args['include'] ) ) {
+			$filters['include'] = $query_args['include'];
+		}
+
+		return array(
+			'page'           => $page,
+			'per_page'       => self::DEFAULT_LIMIT,
+			'search'         => $search,
+			'orderby'        => $orderby,
+			'relation'       => $relation,
+			'online_only'    => $online_only,
+			'member_type'    => $member_type,
+			'filters_active' => '' !== $search || 'all' !== $relation || $online_only || '' !== $member_type,
+			'query_args'     => $query_args,
+			'filters'        => $filters,
+		);
+	}
+
+	/**
 	 * Ordered member IDs for the server-rendered directory landing page, cached
 	 * under the SAME versioned `bn_dir_` salt as the REST list_members().
 	 *

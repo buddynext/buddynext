@@ -1089,6 +1089,76 @@ class NotificationService {
 	}
 
 	/**
+	 * Inbox page size on /notifications/.
+	 */
+	public const INBOX_PER_PAGE = 25;
+
+	/**
+	 * The inbox tabs this site offers. No Messages tab while messaging is off
+	 * in WPMediaVerse.
+	 *
+	 * @return string[]
+	 */
+	public static function inbox_filters(): array {
+		$filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
+		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+			$filters = array_values( array_diff( $filters, array( 'message' ) ) );
+		}
+		return $filters;
+	}
+
+	/**
+	 * One inbox page: the rows and the total for a tab.
+	 *
+	 * Shared by the inbox template and PageRouter, which must know BEFORE any
+	 * output whether /notifications/page/N/ is past the end (a real 404).
+	 *
+	 * All and Unread page in SQL and count with count_for_user(). A type tab
+	 * cannot push its type set through the count, so it reads one bounded batch
+	 * (200, newest first) and filters in PHP; type tabs are small.
+	 *
+	 * @param int    $user_id Inbox owner.
+	 * @param string $filter  Tab key; anything not in inbox_filters() reads as 'all'.
+	 * @param int    $page    1-based page number.
+	 * @param bool   $rows    False when only the total is needed (the router).
+	 * @return array{filter:string, page:int, per_page:int, items:array<int,array<string,mixed>>, total:int}
+	 */
+	public function inbox_page( int $user_id, string $filter, int $page, bool $rows = true ): array {
+		$filter = in_array( $filter, self::inbox_filters(), true ) ? $filter : 'all';
+		$page   = max( 1, $page );
+		$offset = ( $page - 1 ) * self::INBOX_PER_PAGE;
+		$types  = self::TAB_TYPES[ $filter ] ?? array();
+		$items  = array();
+
+		if ( ! empty( $types ) ) {
+			$listed  = $this->list_for_user( $user_id, null, 200, 'all', 0 );
+			$matched = array_values(
+				array_filter(
+					$listed['items'] ?? array(),
+					static fn( array $item ): bool => in_array( (string) ( $item['type'] ?? '' ), $types, true )
+				)
+			);
+			$total   = count( $matched );
+			$items   = array_slice( $matched, $offset, self::INBOX_PER_PAGE );
+		} else {
+			$read_state = 'unread' === $filter ? 'unread' : 'all';
+			$total      = $this->count_for_user( $user_id, $read_state );
+			if ( $rows ) {
+				$listed = $this->list_for_user( $user_id, null, self::INBOX_PER_PAGE, $read_state, $offset );
+				$items  = $listed['items'] ?? array();
+			}
+		}
+
+		return array(
+			'filter'   => $filter,
+			'page'     => $page,
+			'per_page' => self::INBOX_PER_PAGE,
+			'items'    => $items,
+			'total'    => $total,
+		);
+	}
+
+	/**
 	 * Count a user's notifications, optionally narrowed by read-state.
 	 *
 	 * The 'unread' filter reuses the cached unread_count() path; 'all' and

@@ -1465,6 +1465,117 @@ class SpaceService {
 	}
 
 	/**
+	 * The spaces directory request: the query args (?bn_search, ?bn_cat, ?bn_type,
+	 * ?bn_sort, ?bn_subspaces) plus the scope and membership the /spaces/mine/ rewrites set
+	 * as query vars, with a query var winning over the same key in the query string.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function directory_request_input(): array {
+		$input = wp_unslash( $_GET ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only directory filters.
+		foreach ( array( 'bn_scope', 'bn_membership' ) as $var ) {
+			$value = (string) get_query_var( $var, '' );
+			if ( '' !== $value ) {
+				$input[ $var ] = $value;
+			}
+		}
+		return is_array( $input ) ? $input : array();
+	}
+
+	/**
+	 * Turn a spaces directory request into what the server-rendered page lists.
+	 *
+	 * Shared by the directory template and PageRouter, which must decide BEFORE any
+	 * output whether /spaces/page/N/ is past the end (a real 404). One parser, so the
+	 * router can never 404 a page the template would render, or the reverse.
+	 *
+	 * Modes: 'sections' (My spaces split into Managed and Joined, capped, one page
+	 * only), 'search' (a term is set), 'list' (the paginated grid).
+	 *
+	 * @param int                  $viewer_id Viewing user (0 = logged out).
+	 * @param bool                 $is_admin  Whether the viewer is a site admin.
+	 * @param array<string, mixed> $input     directory_request_input().
+	 * @param int                  $page      1-based page number.
+	 * @return array{page:int, per_page:int, search:string, cat_slug:string, visibility:string, orderby:string, include_subspaces:bool, scope:string, membership:string, is_mine:bool, mode:string, query_args:array<string,mixed>}
+	 */
+	public function directory_request( int $viewer_id, bool $is_admin, array $input, int $page ): array {
+		$page       = max( 1, $page );
+		$per_page   = 18;
+		$search     = sanitize_text_field( (string) ( $input['bn_search'] ?? '' ) );
+		$cat_slug   = sanitize_key( (string) ( $input['bn_cat'] ?? '' ) );
+		$visibility = sanitize_key( (string) ( $input['bn_type'] ?? '' ) );
+		$orderby    = sanitize_key( (string) ( $input['bn_sort'] ?? 'popular' ) );
+		$scope      = sanitize_key( (string) ( $input['bn_scope'] ?? '' ) );
+		$membership = sanitize_key( (string) ( $input['bn_membership'] ?? '' ) );
+		$subspaces  = '1' === (string) ( $input['bn_subspaces'] ?? '' );
+
+		$sort_map                  = self::sort_map();
+		list( $order_col, $order ) = $sort_map[ $orderby ] ?? $sort_map['popular'];
+
+		$args = array(
+			'per_page' => $per_page,
+			'page'     => $page,
+			'orderby'  => $order_col,
+			'order'    => $order,
+			'viewer'   => $viewer_id,
+			'is_admin' => $is_admin,
+		);
+
+		// Space type is a registry key; an unknown one is ignored, not an empty list.
+		if ( '' !== $visibility && SpaceTypeRegistry::instance()->is_valid( $visibility ) ) {
+			$args['type'] = $visibility;
+		}
+
+		if ( '' !== $cat_slug ) {
+			foreach ( $this->categories_with_counts( 0, true ) as $category ) {
+				if ( (string) $category['slug'] === $cat_slug ) {
+					$args['category_id'] = (int) $category['id'];
+					break;
+				}
+			}
+		}
+
+		// My spaces: everything the viewer belongs to, optionally narrowed to the
+		// ones they manage or the ones they only joined.
+		$is_mine = 'mine' === $scope && $viewer_id > 0;
+		if ( $is_mine ) {
+			$args['member'] = $viewer_id;
+			if ( in_array( $membership, array( 'managed', 'joined' ), true ) ) {
+				$args['member_role'] = 'managed' === $membership ? 'manage' : 'joined';
+			}
+		}
+
+		// The public grid lists top-level spaces unless sub-spaces were asked for;
+		// My spaces lists every membership, sub-spaces included.
+		if ( ! isset( $args['member'] ) && ! $subspaces ) {
+			$args['roots_only'] = true;
+		}
+
+		if ( $is_mine && '' === $membership && '' === $search ) {
+			$mode = 'sections';
+		} elseif ( '' !== $search ) {
+			$mode = 'search';
+		} else {
+			$mode = 'list';
+		}
+
+		return array(
+			'page'              => $page,
+			'per_page'          => $per_page,
+			'search'            => $search,
+			'cat_slug'          => $cat_slug,
+			'visibility'        => $visibility,
+			'orderby'           => $orderby,
+			'include_subspaces' => $subspaces,
+			'scope'             => $scope,
+			'membership'        => $membership,
+			'is_mine'           => $is_mine,
+			'mode'              => $mode,
+			'query_args'        => $args,
+		);
+	}
+
+	/**
 	 * Write-throttle window (seconds) for the comment-driven activity stamp.
 	 *
 	 * @var int

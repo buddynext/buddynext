@@ -1068,6 +1068,17 @@ class PageRouter {
 			return;
 		}
 
+		// ── Past-the-end gate ─────────────────────────────────────────────
+		// /members/page/999/ answered 200 with an empty grid: a soft 404 for
+		// crawlers, and old /page/N/ links indexed from the 1.2.2 redirects reach
+		// it. WordPress answers 404 for a page past the end of an archive
+		// (/blog/page/999/), so the directories do too. Decided here for the same
+		// before-output reason as the gates above.
+		if ( $this->is_past_last_page( $hub, $context ) ) {
+			$this->send_404();
+			return;
+		}
+
 		// ── Virtual page setup ────────────────────────────────────────────
 		// No backing WordPress pages exist. Tell WP this is a real page so
 		// it sends 200, generates correct <title>, and themes render their
@@ -1589,6 +1600,61 @@ class PageRouter {
 		self::$rendering        = null;
 
 		$router->render_shell_with_theme_chrome( $hub, $template, $context );
+	}
+
+	/**
+	 * Whether this request is a directory page past the last one.
+	 *
+	 * Page 1 is never past the end (an empty directory is an empty state, not a
+	 * 404). Any later page with no rows on it is, which is the rule core applies
+	 * to archives. Each hub asks its own service, through the same request
+	 * method its template renders from, so the two cannot disagree. The totals
+	 * are the cached ones the templates already read.
+	 *
+	 * @param string               $hub     Active bn_hub.
+	 * @param array<string, mixed> $context Hub context.
+	 * @return bool
+	 */
+	private function is_past_last_page( string $hub, array $context ): bool {
+		$page = absint( get_query_var( 'paged', 0 ) );
+		if ( $page <= 1 ) {
+			return false;
+		}
+
+		$viewer = get_current_user_id();
+
+		// The members directory; paged profile tabs (/members/{slug}/{tab}/page/N/)
+		// are their tab's own business.
+		if ( 'people' === $hub && '' === (string) get_query_var( 'bn_user_slug', '' ) ) {
+			$directory = buddynext_service( 'member_directory' );
+			$request   = $directory->ssr_request( $viewer, wp_unslash( $_GET ), $page ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only directory filters.
+			return $directory->directory_total( $viewer, $request['filters'] ) <= ( $page - 1 ) * $request['per_page'];
+		}
+
+		// The spaces directory. /spaces/{slug}/feed/page/N/ is the in-space search.
+		if ( 'spaces' === $hub && '' === (string) ( $context['space_slug'] ?? '' ) ) {
+			$spaces  = new \BuddyNext\Spaces\SpaceService();
+			$request = $spaces->directory_request( $viewer, current_user_can( 'manage_options' ), \BuddyNext\Spaces\SpaceService::directory_request_input(), $page );
+			if ( 'sections' === $request['mode'] ) {
+				return true; // My spaces sections are one page; "View all" pages each group.
+			}
+			if ( 'search' === $request['mode'] ) {
+				return array() === $spaces->search( $request['search'], $request['query_args'] );
+			}
+			return (int) $spaces->list_spaces_with_total( $request['query_args'] )['total'] <= ( $page - 1 ) * $request['per_page'];
+		}
+
+		if ( 'notifications' === $hub && $viewer > 0 ) {
+			$inbox = ( new \BuddyNext\Notifications\NotificationService() )->inbox_page(
+				$viewer,
+				isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all', // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$page,
+				false
+			);
+			return $inbox['total'] <= ( $page - 1 ) * $inbox['per_page'];
+		}
+
+		return false;
 	}
 
 	/**
