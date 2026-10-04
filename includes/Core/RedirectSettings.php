@@ -5,8 +5,9 @@
  * One small resolver reused by every apply point so the behaviour is identical
  * everywhere: an empty option keeps the built-in default (so nothing changes
  * until an owner sets a value), and a configured value is validated with
- * wp_validate_redirect() — local-host only — so a stale or off-site value can
- * never redirect a member away from the site.
+ * wp_validate_redirect(). An off-site address the owner saved is honoured:
+ * its host is added to allowed_redirect_hosts (allow_saved_hosts()), and only
+ * that host, so the setting does what its field promises.
  *
  * Options are registered for save/sanitize on the Registration & Login settings
  * tab via the admin settings registry (Settings::fields_registration(), url type
@@ -55,6 +56,31 @@ class RedirectSettings {
 		add_filter( 'login_redirect', array( self::class, 'filter_login_redirect' ), 10, 3 );
 		add_filter( 'logout_redirect', array( self::class, 'filter_logout_redirect' ) );
 		add_action( 'login_form_login', array( self::class, 'seed_wp_login_return' ) );
+		add_filter( 'allowed_redirect_hosts', array( self::class, 'allow_saved_hosts' ) );
+	}
+
+	/**
+	 * Let WordPress redirect to an off-site address the owner saved.
+	 *
+	 * The fields promise "a page on your site or a full address", but every apply
+	 * point validates with wp_validate_redirect() / wp_safe_redirect(), which only
+	 * pass this site's host: an owner who saved a landing page on another domain
+	 * saw "Settings saved" and members never went there. Only the hosts of the
+	 * three saved values are added, and only a site admin can save them, so this
+	 * opens no redirect the owner did not choose.
+	 *
+	 * @param string[] $hosts Hosts WordPress already allows.
+	 * @return string[]
+	 */
+	public static function allow_saved_hosts( $hosts ): array {
+		$hosts = (array) $hosts;
+		foreach ( array( self::OPT_LOGIN, self::OPT_LOGOUT, self::OPT_ONBOARDING ) as $option ) {
+			$host = wp_parse_url( (string) get_option( $option, '' ), PHP_URL_HOST );
+			if ( is_string( $host ) && '' !== $host ) {
+				$hosts[] = strtolower( $host );
+			}
+		}
+		return array_values( array_unique( $hosts ) );
 	}
 
 	/**
@@ -109,7 +135,8 @@ class RedirectSettings {
 	 */
 	public static function resolve( string $option, string $fallback ): string {
 		$raw = trim( (string) get_option( $option, '' ) );
-		// Local-host only; an off-site or malformed value falls back to $fallback.
+		// This site, or an off-site host the owner saved (allow_saved_hosts());
+		// a malformed value falls back to $fallback.
 		$url = ( '' === $raw ) ? $fallback : wp_validate_redirect( $raw, $fallback );
 
 		$contexts = array(

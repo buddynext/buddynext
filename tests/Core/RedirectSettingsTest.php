@@ -29,6 +29,7 @@ class RedirectSettingsTest extends \WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		delete_option( RedirectSettings::OPT_LOGIN );
+		delete_option( RedirectSettings::OPT_ONBOARDING );
 		parent::tear_down();
 	}
 
@@ -90,5 +91,20 @@ class RedirectSettingsTest extends \WP_UnitTestCase {
 	public function test_non_wp_user_passthrough(): void {
 		$err = new \WP_Error( 'bad', 'nope' );
 		$this->assertSame( admin_url(), RedirectSettings::filter_login_redirect( admin_url(), '', $err ), 'a failed login (WP_Error) is passed through untouched' );
+	}
+
+	/**
+	 * An off-site address the owner saved is where the member goes, as the field
+	 * promises ("or a full address"); before, it was saved and silently dropped.
+	 * Only that host is allowed: another off-site redirect is still refused.
+	 */
+	public function test_saved_off_site_address_is_honoured_and_only_that_host(): void {
+		RedirectSettings::register();
+		update_option( RedirectSettings::OPT_ONBOARDING, RedirectSettings::sanitize( 'https://partner.example.com/after' ) );
+
+		$profile = home_url( '/members/x/' );
+		$this->assertSame( 'https://partner.example.com/after', RedirectSettings::onboarding( $profile ) );
+		$this->assertSame( 'https://partner.example.com/later', wp_validate_redirect( 'https://partner.example.com/later', 'fallback' ) );
+		$this->assertSame( 'fallback', wp_validate_redirect( 'https://evil.example.net/', 'fallback' ), 'an unsaved host must stay blocked' );
 	}
 }
