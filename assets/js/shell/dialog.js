@@ -879,8 +879,8 @@ export function bnResolveConnectNote( opts ) {
 const MAX_TOASTS = 3;
 
 /**
- * Identity of a toast: two toasts are "the same" when they say the same thing in the
- * same tone. Used to collapse repeats rather than stack them.
+ * Identity of a toast: two toasts are "the same" when they say the same thing (title and
+ * body) in the same tone. Used to collapse repeats rather than stack them.
  *
  * @param {string} message Toast text.
  * @param {string} tone    Toast tone.
@@ -1149,7 +1149,9 @@ function showToast( o ) {
 	// toast already showing and counts the repeats, instead of stacking a copy per attempt
 	// that a screen reader would read out once each. A caller-supplied key means "update
 	// this toast": same handling, but the content is repainted rather than counted.
-	const key      = o.key || toastKey( o.title, o.status );
+	// Title AND body: "+10 Points / Log in for the first time" and "+10 Points / Daily
+	// login bonus" are two different things said, not one said twice.
+	const key      = o.key || toastKey( o.body ? `${ o.title }\n${ o.body }` : o.title, o.status );
 	const existing = container.querySelector( `.bn-toast[data-bn-toast-key="${ key }"]` );
 	if ( existing && existing._bnHandle ) {
 		if ( o.key ) {
