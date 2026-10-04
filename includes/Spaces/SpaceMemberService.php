@@ -2028,6 +2028,29 @@ class SpaceMemberService {
 					static fn( $row ): bool => ! in_array( (string) ( $row->type ?? '' ), $unlisted, true ) || isset( $shared[ (int) $row->id ] )
 				)
 			);
+
+			// An archived space is retired everywhere else (directory, Explore,
+			// Featured, joining), so another viewer is not sent to it either. Read
+			// fresh, not from the cached rows: archiving does not bump the membership
+			// version those rows are keyed on. The member still sees it in their own list.
+			if ( array() !== $rows ) {
+				global $wpdb;
+				$ids          = array_map( static fn( $row ): int => (int) $row->id, $rows );
+				$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				$archived = array_flip(
+					array_map(
+						'intval',
+						(array) $wpdb->get_col(
+							$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_spaces WHERE is_archived = 1 AND id IN ({$placeholders})", ...$ids )
+						)
+					)
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				if ( array() !== $archived ) {
+					$rows = array_values( array_filter( $rows, static fn( $row ): bool => ! isset( $archived[ (int) $row->id ] ) ) );
+				}
+			}
 		}
 
 		// Slice to the requested cap AFTER the exclusions, so a member always

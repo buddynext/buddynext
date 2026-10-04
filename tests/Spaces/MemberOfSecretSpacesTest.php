@@ -78,6 +78,33 @@ class MemberOfSecretSpacesTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * An archived space leaves other people's view of the member's list, even
+	 * when the list was cached before the archive; the member and admins still see it.
+	 *
+	 * @return void
+	 */
+	public function test_archived_spaces_hide_from_other_viewers(): void {
+		$member = self::factory()->user->create();
+		$spaces = new SpaceService();
+		$old    = $spaces->create( $member, array( 'name' => 'Old Club', 'slug' => 'old-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$spaces->create( $member, array( 'name' => 'Open Hall', 'slug' => 'open-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+
+		$both = array( 'Old Club', 'Open Hall' );
+		$this->assertSame( $both, $this->seen_by( $member, 0 ), 'Primes the cached rows before the archive.' );
+
+		$this->assertTrue( $spaces->archive( (int) $old, $member ) );
+
+		$this->assertSame( array( 'Open Hall' ), $this->seen_by( $member, 0 ), 'Logged-out visitor.' );
+		$this->assertSame( array( 'Open Hall' ), $this->seen_by( $member, self::factory()->user->create() ), 'Another member.' );
+		$this->assertSame( $both, $this->seen_by( $member, $member ), 'The member themselves.' );
+		$this->assertSame( $both, $this->seen_by( $member, self::factory()->user->create( array( 'role' => 'administrator' ) ) ), 'Site admin.' );
+
+		wp_set_current_user( 0 );
+		$names = wp_list_pluck( rest_do_request( new WP_REST_Request( 'GET', "/buddynext/v1/users/{$member}/spaces" ) )->get_data(), 'name' );
+		$this->assertSame( array( 'Open Hall' ), $names, 'REST reads the same rows.' );
+	}
+
+	/**
 	 * A profile the viewer may not see hides its spaces too.
 	 *
 	 * @return void
