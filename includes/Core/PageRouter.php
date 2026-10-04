@@ -47,6 +47,14 @@ use WP_User;
 class PageRouter {
 
 	/**
+	 * BuddyNext's own profile tabs that are a single page (no /page/N/ of their
+	 * own). Articles is the one that pages; it is handled separately.
+	 *
+	 * @var string[]
+	 */
+	private const PROFILE_SINGLE_PAGE_TABS = array( 'posts', 'about', 'replies', 'media', 'files', 'likes', 'network', 'connections', 'followers', 'following', 'scheduled', 'pending', 'edit' );
+
+	/**
 	 * The hub render deferred to core's template stage: [ hub, template, context ].
 	 *
 	 * Populated by dispatch_hub_template() once every gate has passed. Consumed by
@@ -1075,9 +1083,16 @@ class PageRouter {
 		// it. WordPress answers 404 for a page past the end of an archive
 		// (/blog/page/999/), so the directories do too. Decided here for the same
 		// before-output reason as the gates above.
-		if ( $this->is_past_last_page( $hub, $context ) ) {
-			$this->send_404();
-			return;
+		// The status is 404 (crawlers drop the dead URL), but a person who followed
+		// an old link gets BuddyNext's own page in the community layout with a way
+		// back to page 1 of that list, not the theme's generic 404.
+		$bn_past_last_page = $this->is_past_last_page( $hub, $context );
+		if ( $bn_past_last_page ) {
+			status_header( 404 );
+			nocache_headers();
+			add_filter( 'wp_robots', 'wp_robots_no_robots' );
+			remove_action( 'wp_head', 'rel_canonical' );
+			$template = 'parts/past-last-page.php';
 		}
 
 		// ── Virtual page setup ────────────────────────────────────────────
@@ -1181,7 +1196,8 @@ class PageRouter {
 		$wp_query->post_count        = 1;
 		$wp_query->found_posts       = 1;
 
-		status_header( 200 );
+		// A page past the end of its list keeps the 404 set above.
+		status_header( $bn_past_last_page ? 404 : 200 );
 
 		// Set the document <title> via the standard wp_title parts filter.
 		$hub_titles = array(
@@ -1440,13 +1456,19 @@ class PageRouter {
 		 * keeps its title on the default install (no SEO plugin, and the right
 		 * default) and stops fighting the owner on sites that have one.
 		 */
+		if ( $bn_past_last_page ) {
+			$hub_title = __( 'Page not found', 'buddynext' );
+		}
 		$title_frozen = (string) apply_filters( 'buddynext_document_title', $hub_title, $hub );
 		if ( '' !== $title_frozen && ! self::seo_plugin_active() ) {
 			self::$title_claimed = true;
 			add_filter(
 				'document_title_parts',
-				static function ( array $parts ) use ( $title_frozen ): array {
+				static function ( array $parts ) use ( $title_frozen, $bn_past_last_page ): array {
 					$parts['title'] = $title_frozen;
+					if ( $bn_past_last_page ) {
+						unset( $parts['page'] ); // Not "Page not found - Page 50".
+					}
 					// As the static front page, WordPress titles the root "Site - Tagline";
 					// a hub there reads "Hub - Site" like every other community page
 					// (card 10343760220). The community name, if set, replaces the site
@@ -1519,7 +1541,10 @@ class PageRouter {
 		// the only surface that emitted anything, so a shared space or profile
 		// rendered as a bare imageless link everywhere (Basecamp 10181599620).
 		// Runs before wp_head for the same reason the post meta above does.
-		SurfaceMeta::register( $hub, $context );
+		if ( ! $bn_past_last_page ) {
+			// No canonical or social card for a page that does not exist.
+			SurfaceMeta::register( $hub, $context );
+		}
 
 		// Community description (Settings → General) as the page meta description
 		// on every BN hub — the help text promises it appears "in meta tags".
@@ -1624,8 +1649,38 @@ class PageRouter {
 
 		$viewer = get_current_user_id();
 
-		// The members directory; paged profile tabs (/members/{slug}/{tab}/page/N/)
-		// are their tab's own business.
+		// A member's profile. Only the Articles tab pages (/members/{slug}/articles/page/N/);
+		// every other BuddyNext tab, and the profile itself, is one page, so any page N
+		// there is a page that does not exist. A tab another plugin adds may page on
+		// its own terms, so it is left alone unless it answers the filter below.
+		if ( 'people' === $hub && '' !== (string) get_query_var( 'bn_user_slug', '' ) ) {
+			$action  = (string) get_query_var( 'bn_profile_action', '' );
+			$user_id = (int) ( $context['user_id'] ?? 0 );
+			if ( 'articles' === $action ) {
+				return $user_id > 0
+					&& ( new \BuddyNext\Bridges\MemberBlogBridge() )->article_total( $user_id, $viewer ) <= ( $page - 1 ) * \BuddyNext\Bridges\MemberBlogBridge::articles_per_page();
+			}
+			if ( '' === $action || in_array( $action, self::PROFILE_SINGLE_PAGE_TABS, true ) ) {
+				return true;
+			}
+
+			/**
+			 * Whether page N of a profile tab another plugin added is past its last page.
+			 *
+			 * Return true to answer 404 (with BuddyNext's "page doesn't exist" view),
+			 * false to render the tab; null (the default) leaves it to the tab.
+			 *
+			 * @since 1.2.4
+			 *
+			 * @param bool|null $past    Default null.
+			 * @param string    $action  Tab slug (bn_profile_action).
+			 * @param int       $user_id Profile owner.
+			 * @param int       $page    Requested page.
+			 */
+			return true === apply_filters( 'buddynext_profile_tab_past_last_page', null, $action, $user_id, $page );
+		}
+
+		// The members directory.
 		if ( 'people' === $hub && '' === (string) get_query_var( 'bn_user_slug', '' ) ) {
 			$directory = buddynext_service( 'member_directory' );
 			$request   = $directory->ssr_request( $viewer, wp_unslash( $_GET ), $page ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only directory filters.

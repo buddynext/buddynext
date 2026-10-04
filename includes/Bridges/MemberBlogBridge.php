@@ -225,6 +225,52 @@ class MemberBlogBridge {
 	}
 
 	/**
+	 * Articles per page on the profile tab.
+	 *
+	 * @return int
+	 */
+	public static function articles_per_page(): int {
+		return max( 1, min( 50, (int) apply_filters( 'buddynext_profile_articles_per_page', 10 ) ) );
+	}
+
+	/**
+	 * How many articles this viewer can see on this member's tab.
+	 *
+	 * The same query the panel renders, counted, so the router's past-the-end
+	 * check and the panel can never disagree about the last page.
+	 *
+	 * @param int $user_id   Profile owner.
+	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @return int
+	 */
+	public function article_total( int $user_id, int $viewer_id ): int {
+		$args           = $this->articles_query_args( $user_id, $viewer_id, 1, 1 );
+		$args['fields'] = 'ids';
+		return (int) ( new \WP_Query( $args ) )->found_posts;
+	}
+
+	/**
+	 * WP_Query args for a member's articles as this viewer sees them.
+	 *
+	 * @param int $user_id   Profile owner.
+	 * @param int $viewer_id Viewer.
+	 * @param int $per_page  Page size.
+	 * @param int $paged     Page.
+	 * @return array<string,mixed>
+	 */
+	private function articles_query_args( int $user_id, int $viewer_id, int $per_page, int $paged ): array {
+		return array(
+			'author'                 => $user_id,
+			'post_type'              => $this->tracked_types(),
+			'post_status'            => $this->visible_statuses( $user_id, $viewer_id ),
+			'posts_per_page'         => $per_page,
+			'paged'                  => $paged,
+			'ignore_sticky_posts'    => true,
+			'update_post_term_cache' => false,
+		);
+	}
+
+	/**
 	 * Render the Articles panel.
 	 *
 	 * @param int $user_id   Profile owner.
@@ -234,20 +280,9 @@ class MemberBlogBridge {
 		// /members/{slug}/articles/page/N/. The pre-1.2.4 ?bn_page=N is 301ed there
 		// by PageRouter::dispatch_hub_template(), so only the query var is read.
 		$paged    = max( 1, absint( get_query_var( 'paged', 0 ) ) );
-		$per_page = (int) apply_filters( 'buddynext_profile_articles_per_page', 10 );
-		$per_page = max( 1, min( 50, $per_page ) );
+		$per_page = self::articles_per_page();
 
-		$query = new \WP_Query(
-			array(
-				'author'                 => $user_id,
-				'post_type'              => $this->tracked_types(),
-				'post_status'            => $this->visible_statuses( $user_id, $viewer_id ),
-				'posts_per_page'         => $per_page,
-				'paged'                  => $paged,
-				'ignore_sticky_posts'    => true,
-				'update_post_term_cache' => false,
-			)
-		);
+		$query = new \WP_Query( $this->articles_query_args( $user_id, $viewer_id, $per_page, $paged ) );
 
 		buddynext_get_template(
 			'parts/profile/articles-panel.php',

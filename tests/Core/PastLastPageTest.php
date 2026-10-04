@@ -147,6 +147,34 @@ class PastLastPageTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A member's profile: Articles pages, so only a page past its last is a 404;
+	 * BuddyNext's single-page tabs (and the profile) have no page N at all; a tab
+	 * another plugin added is left alone unless it answers the filter.
+	 *
+	 * @covers \BuddyNext\Core\PageRouter::is_past_last_page
+	 * @return void
+	 */
+	public function test_profile_tabs_past_the_end(): void {
+		$member = self::factory()->user->create( array( 'user_login' => 'pagetabs' ) );
+		$base   = (string) wp_parse_url( trailingslashit( PageRouter::profile_url( $member ) ), PHP_URL_PATH );
+
+		$context = array( 'user_id' => $member );
+		$this->assertTrue( $this->past( $base . 'articles/page/2/', $context ), 'No articles: page 2 does not exist.' );
+		$this->assertFalse( $this->past( $base . 'articles/', $context ), 'Page 1 is an empty state, never a 404.' );
+
+		self::factory()->post->create_many( 12, array( 'post_author' => $member ) );
+		$this->assertFalse( $this->past( $base . 'articles/page/2/', $context ), 'Twelve articles: page 2 holds 11-12.' );
+		$this->assertTrue( $this->past( $base . 'articles/page/3/', $context ) );
+
+		$this->assertTrue( $this->past( $base . 'media/page/2/', $context ), 'Media is one page.' );
+		$this->assertTrue( $this->past( $base . 'connections/page/2/', $context ) );
+		$this->assertFalse( $this->past( $base . 'portfolio/page/2/', $context ), 'A tab another plugin added is its own business.' );
+
+		add_filter( 'buddynext_profile_tab_past_last_page', static fn( $past, $action ) => 'portfolio' === $action ? true : $past, 10, 2 );
+		$this->assertTrue( $this->past( $base . 'portfolio/page/2/', $context ), 'Unless it says so.' );
+	}
+
+	/**
 	 * page_url() is the one /page/N/ builder: page 1 is the bare address, any old
 	 * page segment or ?paged is replaced, filters and a #fragment are kept.
 	 *
