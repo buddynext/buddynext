@@ -130,4 +130,27 @@ class AlbumItemPrivacyTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 501, 502 ), Galleries::album_media_ids( $this->album, $this->owner ) );
 		$this->assertSame( 'https://example.test/uploads/501-cover.jpg', Galleries::album_summary( $this->album, $this->owner )['cover_url'] );
 	}
+
+	/**
+	 * A cover whose photo the engine cannot identify is not shown to anyone but
+	 * the owner: it cannot be checked, so it fails closed.
+	 *
+	 * @return void
+	 */
+	public function test_unidentifiable_cover_fails_closed(): void {
+		$this->fakes['albums'] = new class() {
+			public function get_items( int $id ): array {
+				return array( array( 'media_id' => 502 ) );
+			}
+			public function get_cover_url( int $id, string $size ): string {
+				return 'https://example.test/uploads/unknown-cover.jpg';
+			}
+			public function get_privacy( int $id ): string {
+				return 'public';
+			}
+		};
+
+		$this->assertSame( '', Galleries::album_summary( $this->album, 0 )['cover_url'] );
+		$this->assertSame( 'https://example.test/uploads/unknown-cover.jpg', Galleries::album_summary( $this->album, $this->owner )['cover_url'] );
+	}
 }

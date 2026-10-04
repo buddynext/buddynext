@@ -418,8 +418,11 @@ class Galleries {
 		// older engine, where a photo kept stricter privacy inside a public album.
 		// No cover means the card's placeholder.
 		if ( null !== $viewer_id && '' !== $cover_url && ! self::can_see_private( $owner_id, $viewer_id ) ) {
+			// Fail closed: a cover whose photo cannot be identified (an engine
+			// without get_resolved_cover_media_id()) cannot be checked, so it is
+			// not shown either.
 			$cover_id = self::album_cover_media_id( $album_id );
-			if ( $cover_id > 0 && ! self::media_visible( $cover_id, $viewer_id ) ) {
+			if ( $cover_id <= 0 || ! self::media_visible( $cover_id, $viewer_id ) ) {
 				$cover_url = '';
 			}
 		}
