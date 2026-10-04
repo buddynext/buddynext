@@ -1014,6 +1014,22 @@ class MediaController extends BaseRestController {
 			return $gate;
 		}
 
+		// Owner's privacy lock, checked before anything is written (WPMediaVerse's
+		// own PUT /albums/{id} contract). An album's privacy is carried onto every
+		// photo in it, so a member the owner has stopped from choosing privacy
+		// cannot change it here either. Re-sending the current value is fine: the
+		// edit modal always sends it.
+		$privacy     = $request->get_param( 'privacy' );
+		$space_album = Galleries::album_space( $album_id ) > 0;
+		$album_svc   = MediaClient::albums();
+		$mvs_privacy = '\\WPMediaVerse\\Services\\PrivacyService';
+		if ( null !== $privacy && ! $space_album && $album_svc && method_exists( $album_svc, 'get_privacy' )
+			&& method_exists( $mvs_privacy, 'user_may_choose_privacy' )
+			&& ! $mvs_privacy::user_may_choose_privacy()
+			&& $this->sanitize_album_privacy( (string) $privacy ) !== $album_svc->get_privacy( $album_id ) ) {
+			return new WP_Error( 'bn_privacy_locked', __( 'Privacy is set by the site owner, so it cannot be changed here.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		// An album is a WPMediaVerse post type (mvs_album); WPMediaVerse owns its
 		// storage. This used to build a wp_update_post() array here and write the
 		// description to post_excerpt - a key WPMediaVerse never reads. Its own
@@ -1093,11 +1109,24 @@ class MediaController extends BaseRestController {
 		// already discards the request value and hardcodes 'private'; the edit
 		// modal PUTs to /me/albums/{id}, which is this handler, so the create path
 		// looked correct while the edit path wrote through.
-		$privacy = $request->get_param( 'privacy' );
-		if ( null !== $privacy && Galleries::album_space( $album_id ) <= 0 ) {
-			$repo = MediaClient::repo();
-			if ( $repo && method_exists( $repo, 'set' ) ) {
-				$repo->set( $album_id, 'privacy', $this->sanitize_album_privacy( (string) $privacy ) );
+		//
+		// The write goes through AlbumService::set_privacy(), which stores it where
+		// WPMediaVerse reads it (album post meta) and carries it onto the album's
+		// photos. It used to be MediaRepository::set( $album_id, ... ): the media
+		// repository is keyed by MEDIA id, so the album's real privacy never
+		// changed, its photos stayed public, and on any site where a media id
+		// equals the album's post id that row's privacy was overwritten instead
+		// (card 10369186079). The repository write survives only for a
+		// WPMediaVerse older than set_privacy() (2.4.0), which stored it there.
+		if ( null !== $privacy && ! $space_album ) {
+			$clean = $this->sanitize_album_privacy( (string) $privacy );
+			if ( $album_svc && method_exists( $album_svc, 'set_privacy' ) ) {
+				$album_svc->set_privacy( $album_id, $clean );
+			} else {
+				$repo = MediaClient::repo();
+				if ( $repo && method_exists( $repo, 'set' ) ) {
+					$repo->set( $album_id, 'privacy', $clean );
+				}
 			}
 		}
 

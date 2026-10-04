@@ -362,7 +362,15 @@ class Galleries {
 			// Fail closed for non-owners; owners always see their own.
 			return $viewer_id > 0 && (int) get_post_field( 'post_author', $album_id ) === $viewer_id;
 		}
-		return (bool) $privacy->can_view( $album_id, $viewer_id );
+		// Say this ID is an album ('cpt'). In the default 'auto' mode WPMediaVerse
+		// lets a MEDIA row win when a photo's id equals the album's post id, so the
+		// album was judged by an unrelated photo's privacy and owner (a private
+		// album shown, or an owner refused their own). WPMediaVerse added the
+		// explicit mode for exactly this; older versions without it keep 'auto'.
+		$cpt = get_class( $privacy ) . '::SPACE_CPT';
+		return defined( $cpt )
+			? (bool) $privacy->can_view( $album_id, $viewer_id, constant( $cpt ) )
+			: (bool) $privacy->can_view( $album_id, $viewer_id );
 	}
 
 	/**
@@ -375,7 +383,14 @@ class Galleries {
 		$albums = MediaClient::albums();
 		$repo   = MediaClient::repo();
 
-		$privacy  = ( $repo && method_exists( $repo, 'get' ) ) ? (string) $repo->get( $album_id, 'privacy' ) : '';
+		// Read where WPMediaVerse keeps it (album post meta, via AlbumService). The
+		// media repository is keyed by media id, so reading it with an album id
+		// reported a value the album never had (card 10369186079).
+		if ( $albums && method_exists( $albums, 'get_privacy' ) ) {
+			$privacy = (string) $albums->get_privacy( $album_id );
+		} else {
+			$privacy = ( $repo && method_exists( $repo, 'get' ) ) ? (string) $repo->get( $album_id, 'privacy' ) : '';
+		}
 		$space_id = self::album_space( $album_id );
 
 		// A space album reports 'space', never a per-album value. Its audience is
