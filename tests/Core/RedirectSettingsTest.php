@@ -96,15 +96,27 @@ class RedirectSettingsTest extends \WP_UnitTestCase {
 	/**
 	 * An off-site address the owner saved is where the member goes, as the field
 	 * promises ("or a full address"); before, it was saved and silently dropped.
-	 * Only that host is allowed: another off-site redirect is still refused.
+	 *
+	 * The host is NOT allowed site-wide: a visitor-supplied redirect_to on that
+	 * host stays refused, so the setting is not an open redirect. Only the login
+	 * filter returning the owner's own address lets core's wp_safe_redirect()
+	 * follow it.
 	 */
-	public function test_saved_off_site_address_is_honoured_and_only_that_host(): void {
+	public function test_saved_off_site_address_is_honoured_but_not_opened_site_wide(): void {
 		RedirectSettings::register();
 		update_option( RedirectSettings::OPT_ONBOARDING, RedirectSettings::sanitize( 'https://partner.example.com/after' ) );
+		update_option( RedirectSettings::OPT_LOGIN, RedirectSettings::sanitize( 'https://partner.example.com/welcome' ) );
 
-		$profile = home_url( '/members/x/' );
-		$this->assertSame( 'https://partner.example.com/after', RedirectSettings::onboarding( $profile ) );
-		$this->assertSame( 'https://partner.example.com/later', wp_validate_redirect( 'https://partner.example.com/later', 'fallback' ) );
-		$this->assertSame( 'fallback', wp_validate_redirect( 'https://evil.example.net/', 'fallback' ), 'an unsaved host must stay blocked' );
+		$this->assertSame( 'https://partner.example.com/after', RedirectSettings::onboarding( home_url( '/members/x/' ) ) );
+		$this->assertSame( 'fallback', wp_validate_redirect( 'https://partner.example.com/phish', 'fallback' ), 'saving an address must not open its host to every redirect_to' );
+
+		// A visitor asks to be sent somewhere on that host: passed through untouched, and still refused by core.
+		$phish = RedirectSettings::filter_login_redirect( 'https://partner.example.com/phish', 'https://partner.example.com/phish', $this->member() );
+		$this->assertSame( 'fallback', wp_validate_redirect( $phish, 'fallback' ) );
+
+		// The default bounce becomes the owner's address, which core may now follow.
+		$owner = RedirectSettings::filter_login_redirect( admin_url(), '', $this->member() );
+		$this->assertSame( 'https://partner.example.com/welcome', $owner );
+		$this->assertSame( $owner, wp_validate_redirect( $owner, 'fallback' ) );
 	}
 }
