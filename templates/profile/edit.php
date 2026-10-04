@@ -369,7 +369,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 		</header>
 
 		<!-- Main form column -->
-		<main class="bn-ep-form">
+		<div class="bn-ep-form">
 
 			<?php
 			// Hero card.
@@ -823,7 +823,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			}
 
 			?>
-		</main><!-- /form area -->
+		</div><!-- /form area -->
 
 		<?php
 		// Sidebar.

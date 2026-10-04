@@ -188,7 +188,7 @@ else :
 	<div class="bn-hashtag-shell">
 
 		<!-- ── Feed column ── -->
-		<main class="bn-hashtag-feed-area" id="bn-hashtag-feed-main" role="main">
+		<div class="bn-hashtag-feed-area" id="bn-hashtag-feed-main">
 
 			<?php
 			buddynext_get_template(
@@ -263,7 +263,7 @@ else :
 				<?php
 			endif;
 			?>
-		</main>
+		</div>
 	</div>
 
 </div><!-- /.bn-hashtag-feed -->

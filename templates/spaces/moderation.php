@@ -238,7 +238,7 @@ $mod_privacy = array(
 		<!-- Content + sidebar -->
 		<div class="bn-space-mod__content">
 
-			<main class="bn-space-mod__main">
+			<div class="bn-space-mod__main">
 
 				<?php if ( 'reports' === $mod_tab ) : ?>
 
@@ -594,7 +594,7 @@ $mod_privacy = array(
 
 				<?php endif; ?>
 
-			</main>
+			</div>
 
 			<!-- Sidebar: scope info card -->
 			<aside class="bn-space-mod__aside" aria-label="<?php esc_attr_e( 'Moderation scope', 'buddynext' ); ?>">
