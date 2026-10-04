@@ -30235,6 +30235,10 @@
                     "tier_price": {
                         "type": "number"
                     },
+                    "scheduled": {
+                        "type": "boolean",
+                        "description": "Queued to start when the current plan ends (expires_at is that start); nothing is charged until then."
+                    },
                     "capabilities": {
                         "type": "object",
                         "properties": {
