@@ -820,8 +820,8 @@ class MediaController extends BaseRestController {
 		$per_page = min( 60, max( 1, (int) $request->get_param( 'per_page' ) ) );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		$ids     = Galleries::album_media_ids( $album_id, $per_page, $offset );
-		$summary = Galleries::album_summary( $album_id );
+		$ids     = Galleries::album_media_ids( $album_id, $viewer, $per_page, $offset );
+		$summary = Galleries::album_summary( $album_id, $viewer );
 
 		return new WP_REST_Response(
 			array_merge(
