@@ -89,7 +89,11 @@ test.describe('feed / post edit + delete', () => {
             await expect(input).toBeVisible();
             await expect(input).toHaveValue(original); // editor prefilled with the real body
             await input.fill(edited);
+            // Wait for the edit to land before navigating: going to the feed straight
+            // after the click can abort the in-flight PUT (a flaky failure, not a bug).
+            const saved = page.waitForResponse((r) => /\/posts\/\d+(\?|$)/.test(r.url()) && 'PUT' === r.request().method());
             await page.locator('.bn-post-card__edit-actions').getByRole('button', { name: 'Save', exact: true }).first().click();
+            expect((await saved).status(), 'post edit did not save').toBe(200);
 
             // Round-trip: after a full reload the EDITED text is the post and the
             // original text is gone (not just a client-side swap).
@@ -140,7 +144,11 @@ test.describe('feed / post edit + delete', () => {
             await expect(input).toBeVisible();
             await expect(input).toHaveValue(original);
             await input.fill(edited);
+            // Wait for the edit to land before navigating: going to the feed straight
+            // after the click can abort the in-flight PUT (a flaky failure, not a bug).
+            const saved = page.waitForResponse((r) => /\/posts\/\d+(\?|$)/.test(r.url()) && 'PUT' === r.request().method());
             await page.locator('.bn-post-card__edit-actions').getByRole('button', { name: 'Save', exact: true }).first().click();
+            expect((await saved).status(), 'post edit did not save').toBe(200);
 
             // Round-trip: after a full reload the EDITED text is the post and the
             // original is gone — proven as the member's own session, not admin's.

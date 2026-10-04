@@ -79,9 +79,9 @@ test.describe('spaces / invite link (J-611)', () => {
 			const role = (asMember.data as { membership_role?: string }).membership_role ?? '';
 			expect(role, 'invite-link join did not make the visitor an active member').not.toBe('');
 
-			// 4. The owner sees the "Joined via invite link" flag on the roster.
+			// 4. The owner sees the "Via invite link" marker on the roster (wording since 707f6e67).
 			await page.goto(`/spaces/${space.slug}/members/`, { waitUntil: 'domcontentloaded' });
-			await expect(page.getByText('Joined via invite link').first()).toBeVisible({ timeout: 10_000 });
+			await expect(page.getByText('Via invite link').first()).toBeVisible({ timeout: 10_000 });
 
 			// 5. Reset issues a fresh token, killing the old link.
 			await page.goto(`/spaces/${space.slug}/settings/?bn_stab=invite`, { waitUntil: 'domcontentloaded' });

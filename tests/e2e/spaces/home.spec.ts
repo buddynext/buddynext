@@ -96,7 +96,13 @@ test.describe('spaces / home', () => {
                 timeout: 10_000,
             });
             await page.locator(sel.composerTextarea).first().fill(content);
+            // The composer reloads the page ~500ms after a live post saves (cards
+            // added after first paint cannot hydrate; see prependFeedCard()), so
+            // wait that reload out before polling through the page, or the poll's
+            // evaluate dies with "Execution context was destroyed".
+            const reloaded = page.waitForEvent('load', { timeout: 10_000 }).catch(() => null);
             await page.locator(sel.composerSubmit).first().click();
+            await reloaded;
 
             // EFFECT 1: the post actually reached the server and is bound to this
             // space's feed (not swallowed). Poll — the Interactivity submit is async.

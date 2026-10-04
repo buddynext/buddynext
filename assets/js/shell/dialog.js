@@ -121,6 +121,7 @@ function buildModalFrame( opts ) {
 	cancelBtn.type = 'button';
 	cancelBtn.className = 'bn-btn';
 	cancelBtn.setAttribute( 'data-variant', 'ghost' );
+	cancelBtn.setAttribute( 'data-bn-confirm-cancel', '' ); // Stable hook for journeys and add-ons.
 	cancelBtn.textContent = cancelLabel;
 	foot.appendChild( cancelBtn );
 
@@ -128,6 +129,7 @@ function buildModalFrame( opts ) {
 	confirmBtn.type = 'button';
 	confirmBtn.className = 'bn-btn';
 	confirmBtn.setAttribute( 'data-variant', tone === 'danger' ? 'danger' : 'primary' );
+	confirmBtn.setAttribute( 'data-bn-confirm-ok', '' ); // Stable hook for journeys and add-ons.
 	confirmBtn.textContent = confirmLabel;
 	foot.appendChild( confirmBtn );
 
