@@ -33,6 +33,14 @@ class SpaceInviteLinkRestTest extends WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		$this->forget_unlocks();
+
+		// A fresh REST server, so rest_api_init fires again and registers the
+		// /spaces/{id} existence gate (SpaceController::hide_unseen_space). The
+		// test case restores hooks after every test, so a server built by an
+		// earlier test runs here WITHOUT the gate: these assertions then passed
+		// or failed by test order, and asserted the gap (403) instead of what a
+		// real request answers (404).
+		$GLOBALS['wp_rest_server'] = null;
 	}
 
 	/**
@@ -77,14 +85,16 @@ class SpaceInviteLinkRestTest extends WP_UnitTestCase {
 		$this->assertSame( 404, $this->status( '/spaces/' . $id ), 'Secret stays hidden without a token.' );
 		$this->assertSame( 404, $this->status( '/spaces/slug/' . $slug ), 'By slug, still hidden without a token.' );
 		$this->assertSame( 404, $this->status( '/spaces/slug/no-such-space' ) );
-		$this->assertSame( 403, $this->status( '/spaces/' . $id, 'not-the-token' ), 'A dead token says so.' );
+		// A secret space answers a stranger like a missing space (1e81ca63): a dead
+		// token is no token, or adding ?invite=x would confirm the space exists.
+		$this->assertSame( 404, $this->status( '/spaces/' . $id, 'not-the-token' ), 'A dead token is the same as no token.' );
 
 		$this->assertSame( 200, $this->status( '/spaces/' . $id, $token ), 'A valid token unlocks the preview.' );
 		$this->assertSame( 200, $this->status( '/spaces/slug/' . $slug, $token ), 'The shared link resolves by slug.' );
 
 		( new SpaceInviteLinkService() )->revoke( $id );
 		$this->forget_unlocks();
-		$this->assertSame( 403, $this->status( '/spaces/' . $id, $token ), 'A revoked link no longer unlocks.' );
+		$this->assertSame( 404, $this->status( '/spaces/' . $id, $token ), 'A revoked link no longer unlocks.' );
 	}
 
 	/**
