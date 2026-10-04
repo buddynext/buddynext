@@ -66,10 +66,15 @@ class HiddenSpaceRouteGuardTest extends \WP_UnitTestCase {
 		}
 		$this->assertWPError( $this->gate( 'GET', "/BUDDYNEXT/V1/SPACES/{$this->secret}/MEMBERS", $stranger ), 'Upper-case route bypassed the gate.' );
 		$this->assertWPError( $this->gate( 'POST', "/buddynext/v1/spaces/{$this->secret}/join", $stranger, array( 'invite' => 'nottoken' ) ), 'A bad invite token let a stranger through.' );
+		$slug    = $this->gate( 'GET', '/buddynext/v1/spaces/slug/guard-secret', $stranger );
+		$no_slug = $this->gate( 'GET', '/buddynext/v1/spaces/slug/no-such-space', $stranger );
+		$this->assertWPError( $slug, 'The slug route let a stranger see a secret space.' );
+		$this->assertSame( $no_slug->get_error_code(), $slug->get_error_code() );
 	}
 
 	public function test_people_who_may_know_it_pass(): void {
 		$this->assertNull( $this->gate( 'GET', "/buddynext/v1/spaces/{$this->secret}/members", $this->owner ), 'Owner' );
+		$this->assertNull( $this->gate( 'GET', '/buddynext/v1/spaces/slug/guard-secret', $this->owner ), 'Owner by slug' );
 
 		$invited = self::factory()->user->create();
 		( new SpaceMemberService() )->invite( $this->secret, $this->owner, $invited );

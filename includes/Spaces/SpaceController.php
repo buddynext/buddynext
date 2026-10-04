@@ -2777,8 +2777,9 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
-	 * Answer every /spaces/{id}/... request about a space the viewer may not know
-	 * exists exactly as for an id that does not exist: 404 space_not_found.
+	 * Answer every /spaces/{id}/... (and /spaces/slug/{slug}) request about a space
+	 * the viewer may not know exists exactly as for an id that does not exist:
+	 * 404 space_not_found.
 	 *
 	 * "Secret" promises a non-member cannot tell the space is there. GET
 	 * /spaces/{id} and /invite-link kept that promise; 14 other routes answered
@@ -2806,12 +2807,18 @@ class SpaceController extends BaseRestController {
 		}
 		// Normalised: WordPress matches routes case-insensitively, so /SPACES/6
 		// reaches the same handler and must reach this gate too.
-		if ( ! preg_match( '#^/buddynext(?:-pro)?/v1/spaces/(\d+)(?:/|$)#', \BuddyNext\Core\RestRoute::normalize( $request ), $m ) ) {
+		$route = \BuddyNext\Core\RestRoute::normalize( $request );
+		if ( preg_match( '#^/buddynext(?:-pro)?/v1/spaces/(\d+)(?:/|$)#', $route, $m ) ) {
+			$space = ( new SpaceService() )->get( (int) $m[1] );
+		} elseif ( preg_match( '#^/buddynext/v1/spaces/slug/([^/]+)$#', $route, $m ) ) {
+			// The slug route promises the same: a secret slug answered rest_forbidden
+			// where an unknown one answered space_not_found.
+			$space = ( new SpaceService() )->get_by_slug( sanitize_title( urldecode( $m[1] ) ) );
+		} else {
 			return $response;
 		}
-		$space_id = (int) $m[1];
+		$space_id = (int) ( $space['id'] ?? 0 );
 		$viewer   = get_current_user_id();
-		$space    = ( new SpaceService() )->get( $space_id );
 		if ( null !== $space && (
 			SpaceVisibility::can_view_space( $space, $viewer )
 			|| ( $viewer > 0 && null !== ( new SpaceMemberService() )->get_status( $space_id, $viewer ) )

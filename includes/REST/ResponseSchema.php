@@ -67,6 +67,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/spaces/slug/{slug}',
+				'resource' => 'space_detail',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/spaces/{id}',
 				'resource' => 'space_detail',
 				'shape'    => 'item',
@@ -262,6 +268,12 @@ final class ResponseSchema {
 				'path'     => '/feed/explore',
 				'resource' => 'feed_explore',
 				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/feed/explore/deck',
+				'resource' => 'feed_explore_deck',
+				'shape'    => 'item',
 			),
 			array(
 				'method'   => 'GET',
@@ -1168,6 +1180,18 @@ final class ResponseSchema {
 				'content_warning'      => array( 'type' => 'boolean' ),
 				'content_warning_type' => array( 'type' => array( 'string', 'null' ) ),
 				'members_only'         => array( 'type' => 'boolean' ),
+				// Members-only posts only (PostService::members_only_view): whether this
+				// viewer gets the teaser, and how to gain access when they do.
+				'is_locked'            => array(
+					'type'             => 'boolean',
+					'x-bn-conditional' => true,
+				),
+				'members_only_cta'     => array(
+					'type'             => 'object',
+					'x-bn-conditional' => true,
+				),
+				// Whether the share sheet may offer the link (PostService::is_publicly_shareable).
+				'shareable'            => array( 'type' => 'boolean' ),
 				'status'               => array( 'type' => 'string' ),
 				'site_pin_expires_at'  => array( 'type' => array( 'string', 'null' ) ),
 				'edited_at'            => array( 'type' => array( 'string', 'null' ) ),
@@ -1624,24 +1648,31 @@ final class ResponseSchema {
 			'title'      => 'moderation-report',
 			'type'       => 'object',
 			'properties' => array(
-				'id'             => array( 'type' => 'integer' ),
-				'reporter_id'    => array( 'type' => 'integer' ),
-				'object_type'    => array( 'type' => 'string' ),
-				'object_id'      => array( 'type' => 'integer' ),
-				'space_id'       => array( 'type' => 'integer' ),
-				'reason'         => array( 'type' => 'string' ),
-				'reasons'        => array(
+				'id'                 => array( 'type' => 'integer' ),
+				'reporter_id'        => array( 'type' => 'integer' ),
+				'object_type'        => array( 'type' => 'string' ),
+				'object_id'          => array( 'type' => 'integer' ),
+				'space_id'           => array( 'type' => 'integer' ),
+				'reason'             => array( 'type' => 'string' ),
+				'reasons'            => array(
 					'type'  => 'array',
 					'items' => array( 'type' => 'string' ),
 				),
-				'report_count'   => array( 'type' => 'integer' ),
-				'reporter_count' => array( 'type' => 'integer' ),
-				'notes'          => array( 'type' => 'string' ),
-				'status'         => array( 'type' => 'string' ),
-				'resolved_by'    => array( 'type' => array( 'integer', 'null' ) ),
-				'resolved_at'    => array( 'type' => array( 'string', 'null' ) ),
-				'created_at'     => array( 'type' => 'string' ),
-				'created_at_gmt' => array(
+				'report_count'       => array( 'type' => 'integer' ),
+				'reporter_count'     => array( 'type' => 'integer' ),
+				'notes'              => array( 'type' => 'string' ),
+				'status'             => array( 'type' => 'string' ),
+				'resolved_by'        => array( 'type' => array( 'integer', 'null' ) ),
+				'resolved_at'        => array( 'type' => array( 'string', 'null' ) ),
+				// The reported person (user reports; the sender for message reports;
+				// 0 / null otherwise): ModerationService prime of the queue rows.
+				'offender_id'        => array( 'type' => 'integer' ),
+				'strikes_count'      => array( 'type' => 'integer' ),
+				'offender_name'      => array( 'type' => array( 'string', 'null' ) ),
+				'offender_joined'    => array( 'type' => array( 'string', 'null' ) ),
+				'offender_suspended' => array( 'type' => 'boolean' ),
+				'created_at'         => array( 'type' => 'string' ),
+				'created_at_gmt'     => array(
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
@@ -2196,6 +2227,17 @@ final class ResponseSchema {
 				'members_only'         => array(
 					'type' => 'boolean',
 				),
+				'is_locked'            => array(
+					'type'             => 'boolean',
+					'x-bn-conditional' => true,
+				),
+				'members_only_cta'     => array(
+					'type'             => 'object',
+					'x-bn-conditional' => true,
+				),
+				'shareable'            => array(
+					'type' => 'boolean',
+				),
 				'status'               => array(
 					'type' => 'string',
 				),
@@ -2299,6 +2341,49 @@ final class ResponseSchema {
 				'count'       => array(
 					'type' => 'integer',
 				),
+			),
+		);
+	}
+
+	/**
+	 * Response of GET /feed/explore/deck: the mixed Explore deck for the app.
+	 *
+	 * Each item is one card: a post (`kind` post-*, with an optional `hashtag`),
+	 * a member or a space. Only the matching object rides on each item
+	 * (FeedController::explore_deck), so all three are conditional.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function feed_explore_deck(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'feed-explore-deck',
+			'type'       => 'object',
+			'properties' => array(
+				'items'       => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'kind'    => array( 'type' => 'string' ),
+							'post'    => array_merge( self::post(), array( 'x-bn-conditional' => true ) ),
+							'hashtag' => array(
+								'type'             => 'string',
+								'x-bn-conditional' => true,
+							),
+							'member'  => array(
+								'type'             => 'object',
+								'x-bn-conditional' => true,
+							),
+							'space'   => array(
+								'type'             => 'object',
+								'x-bn-conditional' => true,
+							),
+						),
+					),
+				),
+				'next_cursor' => array( 'type' => array( 'string', 'null' ) ),
+				'filter'      => array( 'type' => 'string' ),
 			),
 		);
 	}
