@@ -642,6 +642,21 @@ class EmailEditor {
 			'{{notification_list}}'    => '<ul><li>' . esc_html__( 'A sample notification from the past day.', 'buddynext' ) . '</li></ul>',
 		);
 
+		/**
+		 * Sample values for a test send, keyed '{{token}}'.
+		 *
+		 * The map above covers Free's own templates. A plugin that adds templates
+		 * to the editor (buddynext_email_template_catalogue) supplies samples for
+		 * its own tokens here, or the owner's test email shows them as raw braces
+		 * and the template reads as broken.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param array<string,string> $placeholders Token => sample value.
+		 * @param string               $slug         Template being tested.
+		 */
+		$placeholders = (array) apply_filters( 'buddynext_email_test_placeholders', $placeholders, $slug );
+
 		$subject = str_replace( array_keys( $placeholders ), array_values( $placeholders ), $subject );
 		$body    = str_replace( array_keys( $placeholders ), array_values( $placeholders ), $body );
 
