@@ -120,6 +120,59 @@ class EmailSenderGateTest extends \WP_UnitTestCase {
 		$this->assertTrue( $sent, 'send_now must report true when wp_mail succeeds' );
 	}
 
+	/**
+	 * A type declared transactional through the filter is delivered even though
+	 * its catalogue entry is can_email=false (that flag only hides the member's
+	 * toggle). send_now() used to re-check the bare constant and drop it, so Pro's
+	 * renewal notice and refund receipt never left the site.
+	 */
+	public function test_filtered_transactional_type_is_delivered(): void {
+		global $wpdb;
+
+		add_filter(
+			'buddynext_notification_prefs_catalogue',
+			static function ( array $c ): array {
+				$c['x.receipt'] = array(
+					'label'              => 'Receipt',
+					'group'              => 'social',
+					'default_on_site'    => true,
+					'default_email_freq' => 'immediate',
+					'can_email'          => false,
+				);
+				return $c;
+			}
+		);
+		add_filter(
+			'buddynext_transactional_notification_types',
+			static function ( array $types ): array {
+				$types[] = 'x.receipt';
+				return $types;
+			}
+		);
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- test fixture.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_email_templates',
+			array(
+				'type'      => 'x.receipt',
+				'subject'   => 'Receipt',
+				'body_html' => '<p>Money came back.</p>',
+			)
+		);
+
+		$mailed = false;
+		add_filter(
+			'pre_wp_mail',
+			static function () use ( &$mailed ) {
+				$mailed = true;
+				return true;
+			}
+		);
+
+		$this->sender()->send( $this->user_id, 'x.receipt', array( 'type' => 'x.receipt' ) );
+
+		$this->assertTrue( $mailed, 'a filtered transactional type must actually be emailed' );
+	}
+
 	public function test_catalogue_can_email_resolves(): void {
 		$catalogue = new NotificationPrefCatalogue();
 		$this->assertFalse( $catalogue->can_email( 'x.collect_only' ) );
