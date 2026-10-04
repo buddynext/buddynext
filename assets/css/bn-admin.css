@@ -4374,9 +4374,15 @@ code.bn-ep-code {
 }
 
 /* A smaller starting width keeps search, type, Filter and status on one row down
-   to a 1280px window; below that the status switch wraps under them. */
-.bn-email-log__filters input[type="search"] {
-	flex: 1 1 12rem;
+   to a 1280px window; below that the status switch wraps under them. Row layout
+   only: under 783px .bn-filter-bar stacks into a column, where a flex-basis is a
+   HEIGHT (this rule unscoped made the search a 192px-tall box at 390px). The
+   shared stacked rule above already gives the field auto height, full width. */
+@media screen and ( min-width: 783px ) {
+
+	.bn-email-log__filters input[type="search"] {
+		flex: 1 1 12rem;
+	}
 }
 
 /* Failures are the reason the owner opens this screen: the count reads as an alert. */

@@ -230,7 +230,6 @@ class EmailLog {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$paged    = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
 		$per_page = self::PER_PAGE;
-		$offset   = ( $paged - 1 ) * $per_page;
 
 		// Type and recipient narrow the list; status is applied on top so the
 		// Failed count can be read for the same type and recipient.
@@ -276,6 +275,10 @@ class EmailLog {
 		$failed = $base_args
 			? (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} {$failed_sql}", $base_args ) )
 			: (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} {$failed_sql}" );
+		// A page past the end (an old link, a hand-edited URL) shows the last page,
+		// not an empty state that claims no email was ever sent.
+		$paged  = min( $paged, max( 1, (int) ceil( $total / $per_page ) ) );
+		$offset = ( $paged - 1 ) * $per_page;
 		$rows   = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, user_id, type, digest_date, status, error, sent_at FROM {$table} {$where_sql} ORDER BY id DESC LIMIT %d OFFSET %d",
@@ -481,15 +484,21 @@ class EmailLog {
 	/**
 	 * Areas the Type dropdown groups emails under, in display order.
 	 *
+	 * Every type in the email template catalogue must land in one of these
+	 * (EmailLogTypeGroupTest walks the catalogue), so a new email cannot fall
+	 * into "Other" unnoticed.
+	 *
 	 * @return array<string, string> Group label => pipe-separated keywords matched against the type key.
 	 */
 	private function type_group_map(): array {
 		return array(
-			__( 'Account', 'buddynext' )                   => 'verify|welcome|transactional|onboarding|password',
-			__( 'Connections and followers', 'buddynext' ) => 'follower|connection',
-			__( 'Posts and messages', 'buddynext' )        => 'mention|comment|react|share|message',
+			// bulk_invite, not bare 'invite': Account is matched first and would
+			// otherwise take bn.space_invite away from Spaces.
+			__( 'Account', 'buddynext' )                   => 'verify|welcome|transactional|onboarding|password|registration|email_change|bulk_invite',
+			__( 'Connections and followers', 'buddynext' ) => 'follow|connection',
+			__( 'Posts and messages', 'buddynext' )        => 'mention|comment|react|share|message|favorite',
 			__( 'Spaces', 'buddynext' )                    => 'space',
-			__( 'Moderation', 'buddynext' )                => 'suspend|report|appeal|warn|strike|removed',
+			__( 'Moderation', 'buddynext' )                => 'suspend|report|appeal|warn|strike|removed|post_approved|post_rejected',
 			__( 'Membership', 'buddynext' )                => 'membership|subscription',
 			__( 'Announcements and digests', 'buddynext' ) => 'announcement|broadcast|digest|drip',
 		);
