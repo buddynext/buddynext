@@ -247,24 +247,9 @@ else :
 			// Any page past the first has a Previous, even when page 1's cursor is empty.
 			$bn_pg_prev = isset( $bn_cursor ) && '' !== (string) $bn_cursor;
 
-			$bn_pg_prev_href = $bn_pg_base;
-			if ( $bn_pg_prev ) {
-				$bn_pg_step = \BuddyNext\Core\CursorCodec::pop_trail( $bn_prev_trail );
-				if ( '' !== $bn_pg_step['after'] ) {
-					$bn_pg_prev_href = add_query_arg( 'cursor', $bn_pg_step['after'], $bn_pg_prev_href );
-				}
-				if ( '' !== $bn_pg_step['trail'] ) {
-					$bn_pg_prev_href = add_query_arg( 'prev', $bn_pg_step['trail'], $bn_pg_prev_href );
-				}
-			}
-			$bn_pg_next_href = $bn_pg_base;
-			if ( $bn_pg_more ) {
-				$bn_pg_trail     = \BuddyNext\Core\CursorCodec::push_trail( $bn_prev_trail, isset( $bn_cursor ) ? (string) $bn_cursor : '' );
-				$bn_pg_next_href = add_query_arg( 'cursor', (string) $bn_next_cursor, $bn_pg_base );
-				if ( '' !== $bn_pg_trail ) {
-					$bn_pg_next_href = add_query_arg( 'prev', $bn_pg_trail, $bn_pg_next_href );
-				}
-			}
+			$bn_pg_hrefs     = \BuddyNext\Core\CursorCodec::pager_hrefs( $bn_pg_base, $bn_prev_trail, isset( $bn_cursor ) ? (string) $bn_cursor : '', $bn_pg_more ? (string) $bn_next_cursor : null, 'cursor', 'prev' );
+			$bn_pg_prev_href = $bn_pg_hrefs['prev'];
+			$bn_pg_next_href = $bn_pg_hrefs['next'];
 			if ( $bn_pg_prev || $bn_pg_more ) :
 				?>
 				<nav class="bn-hashtag-pager" aria-label="<?php esc_attr_e( 'Hashtag feed pagination', 'buddynext' ); ?>">

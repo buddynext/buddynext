@@ -490,32 +490,11 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 		$bn_has_prev  = ( '' !== $bn_after );
 		$bn_has_next  = ( null !== $bn_next_cursor );
 
-		// "Previous" href: pop the last cursor off the trail. The popped cursor is
-		// the prior page's bn_after (absent => page 1); the remainder stays the
-		// trail. This is the real page N-1 URL, so JS-off navigation is correct;
-		// with JS, actions.goBack still prefers history.back() when we arrived from
-		// a same-origin page.
-		$bn_prev_href = $bn_page_base;
-		if ( $bn_has_prev ) {
-			$bn_prev_step = \BuddyNext\Core\CursorCodec::pop_trail( $bn_prev_trail );
-			if ( '' !== $bn_prev_step['after'] ) {
-				$bn_prev_href = add_query_arg( 'bn_after', $bn_prev_step['after'], $bn_page_base );
-			}
-			if ( '' !== $bn_prev_step['trail'] ) {
-				$bn_prev_href = add_query_arg( 'bn_prev', $bn_prev_step['trail'], $bn_prev_href );
-			}
-		}
-
-		// "Next" href: push the current page's cursor onto the trail (page 1's
-		// empty cursor is not stored), so the next page can walk back to this one.
-		$bn_next_href = $bn_page_base;
-		if ( $bn_has_next ) {
-			$bn_next_trail = \BuddyNext\Core\CursorCodec::push_trail( $bn_prev_trail, $bn_after );
-			$bn_next_href  = add_query_arg( 'bn_after', $bn_next_cursor, $bn_page_base );
-			if ( '' !== $bn_next_trail ) {
-				$bn_next_href = add_query_arg( 'bn_prev', $bn_next_trail, $bn_next_href );
-			}
-		}
+		// Previous walks the trail back to the real page N-1; Next pushes this
+		// page's cursor so the next page can walk back (CursorCodec::pager_hrefs()).
+		$bn_pager     = \BuddyNext\Core\CursorCodec::pager_hrefs( $bn_page_base, $bn_prev_trail, $bn_after, $bn_next_cursor, 'bn_after', 'bn_prev' );
+		$bn_prev_href = $bn_pager['prev'];
+		$bn_next_href = $bn_pager['next'];
 		?>
 		<?php if ( $bn_has_prev || $bn_has_next ) : ?>
 		<nav class="bn-space-members__pagination" aria-label="<?php esc_attr_e( 'Members page navigation', 'buddynext' ); ?>">

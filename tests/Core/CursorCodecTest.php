@@ -130,4 +130,24 @@ class CursorCodecTest extends \WP_UnitTestCase {
 		$this->assertSame( '', $back['after'] );
 		$this->assertSame( '', $back['trail'] );
 	}
+
+	/**
+	 * pager_hrefs(): page 1 has no Previous move, a middle page walks back one
+	 * step and forward one step, and the last page has no Next move.
+	 */
+	public function test_pager_hrefs_walks_back_and_forward(): void {
+		$base = 'https://example.test/list/?sort=top';
+
+		$first = CursorCodec::pager_hrefs( $base, array(), '', 'c2', 'cursor', 'prev' );
+		$this->assertSame( $base, $first['prev'] );
+		$this->assertSame( 'https://example.test/list/?sort=top&cursor=c2', $first['next'] );
+
+		$third = CursorCodec::pager_hrefs( $base, array( 'c2' ), 'c3', 'c4', 'bn_after', 'bn_prev' );
+		$this->assertSame( 'https://example.test/list/?sort=top&bn_after=c2', $third['prev'] );
+		$this->assertSame( 'https://example.test/list/?sort=top&bn_after=c4&bn_prev=c2,c3', $third['next'] );
+
+		$last = CursorCodec::pager_hrefs( $base, array(), 'c2', null, 'cursor', 'prev' );
+		$this->assertSame( $base, $last['prev'], 'page 2 steps back to page 1, which carries no cursor' );
+		$this->assertSame( $base, $last['next'] );
+	}
 }

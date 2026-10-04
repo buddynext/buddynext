@@ -559,13 +559,17 @@ class PageRouter {
 			exit;
 		}
 
-		// Spaces directory pages were ?bn_page=N before 1.2.4; send old links and
-		// bookmarks to the /spaces/page/N/ address with their filters kept.
-		if ( 'spaces' === (string) get_query_var( 'bn_hub', '' ) && '' === (string) get_query_var( 'bn_space_slug', '' )
-			&& isset( $_GET['bn_page'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// Paged lists were ?bn_page=N before 1.2.4 (the spaces directory and a
+		// member's Articles tab). Old links and bookmarks get a 301 to the /page/N/
+		// address with their other query args kept: one rule for the legacy
+		// param, so no list reads it silently while another redirects it.
+		if ( isset( $_GET['bn_page'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			&& ( ( 'spaces' === (string) get_query_var( 'bn_hub', '' ) && '' === (string) get_query_var( 'bn_space_slug', '' ) )
+				|| ( 'people' === (string) get_query_var( 'bn_hub', '' ) && 'articles' === (string) get_query_var( 'bn_profile_action', '' ) ) )
 		) {
 			$page = absint( $_GET['bn_page'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$dest = trailingslashit( self::spaces_url() ) . ( $page > 1 ? user_trailingslashit( 'page/' . $page, 'paged' ) : '' );
+			$here = strtok( self::first_page( remove_query_arg( 'bn_page' ) ), '?' );
+			$dest = trailingslashit( (string) $here ) . ( $page > 1 ? user_trailingslashit( 'page/' . $page, 'paged' ) : '' );
 			$keep = array_diff_key( wp_unslash( $_GET ), array( 'bn_page' => true ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			wp_safe_redirect( add_query_arg( array_map( 'rawurlencode', array_map( 'strval', array_filter( $keep, 'is_scalar' ) ) ), $dest ), 301 );
 			exit;

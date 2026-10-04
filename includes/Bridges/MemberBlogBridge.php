@@ -231,9 +231,9 @@ class MemberBlogBridge {
 	 * @param int $viewer_id Viewer (0 = logged out).
 	 */
 	public function render_profile_articles_panel( int $user_id, int $viewer_id ): void {
-		// /members/{slug}/articles/page/N/ (the pre-1.2.4 ?bn_page=N still reads).
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination on a public profile; no state changes.
-		$paged    = max( 1, absint( get_query_var( 'paged', 0 ) ), isset( $_GET['bn_page'] ) ? absint( wp_unslash( $_GET['bn_page'] ) ) : 1 );
+		// /members/{slug}/articles/page/N/. The pre-1.2.4 ?bn_page=N is 301ed there
+		// by PageRouter::dispatch_hub_template(), so only the query var is read.
+		$paged    = max( 1, absint( get_query_var( 'paged', 0 ) ) );
 		$per_page = (int) apply_filters( 'buddynext_profile_articles_per_page', 10 );
 		$per_page = max( 1, min( 50, $per_page ) );
 
