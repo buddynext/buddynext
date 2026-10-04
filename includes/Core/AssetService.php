@@ -1055,6 +1055,9 @@ class AssetService {
 					'oneReaction'               => __( '1 reaction', 'buddynext' ),
 					/* translators: %d: number of reactions */
 					'manyReactions'             => __( '%d reactions', 'buddynext' ),
+					'seeOneReaction'            => __( 'See 1 reaction', 'buddynext' ),
+					/* translators: %d: total number of reactions */
+					'seeAllReactions'           => __( 'See all %d reactions', 'buddynext' ),
 					'writeReply'                => __( 'Write a reply...', 'buddynext' ),
 					'postReply'                 => __( 'Post reply', 'buddynext' ),
 					'commentDeleted'            => __( 'This comment was deleted.', 'buddynext' ),

@@ -291,6 +291,12 @@ function updateReactionSummary( cardEl, body ) {
 
 	trigger.innerHTML = chips;
 	trigger.setAttribute( 'data-bn-count', String( total ) );
+	// Keep the spoken name in step with the visible count (it was SSR-only, so a
+	// screen reader kept hearing the count from page load).
+	trigger.setAttribute(
+		'aria-label',
+		1 === total ? t( 'seeOneReaction', 'See 1 reaction' ) : fmt( t( 'seeAllReactions', 'See all %d reactions' ), total )
+	);
 }
 
 /**

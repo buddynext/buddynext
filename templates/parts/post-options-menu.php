@@ -93,7 +93,7 @@ do_action( 'buddynext_part_post_options_menu_before', $args );
 	<button
 		type="button"
 		class="bn-post-card__menu"
-		aria-label="<?php esc_attr_e( 'Post actions', 'buddynext' ); ?>"
+		aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
 		aria-haspopup="true"
 		aria-expanded="false"
 		data-wp-on--click="actions.toggleOptionsMenu"

@@ -21,6 +21,7 @@ import '@buddynext/feed-post-card';
  * 10312822451). A single module-level observer, re-armed by loadMore() after
  * every swap, keeps it going; when the last page renders no control, the
  * re-arm finds nothing and auto-advance stops cleanly. */
+const LOAD_MORE_SELECTOR = '#bn-load-more .bn-load-more__btn';
 let bnLoadMoreObserver = null;
 let bnLoadMoreFiring   = false;
 
@@ -33,7 +34,11 @@ function bnArmLoadMore() {
 	if ( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) {
 		return;
 	}
-	const el = document.querySelector( '.bn-load-more__btn' );
+	// Only the growing "Load more" (#bn-load-more). Past the six-page ceiling the
+	// control is a plain "Older posts" link with the same button class; it starts a
+	// fresh page, so it must wait for a click. Auto-clicking it reloaded the feed
+	// under a member who was just scrolling and threw away the posts they had read.
+	const el = document.querySelector( LOAD_MORE_SELECTOR );
 	if ( bnLoadMoreObserver ) {
 		bnLoadMoreObserver.disconnect();
 	}
@@ -46,7 +51,7 @@ function bnArmLoadMore() {
 			if ( bnLoadMoreFiring || ! entries.some( ( e ) => e.isIntersecting ) ) {
 				return;
 			}
-			const cur = document.querySelector( '.bn-load-more__btn' );
+			const cur = document.querySelector( LOAD_MORE_SELECTOR );
 			if ( ! cur || ! cur.isConnected ) {
 				bnLoadMoreObserver.disconnect();
 				return;
