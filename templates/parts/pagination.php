@@ -83,15 +83,23 @@ $bn_paginate_args = array(
 	'type'      => 'array',
 );
 
-// 'paged' with no explicit base: leave base/format to core, which builds the
-// same /page/N/ links every WordPress archive uses (and keeps the page's other
-// query args). A custom query var keeps the ?var=N form.
+// A custom query var keeps the ?var=N form; 'paged' builds /page/N/ through
+// PageRouter::page_url() (see below).
 if ( '' !== (string) $args['base_url'] ) {
 	$bn_paginate_args['base']   = (string) $args['base_url'];
 	$bn_paginate_args['format'] = '';
 } elseif ( 'paged' !== (string) $args['query_var'] ) {
 	$bn_paginate_args['base']   = add_query_arg( (string) $args['query_var'], '%#%', remove_query_arg( (string) $args['query_var'] ) );
 	$bn_paginate_args['format'] = '';
+} else {
+	// /page/N/ links come from PageRouter::page_url(), the one builder every list
+	// uses. Core only draws the numbers: its %_% slot sits where page_url() puts
+	// the page segment, so page 1 stays the bare address.
+	$bn_seg                     = user_trailingslashit( 'page/2', 'paged' );
+	$bn_two                     = \BuddyNext\Core\PageRouter::page_url( '', 2 );
+	$bn_at                      = (int) strrpos( $bn_two, $bn_seg );
+	$bn_paginate_args['base']   = substr_replace( $bn_two, '%_%', $bn_at, strlen( $bn_seg ) );
+	$bn_paginate_args['format'] = user_trailingslashit( 'page/%#%', 'paged' );
 }
 
 /** Computed paginate_links() args. @var array<string,mixed> $bn_paginate_args */

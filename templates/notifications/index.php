@@ -417,7 +417,7 @@ $initial_context = wp_json_encode(
 		<nav class="bn-notif-pagination" aria-label="<?php esc_attr_e( 'Notifications pagination', 'buddynext' ); ?>">
 			<?php if ( $bn_paged > 1 ) : ?>
 				<a class="bn-btn" data-variant="ghost" data-size="sm"
-					href="<?php echo esc_url( get_pagenum_link( $bn_paged - 1 ) ); ?>">
+					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( '', $bn_paged - 1 ) ); ?>">
 					<?php buddynext_icon( 'chevron-left' ); ?>
 					<?php esc_html_e( 'Previous', 'buddynext' ); ?>
 				</a>
@@ -436,7 +436,7 @@ $initial_context = wp_json_encode(
 			</span>
 			<?php if ( $bn_paged < $total_pages ) : ?>
 				<a class="bn-btn" data-variant="ghost" data-size="sm"
-					href="<?php echo esc_url( get_pagenum_link( $bn_paged + 1 ) ); ?>">
+					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( '', $bn_paged + 1 ) ); ?>">
 					<?php esc_html_e( 'Next', 'buddynext' ); ?>
 					<?php buddynext_icon( 'chevron-right' ); ?>
 				</a>

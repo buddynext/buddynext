@@ -147,6 +147,60 @@ class PastLastPageTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * page_url() is the one /page/N/ builder: page 1 is the bare address, any old
+	 * page segment or ?paged is replaced, filters and a #fragment are kept.
+	 *
+	 * @return void
+	 */
+	public function test_page_url_builds_every_page_link_one_way(): void {
+		$this->assertSame( home_url( '/members/' ), PageRouter::page_url( home_url( '/members/page/4/' ), 1 ) );
+		$this->assertSame( home_url( '/members/page/2/' ), PageRouter::page_url( home_url( '/members/' ), 2 ) );
+		$this->assertSame( home_url( '/members/page/3/?s=a&bn_sort=newest' ), PageRouter::page_url( home_url( '/members/page/2/?s=a&bn_sort=newest' ), 3 ) );
+		$this->assertSame( home_url( '/spaces/page/2/?bn_sort=newest' ), PageRouter::page_url( home_url( '/spaces/?bn_sort=newest&paged=7' ), 2 ) );
+		$this->assertSame( home_url( '/members/x/articles/page/2/#top' ), PageRouter::page_url( home_url( '/members/x/articles/#top' ), 2 ) );
+		$this->assertSame( home_url( '/members/' ), PageRouter::page_url( home_url( '/members/' ), 0 ), 'below 1 is page 1' );
+	}
+
+	/**
+	 * '' means the current request: absolute, on the site's host, filters kept.
+	 *
+	 * @return void
+	 */
+	public function test_page_url_from_the_current_request(): void {
+		self::factory()->user->create_many( 25 );
+		$this->go_to( home_url( '/members/page/2/?bn_sort=newest' ) );
+
+		$this->assertSame( home_url( '/members/page/3/?bn_sort=newest' ), PageRouter::page_url( '', 3 ) );
+		$this->assertSame( home_url( '/members/?bn_sort=newest' ), PageRouter::page_url( '', 1 ) );
+	}
+
+	/**
+	 * Page N of a profile tab is canonical at its own address. The descriptor is
+	 * the profile, and profile + page/2/ (/members/x/page/2/) is a 404; an
+	 * address outside the descriptor (an alias) keeps the descriptor as base.
+	 *
+	 * @return void
+	 */
+	public function test_canonical_of_a_tab_page_is_its_own_address(): void {
+		$user    = get_userdata( self::factory()->user->create( array( 'user_login' => 'pagerx' ) ) );
+		$profile = trailingslashit( PageRouter::profile_url( $user->ID ) );
+
+		$this->go_to( $profile . 'articles/page/2/?bn_sort=newest' );
+		$this->assertSame( 2, (int) get_query_var( 'paged' ) );
+		$this->assertSame(
+			$profile . 'articles/page/2/',
+			\BuddyNext\Core\HeadMeta::canonical_url( array( 'url' => $profile ) ),
+			'the tab page, not profile + page/2/; query args left off'
+		);
+
+		$this->assertSame(
+			'https://example.test/members/page/2/',
+			\BuddyNext\Core\HeadMeta::canonical_url( array( 'url' => 'https://example.test/members/' ) ),
+			'outside the descriptor: the descriptor stays the base'
+		);
+	}
+
+	/**
 	 * On inbox page 2 every tab links to page 1 of that tab (QA bounce: Mentions
 	 * from /notifications/page/2/ landed on a 404).
 	 *

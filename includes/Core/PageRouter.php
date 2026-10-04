@@ -568,10 +568,7 @@ class PageRouter {
 				|| ( 'people' === (string) get_query_var( 'bn_hub', '' ) && 'articles' === (string) get_query_var( 'bn_profile_action', '' ) ) )
 		) {
 			$page = absint( $_GET['bn_page'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$here = strtok( self::first_page( remove_query_arg( 'bn_page' ) ), '?' );
-			$dest = trailingslashit( (string) $here ) . ( $page > 1 ? user_trailingslashit( 'page/' . $page, 'paged' ) : '' );
-			$keep = array_diff_key( wp_unslash( $_GET ), array( 'bn_page' => true ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_safe_redirect( add_query_arg( array_map( 'rawurlencode', array_map( 'strval', array_filter( $keep, 'is_scalar' ) ) ), $dest ), 301 );
+			wp_safe_redirect( self::page_url( remove_query_arg( 'bn_page' ), $page ), 301 );
 			exit;
 		}
 
@@ -3841,9 +3838,46 @@ class PageRouter {
 	 * @return string
 	 */
 	public static function first_page( string $url = '' ): string {
-		$url = '' === $url ? add_query_arg( array() ) : $url;
+		if ( '' === $url ) {
+			// Absolute, on the site's own host (never the Host header), with the
+			// request's query string so every filter survives.
+			$query = (string) wp_parse_url( (string) add_query_arg( array() ), PHP_URL_QUERY );
+			$url   = self::current_url() . ( '' !== $query ? '?' . $query : '' );
+		}
 		$url = (string) preg_replace( '~/page/\d+/?(?=[?#]|$)~', '/', remove_query_arg( 'paged', $url ) );
 		return $url;
+	}
+
+	/**
+	 * The address of page N of a list: the one builder for /page/N/ links.
+	 *
+	 * Starts from first_page() (any /page/N/ segment and ?paged dropped, every
+	 * filter kept), then adds /page/N/ to the path for N > 1, ahead of the query
+	 * string and any #fragment. Page 1 is the bare address, never /page/1/.
+	 *
+	 * Lists used to build this four ways (core's get_pagenum_link(), closures,
+	 * hand-joined 'page/' . $n), and a fix to one never reached the others. Not
+	 * get_pagenum_link(): on BuddyNext's virtual hub pages the router resets the
+	 * paged query for themes, so core cannot be relied on to know the page.
+	 *
+	 * @param string $url  Any address of the list; '' means the current request.
+	 * @param int    $page Page number; values below 2 give page 1.
+	 * @return string
+	 */
+	public static function page_url( string $url, int $page ): string {
+		$url = self::first_page( $url );
+		if ( $page < 2 ) {
+			return $url;
+		}
+
+		$tail = '';
+		$cut  = strcspn( $url, '?#' );
+		if ( $cut < strlen( $url ) ) {
+			$tail = substr( $url, $cut );
+			$url  = substr( $url, 0, $cut );
+		}
+
+		return trailingslashit( $url ) . user_trailingslashit( 'page/' . $page, 'paged' ) . $tail;
 	}
 
 	/**

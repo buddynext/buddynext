@@ -145,7 +145,7 @@ if ( $bn_ar_pages > 1 ) :
 	?>
 	<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Articles pagination', 'buddynext' ); ?>">
 		<?php if ( $bn_ar_page > 1 ) : ?>
-			<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( $bn_ar_page > 2 ? $bn_ar_base . user_trailingslashit( 'page/' . ( $bn_ar_page - 1 ), 'paged' ) : $bn_ar_base ); ?>" rel="prev">
+			<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( $bn_ar_base, $bn_ar_page - 1 ) ); ?>" rel="prev">
 				<?php esc_html_e( 'Previous', 'buddynext' ); ?>
 			</a>
 		<?php endif; ?>
@@ -162,7 +162,7 @@ if ( $bn_ar_pages > 1 ) :
 		</span>
 
 		<?php if ( $bn_ar_page < $bn_ar_pages ) : ?>
-			<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( $bn_ar_base . user_trailingslashit( 'page/' . ( $bn_ar_page + 1 ), 'paged' ) ); ?>" rel="next">
+			<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( $bn_ar_base, $bn_ar_page + 1 ) ); ?>" rel="next">
 				<?php esc_html_e( 'Next', 'buddynext' ); ?>
 			</a>
 		<?php endif; ?>

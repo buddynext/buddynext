@@ -380,7 +380,7 @@ printf(
 // would read "page" as a tab.
 $bn_pager_url = static function ( int $page ) use ( $bn_search_query, $bn_space_id ): string {
 	$bn_feed = trailingslashit( \BuddyNext\Core\PageRouter::space_url( $bn_space_id ) ) . 'feed/';
-	return add_query_arg( 'bn_sf_q', $bn_search_query, $page > 1 ? $bn_feed . user_trailingslashit( 'page/' . $page, 'paged' ) : $bn_feed );
+	return add_query_arg( 'bn_sf_q', $bn_search_query, \BuddyNext\Core\PageRouter::page_url( $bn_feed, $page ) );
 };
 ?>
 <?php if ( $bn_is_searching && ( $bn_has_prev || $bn_has_next ) ) : ?>

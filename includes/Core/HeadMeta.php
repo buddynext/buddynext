@@ -438,10 +438,17 @@ final class HeadMeta {
 	public static function canonical_url( array $d ): string {
 		$url = is_front_page() ? home_url( '/' ) : (string) ( $d['url'] ?? '' );
 
+		// Page N of the list being viewed. A profile tab's descriptor is the profile
+		// itself, so /members/x/ + page/2/ named a page that does not exist (the
+		// Articles tab's page 2 pointed search engines at a 404). When the request
+		// sits under the descriptor's address (the list itself or a tab of it) the
+		// request path is the base; otherwise (an alias) the descriptor stays the
+		// base. Query args are left off, as on page 1.
 		$paged = (int) get_query_var( 'paged', 0 );
-		if ( $paged > 1 && '' !== $url && ! preg_match( '#/page/\d+/?(\?|$)#', $url ) ) {
-			$parts = explode( '?', $url, 2 );
-			$url   = trailingslashit( $parts[0] ) . user_trailingslashit( 'page/' . $paged, 'paged' ) . ( isset( $parts[1] ) ? '?' . $parts[1] : '' );
+		if ( $paged > 1 && '' !== $url ) {
+			$here = PageRouter::first_page( PageRouter::current_url() );
+			$base = str_starts_with( $here, trailingslashit( strtok( $url, '?#' ) ) ) ? $here : $url;
+			$url  = PageRouter::page_url( $base, $paged );
 		}
 		return $url;
 	}
