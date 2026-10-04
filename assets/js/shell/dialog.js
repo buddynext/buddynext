@@ -1043,8 +1043,98 @@ function paintToast( toast, o, dismiss ) {
  * @return {{el: HTMLElement, update: Function, dismiss: Function}} Handle.
  */
 export function bnToast( message, opts ) {
-	let o = toastOptions( message, opts );
+	return showToast( toastOptions( message, opts ) );
+}
 
+/**
+ * Viewports that show one toast at a time. Three stacked toasts covered about a quarter
+ * of a phone screen, over the form the member was filling in.
+ *
+ * @type {string}
+ */
+const ONE_AT_A_TIME = '(max-width: 640px)';
+
+/**
+ * Toasts waiting their turn on a phone, oldest first: { key, o, real, handle }.
+ *
+ * @type {Array<Object>}
+ */
+const waitingToasts = [];
+
+/**
+ * Queue a toast behind the one on screen (phones). Nothing is dropped: it shows when the
+ * current one closes. The returned handle forwards to the real toast once it shows; until
+ * then update() edits the queued options and dismiss() takes it out of the line.
+ *
+ * @param {Object}      o         Options from toastOptions().
+ * @param {string}      key       Toast identity.
+ * @param {HTMLElement} container The stack.
+ * @return {Object} Handle { el, waiting, update, dismiss }.
+ */
+function waitTurn( o, key, container ) {
+	const same = waitingToasts.find( ( e ) => e.key === key );
+	if ( same ) {
+		if ( o.key ) {
+			same.o = o;
+		}
+		return same.handle;
+	}
+
+	const entry = { key, o, real: null };
+	entry.handle = {
+		el: null,
+		get waiting() {
+			return ! entry.real && waitingToasts.includes( entry );
+		},
+		update( next ) {
+			if ( entry.real ) {
+				entry.real.update( next );
+				return;
+			}
+			entry.o = Object.assign( {}, entry.o, next.title !== undefined ? next : toastOptions( next ) );
+		},
+		dismiss( immediate ) {
+			if ( entry.real ) {
+				entry.real.dismiss( immediate );
+				return;
+			}
+			const at = waitingToasts.indexOf( entry );
+			if ( -1 !== at ) {
+				waitingToasts.splice( at, 1 );
+			}
+		},
+	};
+	waitingToasts.push( entry );
+
+	// The toast on screen must not hold the line: one that would stay open until closed
+	// (it carries a link) now times out like the rest.
+	const showing = container.lastElementChild;
+	if ( showing && showing._bnYield ) {
+		showing._bnYield();
+	}
+	return entry.handle;
+}
+
+/**
+ * Show the next waiting toast, if any.
+ *
+ * @return {void}
+ */
+function nextToast() {
+	const entry = waitingToasts.shift();
+	if ( entry ) {
+		entry.real       = showToast( entry.o );
+		entry.handle.el  = entry.real.el;
+	}
+}
+
+/**
+ * Paint one toast from normalised options (see bnToast()).
+ *
+ * @param {Object} o Options from toastOptions().
+ * @return {Object} Handle { el, dismiss, update }.
+ */
+function showToast( o ) {
 	let container = document.querySelector( '.bn-toast-container' );
 	if ( ! container ) {
 		container = document.createElement( 'div' );
@@ -1079,6 +1169,11 @@ export function bnToast( message, opts ) {
 		return existing._bnHandle;
 	}
 
+	// Phones: one at a time, in order.
+	if ( container.children.length && window.matchMedia( ONE_AT_A_TIME ).matches ) {
+		return waitTurn( o, key, container );
+	}
+
 	// Distinct messages can still pile up (a page failing several ways at once), so drop
 	// the oldest rather than let the column grow past the viewport.
 	while ( container.children.length >= MAX_TOASTS ) {
@@ -1100,6 +1195,7 @@ export function bnToast( message, opts ) {
 				} catch ( e ) { /* Not a popover, or already closed. */ }
 				container.remove();
 			}
+			nextToast();
 		};
 		if ( true === immediate ) {
 			gone();
@@ -1124,6 +1220,12 @@ export function bnToast( message, opts ) {
 	toast._bnResetTimer = function () {
 		toast.classList.remove( 'bn-toast--leaving' );
 		startTimer();
+	};
+	toast._bnYield = function () {
+		if ( o.persist ) {
+			o = Object.assign( {}, o, { persist: false } );
+			startTimer();
+		}
 	};
 
 	toast._bnHandle = {
