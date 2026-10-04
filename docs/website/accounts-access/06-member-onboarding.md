@@ -16,7 +16,7 @@ The onboarding wizard is a guided first-session flow that opens right after a ne
 4. **Follows** - follow suggested members.
 5. **Notifications** - choose how to be notified (email, in-app, push).
 
-The member can move forward and back through the steps, or skip the wizard entirely at any point. When they finish, BuddyNext lands them on their own profile - the thing they just built.
+The member can move forward and back through the steps, or skip the wizard entirely at any point. When they finish, BuddyNext lands them on the activity feed, which already shows the spaces and people they just picked. A member who came in through a space invite link lands in that space, and you can choose a different page under **Members > Registration & Login > After onboarding**.
 
 ## Why it matters
 

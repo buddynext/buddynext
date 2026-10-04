@@ -167,6 +167,22 @@ class OnboardingControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 1, $count );
 	}
 
+	/**
+	 * Finishing lands on the activity feed by default (it used to be the
+	 * member's own profile), the owner's After onboarding setting wins over that,
+	 * and a repeat submit answers the same as the first.
+	 */
+	public function test_complete_lands_on_the_feed_unless_the_owner_chose_a_page(): void {
+		wp_set_current_user( $this->user_id );
+		$complete = static fn(): string => (string) rest_do_request( new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/complete' ) )->get_data()['redirect_to'];
+
+		$this->assertSame( \BuddyNext\Core\PageRouter::activity_url(), $complete() );
+
+		update_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, home_url( '/spaces/' ) );
+		$this->assertSame( home_url( '/spaces/' ), $complete(), 'the owner setting must win on a repeat submit too' );
+		delete_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING );
+	}
+
 	// ── GET/POST /me/interests ───────────────────────────────────────────────
 
 	/**

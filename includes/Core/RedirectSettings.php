@@ -202,7 +202,7 @@ class RedirectSettings {
 	/**
 	 * Configured post-onboarding destination, or the given default.
 	 *
-	 * @param string $fallback Default URL (today's behaviour, e.g. the member profile).
+	 * @param string $fallback Default URL (the activity feed).
 	 * @return string
 	 */
 	public static function onboarding( string $fallback ): string {
