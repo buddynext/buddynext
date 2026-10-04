@@ -133,7 +133,11 @@ class MediaController extends BaseRestController {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'list_user_albums' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					// Anonymous-readable, gated in the handler, like /spaces/{id}/albums:
+					// require_auth gave a guest 401, so a member's Albums tab said "No
+					// albums yet." beside the public photos the same tab shows them.
+					// Each album still answers to its own privacy (Galleries).
+					'permission_callback' => '__return_true',
 					'args'                => array(
 						'id'       => array( 'sanitize_callback' => 'absint' ),
 						'page'     => array(
@@ -210,7 +214,8 @@ class MediaController extends BaseRestController {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'get_album' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					// Anonymous-readable; get_album() 404s anything the viewer may not see.
+					'permission_callback' => '__return_true',
 					'args'                => array(
 						'id'       => array( 'sanitize_callback' => 'absint' ),
 						'page'     => array(
@@ -569,14 +574,19 @@ class MediaController extends BaseRestController {
 	}
 
 	/**
-	 * GET /users/{id}/albums — a user's albums, privacy-filtered for the viewer.
+	 * GET /users/{id}/albums — a user's albums, privacy-filtered for the viewer
+	 * (guests included). 404 when the viewer may not see the member's profile.
 	 *
 	 * @param WP_REST_Request $request Request.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function list_user_albums( WP_REST_Request $request ): WP_REST_Response {
-		$owner    = (int) $request->get_param( 'id' );
-		$viewer   = get_current_user_id();
+	public function list_user_albums( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$owner  = (int) $request->get_param( 'id' );
+		$viewer = get_current_user_id();
+		if ( ! $this->can_see_member( $viewer, $owner ) ) {
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
 		$page     = max( 1, (int) $request->get_param( 'page' ) );
 		$per_page = min( 60, max( 1, (int) $request->get_param( 'per_page' ) ) );
 		$offset   = ( $page - 1 ) * $per_page;
@@ -589,6 +599,22 @@ class MediaController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Whether the viewer may see this member's profile (and so their albums).
+	 * The same gate GET /users/{id}/spaces uses.
+	 *
+	 * @param int $viewer Viewing user (0 = guest).
+	 * @param int $member Profile owner.
+	 * @return bool
+	 */
+	private function can_see_member( int $viewer, int $member ): bool {
+		if ( ! get_userdata( $member ) ) {
+			return false;
+		}
+		$privacy = buddynext_service( 'privacy' );
+		return ! ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) || $privacy->can_view_profile( $viewer, $member );
 	}
 
 	/**
@@ -779,7 +805,13 @@ class MediaController extends BaseRestController {
 		}
 
 		$is_owner = $this->album_owned_by_current( $album_id );
-		if ( ! $is_owner && ! Galleries::can_view_album( $album_id, $viewer ) ) {
+		// A member's own album also follows their profile visibility; a space
+		// album answers to its space alone (can_view_album()).
+		$is_hidden = ! $is_owner && (
+			! Galleries::can_view_album( $album_id, $viewer )
+			|| ( 0 === Galleries::album_space( $album_id ) && ! $this->can_see_member( $viewer, (int) get_post_field( 'post_author', $album_id ) ) )
+		);
+		if ( $is_hidden ) {
 			// Do not disclose existence of a private album.
 			return new WP_Error( 'bn_album_not_found', __( 'Album not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}

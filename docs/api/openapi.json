@@ -416,17 +416,12 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    },
                     "400": {
                         "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
+                    {},
                     {
                         "cookieAuth": []
                     },
@@ -14039,17 +14034,12 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    },
                     "400": {
                         "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
+                    {},
                     {
                         "cookieAuth": []
                     },
