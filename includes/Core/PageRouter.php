@@ -4038,6 +4038,30 @@ class PageRouter {
 	}
 
 	/**
+	 * A "Log in" link that brings the visitor back afterwards.
+	 *
+	 * Without redirect_to the login page can only guess the return page from the
+	 * Referer header, which a browser may strip and which never counts from the
+	 * signup page, so a "Sign in" there lost the visitor's destination.
+	 *
+	 * @param string|null $destination Where to land after login. null = the page being
+	 *                            viewed (front-end only); '' = no redirect_to, so
+	 *                            login uses its own default.
+	 * @return string
+	 */
+	public static function login_url( ?string $destination = null ): string {
+		if ( null === $destination ) {
+			$destination = is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() ? '' : self::current_url();
+		}
+		$auth = self::auth_url();
+		if ( '' === $auth ) {
+			return wp_login_url( $destination );
+		}
+
+		return '' === $destination ? $auth : add_query_arg( 'redirect_to', rawurlencode( $destination ), $auth );
+	}
+
+	/**
 	 * Return the registration (signup) URL — a sub-route of the auth hub.
 	 *
 	 * @return string

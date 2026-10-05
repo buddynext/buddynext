@@ -1056,7 +1056,7 @@ class MediaController extends BaseRestController {
 		$album_svc   = MediaClient::albums();
 		$mvs_privacy = '\\WPMediaVerse\\Services\\PrivacyService';
 		if ( null !== $privacy && ! $space_album && $album_svc && method_exists( $album_svc, 'get_privacy' )
-			&& method_exists( $mvs_privacy, 'user_may_choose_privacy' )
+			&& is_callable( array( $mvs_privacy, 'user_may_choose_privacy' ) )
 			&& ! $mvs_privacy::user_may_choose_privacy()
 			&& $this->sanitize_album_privacy( (string) $privacy ) !== $album_svc->get_privacy( $album_id ) ) {
 			return new WP_Error( 'bn_privacy_locked', __( 'Privacy is set by the site owner, so it cannot be changed here.', 'buddynext' ), array( 'status' => 403 ) );

@@ -20,7 +20,11 @@ defined( 'ABSPATH' ) || exit;
 
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
-$login_url  = \BuddyNext\Core\PageRouter::auth_url();
+// Carry the visitor's destination to "Sign in": the login page never counts
+// signup as a referrer, so without this an existing member lost it.
+$login_url = \BuddyNext\Core\PageRouter::login_url(
+	isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : '' // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+);
 
 /*
  * Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
@@ -161,7 +165,7 @@ if ( 'invite' === $bn_reg_mode ) {
 							<p class="bn-auth-sub"><?php esc_html_e( 'Ask a member of this community to send you an invitation.', 'buddynext' ); ?></p>
 						<?php endif; ?>
 
-						<a class="bn-btn" data-variant="ghost" data-size="lg" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() ); ?>">
+						<a class="bn-btn" data-variant="ghost" data-size="lg" href="<?php echo esc_url( $login_url ); ?>">
 							<?php esc_html_e( 'Back to sign in', 'buddynext' ); ?>
 						</a>
 					</section>

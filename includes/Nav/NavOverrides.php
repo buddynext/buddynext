@@ -154,7 +154,7 @@ final class NavOverrides {
 				$guest_label = sanitize_text_field( (string) ( $ov['guest_label'] ?? '' ) );
 				if ( '' !== $guest_label && ! is_user_logged_in() ) {
 					$item['label'] = $guest_label;
-					$item['url']   = \BuddyNext\Core\PageRouter::auth_url();
+					$item['url']   = \BuddyNext\Core\PageRouter::login_url();
 				} else {
 					$item['show'] = false;
 				}

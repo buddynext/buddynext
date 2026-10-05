@@ -179,11 +179,7 @@ $bn_lb_can_interact = is_user_logged_in();
 					// owner has one, wp_login_url() otherwise, and the current page as the
 					// return. Deliberately not hand-built from $_SERVER — a login link is
 					// not worth reading unsanitised superglobals for.
-					$bn_lb_here  = \BuddyNext\Core\PageRouter::current_url();
-					$bn_lb_auth  = \BuddyNext\Core\PageRouter::auth_url();
-					$bn_lb_login = '' !== $bn_lb_auth
-						? add_query_arg( 'redirect_to', rawurlencode( $bn_lb_here ), $bn_lb_auth )
-						: wp_login_url( $bn_lb_here );
+					$bn_lb_login = \BuddyNext\Core\PageRouter::login_url();
 					?>
 					<p class="bn-lightbox__comment-login">
 						<?php
