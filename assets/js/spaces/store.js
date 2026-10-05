@@ -1124,9 +1124,14 @@ var storeInstance = store( 'buddynext/spaces', {
 				var data = res.data || {};
 
 				if ( res.ok && data.left ) {
-					// Re-offer the correct entry route: a plain "Join" only for an
-					// open (direct-join) space, "Request to join" for private/secret.
-					swapButtonState( btn, spaceNeedsRequest( btn ) ? 'request' : 'join' );
+					// Re-offer the correct entry route: "Join" for a direct-join space,
+					// "Request to join" for a request space, nothing for invite-only.
+					var leftCard = spaceCardFor( btn );
+					if ( leftCard && 'invite' === leftCard.dataset.joinMethod ) {
+						btn.remove();
+					} else {
+						swapButtonState( btn, spaceNeedsRequest( btn ) ? 'request' : 'join' );
+					}
 
 					bumpMemberCount( spaceCardFor( btn ), -1 );
 				} else if ( btn ) {

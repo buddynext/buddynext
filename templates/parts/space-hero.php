@@ -322,7 +322,10 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-wp-on--click="actions.joinSpace"
 				><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
 
-			<?php elseif ( 'open' === $bn_space->type ) : ?>
+			<?php elseif ( 'invite' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_space->type ) ) : ?>
+				<?php // Invite-only: no join request; members get in by invitation (as on the directory card). ?>
+
+			<?php elseif ( 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_space->type ) ) : ?>
 				<button
 					class="bn-btn"
 					data-variant="primary"

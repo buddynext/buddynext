@@ -236,7 +236,14 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 				// it reads as available until the member spends a click on it.
 				?>
 
-			<?php elseif ( 'direct' === SpaceTypeRegistry::instance()->join_method( $space_type ) ) : ?>
+			<?php elseif ( 'invite' === $bn_dc_join_method ) : ?>
+				<?php
+				// Invite-only (hidden) spaces take no join requests: members get in by
+				// invitation. A site admin can see them in the directory; offering
+				// "Request to join" there asked the space for something it never grants.
+				?>
+
+			<?php elseif ( 'direct' === $bn_dc_join_method ) : ?>
 				<button
 					class="bn-btn"
 					data-variant="primary"

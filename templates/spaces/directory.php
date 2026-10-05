@@ -334,13 +334,17 @@ $bn_subtitle = sprintf(
 				<a
 					class="bn-tab bn-sd-chip"
 					role="tab"
-					aria-selected="<?php echo $bn_is_mine ? 'true' : 'false'; ?>"
+					aria-selected="<?php echo ( $bn_is_mine && '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
 					href="<?php echo esc_url( trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() ) . 'mine/' ); ?>"
 				><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></a>
 			<?php endif; ?>
-			<?php // Category chips refine the All-spaces directory (reactive); they don't apply to the sectioned My Spaces view, so hide them there. ?>
-			<?php if ( ! $bn_is_mine ) : ?>
-				<?php foreach ( $categories as $bn_cat_item ) : ?>
+			<?php
+			// Category chips refine the All view reactively. On My Spaces they are
+			// links that stay inside it (/spaces/mine/?bn_cat=slug): the sectioned
+			// query already takes the category, so a member in many spaces can narrow
+			// their own list.
+			?>
+			<?php foreach ( $categories as $bn_cat_item ) : ?>
 					<?php
 						// The category's own colour + icon as a small leading swatch — the
 						// same signal the admin pill and space-card badge carry, so a
@@ -356,6 +360,14 @@ $bn_subtitle = sprintf(
 							: '';
 						$bn_chip_icon   = bn_space_category_icon( (string) $bn_cat_item->slug, (string) $bn_cat_item->icon_svg );
 					?>
+					<?php if ( $bn_is_mine ) : ?>
+					<a
+						class="bn-tab bn-sd-chip"
+						role="tab"
+						aria-selected="<?php echo ( $bn_cat_item->slug === $bn_cat_slug ) ? 'true' : 'false'; ?>"
+						href="<?php echo esc_url( add_query_arg( 'bn_cat', (string) $bn_cat_item->slug, trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() ) . 'mine/' ) ); ?>"
+					>
+					<?php else : ?>
 					<button
 						type="button"
 						class="bn-tab bn-sd-chip"
@@ -365,9 +377,11 @@ $bn_subtitle = sprintf(
 						data-bn-cat-id="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
 						data-bn-cat-slug="<?php echo esc_attr( (string) $bn_cat_item->slug ); ?>"
 						data-wp-on--click="actions.setScope"
-					><span class="bn-sd-chip__icon" aria-hidden="true"<?php echo $bn_chip_swatch; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped attribute string built from esc_attr(). ?>><?php echo $bn_chip_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bn_space_category_icon() returns a wp_kses'd SVG. ?></span><?php echo esc_html( $bn_cat_item->name ); ?></button>
+					>
+					<?php endif; ?>
+					<span class="bn-sd-chip__icon" aria-hidden="true"<?php echo $bn_chip_swatch; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped attribute string built from esc_attr(). ?>><?php echo $bn_chip_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bn_space_category_icon() returns a wp_kses'd SVG. ?></span><?php echo esc_html( $bn_cat_item->name ); ?>
+					<?php echo $bn_is_mine ? '</a>' : '</button>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static closing tag. ?>
 				<?php endforeach; ?>
-			<?php endif; ?>
 		</nav>
 
 		<div class="bn-sd-sort" data-bn-sort-popover>
@@ -615,9 +629,37 @@ $bn_subtitle = sprintf(
 			<?php
 		endforeach;
 
-		// Zero-space member: neither section rendered (both empty), so show a
-		// friendly cold-start instead of a blank "My Spaces" page.
-		if ( empty( $bn_managed_spaces ) && empty( $bn_joined_spaces ) ) :
+		// Filtered to a category the member has no space in: say that, not "not in
+		// any spaces yet", which is untrue for someone in many other spaces.
+		if ( empty( $bn_managed_spaces ) && empty( $bn_joined_spaces ) && '' !== $bn_cat_slug ) :
+			$bn_mine_cat_name = (string) ( $bn_cat_by_slug[ $bn_cat_slug ]['name'] ?? $bn_cat_slug );
+			?>
+			<div class="bn-sd-empty">
+				<?php
+				buddynext_get_template(
+					'parts/empty-state.php',
+					array(
+						'icon'  => 'search',
+						/* translators: %s: space category name. */
+						'title' => sprintf( __( 'None of your spaces are in %s', 'buddynext' ), $bn_mine_cat_name ),
+						'body'  => __( 'Pick another category, or browse every space in this one.', 'buddynext' ),
+					)
+				);
+				?>
+				<div class="bn-sd-empty__actions">
+					<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_slug, \BuddyNext\Core\PageRouter::spaces_url() ) ); ?>">
+						<?php
+						/* translators: %s: space category name. */
+						echo esc_html( sprintf( __( 'Browse %s', 'buddynext' ), $bn_mine_cat_name ) );
+						?>
+					</a>
+					<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() ) . 'mine/' ); ?>"><?php esc_html_e( 'Show all my spaces', 'buddynext' ); ?></a>
+				</div>
+			</div>
+			<?php
+			// Zero-space member: neither section rendered (both empty), so show a
+			// friendly cold-start instead of a blank "My Spaces" page.
+		elseif ( empty( $bn_managed_spaces ) && empty( $bn_joined_spaces ) ) :
 			?>
 			<div class="bn-sd-empty bn-sd-empty--coldstart">
 				<?php
