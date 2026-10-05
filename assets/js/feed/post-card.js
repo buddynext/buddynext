@@ -1924,9 +1924,20 @@ store( 'buddynext/post-card', {
 			if ( ! ctx ) {
 				return;
 			}
+			// Hand focus back to the button that opened the popup (WAI-ARIA menu
+			// pattern). On phones the menu is a sheet that takes focus, so closing it
+			// without this left keyboard and screen-reader users nowhere.
+			const ref    = getElement()?.ref || null;
+			const opener = ! ref ? null
+				: ctx.optionsOpen ? ref.querySelector( 'button.bn-post-card__menu' )
+				: ctx.reactionPickerOpen ? ref.querySelector( '[data-wp-on--click="actions.toggleReactionPicker"]' )
+				: null;
 			ctx.reactionPickerOpen = false;
 			ctx.optionsOpen        = false;
 			ctx.reactorsOpen       = false;
+			if ( opener ) {
+				opener.focus();
+			}
 		},
 		* deletePost() {
 			const ctx = getContext();
