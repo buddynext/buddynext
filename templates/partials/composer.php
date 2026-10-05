@@ -187,7 +187,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'submitting'            => false,
 				'mediaIds'              => array(),
 				'mediaPreviews'         => array(),
-				'mediaUploading'        => false,
+				'mediaUploading'        => 0,
 				'errorMessage'          => '',
 				'scheduleOpen'          => false,
 				'scheduledAt'           => '',
@@ -215,7 +215,6 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'documentId'            => 0,
 				'documentName'          => '',
 				'documentUploading'     => false,
-				'mediaUploading'        => 0,
 				'waitNotice'            => false,
 			)
 		)

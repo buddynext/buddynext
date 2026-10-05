@@ -647,9 +647,6 @@ store( 'buddynext/post-composer', {
 		get mediaPreviews() {
 			try { return getContext().mediaPreviews || []; } catch ( _e ) { return []; }
 		},
-		get mediaUploading() {
-			try { return !! getContext().mediaUploading; } catch ( _e ) { return false; }
-		},
 		get hasDocument() {
 			try { return ( getContext().documentId || 0 ) > 0; } catch ( _e ) { return false; }
 		},
