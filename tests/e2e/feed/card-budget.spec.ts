@@ -61,4 +61,30 @@ test.describe('feed / post-card budget (J-981)', () => {
         expect(m.maxElements, `heaviest card ${m.maxElements} elements (ceiling ${BUDGET.maxElements})`).toBeLessThanOrEqual(BUDGET.maxElements);
         expect(m.inlineIconShapes, 'icons on a hub page are drawn once (sprite), not inline').toBe(0);
     });
+
+    // "Load more" swaps only the feed region. Shapes first used on a later page
+    // must travel with it, or those icons draw blank (card 10369460065).
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+        test(`J-981 every icon still has its shape after two Load more steps (${viewport.width}px)`, async ({ authenticatedPage: page }) => {
+            await page.setViewportSize(viewport);
+            await page.goto(urls.feed);
+            const unresolved = () =>
+                page.evaluate(() => {
+                    const ids = new Set([...document.querySelectorAll('symbol[id]')].map((s) => s.id));
+                    return [...document.querySelectorAll('use')]
+                        .map((u) => u.getAttribute('href') || '')
+                        .filter((h) => h.startsWith('#bn-i-') && !ids.has(h.slice(1)));
+                });
+            expect(await unresolved(), 'first page').toEqual([]);
+
+            for (let step = 1; step <= 2; step++) {
+                const more = page.locator('#bn-load-more .bn-load-more__btn');
+                if (!(await more.count())) break;
+                const before = await page.locator('article.bn-post-card').count();
+                await more.click();
+                await expect.poll(() => page.locator('article.bn-post-card').count()).toBeGreaterThan(before);
+                expect(await unresolved(), `after Load more ${step}`).toEqual([]);
+            }
+        });
+    }
 });

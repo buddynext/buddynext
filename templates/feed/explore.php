@@ -294,6 +294,7 @@ $bn_explore_filters = array(
 			)
 		);
 		?>
+			<?php \BuddyNext\Core\IconService::print_region_sprite(); // Shapes travel with the swapped region. ?>
 		</div><!-- /.bn-feed-region -->
 
 	</div><!-- /.bn-explore-content -->

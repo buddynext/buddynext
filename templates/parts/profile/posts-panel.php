@@ -73,6 +73,7 @@ if ( ! empty( $bn_pl_posts ) ) :
 	}
 	echo '</div>';
 	buddynext_get_template( 'parts/feed-load-more.php', $bn_pl_pager );
+	\BuddyNext\Core\IconService::print_region_sprite(); // Shapes travel with the swapped region.
 	echo '</div>';
 else :
 	// Per-kind empty state.

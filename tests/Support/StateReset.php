@@ -68,6 +68,7 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Core\IconService::class              => array(
 			'sprite_open'       => false,
 			'symbols'           => array(),
+			'printed'           => array(),
 			'rendered'          => array(),
 			'category_icon_map' => null,
 		),

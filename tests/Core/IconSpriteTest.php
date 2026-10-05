@@ -48,6 +48,38 @@ class IconSpriteTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Each router region carries the shapes it uses, so a swapped-in page draws.
+	 *
+	 * "Load more" swaps only the feed region; a sprite printed only in wp_footer
+	 * never reached the page, and icons first used on page two drew blank (card
+	 * 10369460065). A shape already printed in a region is not printed again.
+	 *
+	 * @return void
+	 */
+	public function test_region_sprite_carries_its_shapes_once(): void {
+		IconService::open_sprite();
+		IconService::render( 'bell' );
+
+		ob_start();
+		IconService::print_region_sprite();
+		$this->assertStringContainsString( '<symbol id="bn-i-bell"', (string) ob_get_clean(), 'The region holds the shape its icons point at.' );
+
+		IconService::render( 'bell' );
+		IconService::render( 'heart' );
+		ob_start();
+		IconService::print_sprite();
+		$footer = (string) ob_get_clean();
+		$this->assertStringNotContainsString( 'bn-i-bell', $footer, 'Already on the page: not printed twice.' );
+		$this->assertStringContainsString( '<symbol id="bn-i-heart"', $footer, 'First used after the region: the footer has it.' );
+
+		IconService::open_sprite();
+		IconService::render( 'bell' );
+		ob_start();
+		IconService::print_sprite();
+		$this->assertStringContainsString( '<symbol id="bn-i-bell"', (string) ob_get_clean(), 'A new page starts with nothing printed.' );
+	}
+
+	/**
 	 * buddynext_icon_sprite false keeps icons inline (the site's CSS can reach them).
 	 *
 	 * @return void

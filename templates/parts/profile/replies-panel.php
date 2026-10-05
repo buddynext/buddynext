@@ -57,4 +57,5 @@ buddynext_get_template(
 		array( 'next_label' => __( 'Older replies', 'buddynext' ) )
 	)
 );
+\BuddyNext\Core\IconService::print_region_sprite(); // Shapes travel with the swapped region.
 echo '</div>';

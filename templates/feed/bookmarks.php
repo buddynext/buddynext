@@ -137,6 +137,7 @@ $bn_bm_rest_nonce = wp_create_nonce( 'wp_rest' );
 			</a>
 		</div>
 	<?php endif; ?>
+		<?php \BuddyNext\Core\IconService::print_region_sprite(); // Shapes travel with the swapped region. ?>
 	</div><!-- /.bn-feed-region -->
 
 	<?php

@@ -385,6 +385,13 @@ class IconService {
 	private static array $symbols = array();
 
 	/**
+	 * Shape ids already printed in a region sprite: id => true.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static array $printed = array();
+
+	/**
 	 * Draw each icon once per page.
 	 *
 	 * A feed page repeated the same handful of icons in every card: 180 inline
@@ -419,6 +426,7 @@ class IconService {
 			return;
 		}
 		self::$sprite_open = true;
+		self::$printed     = array();
 		add_action( 'wp_footer', array( self::class, 'print_sprite' ), 1000 );
 	}
 
@@ -429,13 +437,42 @@ class IconService {
 	 */
 	public static function print_sprite(): void {
 		self::$sprite_open = false;
+		self::echo_symbols();
+	}
+
+	/**
+	 * Print the shapes collected so far, inside a router region, and keep going.
+	 *
+	 * The Interactivity router swaps only a region's markup ("Load more", client
+	 * navigation). A sprite in wp_footer sits outside every region, so shapes that
+	 * first appear in a swapped-in page never reached the document and those icons
+	 * drew blank. Called at the end of each router region: whatever region is
+	 * swapped carries the shapes for everything rendered before its end, header
+	 * included. wp_footer then prints only the shapes first used after it.
+	 *
+	 * @since 1.2.4
+	 * @return void
+	 */
+	public static function print_region_sprite(): void {
+		if ( self::$sprite_open ) {
+			self::echo_symbols();
+		}
+	}
+
+	/**
+	 * Echo the collected shapes as one hidden sprite and mark them printed.
+	 *
+	 * @return void
+	 */
+	private static function echo_symbols(): void {
 		if ( ! self::$symbols ) {
 			return;
 		}
 		echo '<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>'
 			. implode( '', self::$symbols ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from wp_kses()-sanitized plugin SVG in to_use().
 			. '</defs></svg>';
-		self::$symbols = array();
+		self::$printed += array_fill_keys( array_keys( self::$symbols ), true );
+		self::$symbols  = array();
 	}
 
 	/**
@@ -451,7 +488,7 @@ class IconService {
 			return $svg;
 		}
 		$id = 'bn-i-' . sanitize_html_class( $name );
-		if ( ! isset( self::$symbols[ $id ] ) ) {
+		if ( ! isset( self::$symbols[ $id ] ) && ! isset( self::$printed[ $id ] ) ) {
 			$view_box             = preg_match( '/\sviewBox="([^"]*)"/i', $m[1], $vb ) ? $vb[1] : '0 0 24 24';
 			self::$symbols[ $id ] = '<symbol id="' . esc_attr( $id ) . '" viewBox="' . esc_attr( $view_box ) . '">' . $m[2] . '</symbol>';
 		}
