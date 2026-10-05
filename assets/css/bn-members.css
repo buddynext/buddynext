@@ -796,6 +796,17 @@
 	flex: 0 1 auto;
 }
 
+/* On a phone each select takes the rest of its row beside its neighbour (the
+   online toggle, the view switch), so both rows end on the same right edge
+   instead of two selects of different natural widths. */
+@media (max-width: 640px) {
+	.bn-md-strip__sort,
+	.bn-md-strip__type {
+		flex: 1 1 0;
+		min-inline-size: 8rem;
+	}
+}
+
 /* "Online only" toggle — a checkbox styled as a pill-height control so the whole
 	LABEL is the tap target (the native checkbox inside it is 16px and is not
 	meant to be aimed at). 40px is the desktop floor; the touch block in

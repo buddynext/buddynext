@@ -3766,7 +3766,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	no JS; progressive enhancement - browsers without scroll() timelines just
 	keep the plain hidden-scrollbar strip. */
 @supports (animation-timeline: scroll()) {
-	.bn-tabs {
+	.bn-tabs,
+	.bn-explore-filters {
 		animation: bn-tabs-edge-fade linear both;
 		animation-timeline: scroll(self inline);
 	}

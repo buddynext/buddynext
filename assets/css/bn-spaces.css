@@ -4022,3 +4022,31 @@ a.bn-sh-statpill:focus-visible {
 		width: 100%;
 	}
 }
+
+/* Phone overrides for the directory strip. Last in the file on purpose: they
+   must win over the equal-specificity base rules above. */
+@media (max-width: 640px) {
+	/* The strip wraps on a phone, so the inline gap that separated the form from
+	   its neighbour became a 16px indent: search started at 28px, chips at 12px. */
+	.bn-sd-stack .bn-filter-strip__form {
+		margin-inline-start: 0;
+	}
+
+	/* One scrolling row on a phone (fade from .bn-tabs) instead of a dozen chips
+	   wrapping into six rows above the first space. 2px block padding keeps the
+	   scroller from shaving the rounded pills, which is why it was visible. */
+	.bn-tabs.bn-sd-chips {
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		overflow-y: hidden;
+		padding-block: 2px;
+		/* A flex child sizes to its content by default; without this the strip
+		   grew to every chip's width and scrolled the whole page sideways. */
+		min-inline-size: 0;
+		max-inline-size: 100%;
+	}
+
+	.bn-tabs.bn-sd-chips .bn-sd-chip {
+		flex: 0 0 auto;
+	}
+}
