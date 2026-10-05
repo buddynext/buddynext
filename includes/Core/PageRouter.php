@@ -4051,7 +4051,15 @@ class PageRouter {
 	 */
 	public static function login_url( ?string $destination = null ): string {
 		if ( null === $destination ) {
-			$destination = is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() ? '' : self::current_url();
+			if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() ) {
+				$destination = '';
+			} elseif ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
+				// On login/signup the page being viewed is the auth screen itself: pass
+				// on where the visitor was going instead, or nothing.
+				$destination = isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only redirect target, validated.
+			} else {
+				$destination = self::current_url();
+			}
 		}
 		$auth = self::auth_url();
 		if ( '' === $auth ) {

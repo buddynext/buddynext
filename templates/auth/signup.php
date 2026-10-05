@@ -20,11 +20,9 @@ defined( 'ABSPATH' ) || exit;
 
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
-// Carry the visitor's destination to "Sign in": the login page never counts
-// signup as a referrer, so without this an existing member lost it.
-$login_url = \BuddyNext\Core\PageRouter::login_url(
-	isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : '' // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-);
+// Carries the visitor's incoming destination on to "Sign in" (login_url() does
+// this on every auth screen).
+$login_url = \BuddyNext\Core\PageRouter::login_url();
 
 /*
  * Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
