@@ -215,6 +215,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'documentId'            => 0,
 				'documentName'          => '',
 				'documentUploading'     => false,
+				'mediaUploading'        => 0,
+				'waitNotice'            => false,
 			)
 		)
 	);
@@ -260,6 +262,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				data-wp-bind--hidden="state.appealHidden"
 				data-wp-bind--href="state.appealUrl"><?php esc_html_e( 'Review your account status', 'buddynext' ); ?></a>
 		</div>
+
+		<p class="bn-composer__notice" role="status" hidden data-wp-bind--hidden="!state.waitNoticeText" data-wp-text="state.waitNoticeText"></p>
 
 		<textarea class="bn-composer__prompt"
 			rows="2"

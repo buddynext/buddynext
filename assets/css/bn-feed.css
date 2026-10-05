@@ -3733,6 +3733,16 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	font-size: var(--bn-text-sm);
 }
 .bn-composer__error[hidden] { display: none; }
+/* "Wait for the upload to finish": information, not an error, so neutral. */
+.bn-composer__notice {
+	margin: 0 0 var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-sunken);
+	border-radius: var(--bn-r-sm);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+.bn-composer__notice[hidden] { display: none; }
 /* flex-basis floor (matching .bn-composer__blocked-text) so the message keeps a
    readable minimum width and the retry link wraps to its own line instead of
    the text shrinking to a one-word column. Plain `flex: 1` only shrinks. */

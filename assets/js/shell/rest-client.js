@@ -160,7 +160,9 @@ function xhrFetch( url, init, onProgress ) {
 					headers.append( line.slice( 0, at ).trim(), line.slice( at + 1 ).trim() );
 				}
 			} );
-			resolve( new Response( xhr.responseText, { status: xhr.status, statusText: xhr.statusText, headers } ) );
+			// 204/205/304 must not carry a body, or the Response constructor throws.
+			const body = [ 204, 205, 304 ].includes( xhr.status ) ? null : xhr.responseText;
+			resolve( new Response( body, { status: xhr.status, statusText: xhr.statusText, headers } ) );
 		};
 		xhr.onerror = () => reject( new TypeError( 'network_error' ) );
 		xhr.onabort = () => reject( new DOMException( 'Aborted', 'AbortError' ) );

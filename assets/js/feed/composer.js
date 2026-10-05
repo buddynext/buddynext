@@ -30,6 +30,18 @@ import { bnClampPopoverToViewport } from '@buddynext/popover';
 // instead of posting without them.
 const _mediaState = { ids: [], previews: [], uploading: 0 };
 
+// Mirror the in-flight count into the composer context (reactive) and drop the
+// "wait for the upload" notice once nothing is left uploading.
+function syncUploading( ctx ) {
+	if ( ! ctx ) {
+		return;
+	}
+	ctx.mediaUploading = _mediaState.uploading;
+	if ( _mediaState.uploading <= 0 && ! ctx.documentUploading ) {
+		ctx.waitNotice = false;
+	}
+}
+
 // A human byte size for the document size-limit message. Integer units are
 // enough here (the ceiling is always a round MB), so no decimals to localise.
 function formatBytes( bytes ) {
@@ -663,6 +675,15 @@ store( 'buddynext/post-composer', {
 		get errorMessage() {
 			try { return getContext().errorMessage || ''; } catch ( _e ) { return ''; }
 		},
+		get waitNoticeText() {
+			try {
+				const ctx = getContext();
+				if ( ! ctx.waitNotice ) { return ''; }
+				return ( ctx.mediaUploading || 0 ) > 0
+					? t( 'mediaStillUploading', 'Wait for the upload to finish, then post.' )
+					: t( 'documentStillUploading', 'Wait for the document to finish uploading.' );
+			} catch ( _e ) { return ''; }
+		},
 		get retryHidden() {
 			// Hide the Retry button when there's no error, OR when the error is
 			// non-retryable (e.g. a 403 — retrying can never succeed).
@@ -747,6 +768,9 @@ store( 'buddynext/post-composer', {
 		 * Separated from openPhoto() to avoid file picker firing on page load.
 		 */
 		pickMedia() {
+			// Captured now, in the action's scope: the native change handler below
+			// runs outside it, where getContext() is not available.
+			const composerCtx = getContext();
 			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
 			const fileInput  = document.querySelector( '.bn-composer__file-input' );
 			if ( ! fileInput || ! composerEl ) {
@@ -808,6 +832,7 @@ store( 'buddynext/post-composer', {
 					// looked like one. The whole batch counts as in flight from here, so Post
 					// waits for the last file (it used to slip through between files).
 					_mediaState.uploading += uploadCount;
+					syncUploading( composerCtx );
 					const jobs = [];
 					for ( let i = 0; i < uploadCount; i++ ) {
 						const file = files[ i ];
@@ -830,6 +855,7 @@ store( 'buddynext/post-composer', {
 						if ( invalid ) {
 							bnToast( invalid, { tone: 'danger' } );
 							_mediaState.uploading--;
+							syncUploading( composerCtx );
 							continue;
 						}
 
@@ -942,6 +968,7 @@ store( 'buddynext/post-composer', {
 						} );
 						} finally {
 							_mediaState.uploading--;
+							syncUploading( composerCtx );
 						}
 
 						if ( out.ok ) {
@@ -1101,6 +1128,7 @@ store( 'buddynext/post-composer', {
 					} finally {
 						ctx.documentUploading = false;
 						docInput.value        = '';
+						syncUploading( ctx );
 					}
 				} ) );
 			}
@@ -1209,11 +1237,13 @@ store( 'buddynext/post-composer', {
 			if ( ctx.submitting ) {
 				return;
 			}
-			// A photo or video still on its way up has no media id yet, so posting
-			// now would publish the post without it (or call a media-only post empty).
-			if ( _mediaState.uploading > 0 ) {
-				ctx.errorMessage   = t( 'mediaStillUploading', 'Wait for the upload to finish, then post.' );
-				ctx.errorRetryable = false;
+			// A photo, video or document still on its way up has no id yet, so
+			// posting now would publish without it (or call the post empty). Say so
+			// as a neutral notice, not an error; it clears itself when the last
+			// upload lands (see clearWaitNotice()).
+			if ( _mediaState.uploading > 0 || ctx.documentUploading ) {
+				ctx.errorMessage = '';
+				ctx.waitNotice   = true;
 				return;
 			}
 			// Allow media-only posts, but an empty composer (no text AND no attached
@@ -1224,12 +1254,6 @@ store( 'buddynext/post-composer', {
 				ctx.errorMessage   = 'poll' === ctx.composerType
 					? t( 'pollNeedsQuestion', 'Add a question for your poll.' )
 					: t( 'composerEmpty', 'Write something to share.' );
-				ctx.errorRetryable = false;
-				return;
-			}
-			// Don't post while a document is still uploading — the id isn't ready.
-			if ( ctx.documentUploading ) {
-				ctx.errorMessage   = t( 'documentStillUploading', 'Wait for the document to finish uploading.' );
 				ctx.errorRetryable = false;
 				return;
 			}
