@@ -111,6 +111,9 @@ $bn_mu_ctx = array(
 
 					<span class="bn-mu-file__status bn-mu-file__status--uploading"
 						data-wp-bind--hidden="!context.item.isUploading"></span>
+					<span class="bn-mu-file__percent" aria-hidden="true"
+						data-wp-bind--hidden="!context.item.isUploading"
+						data-wp-text="context.item.percentText"></span>
 					<span class="bn-mu-file__status bn-mu-file__status--done"
 						data-wp-bind--hidden="!context.item.isDone">&#10003;</span>
 

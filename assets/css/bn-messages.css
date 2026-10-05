@@ -1241,6 +1241,13 @@
 	.bn-dm-composer__attachment-spinner::before { animation: none; }
 }
 
+/* No thumbnail (a video): the spinner takes the thumbnail's slot in the row
+   instead of sitting on top of the file name. */
+.bn-dm-composer__attachment:has( .bn-dm-composer__attachment-thumb:is( :not([src]), [src=""] ) ) .bn-dm-composer__attachment-spinner {
+	position: static;
+	flex: 0 0 auto;
+}
+
 .bn-dm-composer__attachment-thumb {
 	width: 40px;
 	height: 40px;
@@ -1262,6 +1269,19 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* Percent sent while the attachment uploads. */
+.bn-dm-composer__attachment-percent {
+	flex: 0 0 auto;
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	color: var(--bn-ink);
+}
+
+.bn-dm-composer__attachment-percent[hidden] {
+	display: none;
 }
 
 /* ── Bubble media attachment ─────────────────────────────────────────────── */

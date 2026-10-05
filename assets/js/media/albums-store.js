@@ -135,6 +135,7 @@ async function fetchAlbums( ctx ) {
 
 const albumsStore = store( 'buddynext/media-albums', {
 	state: {
+		get pickerPercentText() { return ( getContext().pickerPercent || 0 ) + '%'; },
 		get viewIsMedia()  { return getContext().view !== 'albums'; },
 		get viewIsAlbums() { return getContext().view === 'albums'; },
 		get hasAlbums()    { return !! getContext().hasAlbums; },
@@ -318,9 +319,11 @@ const albumsStore = store( 'buddynext/media-albums', {
 					continue;
 				}
 
+				ctx.pickerPercent = 0;
 				const res = await uploadMedia( file, {
 					nonce:   ctx.restNonce,
 					privacy: mediaPrivacyFor( ctx ),
+					onProgress: ( percent ) => { ctx.pickerPercent = percent; },
 				} );
 				if ( ! res.ok || ! res.mediaId ) {
 					bnToast( res.message || t( 'uploadFailed', 'Could not upload that file.' ), { tone: 'danger' } );

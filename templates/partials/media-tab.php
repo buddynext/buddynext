@@ -59,6 +59,7 @@ $bn_mt_ctx = array(
 	// True while an in-picker upload is in flight — disables the file input and shows
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
 	'pickerUploading'    => false,
+	'pickerPercent'      => 0,
 	// The album picker uploads as the viewer, against the same ceiling as every
 	// other media upload. See WPMediaVerseBridge::media_max_bytes().
 	'maxSizeMB'          => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
@@ -304,6 +305,7 @@ $bn_mt_ctx = array(
 					<span class="bn-album-picker__uploading" data-wp-class--is-hidden="!context.pickerUploading">
 						<span class="bn-album-picker__spinner" aria-hidden="true"></span>
 						<?php esc_html_e( 'Uploading…', 'buddynext' ); ?>
+						<span class="bn-album-picker__percent" aria-hidden="true" data-wp-text="state.pickerPercentText"></span>
 					</span>
 				</div>
 				<p class="bn-album-picker__hint"><?php esc_html_e( 'Tap media to select, or upload something new.', 'buddynext' ); ?></p>

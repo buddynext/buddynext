@@ -1133,6 +1133,9 @@ class AssetService {
 					'documentServerFault'       => __( 'Something went wrong on our side and the document was not saved. Nothing you did caused this.', 'buddynext' ),
 					'documentUploadFailed'      => __( 'That document could not be uploaded.', 'buddynext' ),
 					'documentStillUploading'    => __( 'Wait for the document to finish uploading.', 'buddynext' ),
+					'mediaStillUploading'       => __( 'Wait for the upload to finish, then post.', 'buddynext' ),
+					/* translators: %s: file name. */
+					'uploadingFile'             => __( 'Uploading %s', 'buddynext' ),
 					'repost'                    => __( 'Repost', 'buddynext' ),
 					'reposting'                 => __( 'Reposting…', 'buddynext' ),
 					'reposted'                  => __( 'Reposted', 'buddynext' ),

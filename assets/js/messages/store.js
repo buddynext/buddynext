@@ -760,6 +760,7 @@ const messagesStore = store( 'buddynext/messages', {
 	state: {
 		// ── Compose modal (DM ↔ group) ────────────────────────────────────────
 		get composeIsGroup() { return getContext().composeMode === 'group'; },
+		get attachmentPercentText() { return ( getContext().attachmentPercent || 0 ) + '%'; },
 		get composeIsDm() { return getContext().composeMode !== 'group'; },
 		get composeTitle() {
 			return getContext().composeMode === 'group'
@@ -1591,6 +1592,7 @@ const messagesStore = store( 'buddynext/messages', {
 			// the attachment. Cleared on both terminal paths below (and by
 			// clearAttachment on the early failure return).
 			ctx.attachmentUploading = true;
+			ctx.attachmentPercent   = 0;
 
 			const fd = new FormData();
 			fd.append( 'file', file );
@@ -1614,6 +1616,9 @@ const messagesStore = store( 'buddynext/messages', {
 					method: 'POST',
 					body: fd,
 					toastOnError: false,
+					onUploadProgress: ( loaded, total ) => {
+						ctx.attachmentPercent = total ? Math.min( 100, Math.round( ( loaded / total ) * 100 ) ) : 0;
+					},
 				} );
 				if ( ! res.ok ) {
 					failAttachment( res.data && res.data.message );

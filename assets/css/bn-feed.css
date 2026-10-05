@@ -3343,6 +3343,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
  * keyframes from bn-base.css.
  */
 .bn-composer__media-thumb.is-uploading img { opacity: 0.5; }
+/* No play badge until the video has landed: under the spinner it read as clutter. */
+.bn-composer__media-thumb--video.is-uploading::after { display: none; }
 .bn-composer__media-spinner {
 	position: absolute;
 	inset: 0;
@@ -3356,6 +3358,22 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 @media (prefers-reduced-motion: reduce) {
 	.bn-composer__media-spinner { animation: none; }
+}
+/* Percent sent, under the spinner: a large video takes a while. */
+.bn-composer__media-progress {
+	position: absolute;
+	inset-inline: 0;
+	bottom: 4px;
+	margin-inline: auto;
+	width: fit-content;
+	padding: 0 6px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	line-height: 1.4;
+	font-variant-numeric: tabular-nums;
 }
 .bn-composer__media-remove {
 	position: absolute;

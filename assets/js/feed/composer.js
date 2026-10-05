@@ -26,7 +26,9 @@ import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 // Module-level media state — shared between native event handler and store actions.
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
-const _mediaState = { ids: [], previews: [] };
+// `uploading` counts files still on their way up, so Post can wait for them
+// instead of posting without them.
+const _mediaState = { ids: [], previews: [], uploading: 0 };
 
 // A human byte size for the document size-limit message. Integer units are
 // enough here (the ceiling is always a round MB), so no decimals to localise.
@@ -872,13 +874,33 @@ store( 'buddynext/post-composer', {
 							thumbRemove.textContent = '×';
 							// No removing until the upload lands and has a real media id.
 							thumbRemove.hidden = true;
+							// How much of the file has been sent. A large video takes a
+							// while; a bare spinner made members think nothing was happening.
+							const progress = document.createElement( 'span' );
+							progress.className = 'bn-composer__media-progress';
+							progress.setAttribute( 'role', 'progressbar' );
+							progress.setAttribute( 'aria-label', fmt( t( 'uploadingFile', 'Uploading %s' ), file.name || '' ) );
+							progress.setAttribute( 'aria-valuemin', '0' );
+							progress.setAttribute( 'aria-valuemax', '100' );
+							progress.setAttribute( 'aria-valuenow', '0' );
+							progress.textContent = '0%';
 							// The poster/icon is already appended above; add the overlays.
-							thumb.append( spinner, thumbRemove );
+							thumb.append( spinner, progress, thumbRemove );
 							previewArea.appendChild( thumb );
 						}
 
-						const out = await uploadMedia( file, {
+						const progressEl = thumb ? thumb.querySelector( '.bn-composer__media-progress' ) : null;
+						_mediaState.uploading++;
+						let out;
+						try {
+						out = await uploadMedia( file, {
 							nonce,
+							onProgress: ( percent ) => {
+								if ( progressEl ) {
+									progressEl.textContent = percent + '%';
+									progressEl.setAttribute( 'aria-valuenow', String( percent ) );
+								}
+							},
 							// Stage every composer upload PRIVATE, whatever the privacy
 							// picker currently says. The file lands before the member has
 							// finished choosing an audience — and may never be posted at
@@ -901,6 +923,9 @@ store( 'buddynext/post-composer', {
 							// here is a ReferenceError that aborts the whole upload.
 							spaceId: parseInt( ctxData.spaceId, 10 ) || 0,
 						} );
+						} finally {
+							_mediaState.uploading--;
+						}
 
 						if ( out.ok ) {
 							const mediaId = out.mediaId;
@@ -916,6 +941,7 @@ store( 'buddynext/post-composer', {
 								thumb.dataset.mediaId = mediaId;
 								const spin = thumb.querySelector( '.bn-composer__media-spinner' );
 								if ( spin ) { spin.remove(); }
+								if ( progressEl ) { progressEl.remove(); }
 								// If we showed a kind icon (no client frame - audio, or a
 								// video whose frame we could not grab) but the engine
 								// produced a real poster, upgrade the tile to that image.
@@ -1164,6 +1190,13 @@ store( 'buddynext/post-composer', {
 			const content = ( ctx.content || '' ).trim();
 			// Already submitting: swallow the repeat click, no message.
 			if ( ctx.submitting ) {
+				return;
+			}
+			// A photo or video still on its way up has no media id yet, so posting
+			// now would publish the post without it (or call a media-only post empty).
+			if ( _mediaState.uploading > 0 ) {
+				ctx.errorMessage   = t( 'mediaStillUploading', 'Wait for the upload to finish, then post.' );
+				ctx.errorRetryable = false;
 				return;
 			}
 			// Allow media-only posts, but an empty composer (no text AND no attached

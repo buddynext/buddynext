@@ -203,7 +203,7 @@ function dataUrlToBlob( dataUrl ) {
  * Always posts as the current member's own media; owner-gated server-side.
  *
  * @param {File}   file File to upload.
- * @param {Object} opts { nonce, privacy, title, spaceId }.
+ * @param {Object} opts { nonce, privacy, title, spaceId, onProgress( percent ) }.
  * @return {Promise<Object>} { ok, mediaId, thumb, url, type, duplicate, status, message }.
  */
 export async function uploadMedia( file, opts = {} ) {
@@ -246,6 +246,10 @@ export async function uploadMedia( file, opts = {} ) {
 			nonce:        opts.nonce,
 			body:         fd,
 			toastOnError: false,
+			// Whole-number percent of the file sent, for an upload indicator.
+			onUploadProgress: 'function' === typeof opts.onProgress
+				? ( loaded, total ) => opts.onProgress( Math.min( 100, Math.round( ( loaded / total ) * 100 ) ) )
+				: undefined,
 		} );
 	} catch ( e ) {
 		return { ok: false, status: 0, message: '' };
