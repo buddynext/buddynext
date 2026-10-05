@@ -1183,16 +1183,17 @@ const profileStore = store( 'buddynext/profile', {
 			// Add Entry can still build a row after the member empties a group.
 			snapshotRepeaterSeeds();
 			// Honour a #avatar / #cover deep-link (the view-hero "Edit avatar" /
-			// "Edit cover" links land here) by opening the matching file picker, so
-			// the anchor isn't a dead scroll-to-nothing. A short defer lets the
-			// Interactivity store finish binding the inputs first.
+			// "Edit cover" links land here) by bringing the matching "Change"
+			// button into view and focusing it. Opening the file picker itself is
+			// not possible here: browsers ignore a file-input click() that no
+			// member click started, which is why the old auto-click did nothing.
 			var bnHash = ( window.location.hash || '' ).toLowerCase();
 			if ( '#avatar' === bnHash || '#cover' === bnHash ) {
-				var bnPickerId = '#avatar' === bnHash ? 'bn-ep-avatar-file' : 'bn-ep-cover-file';
-				setTimeout( function () {
-					var el = document.getElementById( bnPickerId );
-					if ( el ) { el.click(); }
-				}, 200 );
+				var bnBtn = document.querySelector( '#avatar' === bnHash ? '.bn-ep-avatar-btn' : '.bn-ep-cover-btn' );
+				if ( bnBtn ) {
+					bnBtn.scrollIntoView( { block: 'center' } );
+					bnBtn.focus( { preventScroll: true, focusVisible: true } );
+				}
 			}
 		},
 	},
