@@ -250,7 +250,17 @@ class AssetService {
 
 		// Shared taxonomy editor (Member Types tab + Spaces > Categories subtab).
 		// Both surfaces render templates/parts/taxonomy-editor.php, so the editor
-		// CSS + live-preview JS load on either page.
+		// CSS + live-preview JS load on either page. The script is registered on
+		// every BuddyNext screen so another editor form (Pro's member labels) can
+		// enqueue the handle for its [data-bn-tax-editor] form instead of copying it.
+		wp_register_script(
+			'bn-admin-taxonomy',
+			$this->assets_url . 'js/admin/taxonomy-editor.js',
+			array( 'wp-i18n' ),
+			self::VERSION,
+			true
+		);
+		wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 		if ( false !== strpos( $hook_suffix, 'buddynext-members' )
 			|| false !== strpos( $hook_suffix, 'buddynext-spaces' ) ) {
 			wp_enqueue_style(
@@ -259,14 +269,7 @@ class AssetService {
 				array( 'bn-admin' ),
 				self::VERSION
 			);
-			wp_enqueue_script(
-				'bn-admin-taxonomy',
-				$this->assets_url . 'js/admin/taxonomy-editor.js',
-				array( 'wp-i18n' ),
-				self::VERSION,
-				true
-			);
-			wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+			wp_enqueue_script( 'bn-admin-taxonomy' );
 		}
 
 		// Shared media-library picker for single-image fields
