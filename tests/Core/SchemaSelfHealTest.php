@@ -30,6 +30,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Core;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Tests\Support\RemovesCommittedRows;
 
 /**
  * maybe_upgrade() must verify the schema, not just the version number.
@@ -37,6 +38,8 @@ use BuddyNext\Core\Installer;
  * @covers \BuddyNext\Core\Installer::maybe_upgrade
  */
 class SchemaSelfHealTest extends \WP_UnitTestCase {
+
+	use RemovesCommittedRows;
 
 	/**
 	 * Table used as the canary. Any owned table would do.
@@ -53,6 +56,7 @@ class SchemaSelfHealTest extends \WP_UnitTestCase {
 	protected function setUp(): void {
 		global $wpdb;
 		parent::setUp();
+		$this->note_committed_rows(); // The real DDL below commits; undo what it keeps.
 
 		$this->table = $wpdb->prefix . 'bn_posts';
 		Installer::flush_schema_check();
@@ -72,6 +76,7 @@ class SchemaSelfHealTest extends \WP_UnitTestCase {
 
 		Installer::flush_schema_check();
 		parent::tearDown();
+		$this->remove_committed_rows();
 	}
 
 	/**

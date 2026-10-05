@@ -19,6 +19,7 @@
        new static appears that is neither reset nor declared persistent. -->
   <extensions>
     <extension class="BuddyNext\Tests\Support\StateReset"/>
+    <extension class="BuddyNext\Tests\Support\LeakGuard"/>
   </extensions>
 
   <testsuites>
@@ -42,5 +43,10 @@
       contributor with a different layout is unaffected.
     -->
     <env name="WP_TESTS_DIR" value="/tmp/wordpress-tests-lib"/>
+    <!--
+      tests/Support/LeakGuard.php: a test that leaves committed rows behind fails the
+      run (card 10369216907). Set BN_LEAK_GUARD=report in the shell to only print.
+    -->
+    <env name="BN_LEAK_GUARD" value="strict"/>
   </php>
 </phpunit>

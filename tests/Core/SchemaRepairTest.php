@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Core;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Tests\Support\RemovesCommittedRows;
 
 /**
  * An interrupted update or a partial restore can leave a BuddyNext table without
@@ -22,6 +23,28 @@ use BuddyNext\Core\Installer;
  * @covers \BuddyNext\Core\Installer::missing_columns
  */
 class SchemaRepairTest extends \WP_UnitTestCase {
+
+	use RemovesCommittedRows;
+
+	/**
+	 * The ALTER below commits; note where every table stands first.
+	 *
+	 * @return void
+	 */
+	public function set_up(): void {
+		parent::set_up();
+		$this->note_committed_rows();
+	}
+
+	/**
+	 * Remove what the ALTER committed, after the rollback.
+	 *
+	 * @return void
+	 */
+	public function tear_down(): void {
+		parent::tear_down();
+		$this->remove_committed_rows();
+	}
 
 	/**
 	 * A dropped column is reported, then restored by the repair.

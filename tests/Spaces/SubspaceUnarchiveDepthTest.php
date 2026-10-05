@@ -51,10 +51,11 @@ class SubspaceUnarchiveDepthTest extends WP_UnitTestCase {
 		Installer::install_schema();
 
 		global $wpdb;
-		// bn_* tables carry no ENGINE clause, so they survive the test rollback and
-		// leak rows between tests. Start clean.
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-		$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}bn_spaces" );
+		// Start clean. DELETE, not TRUNCATE: TRUNCATE commits implicitly, which
+		// committed whatever the test had written so far and wiped other tests'
+		// rows outside the rollback (card 10369216907). DELETE is rolled back.
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_spaces" );
 
 		$this->spaces = new SpaceService();
 		$this->actor  = (int) self::factory()->user->create( array( 'role' => 'administrator' ) );
