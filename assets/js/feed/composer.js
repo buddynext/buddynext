@@ -778,7 +778,9 @@ store( 'buddynext/post-composer', {
 						return;
 					}
 
-					const remaining = MAX_MEDIA - _mediaState.ids.length;
+					// Files still uploading count toward the limit too, or picking again
+					// mid-upload could attach more than MAX_MEDIA.
+					const remaining = MAX_MEDIA - _mediaState.ids.length - _mediaState.uploading;
 					if ( remaining <= 0 ) {
 						bnToast( fmt( t( 'maxImagesPerPost', 'You can attach at most %d images per post.' ), MAX_MEDIA ), { tone: 'info' } );
 						return;
@@ -799,6 +801,14 @@ store( 'buddynext/post-composer', {
 					}
 
 					const uploadCount = Math.min( files.length, remaining );
+
+					// Two passes. First every chosen file gets its tile at once ("Waiting"),
+					// then they upload one at a time. Building and uploading each file in
+					// turn showed only the first tile while it uploaded, so three videos
+					// looked like one. The whole batch counts as in flight from here, so Post
+					// waits for the last file (it used to slip through between files).
+					_mediaState.uploading += uploadCount;
+					const jobs = [];
 					for ( let i = 0; i < uploadCount; i++ ) {
 						const file = files[ i ];
 
@@ -819,6 +829,7 @@ store( 'buddynext/post-composer', {
 						} );
 						if ( invalid ) {
 							bnToast( invalid, { tone: 'danger' } );
+							_mediaState.uploading--;
 							continue;
 						}
 
@@ -868,6 +879,7 @@ store( 'buddynext/post-composer', {
 							const spinner = document.createElement( 'span' );
 							spinner.className = 'bn-composer__media-spinner';
 							spinner.setAttribute( 'aria-hidden', 'true' );
+							spinner.hidden = true; // Shown when this file's upload starts.
 							thumbRemove = document.createElement( 'button' );
 							thumbRemove.className = 'bn-composer__media-remove';
 							thumbRemove.type = 'button';
@@ -883,14 +895,19 @@ store( 'buddynext/post-composer', {
 							progress.setAttribute( 'aria-valuemin', '0' );
 							progress.setAttribute( 'aria-valuemax', '100' );
 							progress.setAttribute( 'aria-valuenow', '0' );
-							progress.textContent = '0%';
+							progress.textContent = t( 'uploadWaiting', 'Waiting' );
 							// The poster/icon is already appended above; add the overlays.
 							thumb.append( spinner, progress, thumbRemove );
 							previewArea.appendChild( thumb );
 						}
+						jobs.push( { file, kind, thumbUrl, thumb, thumbRemove, thumbImg } );
+					}
 
+					for ( const { file, kind, thumbUrl, thumb, thumbRemove, thumbImg } of jobs ) {
 						const progressEl = thumb ? thumb.querySelector( '.bn-composer__media-progress' ) : null;
-						_mediaState.uploading++;
+						if ( progressEl ) { progressEl.textContent = '0%'; }
+						const spinnerEl = thumb ? thumb.querySelector( '.bn-composer__media-spinner' ) : null;
+						if ( spinnerEl ) { spinnerEl.hidden = false; }
 						let out;
 						try {
 						out = await uploadMedia( file, {

@@ -135,7 +135,14 @@ async function fetchAlbums( ctx ) {
 
 const albumsStore = store( 'buddynext/media-albums', {
 	state: {
-		get pickerPercentText() { return ( getContext().pickerPercent || 0 ) + '%'; },
+		get pickerPercentText() {
+			const c   = getContext();
+			const pct = ( c.pickerPercent || 0 ) + '%';
+			// With several files, say which one: "42% · File 2 of 3".
+			return c.pickerTotal > 1
+				? pct + ' · ' + t( 'uploadingFileOf', 'File %1$d of %2$d' ).replace( '%1$d', c.pickerIndex ).replace( '%2$d', c.pickerTotal )
+				: pct;
+		},
 		get viewIsMedia()  { return getContext().view !== 'albums'; },
 		get viewIsAlbums() { return getContext().view === 'albums'; },
 		get hasAlbums()    { return !! getContext().hasAlbums; },
@@ -308,7 +315,10 @@ const albumsStore = store( 'buddynext/media-albums', {
 
 			const uploaded = [];
 
+			ctx.pickerTotal = files.length;
+			ctx.pickerIndex = 0;
 			for ( const file of files ) {
+				ctx.pickerIndex++;
 				const invalid = validateMedia( file, {
 					maxSizeMB:   ctx.maxSizeMB,
 					badTypeMsg:  t( 'badType', 'Only images, video and audio can be uploaded.' ),

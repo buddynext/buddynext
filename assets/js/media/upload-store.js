@@ -72,7 +72,9 @@ function syncStaged( ctx ) {
 		thumbLoading: ( s.kind === 'image' || s.kind === 'video' ) && ! s.preview,
 		isQueued:     s.status === 'queued',
 		isUploading:  s.status === 'uploading',
-		percentText:  s.status === 'uploading' ? ( s.percent || 0 ) + '%' : '',
+		// A queued file in a running batch says it is next, like the composer.
+		percentText:  s.status === 'uploading' ? ( s.percent || 0 ) + '%' : ( s.status === 'queued' && ctx.uploading ? ( ctx.t.waiting || 'Waiting' ) : '' ),
+		showPercent:  s.status === 'uploading' || ( s.status === 'queued' && !! ctx.uploading ),
 		isDone:       s.status === 'done',
 		isError:      s.status === 'error',
 	} ) );
@@ -192,6 +194,7 @@ const mediaStore = store( 'buddynext/media', {
 
 			ctx.uploading = true;
 			ctx.errorMsg = '';
+			syncStaged( ctx ); // Queued tiles now read "Waiting".
 			let okCount = 0;
 			let dupCount = 0;
 

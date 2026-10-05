@@ -60,6 +60,8 @@ $bn_mt_ctx = array(
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
 	'pickerUploading'    => false,
 	'pickerPercent'      => 0,
+	'pickerIndex'        => 0,
+	'pickerTotal'        => 0,
 	// The album picker uploads as the viewer, against the same ceiling as every
 	// other media upload. See WPMediaVerseBridge::media_max_bytes().
 	'maxSizeMB'          => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),

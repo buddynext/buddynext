@@ -1134,6 +1134,7 @@ class AssetService {
 					'documentUploadFailed'      => __( 'That document could not be uploaded.', 'buddynext' ),
 					'documentStillUploading'    => __( 'Wait for the document to finish uploading.', 'buddynext' ),
 					'mediaStillUploading'       => __( 'Wait for the upload to finish, then post.', 'buddynext' ),
+					'uploadWaiting'             => __( 'Waiting', 'buddynext' ),
 					/* translators: %s: file name. */
 					'uploadingFile'             => __( 'Uploading %s', 'buddynext' ),
 					'repost'                    => __( 'Repost', 'buddynext' ),
@@ -1585,6 +1586,8 @@ class AssetService {
 					'coverSet'                => __( 'Cover updated', 'buddynext' ),
 					'coverFailed'             => __( 'Could not set the cover.', 'buddynext' ),
 					'uploadFailed'            => __( 'Could not upload that file.', 'buddynext' ),
+					/* translators: 1: file number, 2: files being uploaded. */
+					'uploadingFileOf'         => __( 'File %1$d of %2$d', 'buddynext' ),
 					'uploadedOne'             => __( 'Uploaded and selected. Choose Add to put it in the album.', 'buddynext' ),
 					'uploadedMany'            => __( 'Uploaded and selected. Choose Add to put them in the album.', 'buddynext' ),
 					'uploadedSharedOne'       => __( 'Uploaded and shared to your feed. Choose Add to also put it in the album.', 'buddynext' ),
