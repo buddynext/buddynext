@@ -136,9 +136,9 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
         const panel = page.locator('.bn-my-membership');
         await expect(panel, 'the membership panel should render').toBeVisible();
 
-        // The plan's name sits BESIDE its switch form (siblings inside one
-        // change-item <li>), not inside it - scope to the item, then the form.
-        const changeItem = panel.locator('.bn-my-membership__change-item', { hasText: tierB.name });
+        // Each option is the pricing page's plan card with this screen's switch
+        // form as its action - scope to Plan B's card, then the form.
+        const changeItem = panel.locator('.bn-my-membership__change-grid .bn-plan-card', { hasText: tierB.name });
         const switchForm = changeItem.locator('form.bn-my-membership__change-form');
         await expect(switchForm.first(), 'a switch option to Plan B should be offered').toBeVisible({
             timeout: 10_000,
@@ -151,7 +151,7 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
         expect(confirmText).toContain(tierB.name);
         expect(confirmText).toMatch(/day/i);
 
-        await switchForm.first().getByRole('button', { name: /^switch$/i }).click();
+        await switchForm.first().getByRole('button', { name: /^switch to/i }).click();
 
         // `[data-bn-confirm-ok]` is the trigger FORM's own config attribute
         // (its value is the button label, e.g. "Move") - it is not the

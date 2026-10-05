@@ -42,6 +42,7 @@ Because it runs on both, the filter is passed a final `$context` argument - `'cr
 | `buddynext_client_ip` | filter | The safeguard service resolves the request IP for the blocked-IP check | `string $ip` |
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
 | `buddynext_moderation_auto_actions` | filter | A report has just been inserted, deciding which automated actions to apply (Free returns empty; Pro stacks actions here) | `array $actions, array $report` |
+| `buddynext_suspension_reasons` | filter | Building the reason list moderators pick from when suspending a member. Keep `other`: it is the free-text fallback and requires a note. Since 1.2.4. | `array $reasons` (code => member-facing label) |
 
 > **Note:** `$result` is `true` when every built-in check passed. To block content, return a `WP_Error`. To allow it, return `$result` unchanged. Returning a non-`WP_Error`, non-`true` value is treated as allow. The `pending_review` error code is intentionally non-fatal upstream - callers save the post with a pending status rather than discarding it - so reserve `WP_Error` returns from your filter for content you genuinely want rejected.
 
@@ -180,6 +181,7 @@ The Community Admin moderation queue and the member-facing report modal expose t
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_private_community_can_access` | filter | Deciding whether the current visitor may access the community, while Private Community mode is on (Settings → Privacy & Data → Private Community) - gates both the hub-page redirect and the REST 401 response | `bool $can_access` (default: `is_user_logged_in()`) |
+| `buddynext_private_community_public_hub` | filter | On a private community, deciding whether guests may open a hub. Default: only the auth hub, so a guest can sign in. An add-on's sales page (Pro's membership pricing) opts in here. Since 1.2.4. | `bool $public, string $hub` |
 
 `PrivateCommunity::can_access()` is the single access seam for membership plugins. By default it grants access to any logged-in visitor. A membership plugin (Paid Memberships Pro, WP Fusion, MemberPress) filters this to decide on its own terms - for example, requiring an active plan or a required tag, not just a login. Return `false` to send a visitor to the login (or upgrade) page like a guest; return `true` to grant access. The filter only runs when Private Community mode is enabled - it has no effect while the community is public.
 

@@ -97,7 +97,7 @@ class RedirectSettings {
 			return '';
 		}
 		if ( ! preg_match( '#^[a-z][a-z0-9+.-]*://#i', $raw ) ) {
-			$raw = home_url( '/' . ltrim( $raw, '/' ) );
+			$raw = home_url( '/' . ltrim( $raw, '/' ) ); // bn-route-ok: absolutises a path the site owner typed, not a BuddyNext route.
 		}
 		return esc_url_raw( $raw );
 	}

@@ -133,6 +133,7 @@ The email channel is driven by `EmailSender`. Event emails render from a `bn_ema
 | `buddynext_queue_email_digest` | action | A notification is routed to a digest queue instead of an immediate send | `int $user_id, string $notification_type, array $data` |
 | `buddynext_send_notification_email` | action | Action Scheduler callback to send a notification email asynchronously | `int $user_id, string $notification_type, array $data` |
 | `buddynext_email_template_catalogue` | filter | Building the list of templates on Settings -> Notifications -> Email Templates | `array $catalogue` |
+| `buddynext_email_test_placeholders` | filter | An owner sends a test of an email template. Supply sample values for the tokens your own templates use, or the test shows them as raw `{{braces}}`. Since 1.2.4. | `array $placeholders, string $slug` |
 | `buddynext_logs_purged` | action | A retention purge finishes, so a site can log or monitor what was removed | `array{notifications:int,email_log:int} $deleted, int $window` |
 | `buddynext_email_failure_alert_threshold` | filter | The Email Log admin banner decides whether to warn about delivery. It shows once failed sends in the last 24 hours reach this number. Default `5`; return `0` to never show it (1.2.0) | `int $threshold` |
 

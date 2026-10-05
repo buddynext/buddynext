@@ -145,6 +145,8 @@ The admin hub owns the BuddyNext top-level menu and arranges every settings tab 
 | `buddynext_explore_aside_pulse` | action | Fires at the top of the Explore sidebar, for a live community-pulse card | `int $uid` |
 | `buddynext_nav_icon_choices` | filter | The icon slugs offered by the nav-item picker. Any slug in `assets/icons/` works whether or not it is listed here; this only shapes the picker | (none) |
 | `buddynext_object_cache_warn_threshold` | filter | The member count above which a missing persistent object cache is worth warning the owner about | `int $threshold` |
+| `buddynext_feature_labels` | filter | Feature labels and descriptions are read for the Settings screen, after init. An add-on that adds features through `buddynext_features` supplies its translated strings here (the catalog itself is read too early to translate). Since 1.2.4. | `array $labels` (feature slug => `label`, `description`) |
+| `buddynext_theme_container_width` | filter | BuddyNext resolves the width for the "Theme default" container setting. Classic themes that keep their width in a theme setting rather than theme.json return it here; 0 falls back to 1200. Since 1.2.4. | `int $px` |
 | `buddynext_integration_search_enabled` | action | An integration's search indexing is switched ON. The integration's own bridge listens for its key and backfills | `string $key` |
 | `buddynext_integration_search_disabled` | action | An integration's search indexing is switched OFF, so its bridge can clear what it indexed | `string $key` |
 

@@ -49,7 +49,7 @@ for icon in "$DIR"/*.svg; do
 	# whatever size CSS gives it, so redrawing it on a 24 grid would risk
 	# distorting an official mark for no rendering benefit.
 	case "$name" in
-		apple.svg | discord.svg | facebook.svg | github.svg | google.svg) is_brand=1 ;;
+		apple.svg | brand-x.svg | discord.svg | facebook.svg | github.svg | google.svg | linkedin.svg | whatsapp.svg) is_brand=1 ;;
 		*) is_brand=0 ;;
 	esac
 

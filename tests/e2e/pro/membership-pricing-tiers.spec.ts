@@ -83,13 +83,13 @@ test.describe('pro / pricing page lists real plans', () => {
             const card = page.locator(`#bnpro-plan-${tierId}`);
             await expect(card, 'the seeded paid plan should render as a card').toBeVisible({ timeout: 10_000 });
             await expect(card).toContainText(tierName);
-            await expect(card.locator('.bn-membership-pricing__price')).toContainText('9');
+            await expect(card.locator('.bn-plan-card__price')).toContainText('9');
 
             // A member should be offered a real way to buy it, not a dead end -
             // either a live buy button/form, or an honest "no gateway" notice, but
             // never neither (which would read as the page being broken).
-            const buyForm = card.locator('.bn-membership-pricing__form');
-            const noGateway = card.locator('.bn-membership-pricing__unavailable');
+            const buyForm = card.locator('a.bn-plan-card__buy');
+            const noGateway = card.locator('.bn-plan-card__buy[aria-disabled="true"]');
             expect(
                 (await buyForm.count()) + (await noGateway.count()),
                 'the plan card must offer a buy action or explain why it cannot'
