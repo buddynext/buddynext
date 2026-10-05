@@ -46,4 +46,18 @@ class IconSpriteTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( '<path', IconService::render( 'bell' ), 'After the sprite is printed, icons are inline again.' );
 		$this->assertSame( '', IconService::render( '' ), 'No icon is still no icon.' );
 	}
+
+	/**
+	 * buddynext_icon_sprite false keeps icons inline (the site's CSS can reach them).
+	 *
+	 * @return void
+	 */
+	public function test_filter_keeps_icons_inline(): void {
+		add_filter( 'buddynext_icon_sprite', '__return_false' );
+		IconService::open_sprite();
+		$this->assertStringContainsString( '<path', IconService::render( 'bell' ) );
+		ob_start();
+		IconService::print_sprite();
+		$this->assertSame( '', (string) ob_get_clean(), 'Nothing to print.' );
+	}
 }

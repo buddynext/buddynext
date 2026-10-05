@@ -394,7 +394,18 @@ class IconService {
 	 * @return void
 	 */
 	public static function open_sprite(): void {
-		if ( self::$sprite_open ) {
+		/**
+		 * Whether hub pages draw icons once, in a page sprite.
+		 *
+		 * The escape hatch for a site whose own CSS styles the inside of BuddyNext
+		 * icons (`.bn-icon path { ... }`): such selectors cannot reach a shape drawn
+		 * through <use>. Return false to keep every icon inline, as before 1.2.4.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param bool $sprite Default true.
+		 */
+		if ( self::$sprite_open || ! apply_filters( 'buddynext_icon_sprite', true ) ) {
 			return;
 		}
 		self::$sprite_open = true;

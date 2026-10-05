@@ -39,6 +39,16 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 
 > **Note:** The old `buddynext_profile_extra_data` filter that injected extra stat blocks into the profile header has been removed. Profile and space tabs are now registered through the unified Nav API - hook `buddynext_register_nav` to add a profile tab. See the integration registry (`buddynext_integrations`) for owner-toggle wiring.
 
+## Profile tab pagination
+
+A page past the end of a list answers 404 with BuddyNext's own "This page doesn't exist any more" view.
+On a profile only the Articles tab pages; BuddyNext's other tabs are single pages, so `/page/N/` on them
+is a 404. A tab your plugin adds is left alone unless it answers this filter.
+
+| Hook | Type | Fires when | Args |
+|------|------|------------|------|
+| `buddynext_profile_tab_past_last_page` | filter | `/members/{slug}/{tab}/page/N/` is requested for a tab BuddyNext does not own | `bool\|null $past, string $tab, int $user_id, int $page` - return `true` for 404, `false` to render, `null` (default) to leave it to the tab |
+
 ## Profile field type and rendering filters
 
 These extend the profile field system. The default field types and labels are resolved through manager methods, never from a raw constant, so a filter is the supported way to add a type.

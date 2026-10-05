@@ -211,6 +211,21 @@ add_filter( 'buddynext_part_filter_strip_tabs', function ( array $tabs, array $a
 
 The same `_args` / `_classes` / `_before` / `_after` pattern applies to every part, so a theme or bridge never needs to ship a forked hub template. Free ships no `docs/specs/TEMPLATE-PARTS.md`; the code is the contract - each part documents its `$args` and the hooks it fires in its own PHP file header under `templates/parts/`.
 
+## Icons on community pages
+
+On BuddyNext's community pages each icon is drawn once: `IconService::render()` returns the usual
+`<svg class="bn-icon bn-icon--{slug}">` holding a `<use href="#bn-i-{slug}">`, and the shapes are
+printed once in a hidden sprite at the end of the page. Size, colour and stroke still come from the
+outer `<svg>`, so `.bn-icon { color: ... }` and size rules work as before. Elsewhere (REST responses,
+wp-admin, emails, blocks on other pages) icons stay inline.
+
+CSS that styles the inside of an icon (`.bn-icon path { fill: ... }`) cannot reach a shape drawn
+through `<use>`. If your theme does that, keep icons inline:
+
+```php
+add_filter( 'buddynext_icon_sprite', '__return_false' );
+```
+
 ## Notes / gotchas
 
 - **Icons are SVG, never emoji or icon fonts.** Use `buddynext_icon( 'slug' )` in templates; the slugs are Lucide-style SVGs in `assets/icons/`. Custom icons follow the same `stroke="currentColor"`, `viewBox="0 0 24 24"`, no width/height shape.
