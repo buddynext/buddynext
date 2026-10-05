@@ -294,6 +294,28 @@ body.bn-lightbox-open { overflow: hidden; }
 	width: 100%;
 	height: 100%;
 }
+
+/* A video the browser could not play: a plain message and a download link in
+   the stage, instead of a blank player. The stage is dark in both themes. */
+.bn-lightbox__media-error {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var( --bn-s3 );
+	max-inline-size: 22rem;
+	padding: var( --bn-s6 ) var( --bn-s5 );
+	text-align: center;
+	color: oklch( 96% 0 0 );
+}
+.bn-lightbox__media-error-icon {
+	inline-size: 2rem;
+	block-size: 2rem;
+	opacity: 0.8;
+}
+.bn-lightbox__media-error-text {
+	margin: 0;
+	font-size: var( --bn-text-md, 1rem );
+}
 .bn-lightbox__media {
 	max-width: 100%;
 	max-height: 92vh;

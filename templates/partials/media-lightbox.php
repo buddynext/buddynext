@@ -59,6 +59,14 @@ $bn_lb_can_interact = is_user_logged_in();
 		<div class="bn-lightbox__stage">
 			<button type="button" class="bn-lightbox__nav bn-lightbox__nav--prev" data-bn-lb-prev aria-label="<?php esc_attr_e( 'Previous', 'buddynext' ); ?>"><?php buddynext_icon( 'chevron-left' ); ?></button>
 			<div class="bn-lightbox__media-wrap" data-bn-lb-stage></div>
+			<?php // Shown in place of a video the browser cannot play (cloned by lightbox.js on the video's error event), so a member sees why and can still get the file instead of a blank player. ?>
+			<template data-bn-lb-video-error>
+				<div class="bn-lightbox__media-error" role="status">
+					<?php buddynext_icon( 'alert-triangle', 'bn-lightbox__media-error-icon' ); ?>
+					<p class="bn-lightbox__media-error-text"><?php esc_html_e( 'This video cannot play here.', 'buddynext' ); ?></p>
+					<a class="bn-btn" data-variant="secondary" data-size="sm" data-bn-lb-error-download download target="_blank" rel="noopener"><?php esc_html_e( 'Download it instead', 'buddynext' ); ?></a>
+				</div>
+			</template>
 			<button type="button" class="bn-lightbox__nav bn-lightbox__nav--next" data-bn-lb-next aria-label="<?php esc_attr_e( 'Next', 'buddynext' ); ?>"><?php buddynext_icon( 'chevron-right' ); ?></button>
 
 			<?php // Private DM media has no social layer, so the side panel is dropped (.bn-lightbox--dm) and the media goes full-bleed. These floating controls over the stage carry the only chrome a 1:1 image needs: sender, download, close. Populated by assets/js/media/lightbox.js. ?>
@@ -170,7 +178,7 @@ $bn_lb_can_interact = is_user_logged_in();
 					?>
 				<form class="bn-lightbox__comment-form" data-bn-lb-comment-form>
 					<?php // A placeholder is not an accessible name - screen readers announce the input as unlabelled once the user types. aria-label carries the name. ?>
-					<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input aria-label="<?php esc_attr_e( 'Comment on this photo', 'buddynext' ); ?>" placeholder="<?php esc_attr_e( 'Comment on this photo…', 'buddynext' ); ?>" autocomplete="off">
+					<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input aria-label="<?php esc_attr_e( 'Add a comment', 'buddynext' ); ?>" placeholder="<?php esc_attr_e( 'Add a comment…', 'buddynext' ); ?>" autocomplete="off">
 					<button type="submit" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Post', 'buddynext' ); ?></button>
 				</form>
 				<?php else : ?>

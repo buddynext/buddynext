@@ -204,6 +204,15 @@
 		};
 	}
 
+	function showVideoError( video, src ) {
+		var tpl = overlay && overlay.querySelector( 'template[data-bn-lb-video-error]' );
+		if ( ! tpl || ! video.parentNode ) { return; }
+		var box  = tpl.content.firstElementChild.cloneNode( true );
+		var link = box.querySelector( '[data-bn-lb-error-download]' );
+		if ( link ) { link.setAttribute( 'href', src ); }
+		video.parentNode.replaceChild( box, video );
+	}
+
 	function renderMedia() {
 		if ( ! stage || ! gallery.length ) { return; }
 		var item = gallery[ index ];
@@ -213,6 +222,10 @@
 			el = document.createElement( 'video' );
 			el.controls = true; el.autoplay = true; el.playsInline = true;
 			if ( item.poster ) { el.setAttribute( 'poster', item.poster ); }
+			// A video the browser cannot play (unsupported codec, file gone,
+			// network refused) left a blank player. Swap in a plain message
+			// with a download link, from the template in media-lightbox.php.
+			el.addEventListener( 'error', function () { showVideoError( el, item.src ); } );
 			el.setAttribute( 'src', item.src );
 		} else if ( 'audio' === item.type ) {
 			// No frame to show — a labelled player on the stage. Not autoplayed:
@@ -789,7 +802,7 @@
 		if ( ! list.length ) {
 			var empty = document.createElement( 'p' );
 			empty.className = 'bn-lightbox__comments-empty';
-			empty.textContent = I18N.noComments || 'No comments on this photo yet.';
+			empty.textContent = I18N.noComments || 'No comments yet.';
 			panel.comments.appendChild( empty );
 			return;
 		}
