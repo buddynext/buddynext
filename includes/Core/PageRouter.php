@@ -1625,6 +1625,9 @@ class PageRouter {
 		$router->pending_render = null;
 		self::$rendering        = null;
 
+		// Icons on a hub page are drawn once, in a sprite printed at the end of it.
+		IconService::open_sprite();
+
 		$router->render_shell_with_theme_chrome( $hub, $template, $context );
 	}
 

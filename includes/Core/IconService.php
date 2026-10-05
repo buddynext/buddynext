@@ -353,9 +353,98 @@ class IconService {
 		static $cache = array();
 
 		$key = $name . '|' . $css_class;
-		if ( isset( $cache[ $key ] ) ) {
-			return $cache[ $key ];
+		if ( ! isset( $cache[ $key ] ) ) {
+			$cache[ $key ] = self::render_inline( $name, $css_class );
 		}
+
+		return self::$sprite_open ? self::to_use( $name, $cache[ $key ] ) : $cache[ $key ];
+	}
+
+	/**
+	 * Whether icons on this request are drawn once in a page sprite.
+	 *
+	 * @var bool
+	 */
+	private static bool $sprite_open = false;
+
+	/**
+	 * Icon shapes collected for the sprite: id => symbol markup.
+	 *
+	 * @var array<string,string>
+	 */
+	private static array $symbols = array();
+
+	/**
+	 * Draw each icon once per page.
+	 *
+	 * A feed page repeated the same handful of icons in every card: 180 inline
+	 * SVGs in 15 cards, a quarter of the cards' elements. From here on render()
+	 * returns the same outer <svg> (classes, size and stroke attributes unchanged,
+	 * so CSS and colour inherit as before) holding only a <use> of the shape; the
+	 * shapes are printed once, in a hidden sprite, at the end of the page.
+	 *
+	 * Called only for a BuddyNext hub page render, where wp_footer is certain.
+	 * REST responses, wp-admin, blocks on other pages and emails keep inline
+	 * icons, and anything rendered after the sprite is printed goes inline too, so
+	 * a <use> can never point at a shape that is not on the page. In-page, not an
+	 * external sprite file: a CDN serving plugin assets from another domain
+	 * would block a cross-origin <use> and blank every icon.
+	 *
+	 * @since 1.2.4
+	 * @return void
+	 */
+	public static function open_sprite(): void {
+		if ( self::$sprite_open ) {
+			return;
+		}
+		self::$sprite_open = true;
+		add_action( 'wp_footer', array( self::class, 'print_sprite' ), 1000 );
+	}
+
+	/**
+	 * Print the collected shapes once and go back to inline icons.
+	 *
+	 * @return void
+	 */
+	public static function print_sprite(): void {
+		self::$sprite_open = false;
+		if ( ! self::$symbols ) {
+			return;
+		}
+		echo '<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><defs>'
+			. implode( '', self::$symbols ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from wp_kses()-sanitized plugin SVG in to_use().
+			. '</defs></svg>';
+		self::$symbols = array();
+	}
+
+	/**
+	 * Turn a sanitized inline icon into the same <svg> holding a <use>, and file
+	 * its shape for the sprite.
+	 *
+	 * @param string $name Icon slug.
+	 * @param string $svg  Sanitized inline SVG from render_inline().
+	 * @return string
+	 */
+	private static function to_use( string $name, string $svg ): string {
+		if ( '' === $svg || ! preg_match( '/^(<svg\b[^>]*>)(.*)<\/svg>\s*$/s', trim( $svg ), $m ) ) {
+			return $svg;
+		}
+		$id = 'bn-i-' . sanitize_html_class( $name );
+		if ( ! isset( self::$symbols[ $id ] ) ) {
+			$view_box             = preg_match( '/\sviewBox="([^"]*)"/i', $m[1], $vb ) ? $vb[1] : '0 0 24 24';
+			self::$symbols[ $id ] = '<symbol id="' . esc_attr( $id ) . '" viewBox="' . esc_attr( $view_box ) . '">' . $m[2] . '</symbol>';
+		}
+		return $m[1] . '<use href="#' . esc_attr( $id ) . '"></use></svg>';
+	}
+
+	/**
+	 * The icon as a standalone inline <svg> (sanitized), or '' when missing.
+	 *
+	 * @param string $name      Icon slug.
+	 * @param string $css_class Extra classes.
+	 * @return string
+	 */
+	private static function render_inline( string $name, string $css_class ): string {
 
 		$path = self::icons_dir() . sanitize_file_name( $name ) . '.svg';
 
@@ -405,7 +494,7 @@ class IconService {
 			// printed into a JSON body on a production site.
 			if ( '' !== trim( $name ) && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				_doing_it_wrong(
-					__METHOD__,
+					self::class . '::render', // The public entry developers call.
 					sprintf(
 						/* translators: %s: icon slug that has no SVG file. */
 						esc_html__( 'No icon file for "%s": it will render as nothing at all.', 'buddynext' ),
@@ -415,7 +504,6 @@ class IconService {
 				);
 			}
 
-			$cache[ $key ] = '';
 			return '';
 		}
 
@@ -423,7 +511,6 @@ class IconService {
 		$svg = file_get_contents( $path );
 
 		if ( false === $svg || '' === trim( $svg ) ) {
-			$cache[ $key ] = '';
 			return '';
 		}
 
@@ -440,8 +527,7 @@ class IconService {
 			. ( '' !== $css_class ? ' ' . $css_class : '' );
 		$svg     = str_replace( '<svg ', '<svg class="' . esc_attr( $classes ) . '" ', $svg );
 
-		$cache[ $key ] = wp_kses( $svg, self::allowed_tags() );
-		return $cache[ $key ];
+		return wp_kses( $svg, self::allowed_tags() );
 	}
 
 	/**
@@ -505,6 +591,10 @@ class IconService {
 				'rx'     => true,
 				'ry'     => true,
 				'class'  => true,
+			),
+			// A sprite-mode icon is an <svg> holding <use href="#bn-i-..."> (open_sprite()).
+			'use'      => array(
+				'href' => true,
 			),
 		);
 	}

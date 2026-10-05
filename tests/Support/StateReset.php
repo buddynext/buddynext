@@ -62,6 +62,12 @@ final class StateReset implements BeforeTestHook {
 	 * @var array<class-string, array<string, mixed>>
 	 */
 	public const MEMOS = array(
+		// Sprite mode is per page render; a test that opens it must not leave the next
+		// test's icons as <use> references to a sprite that was never printed.
+		\BuddyNext\Core\IconService::class              => array(
+			'sprite_open' => false,
+			'symbols'     => array(),
+		),
 		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
 		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
 		\BuddyNext\Core\PermissionService::class          => array( 'role_map_cache' => null ),
