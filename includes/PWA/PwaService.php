@@ -251,6 +251,10 @@ class PwaService {
 		$own_paths = array();
 		foreach ( $own_urls as $own_url ) {
 			$own_path = (string) wp_parse_url( (string) $own_url, PHP_URL_PATH );
+			// Percent-encode each segment the way the browser does, because the worker
+			// compares against url.pathname. A raw space (a site in "/my site/") never
+			// matches "%20" and every BuddyNext file would go uncached.
+			$own_path = implode( '/', array_map( 'rawurlencode', explode( '/', rawurldecode( $own_path ) ) ) );
 			if ( '' !== $own_path && '/' !== $own_path ) {
 				$own_paths[] = trailingslashit( $own_path );
 			}

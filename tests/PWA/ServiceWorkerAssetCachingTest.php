@@ -32,6 +32,39 @@ class ServiceWorkerAssetCachingTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_worker_caches_only_own_assets_and_never_serves_a_stale_version(): void {
+		$this->assert_harness_passes();
+	}
+
+	/**
+	 * A plugin path with a space still matches what the browser requests.
+	 *
+	 * The browser compares url.pathname, which carries "%20". A raw space in
+	 * OWN_ASSET_PATHS matched nothing, so a site in "/my site/" (or a checkout under
+	 * "Local Sites/") had every BuddyNext file left uncached (card 10369178676).
+	 *
+	 * @return void
+	 */
+	public function test_a_plugin_path_with_a_space_is_still_cached(): void {
+		// Move BuddyNext's files, own paths and precached shell alike, under a spaced base.
+		$base   = home_url( '/my site/wp-content/plugins/buddynext/' );
+		$paths  = static fn() => array( $base );
+		$shell  = static fn( array $urls ) => str_replace( BUDDYNEXT_URL, $base, $urls );
+		add_filter( 'buddynext_pwa_asset_paths', $paths );
+		add_filter( 'buddynext_pwa_shell_assets', $shell );
+
+		$this->assertStringContainsString( '/my%20site/wp-content/plugins/buddynext/', ( new PwaService() )->get_service_worker_script() );
+		$this->assert_harness_passes();
+
+		remove_filter( 'buddynext_pwa_asset_paths', $paths );
+		remove_filter( 'buddynext_pwa_shell_assets', $shell );
+	}
+
+	/**
+	 * Run the generated worker through the harness and require every check to pass.
+	 *
+	 * @return void
+	 */
+	private function assert_harness_passes(): void {
 		$node = trim( (string) shell_exec( 'command -v node 2>/dev/null' ) );
 		if ( '' === $node ) {
 			$this->markTestSkipped( 'Node is not available.' );
