@@ -2517,6 +2517,13 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Per-request memo of documents fetched as a viewer, keyed 'viewer:doc_id'.
+	 *
+	 * @var array
+	 */
+	private static array $document_memo = array();
+
+	/**
 	 * Fetch one document AS THE CURRENT VIEWER, request-cached.
 	 *
 	 * The whole privacy model of the document card: the feed stores only the id,
@@ -2529,19 +2536,18 @@ class WPMediaVerseBridge {
 	 * @return array<string,mixed>|null The document, or null when the viewer may not see it.
 	 */
 	private static function fetch_document_as_viewer( int $doc_id ): ?array {
-		static $cache = array();
 		if ( $doc_id <= 0 || ! self::documents_available() ) {
 			return null;
 		}
 		$key = get_current_user_id() . ':' . $doc_id;
-		if ( array_key_exists( $key, $cache ) ) {
-			return $cache[ $key ];
+		if ( array_key_exists( $key, self::$document_memo ) ) {
+			return self::$document_memo[ $key ];
 		}
 		$req = new \WP_REST_Request( 'GET', '/mvs-pro/v1/documents/' . $doc_id );
 		$res = rest_do_request( $req );
 		$doc = $res->is_error() ? null : (array) $res->get_data();
 
-		$cache[ $key ] = $doc;
+		self::$document_memo[ $key ] = $doc;
 		return $doc;
 	}
 

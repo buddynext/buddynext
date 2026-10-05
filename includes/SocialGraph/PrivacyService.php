@@ -336,6 +336,13 @@ class PrivacyService {
 	}
 
 	/**
+	 * Per-request memo: the bn_blocks table was found (a missing table is never memoised).
+	 *
+	 * @var bool
+	 */
+	private static bool $blocks_table_exists = false;
+
+	/**
 	 * Build a single bn_blocks exclusion SQL fragment for a query surface.
 	 *
 	 * ONE source of truth for the relationship-exclusion rules that feed, search
@@ -376,16 +383,17 @@ class PrivacyService {
 		$table = $wpdb->prefix . 'bn_blocks';
 
 		// Degrade gracefully if the block table is not installed yet (fresh
-		// install / isolation harness) rather than emitting a SQL error. Table
-		// existence cannot change within a request, and this runs on every feed
-		// query, so memoise the SHOW TABLES probe.
-		static $table_exists = null;
-		if ( null === $table_exists ) {
+		// install / isolation harness) rather than emitting a SQL error. This runs
+		// on every feed query, so a FOUND table is memoised. A missing one is not:
+		// the installer can create it later in the same request (activation, then a
+		// seeder), and a memoised "missing" would switch block filtering off for
+		// everything that request renders afterwards.
+		if ( ! self::$blocks_table_exists ) {
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-			$table_exists = ( null !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) );
+			self::$blocks_table_exists = ( null !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) );
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		}
-		if ( ! $table_exists ) {
+		if ( ! self::$blocks_table_exists ) {
 			return array( '', array() );
 		}
 

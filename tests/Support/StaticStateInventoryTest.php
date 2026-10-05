@@ -115,6 +115,65 @@ class StaticStateInventoryTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * No function-local `static $x` anywhere under includes/.
+	 *
+	 * Reflection cannot reach a static declared inside a method, so StateReset can
+	 * never clear it and the inventory above never sees it. One leaked this way:
+	 * SearchService's space-ceiling memo hid every public post from guest search in
+	 * a later test (InSpaceSearchTest, seed 1791094368). A memo belongs in a
+	 * `private static` property, where both of them can reach it.
+	 *
+	 * Tokenised, not grepped: the installer writes the mu-plugin from a string that
+	 * contains a `static $result`, and that is a string, not state in this process.
+	 *
+	 * @return void
+	 */
+	public function test_no_function_local_statics(): void {
+		$root     = dirname( __DIR__, 2 ) . '/includes';
+		$found    = array();
+		$skip     = array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT );
+		$property = array( T_PUBLIC, T_PROTECTED, T_PRIVATE, T_VAR, T_READONLY );
+
+		$files = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $root ) );
+
+		foreach ( $files as $file ) {
+			if ( ! $file->isFile() || 'php' !== $file->getExtension() ) {
+				continue;
+			}
+
+			$tokens = array_values(
+				array_filter(
+					token_get_all( (string) file_get_contents( $file->getPathname() ) ),
+					static fn( $t ) => ! is_array( $t ) || ! in_array( $t[0], $skip, true )
+				)
+			);
+
+			foreach ( $tokens as $i => $token ) {
+				// `static $x` - but not `private static $x`, `static function`, `static fn` or `static::`.
+				if ( ! is_array( $token ) || T_STATIC !== $token[0] ) {
+					continue;
+				}
+				$next = $tokens[ $i + 1 ] ?? null;
+				$prev = $tokens[ $i - 1 ] ?? null;
+				if ( is_array( $next ) && T_VARIABLE === $next[0] && ! ( is_array( $prev ) && in_array( $prev[0], $property, true ) ) ) {
+					$found[] = sprintf( '%s:%d %s', str_replace( $root . '/', '', $file->getPathname() ), $token[2], $next[1] );
+				}
+			}
+		}
+
+		sort( $found );
+
+		$this->assertSame(
+			array(),
+			$found,
+			"Function-local statics outlive a test and nothing can reset them.\n"
+				. "Move each to a private static property and list it in StateReset::MEMOS\n"
+				. "(or StateReset::PERSISTENT with the reason):\n  "
+				. implode( "\n  ", $found )
+		);
+	}
+
+	/**
 	 * The reset list may not name something that no longer exists.
 	 *
 	 * The other direction. A renamed property leaves a silently-dead entry, and

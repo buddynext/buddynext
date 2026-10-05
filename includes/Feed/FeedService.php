@@ -919,6 +919,13 @@ class FeedService {
 	}
 
 	/**
+	 * Per-request memo of the space ids opted out of the home feed.
+	 *
+	 * @var array|null
+	 */
+	private static ?array $excluded_space_ids = null;
+
+	/**
 	 * Space IDs whose owner disabled "Push space posts to activity feed".
 	 *
 	 * Reads the per-space push_to_feed field (default 1 = push) from bn_space_meta
@@ -929,15 +936,14 @@ class FeedService {
 	 * @return int[] Space IDs to exclude from the home feed.
 	 */
 	private function feed_excluded_space_ids(): array {
-		static $ids = null;
-		if ( null !== $ids ) {
-			return $ids;
+		if ( null !== self::$excluded_space_ids ) {
+			return self::$excluded_space_ids;
 		}
 
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$ids = array_map(
+		self::$excluded_space_ids = array_map(
 			'intval',
 			(array) $wpdb->get_col(
 				"SELECT bn_space_id FROM {$wpdb->bn_spacemeta}
@@ -945,7 +951,7 @@ class FeedService {
 			)
 		);
 
-		return $ids;
+		return self::$excluded_space_ids;
 	}
 
 	/**

@@ -37,8 +37,9 @@
  *
  * {@see \BuddyNext\Tests\Support\StaticStateInventoryTest} enumerates every static
  * property under includes/ and fails when one is neither reset here nor listed as
- * deliberately persistent. A new memo added next year is a failing test, not a new
- * flake.
+ * deliberately persistent, and fails on any function-local `static $x` (which
+ * reflection cannot reach, so it must be a property instead). A new memo added
+ * next year is a failing test, not a new flake.
  *
  * @package BuddyNext\Tests\Support
  */
@@ -65,8 +66,10 @@ final class StateReset implements BeforeTestHook {
 		// Sprite mode is per page render; a test that opens it must not leave the next
 		// test's icons as <use> references to a sprite that was never printed.
 		\BuddyNext\Core\IconService::class              => array(
-			'sprite_open' => false,
-			'symbols'     => array(),
+			'sprite_open'       => false,
+			'symbols'           => array(),
+			'rendered'          => array(),
+			'category_icon_map' => null,
 		),
 		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
 		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
@@ -94,8 +97,9 @@ final class StateReset implements BeforeTestHook {
 			'context' => array(),
 		),
 		\BuddyNext\Admin\AdminHub::class                  => array(
-			'placement_cache' => null,
-			'sections_cache'  => null,
+			'placement_cache'  => null,
+			'sections_cache'   => null,
+			'default_icon_map' => null,
 		),
 		// Per-REQUEST label cache: existence answers must not survive a test whose
 		// rows have been rolled back underneath them, or one test's live post is
@@ -109,12 +113,16 @@ final class StateReset implements BeforeTestHook {
 		// failed send must not read the previous test's error message.
 		\BuddyNext\Notifications\EmailSender::class        => array( 'last_error' => null ),
 		\BuddyNext\Core\PageRouter::class                 => array(
-			'rendering'     => null,
-			'title_claimed' => false,
+			'rendering'           => null,
+			'title_claimed'       => false,
+			'search_note_printed' => false,
 		),
 		// Re-entrancy flags. A test that dies mid-sync leaves these true and every
 		// later test silently skips the work they guard.
-		\BuddyNext\Bridges\JetonomyBridge::class          => array( 'syncing' => false ),
+		\BuddyNext\Bridges\JetonomyBridge::class          => array(
+			'syncing'          => false,
+			'forum_space_memo' => array(),
+		),
 		\BuddyNext\Feed\BlogCommentSync::class            => array( 'syncing' => false ),
 		// Re-entrancy flags, plus the per-request documents config keyed by viewer.
 		// One entry per class: a second key for the same class would silently replace this one.
@@ -122,6 +130,7 @@ final class StateReset implements BeforeTestHook {
 			'suppress_upload_activity' => false,
 			'mirroring_comment'        => false,
 			'documents_config_memo'    => array(),
+			'document_memo'            => array(),
 		),
 		\BuddyNext\Feed\IntegrationActivity::class        => array(
 			'system_publish' => false,
@@ -138,23 +147,21 @@ final class StateReset implements BeforeTestHook {
 		// Per-REQUEST guard: the space whose dead invite link was already reported.
 		// A leftover value mutes the next test's card write.
 		\BuddyNext\Spaces\SpaceInviteLinkService::class   => array( 'dead_link_space' => 0 ),
-	);
-
-	/**
-	 * Memos held in FUNCTION-local statics (`static $x` inside a method), which
-	 * reflection cannot reach, so MEMOS cannot reset them. Each is cleared through
-	 * the owner's own flush method instead.
-	 *
-	 * SearchService's space-ceiling memo leaked across tests this way: a test that
-	 * indexed into a not-yet-created space id left 'private' memoised for it, and a
-	 * later test whose new space received that id had every public post hidden
-	 * from guest search (InSpaceSearchTest, seed 1791094368).
-	 *
-	 * @var array<int, array{0: class-string, 1: string}>
-	 */
-	public const FLUSHERS = array(
-		array( \BuddyNext\Search\SearchService::class, 'flush_space_ceiling' ),
-		array( \BuddyNext\Search\SearchService::class, 'flush_viewer_space_memo' ),
+		// Search memos: a space ceiling memoised for an id a later test's new space
+		// receives hid every public post from guest search (InSpaceSearchTest,
+		// seed 1791094368).
+		\BuddyNext\Search\SearchService::class            => array(
+			'viewer_space_memo' => array(),
+			'ceilings'          => array(),
+			'ft_min_token'      => null,
+		),
+		\BuddyNext\Feed\ShareService::class               => array( 'shared_memo' => array() ),
+		\BuddyNext\Feed\FeedService::class                => array( 'excluded_space_ids' => null ),
+		\BuddyNext\SocialGraph\PrivacyService::class      => array( 'blocks_table_exists' => false ),
+		\BuddyNext\Profile\GamificationAchievements::class => array( 'rank_memo' => array() ),
+		\BuddyNext\Bridges\GamificationBridge::class      => array( 'points_label_memo' => null ),
+		\BuddyNext\Notifications\NotificationMessageService::class => array( 'type_meta' => null ),
+		\BuddyNext\App\AppConfigController::class         => array( 'plugin_locales_memo' => null ),
 	);
 
 	/**
@@ -189,11 +196,6 @@ final class StateReset implements BeforeTestHook {
 	 * @return void
 	 */
 	public function executeBeforeTest( string $test ): void {
-		foreach ( self::FLUSHERS as $flusher ) {
-			if ( is_callable( $flusher ) ) {
-				call_user_func( $flusher );
-			}
-		}
 		foreach ( self::MEMOS as $class => $properties ) {
 			if ( ! class_exists( $class ) ) {
 				continue;

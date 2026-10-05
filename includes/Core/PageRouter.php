@@ -134,6 +134,13 @@ class PageRouter {
 	}
 
 	/**
+	 * Whether the community results note was printed on this page.
+	 *
+	 * @var bool
+	 */
+	private static bool $search_note_printed = false;
+
+	/**
 	 * The "community results" link for the theme's own search results page.
 	 *
 	 * Members, spaces and posts live in BuddyNext's tables, so a core search
@@ -144,16 +151,14 @@ class PageRouter {
 	 * @return string The note markup, or '' when it does not apply.
 	 */
 	private function community_search_note_html(): string {
-		static $printed = false;
-
 		$term = (string) get_search_query( false );
 		// 'any' (set by themes/plugins on a plain search) is still unscoped.
 		$post_type = get_query_var( 'post_type', '' );
 		$scoped    = ! in_array( $post_type, array( '', 'any', array() ), true );
-		if ( $printed || ! is_search() || is_admin() || '' === trim( $term ) || $scoped ) {
+		if ( self::$search_note_printed || ! is_search() || is_admin() || '' === trim( $term ) || $scoped ) {
 			return '';
 		}
-		$printed = true;
+		self::$search_note_printed = true;
 		return sprintf(
 			'<div class="bn-community-search-note" role="note"><span>%1$s</span> <a href="%2$s">%3$s</a></div>',
 			esc_html__( 'Looking for people, spaces or community posts?', 'buddynext' ),

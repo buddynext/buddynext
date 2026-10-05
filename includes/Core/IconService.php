@@ -290,6 +290,13 @@ class IconService {
 	}
 
 	/**
+	 * Per-request memo: space category slug => stored icon_svg.
+	 *
+	 * @var array|null
+	 */
+	private static ?array $category_icon_map = null;
+
+	/**
 	 * Look up a space category's stored icon_svg by slug.
 	 *
 	 * Reads through SpaceCategoryService::get_all() (object-cached, single query
@@ -304,20 +311,18 @@ class IconService {
 			return '';
 		}
 
-		static $map = null;
-
-		if ( null === $map ) {
-			$map     = array();
-			$service = new \BuddyNext\Spaces\SpaceCategoryService();
+		if ( null === self::$category_icon_map ) {
+			self::$category_icon_map = array();
+			$service                 = new \BuddyNext\Spaces\SpaceCategoryService();
 
 			foreach ( $service->get_all() as $category ) {
 				if ( ! empty( $category['slug'] ) ) {
-					$map[ (string) $category['slug'] ] = (string) ( $category['icon_svg'] ?? '' );
+					self::$category_icon_map[ (string) $category['slug'] ] = (string) ( $category['icon_svg'] ?? '' );
 				}
 			}
 		}
 
-		return $map[ $cat_slug ] ?? '';
+		return self::$category_icon_map[ $cat_slug ] ?? '';
 	}
 
 	/**
@@ -332,6 +337,13 @@ class IconService {
 	public static function has( string $name ): bool {
 		return '' !== $name && file_exists( self::icons_dir() . sanitize_file_name( $name ) . '.svg' );
 	}
+
+	/**
+	 * Per-request memo of finished icon markup, keyed 'name|css_class'.
+	 *
+	 * @var array
+	 */
+	private static array $rendered = array();
 
 	/**
 	 * Load an SVG icon, sanitize it, and return the safe HTML string.
@@ -350,14 +362,12 @@ class IconService {
 		// (name, css_class) turns N file_get_contents + wp_kses passes into one
 		// per unique icon per request. Trusted local assets, so the key is just
 		// the name + class. Cleared naturally at the end of each request.
-		static $cache = array();
-
 		$key = $name . '|' . $css_class;
-		if ( ! isset( $cache[ $key ] ) ) {
-			$cache[ $key ] = self::render_inline( $name, $css_class );
+		if ( ! isset( self::$rendered[ $key ] ) ) {
+			self::$rendered[ $key ] = self::render_inline( $name, $css_class );
 		}
 
-		return self::$sprite_open ? self::to_use( $name, $cache[ $key ] ) : $cache[ $key ];
+		return self::$sprite_open ? self::to_use( $name, self::$rendered[ $key ] ) : self::$rendered[ $key ];
 	}
 
 	/**

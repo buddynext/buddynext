@@ -639,6 +639,13 @@ class GamificationAchievements {
 	}
 
 	/**
+	 * Per-request memo: member id => all-time leaderboard rank.
+	 *
+	 * @var array
+	 */
+	private static array $rank_memo = array();
+
+	/**
 	 * The member's leaderboard rank (all-time), or 0 when unavailable.
 	 *
 	 * Rank has no `wb_gam_*` wrapper, so it reads the engine directly — guarded so
@@ -652,19 +659,18 @@ class GamificationAchievements {
 		// Request-scoped memo: the standing strip resolves rank once per render, but
 		// a page can render several member panels — avoid re-hitting the engine (and
 		// its cache lookup) for the same member within one request.
-		static $ranks = array();
-		if ( array_key_exists( $member_id, $ranks ) ) {
-			return $ranks[ $member_id ];
+		if ( array_key_exists( $member_id, self::$rank_memo ) ) {
+			return self::$rank_memo[ $member_id ];
 		}
 
 		if ( ! function_exists( 'wb_gam_get_user_rank' ) ) {
-			$ranks[ $member_id ] = 0;
+			self::$rank_memo[ $member_id ] = 0;
 			return 0;
 		}
-		$data                = wb_gam_get_user_rank( $member_id, 'all' );
-		$ranks[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
+		$data                          = wb_gam_get_user_rank( $member_id, 'all' );
+		self::$rank_memo[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
 
-		return $ranks[ $member_id ];
+		return self::$rank_memo[ $member_id ];
 	}
 
 	/**

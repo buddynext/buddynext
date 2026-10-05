@@ -216,24 +216,30 @@ class AppConfigController {
 	}
 
 	/**
+	 * Per-request memo of the locales the plugin ships a .mo for.
+	 *
+	 * @var array|null
+	 */
+	private static ?array $plugin_locales_memo = null;
+
+	/**
 	 * The locales the plugin ships a buddynext-<locale>.mo for, cached per request.
 	 *
 	 * @return string[]
 	 */
 	private function plugin_locales(): array {
-		static $locales = null;
-		if ( null !== $locales ) {
-			return $locales;
+		if ( null !== self::$plugin_locales_memo ) {
+			return self::$plugin_locales_memo;
 		}
-		$locales = array();
+		self::$plugin_locales_memo = array();
 		foreach ( (array) glob( BUDDYNEXT_DIR . 'languages/buddynext-*.mo' ) as $path ) {
 			$base = basename( (string) $path, '.mo' );
 			$loc  = substr( $base, strlen( 'buddynext-' ) );
 			if ( '' !== $loc ) {
-				$locales[] = $loc;
+				self::$plugin_locales_memo[] = $loc;
 			}
 		}
-		return $locales;
+		return self::$plugin_locales_memo;
 	}
 
 	/**

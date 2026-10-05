@@ -592,15 +592,21 @@ class NotificationMessageService {
 	}
 
 	/**
+	 * Per-request memo of the notification type => icon/tone/label map.
+	 *
+	 * @var array|null
+	 */
+	private static ?array $type_meta = null;
+
+	/**
 	 * Return the icon slug, tone, and label for a notification type.
 	 *
 	 * @param string $type Notification type slug.
 	 * @return array{icon:string, tone:string, label:string}
 	 */
 	public function meta_for( string $type ): array {
-		static $map = null;
-		if ( null === $map ) {
-			$map = array(
+		if ( null === self::$type_meta ) {
+			self::$type_meta = array(
 				'bn.new_follower'             => array(
 					'icon'  => 'user-plus',
 					'tone'  => 'info',
@@ -799,8 +805,8 @@ class NotificationMessageService {
 			);
 		}
 
-		if ( isset( $map[ $type ] ) ) {
-			return $map[ $type ];
+		if ( isset( self::$type_meta[ $type ] ) ) {
+			return self::$type_meta[ $type ];
 		}
 
 		/**

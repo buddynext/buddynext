@@ -251,6 +251,13 @@ class ShareService {
 
 
 	/**
+	 * Per-request memo: 'viewer:post_id' => whether the viewer shared that post.
+	 *
+	 * @var array
+	 */
+	private static array $shared_memo = array();
+
+	/**
 	 * Which of these posts has the viewer already shared?
 	 *
 	 * The feed's question, and the only shape of it that scales: bounded by the page
@@ -273,8 +280,6 @@ class ShareService {
 	 * @return array<int,bool> post_id => true, for the shared ones only. O(1) lookup.
 	 */
 	public function shared_among( int $user_id, array $post_ids ): array {
-		static $memo = array();
-
 		$user_id  = absint( $user_id );
 		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
 
@@ -286,8 +291,8 @@ class ShareService {
 		$missing = array();
 		foreach ( $post_ids as $pid ) {
 			$k = $user_id . ':' . $pid;
-			if ( isset( $memo[ $k ] ) ) {
-				if ( $memo[ $k ] ) {
+			if ( isset( self::$shared_memo[ $k ] ) ) {
+				if ( self::$shared_memo[ $k ] ) {
 					$out[ $pid ] = true;
 				}
 			} else {
@@ -316,8 +321,8 @@ class ShareService {
 		$found = array_flip( array_map( 'intval', (array) $rows ) );
 
 		foreach ( $missing as $pid ) {
-			$hit                           = isset( $found[ $pid ] );
-			$memo[ $user_id . ':' . $pid ] = $hit;
+			$hit                                        = isset( $found[ $pid ] );
+			self::$shared_memo[ $user_id . ':' . $pid ] = $hit;
 			if ( $hit ) {
 				$out[ $pid ] = true;
 			}

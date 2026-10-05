@@ -2417,6 +2417,13 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Per-request memo: Jetonomy forum id => linked BuddyNext space id.
+	 *
+	 * @var array
+	 */
+	private static array $forum_space_memo = array();
+
+	/**
 	 * Resolve the BuddyNext space a Jetonomy forum is linked to — the inverse of
 	 * forum_id_for_space().
 	 *
@@ -2432,15 +2439,13 @@ class JetonomyBridge {
 	 * @return int BuddyNext space id, or 0 when the forum is not linked to a space.
 	 */
 	private function space_id_for_forum( int $forum_id ): int {
-		static $memo = array();
-
 		$forum_id = absint( $forum_id );
 		if ( $forum_id <= 0 ) {
 			return 0;
 		}
 
-		if ( isset( $memo[ $forum_id ] ) ) {
-			return $memo[ $forum_id ];
+		if ( isset( self::$forum_space_memo[ $forum_id ] ) ) {
+			return self::$forum_space_memo[ $forum_id ];
 		}
 
 		global $wpdb;
@@ -2459,7 +2464,14 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$memo[ $forum_id ] = $space_id;
+		// Remember only a real link. A forum read before its space is linked (space
+		// creation fires Jetonomy's hooks before the jetonomy_forum_id meta is written)
+		// would otherwise stay 0 for the rest of the request, and every discussion
+		// written after the link would carry no space, slipping past the space's own
+		// "share to the main feed" toggle.
+		if ( $space_id > 0 ) {
+			self::$forum_space_memo[ $forum_id ] = $space_id;
+		}
 
 		return $space_id;
 	}

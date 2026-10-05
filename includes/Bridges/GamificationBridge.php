@@ -25,6 +25,28 @@ use BuddyNext\Feed\IntegrationActivity;
 class GamificationBridge {
 
 	/**
+	 * Profile tab each WB Gamification notification type opens.
+	 *
+	 * @var array<string,string>
+	 */
+	private const NOTIFICATION_TABS = array(
+		'wb_gamification.badge_awarded'       => 'achievements',
+		'wb_gamification.level_up'            => 'achievements',
+		'wb_gamification.challenge_completed' => 'achievements',
+		'wb_gamification.credential_expired'  => 'achievements',
+		'wb_gamification.streak_milestone'    => 'achievements',
+		'wb_gamification.kudos_received'      => 'kudos',
+		'wb_gamification.personal_record'     => 'points',
+	);
+
+	/**
+	 * Per-request memo of the site's name for points.
+	 *
+	 * @var string|null
+	 */
+	private static ?string $points_label_memo = null;
+
+	/**
 	 * The site's name for points ("Points" unless the owner renamed the default
 	 * point type, e.g. "Coins"), so every BuddyNext surface says what the
 	 * gamification plugin says (card 10343975769).
@@ -32,15 +54,14 @@ class GamificationBridge {
 	 * @return string
 	 */
 	public static function points_label(): string {
-		static $label = null;
-		if ( null === $label ) {
+		if ( null === self::$points_label_memo ) {
 			// WB Gamification's public helper (1.6.5+), never its internal classes.
-			$label = function_exists( 'wb_gam_get_point_type_label' ) ? trim( wb_gam_get_point_type_label() ) : '';
-			if ( '' === $label ) {
-				$label = __( 'Points', 'buddynext' );
+			self::$points_label_memo = function_exists( 'wb_gam_get_point_type_label' ) ? trim( wb_gam_get_point_type_label() ) : '';
+			if ( '' === self::$points_label_memo ) {
+				self::$points_label_memo = __( 'Points', 'buddynext' );
 			}
 		}
-		return $label;
+		return self::$points_label_memo;
 	}
 
 	/**
@@ -229,20 +250,11 @@ class GamificationBridge {
 	 */
 	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data ): string {
 		unset( $actor_id, $object_id, $data );
-		static $tabs = array(
-			'wb_gamification.badge_awarded'       => 'achievements',
-			'wb_gamification.level_up'            => 'achievements',
-			'wb_gamification.challenge_completed' => 'achievements',
-			'wb_gamification.credential_expired'  => 'achievements',
-			'wb_gamification.streak_milestone'    => 'achievements',
-			'wb_gamification.kudos_received'      => 'kudos',
-			'wb_gamification.personal_record'     => 'points',
-		);
-		$viewer      = get_current_user_id();
-		if ( ! isset( $tabs[ $type ] ) || $viewer <= 0 ) {
+		$viewer = get_current_user_id();
+		if ( ! isset( self::NOTIFICATION_TABS[ $type ] ) || $viewer <= 0 ) {
 			return (string) $url;
 		}
-		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . $tabs[ $type ] . '/';
+		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . self::NOTIFICATION_TABS[ $type ] . '/';
 	}
 
 	/**
