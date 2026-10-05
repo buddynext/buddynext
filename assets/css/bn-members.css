@@ -807,6 +807,22 @@
 	}
 }
 
+/* Up to tablet width the search takes its own row, so type / online / sort /
+   view fit on the next one together. Sharing a row, the view switch was the
+   control that ran out of room and wrapped alone onto a third line (768px). */
+@media (max-width: 900px) {
+	.bn-md-strip__search {
+		flex: 1 0 100%;
+		max-inline-size: none;
+	}
+
+	/* The view switch closes the filter row on the right edge, filters on the
+	   left, so the row has two clean edges instead of a gap after the last one. */
+	.bn-md-filters__view {
+		margin-inline-start: auto;
+	}
+}
+
 /* "Online only" toggle — a checkbox styled as a pill-height control so the whole
 	LABEL is the tap target (the native checkbox inside it is 16px and is not
 	meant to be aimed at). 40px is the desktop floor; the touch block in
