@@ -250,11 +250,10 @@ class PwaService {
 		$own_urls  = (array) apply_filters( 'buddynext_pwa_asset_paths', $own_urls );
 		$own_paths = array();
 		foreach ( $own_urls as $own_url ) {
-			$own_path = (string) wp_parse_url( (string) $own_url, PHP_URL_PATH );
-			// Percent-encode each segment the way the browser does, because the worker
-			// compares against url.pathname. A raw space (a site in "/my site/") never
-			// matches "%20" and every BuddyNext file would go uncached.
-			$own_path = implode( '/', array_map( 'rawurlencode', explode( '/', rawurldecode( $own_path ) ) ) );
+			// Decoded here; the worker encodes it the browser's way (browserPath()),
+			// because PHP's rawurlencode() is stricter than a browser's pathname:
+			// it encodes ( ) + ' @ , which url.pathname leaves alone.
+			$own_path = rawurldecode( (string) wp_parse_url( (string) $own_url, PHP_URL_PATH ) );
 			if ( '' !== $own_path && '/' !== $own_path ) {
 				$own_paths[] = trailingslashit( $own_path );
 			}
@@ -281,13 +280,13 @@ class PwaService {
 		 * WordPress allows the admin to live somewhere other than the site root, and
 		 * a guess is what this bug is made of.
 		 */
-		$admin_path = (string) wp_parse_url( admin_url( '/' ), PHP_URL_PATH );
+		$admin_path = rawurldecode( (string) wp_parse_url( admin_url( '/' ), PHP_URL_PATH ) );
 		// site_url('wp-login.php'), NOT wp_login_url(): BuddyNext points the latter
 		// at its own /login/ page, so using it would guard the community's auth
 		// screen and quietly stop guarding WordPress's — which is the nonce-bearing
 		// one the original bail was written for.
-		$login_path = (string) wp_parse_url( site_url( 'wp-login.php' ), PHP_URL_PATH );
-		$rest_path  = (string) wp_parse_url( rest_url( '/' ), PHP_URL_PATH );
+		$login_path = rawurldecode( (string) wp_parse_url( site_url( 'wp-login.php' ), PHP_URL_PATH ) );
+		$rest_path  = rawurldecode( (string) wp_parse_url( rest_url( '/' ), PHP_URL_PATH ) );
 
 		// JSON_UNESCAPED_SLASHES so the generated worker reads as "/wp-admin/" rather
 		// than "\/wp-admin\/". Both parse identically; this file is read in DevTools
@@ -341,12 +340,17 @@ const SHELL_ASSETS = {$shell};
 // assumed to be at the origin root: on a subdirectory install they are
 // "/community/wp-admin/" and so on, and the guards below used to test for a
 // leading "/wp-admin" that never matched there.
-const ADMIN_PATH = {$admin_path_js};
-const LOGIN_PATH = {$login_path_js};
-const REST_PATH = {$rest_path_js};
+// Every path below is compared with url.pathname, so encode it exactly the way
+// this browser does (a space becomes %20, ( ) + ' @ stay as they are). PHP sends
+// the decoded path; a stricter or looser encoding on that side never matched on
+// sites installed in such a folder.
+const browserPath = (path) => new URL(path, self.location.origin).pathname;
+const ADMIN_PATH = browserPath({$admin_path_js});
+const LOGIN_PATH = browserPath({$login_path_js});
+const REST_PATH = browserPath({$rest_path_js});
 
 // The only static files this worker caches: BuddyNext's own plugin directories.
-const OWN_ASSET_PATHS = {$own_paths_js};
+const OWN_ASSET_PATHS = {$own_paths_js}.map(browserPath);
 
 // Cap the runtime asset cache. A community with many themes, avatars and icon
 // sets can otherwise grow without limit on a member's device, and a phone that

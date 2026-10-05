@@ -179,8 +179,9 @@ class PwaServiceTest extends \WP_UnitTestCase {
 		// permalink setting.
 		$this->assertStringContainsString( 'const REST_PATH', $script, 'REST_PATH must be injected.' );
 		$this->assertStringContainsString( "REST_PATH !== '/'", $script, 'A path-less REST root must not bail on every request.' );
-		$this->assertMatchesRegularExpression( '~ADMIN_PATH\s*=\s*"[^"]*wp-admin~', $script, 'ADMIN_PATH must point at the admin.' );
-		$this->assertMatchesRegularExpression( '~LOGIN_PATH\s*=\s*"[^"]*wp-login~', $script, 'LOGIN_PATH must point at wp-login.php.' );
+		// Wrapped in browserPath() so the worker encodes them the browser's way.
+		$this->assertMatchesRegularExpression( '~ADMIN_PATH\s*=\s*(?:browserPath\()?"[^"]*wp-admin~', $script, 'ADMIN_PATH must point at the admin.' );
+		$this->assertMatchesRegularExpression( '~LOGIN_PATH\s*=\s*(?:browserPath\()?"[^"]*wp-login~', $script, 'LOGIN_PATH must point at wp-login.php.' );
 
 		// The navigate branch falls back to the OFFLINE page and nothing else: it
 		// must not read a stored copy of the page that was requested.

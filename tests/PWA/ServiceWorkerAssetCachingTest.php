@@ -36,23 +36,43 @@ class ServiceWorkerAssetCachingTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A plugin path with a space still matches what the browser requests.
+	 * Folder names a site may sit in.
 	 *
-	 * The browser compares url.pathname, which carries "%20". A raw space in
-	 * OWN_ASSET_PATHS matched nothing, so a site in "/my site/" (or a checkout under
-	 * "Local Sites/") had every BuddyNext file left uncached (card 10369178676).
+	 * @return array<string, array{0: string}>
+	 */
+	public static function folder_names(): array {
+		return array(
+			'space'      => array( 'my site' ),
+			'brackets'   => array( 'site(1)' ),
+			'plus'       => array( 'client+shop' ),
+			'apostrophe' => array( "o'brien" ),
+			'non-ascii'  => array( 'café' ),
+		);
+	}
+
+	/**
+	 * A plugin path in any of these folders still matches what the browser requests.
 	 *
+	 * The worker compares url.pathname, whose encoding is the browser's own: "%20"
+	 * for a space, but ( ) + ' @ left as they are. Encoding in PHP got one set right
+	 * and the other wrong (card 10369178676, and its QA bounce), so PHP now sends the
+	 * decoded path and the worker encodes it the browser's way.
+	 *
+	 * @dataProvider folder_names
+	 *
+	 * @param string $folder Folder the site is installed in.
 	 * @return void
 	 */
-	public function test_a_plugin_path_with_a_space_is_still_cached(): void {
-		// Move BuddyNext's files, own paths and precached shell alike, under a spaced base.
-		$base   = home_url( '/my site/wp-content/plugins/buddynext/' );
-		$paths  = static fn() => array( $base );
-		$shell  = static fn( array $urls ) => str_replace( BUDDYNEXT_URL, $base, $urls );
+	public function test_a_plugin_path_in_any_folder_is_still_cached( string $folder ): void {
+		// Move BuddyNext's files, own paths and precached shell alike, under that folder.
+		$base  = home_url( '/' . $folder . '/wp-content/plugins/buddynext/' );
+		$paths = static fn() => array( $base );
+		$shell = static fn( array $urls ) => str_replace( BUDDYNEXT_URL, $base, $urls );
 		add_filter( 'buddynext_pwa_asset_paths', $paths );
 		add_filter( 'buddynext_pwa_shell_assets', $shell );
 
-		$this->assertStringContainsString( '/my%20site/wp-content/plugins/buddynext/', ( new PwaService() )->get_service_worker_script() );
+		$script = ( new PwaService() )->get_service_worker_script();
+		$this->assertStringContainsString( '.map(browserPath)', $script );
 		$this->assert_harness_passes();
 
 		remove_filter( 'buddynext_pwa_asset_paths', $paths );

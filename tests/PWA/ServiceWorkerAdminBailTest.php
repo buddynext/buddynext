@@ -141,7 +141,7 @@ class ServiceWorkerAdminBailTest extends \WP_UnitTestCase {
 		$js = $this->worker_js();
 
 		$this->assertMatchesRegularExpression(
-			'~ADMIN_PATH\s*=\s*"/wp-admin/"~',
+			'~ADMIN_PATH\s*=\s*(?:browserPath\()?"/wp-admin/"~',
 			$js,
 			'a site at the origin root must still bail on /wp-admin/'
 		);
@@ -157,7 +157,7 @@ class ServiceWorkerAdminBailTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'LOGIN_PATH', $js );
 		$this->assertMatchesRegularExpression(
-			'~LOGIN_PATH\s*=\s*"[^"]*wp-login\.php"~',
+			'~LOGIN_PATH\s*=\s*(?:browserPath\()?"[^"]*wp-login\.php"~',
 			$js,
 			'the login path must still be injected and still point at wp-login.php'
 		);

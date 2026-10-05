@@ -33,8 +33,12 @@ async function go(path) {
   if (!resp) return '(not intercepted: browser default)';
   const r = await resp; await Promise.all(waits); return r.type === 'error' ? 'Response.error' : await r.text();
 }
-const ownBase = (src.match(/const OWN_ASSET_PATHS = (\[.*?\]);/) ? JSON.parse(src.match(/const OWN_ASSET_PATHS = (\[.*?\]);/)[1])[0] : null) || '/wp-content/plugins/buddynext/';
-const OWN = ownBase + 'assets/css/qa-pwa.css', OTHER = '/wp-content/uploads/qa/other.css';
+// The worker receives decoded paths and encodes them itself (browserPath); the
+// request below goes through new Request(), which encodes like a browser does.
+const ownList = src.match(/const OWN_ASSET_PATHS = (\[.*?\])/);
+const ownBase = (ownList ? JSON.parse(ownList[1])[0] : null) || '/wp-content/plugins/buddynext/';
+// Browser-encoded, as a real request URL would be, so the scripted network keys match.
+const OWN = new URL(ownBase + 'assets/css/qa-pwa.css', ORIGIN).pathname, OTHER = '/wp-content/uploads/qa/other.css';
 const out = [];
 const check = (label, got, want) => { const ok = got === want; out.push(`${ok ? 'PASS' : 'FAIL'}  ${label}: got ${JSON.stringify(got)}${ok ? '' : ' want ' + JSON.stringify(want)}`); };
 // install: precache the shell (bare URLs) the worker lists
@@ -62,7 +66,8 @@ console.log('caches after run:\n  ' + cached.join('\n  '));
 // The precached shell is BuddyNext's own list; the runtime asset cache is where
 // a theme's or another plugin's file used to land.
 const assetName = src.match(/const ASSET_CACHE = '([^']+)'/)[1];
-const leaked = [...(stores.get(assetName) || new Map()).keys()].some((k) => new URL(k).pathname.indexOf(ownBase) !== 0);
+const ownPath = new URL(ownBase, ORIGIN).pathname; // browser-encoded, like the cache keys
+const leaked = [...(stores.get(assetName) || new Map()).keys()].some((k) => new URL(k).pathname.indexOf(ownPath) !== 0);
 check('nothing outside BuddyNext was cached', leaked, false);
 console.log(out.join('\n'));
 process.exit(out.some((l) => l.startsWith('FAIL')) ? 1 : 0);
