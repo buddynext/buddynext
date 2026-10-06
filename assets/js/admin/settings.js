@@ -96,6 +96,13 @@
 			);
 		}
 
+		// Closing the one-time secret panel refreshes the endpoint table.
+		card.addEventListener( 'click', function ( e ) {
+			if ( e.target.closest && e.target.closest( '[data-bn-webhook-secret-done]' ) ) {
+				window.location.reload();
+			}
+		} );
+
 		// Add new endpoint.
 		if ( addBtn ) {
 			addBtn.addEventListener( 'click', function () {
@@ -123,9 +130,22 @@
 						setStatus( ( res.body && res.body.message ) || __( 'Registration failed.', 'buddynext' ), true );
 						return;
 					}
-					setStatus( __( 'Endpoint registered. Reload to see it in the table.', 'buddynext' ) );
 					urlInput.value = '';
 					card.querySelectorAll( '[data-bn-webhook-event]:checked' ).forEach( function ( cb ) { cb.checked = false; } );
+					// The signing secret comes back once, here. Show it before the
+					// reload, or the owner can never verify a signature.
+					var panel  = card.querySelector( '[data-bn-webhook-secret-panel]' );
+					var secret = res.body && res.body.secret;
+					if ( panel && secret ) {
+						var field = panel.querySelector( 'input' );
+						field.value  = secret;
+						panel.hidden = false;
+						addBtn.disabled = true;
+						setStatus( __( 'Endpoint registered. Copy its signing secret below.', 'buddynext' ) );
+						field.focus();
+						field.select();
+						return;
+					}
 					// Reload to re-fetch the server-rendered table — simpler than
 					// hand-building a row + keeps server-side numbering authoritative.
 					window.location.reload();

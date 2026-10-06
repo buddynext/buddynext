@@ -3684,6 +3684,32 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				</button>
 				<span class="bn-field-hint" role="status" data-bn-webhook-status aria-live="polite"></span>
 			</div>
+
+			<?php
+			// Each endpoint gets its own signing secret when it is registered. It is
+			// stored and never sent back, so this is the one moment the owner can
+			// copy it: the page used to reload at once and the secret was lost,
+			// leaving no way to verify a signature. Filled in by settings.js.
+			?>
+			<div class="bn-field bn-a-gap-top" data-bn-webhook-secret-panel hidden>
+				<label for="bn-webhook-new-secret"><?php esc_html_e( 'Signing secret for the new endpoint', 'buddynext' ); ?></label>
+				<div class="bn-input-group">
+					<input type="text"
+						id="bn-webhook-new-secret"
+						class="bn-input bn-text-input large-text code"
+						readonly
+						autocomplete="off"
+						spellcheck="false">
+					<button type="button"
+						class="bn-btn"
+						data-variant="secondary"
+						data-bn-copy="bn-webhook-new-secret"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+				</div>
+				<span class="bn-field-hint"><?php esc_html_e( 'Copy it now and save it in the receiving service. It verifies the X-BuddyNext-Signature header on every request and is not shown again.', 'buddynext' ); ?></span>
+				<div class="bn-row-actions bn-a-gap-top">
+					<button type="button" class="bn-btn" data-variant="primary" data-bn-webhook-secret-done><?php esc_html_e( 'Done, I have copied it', 'buddynext' ); ?></button>
+				</div>
+			</div>
 		</div>
 		<?php
 		$this->close_section();
