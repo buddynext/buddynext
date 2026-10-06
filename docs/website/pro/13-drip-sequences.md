@@ -41,7 +41,7 @@ A sequence has these top-level settings:
 |---|---|---|
 | Sequence name | A label so you can recognize the sequence in the list. Required. | Empty (you must set it) |
 | Trigger | What starts the sequence for a member. See the trigger table below. | Member sign-up (first option in the list) |
-| Enabled | Whether the sequence is live. While disabled, no new member is auto-enrolled. | Disabled when created (turn it on from the list once your steps are ready) |
+| Enabled | Whether the sequence is live. While disabled, no new member is auto-enrolled and no step is sent to members already enrolled. | Disabled when created (turn it on from the list once your steps are ready) |
 
 #### Triggers
 
@@ -69,7 +69,7 @@ You can **Edit** or **Delete** a step from the step list. There is no manual reo
 
 ### Enable, disable, and delete
 
-- Use **Enable** or **Disable** on the sequence's row in the list. Disabling stops new auto-enrollments; it does not delete anything. Members who are already enrolled keep receiving their remaining steps, so to stop a running sequence, delete it.
+- Use **Enable** or **Disable** on the sequence's row in the list. Disabling pauses the sequence: no new member is enrolled and members already enrolled receive nothing, but everyone keeps their place. Enabling it again resumes each member with their next step; the steps that came due while it was paused are not sent all at once. Delete a sequence only when you want its enrollments gone.
 - **Delete** removes a sequence permanently, after a confirmation, along with every enrollment tied to it. There is no separate delete for a single member's enrollment from here - deleting the whole sequence is the only removal path.
 
 ### Manage enrollments
