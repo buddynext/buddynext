@@ -998,6 +998,21 @@ body.admin-bar .bn-app__rail {
 	transition: background 0.12s, color 0.12s;
 }
 
+/* A sub-space names its parent on a second, quieter line ("in Frontend Guild"),
+ * so it reads as part of that space. Both lines truncate on their own. */
+.bn-rail__spaces-name,
+.bn-rail__spaces-parent {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-rail__spaces-parent {
+	font-size: var(--bn-text-xs, 0.75rem);
+	line-height: var(--bn-leading-snug, 1.3);
+	color: var(--bn-ink-3);
+}
+
 .bn-rail__spaces-link:hover {
 	background: var(--bn-canvas);
 	color: var(--bn-ink);

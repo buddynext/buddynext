@@ -191,6 +191,9 @@ foreach ( $bn_rail_items as $bn_item ) {
 				$bn_spaces_preview = 5;
 				$bn_my_spaces      = buddynext_service( 'space_members' )->membership_rows( $bn_rail_current_user, $bn_spaces_preview );
 				$bn_spaces_total   = buddynext_service( 'space_members' )->count_memberships( $bn_rail_current_user );
+				// "in {parent}" under a sub-space, so it reads as part of its parent
+				// space; one query for the whole preview, none when it has no sub-spaces.
+				$bn_rail_parents = buddynext_service( 'spaces' )->parent_labels( array_column( $bn_my_spaces, 'parent_id' ), $bn_rail_current_user );
 				if ( ! empty( $bn_my_spaces ) ) :
 					$bn_spaces_mine_url = trailingslashit( PageRouter::spaces_url() ) . 'mine/';
 					?>
@@ -204,8 +207,17 @@ foreach ( $bn_rail_items as $bn_item ) {
 						<ul class="bn-rail__spaces-list">
 							<?php foreach ( $bn_my_spaces as $bn_sp ) : ?>
 								<li>
+									<?php $bn_sp_parent = $bn_rail_parents[ (int) ( $bn_sp->parent_id ?? 0 ) ] ?? null; ?>
 									<a class="bn-rail__spaces-link" href="<?php echo esc_url( PageRouter::space_url( (int) $bn_sp->id ) ); ?>" title="<?php echo esc_attr( (string) $bn_sp->name ); ?>">
-										<?php echo esc_html( (string) $bn_sp->name ); ?>
+										<span class="bn-rail__spaces-name"><?php echo esc_html( (string) $bn_sp->name ); ?></span>
+										<?php if ( null !== $bn_sp_parent ) : ?>
+											<span class="bn-rail__spaces-parent">
+												<?php
+												/* translators: %s: name of the space this sub-space belongs to. */
+												echo esc_html( sprintf( _x( 'in %s', 'sub-space parent label', 'buddynext' ), $bn_sp_parent['name'] ) );
+												?>
+											</span>
+										<?php endif; ?>
 									</a>
 								</li>
 							<?php endforeach; ?>

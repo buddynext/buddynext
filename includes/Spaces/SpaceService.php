@@ -1909,6 +1909,48 @@ class SpaceService {
 	}
 
 	/**
+	 * Names and links for the parents of sub-spaces, for "in {parent}" labels.
+	 *
+	 * One query for every parent on a list, so a rail, a profile or a page of
+	 * cards never asks per row. A parent the viewer may not know exists (a hidden
+	 * space they are not in) is left out, under the same rule as the space page
+	 * itself (SpaceVisibility::can_view_space()).
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param array<int, int|string|null> $parent_ids Parent ids; empty and 0 are skipped.
+	 * @param int                         $viewer_id  Viewer (0 = logged out).
+	 * @return array<int, array{id: int, name: string, url: string}> Keyed by parent id.
+	 */
+	public function parent_labels( array $parent_ids, int $viewer_id ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $parent_ids ) ) ) );
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		global $wpdb;
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare( "SELECT id, name, slug, type FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$placeholders})", ...$ids ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		$labels = array();
+		foreach ( $rows as $row ) {
+			if ( SpaceVisibility::can_view_space( $row, $viewer_id ) ) {
+				$labels[ (int) $row['id'] ] = array(
+					'id'   => (int) $row['id'],
+					'name' => (string) $row['name'],
+					'url'  => \BuddyNext\Core\PageRouter::space_url( (int) $row['id'] ),
+				);
+			}
+		}
+		return $labels;
+	}
+
+	/**
 	 * Return a paginated list of spaces together with the total row count.
 	 *
 	 * Same args and visibility/WHERE semantics as {@see list_spaces()} (it reuses

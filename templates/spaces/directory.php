@@ -312,6 +312,10 @@ $bn_subtitle = sprintf(
 	);
 	?>
 
+	<?php
+	// "in {parent}" on sub-space cards: one query for the page.
+	$bn_parent_by_id = buddynext_service( 'spaces' )->parent_labels( array_column( (array) $bn_spaces, 'parent_id' ), (int) $current_user_id );
+	?>
 	<div class="bn-sd-filter-row">
 		<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces', 'buddynext' ); ?>" data-bn-scope-chips>
 			<?php
@@ -619,6 +623,7 @@ $bn_subtitle = sprintf(
 								'membership'      => $membership_map[ (int) $space['id'] ] ?? null,
 								'current_user_id' => $current_user_id,
 								'cat_by_id'       => $bn_cat_by_id,
+								'parent_by_id'    => $bn_parent_by_id,
 								'subspace_count'  => (int) ( $bn_subspace_counts[ (int) $space['id'] ] ?? 0 ),
 							)
 						);
@@ -722,6 +727,7 @@ $bn_subtitle = sprintf(
 						'membership'      => $membership_map[ (int) $space['id'] ] ?? null,
 						'current_user_id' => $current_user_id,
 						'cat_by_id'       => $bn_cat_by_id,
+						'parent_by_id'    => $bn_parent_by_id,
 						'subspace_count'  => (int) ( $bn_subspace_counts[ (int) $space['id'] ] ?? 0 ),
 						'active_label'    => $bn_active_label,
 					)

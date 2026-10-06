@@ -1628,6 +1628,8 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-space-icon svg { width: 16px; height: 16px; }
 .bn-space-name { font-weight: 600; font-size: var(--bn-text-xs); color: var(--bn-ink); }
+/* A sub-space's parent, sentence case between the name and the role. */
+.bn-space-parent { font-size: var(--bn-text-xs); color: var(--bn-ink-3); }
 .bn-space-role {
 	font-size: 10px;
 	color: var(--bn-ink-4);

@@ -142,6 +142,7 @@ echo get_block_wrapper_attributes(
 	<?php else : ?>
 		<div class="bn-sd-grid" role="list" data-layout="<?php echo esc_attr( $layout ); ?>">
 			<?php
+			$bn_ss_parents = buddynext_service( 'spaces' )->parent_labels( array_column( (array) $bn_ss_spaces, 'parent_id' ), (int) $bn_ss_viewer );
 			foreach ( $bn_ss_spaces as $bn_ss_space ) {
 				$bn_ss_row = $bn_ss_space;
 				if ( ! $show_description ) {
@@ -157,6 +158,7 @@ echo get_block_wrapper_attributes(
 						'membership'      => $bn_ss_membership_map[ (int) $bn_ss_space['id'] ] ?? null,
 						'current_user_id' => $bn_ss_viewer,
 						'cat_by_id'       => $bn_ss_cat_by_id,
+						'parent_by_id'    => $bn_ss_parents,
 						'subspace_count'  => 0,
 					)
 				);

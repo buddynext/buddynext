@@ -97,6 +97,7 @@ foreach ( buddynext_service( 'spaces' )->categories_with_counts( 0, true ) as $b
 		 */
 		?>
 		<div class="bn-sd-grid" role="list" data-layout="<?php echo esc_attr( $layout ); ?>">
+			<?php $bn_sd_parents = buddynext_service( 'spaces' )->parent_labels( array_column( (array) $spaces, 'parent_id' ), (int) $bn_sd_viewer ); ?>
 			<?php foreach ( $spaces as $bn_sd_space ) : ?>
 				<?php
 				buddynext_get_template(
@@ -106,6 +107,7 @@ foreach ( buddynext_service( 'spaces' )->categories_with_counts( 0, true ) as $b
 						'membership'      => $bn_sd_membership[ (int) ( $bn_sd_space['id'] ?? 0 ) ] ?? null,
 						'current_user_id' => $bn_sd_viewer,
 						'cat_by_id'       => $bn_sd_cats,
+						'parent_by_id'    => $bn_sd_parents,
 						'subspace_count'  => 0,
 					)
 				);

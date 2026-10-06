@@ -366,6 +366,30 @@
 	color: var(--bn-accent);
 }
 
+/* "in {parent}" under a sub-space's name. Tighter to the name than the body's
+ * gap, one line, truncated; the parent name links to the parent space. */
+.bn-sd-card__parent {
+	margin: calc(-1 * var(--bn-s1)) 0 0;
+	min-inline-size: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-sd-card__parent a {
+	color: var(--bn-ink-2);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.bn-sd-card__parent a:hover,
+.bn-sd-card__parent a:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
 .bn-sd-card__name {
 	font-family: var(--bn-font-display);
 	font-size: var(--bn-text-base);

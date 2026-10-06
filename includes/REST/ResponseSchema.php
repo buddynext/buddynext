@@ -5793,14 +5793,26 @@ final class ResponseSchema {
 			'title'      => 'member-space',
 			'type'       => 'object',
 			'properties' => array(
-				'id'   => array( 'type' => 'integer' ),
-				'name' => array( 'type' => 'string' ),
-				'slug' => array( 'type' => 'string' ),
-				'type' => array( 'type' => 'string' ),
-				'role' => array( 'type' => 'string' ),
-				'url'  => array(
+				'id'     => array( 'type' => 'integer' ),
+				'name'   => array( 'type' => 'string' ),
+				'slug'   => array( 'type' => 'string' ),
+				'type'   => array( 'type' => 'string' ),
+				'role'   => array( 'type' => 'string' ),
+				'url'    => array(
 					'type'   => 'string',
 					'format' => 'uri',
+				),
+				'parent' => array(
+					'description' => 'The space this sub-space belongs to; null for a top-level space or a hidden parent the viewer may not see.',
+					'type'        => array( 'object', 'null' ),
+					'properties'  => array(
+						'id'   => array( 'type' => 'integer' ),
+						'name' => array( 'type' => 'string' ),
+						'url'  => array(
+							'type'   => 'string',
+							'format' => 'uri',
+						),
+					),
 				),
 			),
 		);

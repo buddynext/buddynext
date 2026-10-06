@@ -70,6 +70,7 @@ buddynext_get_template(
 		'membership'      => $bn_fs_membership,
 		'current_user_id' => $bn_fs_viewer,
 		'cat_by_id'       => $bn_fs_cats,
+		'parent_by_id'    => buddynext_service( 'spaces' )->parent_labels( array( $bn_fs_space['parent_id'] ?? 0 ), (int) $bn_fs_viewer ),
 		'subspace_count'  => 0,
 		'compact'         => 'compact' === ( isset( $size ) ? (string) $size : 'full' ),
 		'show_action'     => ! isset( $show_action ) || (bool) $show_action,

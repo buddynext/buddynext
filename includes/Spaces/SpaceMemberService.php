@@ -1969,7 +1969,7 @@ class SpaceMemberService {
 		// that only changes when the member joins or leaves something. Cache the
 		// unfiltered ceiling once per member (not per requested limit); the addon
 		// filter + the slice run per call so an exclusion change is never served stale.
-		$cache_key = 'membership_rows2_v' . self::membership_summary_version( $user_id ) . "_{$user_id}"; // v2: rows carry type.
+		$cache_key = 'membership_rows3_v' . self::membership_summary_version( $user_id ) . "_{$user_id}"; // v3: rows carry parent_id.
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -1983,7 +1983,7 @@ class SpaceMemberService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.id, s.name, s.slug, s.type, s.category_id, sm.role
+					"SELECT s.id, s.name, s.slug, s.type, s.category_id, s.parent_id, sm.role
 					 FROM {$wpdb->prefix}bn_spaces s
 					 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id
 					 WHERE sm.user_id = %d AND sm.status = 'active'
@@ -2011,7 +2011,7 @@ class SpaceMemberService {
 		 *
 		 * @since 1.2.0
 		 *
-		 * @param array<int,object> $rows    Space rows (id, name, slug, category_id, role).
+		 * @param array<int,object> $rows    Space rows (id, name, slug, type, category_id, parent_id, role).
 		 * @param int               $user_id The member whose spaces these are.
 		 * @param int               $limit   Row cap the caller requested.
 		 */

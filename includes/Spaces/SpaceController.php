@@ -1840,17 +1840,21 @@ class SpaceController extends BaseRestController {
 
 		// ponytail: capped list (max 50), the card shows 5; no paging until a
 		// member's space list needs it.
-		$rows = buddynext_service( 'space_members' )->membership_rows( $user_id, (int) $request->get_param( 'per_page' ), $viewer );
+		$rows    = buddynext_service( 'space_members' )->membership_rows( $user_id, (int) $request->get_param( 'per_page' ), $viewer );
+		$parents = buddynext_service( 'spaces' )->parent_labels( array_column( $rows, 'parent_id' ), $viewer );
 
 		return new WP_REST_Response(
 			array_map(
 				static fn( $row ): array => array(
-					'id'   => (int) $row->id,
-					'name' => (string) $row->name,
-					'slug' => (string) $row->slug,
-					'type' => (string) $row->type,
-					'role' => (string) $row->role,
-					'url'  => \BuddyNext\Core\PageRouter::space_url( (int) $row->id ),
+					'id'     => (int) $row->id,
+					'name'   => (string) $row->name,
+					'slug'   => (string) $row->slug,
+					'type'   => (string) $row->type,
+					'role'   => (string) $row->role,
+					'url'    => \BuddyNext\Core\PageRouter::space_url( (int) $row->id ),
+					// The space a sub-space belongs to ({id, name, url}), or null: top
+					// level, or a hidden parent this viewer may not know about.
+					'parent' => $parents[ (int) ( $row->parent_id ?? 0 ) ] ?? null,
 				),
 				$rows
 			),
