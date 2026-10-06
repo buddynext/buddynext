@@ -337,7 +337,7 @@ class AppConfigController {
 		return array(
 			'can_create'       => buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ),
 			'types'            => $types,
-			'default_type'     => (string) get_option( 'buddynext_space_default_type', 'open' ),
+			'default_type'     => \BuddyNext\Spaces\SpaceTypeRegistry::instance()->default_type(),
 			'default_category' => (int) get_option( 'buddynext_space_default_category', 0 ),
 		);
 	}

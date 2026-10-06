@@ -349,7 +349,7 @@ class SpaceService {
 		}
 
 		// Default visibility for new spaces (Settings → Spaces → New-space defaults).
-		$req_type = (string) ( $data['type'] ?? get_option( 'buddynext_space_default_type', 'open' ) );
+		$req_type = (string) ( $data['type'] ?? SpaceTypeRegistry::instance()->default_type() );
 		$type     = SpaceTypeRegistry::instance()->is_valid( $req_type ) ? $req_type : 'open';
 
 		// Enforce two-level sub-space depth limit.

@@ -1308,7 +1308,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'toggle_label' => __( 'Cap sub-spaces per space', 'buddynext' ),
 							'label'        => __( 'Max sub-spaces per space', 'buddynext' ),
 							'min'          => 0,
-							'hint'         => __( 'Maximum number of sub-spaces a space owner can create inside their space.', 'buddynext' ),
+							'hint'         => __( 'Maximum number of sub-spaces a space owner can create inside their space. Applies only while Allow sub-spaces is on.', 'buddynext' ),
 						)
 					),
 				)

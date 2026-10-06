@@ -185,6 +185,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-z-lightbox: 100000;
 	--bn-z-modal:    100100;   /* above the lightbox — a modal is the top surface */
 	--bn-z-toast:    100200;   /* above the modal — confirms what a modal just did */
+	--bn-save-bar-h: 64px;     /* the sticky Save bar; toasts clear it */
 
 	/* Shadows */
 	--bn-shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.04);
@@ -854,10 +855,23 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
  * it. The bug class here was five surfaces each solving the same problem
  * differently, and three of them getting it wrong.
  */
+/* A screen with the sticky Save bar (.bn-ep-save-bar: profile edit, notification
+   preferences) pins that bar to the bottom, and the toast used to land on top of
+   it: at 390px it covered "Unsaved changes" and most of the Save button, and took
+   the tap, so after a refused save the member could not press Save again until
+   the toast left. The toast sits above the bar on every width. */
+body:has(.bn-ep-save-bar) .bn-toast-container {
+	bottom: calc(var(--bn-save-bar-h) + var(--bn-s4));
+}
+
 @media (max-width: 768px) {
 	body:has(.bn-mobile-nav) .bn-toast-container,
 	body:has(.bn-mobile-nav) .bn-unsub-notice {
 		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+
+	body:has(.bn-mobile-nav):has(.bn-ep-save-bar) .bn-toast-container {
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-save-bar-h) + var(--bn-s4));
 	}
 
 	body:has(.bn-mobile-nav) .bn-cookie-consent {
@@ -989,15 +1003,6 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	text-decoration: none;
 }
 
-/* Repeat counter. An action the server keeps refusing used to emit one toast PER
-   attempt and they piled up until they filled the screen (and a screen reader read
-   the same sentence out once per copy — every toast is an assertive alert). The
-   repeat is now collapsed onto the existing toast and counted here. */
-.bn-toast__count {
-	margin-inline-start: var(--bn-s2);
-	opacity: 0.7;
-	font-variant-numeric: tabular-nums;
-}
 @keyframes bn-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bn-toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
 
@@ -1737,7 +1742,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	border-block-start: 1px solid var(--bn-line);
 	box-shadow: var(--bn-shadow-sm);
 	padding-inline: var(--bn-s5);
-	min-height: 64px;
+	/* One number for the bar and for whatever must clear it (the toast). */
+	min-height: var(--bn-save-bar-h);
 	display: flex;
 	align-items: center;
 	z-index: 180;

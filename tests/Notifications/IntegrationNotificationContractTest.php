@@ -201,12 +201,18 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $unread( $this->recipient ) );
 		$this->assertSame( 1, $unread( $other ) );
 		$badge = $service->unread_count( $this->recipient );
+		$bell  = $service->unseen_count( $this->recipient );
+		$other_bell = $service->unseen_count( $other );
 
 		do_action( 'jetonomy_community_notification_read', 'post', 1153, $this->recipient );
 
 		$this->assertSame( 0, $unread( $this->recipient ), 'the reader' );
 		$this->assertSame( 1, $unread( $other ), 'another recipient of the same object' );
 		$this->assertSame( $badge - 1, $service->unread_count( $this->recipient ), 'the badge follows' );
+		// The number on the bell is "new since last opened AND still unread": read at
+		// its source, it leaves the bell at once; the other recipient's bell is untouched.
+		$this->assertSame( $bell - 1, $service->unseen_count( $this->recipient ), 'the bell number drops' );
+		$this->assertSame( $other_bell, $service->unseen_count( $other ) );
 
 		// A read for an object with no row, or another object, changes nothing.
 		do_action( 'jetonomy_community_notification_read', 'post', 999999, $other );

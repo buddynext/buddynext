@@ -770,6 +770,11 @@ class NotificationService {
 	 * WITHOUT marking anything read. The Unread tab keeps using unread_count()
 	 * (is_read = 0), so the two are intentionally independent.
 	 *
+	 * Only rows that are also still unread count: something the member already
+	 * read at its source (opened the conversation in the partner plugin) is not
+	 * news, and a badge that sent them to the bell to find nothing new was the
+	 * complaint (owner decision 2026-10-06).
+	 *
 	 * @param int $user_id User to query.
 	 * @return int
 	 */
@@ -793,7 +798,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND created_at > %s" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
+				 WHERE recipient_id = %d AND created_at > %s AND is_read = 0" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id,
 				$last_seen
 			)

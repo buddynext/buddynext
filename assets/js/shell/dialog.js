@@ -1145,10 +1145,12 @@ function showToast( o ) {
 		document.body.appendChild( container );
 	}
 
-	// The same thing said again (a rate limit the server keeps refusing) collapses onto the
-	// toast already showing and counts the repeats, instead of stacking a copy per attempt
-	// that a screen reader would read out once each. A caller-supplied key means "update
-	// this toast": same handling, but the content is repainted rather than counted.
+	// The same thing said again (a refused Save pressed four times, a rate limit the
+	// server keeps refusing) collapses onto the toast already showing and restarts its
+	// timer, instead of stacking a copy per attempt that a screen reader would read out
+	// once each. No repeat counter: "x4" on a validation message was a count of the
+	// member's own button presses (owner decision 2026-10-06). A caller-supplied key
+	// means "update this toast": the content is repainted.
 	// Title AND body: "+10 Points / Log in for the first time" and "+10 Points / Daily
 	// login bonus" are two different things said, not one said twice.
 	const key      = o.key || toastKey( o.body ? `${ o.title }\n${ o.body }` : o.title, o.status );
@@ -1157,15 +1159,6 @@ function showToast( o ) {
 		if ( o.key ) {
 			existing._bnHandle.update( o );
 		} else {
-			const count = ( parseInt( existing.getAttribute( 'data-bn-toast-count' ), 10 ) || 1 ) + 1;
-			existing.setAttribute( 'data-bn-toast-count', String( count ) );
-			let badge = existing.querySelector( '.bn-toast__count' );
-			if ( ! badge ) {
-				badge = document.createElement( 'span' );
-				badge.className = 'bn-toast__count';
-				existing.appendChild( badge );
-			}
-			badge.textContent = `×${ count }`;
 			existing._bnResetTimer();
 		}
 		return existing._bnHandle;
@@ -1184,7 +1177,6 @@ function showToast( o ) {
 
 	const toast = document.createElement( 'div' );
 	toast.setAttribute( 'data-bn-toast-key', key );
-	toast.setAttribute( 'data-bn-toast-count', '1' );
 
 	let removeTimer;
 	const dismiss = function ( immediate ) {

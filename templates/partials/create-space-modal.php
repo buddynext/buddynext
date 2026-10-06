@@ -135,7 +135,7 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 					// Preselect the owner's default (Spaces -> Settings). The select
 					// always submits a value, so without this the first option (open)
 					// silently overrode buddynext_space_default_type on every create.
-					$bn_default_type = (string) get_option( 'buddynext_space_default_type', 'open' );
+					$bn_default_type = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->default_type();
 					foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $bn_type_key => $bn_type_cfg ) :
 						$bn_hint  = $bn_join_hints[ $bn_type_cfg['join'] ] ?? '';
 						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ': ' . $bn_hint : '' );

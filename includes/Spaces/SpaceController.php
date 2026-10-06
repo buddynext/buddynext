@@ -1536,7 +1536,7 @@ class SpaceController extends BaseRestController {
 			return $from_visibility;
 		}
 
-		return sanitize_key( (string) get_option( 'buddynext_space_default_type', 'open' ) );
+		return SpaceTypeRegistry::instance()->default_type();
 	}
 
 	/**
