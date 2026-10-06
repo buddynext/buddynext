@@ -38,7 +38,7 @@ A site administrator, or a moderator of the space being posted in, can lock a co
 
 | Setting | What it does | Default |
 |---|---|---|
-| Members-only teaser length (%) | How much of a locked post a non-member sees as a preview. Found under BuddyNext > Settings > Activity Feed. Capped at 95. A post under 40 words shows no preview, only the lock notice. | 25 |
+| Members-only teaser length (%) | How much of a locked post a non-member sees as a preview. Found under BuddyNext > Engagement > Social, in the Activity Feed section. Capped at 95. A post under 40 words shows no preview, only the lock notice. | 25 |
 
 While memberships are off, every signed-in member has the View Protected Content perk, so a members-only post is visible to all of them. Pick a default plan that leaves the perk off to make it a real paywall (see Membership Plans).
 

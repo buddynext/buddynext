@@ -20,7 +20,7 @@ required way in when you run the community as invite-only.
 
 ## Where to find it
 
-Everything lives under **BuddyNext > Members > Invites**. There is also a shortcut
+Everything lives under **BuddyNext > Members > Directory > Invites**. There is also a shortcut
 button on the **Registration & Login** settings tab that jumps you straight here.
 
 Sending invitations is an owner action - it needs the WordPress *manage options*
@@ -28,7 +28,7 @@ capability, so administrators send them, not members.
 
 ## Sending a single invitation
 
-1. Go to **BuddyNext > Members > Invites**.
+1. Go to **BuddyNext > Members > Directory > Invites**.
 2. Enter the person's **email address** (and optionally a first name, which
    personalises the email).
 3. Choose **Send invitation**. BuddyNext emails them a personal link.
