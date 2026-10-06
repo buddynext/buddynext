@@ -104,7 +104,7 @@ class IntegrationNotificationListener implements ListenerInterface {
 	}
 
 	/**
-	 * Listen on each source's notification hook and removal hook.
+	 * Listen on each source's notification hook, removal hook and read hook.
 	 *
 	 * @return void
 	 */
@@ -133,6 +133,20 @@ class IntegrationNotificationListener implements ListenerInterface {
 				},
 				10,
 				2
+			);
+			// One member read everything about one object in the plugin itself
+			// (opened the conversation): their bell rows for it go read. Not
+			// `_removed`, which deletes every recipient's rows.
+			add_action(
+				$prefix . '_community_notification_read',
+				static function ( $object_type, $object_id, $user_id ) use ( $source ): void {
+					$object_type = sanitize_key( (string) $object_type );
+					if ( '' !== $object_type && function_exists( 'buddynext_service' ) ) {
+						buddynext_service( 'notifications' )->mark_read_for_object( $source . '_' . $object_type, (int) $object_id, (int) $user_id );
+					}
+				},
+				10,
+				3
 			);
 		}
 	}

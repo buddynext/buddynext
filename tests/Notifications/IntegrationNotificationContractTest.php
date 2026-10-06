@@ -181,6 +181,38 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertCount( 0, $this->rows() );
 	}
 
+	/**
+	 * A member reading the object in the plugin marks THEIR bell row read, and
+	 * nobody else's (Basecamp 10375330894: a Jetonomy DM stayed unread in the
+	 * bell after the member read the conversation).
+	 *
+	 * @return void
+	 */
+	public function test_read_marks_only_that_members_row(): void {
+		global $wpdb;
+		$other = self::factory()->user->create();
+		$this->fire();
+		$this->fire( array( 'recipient_id' => $other ) );
+		$unread = static function ( int $user ) use ( $wpdb ): int {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jetonomy.reply_to_post' AND is_read = 0", $user ) );
+		};
+		$service = buddynext_service( 'notifications' );
+		$this->assertSame( 1, $unread( $this->recipient ) );
+		$this->assertSame( 1, $unread( $other ) );
+		$badge = $service->unread_count( $this->recipient );
+
+		do_action( 'jetonomy_community_notification_read', 'post', 1153, $this->recipient );
+
+		$this->assertSame( 0, $unread( $this->recipient ), 'the reader' );
+		$this->assertSame( 1, $unread( $other ), 'another recipient of the same object' );
+		$this->assertSame( $badge - 1, $service->unread_count( $this->recipient ), 'the badge follows' );
+
+		// A read for an object with no row, or another object, changes nothing.
+		do_action( 'jetonomy_community_notification_read', 'post', 999999, $other );
+		$this->assertSame( 1, $unread( $other ) );
+	}
+
 	public function test_declared_types_get_a_section(): void {
 		$this->assertTrue( IntegrationNotificationListener::adopted( 'jetonomy' ) );
 

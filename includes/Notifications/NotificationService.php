@@ -555,6 +555,46 @@ class NotificationService {
 	}
 
 	/**
+	 * Mark one member's notifications about one object read.
+	 *
+	 * For a partner plugin that knows the member has read the thing itself (opened
+	 * the conversation): only that member's rows change, so another recipient of
+	 * the same object keeps theirs unread. Uses the object_ref index.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param string $object_type Stored object type (e.g. 'jetonomy_message').
+	 * @param int    $object_id   Object id.
+	 * @param int    $user_id     The member who read it.
+	 * @return int Rows marked read.
+	 */
+	public function mark_read_for_object( string $object_type, int $object_id, int $user_id ): int {
+		if ( '' === $object_type || $object_id <= 0 || $user_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$marked = (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_notifications
+				 SET is_read = 1
+				 WHERE object_type = %s AND object_id = %d AND recipient_id = %d AND is_read = 0",
+				$object_type,
+				$object_id,
+				$user_id
+			)
+		);
+
+		if ( $marked > 0 ) {
+			$this->forget_counts( $user_id );
+		}
+
+		return $marked;
+	}
+
+	/**
 	 * Mark a single notification unread (ownership-checked).
 	 *
 	 * The inverse of mark_read(): lets a member restore a notification to the

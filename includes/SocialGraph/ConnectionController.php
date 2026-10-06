@@ -408,12 +408,17 @@ class ConnectionController extends BaseRestController {
 		$per_page   = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
 		$page       = max( 1, (int) $request->get_param( 'page' ) );
 
-		$pending = buddynext_service( 'connections' )->pending_received( $current_id, $per_page, ( $page - 1 ) * $per_page );
+		// One row more than the page, so "is there another page" is known without a
+		// count query. A full last page used to say has_more and cost the app an
+		// empty extra call.
+		$pending  = buddynext_service( 'connections' )->pending_received( $current_id, $per_page + 1, ( $page - 1 ) * $per_page );
+		$has_more = count( $pending ) > $per_page;
+		$pending  = array_slice( $pending, 0, $per_page );
 
 		$body = array(
 			'page'     => $page,
 			'per_page' => $per_page,
-			'has_more' => count( $pending ) === $per_page,
+			'has_more' => $has_more,
 			// The note the requester attached, keyed by requester id. Shipped
 			// alongside both response shapes (ids and expanded items) because it
 			// belongs to the REQUEST, not to the member — a client reviewing this
