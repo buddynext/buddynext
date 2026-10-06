@@ -3049,6 +3049,14 @@ a.bn-sh-statpill:focus-visible {
 	gap: var(--bn-s3);
 }
 
+/* The empty states' buttons: one centred row, wrapping with a gap on phones. */
+.bn-sd-empty__actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bn-s2);
+}
+
 /* Create-space modal form */
 .bn-create-space-form {
 	display: flex;

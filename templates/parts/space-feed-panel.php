@@ -289,7 +289,7 @@ printf(
 			data-size="md"
 		><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
 	</div>
-<?php elseif ( ! $bn_is_guest && ! $bn_is_member && ! $bn_is_pending && 'open' === $bn_space->type && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
+<?php elseif ( ! $bn_is_guest && ! $bn_is_member && ! $bn_is_pending && 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_space->type ) && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
 	<?php
 	// Logged-in non-members only. A guest is already handled by the $bn_is_guest
 	// branch above, whose "Log in" link carries the auth redirect. Without the

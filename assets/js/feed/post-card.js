@@ -2262,6 +2262,9 @@ store( 'buddynext/post-card', {
 				picker.addEventListener( 'change', async () => {
 					const files = Array.from( picker.files || [] );
 					picker.value = '';
+					// Two passes, as in the composer: every picked file gets its tile and
+					// a "Waiting" pill at once, then each upload shows its percentage.
+					const jobs = [];
 					for ( const file of files ) {
 						const invalid = validateMedia( file, { badTypeMsg: t( 'mediaBadType', 'Only images, video and audio can be attached.' ) } );
 						if ( invalid ) {
@@ -2270,11 +2273,33 @@ store( 'buddynext/post-card', {
 						}
 						const kind = /^video\//.test( file.type || '' ) ? 'video' : 'image';
 						const tile = addTile( 0, 'image' === kind ? URL.createObjectURL( file ) : '', kind );
+						const progress = document.createElement( 'span' );
+						progress.className = 'bn-composer__media-progress';
+						progress.setAttribute( 'role', 'progressbar' );
+						progress.setAttribute( 'aria-label', fmt( t( 'uploadingFile', 'Uploading %s' ), file.name || '' ) );
+						progress.setAttribute( 'aria-valuemin', '0' );
+						progress.setAttribute( 'aria-valuemax', '100' );
+						progress.setAttribute( 'aria-valuenow', '0' );
+						progress.textContent = t( 'uploadWaiting', 'Waiting' );
+						tile.appendChild( progress );
 						uploading++;
-						saveBtn.disabled = true;
+						jobs.push( { file, tile, progress } );
+					}
+					saveBtn.disabled = uploading > 0;
+					for ( const { file, tile, progress } of jobs ) {
+						progress.textContent = '0%';
 						// Staged private like the composer's uploads; the post's own
 						// privacy is applied to it when the edit is saved.
-						const out = await uploadMedia( file, { nonce: ctx.reactNonce, privacy: 'private', spaceId: postSpaceId } );
+						const out = await uploadMedia( file, {
+							nonce: ctx.reactNonce,
+							privacy: 'private',
+							spaceId: postSpaceId,
+							onProgress: ( percent ) => {
+								progress.textContent = percent + '%';
+								progress.setAttribute( 'aria-valuenow', String( percent ) );
+							},
+						} );
+						progress.remove();
 						uploading--;
 						saveBtn.disabled = uploading > 0;
 						if ( out.ok && out.mediaId ) {

@@ -1563,7 +1563,8 @@ class PostService {
 			? array()
 			: array(
 				'label' => __( 'Log in to view', 'buddynext' ),
-				'url'   => wp_login_url(),
+				// BuddyNext's login screen, returning to this post (same in the page and REST).
+				'url'   => \BuddyNext\Core\PageRouter::login_url( \BuddyNext\Core\PageRouter::post_url( (int) ( $post['id'] ?? 0 ) ) ),
 			);
 
 		return array(
@@ -2901,8 +2902,8 @@ class PostService {
 	}
 
 	/**
-	 * Rewrite the text, link and snapshot of every card of a type whose link_meta
-	 * id matches, keeping everything else (id, author, dates, status, space,
+	 * Rewrite the text, link and snapshot of the card of a type whose link_meta
+	 * id matches (one card per link, so at most one), keeping everything else (id, author, dates, status, space,
 	 * counts). Used through IntegrationActivity::rewrite_by_meta().
 	 *
 	 * Skipped when another card of the type already has the new link, so the

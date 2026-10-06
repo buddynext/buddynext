@@ -1319,6 +1319,8 @@ class AssetService {
 					'labelJoined'                     => __( 'Joined', 'buddynext' ),
 					'labelRequested'                  => __( 'Requested', 'buddynext' ),
 					'labelRequestToJoin'              => __( 'Request to join', 'buddynext' ),
+					/* translators: %s: name of the space this sub-space belongs to. */
+					'labelInParent'                   => _x( 'in %s', 'sub-space parent label', 'buddynext' ),
 					'labelManage'                     => __( 'Manage', 'buddynext' ),
 					'labelPublic'                     => __( 'Public', 'buddynext' ),
 					'ariaJoinedClickToLeave'          => __( 'Joined - click to leave', 'buddynext' ),

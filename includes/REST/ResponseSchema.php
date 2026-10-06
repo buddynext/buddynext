@@ -1126,6 +1126,10 @@ final class ResponseSchema {
 				'type_label'         => array( 'type' => 'string' ),
 				'type_tone'          => array( 'type' => 'string' ),
 				'join_method'        => array( 'type' => 'string' ),
+				'parent'             => array(
+					'description' => 'The space this sub-space belongs to; null for a top-level space or a hidden parent the viewer may not see.',
+					'type'        => array( 'object', 'null' ),
+				),
 				'membership_role'    => array( 'type' => array( 'string', 'null' ) ),
 				'membership_status'  => array( 'type' => array( 'string', 'null' ) ),
 				'can_invite'         => array( 'type' => 'boolean' ),

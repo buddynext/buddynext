@@ -892,6 +892,12 @@
 	background: color-mix(in oklch, var(--bn-ink) 88%, transparent);
 	color: var(--bn-surface);
 }
+/* The #cover deep link lands here: a ring, not only a darker fill (as the avatar button). */
+.bn-pf-cover__edit:focus-visible {
+	box-shadow: var(--bn-ring);
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+}
 .bn-pf-cover__edit svg {
 	width: 14px;
 	height: 14px;

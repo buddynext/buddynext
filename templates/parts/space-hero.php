@@ -110,7 +110,7 @@ $bn_brand_color = (string) buddynext_get_space_field( $bn_space_id, 'brand_color
 
 do_action( 'buddynext_part_space_hero_before', $args );
 ?>
-<section class="<?php echo esc_attr( $bn_class ); ?>"<?php echo '' !== $bn_brand_color ? ' style="--bn-space-brand:' . esc_attr( $bn_brand_color ) . ';"' : ''; ?>>
+<section class="<?php echo esc_attr( $bn_class ); ?>" data-join-method="<?php echo esc_attr( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $bn_space->type ?? 'open' ) ) ); ?>"<?php echo '' !== $bn_brand_color ? ' style="--bn-space-brand:' . esc_attr( $bn_brand_color ) . ';"' : ''; ?>>
 	<?php
 	// Cover framing. The image is rendered as an <img> (not a background) so the
 	// owner's focal point pans and zooms it exactly the way a member cover does -

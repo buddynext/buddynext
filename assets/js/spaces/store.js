@@ -1126,8 +1126,8 @@ var storeInstance = store( 'buddynext/spaces', {
 				if ( res.ok && data.left ) {
 					// Re-offer the correct entry route: "Join" for a direct-join space,
 					// "Request to join" for a request space, nothing for invite-only.
-					var leftCard = spaceCardFor( btn );
-					if ( leftCard && 'invite' === leftCard.dataset.joinMethod ) {
+					var leftScope = btn && btn.closest( '[data-join-method]' );
+					if ( leftScope && 'invite' === leftScope.dataset.joinMethod ) {
 						btn.remove();
 					} else {
 						swapButtonState( btn, spaceNeedsRequest( btn ) ? 'request' : 'join' );
@@ -2361,6 +2361,21 @@ function buildSpaceCard( row ) {
 	nameLink.appendChild( h2 );
 	body.appendChild( nameLink );
 
+	// "in {parent}" for a sub-space (REST row.parent, hidden parents already left
+	// out server-side), matching space-directory-card.php.
+	if ( row.parent && row.parent.name ) {
+		var parentLine = document.createElement( 'p' );
+		parentLine.className = 'bn-sd-card__parent';
+		var parentLink = document.createElement( 'a' );
+		parentLink.href = row.parent.url || '#';
+		parentLink.textContent = row.parent.name;
+		var parentParts = t( 'labelInParent', 'in %s' ).split( '%s' );
+		parentLine.appendChild( document.createTextNode( parentParts[ 0 ] || '' ) );
+		parentLine.appendChild( parentLink );
+		parentLine.appendChild( document.createTextNode( parentParts[ 1 ] || '' ) );
+		body.appendChild( parentLine );
+	}
+
 	// Category line (icon cloned from a live SSR card if one exists).
 	if ( row.category_name ) {
 		var cat = document.createElement( 'div' );
@@ -2442,6 +2457,10 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.spaceId      = String( spaceId );
 		ctaEl.setAttribute( 'aria-label', t( 'ariaRequestPendingClickToCancel', 'Request pending - click to cancel' ) );
 		ctaEl.textContent = t( 'labelRequested', 'Requested' );
+	} else if ( 'invite' === joinMethod ) {
+		// Invite-only (hidden) space: members get in by invitation, so no join
+		// action - same rule as the server card (space-directory-card.php).
+		ctaEl = null;
 	} else if ( 'direct' === joinMethod ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
@@ -2465,8 +2484,10 @@ function buildSpaceCard( row ) {
 	// data-wp-on--click directive is inert (the Interactivity API only binds
 	// directives present in the server-rendered HTML). Mark the CTA so the
 	// delegated click handler in the wiring section dispatches it instead.
-	ctaEl.setAttribute( 'data-bn-dyn', '1' );
-	foot.appendChild( ctaEl );
+	if ( ctaEl ) {
+		ctaEl.setAttribute( 'data-bn-dyn', '1' );
+		foot.appendChild( ctaEl );
+	}
 	body.appendChild( foot );
 
 	article.appendChild( body );

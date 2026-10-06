@@ -373,7 +373,7 @@ class IntegrationActivity {
 	}
 
 	/**
-	 * Turn every card of a partner id into a different card, in place.
+	 * Turn a partner id's card into a different card, in place.
 	 *
 	 * For a card whose meaning changes but whose moment still stands: a course
 	 * certificate that expires is no longer worth advertising, but the member did
@@ -395,7 +395,7 @@ class IntegrationActivity {
 	 * @param string               $link_title New link title.
 	 * @param string               $excerpt    New preview line.
 	 * @param array<string, mixed> $meta       Extra snapshot fields, as for publish().
-	 * @return int Cards rewritten.
+	 * @return int 1 when the card was rewritten, else 0.
 	 */
 	public static function rewrite_by_meta( string $type, string $meta_key, int $value, string $content, string $link_url, string $link_title = '', string $excerpt = '', array $meta = array() ): int {
 		if ( '' === $type || '' === $meta_key || $value <= 0 || '' === $link_url ) {

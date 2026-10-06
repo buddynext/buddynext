@@ -1316,8 +1316,12 @@ class SpaceController extends BaseRestController {
 			$member_svc->prime_viewer_roles( $viewer_id, $viewer_roles );
 		}
 
+		// "in {parent}" for sub-spaces, one query for the page (hidden parents left out).
+		$parents = buddynext_service( 'spaces' )->parent_labels( array_column( $rows, 'parent_id' ), $viewer_id );
+
 		foreach ( $rows as &$row ) {
 			$sid                   = (int) ( $row['id'] ?? 0 );
+			$row['parent']         = $parents[ (int) ( $row['parent_id'] ?? 0 ) ] ?? null;
 			$row['category_name']  = $cat_map[ $sid ]['category_name'] ?? null;
 			$row['category_slug']  = $cat_map[ $sid ]['category_slug'] ?? null;
 			$row['subspace_count'] = (int) ( $subspace_counts[ $sid ] ?? 0 );

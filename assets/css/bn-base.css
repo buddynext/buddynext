@@ -3788,6 +3788,26 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 			mask-image: linear-gradient(to right, transparent 0, #000 var(--bn-s8), #000 100%);
 		}
 	}
+	/* RTL: the strip starts at the right edge and the scroll timeline runs from
+		there, so the same three states fade the mirrored edges. */
+	[dir="rtl"] .bn-tabs,
+	[dir="rtl"] .bn-explore-filters {
+		animation-name: bn-tabs-edge-fade-rtl;
+	}
+	@keyframes bn-tabs-edge-fade-rtl {
+		0% {
+			-webkit-mask-image: linear-gradient(to left, #000 0, #000 calc(100% - var(--bn-s8)), transparent 100%);
+			mask-image: linear-gradient(to left, #000 0, #000 calc(100% - var(--bn-s8)), transparent 100%);
+		}
+		1%, 99% {
+			-webkit-mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 calc(100% - var(--bn-s8)), transparent 100%);
+			mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 calc(100% - var(--bn-s8)), transparent 100%);
+		}
+		100% {
+			-webkit-mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 100%);
+			mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 100%);
+		}
+	}
 }
 
 .bn-tab {
