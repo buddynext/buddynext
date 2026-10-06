@@ -745,6 +745,16 @@
 	font-weight: var(--bn-fw-normal);
 }
 
+/* "in {parent}" under a sub-space's name, as on the rail and the cards. */
+.bn-sd-side-row__parent {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-weight: var(--bn-fw-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 /* Community pulse — compact stat rows in the spaces-directory sidebar. */
 .bn-sd-pulse {
 	list-style: none;
