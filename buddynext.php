@@ -905,6 +905,31 @@ function buddynext_default_reg_mode(): string {
 }
 
 /**
+ * The registration modes buddynext_reg_mode can hold. The one list: the
+ * Registration settings field and the setup wizard both offer exactly these,
+ * and both save only one of them.
+ *
+ * @since 1.2.4
+ *
+ * @return string[]
+ */
+function buddynext_reg_modes(): array {
+	return array( 'open', 'invite', 'approval', 'closed' );
+}
+
+/*
+ * The setup wizard used to save "Admin approval" as 'approve', which nothing
+ * reads, so those sites held nobody. Read it as 'approval': the owner chose
+ * approval, and every reader of the option now honours that.
+ */
+add_filter(
+	'option_buddynext_reg_mode',
+	static function ( $value ) {
+		return 'approve' === $value ? 'approval' : $value;
+	}
+);
+
+/**
  * Product-level default values for the login / sign-up branding panel.
  *
  * Single source of truth so the admin Settings fields and the front-end auth

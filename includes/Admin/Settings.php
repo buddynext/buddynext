@@ -1753,12 +1753,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return array<string, string>
 	 */
 	private static function reg_mode_choices(): array {
-		return array(
+		$labels = array(
 			'open'     => __( 'Open: anyone can register', 'buddynext' ),
 			'invite'   => __( 'Invite Only: requires an invitation', 'buddynext' ),
 			'approval' => __( 'Admin Approval: admin reviews each request', 'buddynext' ),
 			'closed'   => __( 'Closed: nobody can create an account', 'buddynext' ),
 		);
+		// Keyed by the one list of modes, so a mode cannot exist here and not there.
+		return array_intersect_key( $labels, array_flip( buddynext_reg_modes() ) );
 	}
 
 	/**
