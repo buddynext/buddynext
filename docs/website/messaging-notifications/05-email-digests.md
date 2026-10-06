@@ -6,7 +6,7 @@ A digest is a single email that batches up a member's unread notifications and s
 
 ## Why use it
 
-A busy community generates a lot of activity: follows, comments, reactions, mentions, space invites. If every one of those sends an immediate email, an active member's inbox fills up fast, and the usual reaction is to mute everything or unsubscribe. Once a member turns email off entirely, you have lost the channel that brings them back.
+A busy community generates a lot of activity: follows, comments, mentions, space invites. If every one of those sends an immediate email, an active member's inbox fills up fast, and the usual reaction is to mute everything or unsubscribe. Once a member turns email off entirely, you have lost the channel that brings them back.
 
 Digests fix that. They let a member stay subscribed while cutting the volume from many emails a day down to one. The member still hears about everything that happened, but on their terms, in one place. For the owner, that means fewer unsubscribes, fewer spam complaints, and a re-engagement email that members actually open because it is not noise.
 
@@ -59,6 +59,7 @@ Because the work runs in the background on a schedule, it does not slow down the
 - **Already-read items are skipped.** The digest only includes notifications the member has not already seen in-app.
 - **Digests respect Off.** A type set to Off is never emailed at all - not immediately and not in a digest.
 - **No double-sends.** Each member gets at most one daily digest per day and one weekly digest per week, regardless of how often the background job runs.
+- **Reactions never appear in a digest.** Reactions to a member's posts and comments are bell-only: they show in the notification list and never in an email or a digest.
 - **Companion-plugin notifications never appear in a digest.** Badges, level-ups, and media reactions are display-only - the partner plugin that generated them owns its own email - so they are excluded from the daily and weekly rollup the same way they are excluded from immediate email. See Notifications.
 
 ## Free vs Pro

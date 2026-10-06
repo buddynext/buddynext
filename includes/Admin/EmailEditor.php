@@ -128,14 +128,6 @@ class EmailEditor {
 					'preview' => '{{mentioner_name}} mentioned you in a post.',
 					'body'    => "Hi {{recipient_name}},\n\n<strong>{{mentioner_name}}</strong> mentioned you:\n\n<blockquote>{{context_excerpt}}</blockquote>\n\n<a href=\"{{post_url}}\">View post →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
-				'bn.post_reacted'         => array(
-					'name'    => __( 'Post reacted', 'buddynext' ),
-					'trigger' => __( 'When someone reacts to your post', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{reactor_name}} reacted to your post on {{site_name}}',
-					'preview' => '{{reactor_name}} reacted to your post.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{reactor_name}}</strong> reacted to your post on {{site_name}}:\n\n<blockquote>{{post_excerpt}}</blockquote>\n\n<a href=\"{{post_url}}\">View post →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
-				),
 				'bn.post_commented'       => array(
 					'name'    => __( 'Post commented', 'buddynext' ),
 					'trigger' => __( 'When someone comments on your post', 'buddynext' ),
@@ -167,14 +159,6 @@ class EmailEditor {
 					'subject' => '{{actor_name}} would like to follow you',
 					'preview' => 'Approve or ignore the request',
 					'body'    => "Hi {{user_name}},\n\n{{actor_name}} has asked to follow you on <strong>{{site_name}}</strong>.\n\n<a href=\"{{action_url}}\">Review the request →</a>",
-				),
-				'bn.comment_reacted'      => array(
-					'name'    => __( 'Comment reacted', 'buddynext' ),
-					'trigger' => __( 'When someone reacts to your comment', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{actor_name}} reacted to your comment',
-					'preview' => 'Someone liked what you said',
-					'body'    => "Hi {{user_name}},\n\n{{actor_name}} reacted to your comment on <strong>{{site_name}}</strong>.\n\n<a href=\"{{action_url}}\">See the comment →</a>",
 				),
 				'bn.comment_reply'        => array(
 					'name'    => __( 'Comment reply', 'buddynext' ),

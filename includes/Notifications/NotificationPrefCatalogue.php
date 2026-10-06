@@ -138,21 +138,24 @@ class NotificationPrefCatalogue {
 			),
 
 			// Feed activity.
+			// Reactions are bell-only, everywhere (owner decision, 4 Oct 2026): no
+			// reaction email and no reaction line in a digest. Partner reactions
+			// already follow this; BuddyNext's own now do too.
 			'bn.post_reacted'             => array(
 				'label'              => __( 'Reactions on your posts', 'buddynext' ),
 				'description'        => __( 'Someone reacted to a post you authored.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
 				'default_on_site'    => true,
-				'default_email_freq' => 'daily',
-				'can_email'          => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
 			),
 			'bn.comment_reacted'          => array(
 				'label'              => __( 'Reactions on your comments', 'buddynext' ),
 				'description'        => __( 'Someone reacted to a comment you authored.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
 				'default_on_site'    => true,
-				'default_email_freq' => 'daily',
-				'can_email'          => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
 			),
 			'bn.post_commented'           => array(
 				'label'              => __( 'Comments on your posts', 'buddynext' ),
