@@ -8,6 +8,10 @@
  * wp_remote_post( timeout: 15 ) on EVERY admin_init until it succeeded, adding
  * up to 15s to every wp-admin page forever when the store was unreachable.
  *
+ * The same class ships in every Wbcom free plugin (the preset licence
+ * activation standard); only the names, the key and the item id differ. Keep
+ * them in step.
+ *
  * This class moves the call into a background single event, bounds the retries
  * so a firewalled host stops trying after a day, and — when it does give up —
  * shows the owner an admin notice explaining why with a Retry button, instead of
@@ -38,6 +42,12 @@ class PresetActivation {
 
 	/** UTC timestamp of the last failed attempt, set once we give up. */
 	public const OPT_GAVE_UP = 'buddynext_preset_activation_gave_up';
+
+	/**
+	 * The store's own reason when it ANSWERED and refused (expired, disabled,
+	 * no_activations_left, invalid...). Empty when the store was never reached.
+	 */
+	public const OPT_REFUSED = 'buddynext_preset_activation_refused';
 
 	/** The admin-post action for the owner's manual retry. */
 	public const RETRY_ACTION = 'buddynext_retry_preset_activation';
@@ -184,9 +194,10 @@ class PresetActivation {
 
 	/**
 	 * Perform the remote activation in the cron request. On success, mark
-	 * activated and clear the retry state. On failure, increment the bounded
-	 * counter and reschedule hourly until the ceiling, then stop and record that
-	 * we gave up so the notice can surface it.
+	 * activated and clear the retry state. A refusal from the store is final. When
+	 * the store did not answer, increment the bounded counter and reschedule hourly
+	 * until the ceiling, then stop and record that we gave up so the notice can
+	 * surface it.
 	 *
 	 * @return bool True when the licence is (or is now) activated; false on a
 	 *              failed attempt. Used by the owner's manual retry to report the
@@ -212,18 +223,30 @@ class PresetActivation {
 			)
 		);
 
-		$ok = false;
-		if ( ! is_wp_error( $response ) ) {
-			$body = json_decode( wp_remote_retrieve_body( $response ), true );
-			$ok   = 'valid' === ( $body['license'] ?? '' );
-		}
+		$body   = is_wp_error( $response ) ? null : json_decode( wp_remote_retrieve_body( $response ), true );
+		$status = is_array( $body ) ? (string) ( $body['license'] ?? '' ) : '';
 
-		if ( $ok ) {
+		if ( 'valid' === $status ) {
 			update_option( self::OPT_ACTIVATED, 1, false );
 			delete_option( self::OPT_ATTEMPTS );
 			delete_option( self::OPT_GAVE_UP );
+			delete_option( self::OPT_REFUSED );
 			return true;
 		}
+
+		// The store answered and said no. Asking again cannot change that answer,
+		// so this is final: stop now, keep the store's reason for the notice, and
+		// leave the next attempt to the owner's Retry. Retrying a refusal is what
+		// turned one expired key into a flood of requests from old releases.
+		if ( '' !== $status ) {
+			$reason = sanitize_key( (string) ( $body['error'] ?? '' ) );
+			update_option( self::OPT_REFUSED, '' !== $reason ? $reason : sanitize_key( $status ), false );
+			update_option( self::OPT_GAVE_UP, time(), false );
+			return false;
+		}
+
+		// No answer at all (network error, firewall page, 5xx): worth trying again.
+		delete_option( self::OPT_REFUSED );
 
 		$attempts = (int) get_option( self::OPT_ATTEMPTS, 0 ) + 1;
 		update_option( self::OPT_ATTEMPTS, $attempts, false );
@@ -303,15 +326,23 @@ class PresetActivation {
 			self::RETRY_ACTION
 		);
 
+		$refused = (string) get_option( self::OPT_REFUSED, '' );
+		$message = '' !== $refused
+			? sprintf(
+				/* translators: 1: the store's reason, e.g. "expired". 2: "last tried X ago". */
+				__( 'wbcomdesigns.com did not authorise plugin updates for BuddyNext on this site (reason: %1$s, %2$s). Updates will not download until this is resolved. Updating BuddyNext to the latest version usually fixes it; if it does not, contact Wbcom Designs support.', 'buddynext' ),
+				$refused,
+				$when
+			)
+			: sprintf(
+				/* translators: %s: "last tried X ago". */
+				__( 'BuddyNext could not reach wbcomdesigns.com to authorise plugin updates (%s). Updates will not download until this succeeds. If this host blocks outgoing connections, allow requests to wbcomdesigns.com, then retry.', 'buddynext' ),
+				$when
+			);
+
 		printf(
 			'<div class="notice notice-warning"><p>%1$s</p><p><a class="button button-primary" href="%2$s">%3$s</a></p></div>',
-			esc_html(
-				sprintf(
-					/* translators: %s: "last tried X ago". */
-					__( 'BuddyNext could not reach wbcomdesigns.com to authorise plugin updates (%s). Updates will not download until this succeeds. If this host blocks outgoing connections, allow requests to wbcomdesigns.com, then retry.', 'buddynext' ),
-					$when
-				)
-			),
+			esc_html( $message ),
 			esc_url( $retry_url ),
 			esc_html__( 'Retry activation now', 'buddynext' )
 		);

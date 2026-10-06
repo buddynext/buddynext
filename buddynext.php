@@ -119,6 +119,8 @@ register_deactivation_hook(
 		// deactivation (re-armed on next activation / write).
 		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::HOOK );
 		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::SWEEP_HOOK );
+		// A switched-off plugin asks the store nothing; activation re-arms it.
+		wp_clear_scheduled_hook( \BuddyNext\Core\PresetActivation::HOOK );
 	}
 );
 
