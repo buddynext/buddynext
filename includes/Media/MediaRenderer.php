@@ -247,7 +247,7 @@ class MediaRenderer {
 		$type      = (string) $d['type'];
 		$raw_thumb = (string) $d['thumb'];
 		$full      = esc_url( (string) $d['url'] );
-		$alt       = esc_attr( (string) $d['title'] );
+		$alt       = esc_attr( '' !== (string) ( $d['alt'] ?? '' ) ? (string) $d['alt'] : (string) $d['title'] );
 		$more_attr = $more > 0 ? ' data-bn-media-more="' . (int) $more . '"' : '';
 
 		// Reserve the tile's box before the lazy image loads: emit intrinsic
@@ -289,7 +289,9 @@ class MediaRenderer {
 		}
 
 		if ( 'audio' === $type ) {
-			$audio_title = '' !== $alt ? '<span class="bn-media-tile__audio-title">' . $alt . '</span>' : '';
+			// Visible text: the track's title, not its image alt.
+			$audio_name  = esc_html( (string) $d['title'] );
+			$audio_title = '' !== $audio_name ? '<span class="bn-media-tile__audio-title">' . $audio_name . '</span>' : '';
 			// The music icon is the OPEN affordance — the same lightbox image/video
 			// tiles open, so audio reaches the identical MediaVerse detail/manage
 			// surface (privacy, delete, reactions, comments) instead of being the one

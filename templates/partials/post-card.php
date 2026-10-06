@@ -673,7 +673,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			$bn_cover_desc = \BuddyNext\Media\MediaUrlResolver::descriptor( $bn_first_mid );
 			if ( $bn_cover_desc ) {
 				$bn_cover_url = (string) ( '' !== $bn_cover_desc['thumb'] ? $bn_cover_desc['thumb'] : $bn_cover_desc['url'] );
-				$bn_cover_alt = (string) $bn_cover_desc['title'];
+				$bn_cover_alt = (string) ( '' !== (string) ( $bn_cover_desc['alt'] ?? '' ) ? $bn_cover_desc['alt'] : $bn_cover_desc['title'] );
 			}
 		}
 		if ( '' === $bn_cover_url && ! empty( $link_meta['thumbnail'] ) ) {

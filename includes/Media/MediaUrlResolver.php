@@ -102,6 +102,8 @@ class MediaUrlResolver {
 			// poster-less tile (video). Never force a non-image file into an <img>.
 			'thumb'     => $thumb,
 			'title'     => (string) $repo->get( $media_id, 'title' ),
+			// The engine's alt (AI description first); the renderer falls back to the title.
+			'alt'       => MediaClient::alt_text( $media_id ),
 			'width'     => (int) $repo->get( $media_id, 'width' ),
 			'height'    => (int) $repo->get( $media_id, 'height' ),
 			'duration'  => (string) $repo->get( $media_id, 'duration' ),

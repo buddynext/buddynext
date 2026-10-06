@@ -434,7 +434,7 @@ if ( 'post-media' === $bn_kind ) :
 		$bn_desc = MediaUrlResolver::descriptor( (int) $bn_mids[0] );
 		if ( $bn_desc ) {
 			$bn_mtype = (string) ( $bn_desc['type'] ?? 'image' );
-			$bn_alt   = (string) $bn_desc['title'];
+			$bn_alt   = (string) ( '' !== (string) ( $bn_desc['alt'] ?? '' ) ? $bn_desc['alt'] : $bn_desc['title'] );
 			// A poster/thumbnail is the only valid <img> src. For an image the file
 			// URL is itself an image, so it is a fine fallback; for video/audio the
 			// file URL is NOT an image — putting it in <img> is the broken-tile bug,

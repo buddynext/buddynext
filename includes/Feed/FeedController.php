@@ -746,7 +746,8 @@ class FeedController extends BaseRestController {
 				'thumb_url' => '' !== $thumb ? $thumb : ( 'image' === $d['type'] ? $url : '' ),
 				'width'     => (int) ( $d['width'] ?? 0 ),
 				'height'    => (int) ( $d['height'] ?? 0 ),
-				'alt'       => (string) ( $d['title'] ?? '' ),
+				// The engine's alt (AI description first), falling back to the title.
+				'alt'       => (string) ( '' !== (string) ( $d['alt'] ?? '' ) ? $d['alt'] : ( $d['title'] ?? '' ) ),
 				'duration'  => (string) ( $d['duration'] ?? '' ),
 			);
 		}
