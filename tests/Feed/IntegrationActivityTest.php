@@ -83,6 +83,31 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * rewrite_by_meta() changes a card's text and link in place, never its moment,
+	 * and refuses a link another card already owns.
+	 *
+	 * @return void
+	 */
+	public function test_rewrite_by_meta_keeps_the_card_and_its_moment(): void {
+		global $wpdb;
+		$id     = IntegrationActivity::publish( $this->member_id, 'earned a certificate', 'https://example.test/verify/a/', 'Go', 'course', '', 0, array( 'certificate_id' => 5 ) );
+		$before = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, last_activity_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+
+		$this->assertSame( 1, IntegrationActivity::rewrite_by_meta( 'course', 'certificate_id', 5, 'completed a course', 'https://example.test/course/go/', 'Go', '', array( 'course_id' => 2 ) ) );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT content, link_url, link_meta, created_at, last_activity_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+		$this->assertSame( 'completed a course', $row->content );
+		$this->assertSame( 'https://example.test/course/go/', $row->link_url );
+		$this->assertSame( $before->created_at, $row->created_at );
+		$this->assertSame( $before->last_activity_at, $row->last_activity_at, 'never bumped' );
+		$meta = json_decode( (string) $row->link_meta, true );
+		$this->assertSame( 2, (int) $meta['course_id'] );
+		$this->assertArrayNotHasKey( 'certificate_id', $meta, 'the snapshot is replaced, not merged' );
+
+		IntegrationActivity::publish( $this->member_id, 'earned a certificate', 'https://example.test/verify/b/', 'Go', 'course', '', 0, array( 'certificate_id' => 6 ) );
+		$this->assertSame( 0, IntegrationActivity::rewrite_by_meta( 'course', 'certificate_id', 6, 'completed a course', 'https://example.test/course/go/' ), 'one card per link: the target is taken' );
+	}
+
+	/**
 	 * A typed publish() records the type and merges the meta into link_meta.
 	 *
 	 * @return void

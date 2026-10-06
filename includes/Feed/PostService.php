@@ -2901,6 +2901,71 @@ class PostService {
 	}
 
 	/**
+	 * Rewrite the text, link and snapshot of every card of a type whose link_meta
+	 * id matches, keeping everything else (id, author, dates, status, space,
+	 * counts). Used through IntegrationActivity::rewrite_by_meta().
+	 *
+	 * Skipped when another card of the type already has the new link, so the
+	 * one-card-per-link rule publish() keeps still holds.
+	 *
+	 * @param string               $type     Post type marker (e.g. 'course').
+	 * @param string               $meta_key link_meta field name.
+	 * @param int                  $value    Value to match.
+	 * @param string               $content  New text.
+	 * @param string               $link_url New link.
+	 * @param array<string, mixed> $meta     New link_meta snapshot.
+	 * @return int Cards rewritten.
+	 */
+	public function rewrite_link_meta_card( string $type, string $meta_key, int $value, string $content, string $link_url, array $meta ): int {
+		if ( '' === $type || '' === $meta_key || '' === $link_url || $this->exists_by_link( $type, $link_url ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d
+				 LIMIT 1",
+				$type,
+				'$.' . $meta_key,
+				$value
+			),
+			ARRAY_A
+		);
+		if ( empty( $rows ) ) {
+			return 0;
+		}
+		// LIMIT 1: one card per link, so at most one row may take the new link.
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'content'    => $content,
+				'link_url'   => $link_url,
+				'link_meta'  => wp_json_encode( $meta ),
+				'updated_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => (int) $rows[0]['id'] ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( 'post_' . (int) $rows[0]['id'], self::CACHE_GROUP );
+		if ( ! empty( $rows[0]['space_id'] ) ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', (int) $rows[0]['space_id'] );
+		}
+
+		return is_int( $updated ) ? $updated : 0;
+	}
+
+	/**
 	 * Put every card of a type whose link_meta id matches into another space.
 	 *
 	 * The space-move counterpart of transition_link_meta_status(), used through
