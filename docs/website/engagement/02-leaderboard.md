@@ -65,6 +65,7 @@ The leaderboard is part of gamification, so its setup is the gamification setup:
 - **Without the companion.** If WB Gamification is not installed or active, the leaderboard shows a friendly notice instead of rankings and waits quietly until the companion is in place. Nothing breaks.
 - **Built for large communities.** The board shows a fixed set of top members and reads each member's details only for those visible rows, so it stays fast whether your community has fifty members or fifty thousand. It does not load every member to render the page.
 - **When Jetonomy runs the board.** If WB Gamification hands the leaderboard to Jetonomy, BuddyNext hides its own leaderboard links and forwards its leaderboard address to the Jetonomy one.
+- **Space leaderboards.** A space's **Leaderboard** tab shows the same board limited to that space's members, still ranked by site-wide points. It needs WB Gamification 1.6.5 or newer and the Gamification switch on.
 - **Where the numbers come from.** Rankings, points, levels, streaks, and badges all come from WB Gamification. BuddyNext displays them; it does not keep its own separate score, so the leaderboard always matches what the gamification engine has recorded.
 
 ## Free vs Pro

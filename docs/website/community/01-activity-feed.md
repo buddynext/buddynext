@@ -2,7 +2,7 @@
 
 The Activity Feed is the stream of posts members see when they open your community. It comes in two views: the personalized Home feed (signed-in members) and the public Explore feed (open to anyone, including logged-out visitors). Each post can be opened on its own permalink page.
 
-![BuddyNext Activity Feed — the post composer above a stream of posts with React, Comment, Share and Save actions, plus a discovery sidebar (daily streak, trending topics, people to follow, your spaces).](../images/community-activity-feed.webp)
+![BuddyNext Activity Feed - the post composer above a stream of posts with React, Comment, Share and Save actions, plus a discovery sidebar (daily streak, trending topics, people to follow, your spaces).](../images/community-activity-feed.webp)
 
 ## Why use it
 
@@ -36,7 +36,7 @@ The count is capped at **99+**, the way every mainstream feed caps it. A busy co
 
 ### Infinite scroll
 
-The feed loads a page of posts at a time. As a member scrolls toward the bottom, the next page loads and appends automatically, so reading is continuous without a "next page" click. This keeps the feed fast even in a large community because only what is on screen is ever loaded.
+The feed loads a page of posts at a time. As a member scrolls toward the bottom, the next page loads and appends automatically, so reading is continuous without a "next page" click. This keeps the feed fast even in a large community because only what is on screen is ever loaded. After six pages (90 posts) the automatic loading stops and an **Older posts** link takes the member on; it only loads when they click it, so a member who is just scrolling never has the page reload under them.
 
 ### Long posts
 
@@ -44,7 +44,7 @@ A long text post shows its first few lines in the feed, with **See more** undern
 
 ### The announcement banner
 
-An administrator can pin one announcement to the top of the feed. It shows as a banner above the stream. A member can dismiss it, and once dismissed it stays gone for that member. Announcements can also carry an expiry, after which they stop pinning on their own. See Post Composer for how announcements are created.
+An administrator can pin one site-wide announcement to the top of the feed (a space owner or moderator can do the same inside their own space). It shows as a banner above the stream. A member can dismiss it, and once dismissed it stays gone for that member. Announcements can also carry an expiry, after which they stop pinning on their own. See Post Composer for how announcements are created.
 
 
 ### The Explore feed
@@ -61,11 +61,11 @@ The feed works out of the box. Two owner settings shape its behavior, and a few 
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Public Explore feed | Whether the Explore feed is visible to the public, including logged-out visitors. Turn this off to keep all activity behind sign-in. | On |
-| Default post visibility | The audience a new post gets when the member does not pick one. See Post Privacy and Visibility for the available levels. | Public |
-| Polls | Whether members can create poll posts in the feed. This is a feature toggle under **Platform > Features**, not a feed setting. | On |
-| Re-shares | Whether the share action appears on posts. Toggled under **Platform > Features**. | On |
-| Bookmarks | Whether the bookmark action appears on posts. Toggled under **Platform > Features**. | On |
+| Public explore feed | Whether the Explore feed is visible to the public, including logged-out visitors. Turn this off to keep all activity behind sign-in. Found under **BuddyNext > Settings > General > Discovery**. | On |
+| Default post visibility | The audience a new post gets when the member does not pick one. See Post Privacy and Visibility for the available levels. Found under **BuddyNext > Engagement > Social > Activity Feed**. | Public |
+| Polls | Whether members can create poll posts in the feed. This is a feature toggle under **BuddyNext > Platform > Features**, not a feed setting. | On |
+| Re-shares | Whether the share action appears on posts. Toggled under **BuddyNext > Platform > Features**. | On |
+| Bookmarks | Whether the bookmark action appears on posts. Toggled under **BuddyNext > Platform > Features**. | On |
 
 > **Tip:** If you run a members-only community, turn off the public Explore feed. Members still get their full Home feed after signing in; only the logged-out public view goes away.
 

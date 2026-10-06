@@ -57,6 +57,7 @@ Template (`templates/blocks/follow-button.php`):
         data-size="sm"
         data-wp-on--click="actions.toggleFollow"
         data-wp-bind--class="state.buttonClass"
+        data-wp-bind--data-variant="state.followVariant"
         data-wp-text="state.label"
         aria-pressed="<?php echo $is_following ? 'true' : 'false'; ?>"
     ><?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?></button>
@@ -75,6 +76,9 @@ store( 'buddynext/follow-button', {
         // Variant, not a class-name string. Buttons are `bn-btn` plus a
         // `data-variant` attribute; the `bn-btn--*` modifiers this example
         // used to show were retired and no longer style anything.
+        get buttonClass() {
+            return getContext().isFollowing ? 'bn-btn bn-following' : 'bn-btn';
+        },
         get followVariant() {
             return getContext().isFollowing ? 'secondary' : 'primary';
         },
@@ -98,7 +102,7 @@ store( 'buddynext/follow-button', {
 } );
 ```
 
-Mutating `ctx.isFollowing` re-runs the `buttonClass` and `label` getters, so the button text and styling update with no DOM code. Because the binding is declarative, the same button keeps working after a client-side navigation.
+Mutating `ctx.isFollowing` re-runs the `buttonClass`, `followVariant` and `label` getters, so the button text and styling update with no DOM code. Because the binding is declarative, the same button keeps working after a client-side navigation.
 
 > **Tip:** Use computed `state` getters for every class and text binding. Do not write inline ternaries inside `data-wp-bind` attributes - keep the logic in the store.
 

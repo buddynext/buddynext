@@ -17,6 +17,8 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Tools and Maintenance](08-tools-and-maintenance.md) - health checks and utilities **(Free)**
 - [Plugin Isolation](08a-plugin-isolation.md) - choose which plugins load on community pages **(Free)**
 - [Object Cache at Scale](09-object-cache-at-scale.md) - keep large communities fast **(Free)**
+- [Page Cache and Optimisation Plugins](09a-page-cache-and-optimisation.md) - working with WP Rocket, LiteSpeed and similar **(Free)**
+- [Settings Reference](04b-settings-reference.md) - where to change each setting **(Free)**
 
 ## Recipes (goal-based walkthroughs)
 
@@ -74,6 +76,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Interests](../members/11-interests.md) **(Free)**
 - [Roles and Permissions](../members/12-roles-and-permissions.md) **(Free)**
 - [About Tab](../members/13-about-tab.md) **(Free)**
+- [Editing a Member from the Admin](../members/14-admin-editing-a-member.md) **(Free)**
 
 ## Spaces (communities)
 
@@ -86,7 +89,10 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Space Notifications](../spaces/07-space-notifications.md) **(Free)**
 - [Space Categories](../spaces/08-space-categories.md) **(Free)**
 - [Space Forum](../spaces/09-space-forum.md) **(Free)** - powered by the Jetonomy companion
-- [Space Media and Albums](../spaces/10-space-media-and-albums.md) **(Free)**
+- [Space Media and Albums](../spaces/10-space-media-and-albums.md) **(Free)** - also covers the space Files tab
+- [Invite People With a Link](../spaces/11-invite-with-a-link.md) **(Free)**
+- [Feature Spaces for New Members](../spaces/12-featured-spaces.md) **(Free)**
+- [See How Your Space Is Doing](../spaces/13-space-analytics.md) **(Pro)**
 - Gated spaces and space branding - see the Pro section below **(Pro)**
 
 ## Messaging and notifications

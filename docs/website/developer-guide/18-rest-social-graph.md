@@ -45,6 +45,7 @@ A connection is a mutual, two-sided relationship (request, then accept). An opti
 | POST | `/users/{id}/connect/decline` | Auth | Decline an incoming connection request from this user. |
 | GET | `/users/{id}/connection/status` | Auth | The current user's connection status with this user. |
 | GET | `/users/{id}/mutual-connections` | Auth | User ids connected to both the viewer and this user. |
+| GET | `/users/{id}/connections` | Public | Another member's accepted connections (the profile Network tab), keyset-paginated with `cursor` and `per_page` (max 50). Returns `{ total, per_page, next_cursor, ids }` (or `items` with `expand=members`). Honours the member's connections-visibility setting; a hidden list is refused with an error rather than returned empty. |
 | GET | `/me/connections` | Auth | The current user's connections (keyset-paginated; `cursor`, `per_page`). |
 | GET | `/me/connection-requests` | Auth | Incoming connection requests awaiting the current user (paginated). |
 

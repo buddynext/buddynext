@@ -59,6 +59,7 @@ A denormalized, searchable mirror of indexable content (posts, profiles, spaces,
 | `author_id` | BIGINT(20) UNSIGNED DEFAULT NULL | Author/owner of the object, for filtering. |
 | `space_id` | BIGINT(20) UNSIGNED DEFAULT NULL | Owning space, when the object belongs to one. |
 | `visibility` | ENUM('public','private') NOT NULL DEFAULT 'public' | Visibility gate applied to search results. |
+| `content_members` | LONGTEXT DEFAULT NULL | Indexed text from profile fields limited to the members tier (FULLTEXT). Matched only for a logged-in viewer. |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | When the index row was created. |
 | `updated_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP | Last reindex time; used for ordering. |
 
@@ -71,6 +72,7 @@ Indexes:
 - KEY `space (space_id)` - "content in this space".
 - KEY `updated_order (updated_at)` - recency ordering.
 - FULLTEXT KEY `ft_search (title, content)` - added by a direct `ALTER TABLE` after `dbDelta()`. Under the test harness this index is dropped so MATCH/AGAINST is never run against uncommitted fixture rows.
+- FULLTEXT KEY `ft_search_members (content_members)` - the members-tier text, added the same way.
 
 Relationships: `object_id` references the source table named by `object_type`; `author_id` -> `wp_users.ID`; `space_id` -> `bn_spaces.id`.
 
@@ -97,6 +99,7 @@ Log of inbound webhook / integration events the site received. This is the recei
 | `user_id` | BIGINT(20) NOT NULL DEFAULT 0 | Related member, when applicable; `0` if none. |
 | `payload` | LONGTEXT NOT NULL | Raw received payload. |
 | `status` | VARCHAR(20) NOT NULL DEFAULT 'success' | Processing outcome, default `success`. |
+| `signature` | CHAR(64) DEFAULT NULL | Signature the request was accepted on, so a replay of the same captured call can be recognised. NULL when there is no signature to replay. |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | When the event was logged. |
 
 Indexes:
@@ -105,6 +108,7 @@ Indexes:
 - KEY `action (action)` - filter by event type.
 - KEY `user_id (user_id)` - events related to a member.
 - KEY `created_at (created_at)` - time-ordered scans and pruning.
+- KEY `signature (signature)` - replay detection.
 
 Relationships: `user_id` references `wp_users.ID` when non-zero.
 

@@ -28,7 +28,7 @@ BuddyNext sends email in two shapes: **broadcasts** (one message, sent once to a
 
 ## What your members see
 
-Members receive your broadcasts and drip messages alongside the notifications they have opted into, and can adjust what they get from their own notification preferences. BuddyNext only ever emails on your behalf for your community - it never emails on behalf of integrated plugins.
+Members receive your broadcasts and drip messages alongside the notifications they have opted into, and can adjust what they get from their own notification preferences. BuddyNext emails on your behalf for your community. Integrated plugins keep sending their own email; BuddyNext only emails about a partner's event when that partner has opted in (WPMediaVerse mentions are the one case today).
 
 ## Related
 

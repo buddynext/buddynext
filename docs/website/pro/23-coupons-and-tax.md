@@ -24,14 +24,14 @@ Each coupon has these settings:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Code | The code the member types. Case-insensitive, so "SAVE20" and "save20" are the same code. | (empty - required) |
-| Discount | Whether the discount is a Percent (%) or a Fixed amount off, plus the value. | Percent, 10 |
-| Max redemptions | How many times the code can be used in total across all members. Set 0 for unlimited. | 0 (unlimited) |
+| Code | The code the member types. Case-insensitive: it is saved in capitals, so "save20" and "SAVE20" are the same code. | (empty - required) |
+| Discount | Type (Percent (%) or Fixed amount) and the Amount. | Percent, 10 |
+| Redemptions | Tick "Limit how many times this coupon can be used" and enter a number to cap total uses across all members. Leave it unticked for unlimited. | Unlimited |
 | Expires | An optional date after which the code stops working. Leave blank for no expiry. | (none) |
 | Plan scope | Which plans the code applies to. Leave every plan unchecked to apply it to all paid plans, or tick specific plans to limit it to those. | All plans |
-| Active | Whether the code can be used right now. Uncheck to switch a code off without deleting it. | On |
+| Active | "Coupon can be used": whether the code can be used right now. Uncheck to switch a code off without deleting it. | On |
 
-The Coupons table lists each code with its discount, scope, how many times it has been redeemed against its limit, its expiry, and whether it is active. Delete removes a code permanently.
+The Coupons table lists each code with its discount, scope (All plans or Specific plans), how many times it has been redeemed against its limit, its expiry, and whether it is active. Edit changes a code in place, so its redemption history is kept. Delete removes a code permanently.
 
 ### How members use a coupon
 
@@ -49,11 +49,13 @@ The Tax section on the **Payment Gateways** tab has these settings:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Enable tax | Turns the flat tax on at checkout. While off, no tax is applied or shown. | Off |
+| Enable tax | "Apply a flat tax at checkout". While off, no tax is applied or shown. | Off |
 | Default rate (%) | The site-wide tax percentage applied when no country override matches. | 0 |
 | Label | The name the tax line shows, for example VAT or GST. | Tax |
-| Prices include tax | Whether your plan prices already contain the tax (inclusive) or the tax is added on top (exclusive). | Off (exclusive) |
-| Country overrides | Optional per-country rates. Add a country code (for example DE), a rate, and a label to charge a different rate to members in that country. | (none) |
+| Prices include tax | "Plan prices already contain tax (inclusive)". Ticked, the tax is the part of the price already shown; unticked, tax is added on top. | Off (exclusive) |
+| Add country override | Optional per-country rates. Enter a two-letter Country code (for example DE), a Rate %, and an optional Label to charge a different rate to members in that country. A blank label uses the default label. Saved with the rest of the tax form; the Per-country overrides table below it lists them, each with Delete. | (none) |
+
+When you have added at least one country override, the order summary shows members a country field so the right rate is used; otherwise the default rate applies.
 
 Tax is applied to the price after any coupon discount, so a member who uses a code is taxed on the discounted amount, not the original. The tax line shows on both the checkout summary and the printable invoice.
 

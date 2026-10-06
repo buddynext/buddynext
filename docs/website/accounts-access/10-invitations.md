@@ -14,7 +14,7 @@ required way in when you run the community as invite-only.
   [Registration](01-registration.md) for the mode setting).
 - **You want a smoother welcome, even with open sign-up.** In Open mode anyone can
   register, but an invitation link still saves the new member a step by pre-filling
-  their email, and it can drop them straight into the space you invited them to.
+  their email.
 - **You are seeding a new community.** Bulk-invite a list of people you already
   know - a mailing list, a set of clients, last year's cohort - in one upload.
 
@@ -31,17 +31,15 @@ capability, so administrators send them, not members.
 1. Go to **BuddyNext > Members > Invites**.
 2. Enter the person's **email address** (and optionally a first name, which
    personalises the email).
-3. Optionally choose a **space** to invite them into - they will be added to it
-   the moment they finish signing up.
-4. Send. BuddyNext emails them a personal link.
+3. Choose **Send invitation**. BuddyNext emails them a personal link.
 
 ## Inviting many people at once (CSV)
 
 For a list, upload a CSV instead of typing each address:
 
-1. On the Invites tab, choose the **CSV upload**.
-2. Give it a file where each line is `email` or `email,first_name`.
-3. Upload. BuddyNext sends an invitation to each valid address.
+1. On the Invites tab, find **Send bulk invitations**.
+2. Choose a **CSV file** where each line is `email` or `email,first_name`.
+3. Choose **Send invitations**. BuddyNext sends an invitation to each valid address and tells you how many rows were skipped.
 
 A few rules keep a bulk send sane:
 
@@ -53,8 +51,7 @@ A few rules keep a bulk send sane:
 
 ## What the recipient sees
 
-- They get an email with a personal invitation link. If you gave a first name and
-  a space, the email is addressed to them and names the space.
+- They get an email with a personal invitation link. If you gave a first name, the email is addressed to them.
 - The link opens the sign-up form with **their email already filled in** - they
   only choose a password.
 - The link is **tied to that email address**. It cannot be forwarded and reused to
@@ -85,11 +82,10 @@ For any invitation you can:
 ## The emails invitations send
 
 Invitations use BuddyNext's own email templates, which you can edit under
-**Notifications > Templates**:
+**Notifications > Email Templates**:
 
 - The **bulk invite** email is what a CSV-invited member receives.
-- Inviting someone into a **space** uses the space-invitation template, which names
-  the inviter and the space.
+- Inviting an existing member into a **space** is a different thing. It sends them a space invitation notification, and the **Space invite** template (in the Spaces group) controls its email wording. To bring in many people at once, use a space's [invite link](../spaces/11-invite-with-a-link.md) instead.
 
 Editing a template changes the wording for every future send - see the
 [Email System](../messaging-notifications/04-email-system.md) page.
@@ -100,9 +96,6 @@ Editing a template changes the wording for every future send - see the
   invitation to sign up; Admin Approval mode lets anyone request an account and
   holds it for your review. They are separate registration modes - see
   [Registration](01-registration.md).
-- **A space invitation is a shortcut, not a permission change.** Inviting someone
-  into a space just auto-joins them on sign-up; the space's own privacy still
-  applies to everyone else.
 - **Invitations work alongside social login.** An invited person can still finish
   sign-up with Google or another provider rather than setting a password, as long
   as the provider account uses the invited email address.

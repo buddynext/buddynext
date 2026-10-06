@@ -16,7 +16,7 @@ Each member can report a given item once - a second attempt is blocked. Reports 
 
 ## Are photo and video reports handled the same way as post reports?
 
-No. Reports on photos and videos go to WPMediaVerse's own **Media Moderation** queue (WPMediaVerse > Media Moderation in wp-admin), because that plugin owns the media, with its own media-specific reasons. Reports on posts, comments, messages, and profiles go to BuddyNext's own Moderation queue. If you moderate media on your community, check both. See [Reporting Content](../moderation/01-reporting-content.md).
+No. Reports on photos and videos go to WPMediaVerse's own moderation queue (**MediaVerse > Moderation** in wp-admin), because that plugin owns the media, with its own media-specific reasons. Reports on posts, comments, messages, and profiles go to BuddyNext's own Moderation queue. If you moderate media on your community, check both. See [Reporting Content](../moderation/01-reporting-content.md).
 
 ## What is a content warning, and who can add one?
 

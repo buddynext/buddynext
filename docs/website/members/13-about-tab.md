@@ -40,7 +40,7 @@ The part that changed in 1.0.9 is worth understanding, because it removes an old
 - **Repeating groups get the timeline treatment.** Any group you mark as a repeater - not just the built-in ones - renders each entry as a heading, a supporting line, a collapsed date range, and a description. So a custom "Certifications" or "Projects" repeater gets the same polished entry cards as Work Experience.
 - **Sensitive dates stay reduced.** If you set a date field (a birthday, say) to show only the year or only an age, the About tab honours that. The full date is never printed here, on the member card, or in the app. See [Custom Profile Fields](02-profile-fields.md) for the "Display as" control.
 
-The header already shows the spine of Basic Info - name, headline, bio, pronouns, location, and website - so About does not repeat those. It picks up from there with everything else the member has filled in.
+The header already shows the spine of Basic Info - name, headline, bio, pronouns, and the header details row (by default location and website, or whichever fields have **Show in the profile header** switched on) - so About does not repeat those. It picks up from there with everything else the member has filled in.
 
 ## Good to know
 

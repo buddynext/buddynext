@@ -8,7 +8,7 @@ Problems members or owners run into joining a space, hitting a paywall, or using
 
 **Likely causes and fixes:**
 
-- **They're banned from the space.** A space ban blocks every future join or join-request attempt until an owner or moderator unbans them. Check the space's Members tab > "Banned members" section. See [Space Bans](../spaces/06-space-bans.md).
+- **They're banned from the space.** A space ban blocks every future join or join-request attempt until an owner or moderator unbans them. Check the space's **Settings > Members** panel, in the **Banned members** section. See [Space Bans](../spaces/06-space-bans.md).
 - **It's a Secret space.** Secret spaces have no Join button - the only way in is an invite from an owner or moderator. Confirm the space's privacy type. See [Space Types and Privacy](../spaces/03-space-types-and-privacy.md).
 - **It's a Private space, or an Open space with "Require approval" on.** The click filed a join request instead of joining instantly - it's now waiting in the owner's or moderator's pending-requests queue, not stuck or broken. See [Managing Space Members](../spaces/04-managing-members.md).
 - **It's a gated space (Pro) and they don't hold a qualifying plan.** They should see a paywall explaining which plan(s) open the space, not a silent failure - see the next entry if the paywall itself looks wrong.
@@ -42,9 +42,9 @@ See [Gated Spaces](../pro/02-gated-spaces.md).
 
 **Likely causes and fixes:**
 
-- **It expired.** Links can be set to expire in 1, 7 (default), or 30 days, or never. Check the space's Invite Link tab for the current expiry, and click **Create invite link** again (or reset it) if it's expired.
-- **It hit its use limit.** Links can cap at 1, 10, 100, or unlimited uses. The tab shows "Used X of Y" - if the cap is reached, reset the link to issue a fresh one.
-- **It was reset.** Resetting a link turns the old one off immediately. Only the newest link works - if you shared an old copy of the link (from an old email, an old post), it will no longer work. Re-share the current one from the space's Invite Link tab.
+- **It expired.** Links can be set to expire in 1, 7 (default), or 30 days, or never. Open the space's **Settings > Invite link** tab to see the current expiry, and click **Create invite link** again (or **Reset link**) if it's expired.
+- **It hit its use limit.** Links can cap at 1, 10, 100, or unlimited uses. The tab shows "Used X of Y" - if the cap is reached, use **Reset link** to issue a fresh one.
+- **It was reset or turned off.** **Reset link** turns the old one off immediately and issues a new one; **Turn off link** switches it off without issuing a new one. Only the newest link works - if you shared an old copy of the link (from an old email, an old post), it will no longer work and the visitor sees that the link is no longer valid. Re-share the current one from the space's **Settings > Invite link** tab.
 - **The person is banned from the space.** An invite link never lets a banned person back in, regardless of expiry or use count.
 
 See [Invite people with a link](../spaces/11-invite-with-a-link.md).

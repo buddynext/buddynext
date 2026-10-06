@@ -7,6 +7,7 @@
 ## Before you start
 
 - Take a full backup of your site and database. This is not optional.
+- BuddyPress and BuddyBoss are a migration source only. BuddyNext is a standalone plugin and is not supported running next to them, so do the import on a staging copy and deactivate the old plugin when BuddyNext goes live.
 - Read what maps to what first - BuddyNext uses different names (spaces, not groups) and a different model in places, so knowing the vocabulary prevents surprises.
   Start with [BuddyNext vs BuddyPress](../migrating-from-buddypress/01-buddynext-vs-buddypress.md) and the [Concept Glossary](../migrating-from-buddypress/02-concept-glossary.md).
 

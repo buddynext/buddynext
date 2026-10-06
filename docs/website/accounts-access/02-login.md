@@ -42,11 +42,15 @@ To place it: edit a page, add a shortcode block (or type it directly), enter `[b
 ### Where members land after signing in
 
 - **Default.** After a successful sign-in, members go to the activity feed. This applies no matter which login form they used - the built-in login hub, a theme login form, or any other way they signed in - a member never lands on a WordPress dashboard they have no reason to see.
-- **Custom destination.** Set a login redirect under **BuddyNext > Members > Registration & Login** to send members to a specific page instead of the feed.
-- **After signing out**, members return to your branded login page, ready to sign back in, instead of the default WordPress "you are logged out" screen.
-- **Welcome panel.** The login and sign-up forms share the same branded side panel. Control it under **BuddyNext > Members > Registration & Login**, in the Login and Sign-up Panel section (show or hide it, plus the heading, tagline, featured quote, and banner image). Those settings apply to both screens.
+- **Custom destination.** Set **After login** in the Redirects section under **BuddyNext > Members > Registration & Login** to send members to a specific page (for example `/spaces/`) or a full address instead of the feed. A link a member was sent to, such as a gated page, always takes priority.
+- **After signing out**, members return to your branded login page, ready to sign back in, instead of the default WordPress "you are logged out" screen. You can set a different destination with **After logout** in the same section.
+- **Welcome panel.** The login and sign-up forms share the same branded side panel. Control it under **BuddyNext > Members > Registration & Login**, in the Login & Sign-up Panel section (show or hide it, plus the heading, tagline, featured quote, and banner image). Those settings apply to both screens.
 
 There is no separate login settings tab - login shares the welcome panel and the same pages as sign-up, and it honors the same account states (a member awaiting admin approval or with an unconfirmed email is gated exactly as the registration flow describes).
+
+## Connecting a mobile app
+
+When a member signs in from a BuddyNext mobile app, the app sends them to a connect screen on your site. The screen shows the account they are signed in as and asks **Connect the app to your account?** Choosing **Yes, connect the app** gives that app its own access key (a WordPress application password) for the account and returns them to the app. The member's password is never shared with the app. If the screen says the connection link is not valid, the link did not come from an app the site recognises, and the member should go back to the app and try again.
 
 ## Good to know
 

@@ -34,7 +34,7 @@ Plans are the membership plans. Plan CRUD lives under `/tiers`; the buyer-facing
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET, POST | `/tiers` | Public (GET) / Admin (POST) | List plans; create a plan. |
+| GET, POST | `/tiers` | Public (GET) / Admin (POST) | List plans; create a plan. Body: `slug` and `name` (required), `description`, `sort_order`, `annual_price`, `annual_enabled`. |
 | GET, DELETE | `/tiers/{id}` | Public (GET) / Admin (DELETE) | Get a plan; delete a plan. |
 | GET | `/membership/plans` | Public | List purchasable plans. Since 1.2.4 each plan also carries the viewer's state: `owned` (they have access now, including a cancelled plan until it ends), `access_until` (UTC ISO 8601, `null` for lifetime or not owned) and `can_purchase` (`buyable` and not owned). Logged out, `owned` is always `false`. |
 | GET | `/membership/gateways` | Public | List enabled payment gateways. |
@@ -48,6 +48,10 @@ Plans are the membership plans. Plan CRUD lives under `/tiers`; the buyer-facing
 | GET | `/me/plan-change/quote` | Logged in | Price a plan change (upgrade/downgrade proration) for the caller's own subscription. Body/query: `plan_id`. Distinct from `/membership/quote`, which prices a NEW purchase, not a change to an existing subscription. |
 | POST | `/me/plan-change` | Logged in | Move the caller's own subscription onto a different plan. Body: `plan_id` (required), `plan_interval` (`month` / `year`, default `month` - honoured only when the target plan sells that interval). |
 | GET | `/users/{id}/subscriptions` | Admin | A user's subscription history. |
+| POST | `/users/{id}/subscriptions` | Admin | Grant a member a plan (a comp). Body: `tier_id` (required), `expires_at`. Goes through the same subscription-creation path as a paid checkout with source `manual`. |
+| POST | `/users/{id}/subscriptions/{sub_id}/cancel` | Admin | Cancel one of a member's subscriptions. |
+| GET | `/me/invoices` | Logged in | The caller's billing history, newest first. Query: `cursor`, `per_page` (default 20, max 50). Returns `{ items, next_cursor, total }`. |
+| GET | `/me/invoices/{id}` | Logged in | One of the caller's invoices with the amount, tax and discount lines; `404 bnpro_invoice_not_found` for anyone else's. |
 
 #### The `capabilities` block on `/me/subscriptions`
 
@@ -93,6 +97,7 @@ Two rules that make the difference between a correct client and a plausible one:
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
+| GET | `/admin/plan-space-search` | Admin (`manage_options`) | Space typeahead for the plan editor's "Spaces this plan unlocks" field. Query: `q` (required, at least 2 characters); returns at most 10 rows. |
 | GET | `/admin/member-search` | Admin (`manage_options`) | Member lookup for the wp-admin "Add order" screen. Query: `q` (required). A search-and-return-matches picker rather than a `<select>` of every member, which would ship tens of megabytes of markup on a large community. |
 
 ### Analytics
@@ -100,13 +105,13 @@ Two rules that make the difference between a correct client and a plausible one:
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/analytics/overview` | Admin | Site DAU/WAU/MAU + growth. |
-| GET | `/analytics/content/top` | Admin | Top content by engagement. |
-| GET | `/analytics/members/top` | Admin | Top members by activity. |
-| GET | `/analytics/spaces/{space_id}/health` | Admin | Space health metrics. |
-| GET | `/analytics/me/profile-views` | Logged in | Current user's own profile-view data. |
-| GET | `/analytics/users/{user_id}/profile-views` | Admin | Any user's profile-view data. |
-| GET | `/analytics/cohorts` | Admin | Retention cohort data. |
-| GET | `/analytics/funnel` | Admin | Conversion-funnel data. |
+| GET | `/analytics/content/top` | Admin | Top content by engagement. Query: `object_type` (default `post`), `limit` (default 10), `from`. |
+| GET | `/analytics/members/top` | Admin | Top members by activity. Query: `limit` (default 10), `from`. |
+| GET | `/analytics/spaces/{space_id}/health` | Admin or space moderator | Space health metrics. Query: `window_days` (default 30). Site admins and owners/moderators of that space (`buddynext-moderate-space`) pass. |
+| GET | `/analytics/me/profile-views` | Logged in | Current user's own profile-view data. Query: `window_days` (default 30), `page`, `per_page`. |
+| GET | `/analytics/users/{user_id}/profile-views` | Admin | Any user's profile-view data. Same query as the own-views route. |
+| GET | `/analytics/cohorts` | Admin | Retention cohort data. Query: `start`, `period` (`day`, `week`, `month`; default `week`), `count` (default 8). |
+| GET | `/analytics/funnel` | Admin | Conversion-funnel data. Query: `start`, `end`. |
 
 ### Drip sequences
 
@@ -145,10 +150,10 @@ Two rules that make the difference between a correct client and a plausible one:
 | POST | `/mod-rules/{id}/toggle` | Admin | Toggle a rule's enabled state. |
 | GET | `/mod-rules/defaults` | Admin | List the built-in default rule definitions. |
 | PUT | `/mod-rules/defaults/{id}` | Admin | Update a built-in default rule (id is a slug). |
-| POST | `/moderation/bulk` | Admin | Run a bulk moderation action. |
+| POST | `/moderation/bulk` | Admin | Run a bulk moderation action. Body: `action` (`dismiss`, `remove`, `warn`, `suspend`) and `ids` (required), `reason`, `duration_days` (default 7), `hide_content` (default true). |
 | GET | `/moderation/bulk/{batch_id}` | Admin | Poll the status of a bulk moderation batch. |
-| POST | `/ai/classify` | Admin | Classify content (moderation signal). |
-| POST | `/ai/reply-suggestions` | Commenter | AI smart-reply suggestions for a thread. |
+| POST | `/ai/classify` | Admin | Classify content (moderation signal). Registered only while the `ai-moderation` feature is on. |
+| POST | `/ai/reply-suggestions` | Commenter | AI smart-reply suggestions for a thread. Registered only while the `ai` feature is on. |
 
 ### Scheduled posts
 
@@ -162,7 +167,7 @@ Two rules that make the difference between a correct client and a plausible one:
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET, POST | `/me/push-tokens` | Logged in | List and register the current user's device tokens. |
+| GET, POST | `/me/push-tokens` | Logged in | List and register the current user's device tokens. Body for POST: `token` (required), `platform` (`web`, `ios`, `android`; default `web`), `device_label`. |
 | DELETE | `/me/push-tokens/{id}` | Logged in | Delete a push token. |
 | POST | `/me/push-tokens/test` | Admin | Send a test push notification. |
 | GET, PUT | `/me/push-prefs` | Logged in | Read and update push notification preferences. |
@@ -193,10 +198,10 @@ Course-space linking for the Learnomy integration (`Integrations/Learnomy/Learno
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/learnomy-link/spaces` | Logged in | List spaces available to link a course to. |
-| GET, POST | `/learnomy-link` | Logged in | List existing course-space links; create a link. |
-| POST | `/learnomy-link/create` | Course creator | Create a linked course (requires create capability). |
-| DELETE | `/learnomy-link/{space}` | Logged in | Remove the course link for a space. |
+| GET | `/learnomy-link/spaces` | Logged in | List spaces available to link a course to. Query: `q`. |
+| GET, POST | `/learnomy-link` | Logged in | Read the link for a course or cohort (query `type` and `id`, both required); create a link (body `bn_space_id`, `type`, `id`, all required). |
+| POST | `/learnomy-link/create` | Course creator | Create a new private community space named after the course or Learnomy Space, link it and backfill the current members (body `type`, `id`; `409` when already linked; requires the create capability). |
+| DELETE | `/learnomy-link/{space}` | Logged in | Remove the course link for a space. The caller must be able to manage that space. |
 
 ### Eventonomy bridge: events
 
@@ -204,11 +209,12 @@ The member/space Events surface for the native app (`Integrations/Eventonomy/Eve
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/events/member/{id}` | Public (privacy in handler) | A member's event buckets (upcoming/past, hosting/attending). |
+| GET | `/events/member/{id}` | Public (privacy in handler) | A member's event buckets (upcoming/past, hosting/attending). Query: `bucket`, `page`, `per_page` (default 12). |
 | GET | `/events/space/{id}` | Public (privacy in handler) | A space's linked events. |
 | GET | `/events/{id}/rsvp` | Public | Read the caller's RSVP state for one event. |
+| POST | `/events/{id}/rsvp` | Logged in | Set the caller's RSVP. Body: `action` (`going`, `maybe`, `retract`; required). |
 | GET | `/events/headcounts` | Public | Batch RSVP headcounts for a set of event ids. Query: `ids` (required). |
-| POST | `/spaces/{space_id}/events/link` | Logged in | Link an existing event to a space. |
+| POST | `/spaces/{space_id}/events/link` | Logged in | Link an existing event to a space. Body: `event` (required). |
 | POST | `/spaces/{space_id}/events/{event_id}/unbind` | Logged in | Remove an event's link to a space. |
 
 ### Realtime and payment webhooks

@@ -44,6 +44,8 @@ One row per in-app notification. The primary read path is the bell: notification
 | `PRIMARY` | `id` | Row identity. |
 | `bell` | `recipient_id, is_read, created_at` | The bell query: a recipient's notifications, filtered by read state, ordered by recency. |
 | `recipient_group` | `recipient_id, group_key` | Find an existing aggregatable row for a recipient when deciding whether to increment `group_count` instead of inserting. |
+| `purge_window` | `is_read, created_at` | Retention sweep: read/unread rows older than a cutoff. |
+| `object_ref` | `object_type, object_id` | Finding every notification that points at one object, for cleanup when the object is deleted. |
 
 ### Relationships
 
@@ -67,6 +69,7 @@ Per-user, per-type delivery preferences. One row stores the on-site and email ch
 | Key | Columns | Purpose |
 |---|---|---|
 | `PRIMARY` | `user_id, type` | One preference row per (user, type). Doubles as the lookup key when the dispatcher checks whether to deliver. |
+| `digest_scan` | `email_freq, user_id` | The digest runner's scan for members on a given email frequency. |
 
 ### Relationships
 
@@ -109,6 +112,8 @@ A record of emails actually sent, primarily so digest batching can be deduped pe
 | `user_id` | `BIGINT UNSIGNED NOT NULL` | Recipient of the email. |
 | `type` | `VARCHAR(64) NOT NULL` | The template / email type that was sent. |
 | `digest_date` | `DATE NULL` | The period a digest covers. Null for non-digest (immediate) emails. Combined with `type` and `user_id`, this prevents sending the same daily/weekly digest twice. |
+| `status` | `VARCHAR(10) NOT NULL DEFAULT 'sent'` | Delivery outcome: `sent` or `failed`. |
+| `error` | `TEXT NULL` | Failure message when the send did not succeed. |
 | `sent_at` | `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP` | When the email was sent. |
 
 ### Indexes
@@ -117,6 +122,10 @@ A record of emails actually sent, primarily so digest batching can be deduped pe
 |---|---|---|
 | `PRIMARY` | `id` | Row identity. |
 | `user_type` | `user_id, type, digest_date` | Dedup / lookup: "has this user already been sent this email type for this period?" |
+| `type` | `type` | Filtering the log by email type. |
+| `purge_window` | `sent_at` | Retention sweep by send time. |
+| `type_id` | `type, id` | Per-type listing in id order. |
+| `status_window` | `status, sent_at` | Failure and delivery-status queries within a time window. |
 
 ### Relationships
 

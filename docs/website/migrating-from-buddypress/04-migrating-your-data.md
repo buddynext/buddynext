@@ -16,22 +16,45 @@ In short: the people are already there, and their accounts work on day one.
 
 Your community-specific data lives in BuddyPress or BuddyBoss storage, and BuddyNext keeps its own. The two are separate systems, so BuddyNext does not read your old data on its own - but **BuddyNext Importer** does. It is a free companion plugin, and it is the recommended route for any community with history worth keeping.
 
-It moves twelve domains, all selected by default:
+It reads the old community's tables straight from your database and writes into BuddyNext through BuddyNext's own services. It moves thirteen domains, all selected by default:
 
-- **Members**, their **profile fields and the values** they filled in, and **member types**
-- **Groups**, which become Spaces, keeping their privacy setting and member roles
+- Their **profile fields and the values** members filled in, and **member types**
+- **Groups**, which become Spaces, keeping their privacy setting and member roles, plus group types as space categories
 - **Activity history**, with its comment threads intact
-- **Friendships**, **follows** and **reactions**
-- **Forums** from bbPress, with topics, replies and topic tags
+- **Friendships**, **follows**, **reactions** and saved **bookmarks**
+- **Forums** from bbPress, with topics, replies and topic tags (needs Jetonomy)
 - **Avatars and cover images**
-- **Albums and media**, including rtMedia photos and videos
-- **Private messages**
+- **Albums and media**, including rtMedia photos and videos (needs WPMediaVerse)
+- **Private messages** (needs WPMediaVerse)
+
+A domain whose destination plugin is not active is skipped and the importer says so.
 
 Two nice details: a BuddyBoss group album arrives as a space-owned album rather than as one member's personal album, and blog activity comes across as BuddyNext's article type with its comment thread.
 
-**It tells you exactly what arrived.** Every domain reports what it wrote against what the source held, and gives a plain-sentence reason for anything it did not write. A domain you chose to leave out reads "skipped by choice", never as a shortfall. Migration checks run from the admin screen, so you do not need WP-CLI to verify the result. Before a run starts, the source panel names the content this importer cannot carry, per kind, so there are no surprises afterwards.
+**It tells you exactly what arrived.** Every domain reports what it wrote against what the source held, and gives a plain-sentence reason for anything it did not write. A domain you chose to leave out reads "skipped by choice", never as a shortfall. Migration checks run from the admin screen (the **Check the migration** card, with a **Run checks** button), so you do not need WP-CLI to verify the result. Before a run starts, the source panel names the content this importer cannot carry, per kind, so there are no surprises afterwards.
 
-You can run it from the importer screen or from WP-CLI. The command is `wp buddynext-import migrate-all`, and it takes `--only` and `--skip` for the same per-domain choice - for example `wp buddynext-import migrate-all --skip=messages,media` or `wp buddynext-import migrate-all --only=reactions` (which pulls in its parent domains automatically).
+### How to run it
+
+1. Install and activate **BuddyNext Importer** on your staging copy, with BuddyNext active. Your BuddyPress or BuddyBoss data must still be in the database; the importer picks the source it finds (BuddyBoss first, then BuddyPress).
+2. Go to **Tools > Import to BuddyNext**.
+3. Read the source panel. It lists what was found and the content this importer cannot carry.
+4. In **What to import**, leave everything ticked, or untick what you want to leave behind.
+5. Press **Start import**, or **Run in background** to let it keep going while you leave the page.
+6. When it finishes, check the **What was imported** table, then press **Run checks** under **Check the migration**.
+7. Look at the community as a member would: open a private space, a migrated discussion, a member profile.
+8. Repeat on the live site, with a backup you have tested restoring.
+9. When you are completely finished, deactivate and delete the importer. **Remove import data** on the same screen (or `wp buddynext-import cleanup`) clears its temporary working tables. Do this last: those tables are what stop a second run from creating duplicates.
+
+From WP-CLI the same steps are:
+
+| Command | What it does |
+|---|---|
+| `wp buddynext-import stats` | Shows what the source holds. Moves nothing. |
+| `wp buddynext-import migrate-all` | Runs every selected domain in order. Safe to re-run. |
+| `wp buddynext-import verify` | Counts the source again, compares it with what arrived, and spot-checks random items. `--samples=<n>` sets how many of each kind. |
+| `wp buddynext-import cleanup` | Removes the importer's temporary tables. Run it last. |
+
+`migrate-all` takes `--only` and `--skip` for the same per-domain choice - for example `wp buddynext-import migrate-all --skip=messages,media` or `wp buddynext-import migrate-all --only=reactions` (which pulls in its parent domains automatically). There is also one command per domain, such as `migrate-spaces` and `migrate-activity`.
 
 > **Rehearse on a staging site or a local copy first.** Re-running never duplicates anything, but an import **cannot be undone from inside the plugin** - reversing it means restoring a backup. Practise the run somewhere safe, read the report, then do it for real.
 
@@ -64,9 +87,9 @@ Tell your members what is happening before they notice it themselves. A short an
 
 You can hand your members the What Changed for Members page, which is written for exactly this purpose.
 
-### 5. Run the old and new side by side only briefly
+### 5. Retire the old community plugin
 
-If you need an overlap while you set things up, keep it short. Running two community systems for long is confusing for members. Aim to set up BuddyNext, announce the switch, and retire the old experience within a defined window.
+BuddyPress and BuddyBoss are a migration source only, and running them alongside BuddyNext is not supported. Set up BuddyNext on a staging copy, announce the switch, then deactivate the old plugin when BuddyNext goes live.
 
 ## Good to know
 
@@ -79,4 +102,4 @@ If you need an overlap while you set things up, keep it short. Running two commu
 
 - See [What Changed for Members](05-what-changed-for-members.md) for a friendly page you can share with your community.
 - See the [Concept Glossary](02-concept-glossary.md) so your members recognize the new names for familiar features.
-- See [Does BuddyNext Replace BuddyPress?](01-buddynext-vs-buddypress.md) for how the two platforms relate during the switch.
+- See [Does BuddyNext Replace BuddyPress?](01-buddynext-vs-buddypress.md) for how the two platforms relate.

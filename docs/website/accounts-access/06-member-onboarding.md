@@ -15,6 +15,7 @@ The onboarding wizard is a guided first-session flow that opens right after a ne
 3. **Spaces** - join suggested spaces with one click.
 4. **Follows** - follow suggested members.
 5. **Notifications** - choose how to be notified (email, in-app, push).
+6. **Membership** - an optional upgrade offer, shown only when the site has paid plans.
 
 The member can move forward and back through the steps, or skip the wizard entirely at any point. When they finish, BuddyNext lands them on the activity feed, which already shows the spaces and people they just picked. A member who came in through a space invite link lands in that space, and you can choose a different page under **Members > Registration & Login > After onboarding**.
 
@@ -60,7 +61,8 @@ Choose how the community reaches you. Toggle each delivery channel on or off:
 |---------|------------------|
 | In-app | Notifications inside the community (the bell icon). |
 | Email | Notifications sent to your inbox. |
-| Push | Browser or device push notifications. |
+| Push | Browser or device push notifications. Shown only when push notifications are available on the site (BuddyNext Pro). |
+| Sound | A short sound when a new notification arrives. |
 
 ### Step 6 - Membership
 
@@ -68,11 +70,11 @@ The final step is an optional upgrade offer: the Pro plan, its benefits, and its
 
 ### Skipping
 
-You are never forced through the wizard. A **Skip** option is available on every step. Skipping closes the wizard and marks onboarding as done, so it will not reappear on your next visit.
+You are never forced through the wizard. A **Skip for now** option is available on every step. Skipping closes the wizard and marks onboarding as done, so it will not reappear on your next visit.
 
 ### Finishing
 
-When you reach the end and finish, BuddyNext saves everything you entered, joins the spaces and follows the people you picked, applies your notification choices, and sends you to your profile. Onboarding is now marked complete and the wizard will not show again.
+When you reach the end and finish, BuddyNext saves everything you entered, joins the spaces and follows the people you picked, applies your notification choices, and sends you to the activity feed (or to the page you set under **After onboarding**, or to a space you were invited to). Onboarding is now marked complete and the wizard will not show again.
 
 > **Note:** You can change anything you set here later. Nothing in the wizard is permanent - edit your profile, leave a space, unfollow someone, or adjust notification channels at any time from your account.
 
@@ -93,7 +95,7 @@ When the feature is on, any logged-in member who has not yet finished (or skippe
 
 ### Default notification channels
 
-Step 5 starts every member with sensible defaults: in-app and email notifications on, push off. Members change these in the wizard, and can adjust them later from their notification preferences. The wizard only writes the channels a member actually changes, so any other per-event preferences they set elsewhere are preserved.
+Step 5 starts every member with sensible defaults: in-app and email notifications on, push and sound off. Members change these in the wizard, and can adjust them later from their notification preferences. The wizard only writes the channels a member actually changes, so any other per-event preferences they set elsewhere are preserved.
 
 ### Reminder emails
 
@@ -112,7 +114,7 @@ Both emails are scheduled the moment a member registers. As soon as the member c
 ## Good to know
 
 - **When it appears.** Self-registration sends a new member into the wizard right away. When email verification is on, the member is sent into the wizard after they verify their address. Members created another way (for example by an admin) are routed to it on their next visit while the feature is on.
-- **Already done.** Once a member finishes or skips, the wizard never shows again. Re-opening the page just sends them on to their profile.
+- **Already done.** Once a member finishes or skips, the wizard never shows again. Re-opening the page just sends them on to the activity feed. A member can run it again from **Settings > Account > Profile setup** (**Run setup again**).
 - **Guests cannot access it.** Onboarding is for signed-in members only. Logged-out visitors are not shown the wizard.
 - **It is reliable.** Finishing saves every step together, so a member's choices are kept even if their connection drops during the redirect.
 

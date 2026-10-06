@@ -2,7 +2,7 @@
 
 The member directory is the page where everyone in your community can be browsed, searched, and filtered in one place. It is the "find people" surface of your site, and lives at your members URL (for example, `/members`).
 
-![BuddyNext member directory — searchable, filterable member cards showing avatar, role, skills and mutual connections with Follow buttons, an A–Z index, and Online-now and By-role sidebars.](../images/member-directory.webp)
+![BuddyNext member directory - searchable, filterable member cards showing avatar, role, skills and mutual connections with Follow buttons, an A–Z index, and Online-now and By-role sidebars.](../images/member-directory.webp)
 
 ![The Members admin screen where owners manage their community members - search, filter by role, review status, and export the member list](../images/admin-members-directory.webp)
 
@@ -21,9 +21,11 @@ Members can:
 - **Browse** the grid and page through it. The directory loads more members as needed, so a community of thousands stays fast.
 - **Search by name or profile details** using the search box. Results update as you type (after a short pause), with no page reload. Search looks across a person's name, username, and the profile details they have filled in - their bio and headline, plus any fields the owner made searchable, such as skills or role - so you can find someone even when you only remember what they do, not their name. The directory search and the site-wide search look at the same details, so a person who turns up in one turns up in the other.
 - **Filter by member type** using the member-type dropdown in the toolbar - for example, show only Students or only Mentors. See Member Types for how those are set up.
-- **Sort** the list - **Last Active** (added in 1.1.1), newest members, or alphabetically. Last Active puts the people who are actually around at the top, which is usually what someone browsing a directory wants.
-- **Show online members only** with the online toggle.
-- **Act on a member directly from their card** - Follow, send a Connect request, or accept/decline a pending request, all inline without leaving the page. See Following and Connections for how those relationships work.
+- **Sort** the list with the sort menu: **Newest first**, **Alphabetical**, **Most active**, or **Recently active**. Recently active puts the people who are actually around at the top, which is usually what someone browsing a directory wants.
+- **Show online members only** with the **Online only** switch.
+- **Switch between grid and list view** with the view buttons in the toolbar.
+- **Switch tabs** between **All members**, **Following** and **Connections** to see just the people they already have a relationship with.
+- **Act on a member directly from their card** - Follow, Message, send a Connect request, or Accept or Decline a pending request, all inline without leaving the page. See Following and Connections for how those relationships work.
 - **Open the card menu** (the kebab) to Mute, Block, or Report a member. See Blocking and Muting and Reporting and Moderation.
 
 
@@ -52,11 +54,15 @@ Add the Member Card block to show a single member - avatar, name, and a follow b
 |---|---|---|
 | User | The member shown on the card | None (pick a user) |
 
+### Directory columns
+
+Under **BuddyNext > Settings > General**, **Member directory columns (desktop)** sets how many member cards sit in a row on desktop: Auto (fit to width), 2, 3 or 4. The default is 3. It still steps down on tablet and phone.
+
 ### Shaping who appears
 
 You do not manage the directory roster from a settings screen. Who shows up is driven by:
 
-- **Member privacy** - a member who opts out of the directory is excluded from it. See Privacy and Visibility.
+- **Member privacy** - a member who switches off **Show me in the member directory** in their Privacy settings is excluded from it. See [Privacy and Data](../accounts-access/08-privacy-and-data.md).
 - **Member types** - define types like Student or Mentor to give the directory its member-type filter. See Member Types.
 
 ## Good to know

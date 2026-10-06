@@ -4,7 +4,7 @@ A reshare (or repost) takes a post that someone else published and puts it back 
 
 ![A BuddyNext activity feed where post cards carry a share action for reposting and quoting](../images/community-activity-feed.webp)
 
-![The Share dialog — a preview of the post being reposted with an optional comment, plus Repost and Copy link](../images/share-dialog.webp)
+![The Share dialog - a preview of the post being reposted with an optional comment, plus Repost and Copy link](../images/share-dialog.webp)
 
 ## Why use it
 
@@ -28,6 +28,10 @@ Type a note in the comment box before you tap **Repost**, and your note rides al
 
 Tap **Copy link** to copy the post's web address to your clipboard. Use this to paste the post anywhere outside the feed - a message, an email, another site.
 
+### Share to other sites
+
+On a public post the dialog also has a **Share to** row with X, Facebook, LinkedIn, WhatsApp and Email links, plus a **More** button that opens your device's own share sheet where the browser offers one. These send the post's link outside the community and do not create a reshare.
+
 ### View your own shares
 
 The posts you reshare appear in your own feed as reshare cards, alongside everything else you have posted, so your shares are part of your public activity.
@@ -43,7 +47,7 @@ Resharing is on by default. One setting controls it.
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Re-shares (Platform > Features) | Lets members share other members' posts to their own feed. Turn it off to remove the share action from post cards. | On |
+| Re-shares (BuddyNext > Platform > Features) | Lets members share other members' posts to their own feed. Turn it off to remove the share action from post cards. | On |
 
 When the setting is off, the share action no longer appears and members cannot repost or quote each other's posts.
 

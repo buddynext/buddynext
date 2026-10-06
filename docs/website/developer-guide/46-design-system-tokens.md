@@ -13,7 +13,7 @@ BuddyNext renders inside your theme's chrome and styles itself entirely from CSS
 - **Your theme owns the document; BuddyNext owns `.bn-app`.** `get_header()` and `get_footer()` are yours (your header IS the top navigation). BuddyNext renders only the rail, main column, optional right sidebar, and mobile bottom nav between them.
 - **Markup is overridable two ways.** Copy a template part into `{theme}/buddynext/`, or hook the `buddynext_part_*` actions and filters - no fork required.
 
-This page covers the contract. Canonical token values live in `assets/css/bn-base.css` (`:root`) and `docs/v2 Plans/tokens.css`; the component library is `docs/v2 Plans/style-guide.html`. Read those for exact values - this page does not duplicate the value table, which drifts.
+This page covers the contract. Canonical token values live in `assets/css/bn-base.css` (`:root`). Read that file for exact values - this page does not duplicate the value table, which drifts.
 
 ## The three-layer token model
 
@@ -39,11 +39,15 @@ All tokens are `--bn-` prefixed. The families:
 | Lines / focus | `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-ring` |
 | Accent ramp | `--bn-accent`, `--bn-accent-50` ... `--bn-accent-900`, `--bn-accent-fg` |
 | Semantic | `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`, `--bn-warn(-bg)` |
-| Integration accents | `--bn-jetonomy(-bg)`, `--bn-media(-bg)`, `--bn-paid(-bg)`, `--bn-events(-bg)` |
+| Integration accents | `--bn-jetonomy`, `--bn-media`, `--bn-paid`, `--bn-events`, each with `-bg` and `-border` variants (hues derive from `--bn-hue-{jetonomy,media,paid,events}`) |
 | Type | `--bn-font-{body,display,ui,mono}`, `--bn-text-{2xs..4xl,base,md}`, `--bn-fw-{normal..extrabold}`, `--bn-leading-{tight,snug,normal,body}` |
-| Spacing (4px grid) | `--bn-s1` ... `--bn-s16` |
+| Spacing (4px grid, scaled by `--bn-density`) | `--bn-s1` through `--bn-s6`, `--bn-s8`, `--bn-s10`, `--bn-s12`, `--bn-s16` |
 | Radius | `--bn-r-{sm,md,lg,xl,full}` |
 | Shadow | `--bn-shadow-{xs,sm,md,lg}` |
+| Motion | `--bn-dur`, `--bn-dur-fast`, `--bn-dur-slow`, `--bn-ease`, `--bn-ease-out` |
+| Layering | `--bn-z-menu`, `--bn-z-modal`, `--bn-z-lightbox`, `--bn-z-toast` |
+| Layout | `--bn-container`, `--bn-content-max`, `--bn-content-wide`, `--bn-railw` |
+| Toasts and dialogs | `--bn-toast-min-w`, `--bn-toast-max-w`, `--bn-dialog-max-w`, `--bn-dialog-btn-h` |
 
 Bare-named aliases (`--bg`, `--text-1`, `--s4`, ...) exist only for back-compat. Always author against the `--bn-*` names.
 
@@ -78,7 +82,7 @@ add_filter( 'buddynext_css_vars', function ( array $vars ) {
 
 A matching `buddynext_css_vars_dark` filter overrides the dark-mode token map (`TokenService::get_dark_overrides()`).
 
-> **Warning:** Do not add a stylesheet that hardcodes hex/px to restyle BuddyNext. Override the tokens. Hardcoded values break dark mode and RTL, which the token path handles automatically. The plugin's own `bin/ux-audit.sh` (gate F3) rejects raw hex/px in BuddyNext CSS for the same reason.
+> **Warning:** Do not add a stylesheet that hardcodes hex/px to restyle BuddyNext. Override the tokens. Hardcoded values break dark mode and RTL, which the token path handles automatically. BuddyNext's own CSS is held to the same rule.
 
 ## Partner plugins: matching the community brand
 
@@ -105,11 +109,11 @@ BuddyNext composes its UI from a small primitive vocabulary. Variants are expres
 
 > **Note:** Interactive states (`:hover`, `:focus`, `:active`, `[aria-selected]`) are scoped under `.bn-app` so your theme's bare-element chrome cannot bleed into BuddyNext controls, and BuddyNext's styles cannot leak out into your header. Focus rings use `--bn-ring`.
 
-The navigation components are a separate, conflict-free set with their own namespaces (`.bn-nav-metrics`, `.bn-tabs`, `.bn-subnav`) so a change to one never bleeds into another - see Navigation components in `docs/standards/nav-components.md`.
+The navigation components are a separate, conflict-free set with their own namespaces (`.bn-nav-metrics`, `.bn-tabs`, `.bn-subnav`) so a change to one never bleeds into another.
 
 ## The shell model
 
-Every BuddyNext-mapped slug (activity, members, spaces, messages, notifications, auth, onboarding, moderation) renders inside your active theme's chrome. There is no shell-takeover mode and no opt-out filter - theme chrome is the only mode.
+Every BuddyNext-mapped slug (activity, members, spaces, messages, notifications, auth, onboarding) renders inside your active theme's chrome. There is no shell-takeover mode and no opt-out filter - theme chrome is the only mode.
 
 The render sequence (`PageRouter` -> `templates/shell/hub-shell.php`):
 
@@ -209,7 +213,7 @@ add_filter( 'buddynext_part_filter_strip_tabs', function ( array $tabs, array $a
 }, 10, 2 );
 ```
 
-The same `_args` / `_classes` / `_before` / `_after` pattern applies to every part, so a theme or bridge never needs to ship a forked hub template. Free ships no `docs/specs/TEMPLATE-PARTS.md`; the code is the contract - each part documents its `$args` and the hooks it fires in its own PHP file header under `templates/parts/`.
+The same `_args` / `_classes` / `_before` / `_after` pattern applies to every part, so a theme or bridge never needs to ship a forked hub template. Each part documents its `$args` and the hooks it fires in its own PHP file header under `templates/parts/`.
 
 ## Icons on community pages
 

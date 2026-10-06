@@ -9,7 +9,7 @@ If you would rather jump straight to a setting by name, the admin has a command 
 | Screen | What you configure | Learn more |
 | --- | --- | --- |
 | Home | The admin dashboard: setup checklist, at-a-glance counts, quick links. | [Admin Overview](04-admin-overview.md) |
-| License | Your license key, so updates and Pro features stay active. | [Installing BuddyNext](02-installation.md) |
+| License (Pro) | Your Pro license key, so Pro receives updates. The key never switches features on or off. | [Installing BuddyNext](02-installation.md) |
 
 ## Members
 
@@ -20,7 +20,7 @@ If you would rather jump straight to a setting by name, the admin has a command 
 | Registration & Login | Who can register, the login and registration surfaces, email verification, and social login. | [Registration](../accounts-access/01-registration.md), [Login](../accounts-access/02-login.md), [Social Login](../accounts-access/03-social-login.md) |
 | Roles & Capabilities | Community roles and what each one may do, separate from WordPress roles. | [Roles and Permissions](../members/12-roles-and-permissions.md) |
 | Privacy & Data | Privacy defaults, the guest experience, and personal-data export and erasure. | [Privacy and Data](../accounts-access/08-privacy-and-data.md) |
-| Profile Fields | The custom profile fields members fill in, their types, visibility, and conditional logic. | [Custom Profile Fields](../members/02-profile-fields.md), [Advanced Profile Field Types](../pro/09-advanced-profile-fields.md) |
+| Directory > Profile Fields | The custom profile fields members fill in, their types, visibility, and whether each one shows in the profile header. Sits beside the Avatar & cover, Member Types and Invites sub-tabs. | [Custom Profile Fields](../members/02-profile-fields.md), [Advanced Profile Field Types](../pro/09-advanced-profile-fields.md) |
 
 ## Spaces
 
@@ -36,8 +36,8 @@ If you would rather jump straight to a setting by name, the admin has a command 
 | Activity | The activity feed and post management. | [Activity Feed](../community/01-activity-feed.md), [Managing Activity from the Admin](../moderation/07-activity-management.md) |
 | Insights | Community insight dashboards. | [Community Insights](06-community-insights.md), [Analytics Dashboard](../pro/11-analytics.md) |
 | Announcements | Community-wide announcements. | [Announcements](../community/11-announcements.md) |
-| Social | The social graph: following, connections, and online presence. | [Following Members](../members/06-following.md), [Connecting With Members](../members/07-connections.md), [Online Presence](../members/09-presence-online.md) |
-| Reactions | The reaction palette members can use. | [Reactions](../community/04-reactions.md), [Custom Reactions](../pro/07-custom-reactions.md) |
+| Social | Activity feed defaults (default post visibility, link previews, emoji picker, new-posts indicator, post edit window, members-only teaser length) and whether a connection request asks for a note. | [Activity Feed](../community/01-activity-feed.md), [Connecting With Members](../members/07-connections.md) |
+| Reactions (Pro) | A custom reaction set. Free uses the built-in reactions. | [Reactions](../community/04-reactions.md), [Custom Reactions](../pro/07-custom-reactions.md) |
 
 ## Notifications
 
@@ -55,7 +55,32 @@ If you would rather jump straight to a setting by name, the admin has a command 
 | Controls | Content safeguards: rate limits, banned words, blocked links and IPs. | [Content Safeguards](../moderation/05-content-safeguards.md) |
 | Pending | Posts held for review before they go live. | [Moderation Queue](../moderation/02-moderation-queue.md) |
 | Reports | Member reports awaiting a decision. | [Reporting Content](../moderation/01-reporting-content.md), [Moderation Queue](../moderation/02-moderation-queue.md) |
-| Suspensions | Suspended members and appeals. | [Moderating a Member](../moderation/03-user-moderation.md), [Appeals](../moderation/04-appeals.md) |
+| Suspensions | Suspended members. | [Moderating a Member](../moderation/03-user-moderation.md) |
+| Appeals | Appeals from suspended or actioned members. | [Appeals](../moderation/04-appeals.md) |
+| Moderation Log | A read-only record of who moderated what. | [Moderation Queue](../moderation/02-moderation-queue.md) |
+
+## Platform
+
+| Screen | What you configure | Learn more |
+| --- | --- | --- |
+| Features | One on/off switch for each capability, including scheduled posts. Core features are locked on. | [Complete Feature Directory](10-feature-directory.md) |
+| Add-ons | Install and connect companion plugins such as WPMediaVerse, Jetonomy and WB Gamification. | [Installing BuddyNext](02-installation.md) |
+| Tools | Health checks, counter repair, cache flush, settings export and import, demo data. | [Tools and Maintenance](08-tools-and-maintenance.md) |
+| Webhooks | Send community events to other systems. | [Tools and Maintenance](08-tools-and-maintenance.md) |
+| Plugin isolation | Which other plugins load on BuddyNext's front-end surfaces. | [Plugin Isolation](08a-plugin-isolation.md) |
+
+## Integration Settings
+
+A section of its own in the BuddyNext menu. It controls how each connected companion plugin shows up inside BuddyNext. See [Integrations Overview](../integrations/01-overview.md).
+
+## Settings: identity, look, and pages
+
+| Screen | What you configure | Learn more |
+| --- | --- | --- |
+| General | Community name and description, discovery and directory defaults. | [Appearance and Branding](07-appearance-and-branding.md) |
+| Appearance | Logo, brand color, default theme, page width, custom CSS. | [Appearance and Branding](07-appearance-and-branding.md) |
+| Navigation | Which menu items appear and their order, including the mobile bottom bar. | [Admin Overview](04-admin-overview.md) |
+| Pages & URLs | The address of each community page. | [Admin Setup Wizard](03-admin-setup-wizard.md) |
 
 ## Appearance, menus, and maintenance
 
@@ -64,9 +89,7 @@ These sit under the general BuddyNext settings rather than a feature group.
 | Area | What you configure | Learn more |
 | --- | --- | --- |
 | Appearance and branding | Colors, the account dropdown, and the look that follows your theme. | [Appearance and Branding](07-appearance-and-branding.md) |
-| Settings > Navigation | Which menu items appear and their order, including the mobile bottom bar. | [Admin Overview](04-admin-overview.md) |
-| Tools and Maintenance | Demo data, maintenance actions, and housekeeping. | [Tools and Maintenance](08-tools-and-maintenance.md) |
-| Plugin isolation | Which other plugins load on BuddyNext's front-end surfaces. | [Plugin Isolation](08a-plugin-isolation.md) |
+| Settings > Navigation | Which menu items appear and their order, including the mobile bottom bar and the account dropdown. | [Admin Overview](04-admin-overview.md) |
 
 ## Pro settings
 

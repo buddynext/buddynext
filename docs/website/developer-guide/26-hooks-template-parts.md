@@ -97,6 +97,18 @@ add_filter(
 
 > **Tip:** When you only need to restyle a part, prefer the `_classes` filter over overriding the template file. It survives plugin updates, where a copied template can silently drift out of sync with the part's real markup.
 
+### Part-specific seams
+
+Beyond the shared convention, a few parts expose extra hooks. The exact name of each is below.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_part_filter_strip_tabs` | filter | The `filter-strip` part builds its tab list. | `array $tabs, array $args` |
+| `buddynext_part_filter_strip_extras` | action | Inside the `filter-strip` form, after its fields, so you can inject extra fields. | `array $args` |
+| `buddynext_part_sidebar_card_body__{id}` | action | The `sidebar-card` part renders its body, when the card was given an `id`. Hook the one that matches a single card. | `array $args` |
+
+A part given a `body_action`, `footer_action`, or `actions_action` argument (`sidebar-card`, `profile-edit-section`, `section-head`) fires that named action inside the matching slot with `$args`.
+
 ## Notes / gotchas
 
 - **Find the exact part name and args in the source.** Each file under `templates/parts/` documents its `$args` keys and the hooks it fires in the PHP header. The part name in the hook is the file name with hyphens replaced by underscores - `post-actions.php` fires `buddynext_part_post_actions_*`, `dm-composer.php` fires `buddynext_part_dm_composer_*`, `member-card.php` fires `buddynext_part_member_card_*`.

@@ -64,6 +64,7 @@ Jump straight to the goal you have in mind. (Some goals cross several features; 
 - **...run a private or invite-only space** - [Space Types and Privacy](../spaces/03-space-types-and-privacy.md), and to charge for it, [Gated Spaces](../pro/02-gated-spaces.md).
 - **...keep the community safe as it grows** - [Moderation Queue](../moderation/02-moderation-queue.md), then Pro's [Auto-Moderation](../pro/14-auto-moderation.md) and [Bulk Moderation](../pro/16-bulk-moderation.md).
 - **...move from BuddyPress or BuddyBoss** - [BuddyNext vs BuddyPress](../migrating-from-buddypress/01-buddynext-vs-buddypress.md) and [Migrating Your Data](../migrating-from-buddypress/04-migrating-your-data.md).
+- **...switch a capability on or off** - the single on/off list is **Platform > Features**; see [Admin Overview](04-admin-overview.md).
 - **...let members message each other** - [Direct Messaging](../messaging-notifications/01-direct-messaging.md).
 - **...add courses, events, or a jobs board** - [Integrations Overview](../integrations/01-overview.md).
 - **...email my members** - [Broadcast Email](../pro/12-broadcast-email.md) for one-off sends, [Drip Sequences](../pro/13-drip-sequences.md) for automated series.

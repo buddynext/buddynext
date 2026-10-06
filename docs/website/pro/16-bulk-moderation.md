@@ -16,21 +16,21 @@ The page has two sections: a queue of pending reports at the top, and a bulk use
 
 ### Bulk action on reports
 
-1. Open BuddyNext > Moderation > Bulk (or the Bulk Moderation page under the BuddyNext menu). The pending report queue loads with a checkbox on each row.
+1. Open **Moderation > Bulk Moderation** in the BuddyNext admin. The pending report queue loads with a checkbox on each row.
 2. Optionally narrow the queue with the type and reason filters above the table.
 3. Tick the reports you want to act on, or use the select-all checkbox in the header to select every report on the current page. When you select the whole page, a banner offers "Select all N matching this filter" so you can act on every matching report across all pages, not just the visible 25.
-4. Choose an action - Dismiss or Remove Content - and optionally type a reason.
-5. Apply, and confirm the count in the prompt. A small selection is applied immediately and the page reloads with a summary; a large selection (more than 50 items) is queued and processed in the background, and the notice tells you how many were queued - they clear from the queue as the jobs run.
+4. Choose an action from the **Bulk Actions** list - **Dismiss** or **Remove content** - and optionally type a reason.
+5. Select **Apply**, and confirm the count in the prompt. A small selection is applied immediately and the page reloads with a summary; a large selection (more than 50 items) is queued and processed in the background, and the notice tells you how many were queued - they clear from the queue as the jobs run.
 
 Dismiss closes the reports as no action needed. Remove takes down the reported content. Both run through the same underlying moderation actions the single-item queue uses, so the result is identical to handling each report by hand - just faster.
 
 ### Bulk action on users
 
-1. Scroll to the Bulk User Actions panel on the same page.
-2. Enter a comma-separated list in the Members field - usernames, emails, or numeric IDs.
-3. Type a reason. Each member sees it on their account status page and in the suspension email, so it is required to suspend.
-4. For a suspension, set the duration in days.
-5. Choose Warn Users or Suspend Users.
+1. Scroll to the **Bulk member actions** panel on the same page.
+2. Enter a comma-separated list in the **Members** field - usernames, emails, or numeric IDs.
+3. Type a reason. Each member sees it in their notice and on their account page, so it is required to suspend.
+4. For a suspension, set **Duration (days, suspend only)**.
+5. Choose **Warn members** or **Suspend members**.
 
 Warn sends each user a warning. Suspend suspends each user for the duration you set. As with reports, these call the same warn and suspend actions used for single members elsewhere in moderation.
 
@@ -40,12 +40,12 @@ After any bulk action, the page returns a notice that tells you exactly how many
 
 ## Setting it up (for owners)
 
-There is nothing to configure to use Bulk Moderation. The page is available to administrators as soon as BuddyNext Pro is active. Access is restricted to users who can manage the site, and every action is protected against cross-site request forgery, so only your trusted moderators can run bulk actions.
+There is nothing to configure to use Bulk Moderation. The page is available to administrators as soon as BuddyNext Pro is active. It has its own switch in the Features catalogue, **Bulk moderation**, which is on by default; turning it off hides the page. Access is restricted to users who can manage the site, and every action is protected against cross-site request forgery, so only your trusted moderators can run bulk actions.
 
 | Setting | What it does | Default |
 |---|---|---|
 | Reports per page | How many pending reports the queue shows per page before pagination kicks in. | 25 |
-| Suspension duration (days) | Days a bulk suspension lasts, entered at action time. | 7 |
+| Duration (days, suspend only) | Days a bulk suspension lasts, entered at action time. | 7 |
 
 ## Reworked in 1.0.4
 

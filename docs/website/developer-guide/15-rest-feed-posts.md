@@ -16,7 +16,7 @@ In short:
 - Several feed routes are additionally gated by an owner setting (`buddynext_public_explore`): when a guest hits explore while that option is off, the route returns `401 rest_explore_members_only`.
 - Reactions and Comments writes are gated by their feature switch (Platform > Features). When the feature is off the toggle/create routes return `403`.
 
-> **Note:** The `Auth` column below reflects the route's `permission_callback`. A value of `auth` means an authenticated user is required; `public` means the route is readable by guests; `admin` means `manage_options`; `moderator` currently resolves to `manage_options`. Capability checks inside a handler (for example the role-mapped `buddynext-feed/create-post` check on post creation) are noted under the relevant route.
+> **Note:** The `Auth` column below reflects the route's `permission_callback`. A value of `auth` means an authenticated user is required; `public` means the route is readable by guests; `admin` means `manage_options`; `moderator` is the `require_moderator` gate: any user holding a moderation ability (a WordPress administrator, a community moderator, or a member granted one), not only `manage_options`. Capability checks inside a handler (for example the role-mapped `buddynext-feed/create-post` check on post creation) are noted under the relevant route.
 
 ## Feed routes
 
@@ -29,6 +29,7 @@ The feed controller serves the home, explore, profile, and space timelines, plus
 | GET | `/feed/new-count` | auth | Number of new posts since `?after_id=`, for the "new posts" pill. Accepts `?filter=`. |
 | GET | `/feed/viewer-state` | auth | Batch the viewer's reaction/bookmark/vote state for a set of posts. Requires `?post_ids=` (comma-separated IDs; the batch is capped at 100). |
 | GET | `/feed/explore` | public* | Community-wide explore deck. Guests allowed only when `buddynext_public_explore` is on. |
+| GET | `/feed/explore/deck` | public* | The Explore deck as typed cards for the app. Accepts `?filter=` (`all`, `members`, `spaces`, `posts`, `discussions`, `media`; default `all`), `cursor` and `per_page`. Returns `{ items, next_cursor, filter }`; each item is `{ kind, post }`, `{ kind, member }` or `{ kind, space }`. |
 | GET | `/feed/home/page` | auth | Next page of the home feed (cursor pagination). Accepts `?filter=`. |
 | GET | `/feed/explore/page` | public* | Next page of the explore feed (cursor pagination). |
 | GET | `/users/(?P<id>[\d]+)/feed` | public | A member's profile timeline. Private posts are filtered server-side by the viewer's relationship. |
@@ -47,7 +48,7 @@ Post create/read/update/delete plus pin and the link-preview helper.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/posts` | auth | Create a post. Role-mapped: a feed post needs `buddynext-feed/create-post`; a space post needs `buddynext-spaces/post` (with `space_id` context); scheduling additionally needs `buddynext-feed/schedule-post`. |
+| POST | `/posts` | auth | Create a post. Role-mapped: a feed post needs `buddynext-feed/create-post`; a space post needs `buddynext-spaces/post` (with `space_id` context); scheduling additionally needs `buddynext-feed/schedule-post`. Body fields: `type`, `content`, `privacy`, `members_only`, `space_id`, `media_ids`, `link_url`, `link_meta`, `document_id`, `options` and `poll_end_date` (poll posts), `content_warning`, `content_warning_type`, `scheduled_at`, `announcement_expires_at`. |
 | GET | `/posts/(?P<id>[\d]+)` | public | Read a single post (visibility enforced server-side). |
 | PUT | `/posts/(?P<id>[\d]+)` | auth | Update a post (owner only, enforced in the handler). Body: any of `content`, `privacy`, `content_warning`, `content_warning_type`, `scheduled_at`, `media_ids`. Passing `scheduled_at` is a **reschedule** and additionally requires `buddynext-feed/schedule-post` - see below. `media_ids` is the post's complete new media list (send the kept ids plus new ones; omit an id to detach it). Every id must belong to the post's author (403 `media_forbidden`, 404 `media_not_found`; site admins may attach any existing media); a text post that gains media becomes `photo`, a `photo` post that loses its last one becomes `text`, and an edit that leaves no text and no media is refused (400 `empty_post`). Errors keep their own status. |
 | DELETE | `/posts/(?P<id>[\d]+)` | auth | Delete a post (owner only, enforced in the handler). |
@@ -100,9 +101,9 @@ The content-warning state is owned by the moderation surface, not the post contr
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/posts/(?P<id>[\d]+)/content-warning` | public | Read a post's content-warning flag and type. |
-| PUT | `/posts/(?P<id>[\d]+)/content-warning` | admin | Set or clear a post's content warning. Body: `content_warning` (bool, required) and `content_warning_type` (one of `nsfw`, `spoilers`, `violence`, `language`; default `nsfw`). |
+| PUT | `/posts/(?P<id>[\d]+)/content-warning` | moderator | Set or clear a post's content warning. Body: `content_warning` (bool, required) and `content_warning_type` (one of `nsfw`, `spoilers`, `violence`, `language`; default `nsfw`). |
 
-> **Note:** A member can also set a content warning at creation time via the `content_warning` and `content_warning_type` fields on `POST /posts`. The PUT route above is the admin override that toggles it after the fact.
+> **Note:** A member can also set a content warning at creation time via the `content_warning` and `content_warning_type` fields on `POST /posts`. The PUT route above is the moderator override that toggles it after the fact.
 
 ## Reaction routes
 
@@ -125,8 +126,8 @@ Comments also attach to an object via `object_type` + `object_id` and support on
 | GET | `/comments` | public | List comments for an object. Query: `object_type`, `object_id`, `per_page` (1-50, default 20), `page`. |
 | PUT | `/comments/(?P<id>[\d]+)` | auth | Update a comment (owner or admin, enforced in the handler). Body: `content` (required). |
 | DELETE | `/comments/(?P<id>[\d]+)` | auth | Delete a comment (owner or admin, enforced in the handler). |
-| POST | `/comments/(?P<id>[\d]+)/pin` | moderator | Pin a comment under its parent object. |
-| DELETE | `/comments/(?P<id>[\d]+)/pin` | moderator | Unpin a comment. |
+| POST | `/comments/(?P<id>[\d]+)/pin` | auth | Pin a comment under its parent object. Site admins and moderators of the post's space only, enforced in the handler. |
+| DELETE | `/comments/(?P<id>[\d]+)/pin` | auth | Unpin a comment. Same admin and space-moderator rule as pinning. |
 
 ## Examples
 

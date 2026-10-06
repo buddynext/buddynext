@@ -37,18 +37,23 @@ The Explore page carries community-heartbeat cards focused on discovery across t
 - **Online now** - members currently active, with a live count in the title.
 - **People to Follow** - suggested members to follow (signed-in members only).
 - **What's happening** - trending topics to give the directory context.
+- **New members** - the most recently joined members, shown to guests too.
+- **Member spotlight** - a member picked from the newest sign-ups.
 
 ### Spaces directory
 
+- **Featured** - the spaces you, the owner, have featured, shown first. It hides when nothing is featured.
 - **Suggested for you** - spaces picked for the signed-in member.
 - **Your spaces** - the spaces they already belong to, grouped by "You manage" and "You joined".
-- **Popular this week** - shown to guests, or when there is nothing to suggest yet, so the column is never empty.
+- **New spaces** - the most recently created open spaces.
+- **Popular spaces** - the most-joined open spaces. It is shown to guests too, so the column is never empty.
+- **Community pulse** - a small strip of counts (how many spaces, how many are open to join, how many memberships).
 
 ### A single space
 
 - **About this space** - the space description and key details.
 - **Sub-spaces** - child spaces to explore.
-- **Owner / Moderators** - who runs the space.
+- **Owner & Moderators** - who runs the space (the card reads just Owner when there are no moderators).
 - **Members** - a preview of the roster with a "See all members" link. This card is hidden on the space's own Members tab, where the full roster is already the page.
 - **Top contributors** - the most active members in that space.
 
@@ -80,7 +85,7 @@ A hashtag page shows both the feed discovery set (greeting, Trending Topics, Peo
 
 ## What members see when signed out
 
-Guests get a lighter sidebar. Cards that need a signed-in member - people-to-follow suggestions, a personal "your spaces" list, streaks, and profile strength - are replaced or hidden. Guests still see the public discovery cards: trending topics, popular open spaces (as "Discover Spaces" or "Popular this week"), and the public parts of a space. Private and secret spaces are never revealed to guests.
+Guests get a lighter sidebar. Cards that need a signed-in member - people-to-follow suggestions, a personal "your spaces" list, streaks, and profile strength - are replaced or hidden. Guests still see the public discovery cards: trending topics, popular open spaces (as "Discover Spaces" on the feed or "Popular spaces" on the spaces directory), and the public parts of a space. Private and secret spaces are never revealed to guests.
 
 ## Setting it up
 

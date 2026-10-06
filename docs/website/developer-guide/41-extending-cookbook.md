@@ -25,13 +25,13 @@ For the full inventory of hooks behind these recipes, see Feed and Content Hooks
 
 **Goal:** add a reaction beyond the built-in six (`like`, `love`, `haha`, `wow`, `sad`, `angry`).
 
-**Seam:** `buddynext_reaction_types` (which slugs are allowed) plus `buddynext_reaction_meta` (the label/char/color for a slug). The owner-facing `buddynext_enabled_reactions` option is a separate, owner-chosen *subset* of the built-in six - do not write it from an addon; it is the site owner's on/off control in Settings > Activity Feed.
+**Seam:** `buddynext_reaction_choices` (every reaction on offer, built-in six first) plus `buddynext_reaction_meta` (the label/char/color for a slug). The owner picks from that list on Engagement > Social and the pick is stored in the `buddynext_enabled_reactions` option - do not write the option from an addon. `buddynext_reaction_types` then receives the owner's pick at runtime; use it to trim the set per viewer, not to add reactions.
 
-This is exactly how Pro Custom Reactions works: its `CustomReactionsService` stores admin-configured slugs and merges them in through `buddynext_reaction_types`, capping the merged total at 20.
+This is how Pro Custom Reactions works: its `CustomReactionsService` stores admin-configured slugs and merges them in through `buddynext_reaction_choices`, capping the merged total at 20.
 
 ```php
 add_filter(
-    'buddynext_reaction_types',
+    'buddynext_reaction_choices',
     static function ( array $types ): array {
         // Append, never replace - the built-in six must stay present.
         $types[] = 'celebrate';
@@ -44,6 +44,8 @@ add_filter(
     static function ( array $meta, string $slug ): array {
         if ( 'celebrate' === $slug ) {
             $meta['label'] = __( 'Celebrate', 'my-addon' );
+            $meta['char']  = "\u{1F389}";
+            $meta['color'] = '#d97706';
         }
         return $meta;
     },
@@ -52,7 +54,7 @@ add_filter(
 );
 ```
 
-> **Important:** Every slug you add needs a matching icon at `assets/icons/reaction-{slug}.svg` (or, for the Pro Fluent-emoji path, a vendored emoji slug) and a `--bn-reaction-{slug}` color token. Adding a slug with no icon/token renders a broken reaction picker. BuddyNext resolves the list through `ReactionService::reaction_types()` - never read the `REACTION_TYPES` constant directly, or you bypass the filter.
+> **Important:** `ReactionService::enabled_reactions()` builds each reaction's `icon_url` as `assets/icons/reaction-{slug}.svg` inside BuddyNext. An add-on slug has no bundled SVG, so supply the `char` (a glyph or emoji) and `color` through `buddynext_reaction_meta` so the picker button is never blank. BuddyNext resolves the runtime list through `ReactionService::reaction_types()` - never read the `REACTION_TYPES` constant directly, or you bypass the filters.
 
 ---
 
@@ -206,7 +208,7 @@ add_filter( 'buddynext_notification_should_send', static function ( bool $should
 
 **Goal:** block certain users from joining or requesting membership in a space (for example, gate a space behind a paid plan).
 
-**Seam:** `buddynext_can_join_space`. It runs in `SpaceMemberService` for both the direct-join and the request-to-join paths, receiving the resolved space row, the user, and the action. Return `false` to block. This is the seam Pro uses for gated spaces.
+**Seam:** `buddynext_can_join_space`. It runs in `SpaceMemberService` for the direct-join, request-to-join and approve-request paths, receiving the resolved space row, the user, and the action. Return `false` to block. This is the seam Pro uses for gated spaces.
 
 > **Runnable, tested snippet:** a copy-paste, live-verified version is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `roles-caps/gate-space-join.php` (a hold-flag gate you can adapt to a capability or plan check). Drop it in `wp-content/mu-plugins/` and it works as-is.
 
@@ -214,7 +216,7 @@ add_filter( 'buddynext_notification_should_send', static function ( bool $should
 add_filter(
     'buddynext_can_join_space',
     static function ( bool $can, array $space, int $user_id, string $action ): bool {
-        // $action is 'join' or 'request'.
+        // $action is 'join', 'request' or 'approve'.
         if ( ! $can ) {
             return $can; // already blocked upstream
         }
@@ -231,7 +233,7 @@ add_filter(
 );
 ```
 
-Returning `false` blocks both the join button and the request flow, so a gated space cannot be entered through either path.
+Returning `false` blocks the join button, the request flow and the approval of a pending request, so a gated space cannot be entered through any of them.
 
 ---
 
@@ -279,14 +281,14 @@ Add a tab to a space's nav bar through the unified Nav API. The old `buddynext_s
 add_action( 'buddynext_register_nav', static function ( \BuddyNext\Nav\NavRegistry $registry ): void {
     $registry->register(
         array(
-            'id'        => 'leaderboard',
+            'id'        => 'standings',
             'surface'   => 'space',
             'layer'     => 'primary',
-            'label'     => __( 'Leaderboard', 'my-addon' ),
+            'label'     => __( 'Standings', 'my-addon' ),
             'icon'      => 'list',
             'priority'  => 45,
             'url'       => static function ( \BuddyNext\Nav\NavContext $c ): string {
-                return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'leaderboard/';
+                return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'standings/';
             },
             'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => $c->role_at_least( 'member' ),
         )
@@ -366,13 +368,13 @@ The field then:
 
 Because a programmatic field has no `bn_profile_fields` row, its submitted value is stored to **`bn_field_{key}` usermeta** (here `bn_field_github_url`) on save, not to the `bn_profile_values` table. Read it back with `get_user_meta( $user_id, 'bn_field_github_url', true )`.
 
-> **Note:** `type` must be one of the Free field types (`text`, `textarea`, `url`, `email`, `phone`, `number`, `date`, `boolean`, `select`, `radio`, `multiselect`, `category_multiselect`, `color`). The "File upload" (`file`) type is **Pro-only** - it is registered by Pro on the `buddynext_field_types` filter and is not available in Free.
+> **Note:** `type` must be one of the Free field types (`text`, `textarea`, `url`, `email`, `phone`, `number`, `date`, `year`, `boolean`, `select`, `radio`, `multiselect`, `category_multiselect`, `member_type_multiselect`, `member_type`, `color`). The "File upload" (`file`) type is **Pro-only** - it is registered by Pro on the `buddynext_field_types` filter and is not available in Free.
 
 ---
 
 ## Recipe 10 - Register an add-on hub (1.0.4)
 
-**Goal:** give your add-on its own community page - a real URL like `/events/` that renders inside the BuddyNext shell, with a backing WP page, rewrite rules, and template resolution handled for you. (Surfacing an editable URL slug in the admin needs one extra filter today - see the end of the recipe.)
+**Goal:** give your add-on its own community page - a real URL like `/events/` that renders inside the BuddyNext shell, with a backing WP page, rewrite rules, and template resolution handled for you. The hub also appears on the admin Pages & URLs screen so the owner can edit its slug.
 
 **Seam:** `HubRegistry` + the `buddynext_register_hubs` action.
 
@@ -422,7 +424,7 @@ worst: `PageRouter` keeps a title map for its own hubs and falls back to
 `ucfirst( $hub )` for everything else, which turns a slug into a near-miss of a name.
 
 `buddynext_document_title` is the seam. It receives the title and a **context**,
-which for a hub render is the hub key — so match on your own key and leave every
+which for a hub render is the hub key - so match on your own key and leave every
 other surface alone:
 
 ```php
@@ -439,29 +441,14 @@ Two things worth knowing before you rely on it:
   than assuming a hub.
 - **It does not fight an SEO plugin.** When Yoast, Rank Math or similar is active,
   BuddyNext leaves the document title alone entirely and your filter will not be
-  applied. That is deliberate — the owner installed that plugin to own their titles —
+  applied. That is deliberate - the owner installed that plugin to own their titles -
   so set your title there instead on those sites.
 
 One registration gives your hub a live route: `PageRouter` dispatches your `register_rules` and `resolve_template` on every request, a slug change flushes rewrites automatically (BuddyNext hooks `update_option_{your_slug_option}` for every registered hub), and - if your add-on is active when BuddyNext is activated - the Installer creates a backing WP page for it. `includes/Core/CoreHubs.php` registers the built-in hubs through the same `HubRegistry`.
 
-Two limits are worth knowing today. Both are being closed as the hub-registry migration finishes; until then, plan around them:
+The Pages & URLs admin tab (`NavManager::page_hub_catalogue()`) is derived from the same registry, so your hub shows up there with an editable URL slug and optional backing page with no extra code. Pass the named `admin_label` and `admin_desc` arguments to `HubDescriptor` to set its label and description, or `admin_managed: false` to keep an internal hub off that screen (the onboarding and community admin hubs do). The `bn_admin_hub_pages` filter remains for adjusting the catalogue after the fact.
 
-- **The admin Pages & URLs screen does not list add-on hubs yet.** `NavManager::page_hub_catalogue()` is a fixed list of the built-in hubs, so your hub's URL slug is not editable there out of the box. Add it with the `bn_admin_hub_pages` filter, which receives that catalogue as `hub key => { label, desc, slug_opt, page_opt, default }`:
-
-  ```php
-  add_filter( 'bn_admin_hub_pages', function ( array $hubs ): array {
-      $hubs['events'] = array(
-          'label'    => __( 'Events', 'my-addon' ),
-          'desc'     => __( 'Your community events hub.', 'my-addon' ),
-          'slug_opt' => 'myaddon_slug_events',
-          'page_opt' => 'myaddon_page_events',
-          'default'  => 'events',
-      );
-      return $hubs;
-  } );
-  ```
-
-- **Most built-in hubs do not yet go through `register_rules` / `resolve_template`.** Their rewrites and template resolution still live directly in `PageRouter`; only `community_admin` rides this add-on seam so far. The callbacks you pass here are the supported path and are dispatched on every request - as the built-ins move onto the same seam, the two converge and a core hub and your hub run identical code.
+All eight core hubs (`feed`, `people`, `spaces`, `messages`, `notifications`, `auth`, `onboarding`, `community_admin`) register through this same seam in `CoreHubs::register()` with their own `register_rules` and `resolve_template` callbacks, so a core hub and your hub run identical code.
 
 ## Recipe 11 - Ship your own templates (1.0.4)
 
@@ -595,7 +582,7 @@ $posts = buddynext_service( 'post_service' )->get_many( $post_ids );   // PostSe
 
 **It is a fetch, not a gate.** Visibility is deliberately not applied. Pass the ids through `filter_visible()` first, exactly as the feed does, or you will hand a member content they cannot see.
 
-> **Runnable, tested snippet:** a copy-paste, live-verified version (this batch fetch plus the `filter_visible()` gate that must precede it — Recipe 8's "consume a service" pattern) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `services/consume-a-service.php`. Drop it in `wp-content/mu-plugins/` and it works as-is.
+> **Runnable, tested snippet:** a copy-paste, live-verified version (this batch fetch plus the `filter_visible()` gate that must precede it - Recipe 8's "consume a service" pattern) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `services/consume-a-service.php`. Drop it in `wp-content/mu-plugins/` and it works as-is.
 
 ---
 
@@ -699,8 +686,8 @@ For the complete catalog of every hook referenced here, see the hooks reference 
 
 ## Count things across many spaces without an N+1
 
-**Goal:** an owner dashboard showing several spaces at once — total members, join
-requests waiting, content reported — without one query per space, and without
+**Goal:** an owner dashboard showing several spaces at once - total members, join
+requests waiting, content reported - without one query per space, and without
 getting the member count wrong.
 
 **Seam:** batched counters on the services that own each table.
@@ -720,7 +707,7 @@ $drafts   = $posts->count_draft_announcements( $space_ids );
 
 **Do not sum `bn_spaces.member_count` across spaces.** It is a per-space
 denormalised column, so anyone who belongs to two of an owner's spaces is counted
-twice — and the error grows with exactly the communities that are working, because
+twice - and the error grows with exactly the communities that are working, because
 active members join more spaces. On the development site, summing across ten spaces
 gave **54** where the real number of people was **14**.
 
@@ -734,7 +721,7 @@ an inconsistency:
   under-report the work waiting.
 
 `count_open_reports_for_spaces()` counts distinct reported **objects**, not report
-rows — five members reporting one post is one thing to look at, not five.
+rows - five members reporting one post is one thing to look at, not five.
 
 Each has a singular sibling (`count_pending_requests( int $space_id )`,
 `count_open_reports_for_space( int $space_id )`). The convention across both

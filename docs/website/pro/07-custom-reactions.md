@@ -29,25 +29,25 @@ Custom reactions behave exactly like the built-in ones for counting, switching, 
 
 ## Setting it up (for owners)
 
-Open **BuddyNext** in wp-admin and go to **Settings - Reactions** (listed under the Advanced group). The screen has three parts: the default reactions, your current custom reactions, and the form to add a new one.
+Open **BuddyNext** in wp-admin and go to **Engagement > Reactions**. The tab is switched on by the **Custom reactions** entry in the Features catalogue (on by default). The screen has three parts: the default reactions, your current custom reactions, and the form to add a new one.
 
 ### Add a reaction
 
 1. In the **Add a reaction** section, choose an emoji from the picker grid. The grid shows every available Fluent emoji minus the six defaults and any you have already used.
 2. The **Label** field auto-fills from the emoji name you picked. Edit it if you want a different display name (for example, label the "party-popper" emoji as "Celebrate").
-3. Select **Add Reaction**. The new reaction appears in the current custom reactions table and is live in the picker immediately.
+3. Select **Add reaction**. The new reaction appears in the current custom reactions table and is live in the picker immediately.
 
 ### Manage existing reactions
 
-The **Current custom reactions** table lists each reaction with its emoji, label, and slug, plus its status and order. Each row gives you three controls:
+The **Current custom reactions** table lists each reaction with its label, emoji, slug, and order. Each row gives you two controls:
 
-- **Enable / Disable.** A toggle that turns the reaction off without deleting it. A disabled reaction is dropped from the picker but keeps its definition and any reactions members already left; its status shows as **Disabled**. Toggle it back on to return it to the picker. Use this when you want to retire a reaction temporarily rather than remove it for good.
+- **Switching a reaction off.** This screen has no on/off toggle. You turn a custom reaction off, without deleting it, in the reaction palette under **Engagement > Social**. A reaction that is switched off shows **(off)** next to its label here, drops out of the picker, and keeps its definition and the reactions members already left. Switch it back on there to return it.
 - **Order.** Up (↑) and down (↓) buttons that move the reaction earlier or later in the picker. The arrows are greyed out at the ends of the list.
 - **Remove.** Deletes the reaction after a confirmation prompt. There is no edit-in-place - to rename a reaction or change its emoji, remove it and add it again.
 
 ### The default reactions
 
-The **Default reactions** section shows the six emoji that ship with BuddyNext Free, dimmed if they are currently turned off. These are managed in BuddyNext Free, not on this screen. To enable or disable them, follow the link to **Engagement - Social**. Your custom reactions appear alongside whichever defaults are enabled.
+The **Default reactions** section shows the six emoji that ship with BuddyNext Free, dimmed if they are currently turned off. These are managed in BuddyNext Free, not on this screen. To enable or disable them, follow the link to **Engagement > Social**. Your custom reactions appear alongside whichever defaults are enabled.
 
 ### Settings reference
 
@@ -66,7 +66,7 @@ The Add a reaction form has these inputs:
 - **You pick from a built-in emoji set.** The picker offers the Microsoft Fluent emoji that ship with BuddyNext. If every available emoji is already in use, the form tells you so. There is no free-text emoji or image upload.
 - **No duplicates.** You cannot add an emoji that is already a built-in reaction, and you cannot add the same custom emoji twice. The form blocks both with a clear message.
 - **Label is required.** An empty label is rejected, and so is a label over 80 characters.
-- **Disabling is reversible; removing is not.** Disabling a reaction takes it out of the picker but preserves its definition and the reactions members already left, so you can turn it back on later. Removing a reaction deletes it - the reactions members already left using it are deleted too, but other reactions are untouched.
+- **Switching off is reversible; removing is not.** Switching a reaction off in Engagement > Social takes it out of the picker but preserves its definition and the reactions members already left, so you can turn it back on later. Removing a reaction deletes it - the reactions members already left using it are deleted too, but other reactions are untouched.
 - **Only admins can manage reactions.** Adding and removing custom reactions is limited to site administrators.
 
 ## Free vs Pro
@@ -74,7 +74,7 @@ The Add a reaction form has these inputs:
 The six default reactions, the reaction picker, and reaction counting are all part of BuddyNext Free. Enabling or disabling the defaults is also handled in Free under Engagement - Social.
 
 Custom Reactions - adding emoji beyond the default six - is a Pro feature. Pro adds your custom reactions to Free's reaction list, so everything stays consistent across the website and any connected app.
-> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.
+> **Note:** If you have turned Memberships on **and** chosen a default plan, the picker is capped by each member's plan through the **Reactions Set Size** limit (6 on the shipped Free plan, 20 on the seeded Pro plan). A member on a plan limited to 6 sees only the six defaults. With Memberships off (the default), every member sees the full set. See [Membership Plans](01-membership-plans.md).
 
 ## Related
 

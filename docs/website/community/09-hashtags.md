@@ -4,7 +4,7 @@ Hashtags turn any word a member types with a leading `#` into a clickable, share
 
 ![BuddyNext search results grouped by type, including posts that share a hashtag topic](../images/search.webp)
 
-![A hashtag feed page — the tag header with a Follow button, post/contributor counts, the tagged posts, and an About panel](../images/hashtag-feed.webp)
+![A hashtag feed page - the tag header with a Follow button, post/contributor counts, the tagged posts, and an About panel](../images/hashtag-feed.webp)
 
 ![Platform - Features admin tab where the hashtags feature is enabled](../images/admin-features.webp)
 
@@ -44,7 +44,7 @@ On a hashtag feed page, use the follow button to follow the tag. Following is a 
 
 ### Trending hashtags
 
-The trending list ranks hashtags by how active they have been over a rolling 24-hour window, so it reflects what the community is discussing today rather than all-time totals. You will see trending hashtags on the Explore page and anywhere an owner has placed the Trending Hashtags block.
+The trending list ranks hashtags by how active they have been over a rolling window - the last 24 hours on the Explore page and in the sidebar card - so it reflects what the community is discussing today rather than all-time totals. You will also see trending hashtags anywhere an owner has placed the Trending Hashtags block, which can look back 24 hours, 7 days or 30 days.
 
 ## Setting it up (for owners)
 
@@ -52,18 +52,19 @@ Hashtags are on by default. The feature and its banned-tag list are controlled f
 
 | Setting | What it does | Default |
 |---|---|---|
-| Hashtags feature | Turns the whole hashtag system on or off. When off, `#tags` stay as plain text everywhere (posts and comments) - no clickable links, no feed pages, no trending list. | On |
-| Banned hashtags | A list of tags to block, one per line without the `#`. A post that uses a banned tag is rejected with a message and is not published, so the tag never becomes a clickable link or a feed page. | Empty (nothing blocked) |
+| Hashtags feature (BuddyNext > Platform > Features) | Turns the whole hashtag system on or off. When off, `#tags` stay as plain text everywhere (posts and comments) - no clickable links, no feed pages, no trending list. | On |
+| Banned hashtags (BuddyNext > Moderation > Controls) | A list of tags to block, one per line without the `#`. A post or comment that uses a banned tag is rejected with a message and is not published, so the tag never becomes a clickable link or a feed page. | Empty (nothing blocked) |
 
 
 ### The Trending Hashtags block
 
-Add the Trending Hashtags block to any page, post, or block-themed template to show the current trending tags. In the block editor, look for the Trending Hashtags block in the BuddyNext block category. The block has two controls:
+Add the Trending Hashtags block to any page, post, or block-themed template to show the current trending tags. In the block editor, look for the Trending Hashtags block in the BuddyNext block category. The block has three controls:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Count | How many trending hashtags to show. | Block default |
-| Display | How the list is presented (for example a compact list or a fuller layout). | Block default |
+| Hashtags to show | How many trending hashtags to show (1 to 20). | 8 |
+| Display as | **List** or **Cloud**. | List |
+| From | How far back to look for activity: Last 24 hours, Last 7 days or Last 30 days. A quiet community has more to show over a longer window. | Last 7 days |
 
 
 ## Good to know

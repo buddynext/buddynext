@@ -2,7 +2,7 @@
 
 Spaces are the sub-communities inside your BuddyNext site - focused groups where members gather around a shared topic, team, course, or interest. Each space has its own member list and its own activity feed, so conversation stays on-topic instead of getting lost in the site-wide stream.
 
-![BuddyNext spaces directory — browse spaces by category with search and sort, an invite banner, space cards showing member and post counts, and Your Spaces and Trending Tags sidebars.](../images/spaces-directory.webp)
+![BuddyNext spaces directory - browse spaces by category with search and sort, an invite banner, space cards showing member and post counts, and Your Spaces and Trending Tags sidebars.](../images/spaces-directory.webp)
 
 ## Why use it
 
@@ -35,7 +35,7 @@ Selecting a space opens its home page: the space header, an about panel, a membe
 
 ### My Spaces
 
-Every member has a "My Spaces" view listing the spaces they belong to, so their groups are one click away. This is also where pending join requests show up while a member waits to be approved.
+Every member has a "My Spaces" view listing the spaces they belong to, so their groups are one click away. It can be filtered by category. This is also where pending join requests show up while a member waits to be approved.
 
 ### Join, leave, or request to join
 
@@ -72,7 +72,7 @@ You are not limited to the built-in Spaces directory. Two blocks let you drop sp
 
 ## Setting it up (for owners)
 
-Space behavior is configured under the Spaces settings tab. These controls set the defaults and limits for every space on the site; individual space owners then manage their own space from its settings page.
+Space behavior is configured under **BuddyNext > Spaces > Settings**. These controls set the defaults and limits for every space on the site; individual space owners then manage their own space from its settings page.
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
@@ -83,7 +83,7 @@ Space behavior is configured under the Spaces settings tab. These controls set t
 | Default visibility for new spaces | The type a space starts with when created (Open, Private, or Secret). Owners can still change it per space. | Open |
 | Default category for new spaces | The category a new space is filed under when none is chosen. Manage the category list under Spaces, Directory, Categories. | None |
 
-> **Note:** The master on/off switch for the whole Spaces feature lives on the Features tab, not here. When Spaces is turned off there, the directory and these settings are inactive.
+> **Note:** Spaces is a core feature. It appears locked on in **Platform > Features** and cannot be switched off, so there is no master switch to look for.
 
 ## Good to know
 

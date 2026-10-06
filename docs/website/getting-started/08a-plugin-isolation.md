@@ -46,12 +46,12 @@ Because it decides so early, the model is deliberately safe:
 ## Turning it on and choosing what to skip
 
 1. Go to **BuddyNext > Platform > Plugin isolation**.
-2. Turn isolation **on**.
-3. You will see your active plugins. Tick the ones you want to **skip on community
+2. Turn **Enable route isolation** on.
+3. Under **Plugins on this site** you will see your active plugins. Switch on the ones you want to **skip on community
    routes** - the plugins your feed, spaces, and profiles do not need.
-4. Save.
+4. Click **Save changes**.
 
-Leave anything you are unsure about unticked; an unticked plugin keeps loading
+Leave anything you are unsure about switched off; a plugin that is switched off keeps loading
 exactly as before. You can revisit this screen any time as you add or remove
 plugins.
 
@@ -83,8 +83,8 @@ use. If a feature works on a normal page but disappears on the feed, a space, or
 profile:
 
 1. Go to **BuddyNext > Platform > Plugin isolation**.
-2. Find that plugin in the list and make sure it is **not** ticked to skip.
-3. Save, and reload the community page.
+2. Find that plugin in the list and make sure its switch is **off** (not skipped).
+3. Click **Save changes**, and reload the community page.
 
 If it is an in-house integration, it is protected already and the cause is
 elsewhere - check its own settings.

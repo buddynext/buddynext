@@ -18,13 +18,13 @@ It also removes an awkward workaround. Before, the only albums BuddyNext had wer
 
 The Media tab is off by default and is enabled per space, so a space that is only ever going to be a discussion does not carry a gallery it never uses.
 
-1. Open the space and go to **Settings**.
-2. Turn on the **Media** tab.
+1. Open the space and go to **Settings > Integrations**.
+2. Switch on **Enable Media tab**.
 3. Save.
 
 The tab appears in the space's tab strip next to Feed, Members and About.
 
-> **Note:** Space media needs the media engine (WPMediaVerse) active on the site, and the site-wide media integration switched on under **BuddyNext > Platform > Integration Settings**. Without those the tab does not appear even when the per-space setting is on.
+> **Note:** Space media needs the media engine (WPMediaVerse) active on the site, and the site-wide media integration switched on under **BuddyNext > Integration Settings**. Without those the tab does not appear even when the per-space setting is on.
 
 ## The two views
 
@@ -37,7 +37,7 @@ The Media tab opens with a sub-nav holding two views:
 
 ### Creating an album
 
-In the Albums view, choose **New album**, give it a name, and save. Members who can post in the space can create one; a space owner can restrict album creation to the space's organisers if they would rather keep the gallery curated.
+In the Albums view, choose **New album**, give it a name, and save. Members who can post in the space can create one; the space owner can switch on **Only organisers can create albums** (Settings > Integrations) to keep the gallery curated. Members can still add photos to an album that already exists.
 
 ### Adding photos
 
@@ -65,9 +65,9 @@ Remove from space is an *unlink*, not a delete. The item leaves the space and re
 
 ## The Files tab (documents)
 
-A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Manage space -> Files tab** - and is **off by default**. It needs WPMediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
+A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Settings > Integrations > Enable Files tab** - and is **off by default**. It needs WPMediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
 
-Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove moves the document to **Trash**, where they can restore it within WPMediaVerse's 30-day window.)
+Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove moves the document to **Trash**, where they can restore it.)
 
 ### Who can add files
 

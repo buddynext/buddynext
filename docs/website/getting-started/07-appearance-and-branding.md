@@ -10,7 +10,7 @@ Members trust a community that looks like the brand that invited them. A generic
 
 ## Community name
 
-Set under **Settings > General**, the **Community Name** is how your community refers to itself in headings and copy. If you do not upload a logo, this name is shown at the top of the navigation instead, so it is worth getting right even on a logo-free site.
+Set under **Settings > General**, the **Community name** (and the **Community description** below it) is how your community refers to itself in headings and copy. If you do not upload a logo, this name is shown at the top of the navigation instead, so it is worth getting right even on a logo-free site.
 
 ## Brand color
 
@@ -18,7 +18,7 @@ Under **Settings > Appearance**, **Brand color** is your community's accent. It 
 
 ## Logo
 
-Under **Settings > Appearance**, the **Logo** is shown at the top of the navigation rail. A wide PNG or SVG around 160 by 40 pixels works best. You can select an image from the WordPress media library or paste an image URL. Leave it empty and BuddyNext shows your community name in its place, so there is always something branded in the corner.
+Under **Settings > Appearance**, the **Logo** (labelled **Logo image** on the field, with a **Select logo** button) is shown at the top of the navigation rail. A wide PNG or SVG around 160 by 40 pixels works best. You can select an image from the WordPress media library or paste an image URL. Leave it empty and BuddyNext shows your community name in its place, so there is always something branded in the corner.
 
 ## Default theme (auto, light, or dark)
 

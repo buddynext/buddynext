@@ -14,9 +14,9 @@ BuddyNext already carries a published post into the community feed as an article
 
 BuddyNext's side of this integration is deliberately small, and deliberately generic.
 
-- **An Articles tab** on each member profile, listing that member's published posts - title, date, excerpt and featured image - each linking out to the post itself.
+- **An Articles tab** on each member profile, listing that member's published posts - title, date, excerpt and featured image - each linking out to the post itself. The list is paged, ten posts to a page, and the tab shows a count.
 - **An owner route back to writing.** When you are looking at your own Articles tab, you also get **Write a new article** and **Manage articles**, plus an Edit link on each row. All of them go to Member Blog's dashboard.
-- **Drafts and pending posts, for you only.** Your own tab shows work in progress with a status badge so an unfinished draft never reads as published. Nobody else sees them.
+- **Drafts and pending posts, for you only.** Your own tab shows work in progress with a status badge so an unfinished draft never reads as published. Nobody else sees them, apart from people who can edit other members' posts (such as editors and administrators).
 
 Everything else stays where it belongs. BuddyNext does not render an editor, does not own a posting form, and does not duplicate Member Blog's dashboard. All writing, editing and submission happens in Member Blog.
 
@@ -29,10 +29,17 @@ The card follows the post. If the post is unpublished, trashed, made private or 
 ## Setting it up
 
 1. Install and activate **WB Member Blog**.
-2. In Member Blog's settings, map its **dashboard page** - the front-end page where members write and manage their posts. BuddyNext reads this to build the "Write a new article" link.
+2. In Member Blog's settings (the Pages tab), map its **Dashboard Page** - the front-end page where members write and manage their posts. BuddyNext reads this to build the "Write a new article" link.
 3. That is all. The Articles tab appears on member profiles automatically.
 
-To hide the tab across the site, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Platform > Integration Settings**. That control also governs the article cards in the feed, because both surfaces show the same thing: the member's WordPress posts. It also decides whether author links open the member's profile; see [Member Profiles](../members/01-member-profiles.md).
+The **Blog posts** card on **BuddyNext > Integration Settings** has two switches:
+
+| Setting | What it does | Default |
+|---|---|---|
+| Show in navigation | Shows the Articles tab on member profiles. Turning it off also decides whether author links open the member's profile (they only do while the profile can list the author's posts); see [Member Profiles](../members/01-member-profiles.md). | On |
+| Post to the activity feed | Whether a published post posts an article card in the feed. This works with or without Member Blog. | On |
+
+There is no search switch for this integration.
 
 > **Note:** The tab appears only when Member Blog is active. Without it, members have no front-end way to write, so the tab would be empty for everyone except administrators - and the "Write a new article" link would have nowhere to point.
 
@@ -40,7 +47,7 @@ To hide the tab across the site, turn off the **nav** aspect of the **Blog posts
 
 The tab lists the member's posts in the standard WordPress `post` type, newest first, paginated. If your site teaches BuddyNext about additional post types through the `buddynext_site_tracking_post_types` filter, those appear on the tab and in the feed together - one change, both surfaces.
 
-Visitors and other members see published posts only. You see your own drafts, pending review and scheduled posts as well, each labelled.
+Visitors and other members see published posts only. You see your own drafts, pending review and scheduled posts as well, each labelled. With no posts yet, your own tab says "You have not published an article yet." with a **Write your first article** button.
 
 ## Pro
 

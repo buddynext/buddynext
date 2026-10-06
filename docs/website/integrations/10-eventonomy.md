@@ -4,7 +4,7 @@ Eventonomy is the companion plugin that adds events, RSVPs, and calendars to you
 
 Bringing Eventonomy into your community needs BuddyNext Pro. The Eventonomy plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
 
-![Eventonomy's surfacing controls under BuddyNext > Platform > Integration Settings - navigation, activity feed, and community search switches](../images/integration-eventonomy.webp)
+![Eventonomy's surfacing controls under BuddyNext > Integration Settings - navigation, activity feed, and community search switches](../images/integration-eventonomy.webp)
 
 ## Why use it
 
@@ -26,8 +26,8 @@ Creating and managing events - the event form, dates, the calendar, and the RSVP
 - **A new event appears in the feed.** When a member publishes an event, BuddyNext posts a premium event card to the feed - with the event's cover image, a date chip, and an RSVP - linking out to the event's Eventonomy page. It is a real event card, not a plain link box.
 - **RSVPs show in the feed.** When a member RSVPs "going", BuddyNext posts an "is attending" activity, so others can see who is going. Only a "going" RSVP posts; the card is retracted automatically if the member later cancels.
 - **Events are searchable in the community.** Each published event is added to community search, so a member searching for a topic finds upcoming events alongside people, spaces, and posts.
-- **A member's events show on their profile.** BuddyNext adds an Events tab to the member's profile listing the events they are involved with, and an Events hub in the community navigation.
-- **Event notifications land in one place.** Eventonomy's notifications (an RSVP confirmation, a reminder, an event change) gather into the BuddyNext notification center as an Events source, so a member has a single bell for everything across the community.
+- **A member's events show on their profile.** BuddyNext adds an Events tab to the member's profile, split into Organizing and Going (both public) plus Maybe, which only the member sees on their own profile (and Interested, with Eventonomy Pro). Logged-in members also get an **Events** link in the left navigation, in the personal group, that opens their own Events tab. An **Upcoming events** card can also appear in the feed's right sidebar.
+- **Event notifications land in one place.** Eventonomy's notifications (an RSVP confirmation, a reminder, an event change) appear in the BuddyNext bell as an Events source, so a member has a single bell for everything across the community. Members can switch each type in their notification settings under **Events**.
 - **Cancelled events come down automatically.** When an event is cancelled or deleted, its feed card and search entry are removed too, so the community only shows events that are still happening.
 
 > **Note:** Creating events, managing the calendar, and RSVPing happen on Eventonomy's screens. BuddyNext does not replace those - it surfaces the results in the community.
@@ -42,11 +42,11 @@ As soon as both plugins are active, the integration is on and published events, 
 
 ### Display settings
 
-Eventonomy gets a card on the **Platform > Integration Settings** tab, with the same switches every integration has:
+Eventonomy gets a card named **Events** on the **Integration Settings** screen, with the same switches every integration has:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether the Events tab appears in member navigation. | On |
+| Show in navigation | Whether the Events link, the profile Events tab and the space Events tab appear. Turning it off also stops Eventonomy notifications reaching the bell. | On |
 | Post to the activity feed | Whether a published event and a "going" RSVP post a feed activity. | On |
 | Include in search | Whether published events are found in community search. Switching it off also removes the events already in the search index. | On |
 
@@ -56,9 +56,9 @@ The event experience itself - who can create events, RSVP rules, calendar displa
 
 Beyond the profile Events tab and community-wide surfacing, a space can run its own events board on an **Events** tab.
 
-**Turning it on (space owner).** In a space's Settings > Integrations, switch on the Events tab (off by default). Once on, the tab appears even before any event exists, so members always have somewhere to create the first one.
+**Turning it on (space owner).** Under **Manage space > Integrations**, switch on **Events tab** (off by default). Once on, the tab appears even before any event exists, so members always have somewhere to create the first one.
 
-**Who can add an event.** A second per-space setting decides whether any active member can create an event for the space or only space admins/moderators (default: members). Editing an event's own content, once it exists, always stays with the event's author - the space setting only controls who may add a new one.
+**Who can add an event.** A second per-space setting, **Only organisers can add events**, decides whether any active member can create an event for the space or only space organisers (default: any member). Editing an event's own content, once it exists, always stays with the event's author - the space setting only controls who may add a new one.
 
 **Creating from the space.** The tab's **Create event** button opens Eventonomy's own event editor with the space pre-selected, so a member creates an event without hunting for a space picker - the new event is bound to the space automatically.
 
@@ -74,7 +74,7 @@ Beyond the profile Events tab and community-wide surfacing, a space can run its 
 
 ## Good to know
 
-- **Notifications are collect-only.** BuddyNext gathers Eventonomy's notifications into its center for convenience but does not re-send them by email. Eventonomy owns its own emails, so members are not notified twice.
+- **Notifications are shown, not re-sent.** BuddyNext shows Eventonomy's notifications in the bell but does not re-send them by email. Eventonomy owns its own emails, so members are not notified twice.
 - **Inert when Eventonomy is not installed.** Without the Eventonomy plugin, the integration does nothing - no feed cards, no search entries, no profile tab. BuddyNext checks for Eventonomy before wiring anything in, so a site without it sees no errors and no empty surfaces.
 - **Eventonomy owns the data.** All events, calendars, and RSVPs live in Eventonomy. BuddyNext reacts to its events and links out to its pages; it does not store or edit them.
 

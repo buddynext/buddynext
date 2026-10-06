@@ -43,7 +43,7 @@ Polls are on by default. There is a single setting that controls whether members
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Polls (Platform > Features) | Lets members attach a poll to their posts. Turn it off to remove the poll tool from the composer for everyone. | On |
+| Polls (BuddyNext > Platform > Features) | Lets members attach a poll to their posts. Turn it off to remove the poll tool from the composer for everyone. | On |
 
 When the setting is off, the poll tool no longer appears in the composer and members post only regular text, link, and photo updates.
 

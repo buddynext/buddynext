@@ -8,7 +8,7 @@ Pinning keeps a post at the top of a member's profile so it is the first thing v
 
 One pinned post is rarely enough. A member who uses their profile well usually has more than a single thing worth keeping in front of visitors: their best work, an introduction, a current project, a link that matters. With a limit of one, they are forced to choose which single post matters most and let the rest scroll away. Raising the cap to 10 lets them keep a small, curated set of highlights at the top instead.
 
-It is the same idea as a pinned section on the platforms people already use, just with room for more than one — so a first-time visitor sees the highlights immediately rather than whatever happened to be posted most recently.
+It is the same idea as a pinned section on the platforms people already use, just with room for more than one - so a first-time visitor sees the highlights immediately rather than whatever happened to be posted most recently.
 
 Spaces feature important content a different way: through **Announcements**, which are admin-controlled, can carry an expiry, and can be dismissed per member. Pinning is a profile tool; announcements are the space tool. See Announcements.
 
@@ -28,18 +28,19 @@ Pinned posts sit at the top of the member's profile feed. Each pinned post is ma
 
 ## Setting it up (for owners)
 
-There is nothing to configure. Once Pro is active, the profile pin limit is raised from 1 to 10 automatically. The pin and unpin actions, the limit check, and the pinned highlight are all part of the existing feed, so members simply find that they can now pin more than one post to their profile.
+There is no switch for this in the Features catalogue and nothing to configure. Once Pro is active, the profile pin limit is raised from 1 to 10 automatically. The pin and unpin actions, the limit check, and the pinned highlight are all part of the existing feed, so members simply find that they can now pin more than one post to their profile.
 
 ## Good to know
 
 - The maximum is 10 pinned posts on a profile. When a profile already has 10 posts pinned, pinning an 11th is refused and the member is told the limit has been reached. Unpin something first to make room.
 - Unpinning frees a slot immediately, so as soon as one of the 10 is unpinned another post can take its place.
-- Only a member can pin their own posts, and only on their own profile — an administrator does not pin to a member's profile on their behalf.
+- A post made inside a space cannot be pinned to a profile. Use an announcement to feature it.
+- Only a member can pin their own posts, and only on their own profile - an administrator does not pin to a member's profile on their behalf.
 - If Pro is later deactivated, the limit returns to the free default of 1 pinned post per profile. Already-pinned posts are not removed, but the member will not be able to pin a new one until the count is back under the free limit.
 
 ## Free vs Pro
 
-Pinning itself — the Pin and Unpin actions, the top-of-profile placement, and the pinned marker on a card — is part of free BuddyNext, which allows one pinned post per profile.
+Pinning itself - the Pin and Unpin actions, the top-of-profile placement, and the pinned marker on a card - is part of free BuddyNext, which allows one pinned post per profile.
 
 Pro's addition here is the higher cap: up to 10 pinned posts per profile. Nothing else about pinning changes, so the workflow members already know stays the same; there is simply room for more highlights.
 

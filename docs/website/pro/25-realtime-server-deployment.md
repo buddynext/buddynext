@@ -123,16 +123,21 @@ The `Upgrade` and `Connection` headers are the part people miss - without them t
 
 ## Connect it to BuddyNext
 
-In WP Admin, go to **BuddyNext → Realtime & Push → Realtime** and fill in:
+Realtime is optional and off by default. The community works without it, using polling. To use a server:
+
+1. Go to **Platform → Features** and switch on **Realtime**. This is the one on/off switch for the feature.
+2. Go to **Realtime & Push → Realtime** and fill in the **Connection** fields:
 
 | Field | Value |
 |---|---|
 | Host | `https://realtime.yourdomain.com` - full URL, with scheme, no trailing slash |
 | App ID | The app id you configured (`buddynext` in the example above) |
-| Key | The public key |
-| Secret | The secret |
+| Key | The public key. It is sent to the browser. |
+| Secret | The secret. It is never shown again after saving; a "Saved" badge appears, and leaving the field blank keeps the saved value. |
 
-Turn on **Enable realtime**, save, then press **Test connection**.
+3. Save, then press **Test connection** under **Diagnostics**.
+
+A status line at the top of the Connection section tells you whether Realtime is off, on but not configured, or on and configured.
 
 > **The Host must include `http://` or `https://`.** A bare hostname is refused at save, because a scheme-less host is the most common cause of a realtime server that appears configured and never connects.
 

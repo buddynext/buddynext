@@ -25,7 +25,7 @@ The community sees the effect - less spam, fewer abusive posts - without any vis
 
 ## Setting it up (for owners)
 
-Auto-moderation rules are managed at **BuddyNext > Moderation > Rules**. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them.
+Auto-moderation rules are managed at **BuddyNext > Moderation > Rules**. They have their own switch in the Features catalogue, **Moderation rules**, which is on by default. The rules apply to posts, comments, direct messages, and member profile fields; the rate limit applies to posts only. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them. The **Test a phrase** box at the top of the screen lets you paste text and see which enabled rules would flag or block it, and the exact term that trips each. Nothing is saved.
 
 ### Rule types
 
@@ -54,7 +54,7 @@ How a rule responds when it matches:
 |---|---|
 | Block | Reject the submission outright. The content never goes live. |
 | Flag | Let the content post, but file a report for moderator review. Reactive, not blocking. |
-| Warn | Allow the content through (keyword rules only). |
+| Warn | Allow the content through and log the match (keyword rules only). |
 | Remove | Take down content that crosses a report threshold (threshold rules). |
 | Suspend | Suspend the offending author for a set number of days (threshold rules). |
 
@@ -64,38 +64,39 @@ Each rule type takes its own configuration.
 
 | Rule type | Setting | What it does | Default |
 |---|---|---|---|
-| Keyword block | Keywords | The words or phrases to match (required). | Empty (you must add at least one) |
+| Keyword block | Keywords | The words or phrases to match, one per line (required). | Empty (you must add at least one) |
 | Keyword block | Severity | warn, flag, or block. | Flag |
-| Link block | Domains | The domains to match (required). | Empty (you must add at least one) |
+| Link block | Blocked domains | The domains to match, one per line (required). | Empty (you must add at least one) |
 | Link block | Action | flag or block. | Flag |
-| Rate limit | Max posts per hour | The hourly post cap (must be a positive number). | None (you must set it) |
-| Threshold remove | Reports threshold | How many reports trigger the action (must be positive). | None (you must set it) |
-| Threshold remove | Window (hours) | The time window the reports must fall within (must be positive). | None (you must set it) |
+| Rate limit | Max posts per hour | The hourly post cap (must be a positive number). | 20 in the new-rule form |
+| Threshold remove | Reports threshold | How many reports within the window trigger the action (must be positive). | 5 in the new-rule form |
+| Threshold remove | Window (hours) | The time window the reports must fall within (must be positive). | 24 in the new-rule form |
 | Threshold remove | Action | remove or suspend. | Remove |
-| Threshold remove | Suspension length (days) | How long to suspend when the action is suspend. | 7 |
+| Threshold remove | Suspension duration (days) | How long to suspend when the action is suspend. | 7 |
 
 ### Common settings
 
 | Setting | What it does | Default |
 |---|---|---|
 | Name | A label so you can recognize the rule in the list. Required. | Empty (you must set it) |
+| Rule type | Chosen when you create the rule. It cannot be changed afterwards. | None |
 | Priority | Decides evaluation order when several rules apply. Lower numbers run first. | 0 for new rules |
 | Enabled | Whether the rule is active. A disabled rule does nothing. | Enabled when created |
 
 ### Built-in default rules
 
-These ship ready to use. Toggle them on or off and adjust their settings like any rule; they cannot be deleted.
+These ship ready to use. Toggle them on or off and change their settings; their name, type and priority are fixed, and they cannot be deleted. They show a "(built-in)" label in the list.
 
 | Default rule | Type | On out of the box? |
 |---|---|---|
 | Anti-flood (rate limit) | Rate limit, 30 posts/hour | Yes |
-| Auto-remove heavily reported content | Threshold remove, 5 reports / 24 hours | Yes |
+| Auto-remove heavily reported content | Threshold remove, 5 reports / 24 hours | No |
 | Flag link-shortener spam | Link block (bit.ly, tinyurl.com, t.co), flag | No |
 | Flag common spam phrases | Keyword block, flag | No |
 
 ### Manage rules
 
-- **Create** a rule: choose a type, give it a name and priority, fill in the type's settings, and save.
+- **Create** a rule: in the **Add new rule** form, choose a type, give it a name and priority, fill in the type's settings, and select **Add rule**.
 - **Edit** a rule to change its name, priority, or configuration.
 - **Enable or disable** a rule with its toggle. Disabling leaves the rule in place but stops it from acting.
 - **Delete** a custom rule to remove it permanently. (Built-in defaults can be disabled but not deleted.)
@@ -107,7 +108,7 @@ These ship ready to use. Toggle them on or off and adjust their settings like an
 - **Disabled rules do nothing.** A disabled rule is fully inert - it neither blocks, flags, nor counts toward anything until you re-enable it. This is the safe way to pause a rule without losing its configuration.
 - **Block stops, flag reviews.** Block-level matches refuse the submission; flag-level matches let it through and file a report. Choose block for content that should never appear and flag for borderline cases you want a human to judge.
 - **Suspensions are temporary by default.** A threshold rule set to suspend uses a set number of days (7 unless you change it), so an auto-suspension lifts on its own rather than becoming a permanent ban.
-- **Rules layer on top of free safeguards.** Pro rules run alongside BuddyNext's built-in content checks, not instead of them.
+- **Rules layer on top of free safeguards.** Pro rules run alongside BuddyNext's built-in content checks, not instead of them. The free plugin already hides content automatically once it collects 5 reports (the **Auto-hide after N reports** setting), which is why the Pro report-threshold rule is off by default: leave it off unless you want reported content removed outright rather than held for a moderator.
 - **The rate limit never blocks an edit.** A member at or over the hourly cap can still edit their existing posts. Only new posts are refused. Content rules (keyword, link, AI) still apply to the edit, so this is not a loophole.
 
 ## Free vs Pro

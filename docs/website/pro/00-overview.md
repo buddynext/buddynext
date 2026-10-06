@@ -11,7 +11,7 @@ Turn membership into revenue. Pro gives you the whole money journey - plans, che
 - **Membership plans** - create paid plans with a price and a billing period (monthly or yearly), describe the perks, and decide which Pro features and spaces each plan unlocks. [Membership Plans](01-membership-plans.md)
 - **Gated spaces** - require an active plan to enter a space; non-subscribers see an invitation to subscribe instead of the feed. [Gated Spaces](02-gated-spaces.md)
 - **Content protection (paywalls)** - lock individual posts or content behind a plan, so you can sell a single piece as well as a whole space. [Content Protection](04-content-protection.md)
-- **Payments** - take payment through Stripe (hosted checkout and a customer billing portal), with refunds, free trials, and a status badge that tells you the gateway is live. [Stripe Payments](03-stripe-payments.md), [Payment Gateways](22-payment-gateways.md)
+- **Payments** - take payment through Stripe (hosted checkout and a customer billing portal) or PayPal, redeem gamification points, or record bank transfers yourself, with refunds, free trials, and a status badge that tells you the gateway is live. [Stripe Payments](03-stripe-payments.md), [Payment Gateways](22-payment-gateways.md)
 - **Coupons and tax** - run discounts and apply flat tax at checkout. [Coupons and Tax](23-coupons-and-tax.md)
 - **Renewal reminders** - email members before a renewal or when a payment fails, so access does not lapse by surprise. [Renewal Reminders](26-renewal-reminders.md)
 
@@ -23,7 +23,7 @@ Free notifies members inside the community. Pro lets you reach them proactively 
 
 - **Broadcast email** - compose one message and send or schedule it to a group. [Broadcast Email](12-broadcast-email.md)
 - **Drip sequences** - a series that sends automatically as members reach a stage: welcome a new member, onboard them over their first week, win back a lapsed one. [Drip Sequences](13-drip-sequences.md)
-- **Scheduled posts** - queue posts and prompts ahead so the community never looks empty on a quiet day. [Scheduled Posts](05-scheduled-posts.md)
+- **Scheduled posts** - members queue posts ahead so the community never looks empty on a quiet day. Scheduling is part of free BuddyNext; Pro adds the admin queue and the plan perk. [Scheduled Posts](05-scheduled-posts.md)
 - **Push notifications** - browser and mobile push so members come back without email. [Push Notifications](17-push-notifications.md)
 - **Real-time updates** - the feed, notifications, and messages update live over WebSocket, no refresh. [Real-time](18-realtime-websocket.md), [Server Deployment](25-realtime-server-deployment.md)
 
@@ -40,9 +40,9 @@ The free report-and-review queue is enough for a small community. Pro adds the t
 
 Free lets you set colours and a logo. Pro lets you brand the whole thing and shape how members express themselves.
 
-- **White-label** - present the plugin under your own name in wp-admin. [White-label](20-white-label.md)
+- **White-label** - replace the BuddyNext name and logo on admin screens and in every BuddyNext email. [White-label](20-white-label.md)
 - **Space branding** - give flagship or client spaces their own header and identity. [Space Branding](21-space-branding.md)
-- **Custom reactions** - replace the default reaction set with reactions that fit your community's voice. [Custom Reactions](07-custom-reactions.md)
+- **Custom reactions** - add your own emoji reactions alongside the six built-in ones, up to 20 in total. [Custom Reactions](07-custom-reactions.md)
 - **Member labels** - assign titles or badges (Founder, Expert, Verified) that appear next to a member's name. [Member Labels](08-member-labels.md)
 - **Advanced profile fields** - richer field types beyond the free set - a map location, an advanced multi-select, an advanced number with units. [Advanced Profile Fields](09-advanced-profile-fields.md)
 - **Conditional logic for profile fields** - show a field only when a member picks a certain answer, on the profile and at registration. [Conditional Logic for Profile Fields](27-conditional-profile-fields.md)
@@ -51,6 +51,27 @@ Free lets you set colours and a logo. Pro lets you brand the whole thing and sha
 ## 5. Connect the wider business suite
 
 Pro is also the bridge to the rest of the Wbcom suite, so a course, an event, a job board, or a listing directory becomes part of the same community rather than a separate silo. [Suite Portfolio](24-suite-portfolio.md), [Suite Notification Aggregation](28-suite-notifications.md).
+
+## One switch per capability
+
+Each Pro capability that has its own admin screen has one on/off switch in the Features catalogue (BuddyNext > Platform > Features). Turning one off hides its admin screen and stops its feature; nothing else changes. The old per-feature options were folded into these switches, and member push preferences now follow the Push switch. Gated spaces, content protection, and the other membership features sit under the one **Memberships & monetization** switch. Scheduled posts is a free feature that uses the same catalogue.
+
+| Switch | Default |
+|---|---|
+| Memberships & monetization | Off |
+| White-label branding | On |
+| Member labels | On |
+| Email broadcasts | On |
+| Drip sequences | On |
+| Moderation rules | On |
+| Bulk moderation | On |
+| Custom reactions | On |
+| Analytics | On |
+| Scheduled posts (free) | On |
+| Realtime | Off, needs a realtime server |
+| Push notifications | Off, needs an FCM project (member push preferences are part of this switch) |
+| AI suite | Off, needs an AI provider key |
+| AI moderation | Off, needs an AI provider key |
 
 ## What stays the same
 

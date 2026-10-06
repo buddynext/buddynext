@@ -27,7 +27,7 @@ Permissions add a second lever. A space where every member can post feels open a
 A few rules sit behind that table:
 
 - There is exactly one owner per space at a time. The owner is the only role that can change permissions, manage moderators, and transfer the space.
-- Moderators handle membership: they review the pending-requests queue, send invites, and remove members. They cannot change space settings or touch the owner.
+- Moderators handle membership: they review the pending-requests queue, send invites, and remove members. They can also change the space's moderation settings: **Require approval to join**, the space's **Banned words**, and the default notification level for new members. They cannot change anything else in the space settings or touch the owner.
 - Members take part - they post (when permissions allow), react, and comment. They can invite only when the owner has opened invites to all members.
 - Site administrators can manage any space regardless of their space role.
 
@@ -51,7 +51,8 @@ Posting and invite permissions live on the space's Permissions settings panel.
 |---|---|---|
 | Who can post | Which roles may post in the space feed: all members, moderators and the owner only, or the owner only | All members |
 | Who can invite new members | Which roles may send invites: all members, moderators and the owner, or the owner only | Moderators and owner |
-| Require approval for new members | When on, every join becomes a request an owner or moderator must approve | Off |
+| Require approval to join | When on, every join to an Open space becomes a request an owner or moderator must approve. Owners and moderators can change it. | Off |
+| Banned words (Moderation panel) | One word or phrase per line. A post using any of them is rejected, in addition to the site-wide list. Whole words only, and a trailing `*` catches variants. Owners and moderators can change it. | Empty |
 
 > **Note:** "Who can post" is enforced when a post is saved, not just hidden in the interface. A member below the required role who tries to post anyway is refused. Site administrators can always post.
 

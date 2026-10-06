@@ -1,6 +1,6 @@
 # Schema: Content and Feed
 
-Reference for the `bn_*` tables that store posts, comments, reactions, shares, bookmarks, polls, and the hashtag registry. All tables are created in `BuddyNext\Core\Installer` via `dbDelta()` and are prefixed with the site table prefix (shown here as `bn_`, e.g. `wp_bn_posts`).
+Reference for the `bn_*` tables that store posts, comments, reactions, shares, bookmarks, post-media index, polls, and the hashtag registry. All tables are created in `BuddyNext\Core\Installer` via `dbDelta()` and are prefixed with the site table prefix (shown here as `bn_`, e.g. `wp_bn_posts`).
 
 ![The activity feed rendered from the bn_posts, comments, and reactions tables documented here](../images/community-activity-feed.webp)
 
@@ -32,7 +32,7 @@ The core activity record. One row per post (text, media, link, poll, or share). 
 | `link_url` | VARCHAR(2083), nullable | Link-preview URL. |
 | `link_meta` | JSON, nullable | Cached link-preview metadata (title, image, description). |
 | `privacy` | ENUM(`public`,`followers`,`connections`,`space_members`,`private`), default `public` | Audience scope. |
-| `status` | ENUM(`published`,`draft`,`pending`,`scheduled`,`deleted`), default `published` | Lifecycle state; `deleted` is a soft delete. |
+| `status` | ENUM(`published`,`draft`,`pending`,`scheduled`,`deleted`,`under_review`), default `published` | Lifecycle state; `deleted` is a soft delete, `under_review` is a post auto-hidden by the report threshold. |
 | `reaction_count` | INT UNSIGNED, default 0 | Denormalized reaction total. Maintained on write. |
 | `comment_count` | INT UNSIGNED, default 0 | Denormalized comment total. Maintained on write. |
 | `share_count` | INT UNSIGNED, default 0 | Denormalized share total. Maintained on write. |
@@ -46,6 +46,7 @@ The core activity record. One row per post (text, media, link, poll, or share). 
 | `last_activity_at` | DATETIME, nullable | Last reaction/comment/share, used for active-feed ordering. |
 | `created_at` | DATETIME, default CURRENT_TIMESTAMP | Creation time. Cursor column. |
 | `updated_at` | DATETIME, ON UPDATE CURRENT_TIMESTAMP | Auto-touched on any row update. |
+| `members_only` | TINYINT(1), default 0 | Members-only gate; set when the post is limited to paying or qualifying members. |
 
 Key indexes:
 
@@ -57,6 +58,9 @@ Key indexes:
 - `KEY active_feed (privacy, status, last_activity_at)` - "recently active" ordering.
 - `KEY scheduled (scheduled_at)` - the scheduled-publish worker.
 - `KEY shared_post (shared_post_id)` - resolving and counting re-shares.
+- `KEY status_scheduled (status, scheduled_at)` - the scheduled-publish worker's status-filtered scan.
+- `KEY post_created (created_at)` - time-ordered scans across all posts.
+- `KEY link_lookup (type, link_url(191))` - finding existing link posts by URL.
 
 Relationships: `user_id` references a WordPress user; `space_id` references `bn_spaces.id`; `shared_post_id` is a self-reference to `bn_posts.id`. Reactions, comments, shares, bookmarks, and poll rows all reference a post.
 
@@ -77,6 +81,8 @@ Threaded comments on posts (and other comment-able objects, keyed by `object_typ
 | `sync_reply_id` | BIGINT UNSIGNED, nullable | Linked Jetonomy reply ID when the comment is mirrored to/from a discussion reply (Jetonomy sync); NULL otherwise. |
 | `created_at` | DATETIME, default CURRENT_TIMESTAMP | Creation time. |
 | `updated_at` | DATETIME, ON UPDATE CURRENT_TIMESTAMP | Auto-touched on update. |
+| `media_id` | BIGINT UNSIGNED, nullable | Media attachment on the comment, or NULL. |
+| `is_hidden` | TINYINT(1), default 0 | Hidden by moderation without being deleted. |
 
 Key indexes:
 
@@ -85,6 +91,8 @@ Key indexes:
 - `KEY user (user_id)` - a member's comment history.
 - `KEY deleted (is_deleted)` - filtering out soft-deleted rows.
 - `KEY sync_reply (sync_reply_id)` - resolving the linked Jetonomy reply during sync.
+- `KEY user_recent (user_id, created_at)` - a member's comments newest first.
+- `KEY reply_lookup (parent_id, is_deleted, is_hidden)` - counting visible replies to a parent.
 
 Relationships: `object_type` + `object_id` reference the commented object (a `bn_posts.id` when `object_type` is `post`); `parent_id` is a self-reference. Comment writes increment `bn_posts.comment_count`.
 
@@ -104,6 +112,9 @@ Key indexes:
 
 - `PRIMARY KEY (user_id, object_type, object_id)` - one reaction per member per object.
 - `KEY object_reactions (object_type, object_id)` - counting and listing reactions on an object.
+- `KEY object_recent (object_type, object_id, created_at)` - an object's reactions newest first.
+- `KEY reaction_created (created_at)` - time-window scans and retention.
+- `KEY user_recent (user_id, created_at)` - a member's reactions newest first.
 
 Relationships: `object_type` + `object_id` reference the reacted object (a `bn_posts.id` when `object_type` is `post`). Reaction writes increment `bn_posts.reaction_count`.
 
@@ -124,6 +135,7 @@ Key indexes:
 - `PRIMARY KEY (id)`
 - `UNIQUE KEY user_post (user_id, post_id)` - one share record per member per post.
 - `KEY post_shares (post_id)` - listing/counting shares of a post.
+- `KEY user_recent (user_id, created_at)` - a member's shares newest first.
 
 Relationships: `post_id` references the original `bn_posts.id`. Share writes increment `bn_posts.share_count`.
 
@@ -140,8 +152,25 @@ A member's saved posts. The composite primary key is the entire row, so a bookma
 Key indexes:
 
 - `PRIMARY KEY (user_id, post_id)` - one bookmark per member per post; also serves the "is bookmarked" lookup.
+- `KEY user_recent (user_id, created_at)` - a member's bookmarks newest first.
 
 Relationships: `post_id` references `bn_posts.id`.
+
+## bn_post_media
+
+An index of which posts carry which media file. It mirrors `bn_posts.media_ids` so a media trash, restore, or delete finds the affected posts without scanning every post's JSON. Written by `PostService::index_media()`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `post_id` | BIGINT UNSIGNED | Post carrying the media. Part of PK. |
+| `media_id` | BIGINT UNSIGNED | Media item attached to the post. Part of PK. |
+
+Key indexes:
+
+- `PRIMARY KEY (post_id, media_id)` - one row per post and media pair.
+- `KEY media_posts (media_id, post_id)` - finding every post that uses a media item.
+
+Relationships: `post_id` references `bn_posts.id`; `media_id` is an ID taken from `bn_posts.media_ids`.
 
 ## bn_poll_options
 

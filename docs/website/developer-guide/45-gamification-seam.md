@@ -2,7 +2,7 @@
 
 This is the contract a gamification engine implements to plug into BuddyNext. BuddyNext fires raw write-side actions, exposes recipient-perspective engagement signals and session/streak pulses, offers sidebar/profile data seams, and renders a leaderboard from the engine's public read API. BuddyNext ships **zero** gamification logic - no points, badge, level, or streak computation, and no own `wbg_*` tables. The reference engine is wb-gamification (`wb_gam_*` public API); any plugin that implements the same shape works. This page is for developers building or replacing that engine.
 
-> **Status (1.0.1).** The write-side submission described below is now owned by the engine's own BuddyNext manifest (in wb-gamification, that is `integrations/buddynext.php`), which hooks BuddyNext's raw `buddynext_*` actions and calls `wb_gam_submit_event()`. The BuddyNext-side `GamificationBridge` no longer submits events; its only producer role is posting a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (withdrawn on `wb_gam_badge_unshared`), never on award. The action catalogue and `fire()` signatures below remain the contract shape, now implemented on the engine side.
+> **Status.** The write-side submission is owned by the engine's own BuddyNext manifest (in wb-gamification, that is `integrations/buddynext.php`), which binds BuddyNext's raw `buddynext_*` actions and awards points. The BuddyNext-side `GamificationBridge` does not submit events; its only producer role is posting a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (withdrawn on `wb_gam_badge_unshared`), never on award.
 
 ![The admin dashboard whose sidebar and leaderboard data the gamification-engine seam documented here feeds](../images/admin-overview.webp)
 
@@ -10,16 +10,16 @@ This is the contract a gamification engine implements to plug into BuddyNext. Bu
 
 The seam has four parts:
 
-1. **Write-side events** - BuddyNext fires raw `buddynext_*` actions for every social action; the engine's own BuddyNext manifest hooks them and submits award events. A pre-1.0.0 BuddyNext-side bridge did this submitting; that producer wiring has been retired.
+1. **Write-side events** - BuddyNext fires raw `buddynext_*` actions for every social action; the engine's own BuddyNext manifest binds them and awards points.
 2. **Session / streak / daily-login pulses** - idempotent per-window signals that drive streak counters.
 3. **Recipient-perspective engagement events** - mirrors that fire for the *recipient* of engagement (the person whose work was liked/commented/followed), which is who gamification usually awards.
 4. **Read-side rendering** - the leaderboard template and the sidebar/profile data filters consume the engine's public read API only; BuddyNext never reads engine tables.
 
-As of 1.0.1 the BuddyNext-side `GamificationBridge` (`includes/Bridges/GamificationBridge.php`) is consume-only: it posts a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (never on award - see Inbound below) and withdraws it on `wb_gam_badge_unshared`. The write-side submissions are owned by the engine's own BuddyNext manifest. Its notifications come through the plugin's own contract (see Inbound below); the profile surface is `BuddyNext\Profile\GamificationAchievements`. These self-guard on the `wb_gam_*` API and are wired on `buddynext_load_bridges` behind the `gamification` feature toggle.
+The BuddyNext-side `GamificationBridge` (`includes/Bridges/GamificationBridge.php`) is consume-only: it posts a credential-badge feed activity on the member's explicit `wb_gam_badge_shared` (never on award - see Inbound below) and withdraws it on `wb_gam_badge_unshared`. The write-side submissions are owned by the engine's own BuddyNext manifest. Its notifications come through the plugin's own contract (see Inbound below); the profile surface is `BuddyNext\Profile\GamificationAchievements`. These self-guard on the `wb_gam_*` API and are wired on `buddynext_load_bridges`; the surfaces they add follow the owner's Integration Settings toggles for `gamification`. The profile surface also includes the Points and Kudos tabs (`GamificationPoints`, `GamificationKudos`).
 
 ### Engine API BuddyNext calls
 
-The engine functions below are all guarded with `function_exists`. The write-side calls (submit/register) now live in the engine's own BuddyNext manifest (`wb-gamification/integrations/buddynext.php`); the read-side calls are made by BuddyNext's leaderboard template and Achievements tab. The consume-only `GamificationBridge` no longer calls `wb_gam_submit_event`.
+The engine functions below are all guarded with `function_exists`. The write-side calls live in the engine's own BuddyNext manifest (`wb-gamification/integrations/buddynext.php`); the read-side calls are made by BuddyNext's leaderboard template and Achievements tab. `GamificationBridge` does not call `wb_gam_submit_event`.
 
 | Function | Used by | Purpose |
 |---|---|---|
@@ -34,47 +34,37 @@ The engine functions below are all guarded with `function_exists`. The write-sid
 
 An engine replacing wb-gamification must provide functions of these names and shapes.
 
-## Write-side events (the engine manifest submission path)
+## Write-side events (the engine manifest)
 
-The engine's own BuddyNext manifest (`wb-gamification/integrations/buddynext.php`) registers a catalogue of `bn_*` action slugs with default point values, so the engine recognizes the slug and admins get a configurable point row per action. (Pre-1.0.0 this catalogue lived in the BuddyNext-side `GamificationBridge::register_actions()`; that producer wiring was retired and moved into the engine manifest. The catalogue below is the contract shape.)
+The engine's own BuddyNext manifest (`wb-gamification/integrations/buddynext.php`) is declarative. Each entry in its `triggers` array names an action id, the BuddyNext hook to bind, a `user_callback` that resolves who is awarded, and a default point value; the engine auto-binds every hook and awards through its normal pipeline, so BuddyNext emits the action and the engine awards exactly once. BuddyNext contains no bridge code for this. The action ids are stable, so badge, challenge and rule configuration keyed on them survives engine upgrades.
 
-| Action slug | Label | Default points | Recipient awarded |
+| Action id | BuddyNext hook (args) | Default points | Recipient awarded |
 |---|---|---|---|
-| `bn_followed` | Followed by a member | 5 | the followed user |
-| `bn_connected` | Connection accepted | 10 | BOTH connected peers |
-| `bn_post_created` | Post created | 5 | the author |
-| `bn_space_joined` | Joined a space | 5 | the joining user |
-| `bn_strike_issued` | Moderation strike issued | 0 | the struck user (for deductions) |
-| `bn_profile_updated` | Profile updated | 2 | the member |
-| `bn_profile_completed` | Profile completed | 25 | the member (one-time at 100%) |
-| `bn_reaction_received` | Reaction received on your content | 2 | the content owner |
-| `bn_comment_created` | Comment created | 3 | the comment author |
+| `bn_post_created` | `buddynext_post_created` (3) | 5 | the author |
+| `bn_post_shared` | `buddynext_post_shared` (3) | 5 | the sharer |
+| `bn_comment_created` | `buddynext_comment_created` (4) | 3 | the comment author |
+| `bn_reaction_received` | `buddynext_post_reaction_received` (4) | 2 | the content owner |
+| `bn_poll_voted` | `buddynext_poll_voted` (3) | 1 | the voter |
+| `bn_post_bookmarked` | `buddynext_post_bookmarked` (2) | 1 | the bookmarking member |
+| `bn_followed` | `buddynext_follower_gained` (2) | 5 | the followed user |
+| `bn_first_follow` | `buddynext_user_followed_first_time` (2) | 5 | the follower (one-time) |
+| `bn_connected` | `buddynext_connection_accepted` (3) | 10 | both connected peers |
+| `bn_connection_requested` | `buddynext_connection_requested` (4) | 1 | the requester |
+| `bn_dm_sent` | `buddynext_dm_sent` (4) | 1 | the sender |
+| `bn_space_joined` | `buddynext_space_member_joined` (3) | 5 | the joining user |
+| `bn_space_created` | `buddynext_space_created` (2) | 10 | the space owner |
+| `bn_profile_updated` | `buddynext_profile_completion_changed` (2) | 2 | the member |
+| `bn_profile_completed` | `buddynext_profile_strength_changed` (2) | 25 | the member (one-time at 100%) |
+| `bn_onboarding_completed` | `buddynext_onboarding_completed` (1) | 20 | the member (one-time) |
 
-Each catalogue entry is registered against an inert hook (`buddynext_gamification_noop`, never fired) with `user_callback => '__return_zero'`. This is deliberate: the engine's registration API mandates a real hook + callable and auto-hooks it, but the manifest wants to resolve the correct recipient(s) itself and submit manually - so it binds to a never-fired hook (no auto-award) and emits each event exactly once from its own submission handler.
-
-The engine manifest hooks these BuddyNext producer actions and translates each into a submission (the handler column names the pre-1.0.0 bridge method for each mapping; the engine manifest now performs the equivalent mapping declaratively):
-
-| BuddyNext hook (args) | Historical handler | Submits |
-|---|---|---|
-| `buddynext_user_followed` (2) | `on_user_followed` | `bn_followed` to the followed user |
-| `buddynext_connection_accepted` (3) | `on_connection_accepted` | `bn_connected` to each peer |
-| `buddynext_post_created` (3) | `on_post_created` | `bn_post_created` to the author |
-| `buddynext_space_member_joined` (3) | `on_space_joined` | `bn_space_joined` to the joiner |
-| `buddynext_strike_issued` (3) | `on_strike_issued` | `bn_strike_issued` to the struck user |
-| `buddynext_profile_completion_changed` (2) | `on_profile_completion_changed` | `bn_profile_updated` always; `bn_profile_completed` at 100% |
-| `buddynext_post_reaction_received` (4) | `on_reaction_received` | `bn_reaction_received` to the post author (self-reactions excluded upstream) |
-| `buddynext_comment_created` (variadic) | `on_comment_created` | `bn_comment_created` to the commenter (commenter is the last arg under both producer shapes) |
-
-The submission itself is a single guarded call to `wb_gam_submit_event`, of this shape:
+An engine other than wb-gamification can hook the same raw `buddynext_*` producer actions directly and award however it likes. For a one-off award from your own code, submit through the engine's public function:
 
 ```php
-// Single submission point (contract shape; now owned by the engine manifest).
+// Contract shape of a single submission.
 if ( $user_id > 0 && function_exists( 'wb_gam_submit_event' ) ) {
     wb_gam_submit_event( $user_id, $action_id, $context );
 }
 ```
-
-> **Note:** An engine can also hook the raw `buddynext_*` producer actions directly instead of relying on the catalogue path - for example `buddynext_post_created`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_space_member_joined`. (Grep the source for the signature; Free ships no `docs/specs/HOOKS.md`, despite what an earlier revision of this page said.) The catalogue path exists so admins get a configurable point catalogue out of the box.
 
 ## Session / streak / daily-login pulses
 
@@ -158,7 +148,7 @@ The plugin links each row to the member's profile front page. BuddyNext owns the
 
 Points amounts BuddyNext prints go through `GamificationBridge::format_points()` (WB Gamification's `wb_gam_format_points()`: "1 Point", "250 Karma", "+10 Points"); a tile that prints the number and the name apart uses `GamificationBridge::points_unit( $amount )`. Level progress on the leaderboard follows points earned (`wb_gam_get_earned_points()`), not the spendable balance, so redeeming a reward never moves the bar backwards.
 
-Separately, `GamificationBridge` publishes the **feed activity** (social proof) off a different pair of hooks: `on_badge_shared_activity` on `wb_gam_badge_shared( int $user_id, string $badge_id )`, and `on_badge_unshared_activity` on `wb_gam_badge_unshared( int $user_id, string $badge_id )`. The card is gated to `$def['is_credential']` truthy (so small participation badges never spam the feed) and fires only on the member's explicit Share press, never on award - wb-gamification 1.6.4 made badges private until shared, and broadcasting on award would publish a credential before the member consented (card 10303345360). It links to the engine's public badge share page (`gamification/badge/{id}/{uid}/share/`) and is idempotent per share URL: a re-share after an unshare RESTORES the same card (id, date, reactions, comments) via `IntegrationActivity::restore()` rather than minting a new one; an unshare WITHDRAWS it to `draft` via `IntegrationActivity::withdraw()` rather than deleting it. When a badge definition is deleted, `wb_gam_badge_deleted( string $badge_id, int[] $user_ids, array $def )` removes every holder's shared-badge card (`GamificationBridge::on_badge_deleted`) and their "badge earned" / "credential expired" inbox rows (`GamificationBridgeListener::on_badge_deleted`, through `NotificationService::delete_for_data()`).
+Separately, `GamificationBridge` publishes the **feed activity** (social proof) off a different pair of hooks: `on_badge_shared_activity` on `wb_gam_badge_shared( int $user_id, string $badge_id )`, and `on_badge_unshared_activity` on `wb_gam_badge_unshared( int $user_id, string $badge_id )`. The card is gated to `$def['is_credential']` truthy (so small participation badges never spam the feed) and fires only on the member's explicit Share press, never on award - wb-gamification 1.6.4 made badges private until shared, and broadcasting on award would publish a credential before the member consented. It links to the engine's public badge share page (`gamification/badge/{id}/{uid}/share/`) and is idempotent per share URL: a re-share after an unshare RESTORES the same card (id, date, reactions, comments) via `IntegrationActivity::restore()` rather than minting a new one; an unshare WITHDRAWS it to `draft` via `IntegrationActivity::withdraw()` rather than deleting it. When a badge definition is deleted, `wb_gam_badge_deleted( string $badge_id, int[] $user_ids, array $def )` removes every holder's shared-badge card (`GamificationBridge::on_badge_deleted`) and their "badge earned" / "credential expired" inbox rows (`GamificationBridgeListener::on_badge_deleted`, through `NotificationService::delete_for_data()`).
 
 ## Read side: leaderboard template + endpoint
 
@@ -222,10 +212,10 @@ add_action(
 
 ## Notes / gotchas
 
-- **No double-awarding.** The bridge owns all submission; the listener is inbound-only. Never submit an award from a `wb_gam_*` outbound handler.
+- **No double-awarding.** The engine manifest owns award submission for the actions in the table above; do not also submit the same action from your own handler.
 - **Recipient vs actor.** Award off the recipient-perspective events (`buddynext_*_received`, `buddynext_follower_gained`) when you want to reward whose work was engaged with; the actor-perspective events reward the doer.
 - **Idempotency is upstream.** The session/daily-login pulses and the badge-activity publisher are already deduped; do not add your own per-request guards that would suppress legitimate repeat awards on `repeatable` actions.
 - **Escape overlay HTML.** The six `*_meta_html` / `*_badges_html` overlay filters echo your return value raw - return escaped markup.
 - **Wrap chip rows in `.bn-badge-row`.** When an overlay filter returns more than one `.bn-badge`, wrap them in `.bn-badge-row` (shared primitive in `bn-base.css`) so they space and wrap correctly on every surface. Free backstops the known single-purpose overlay containers, but the wrapper is the recommended and universally-consistent path.
-- **Free/Pro.** The entire gamification seam (bridge, listener, Achievements tab, leaderboard) is in Free. It runs whenever the `gamification` feature toggle is on and the engine is active.
-- **Source over manifest/conformance docs.** The conformance record references a `buddynext_profile_extra_data` profile injection; the live profile surface is the Achievements tab instead. When docs and code disagree, the code is authoritative.
+- **Free/Pro.** The entire gamification seam (bridge, listener, Achievements tab, leaderboard) is in Free. It runs whenever the engine is active, and each surface follows the owner's Integration Settings toggle for gamification.
+- **Profile surface.** Profile gamification is rendered by the Achievements, Points and Kudos tabs, not by a `buddynext_profile_extra_data` injection.

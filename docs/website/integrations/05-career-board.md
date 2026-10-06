@@ -25,15 +25,15 @@ The jobs live in Career Board, which owns the listings, applications, and resume
 
 The job board itself - submitting a job, browsing listings, applying, withdrawing an application, and publishing a resume - is handled by Career Board. Members use Career Board's own screens for those actions. BuddyNext surfaces the activity in the community:
 
-- **A new job appears in the feed.** When a member publishes a job, BuddyNext posts a feed activity announcing it and linking out to the job's Career Board page. Members can see new openings as they scroll the feed.
+- **A new job appears in the feed.** When a member publishes a job, BuddyNext posts a "posted a new job" card with a short description and the job's featured image where there is one, linking out to the job's Career Board page. Members can see new openings as they scroll the feed.
 - **Jobs are searchable in the community.** Each published job is added to community search, so a member searching for a role or skill finds open jobs alongside people and spaces.
-- **"Open to work" resumes appear in the feed.** When a member publishes a resume and marks it public, BuddyNext posts an "open to work" activity linking to their resume. Private resumes are never broadcast. *(Resumes are a Career Board **Pro** feature - with the free Career Board there are no resumes to surface.)*
-- **Job notifications land in one place.** Career Board's own notifications (an application received, a status change, and so on) are mirrored into the BuddyNext notification center, so a member has a single bell for everything across the community. Career Board's own notifications and emails keep working too. *(Notification mirroring needs Career Board **Pro**.)*
-- **Jobs and resumes show on the profile.** A member's jobs appear as a portfolio panel on their BuddyNext profile, and with Career Board Pro their public resume does too, linking out to the Career Board pages, so a profile reflects their professional activity.
+- **"Open to work" resumes appear in the feed.** When a member publishes a resume and marks it public, BuddyNext posts an "is open to work" activity linking to their resume. Private resumes are never broadcast, and turning "open to work" off withdraws the card. *(Resumes are a Career Board **Pro** feature - with the free Career Board there are no resumes to surface.)*
+- **Job notifications land in one place.** Career Board's notifications (an application received, a status change, and so on) appear in the BuddyNext bell in Career Board's own words, so a member has a single bell for everything across the community. Members can switch each type in their notification settings under **Jobs**. Career Board owns who may see each notification and sends its own emails.
+- **Jobs and resumes show on the profile.** A member's jobs appear in a **Portfolio** tab on their BuddyNext profile (a **Jobs** panel with company, location, type, salary and a View all Jobs link), and with Career Board Pro their public **Resume** panel does too, linking out to the Career Board pages. On their own profile the member also gets **Manage Jobs** and **Manage Resume** buttons that open the Career Board dashboards.
 
-> **Note:** Job posting and its feed/profile/search surfacing work with the free Career Board. Resumes, the "open to work" card, and notification mirroring require **Career Board Pro** (alongside BuddyNext Pro).
+> **Note:** Job posting and its feed/profile/search surfacing work with the free Career Board. Resumes and the "open to work" card require **Career Board Pro** (alongside BuddyNext Pro).
 
-When a job posting expires, its feed activity is removed automatically, so the feed only shows live openings.
+A job's feed card follows the job. When a job expires, closes, goes back to draft or pending, or is trashed, its card is withdrawn and its search entry removed, so the feed only shows live openings. If the job is published again, the same card comes back with its comments. Deleting a job permanently removes the card.
 
 > **Note:** Applying to a job, withdrawing an application, and managing listings happen on Career Board's screens. BuddyNext does not replace those - it surfaces the results in the community.
 
@@ -47,11 +47,11 @@ As soon as both plugins are active, jobs and public resumes start appearing in t
 
 ### Display settings
 
-Career Board gets a card on the **Platform > Integration Settings** tab, with the same switches every integration has:
+Career Board gets a card on the **Integration Settings** screen, with the same switches every integration has:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether Career Board's tabs appear in member navigation. Career Board adds more than one (Jobs and Resume), so each sub-tab can be switched individually. | On |
+| Show in navigation | Whether Career Board's panels appear on the profile Portfolio tab. Career Board adds more than one (Jobs, and Resume with Career Board Pro), so each sub-tab can be switched individually. Turning it off also stops Career Board notifications reaching the bell. | On |
 | Post to the activity feed | Whether a published job and a public "open to work" resume post a feed activity. | On |
 | Include in search | Whether published jobs are found in community search. Switching it off also removes the jobs already in the search index. | On |
 
@@ -60,7 +60,7 @@ The job board's own behavior - who can post, application rules, resume options -
 ## Good to know
 
 - **Job posts and public resumes can appear in the feed.** A published job and a public "open to work" resume each post a feed activity that links out to Career Board. Private resumes are never broadcast.
-- **Notifications are collect-only.** BuddyNext gathers Career Board's notifications into its center for convenience but does not re-send them by email. Career Board owns its own emails, so members are not notified twice.
+- **Notifications are shown, not re-sent.** BuddyNext shows Career Board's notifications in the bell but does not re-send them by email. Career Board owns its own emails, so members are not notified twice. Bell notifications need Career Board 1.8.0 or newer; on an older version they keep arriving only through Career Board's own screens.
 - **Inert when Career Board is not installed.** Without the Career Board plugin, the integration does nothing - no feed activity, no search entries, no profile panels. BuddyNext checks for Career Board before wiring anything in, so a site without it sees no errors and no empty surfaces.
 - **Career Board owns the data.** All jobs, applications, and resumes live in Career Board. BuddyNext reacts to events from it and links out to its pages; it does not store or edit the listings.
 

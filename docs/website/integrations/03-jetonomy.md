@@ -1,6 +1,6 @@
 # Jetonomy
 
-Jetonomy is the companion plugin that gives your community proper discussion boards. Turn it on, and members get a Discussions area plus a forum tab inside each space, where they can start topics, reply in threads, and vote on the best answers - the slower, more considered conversation a fast-moving feed cannot hold.
+Jetonomy is the companion plugin that gives your community proper discussion boards. Turn it on, and members get a Discussions link and profile tab, plus an optional discussion area inside each space, where they can start topics, reply in threads, and vote on the best answers - the slower, more considered conversation a fast-moving feed cannot hold.
 
 ![A BuddyNext space home where Jetonomy adds a forum tab for discussions](../images/space-home.webp)
 
@@ -22,15 +22,15 @@ Once Jetonomy is active, these become available to members inside BuddyNext:
 
 ### The Discussions area
 
-A **Discussions** link appears in the BuddyNext left navigation rail, opening the community discussion home where members browse and search topics and view the leaderboard. Each member profile also gains a **Discussions** tab that lists the discussions that member has started, with a count badge.
+A **Discussions** link appears in the BuddyNext left navigation rail for logged-in members, in the personal group with Profile and Bookmarks. It opens the member's own profile **Discussions** tab. Every member profile has that tab, listing the discussions the member has started, with a count badge. The forum itself (browse, search, leaderboard, new topic) is Jetonomy's own set of pages, which the space tab and feed cards link out to.
 
 ### Per-space forum tab
 
-Every BuddyNext space gains a **Discussions** tab. Opening it takes the member to that space's own forum. The tab's "Start a discussion" button opens the forum's new-topic composer directly, so starting a discussion takes one click instead of landing on the forum first and hunting for a way to post. The full member experience of a space forum - starting a topic, replying, voting, and how a forum is set up on first use - is covered in Space Forum.
+A space gets a **Discussions** tab once its owner turns on **Discussion** under **Manage space > Integrations** (off until then). The tab lists the space's recent discussions with the author, reply count and vote count, and an **Open in Community** button that opens the full forum. When the forum has no threads yet, the **Start a discussion** button opens the forum's new-topic composer directly. The full member experience of a space forum - starting a topic, replying, voting - is covered in Space Forum.
 
 ### Discussions in the activity feed
 
-When a member starts a new discussion in a public space, it can also appear as a card in the BuddyNext activity feed, so people following the feed see new discussions without having to visit the forum. This mirroring is controlled by an owner setting (below) and only ever surfaces public discussions from public spaces - private spaces and private topics never leak into the feed.
+When a member starts a new discussion in a public forum, it can also appear as a "started a discussion" card in the BuddyNext activity feed, so people following the feed see new discussions without having to visit the forum. This mirroring is controlled by an owner setting (below) and only ever surfaces published, public discussions from public forums - private spaces and private topics never leak into the feed. A card follows its discussion: if the discussion is unpublished, trashed or made private the card is withdrawn, and publishing it again brings back the same card with its reactions and comments.
 
 ### Two-way discussion sync
 
@@ -38,7 +38,7 @@ A discussion card in the feed and its matching topic in the forum stay in sync a
 
 ### Reply notifications and mentions
 
-When someone replies to a member's discussion, that member gets a BuddyNext notification. Mentioning another member by their @username inside a discussion notifies them too, the same way mentions work everywhere else in BuddyNext.
+When someone replies to a member's discussion, or marks a reply as the accepted answer, that member gets a notification in the BuddyNext bell. Mentioning another member by their @handle inside a discussion notifies them too. Jetonomy owns the wording, who may see each notification, and its emails; BuddyNext shows the notification in the bell and does not send a second email. Members can switch each type on or off in their notification settings under **Forums**. The @handle is the member's BuddyNext handle, and profile links inside a discussion open the member's BuddyNext profile.
 
 ## Setting it up (for owners)
 
@@ -47,28 +47,29 @@ When someone replies to a member's discussion, that member gets a BuddyNext noti
 Jetonomy installs from inside BuddyNext - no manual upload or plugin search.
 
 1. Go to **BuddyNext > Platform > Add-ons**.
-2. Find **Jetonomy** under **Companion plugins**. Its description reads "Forum-style threaded discussions and Q&A boards."
-3. Select **Install free**. BuddyNext pulls the plugin from the Wbcom store and installs it. The card then shows **Active**.
+2. Find the **Jetonomy** card. Its description reads "Forum-style threaded discussions and Q&A boards."
+3. Select **Install free**. BuddyNext pulls the plugin from the Wbcom store and installs it. The card then shows **Connected**.
 
-If Jetonomy is already installed but switched off, the same row shows an **Activate** link. The status badge shows Active, Inactive, or Not installed.
+If Jetonomy is already installed but switched off, the card shows an **Activate** button. The status badge shows Connected, Installed, activate, or Not installed.
 
 > **Note:** The 1-click install needs a site administrator with permission to install and activate plugins.
 
 
 ### Display settings
 
-Once Jetonomy is active, it gets a card on the **Platform > Integration Settings** tab, alongside every other integration. (This is the same per-integration screen that also controls the Discussions navigation tab.)
+Once Jetonomy is active, it gets a card on the **Integration Settings** screen, alongside every other integration.
 
 | Setting | What it does | Default |
 |---|---|---|
+| Show in navigation (Jetonomy card) | Shows the Discussions link in the left rail and the Discussions tab on member profiles. Turning it off also hides the space Discussions tab and stops Jetonomy notifications reaching the bell. | On |
 | Post to the activity feed (Jetonomy card) | When on, a new discussion started in a public space appears as a card in the BuddyNext activity feed, linking back to the full thread. Only public discussions in public, published topics are surfaced; private spaces and private topics are never mirrored. | On |
 | Include in search (Jetonomy card) | When on, discussions are indexed for BuddyNext's community search, so members find them alongside posts, members, and spaces. Switching it off also removes the discussions already in the search index. | On |
 
-Both switches are on by default - when Jetonomy is active, new public discussions flow into the feed and into search automatically. The two are independent: you can keep discussions searchable while keeping them out of the feed, or the reverse. The feed mirror can also be overridden per space.
+All three switches are on by default - when Jetonomy is active, new public discussions flow into the feed and into search automatically. The feed and search switches are independent: you can keep discussions searchable while keeping them out of the feed, or the reverse. A space owner can also keep a space's activity out of the main feed with **Share activity to the main feed** under **Manage space > Integrations**.
 
 ### Per-space forum
 
-There is nothing to pre-build for space forums. A space's forum is created the first time a member opens that space's **Discussions** tab, so you never end up with empty, unused forums. See Space Forum for how that on-demand setup works and who is allowed to trigger it.
+Each space owner decides whether their space has a discussion. Under **Manage space > Integrations**, the owner switches **Discussion** on; BuddyNext then creates one dedicated discussion for the space automatically. Instead of creating a new one, the owner can search for and link a discussion they already own (a site administrator can link any). A space keeps one discussion for its lifetime, and switching it off only hides the tab - nothing is deleted, and switching it on again restores the same discussion. Moderators can open the screen but only the owner can change this switch. See Space Forum for the member side.
 
 ## Good to know
 
@@ -76,6 +77,8 @@ There is nothing to pre-build for space forums. A space's forum is created the f
 - **Deleting a discussion cleans up after itself.** When a discussion is removed, its feed card and its search entry are removed too, so the feed never points at a thread that no longer exists.
 - **Discussions are searchable.** New discussions are indexed for BuddyNext's unified search, so members find them alongside posts, members, and spaces. This is independent of feed sync - each has its own switch on the Jetonomy card. If you turn search indexing off, the discussions already indexed are removed too, so search does not keep answering with results you have just switched off.
 - **The feed card and the forum topic never drift apart.** Every comment or reply, and every edit or delete of one, is mirrored to the other side automatically - there is nothing to re-post by hand.
+- **Related discussions on hashtag pages.** A hashtag page lists up to five Jetonomy discussions that carry the same tag.
+- **One leaderboard.** If WB Gamification hands its leaderboard to Jetonomy, BuddyNext hides its own Leaderboard link so members never see two competing rankings.
 - **Inert when not installed.** With Jetonomy inactive, BuddyNext has no Discussions link, no space forum tab, and no feed sync - there are no errors or broken links. Installing the companion is what turns them on.
 
 ## Free vs Pro

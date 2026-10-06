@@ -19,7 +19,7 @@ Two prefixes are in use, and they mean different things:
 | Prefix | Scope | Where it lives |
 |---|---|---|
 | `buddynext_*` | Public extension surface - the seams third parties hook | Services, listeners, controllers, and templates |
-| `bn_*` | Internal plumbing - not part of the public contract | A small number of admin-internal hooks (`bn_admin_hub_sections`, `bn_admin_hub_tab_placement`, `bn_admin_hub_default_icon_map`, `bn_admin_hub_pages`) |
+| `bn_*` | Internal plumbing - not part of the public contract | A small number of admin-internal hooks (`bn_admin_hub_sections`, `bn_admin_hub_tab_placement`, `bn_admin_hub_default_icon_map`, `bn_admin_hub_pages`) and one Pro filter (`bn_membership_onetime_is_lifetime`) |
 
 Author your integrations against `buddynext_*` hooks. The `bn_*` prefix matches the database table prefix and the CSS prefix, but as a hook prefix it marks internal admin wiring that may change without notice.
 
@@ -32,15 +32,17 @@ Within `buddynext_*`, the surface divides into two families:
 
 ### One hazard worth knowing before you hook anything
 
-A handful of BuddyNext actions are fired from **more than one call site**, and two of them are currently fired with **fewer arguments** from one of those sites than the documented signature. WordPress passes a listener only the arguments the *firing* site supplied, so a typed callback registered for the full signature raises an `ArgumentCountError` when the short call site fires.
+A handful of BuddyNext hooks are fired from **more than one call site**. WordPress passes a listener only the arguments the *firing* site supplied, so a typed callback registered for the full signature raises an `ArgumentCountError` if any site fires with fewer arguments.
 
-Defend against it by giving your callback defaults rather than trusting `accepted_args`:
+`buddynext_space_updated` and `buddynext_member_unsuspended` used to be fired with fewer arguments from one site; every call site now passes the full documented signature. The one hook that still differs by site is `buddynext_ability_granted`: Pro's Stripe webhook fires it with two arguments and Free's access webhook with three (see Hooks: Pro and Integration). The same hazard applies to the filters `buddynext_max_following` and `buddynext_max_connections`, which the app config route applies with the cap alone while the write paths also pass the user ID.
+
+Defend against it by giving trailing parameters defaults rather than trusting `accepted_args`:
 
 ```php
 // Safe: survives a call site that supplies fewer arguments than documented.
 add_action(
-    'buddynext_space_updated',
-    static function ( int $space_id, int $user_id = 0, array $fields = array() ): void {
+    'buddynext_ability_granted',
+    static function ( int $user_id, string $ability, string $source = '' ): void {
         // ...
     },
     10,
@@ -48,7 +50,7 @@ add_action(
 );
 ```
 
-The two affected actions are called out on their own pages: `buddynext_space_updated` (Hooks: Spaces) and `buddynext_member_unsuspended` (Hooks: Moderation, Auth, Trust).
+The hook with differing call sites is called out on its own page.
 
 ### Actions vs filters - the practical distinction
 
@@ -63,7 +65,7 @@ The split is not arbitrary. It tells you what the hook is for.
 
 BuddyNext sits on both sides of the hook system, and the distinction matters when you decide where to put your code.
 
-- **Provided** (BuddyNext fires, you listen): all 1055 hooks counted above. These are the seams you build on. Free ships no `docs/specs/HOOKS.md`; the code is the contract - the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites are the reference for the integration-grade actions.
+- **Provided** (BuddyNext fires, you listen): all of the roughly 950 distinct hook names Free and Pro fire (about 320 of them template-part hooks). These are the seams you build on. Free ships no `docs/specs/HOOKS.md`; the code is the contract - the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites are the reference for the integration-grade actions.
 - **Consumed** (a sibling plugin fires, BuddyNext listens): BuddyNext's Bridges hook events owned by other plugins - for example `mvs_message_sent` (WPMediaVerse), `jetonomy_after_create_post` (Jetonomy), `wcb_job_created` (Career Board), and `wb_gamification_badge_awarded` (WBGamification). You do not hook these through BuddyNext; you hook them on the plugin that fires them. They are listed here only so you know which direction a given event flows.
 
 > **Note:** Some hooks are deliberately fired by Free as a seam that only Pro consumes today. For example `buddynext_feed_order_by` is the documented SQL-level feed-rerank seam; Pro ships an affinity ranker but reaches it by a container rebind rather than this filter, leaving the filter open for third-party use.
@@ -98,7 +100,7 @@ The `buddynext_*` domain hooks (everything except the template-part family) are 
 | 32 | Search, hashtags, sidebar, admin | `buddynext_search_query_args`, `buddynext_hashtag_*`, the sidebar-widget and admin-hub filters |
 | 33 | Pro and integration | Pro hooks (`buddynext_pro_subscription_created`, `buddynext_outbound_webhook_limit`) and the integration bridge seams |
 
-The template-part family (`buddynext_part_*`, 705 hooks) is documented separately on the Hooks: Template Parts page (26), because it is a different kind of seam - presentation rather than events - and dominates the surface by count.
+The template-part family (`buddynext_part_*`, 314 hooks across 81 parts) is documented separately on the Hooks: Template Parts page (26), because it is a different kind of seam - presentation rather than events - and dominates the surface by count.
 
 ## Examples
 
@@ -144,7 +146,7 @@ Always declare the argument count on `add_action` when the hook passes more than
 
 ## Notes / gotchas
 
-- **The code is the contract.** Free ships no `docs/specs/HOOKS.md`; an earlier revision of this page cited one as a "locked" source of truth, and it does not exist. Use the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites, cross-checked against `audit/manifest.json`'s `hooks_fired` entries for the file and line where a hook actually fires (the manifest can lag the code, so the call site wins). A few moderation events (warn, shadow ban, appeal) may not fire yet where the service did not exist when the hook was first documented.
-- **Do not hook `bn_*` as a public seam.** Those two hooks are internal admin wiring.
-- **Free/Pro boundary.** Pro never calls Free code directly - it extends Free through container rebinds, class inheritance, or these hooks. If you are writing a Pro-style extension, prefer the same three mechanisms. Pro's own hook surface (events it emits, such as `buddynext_pro_subscription_created`) lives in the Pro plugin's `docs/specs/HOOKS.md`.
+- **The code is the contract.** Free ships no `docs/specs/HOOKS.md`; an earlier revision of this page cited one as a "locked" source of truth, and it does not exist. Use the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites, cross-checked against `audit/manifest.json`'s `hooks_fired` entries for the file and line where a hook actually fires (the manifest can lag the code, so the call site wins).
+- **Do not hook `bn_*` as a public seam.** Those hooks are internal admin wiring.
+- **Free/Pro boundary.** Pro never calls Free code directly - it extends Free through container rebinds, class inheritance, or these hooks. If you are writing a Pro-style extension, prefer the same three mechanisms. Pro's own hook surface (events it emits, such as `buddynext_pro_subscription_created`) is listed on the Pro and Integration Hooks page (33).
 - **Consumed hooks live on the other plugin.** To react to a direct message, hook `mvs_message_sent` on WPMediaVerse, not a BuddyNext hook. To react to a Jetonomy discussion, hook `jetonomy_after_create_post`. BuddyNext's bridges already do this internally; your code should target the source plugin's hook directly.

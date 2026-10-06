@@ -35,7 +35,7 @@ Every one of these surfaces is also a **scope** in Settings -> Navigation, where
 
 Register your own items at the default priority 10 and the owner's overrides still win, which is the intended precedence. The scope list is `NavManager::SCOPE_OPTION_MAP` (`includes/Admin/NavManager.php`), mirrored by `NavOverrides::SCOPE_OPTION` (`includes/Nav/NavOverrides.php`).
 
-The registry is the modern, gated, ordered system: every item declares a capability and condition, the registry validates and orders it, and one renderer draws it. It is defined in `includes/Nav/` (`NavRegistry.php`, `NavItem.php`, `NavContext.php`, `ResolvedNav.php`, `PanelRenderer.php`, plus the core providers in `includes/Nav/Providers/`). A template resolves a surface with `buddynext_nav()` (defined in `buddynext.php:437`):
+The registry is the modern, gated, ordered system: every item declares a capability and condition, the registry validates and orders it, and one renderer draws it. It is defined in `includes/Nav/` (`NavRegistry.php`, `NavItem.php`, `NavContext.php`, `ResolvedNav.php`, `PanelRenderer.php`, plus the core providers in `includes/Nav/Providers/`). A template resolves a surface with `buddynext_nav()` (defined in `buddynext.php`):
 
 ```php
 $nav = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', $user_id, $viewer_id ) );
@@ -90,11 +90,11 @@ The rail is split into two groups by a **"You"** heading: community links (Feed,
 
 `order` sorts **within** a group; it does not move an item between groups.
 
-> **Known limitation — the admin Navigation screen cannot set `group`.**
+> **Known limitation - the admin Navigation screen cannot set `group`.**
 >
 > `Settings -> Navigation` can hide, relabel, reorder and capability-gate a rail item, and it can add a custom link. What it **cannot** do is choose which side of the "You" heading that item sits on: it does not persist `group`, so an admin-added tab always lands in the community group **regardless of the position number you give it**.
 >
-> This surprises people, because raising the order number looks like it should push the item down past "You" — it does not, and never will, because the split is by group and not by order.
+> This surprises people, because raising the order number looks like it should push the item down past "You" - it does not, and never will, because the split is by group and not by order.
 >
 > If you need an item below "You", use the `buddynext_rail_items` filter with `'group' => 'you'`. There is no admin equivalent today.
 
@@ -135,9 +135,9 @@ So the filters below remain the developer-level seam, and they still run first -
 
 There are two filter seams, and which one you want depends on how far the change should reach.
 
-### `buddynext_header_user_menu_links` — change ONLY the dropdown
+### `buddynext_header_user_menu_links` - change ONLY the dropdown
 
-The narrow one. Rows are `[ 'label' => string, 'url' => string, 'icon' => string ]` (icon optional — a BuddyNext icon slug from `assets/icons/`, not a raw `<svg>`). **Log Out is always appended after your rows**, so you never have to re-add it and you cannot accidentally remove it.
+The narrow one. Rows are `[ 'label' => string, 'url' => string, 'icon' => string ]` (icon optional - a BuddyNext icon slug from `assets/icons/`, not a raw `<svg>`). **Log Out is always appended after your rows**, so you never have to re-add it and you cannot accidentally remove it.
 
 ```php
 add_filter( 'buddynext_header_user_menu_links', static function ( array $links, int $user_id ): array {
@@ -157,7 +157,7 @@ add_filter( 'buddynext_header_user_menu_links', static function ( array $links, 
 
 Any `#bn-*` token you put in `url` is resolved to the CURRENT member's URL before rendering, so the same row works for everybody.
 
-### `buddynext_user_links` — change the whole catalogue
+### `buddynext_user_links` - change the whole catalogue
 
 The broad one. This is the source list, so an item added here appears in the dropdown **and** in the `#bn-*` token list that Appearance -> Menus offers. Rows are:
 
@@ -184,9 +184,9 @@ add_filter( 'buddynext_user_links', static function ( array $items ): array {
 } );
 ```
 
-The new item now appears in the Appearance -> Menus metabox, in the header dropdown, and resolves per-member in every menu — no core change needed.
+The new item now appears in the Appearance -> Menus metabox, in the header dropdown, and resolves per-member in every menu - no core change needed.
 
-### `buddynext_user_link_url` — retarget an existing token
+### `buddynext_user_link_url` - retarget an existing token
 
 Rewrite where a `#bn-*` token points, without touching the catalogue:
 
@@ -272,6 +272,7 @@ Every `count`, `condition`, `count_label`, and lazy `url` callable receives a `N
 | `->viewer_id` | The current viewer's user ID (0 when logged out). |
 | `->role` | The viewer's space role (`owner`/`moderator`/`member`/`''`), empty on non-space surfaces. |
 | `->extra` | Free-form per-surface array for providers. |
+| `->sub` | Active sub-tab slug for the current route (`''` when none). |
 | `->is_self()` | True when the viewer is looking at their own subject. |
 | `->role_at_least( $role )` | True when the viewer holds at least the given space role (owner > moderator > member). |
 
@@ -279,20 +280,20 @@ Every `count`, `condition`, `count_label`, and lazy `url` callable receives a `N
 
 Space tabs use the same `buddynext_register_nav` action and `register()` call, but with `surface => 'space'`. They work like profile tabs: each supplies a lazy `url` (a callable that builds the clean `/spaces/{slug}/{tab}/` route against the live space) and, when you want the surface to draw the panel, a `render` callable - `PanelRenderer` server-renders only the active tab's panel.
 
-The example below is `url`-only: it links to a route you serve yourself (no `render`), so BuddyNext renders nothing for that tab and your own template owns the URL. Supply a `render` callable instead (or as well) to have the space surface draw the panel for you. See `includes/Nav/Providers/SpaceNav.php` for the core space tabs (Feed, Members, Media, About, Moderation) - each builds `/spaces/{slug}/{tab}/` and carries a `render` callable.
+The example below is `url`-only: it links to a route you serve yourself (no `render`), so BuddyNext renders nothing for that tab and your own template owns the URL. Supply a `render` callable instead (or as well) to have the space surface draw the panel for you. See `includes/Nav/Providers/SpaceNav.php` for the core space tabs (Feed, Members, Sub-spaces, Media, Leaderboard, Files, About, Moderation) - each builds `/spaces/{slug}/{tab}/` and carries a `render` callable.
 
 ```php
 add_action( 'buddynext_register_nav', static function ( \BuddyNext\Nav\NavRegistry $registry ): void {
     $registry->register(
         array(
-            'id'        => 'leaderboard',
+            'id'        => 'standings',
             'surface'   => 'space',
             'layer'     => 'primary',
-            'label'     => __( 'Leaderboard', 'my-addon' ),
+            'label'     => __( 'Standings', 'my-addon' ),
             'icon'      => 'list',
             'priority'  => 45,
             'url'       => static function ( \BuddyNext\Nav\NavContext $c ): string {
-                return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'leaderboard/';
+                return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'standings/';
             },
             'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => $c->role_at_least( 'member' ),
         )

@@ -35,13 +35,13 @@ Members control which emails they get, and how often, from their notification pr
 
 The built-in emails live under BuddyNext > Notifications > Email Templates. BuddyNext ships a catalogue of transactional templates grouped by area:
 
-- **Social** - new follower, connection requested, connection accepted, mention, post reacted, post commented, post shared, new message, media favorited.
-- **Spaces** - space invite, join requested, join request approved, space ownership received.
-- **Moderation** - strike issued, warning, member suspended, appeal resolved, unsuspension confirmation, new report (to the team). The member suspended email includes the reason and the end date (`{{reason}}`, `{{expires_at}}`).
-- **Gamification** - badge awarded, level up.
-- **Auth** - account and sign-in lifecycle emails.
+- **Social** - new follower, connection requested, connection accepted, mention, post reacted, post commented, post shared, new message, follow requested, comment reacted, comment reply, media comment, media favorited.
+- **Spaces** - space invite, join requested, join request approved, space joined, join request declined, new post in a space, space role changed, space announcement, space ownership received.
+- **Moderation** - strike issued, strike warning, member suspended, appeal resolved, member warned, post approved, post not approved, content removed, unsuspension confirmation, new report (to the team). The member suspended email includes the reason and the end date (`{{reason}}`, `{{expires_at}}`).
+- **Auth** - welcome email, email verification, email change confirmation.
 - **Digests** - daily digest, weekly digest (see Email Digests).
 - **Onboarding** - bulk invite, onboarding nudge.
+- **Membership** - with BuddyNext Pro active, the membership emails (payment failed, renewal, cancellation and similar) are added to the same editor.
 
 For each template you can edit three fields and one switch:
 

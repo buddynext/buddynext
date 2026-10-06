@@ -55,11 +55,11 @@ Marking a member verified runs exactly the same code as the member confirming th
 
 ## Setting it up (for owners)
 
-Email verification is controlled in three places in the admin: a master feature switch, a toggle that requires it for new sign-ups, and a setting for how strictly to enforce it.
+Email verification is controlled in three places in the admin: the **Email verification** feature switch, a toggle that requires it for new sign-ups, and a setting for how strictly to enforce it.
 
-### Step 1 - Turn on the feature
+### Step 1 - Check the feature is on
 
-Go to **BuddyNext > Platform > Features** and enable **Email Verification**. This makes the verification system available. Until this is on, the settings below are hidden, because they would have no effect.
+Go to **BuddyNext > Platform > Features** and make sure **Email verification** is switched on. It is on by default. If you switch it off, the settings below are hidden, because they would have no effect.
 
 ### Step 2 - Require it, and choose how strict to be
 
@@ -94,7 +94,7 @@ The message that carries the confirmation link is a standard BuddyNext email, se
 ## Good to know
 
 - **Unverified state.** A new account stays unverified until the link is clicked. While unverified, the member is steered to the verification screen rather than the full community.
-- **Link expiry.** A confirmation link is valid for a limited time after it is sent. If a member clicks an old link, they are told it has expired and asked to request a new one - which they do with the **Resend** button.
+- **Link expiry.** A confirmation link is valid for 48 hours after it is sent. If a member clicks an old link, they are told it has expired and asked to request a new one - which they do with the **Resend** button.
 - **Resending replaces the old link.** Each resend issues a fresh link and clears the previous pending one, so only the newest link works. Always tell members to use the most recent email.
 - **Already verified.** If a member who is already verified tries to resend, BuddyNext tells them their address is already confirmed and does not send another email.
 - **Verification off.** If you never turn the feature on, or leave the require toggle off, every account counts as verified automatically and members go straight into the community after sign-up.

@@ -68,9 +68,9 @@ Pro rebinds **two** Free keys. Both rebinds are behind a toggle and are skipped 
 
 A rebind changes what **every** caller of that key receives, including Free's own callers and yours. That is the point of the seam, and it is also the risk: `buddynext_service( 'search' )` does not return `SearchService` on an AI-search site.
 
-The subclass does **not** have to keep Free's constructor signature — the bind closure constructs it explicitly, so it can take different dependencies. `AiRankedFeedService` happens to mirror Free's three (`follows`, `post_service`, `feed_cache`); `SemanticSearchService` takes a single `embedding_provider` that Free knows nothing about. What the subclass must keep is Free's **public method contract**, since existing callers keep calling it.
+The subclass does **not** have to keep Free's constructor signature - the bind closure constructs it explicitly, so it can take different dependencies. `AiRankedFeedService` happens to mirror Free's three (`follows`, `post_service`, `feed_cache`); `SemanticSearchService` takes a single `embedding_provider` that Free knows nothing about. What the subclass must keep is Free's **public method contract**, since existing callers keep calling it.
 
-Pro also binds its own new keys (`pro_*`, `embedding_provider`). Those are additions, not rebinds — they overwrite nothing.
+Pro also binds its own new keys (`pro_*`, `embedding_provider`). Those are additions, not rebinds - they overwrite nothing.
 
 ```php
 // Pro's bind, run only when the AI-feed toggle is on. The Pro service
@@ -91,7 +91,8 @@ These are the Free-defined extension points Pro attaches to. They are public sea
 
 | Free seam | Type | Pro behaviour |
 |---|---|---|
-| `buddynext_reaction_types` | filter | Extend the reaction set with Pro custom reactions (up to 14 on top of Free's 6). |
+| `buddynext_reaction_choices` | filter | Extend the reaction set on offer with Pro custom reactions (up to 14 on top of Free's 6). |
+| `buddynext_reaction_types` | filter | Trim the owner-enabled reaction set per viewer to the member's plan (`Membership\EntitlementGates`). |
 | `buddynext_reaction_meta` | filter | Merge Pro reaction metadata. |
 | `buddynext_search_query_args` | filter | Add Pro search filter args (`tier_slug`, `space_id`, `member_label`, `joined_after`, `active_within_days`) before the SQL is built. |
 | `buddynext_search_filter_options` | filter | Provide the Pro filter options surfaced in the search UI. |
@@ -119,7 +120,7 @@ add_action( 'buddynext_post_created', static function ( int $post_id, int $user_
 
 ## Which cross-plugin hooks are frozen
 
-Some hooks are load-bearing for the free<->pro pair: a real listener in the *other* plugin depends on them, so renaming or removing one breaks the pair silently. Others are fired with no first-party listener at all — those are stable extension seams for your addon, and "no first-party consumer" is not the same as "private."
+Some hooks are load-bearing for the free<->pro pair: a real listener in the *other* plugin depends on them, so renaming or removing one breaks the pair silently. Others are fired with no first-party listener at all - those are stable extension seams for your addon, and "no first-party consumer" is not the same as "private."
 
 The hooks that carry a first-party listener today, with who actually listens:
 
@@ -130,11 +131,11 @@ The hooks that carry a first-party listener today, with who actually listens:
 | `buddynext_reaction_added` | action | Free, Pro |
 | `buddynext_user_followed` | action | Free, Pro |
 | `buddynext_ability_granted` | action | Free, Pro |
-| `buddynext_ability_revoked` | action | Free |
+| `buddynext_ability_revoked` | action | Free, Pro |
 | `buddynext_search_query_args` | filter | Free, Pro |
 | `buddynext_profile_field_render` | filter | Pro |
 
-Treat every row above as frozen. Your own `add_action()` / `add_filter()` callbacks are never counted in that column — it names first-party listeners only, so a hook listed as "Pro" may still have any number of addon listeners.
+Treat every row above as frozen. Your own `add_action()` / `add_filter()` callbacks are never counted in that column - it names first-party listeners only, so a hook listed as "Pro" may still have any number of addon listeners.
 
 ## Shared-table ownership rule
 
@@ -186,4 +187,4 @@ add_action( 'buddynext_user_followed', static function ( int $follower_id, int $
 - **Licensing never gates features.** An invalid or expired Pro license blocks update downloads only. Every Pro feature keeps working. Do not call a license check to gate behaviour in an addon that builds on Pro.
 - **Argument-count drift.** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe webhook and three (an extra `$source`) by Free's access webhook. Register for the lowest count you need (`add_action( ..., 10, 2 )`) so your callback works regardless of producer.
 - **REST namespaces are separate.** Free uses `buddynext/v1`, Pro uses `buddynext-pro/v1`. Do not mix them.
-- **This page is the contract; the code is the source of truth.** An earlier version of this page sent you to a machine-generated inventory file for three fields that had never existed in it, and that file is not part of the distributed package in any case. The tables above are generated from the code instead, and `FreeProContractTest` fails if a Free key is renamed or a new coupling appears without this page being updated.
+- **This page is the contract; the code is the source of truth.** `FreeProContractTest` (in the Pro plugin's test suite) fails if a Free key is renamed or a new coupling appears without this page being updated.

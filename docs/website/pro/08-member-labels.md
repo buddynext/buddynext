@@ -24,7 +24,7 @@ Members do not create or request labels. When you assign a label to a member, it
 - **On their profile.** The label renders as a colored chip in the profile header, next to the member's name and other badges.
 - **On their post bylines.** The same chip appears next to the member's name on the posts they write in the feed, so readers see the badge in context.
 
-Labels also travel into connected apps, so a member's badges show there too. A member with several labels shows all of them, in the order you set.
+The chips also show on comment bylines, member cards, the member directory, and member search results. Labels also travel into connected apps, so a member's badges show there too. A member with several labels shows all of them, in the order you set.
 
 ## Setting it up (for owners)
 
@@ -32,17 +32,17 @@ Setup has two parts: defining a label, then assigning it to members.
 
 ### Create a label
 
-Open **BuddyNext** in wp-admin and go to the **Member Labels** page. In the **Add New Label** form, fill in the fields and select **Add Label**. The new label appears in the labels table.
+Open **BuddyNext** in wp-admin and go to **Members > Labels**. In the **Add new label** form (or with the **Add label** button at the top), fill in the fields and select **Add label**. The screen is switched on by the **Member labels** entry in the Features catalogue (on by default). The new label appears in the labels table.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Slug | A short, unique identifier for the label, using lowercase letters, digits, and hyphens. It keeps each label distinct behind the scenes. | None - required |
+| Slug | A short, unique identifier for the label, using lowercase letters, digits, and hyphens (up to 64 characters). It fills in from the Name until you edit it. | None - required |
 | Name | The display name shown on the chip (for example, "Verified"). Up to 255 characters. | None - required |
-| Color | The chip color, chosen with a color picker. | A friendly blue |
-| Icon | An optional icon shown on the chip, picked from the built-in icon set (for example a shield, a star, or a check). Leave blank for a text-only chip. | Empty (no icon) |
-| Sort Order | Controls the order labels appear in when a member has more than one. Lower numbers show first. | 0 |
+| Color | The chip color, chosen with a color picker. | A blue (`#0073aa`) |
+| Icon (Lucide slug) | An optional icon shown on the chip, typed as a Lucide icon name such as `shield-check`, `star`, or `user-check` (lowercase letters and hyphens, up to 64 characters). Leave blank for a text-only chip. | Empty (no icon) |
+| Sort order | Controls the order labels appear in when a member has more than one. Lower numbers show first. | 0 |
 
-The labels table shows each label's color swatch, name, icon, and a live count of how many members currently have it. Each row has an **Edit** control (an inline form to change any field) and a **Delete** button with a confirmation prompt.
+The labels table shows each label's name, color, slug, icon, and a live count of how many members currently have it. Each row has an **Edit** control (an inline form to change any field) and a **Delete** button with a confirmation prompt.
 
 ### Assign a label to a member
 
@@ -54,12 +54,12 @@ Once you have created at least one label, the **Assign labels to members** panel
 
 The member count on the labels table updates as assignments are made, so you can always see how many members hold each label. Assignments also go through the same REST endpoints, so a connected app or a scripted/bulk process can assign and unassign the same way.
 
-When a label is assigned to or removed from a member, the change requires administrator permission. The label definitions you create, and each member's current labels, are visible to everyone.
+You can also tick or untick labels for one member in the **Labels** section of that member's edit screen (see [Admin Editing a Member](../members/14-admin-editing-a-member.md)); it saves with the profile. When a label is assigned to or removed from a member, the change requires administrator permission. The label definitions you create, and each member's current labels, are visible to everyone.
 
 ## Good to know
 
 - **Each label is unique.** Two labels cannot share the same identifier. The form rejects a duplicate when you create or edit a label.
-- **The icon is optional.** Leave it blank for a text-and-color chip, or pick an icon from the built-in set. An icon that is not in the set is rejected.
+- **The icon is optional.** Leave it blank for a text-and-color chip, or type a Lucide icon name. A value that is not a lowercase hyphenated slug is rejected.
 - **Deleting a label tidies up after itself.** When you delete a label, it is removed from every member who had it first, so no member is left pointing at a label that no longer exists.
 - **The member count stays accurate at scale.** The admin table counts each label's members directly, so the number stays correct even in a large community.
 - **Empty profiles stay clean.** A member with no labels shows no chips - there is no empty placeholder, so members and installs without labels carry no visible clutter.

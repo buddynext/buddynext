@@ -23,7 +23,7 @@ All paths below are prefixed with `/wp-json/buddynext/v1`.
 | POST | `/auth/2fa` | Public | Complete a 2FA challenge with `twofa_token` + `code`, finishing the login. |
 | POST | `/auth/2fa/email-code` | Public | Send a one-time 2FA code by email for the pending challenge (`twofa_token`). |
 | GET | `/auth/register/config` | Public | The signup contract plus a fresh guard bundle. **Call this before `/auth/register`.** See below. |
-| POST | `/auth/register` | Public | Create a new user account (`email`, `user_login`, `password`, optional `terms_agreed`, `invite`). |
+| POST | `/auth/register` | Public | Create a new user account (`email`, `password`, optional `user_login`, `name`, `terms_agreed`, `invite`, and the guard fields from `/auth/register/config`: `reg_token`, `challenge_token`, `challenge_answer`). |
 | POST | `/auth/register/complete` | Public | Finish a parked social sign-up: supply `pending_token` plus the things OAuth cannot (`terms_agreed`, required profile fields), then the account is created. |
 | POST | `/auth/lost-password` | Public | Start a password reset for `user_login` (email or username). |
 | POST | `/auth/reset-password` | Public | Complete a reset with `key` + `login` + new `password`. |
@@ -32,7 +32,7 @@ All paths below are prefixed with `/wp-json/buddynext/v1`.
 | POST | `/auth/verify/resend` | Logged in | Resend the email-verification message for the current user. |
 | GET | `/auth/verify/status` | Logged in | Return the current user's email-verification status. |
 | POST | `/auth/verify/self` | `manage_options` | Admin-only bypass: mark the current (admin) session verified without an email round-trip, for local/staging setup. |
-| POST | `/auth/change-password` | Logged in | Set a new password after verifying `current_password`. Returns 422 with field-keyed errors on failure. |
+| POST | `/auth/change-password` | Logged in | Set a new password (`new_password`) after verifying `current_password`. `current_password` is not required for a member who signed up through a social provider and has never had a known password (that call sets the first one). Returns 422 with field-keyed errors on failure. |
 | POST | `/auth/change-email` | Logged in | Change the current user's email (`email`). |
 | POST | `/auth/sign-out-everywhere` | Logged in | Destroy all of the current user's sessions on every device. |
 | POST | `/auth/app-password` | Logged in | Mint a WordPress Application Password for the current user (optional `name`). The plaintext password is returned once (201). |
@@ -123,7 +123,7 @@ curl -X POST https://example.com/wp-json/buddynext/v1/auth/register \
   }'
 ```
 
-Required: `email`, `user_login`, `password`. Optional: `terms_agreed` (boolean, default `false`), `invite` (string, used when the community runs invite-gated or referral registration). Registration honours the site's `users_can_register` setting and the configured approval mode - when manual approval is on, the new account stays pending until an admin calls `POST /auth/approve/{id}`.
+Required: `email`, `password`. Optional: `user_login`, `name`, `reg_token`, `challenge_token`, `challenge_answer` (the guard bundle from `GET /auth/register/config`), `terms_agreed` (boolean, default `false`), `invite` (string, used when the community runs invite-gated or referral registration). Registration honours the site's `users_can_register` setting and the configured approval mode - when manual approval is on, the new account stays pending until an admin calls `POST /auth/approve/{id}`.
 
 ### Change password (validation envelope)
 

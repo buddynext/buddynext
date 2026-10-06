@@ -39,6 +39,9 @@ Indexes:
 - PRIMARY KEY `(follower_id, following_id)` - the relationship pair is the uniqueness constraint; re-following is a no-op via `INSERT IGNORE`.
 - KEY `following (following_id, status)` - "who follows this member" / follower-count lookups.
 - KEY `pending_inbox (following_id, status, created_at)` - the pending follow-request inbox, ordered by recency.
+- KEY `follower_recent (following_id, created_at)` - a member's followers newest first.
+- KEY `follow_created (created_at)` - time-window scans across all follows.
+- KEY `following_recent (follower_id, status, created_at)` - who a member follows, newest first.
 
 Relationships: `follower_id` and `following_id` both reference `wp_users.ID`. There is no foreign key; cleanup on user deletion is handled in application code.
 
@@ -54,6 +57,7 @@ Bilateral connection graph (the LinkedIn-style mutual relationship). One row per
 | `status` | ENUM('pending','accepted','declined','withdrawn') NOT NULL DEFAULT 'pending' | Lifecycle: `pending` on request, then `accepted` / `declined` by the recipient, or `withdrawn` by the requester. |
 | `note` | VARCHAR(280) NOT NULL DEFAULT '' | Optional message attached to the request (opt-in; empty by default). |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | When the request was created. |
+| `declined_at` | DATETIME DEFAULT NULL | When the recipient declined; used to enforce the re-request cooldown. |
 
 Indexes:
 
@@ -62,6 +66,8 @@ Indexes:
 - KEY `recipient_lookup (recipient_id)` - incoming requests for a member.
 - KEY `recipient_status (recipient_id, status)` - "my pending incoming requests".
 - KEY `requester_status (requester_id, status)` - "my pending outgoing requests".
+- KEY `requester_recent (requester_id, status, created_at)` - outgoing requests newest first.
+- KEY `recipient_recent (recipient_id, status, created_at)` - incoming requests newest first.
 
 Relationships: `requester_id` and `recipient_id` reference `wp_users.ID`. Because the table is bilateral, a "my connections" query reads rows where the current user is either the requester or the recipient and `status = 'accepted'`.
 
@@ -191,6 +197,7 @@ Individual fields within a group. Each field has a data type, optional select op
 | `is_required` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field must be filled. |
 | `is_searchable` | TINYINT(1) NOT NULL DEFAULT 0 | Whether values are added to the member search index (the directory's search box and global search). It does not create a directory filter. Shown to owners as "Include in search". |
 | `show_on_register` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field appears on the registration form. |
+| `show_in_header` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field's value shows in the profile header meta row, ordered by `sort_order`. |
 | `is_system` | TINYINT(1) NOT NULL DEFAULT 0 | `1` for built-in seeded fields. |
 | `visibility` | ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public' | Field-level visibility override. |
 | `sort_order` | INT NOT NULL DEFAULT 0 | Display ordering within the group. |

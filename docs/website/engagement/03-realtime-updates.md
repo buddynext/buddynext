@@ -48,7 +48,7 @@ There are no settings to enable or tune this feature. It activates automatically
 
 The free plugin uses short-interval polling for the bell, the feed pill, and presence. That keeps the community feeling current with no extra infrastructure.
 
-Pro adds a true live connection: updates are pushed the instant they happen, rather than waiting for the next check. With Pro, notifications, feed activity, and presence arrive immediately, and live messaging is delivered in real time. The same surfaces behave exactly as they do on the free plugin - they simply update faster. For the instant-delivery upgrade, see Realtime (Pro).
+Pro adds an optional true live connection: updates are pushed the instant they happen, rather than waiting for the next check. It needs a Pusher-protocol websocket server that you connect under **BuddyNext > Realtime & Push > Realtime** (Host, App ID, Key, Secret). Sockudo is the recommended self-hosted server; Soketi still works but is legacy, and hosted Pusher Channels or Ably can stand in if you would rather not self-host. Polling stays the baseline either way, so the community keeps working if the server is unreachable. With Pro, notifications, feed activity, and presence arrive immediately, and live messaging is delivered in real time. The same surfaces behave exactly as they do on the free plugin - they simply update faster. For the instant-delivery upgrade, see Realtime (Pro).
 
 ## Related
 

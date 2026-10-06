@@ -48,9 +48,13 @@ Key indexes:
 - `KEY category (category_id)` - directory filtering by category.
 - `KEY parent (parent_id)` - resolving sub-spaces of a parent.
 - `KEY is_archived (is_archived)` - excluding archived spaces from the directory.
-- `KEY dir_popular (parent_id, member_count)` - directory ordered by popularity within a parent.
-- `KEY dir_name (parent_id, name(150))` - directory ordered by name within a parent. `name` is prefixed to 150 characters for the same 767-byte reason.
-- `KEY dir_recent (parent_id, created_at)` - directory ordered by recency within a parent.
+- `KEY dir_popular (is_archived, member_count, id)` - directory ordered by popularity.
+- `KEY dir_name (is_archived, name, id)` - directory ordered by name.
+- `KEY dir_recent (is_archived, created_at, id)` - directory ordered by recency.
+- `KEY dir_active (is_archived, last_active_at, created_at, id)` - directory ordered by recent activity.
+- `KEY admin_type (type, created_at)` - the wp-admin Spaces list filtered by type.
+- `KEY admin_recent (created_at)` - the wp-admin Spaces list ordered by creation time.
+- `KEY admin_active (last_active_at)` - the wp-admin Spaces list ordered by last activity.
 
 Relationships: `owner_id` references a WordPress user; `category_id` references `bn_space_categories.id`; `parent_id` is a self-reference to `bn_spaces.id`. Membership rows live in `bn_space_members`; bans live in `bn_space_bans`. Posts reference a space via `bn_posts.space_id`.
 
@@ -75,6 +79,8 @@ Key indexes:
 - `KEY user_role (user_id, role)` - "spaces where I am owner/moderator".
 - `KEY user_status (user_id, status)` - "my active spaces" / pending requests.
 - `KEY space_status (space_id, status, joined_at)` - a space's member roster filtered by status, ordered by join time.
+- `KEY user_status_joined (user_id, status, joined_at)` - a member's spaces filtered by status, ordered by join time.
+- `KEY pending_all (status, joined_at)` - the cross-space pending-request queue.
 
 Relationships: `space_id` references `bn_spaces.id`; `user_id` references a WordPress user. Inserting an `active` row increments `bn_spaces.member_count`; removing one decrements it. Role and status changes are routed through `SpaceMemberService`, which also fires the membership hooks (`buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_space_member_removed`).
 

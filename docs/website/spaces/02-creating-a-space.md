@@ -4,7 +4,7 @@ A space is a community area inside your site - a place with its own feed, member
 
 ![Spaces directory where members browse spaces and use the Create button to start a new one](../images/spaces-directory.webp)
 
-![The Create a space form — name with an auto-derived slug, type, category and description fields](../images/space-create-form.webp)
+![The Create a space form - name with an auto-derived slug, type, category and description fields](../images/space-create-form.webp)
 
 ![Spaces - Settings admin tab controlling who can create spaces and the new-space defaults](../images/admin-spaces-settings.webp)
 
@@ -27,6 +27,7 @@ Members create a space from the Spaces directory using the Create button. The cr
 - **Description** - a short summary shown on the space card and home, up to 160 characters.
 - **Type (visibility)** - how people find and join the space. See the three types below.
 - **Category** - the directory category the space is filed under, so people browsing by topic can find it. Optional.
+- **Parent space** - only shown when sub-spaces are allowed. Leave it on top level for a normal space, or pick a space you manage to nest this one under it.
 
 After the space is created, the creator becomes its owner and the first member, and can open the space settings to add an avatar and a cover image.
 
@@ -53,7 +54,7 @@ Both replace the previous image when re-uploaded.
 
 ### Editing a space
 
-The owner (and site admins) edit a space from its own settings screen. Settings are grouped into panels: General, Privacy, Permissions, Members, Fields, Moderation, Notifications, Integrations, and a danger zone. From here you can rename the space, change its description, change its type, move it to a different category, swap the avatar or cover, set who can post and who can invite, and reach the ownership transfer and delete actions.
+The owner (and site admins) edit a space from its own settings screen. Settings are grouped into panels: General, Privacy, Permissions, Members, Moderation, Integrations, Notifications and a Danger zone, plus an Invite link tab and, when other plugins add space fields, a Custom fields tab. From here you can rename the space, change its description and house rules, set a brand colour, choose which tab the space opens on, change its type, move it to a different category or parent space, swap the avatar or cover, set who can post and who can invite, add the space's own banned words, switch the Discussion, Media, Files and Leaderboard tabs on, and reach the ownership transfer and delete actions. Moderators can open the screen too, but they can only change the moderation settings (join approval, banned words and the new-member notification default). The rest is owner-only.
 
 ### Archiving and restoring
 

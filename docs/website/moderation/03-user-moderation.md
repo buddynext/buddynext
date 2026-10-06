@@ -1,6 +1,6 @@
 # Moderating a Member
 
-User moderation is the set of actions a moderator or admin takes against a member who breaks the rules: a warning, a strike, a temporary suspension, a silent shadow-ban, or - through accumulated strikes - an automatic suspension or permanent ban. It is the human-judgment layer that sits on top of automatic Content Safeguards and the report queue.
+User moderation is the set of actions a moderator or admin takes against a member who breaks the rules: a warning, a strike, a temporary suspension, a silent shadow-ban (through the REST API only), or - through accumulated strikes - an automatic suspension or permanent ban. It is the human-judgment layer that sits on top of automatic Content Safeguards and the report queue.
 
 ![The BuddyNext moderation queue where moderators take action against a member](../images/moderation-queue.webp)
 
@@ -28,11 +28,11 @@ Each action below is a deliberate step a moderator or admin takes against a memb
 | Issue a strike | Records a counted strike against the member with a reason. Strikes accumulate, and reaching a threshold automatically escalates to a warning, a suspension, or a ban. |
 | Reverse a strike | Cancels a previously issued strike. Use this when a strike was applied in error or after a successful appeal. A reversed strike no longer counts toward any threshold. |
 | Suspend (temporary) | Blocks the member from posting for a set number of days, or indefinitely. Their existing content stays visible unless you choose to hide it. The suspension lifts automatically when the duration expires. |
-| Shadow-ban | Silently hides the member's content from everyone else. The member still sees their own posts as normal and gets no error - they simply stop reaching anyone. Useful for persistent low-grade spammers who would just make a new account if openly banned. |
+| Shadow-ban | Available to site moderators and administrators through the REST API only (`POST /wp-json/buddynext/v1/users/{id}/shadow-ban`); there is no button for it in any screen. Silently hides the member's content from everyone else. The member still sees their own posts as normal and gets no error - they simply stop reaching anyone. Useful for persistent low-grade spammers who would just make a new account if openly banned. |
 
-> **Note:** Warning, strike, suspension, and shadow-ban each take a reason. Write it for the record - it is what you will rely on if the member appeals.
+> **Note:** Warning, strike, and suspension each take a reason. Write it for the record - it is what you will rely on if the member appeals.
 
-A suspension always needs a reason. Every suspend screen (the moderation queue in Community Admin and in wp-admin, Members, and bulk suspend) asks you to pick one - Spam or scams, Harassment or abuse, Hate speech, Impersonation, Off-topic or disruptive, or Other - and add an optional note (required for Other, up to 300 characters). The same dialog sets the length and whether their posts are hidden. The member sees the reason and the end date on their account status page and in the suspension email, and can appeal from there. Developers can change the list with the `buddynext_suspension_reasons` filter.
+A suspension always needs a reason. Every suspend screen (the moderation queue in Community Admin and in wp-admin, Members, and bulk suspend) asks you to pick one - Spam or scams, Harassment or abuse, Hate speech, Impersonation, Off-topic or disruptive, or Other - and add an optional note (required for Other, up to 300 characters). The same dialog sets the length (Indefinite, 1 day, 7 days, 30 days or 90 days) and whether their posts are hidden. The member sees the reason and the end date on their account status page and in the suspension email, and can appeal from there. Developers can change the list with the `buddynext_suspension_reasons` filter.
 
 ## How strike thresholds escalate
 
@@ -48,21 +48,21 @@ Escalation always applies the strongest plan reached, strongest first. The thres
 
 ## Setting it up (for owners)
 
-Strike thresholds and the report auto-hide limit live in the Moderation settings. The defaults below are sensible for a general community - tighten them for a stricter space, loosen them for a more forgiving one.
+Strike thresholds and the report auto-hide limit live under **BuddyNext > Moderation > Controls**. The defaults below are the plugin's built-in values. A brand-new install is seeded a little stricter (suspension at 4 strikes, permanent ban at 6), and you can see the values your site uses on the Controls tab. Tighten or loosen them to suit your community.
 
 | Setting | What it does | Default |
 |---|---|---|
 | Strikes before warning | A warning email is sent to the member once they reach this many active strikes. | 2 |
 | Strikes before suspension | The member is automatically suspended once they reach this many active strikes. | 5 |
 | Strikes before permanent ban | The member is permanently banned (a permanent, content-hidden suspension) at this many lifetime strikes. Untick the box to disable automatic permanent bans. | 0 (off) |
-| Auto-hide after N reports | Content is hidden automatically once it reaches this many reports, then waits in the moderation queue for review. | 5 |
+| Auto-hide after N reports | Content is hidden automatically once it reaches this many reports, then waits in the moderation queue for review. Set to 0 to turn automatic hiding off. | 5 |
 | Queue alert threshold | Sends a daily email to admins when the moderation queue exceeds this many unreviewed items. Untick the box to disable. | 20 |
 
 
 ## Good to know
 
 - **A suspended member cannot post.** While a suspension is active, the member is blocked from creating posts and comments. Reading the community still works - the block is on contributing, not on access.
-- **Shadow-banned content is hidden from others, not from the member.** The shadow-banned member sees their own posts exactly as before and receives no warning. To everyone else, their content does not appear in feeds or search. This is what makes it effective against spammers who would otherwise just register again.
+- **Shadow-banned content is hidden from others, not from the member.** (A shadow-ban is applied through the REST API; no screen has a button for it.) The shadow-banned member sees their own posts exactly as before and receives no warning. To everyone else, their content does not appear in feeds or search. This is what makes it effective against spammers who would otherwise just register again.
 - **Suspensions can be temporary or indefinite.** A suspension with a duration in days lifts itself automatically when it expires. A suspension with no duration stays in place until a moderator lifts it (or an appeal is approved).
 - **Re-suspending is safe.** Suspending an already-suspended member does not stack a second suspension - the existing one is returned unchanged.
 - **Reversing a non-existent or already-reversed strike fails clearly** rather than reporting a false success, so you always know whether the reversal actually changed anything.

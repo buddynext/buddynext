@@ -1,6 +1,6 @@
 # Announcements
 
-An announcement is an admin post that pins to the top of every member's home feed until each member dismisses it. It is the one message you can be confident reaches everyone, regardless of who they follow.
+An announcement is an admin post that pins to the top of every member's home feed until each member dismisses it. Space owners and moderators can also announce inside their own space. It is the one message you can be confident reaches everyone, regardless of who they follow.
 
 ![A BuddyNext home feed with an admin announcement pinned above the regular activity](../images/community-activity-feed.webp)
 
@@ -28,21 +28,21 @@ Each announcement can be dismissed. Once you dismiss it, it never appears at the
 
 ## Creating an announcement (for administrators)
 
-Only site administrators can create an announcement. Space owners, space moderators, and ordinary members cannot - there is no per-space announcement and no delegated "announcer" role.
+Site administrators create site-wide announcements. A space owner or space moderator can announce to their own space only, from that space's composer. Ordinary members cannot create announcements, and the whole check can be changed by a developer with the `buddynext_can_create_announcement` filter. The Announcements feature must also be on under **BuddyNext > Platform > Features**.
 
-To create one, post to the feed as you normally would, with the post marked as an announcement. The post is published immediately and pinned to the top of every member's home feed.
+To create one, start a post in the composer and select the megaphone (Announcement) button. An optional **Auto-expire at** date and time (in the site's timezone) appears; leave it empty to keep the announcement until you end it. The post is published immediately and pinned to the top of every member's home feed. Members are also notified, in the background, so publishing never makes you wait.
 
 ### Ending an announcement
 
-An administrator can end an announcement at any time from the Engagement → Announcements admin tab, which lists every announcement and offers an **End now** action (and a control to feature one to the top). Ending it removes the pin so the post stops appearing at the top of members' feeds, while the post itself stays in the feed as a normal post. Only administrators can end an announcement.
+An administrator can end an announcement at any time from **BuddyNext > Engagement > Announcements**, which lists every announcement with its status (Active, Scheduled, Ended or Not live) and offers **Feature** or **Unfeature**, **End now**, and **Delete**. Ending it removes the pin so the post stops appearing at the top of members' feeds, while the post itself stays in the feed as a normal post. Only administrators can end an announcement.
 
 > **Tip:** Ending an announcement is the clean way to retire a notice once it is no longer relevant. You do not have to delete the post to stop it pinning - end it and it becomes an ordinary feed post.
 
 
 ## Good to know
 
-- **One announcement is pinned at a time.** By default the most recently created live announcement is the one pinned to the top of the feed; older ones drop back to being ordinary posts. An administrator can override this by featuring a specific announcement from the Engagement → Announcements admin tab, and that featured notice then leads the feed (even if a newer announcement exists) until it is dismissed, ended, or expires. To keep a single, clear community notice at the top, post one announcement at a time or feature the one you want.
-- **Only administrators create or end announcements.** A member who tries to create one is refused. The capability is the standard WordPress administrator capability.
+- **One announcement is pinned at a time.** By default the most recently created live announcement is the one pinned to the top of the feed; older ones drop back to being ordinary posts. An administrator can override this by featuring a specific announcement from the Engagement > Announcements admin tab, and that featured notice then leads the feed (even if a newer announcement exists) until it is dismissed, ended, or expires. To keep a single, clear community notice at the top, post one announcement at a time or feature the one you want.
+- **Who can create them.** Site administrators (site-wide) and space owners and moderators (their own space). A member who tries to create one without that permission is refused. Ending, featuring and deleting happen in the admin Announcements tab.
 - **Dismissal is per member.** One member dismissing an announcement has no effect on what other members see.
 - **The post is never lost.** Both dismissing (member) and ending (admin) only change whether the post is pinned. The post remains in the feed.
 

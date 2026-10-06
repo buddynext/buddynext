@@ -14,7 +14,7 @@ Two tables break the `bn_` convention: `jt_posts` and `jt_replies`. These are **
 
 Direct-message tables (`mvs_conversations`, `mvs_messages`, and siblings) are owned by **WPMediaVerse**, not BuddyNext. BuddyNext is the UI layer for messaging only, so those tables are out of scope for this schema reference.
 
-> **Note:** The Free Installer's `schema()` method is the authoritative table inventory - it creates 40 `bn_*` tables via `dbDelta()`. The master index below lists those 40 plus the two borrowed `jt_*` tables (42 rows total). The Pro manifest re-lists several shared Free tables for reference (see Schema: Pro Tables). When a count in prose disagrees with `schema()`, trust `schema()`.
+> **Note:** The Free Installer's `schema()` method is the authoritative table inventory - it creates 41 `bn_*` tables via `dbDelta()`. The master index below lists those 41 plus the two borrowed `jt_*` tables (43 rows total). The Pro manifest re-lists several shared Free tables for reference (see Schema: Pro Tables). When a count in prose disagrees with `schema()`, trust `schema()`.
 
 ## Scale-Contract: the rules that shape every schema
 
@@ -54,6 +54,7 @@ Every Free and Pro table, its domain, its purpose, and the developer-guide page 
 | `bn_posts` | Activity feed | Activity posts (content, media, privacy, status, denormalized counters) | Schema: Core Tables |
 | `bn_comments` | Activity feed | Threaded comments on posts | Schema: Core Tables |
 | `bn_reactions` | Activity feed | Emoji reactions on posts and comments | Schema: Core Tables |
+| `bn_post_media` | Activity feed | Index of which posts carry which media file (mirrors `bn_posts.media_ids`) | Schema: Core Tables |
 | `bn_shares` | Activity feed | Re-share / quote-share edges | Schema: Core Tables |
 | `bn_bookmarks` | Activity feed | Per-user saved posts | Schema: Core Tables |
 | `bn_poll_options` | Activity feed | Poll option rows attached to poll posts | Schema: Core Tables |
@@ -84,7 +85,7 @@ Every Free and Pro table, its domain, its purpose, and the developer-guide page 
 | `bn_user_strikes` | Moderation | Per-user strike records | Schema: Core Tables |
 | `bn_user_suspensions` | Moderation | User suspension rows | Schema: Core Tables |
 | `bn_appeals` | Moderation | Suspension / strike appeal workflow (Pro reuses this; no `bn_mod_appeals`) | Schema: Core Tables |
-| `bn_activity_log` | Core | Internal activity / audit log | Schema: Core Tables |
+| `bn_rate_limits` | Core | Self-expiring hit counters behind the safeguard rate limits | Schema: Core Tables |
 | `bn_webhook_log` | Core | Incoming webhook processing log | Schema: Core Tables |
 | `bn_outbound_webhooks` | Outbound | Outbound webhook endpoint registrations (Free caps at 1; Pro lifts the cap) | Schema: Core Tables |
 | `bn_outbound_webhook_log` | Outbound | Outbound webhook delivery attempts | Schema: Core Tables |

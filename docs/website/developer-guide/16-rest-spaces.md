@@ -19,9 +19,11 @@ All routes live under the `buddynext/v1` namespace. They follow the shared respo
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/spaces` | Public | List spaces with filters/sort (`per_page` capped at 50, default 12). |
+| GET | `/spaces` | Public | List spaces with filters/sort (`per_page` capped at 50, default 12). Filters: `type`, `category_id`, `search` (or `q`), `membership`, `mine`, `include_subspaces`, `roots_only`; sorting: `orderby` and `order`; `paginate` returns the paged envelope. |
 | POST | `/spaces` | Auth (space-creation role) | Create a space. Caller must hold a role allowed to create spaces. |
-| GET | `/spaces/{id}` | Public | Get a single space by ID. |
+| GET | `/spaces/{id}` | Public | Get a single space by ID. Accepts an optional `invite` token so a visitor holding a valid invite link can read a private space. |
+| GET | `/spaces/slug/{slug}` | Public | The space a shared link points at, with the same response and `invite` handling as `GET /spaces/{id}`. `{slug}` matches `[a-z0-9-]+`. |
+| GET | `/spaces/featured` | Public | The site's featured spaces as members see them (curated order, visibility-scoped, guests included) as directory rows. Query: `limit` (`0` = the site's limit, capped at 24). Not to be confused with the admin route `/settings/featured-spaces`. |
 | PUT | `/spaces/{id}` | Auth (owner) | Update name, description, type, and other settings. |
 | DELETE | `/spaces/{id}` | Auth (owner) | Delete a space. |
 
@@ -43,7 +45,7 @@ The gating is authored from the Monetization admin (either the Paywall tab's spa
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/spaces/{id}/members` | Public | List members (paginated). |
+| GET | `/spaces/{id}/members` | Public | List members, keyset-paginated. Query: `cursor`, `per_page` (default 50), `search`, `role` (`owner`, `moderator`, `member`). |
 | GET | `/spaces/{id}/pending-requests` | Auth (owner/mod) | List pending join requests (paginated). |
 | POST | `/spaces/{id}/members/{user_id}/approve` | Auth (owner/mod) | Approve a pending join request. |
 | POST | `/spaces/{id}/members/{user_id}/decline` | Auth (owner/mod) | Decline a pending join request. |
@@ -76,14 +78,15 @@ Join outcomes by space type:
 
 ## Invite links
 
-One shareable invite link per space, managed by anyone who passes `SpaceMemberService::can_invite()` (owner/moderator per the `who_can_invite` setting, or a site admin). Stored in `bn_space_meta` (no dedicated table). See the user guide, "Invite people with a link".
+One shareable invite link per space, managed by anyone who may manage the space settings (`buddynext-spaces/manage-settings`: the owner, a moderator, or a site admin). The `who_can_invite` setting governs targeted invites, not this public link. Stored in `bn_space_meta` (no dedicated table). See the user guide, "Invite people with a link".
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/spaces/{id}/invite-link` | Auth (can_invite) | Return the current link, or `{"invite_link": null}` when none exists. |
-| POST | `/spaces/{id}/invite-link` | Auth (can_invite) | Create or reset the link (a reset issues a fresh token, killing the old one). Body: `expires` (`1d`\|`7d`\|`30d`\|`never`, default `7d`), `max_uses` (`0`\|`1`\|`10`\|`100`, `0` = unlimited). |
+| GET | `/spaces/{id}/invite-link` | Auth (manage settings) | Return the current link, or `{"invite_link": null}` when none exists. |
+| POST | `/spaces/{id}/invite-link` | Auth (manage settings) | Create or reset the link (a reset issues a fresh token, killing the old one). Body: `expires` (`1d`\|`7d`\|`30d`\|`never`, default `7d`), `max_uses` (`0`\|`1`\|`10`\|`100`, `0` = unlimited). |
+| DELETE | `/spaces/{id}/invite-link` | Auth (manage settings) | Revoke the link. Returns `{"invite_link": null}`. |
 
-Both routes use the `require_auth` permission callback; the `can_invite()` check is enforced inside the handler, so a non-inviter receives a `403`. The link object is:
+All three routes use the `require_auth` permission callback; the manage-settings check is enforced inside the handler, so a non-manager receives a `403` (and a space the viewer cannot see answers `404`). The link object is:
 
 ```json
 {
@@ -197,7 +200,9 @@ Registered by `JetonomyBridge` and present **only when the Jetonomy companion is
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/spaces/{id}/forum` | Auth (can-provision) | Provision (or fetch) the space's forum and return `{ forum_id, forum_url }`. Requires login (`401` otherwise) and the space-forum provision permission (`403` otherwise). |
+| POST | `/spaces/{id}/forum` | Auth (can view space) | Provision (or fetch) the space's forum and return `{ forum_id, forum_url, can_provision }`. Requires login (`401` otherwise) and a space the caller may see (`404` otherwise). An existing forum is returned to any admitted viewer; only a missing forum requires the provision capability to create, and a viewer without it gets `forum_id: 0` with `can_provision: false` instead of a `403`. |
+| GET | `/spaces/{id}/discussion` | Auth (manage settings) | The space's discussion status: `has_discussion`, `enabled`, `forum_id`, `name`, `url`. |
+| POST | `/spaces/{id}/discussion` | Auth (manage settings) | Turn the space discussion on or off and return the new status. Body: `enabled` (boolean, required), `link_id` (int, optional, an existing discussion to link). |
 | GET | `/spaces/{id}/discussion-search` | Auth (can-provision) | Typeahead for the "link an existing discussion" picker. Query: `q` (optional). Returns `{ results: [...] }`. Scope is **derived server-side from the caller's role** - a site admin searches all discussions, any other manager only the space owner's own; the client cannot widen it. |
 
 The member-scoped counterpart, `GET /members/{id}/discussions`, is documented on the REST: Members and Profiles page.
@@ -209,8 +214,8 @@ Served by `SpaceCategoryController`. Categories are a site-wide taxonomy for org
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/space-categories` | Public | List all categories ordered by `sort_order`. |
-| POST | `/space-categories` | manage_options | Create a category. |
-| PUT | `/space-categories/{id}` | manage_options | Edit a category. |
+| POST | `/space-categories` | manage_options | Create a category. Body: `name` (required), `description`, `color`, `text_color`, `icon_svg`, `show_in_dir`, `sort_order`. |
+| PUT | `/space-categories/{id}` | manage_options | Edit a category. Same fields as create, all optional. |
 | DELETE | `/space-categories/{id}` | manage_options | Delete a category (returns `409` if any space uses it). |
 
 ## Examples

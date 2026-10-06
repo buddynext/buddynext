@@ -24,13 +24,15 @@ The filters read from your real data. The plan list shows the plans you actually
 
 ## How it works (for members)
 
-A member runs a normal search, then opens the advanced member filters on the results page. They pick any combination of the controls below and apply them; the results narrow to members matching every filter set. Applying filters is a plain page reload - it works without JavaScript.
+A member runs a normal search. On the All or Members tab of the results page, the **Advanced member filters** card appears beside the results. They pick any combination of the controls below and apply them; the results narrow to members matching every filter set. Applying filters is a plain page reload - it works without JavaScript.
 
-- Membership plan - choose a plan to see only members holding an active subscription to it.
-- Space - choose one of the spaces you belong to, to see only its active members.
-- Member label - choose a label to see only members assigned it.
-- Joined after - pick a date to see only members who registered on or after it.
-- Active within - set a number of days to see only members active in that window.
+- **Membership plan** - choose a plan to see only members holding an active subscription to it.
+- **Member of space** - choose one of the spaces you belong to, to see only its active members.
+- **Member label** - choose a label to see only members assigned it.
+- **Joined on or after** - pick a date to see only members who registered on or after it.
+- **Active within (days)** - set a number of days (1 to 365) to see only members active in that window.
+
+Use **Apply filters** to run the search and **Reset** to clear the filters.
 
 The same five filters are available through the API the website uses, so any connected client narrows results the same way.
 
@@ -38,7 +40,7 @@ The same five filters are available through the API the website uses, so any con
 
 ### Saved searches
 
-A member can save the search they are running - filters and all - under a name, then return to it later from their saved searches and run it again with one action. Saved searches are per member: each person keeps their own list. A member can save up to 50 searches.
+A logged-in member can type a name in the **Saved searches** card beside the results and use **Save current** to store the search they are running, filters and all. They can click a saved search later to run it again, or delete it. Saved searches are per member: each person keeps their own list. A member can save up to 50 searches.
 
 > **Tip:** Saved searches are most useful for the searches you repeat - new members this week, active members of your space, everyone on a given plan. Save the query once and rerun it instead of rebuilding the filters each time.
 
@@ -47,19 +49,19 @@ A member can save the search they are running - filters and all - under a name, 
 There are no admin settings to switch the advanced filters on. They activate with Pro and populate themselves from your existing data:
 
 - The membership plan filter lists the plans you have configured. See Membership for setting plans up.
-- The space filter lists spaces; each searcher sees only the spaces they belong to.
+- The space filter lists spaces; each searcher sees only the spaces they belong to (up to 50).
 - The member label filter lists the labels you created. See Member Labels for creating them.
 - The joined-after and active-within filters need no configuration - they read registration dates and recorded activity.
 
-If a data source is empty - no plans, no labels - that filter's dropdown simply does not appear, and the remaining filters still work. The join-date and active-within filters always work because every member has a registration date.
+If a data source is empty - no plans, no labels - that filter's dropdown simply does not appear, and the remaining filters still work. The join-date filter always works because every member has a registration date. The active-within filter relies on recorded activity, so it only matches members whose activity the Analytics feature has recorded (see [Analytics](11-analytics.md)).
 
 
 ## Good to know
 
 - Results respect visibility and safety rules: searches return public members, exclude anyone the searcher has blocked, and exclude suspended or shadow-banned members. The space filter only offers spaces the searcher already belongs to, so it never reveals private membership lists.
-- Filters are checked before they run - the plan, label, and space must be real ones, the join date must be a valid date, and active-within is kept between 1 and 365 days. An out-of-range or malformed filter is simply ignored rather than applied.
+- Filters are checked before they run - the plan, label, and space must be real ones, the join date must be a valid date (year-month-day), and active-within is capped at 365 days (a larger number is treated as 365; zero or less is ignored). A malformed filter is simply ignored rather than applied.
 - The filters refine the active member search. They run when a search term is present, not on the empty-query directory list. See Search for how the base directory browse differs from a search.
-- The plan, space, and label dropdowns appear only when there is data to populate them. On a fresh site with no plans or labels yet, members see the join-date and active-within filters and a hint pointing to the data they would need.
+- The plan, space, and label dropdowns appear only when there is data to populate them. On a fresh site with no plans or labels yet, members see the join-date and active-within filters and a short hint that plan, space and label filters appear when BuddyNext Pro is active.
 - Each member's saved searches are private to them and capped at 50. Running a saved search re-applies its stored filters against current data, so the results stay current even though the query is saved.
 
 ## Free vs Pro

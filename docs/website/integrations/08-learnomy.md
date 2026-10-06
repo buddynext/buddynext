@@ -4,7 +4,7 @@ Learnomy is the companion plugin that adds courses and certificates to your comm
 
 Bringing Learnomy into your community needs BuddyNext Pro. The Learnomy plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
 
-![Learnomy's surfacing controls under BuddyNext > Platform > Integration Settings - navigation, feed activity, and the Learning, Certifications and Teaching profile sub-tabs](../images/integration-learnomy.webp)
+![Learnomy's surfacing controls under BuddyNext > Integration Settings - navigation, feed activity, and the Learning, Certifications and Teaching profile sub-tabs](../images/integration-learnomy.webp)
 
 ## Why use it
 
@@ -24,10 +24,11 @@ The courses, lessons, and certificates live in Learnomy, which owns the learning
 The learning itself - enrolling, taking lessons, completing a course, earning a certificate - is handled by Learnomy. Members use Learnomy's own screens for those actions. BuddyNext surfaces the meaningful moments in the community:
 
 - **Completing a course posts to the feed.** When a member finishes a course, BuddyNext posts a "completed a course" activity so the community sees the achievement.
-- **Earning a certificate posts to the feed.** When a member earns a certificate, BuddyNext posts an activity that links to the public certificate-verify page, so the credential can be checked and shared.
+- **Earning a certificate posts to the feed.** When a member earns a certificate, BuddyNext posts a "completed the course and earned a certificate" activity that links to the public certificate-verify page, so the credential can be checked and shared. A course that issues a certificate posts once, as the certificate, never as both.
 - **Only credentials and milestones post - never enrollment noise.** Starting or simply progressing through a course does not post to the feed. Only the achievements that are worth showing - completions and certificates - become feed activity, so the feed stays meaningful.
-- **A Continue Learning panel lives on the profile.** A member's Portfolio tab shows a panel listing the courses they currently have in progress, each with its completion percentage and a link back into the lesson. A "Go to my courses" link jumps to the full Learnomy learning dashboard. This panel is private - it shows only when a member is viewing their own profile, never on someone else's.
-- **Course notifications land in one place.** Learnomy's own notifications gather into the BuddyNext notification center as a Courses source, so a member has a single bell for everything across the community.
+- **Cards follow the course and the certificate.** A card exists only while its course is published: unpublishing the course withdraws its cards, republishing restores them, and deleting the course removes them. An expired certificate's card is withdrawn and a revoked certificate's card is removed, so the feed never advertises a credential that no longer stands.
+- **A Portfolio tab on the profile.** BuddyNext adds a **Portfolio** tab with up to three Learnomy panels: **Learning** (the courses a member has in progress, each with its completion percentage or "Ready to start", plus a "Go to my courses" button), **Certifications** (completed courses, marked Certified when a certificate was issued, plus a "View your certificates" button) and **Teaching** (the published courses the member teaches, plus a "Manage Courses" button). The Learning panel is private - it shows only when a member is viewing their own profile, never on someone else's. A panel with nothing in it is left out.
+- **Course notifications land in one place.** Learnomy's notifications appear in the BuddyNext bell in Learnomy's own words, so a member has a single bell for everything across the community. Members can switch each type in their notification settings under **Courses**. Learnomy sends its own emails; BuddyNext does not.
 
 > **Note:** Enrolling, taking lessons, and managing courses happen on Learnomy's screens. BuddyNext does not replace those - it surfaces the milestones in the community.
 
@@ -37,15 +38,22 @@ The learning itself - enrolling, taking lessons, completing a course, earning a 
 2. Install and activate Learnomy alongside BuddyNext.
 3. Set up your courses and certificates in Learnomy as usual - the lessons, completion rules, and certificate options live there.
 
-There is nothing to configure on the BuddyNext side. As soon as both plugins are active, the integration is on and course completions, certificates, and notifications start surfacing in the community.
+There is nothing you have to fill in on the BuddyNext side. As soon as both plugins are active, the integration is on and course completions, certificates, and notifications start surfacing in the community.
 
-This integration has no settings of its own in BuddyNext. The learning experience - the courses, lessons, and certificate templates - is configured in Learnomy.
+Where they show is controlled on the **Learnomy** card of **Integration Settings**:
+
+| Setting | What it does | Default |
+|---|---|---|
+| Show in navigation | Whether the Portfolio panels appear on member profiles. Learnomy adds three, so each sub-tab (Learning, Certifications, Teaching) can be switched individually. Turning it off also stops Learnomy notifications reaching the bell. | On |
+| Post to the activity feed | Whether course completions and certificates post a feed activity. | On |
+
+There is no search switch: course content is not added to community search. The learning experience - the courses, lessons, and certificate templates - is configured in Learnomy.
 
 ## Linking a course or Learnomy Space to a community
 
 Beyond course completions and certificates, a course, a Learnomy Space, or a cohort can be linked directly to a BuddyNext Space, so learners get a community built around what they are studying.
 
-**Setting up the link.** The link is created from Learnomy's own admin screens, not from BuddyNext. Open a course's detail page, or a Learnomy Space's detail page, and use the **Community** card or tab that BuddyNext adds there. Pick an existing BuddyNext Space to link, or let BuddyNext create one for you.
+**Setting up the link.** The link is created from Learnomy's own admin screens, not from BuddyNext. On a course's editor or builder, a cohort, or a Learnomy Space, switch on Learnomy's **Community** control. BuddyNext then creates a private BuddyNext Space named after the course, cohort or Learnomy Space, owned by whoever teaches or runs it. Switching the control off only pauses the link: the community and everything in it stay, and switching it on again returns to the same community instead of building a second one. To reuse a community you already run, open the **Linked community** card BuddyNext adds on the course detail page or cohort screen (or the **Community** tab on a Learnomy Space), choose an existing private community and select **Link**. **Unlink** there leaves existing members in the community.
 
 **Membership follows access.** When a member enrolls in a linked course, joins a linked Learnomy Space, or is added to a linked cohort, they are added to the mapped BuddyNext Space automatically - its feed and discussions included. When that access ends - they unenroll, their enrollment expires, or they leave the Learnomy Space or cohort - they are removed from the community the same way. If access is restored later, they are added back.
 
@@ -69,22 +77,23 @@ This is set up on the plan itself - open the plan in BuddyNext Pro's Membership 
 
 - **Only achievements post to the feed.** Course completions and earned certificates each post a feed activity; routine enrollment and progress do not. This keeps the feed focused on real milestones.
 - **Certificates link to a public verify page.** A certificate's feed activity points to the public certificate-verify page, so anyone can confirm the credential is genuine.
-- **The Continue Learning panel is owner-only.** It is a personal resume shortcut, not a public credential like certifications or teaching - only the profile owner ever sees it, on their own profile.
+- **The Learning panel is owner-only.** It is a personal resume shortcut, not a public credential like certifications or teaching - only the profile owner ever sees it, on their own profile.
 - **Sub-groups and learning paths cannot be linked yet.** A course, a whole Learnomy Space, or a cohort can be linked to a community Space; a Learnomy Space's individual sub-groups and standalone learning paths cannot be linked on their own yet.
 - **Learnomy-Space roles are not carried over.** A member added to the community through the link joins as a plain member, regardless of the role (instructor, moderator, and so on) they hold in the linked Learnomy Space.
-- **Notifications are gathered as a Courses source.** Learnomy's notifications collect into the BuddyNext bell under a Courses source, so learners follow course activity alongside everything else in the community.
+- **Notifications are gathered as a Courses source.** Learnomy's notifications collect into the BuddyNext bell under a Courses source, so learners follow course activity alongside everything else in the community. Learnomy decides who may see each one.
+- **Learnomy version.** Removing access when a learner unenrolls needs Learnomy 1.9.4 or newer.
 - **Inert when Learnomy is not installed.** Without the Learnomy plugin, the integration does nothing - no feed activity and no Courses notifications. BuddyNext checks for Learnomy before wiring anything in, so a site without it sees no errors and no empty surfaces.
 - **Learnomy owns the data.** All courses, lessons, and certificates live in Learnomy. BuddyNext reacts to its events and links out to its pages; it does not store or edit the learning content.
 
 ## Free vs Pro
 
-The Learnomy community integration is part of BuddyNext Pro. The Learnomy plugin itself is separate and runs on its own, but surfacing its course completions and certificates inside the BuddyNext community - the feed activity, the profile's Continue Learning panel, notification gathering, linking a course or Learnomy Space to a community, and granting Learnomy access from a membership plan - requires BuddyNext Pro. Linking a Learnomy Space (rather than a course) additionally needs the Learnomy Pro Spaces extension active.
+The Learnomy community integration is part of BuddyNext Pro. The Learnomy plugin itself is separate and runs on its own, but surfacing its course completions and certificates inside the BuddyNext community - the feed activity, the profile's Portfolio panels, notification gathering, linking a course or Learnomy Space to a community, and granting Learnomy access from a membership plan - requires BuddyNext Pro. Linking a Learnomy Space (rather than a course) additionally needs the Learnomy Pro Spaces extension active.
 
 ## Related
 
 - [Integrations Overview](01-overview.md) - how every companion plugin connects.
 - [Activity Feed](../community/01-activity-feed.md) - where course completions and certificates appear.
 - [Notifications](../messaging-notifications/02-notifications.md) - the bell that gathers course notifications.
-- [Member Profiles](../members/01-member-profiles.md) - the profile the Continue Learning panel joins.
+- [Member Profiles](../members/01-member-profiles.md) - the profile the Portfolio panels join.
 - [Spaces overview](../spaces/01-spaces-overview.md) - what a course or Learnomy Space can be linked to.
 - [Membership Plans](../pro/01-membership-plans.md) - where a plan is mapped to the Learnomy courses or Space it grants.

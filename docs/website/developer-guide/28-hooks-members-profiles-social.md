@@ -17,8 +17,8 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_handle_history_limit` | filter | A member changes their handle and BuddyNext records the old one. Caps how many previous handles are kept per member, so an old handle can still resolve to its owner instead of 404ing or being silently re-issued. Default `5`. | `int $limit, int $user_id` |
-| `buddynext_profile_write_allowlist` | filter | The profile REST controller decides which fields a member may write about themselves. Anything not on the list is dropped rather than saved, so adding a custom field to the profile form also means adding it here. | `string[] $fields, int $user_id` |
+| `buddynext_handle_history_limit` | filter | A member changes their handle and BuddyNext records the old one. Caps how many previous handles are kept per member, so an old handle can still resolve to its owner instead of 404ing or being silently re-issued. Default `0` (keep them all). | `int $limit` |
+| `buddynext_profile_write_allowlist` | filter | The profile REST controller decides which fields a member may write about themselves. Anything not on the list is dropped rather than saved, so adding a custom field to the profile form also means adding it here. | `string[] $keys` (the accepted top-level keys) |
 | `buddynext_reserved_profile_slugs` | filter | A member handle is generated or validated. These slugs are refused because they collide with BuddyNext's own profile sub-routes (`files`, `media`, `likes`, …); a member claiming one would shadow their own tab. Add your own to reserve them. | `string[] $slugs` |
 | `buddynext_registration_pending` | action | A new registration is created but awaits admin approval | `int $user_id, string $email` |
 | `buddynext_user_verified` | action | A member completes email verification | `int $user_id` |
@@ -132,7 +132,7 @@ Six member-facing surfaces apply a render filter so an external plugin (typicall
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_member_card_meta_html` | filter | Rendering a member-directory / search-members card, or a space roster card (meta chip below the handle) | `string $html, int $user_id, array $context` (context carries `context` => `member_directory` \| `space_roster`) |
-| `buddynext_member_card_min_bio_remainder` | filter | Deciding whether the tail of a bio is worth showing under an identical headline (default `12` characters) | `int $min, string $bio, string $headline` |
+| `buddynext_member_card_min_bio_remainder` | filter | Deciding whether the tail of a bio is worth showing under an identical headline (default `12` characters) | `int $min` |
 | `buddynext_post_byline_meta_html` | filter | Rendering a feed card byline (inline chip beside the author name) | `string $html, int $author_id, int $post_id` |
 | `buddynext_profile_hero_badges_html` | filter | Rendering the profile hero badges row under the display name | `string $html, int $user_id` |
 | `buddynext_avatar_overlay_html` | filter | Rendering inside `.bn-avatar` (level frame / corner badge); fires from profile-hero at size `2xl` and member-card at size `xl` | `string $html, int $user_id, string $size` |
@@ -198,6 +198,104 @@ Right-sidebar widgets fall back to inline `COUNT` queries from `bn_*` tables whe
 | `buddynext_user_weekly_engagement_received` | filter | "This week" stats widget | `int\|null $count, int $user_id` |
 
 Return `null` from `buddynext_user_active_dates` to fall through to BuddyNext's inline query; return an array of `YYYY-MM-DD` strings to override it.
+
+## More member, profile, and social-graph seams
+
+Narrower hooks that did not fit the sections above. Same table shape.
+
+### Profile fields, groups, and strength
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_profile_fields` | filter | The full profile group and field tree is built. Add groups, or push fields onto an existing group's `fields`. | `array $groups` |
+| `buddynext_profile_groups` | filter | The profile group list (without fields) is read. Register a virtual group in code here. | `array $groups` |
+| `buddynext_profile_hero_fields` | filter | The profile hero's meta-row field keys are resolved, in render order. | `string[] $keys` |
+| `buddynext_field_render_input` | filter | A profile field's edit input is rendered. Return an escaped HTML string to take over a custom field type; `null` falls through to the core types. | `string\|null $html, array $field, mixed $value, string $name` |
+| `buddynext_field_sanitize` | filter | A submitted field value is validated and sanitized. Return a storable string or a `WP_Error` to take over; `null` falls through to the core types. | `string\|WP_Error\|null $result, array $field, mixed $raw` |
+| `buddynext_field_searchable_text` | filter | A field value is turned into text for the member search index. | `string $text, array $field, mixed $value` |
+| `buddynext_profile_strength_tasks` | filter | The Profile Strength checklist is built for a member. Each task is `array{label: string, done: bool}`. | `array $tasks, int $user_id, array\|null $profile` |
+| `buddynext_profile_strength_changed` | action | A member's Profile Strength percentage actually changed. Reward systems keyed to "profile completed" should listen here (percent `100`). | `int $user_id, int $percent` |
+| `buddynext_member_interests_updated` | action | A member's interests are saved, so suggestion caches can be refreshed. | `int $user_id` |
+| `buddynext_handle_length_bounds` | filter | Handle length limits are read. The character set is not filterable. | `array $bounds` (`[ min, max ]`) |
+| `buddynext_members_can_change_handle` | filter | A member tries to change their own handle. Return `false` for communities that fix handles to real names. | `bool $allowed, int $user_id` |
+| `buddynext_account_deletion_requires_password` | filter | A member deletes their own account. Return `false` to skip the password re-check. | `bool $required` (default `true`) |
+| `buddynext_user_search_visibility_changed` | action | A member changes the setting that decides whether their posts appear in global search, so their posts can be re-indexed. | `int $user_id` |
+| `buddynext_author_link_to_profile` | filter | An author link is built. Return `false` to keep the default WordPress author URL. | `bool $to_profile, int $author_id` |
+
+### Profile templates
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_profile_before` / `buddynext_profile_after` | action | Before and after the profile main content. | `int $user_id` |
+| `buddynext_profile_connections_before` | action | Before the profile connections content. | `int $user_id` |
+| `buddynext_profile_edit_before` | action | Before the profile edit form content. | `int $user_id` |
+| `buddynext_profile_about_before` / `buddynext_profile_about_after` | action | Before and after the About tab's field-group cards. | `int $profile_user_id, int $viewer_id, array $profile` |
+| `buddynext_profile_about_group_before` / `buddynext_profile_about_group_after` | action | Before and after one About group card. | `string $group_key, array $group, int $profile_user_id` |
+| `buddynext_profile_about_groups` | filter | The About tab's group list is about to render. Reorder, add, or drop groups. | `array $groups, int $profile_user_id, int $viewer_id` |
+| `buddynext_profile_group_upgrade_url` | filter | The profile editor shows a locked field group to its owner. Return the upgrade link for the plan that unlocks it; empty hides the link. | `string $url, string $group_key, int $user_id` |
+| `buddynext_profile_articles_per_page` | filter | The Member Blog profile tab sets its page size (default `10`). | `int $per_page` |
+| `buddynext_members_before` / `buddynext_members_after` | action | Before and after the members directory content. | `int $current_user_id` |
+| `buddynext_messages_list_before` / `buddynext_messages_list_after` | action | Before and after the messages list. | none |
+| `buddynext_messages_requests_before` / `buddynext_messages_requests_after` | action | Before and after the message requests list. | none |
+| `buddynext_messages_thread_before` / `buddynext_messages_thread_after` | action | Before and after a message thread. | `int $conversation_id` |
+
+### Member directory
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_member_directory_query_args` | filter | The directory query args are resolved, before the SQL is built. Adjust `per_page`, `sort`, and `filters`. | `array $query_args, string $scope, int $viewer_id` (`$scope` is always `member_directory`) |
+| `buddynext_member_directory_order_by` | filter | The ORDER BY fragment is built (without the `ORDER BY` keyword). It is interpolated into SQL, so return only column references and `ASC`/`DESC`, and end with `u.ID` as a tie-breaker. | `string $order_by, int $viewer_id, array $query_args` |
+| `buddynext_member_directory_items` | filter | The hydrated member rows are about to be returned. Reorder or enrich them; removing rows does not adjust `total` or the cursor. | `array $items, string $scope, int $viewer_id, array $query_args` |
+| `buddynext_directory_members_primed` | action | Core has bulk-primed a page of members (directory and space roster), so an add-on can batch-load its own per-member data. | `int[] $page_ids, int $viewer_id` |
+| `buddynext_rest_member_item` | filter | A member item is shaped for REST (directory and space roster rows). Only add fields; roster rows carry fewer keys. | `array $item, int $user_id` |
+| `buddynext_member_card_cover_tone` | filter | A member card picks its cover tone (`sky`, `cyan`, `emerald`, `lime`, `amber`, `coral`). | `string $tone, int $member_id` |
+
+### Follow, connection, and restrict
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_follow_requested` | action | A follow request lands on a private account. | `int $follower_id, int $following_id` |
+| `buddynext_follow_request_approved` | action | An owner approves a pending follow request. | `int $owner_id, int $follower_id` |
+| `buddynext_follow_request_rejected` | action | An owner rejects a pending follow request. | `int $owner_id, int $follower_id` |
+| `buddynext_user_followed_first_time` | action | A user follows someone for the first time, once per user, for onboarding flows. | `int $follower_id, int $following_id` |
+| `buddynext_can_follow` | filter | Whether an actor may follow a target. Default follows the target's who-can-follow preference. | `bool $can, int $target_id, int $actor_id` |
+| `buddynext_can_connect` | filter | Whether an actor may send a connection request to a target. | `bool $can, int $target_id, int $actor_id` |
+| `buddynext_can_view_connections` | filter | Whether a viewer may see a user's followers and following lists. | `bool $can, int $owner_id, int $viewer_id` |
+| `buddynext_social_denied_error` | filter | A follow or connect is refused and the `WP_Error` is built. Listeners must return a `WP_Error`. | `WP_Error $error, string $action, int $actor_id, int $target_id` (`$action` is `follow` or `connect`) |
+| `buddynext_follow_suggestions` | filter | The "who to follow" id list is built, in rank order. | `int[] $ids, int $user_id` |
+| `buddynext_followers` | filter | A user's follower id list is read (approved follows, newest first). | `int[] $ids, int $user_id` |
+| `buddynext_following` | filter | A user's following id list is read (approved follows, newest first). | `int[] $ids, int $user_id` |
+| `buddynext_interest_match_ceiling` | filter | Interest matching for suggestions sets its selectivity ceiling; categories picked by more than this fraction of members are ignored (default `0.10`). | `float $fraction, int $user_id` |
+| `buddynext_max_following` | filter | The follow cap per member is read (default `5000`). The app config route advertises the value from the same filter. | `int $cap, int $user_id` (the app config call passes `$cap` only) |
+| `buddynext_max_connections` | filter | The connection cap per member is read (default `5000`). | `int $cap, int $user_id` (the app config call passes `$cap` only) |
+| `buddynext_connect_note_max_length` | filter | The max length of a connection note is read (default and ceiling `280`). | `int $max` |
+| `buddynext_connection_redeclare_cooldown` | filter | A declined requester asks again. How long they must wait (default 7 days). | `int $seconds, int $requester_id, int $recipient_id` |
+| `buddynext_mutual_list_cap` | filter | A mutual-connections list is read. The ceiling on returned rows. | `int $cap, int $user_a, int $user_b` |
+| `buddynext_user_restricted` | action | A member restricts another (only when a new restrict row was written). | `int $actor_id, int $target_id` |
+| `buddynext_user_unrestricted` | action | A restrict is removed (only when a row was removed). | `int $actor_id, int $target_id` |
+| `buddynext_user_relations_purged` | action | A deleted user's relations are purged. Kept for older listeners; prefer `buddynext_purge_user_data`. | `int $user_id` |
+| `buddynext_credits_spent` | action | Credits are successfully spent from a member's balance. | `int $user_id, int $amount, string $reason` |
+| `buddynext_presence_visible_to_anonymous` | filter | Whether online presence is shown to logged-out visitors (default `false`). | `bool $visible` |
+
+### Export and erasure
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_member_erase_map` | filter | The member purge builds its list of user-keyed tables. Register an add-on table so it is deleted and counted before the member is reported erased. | `array $map` (unprefixed table => `where`, `sweep`) |
+| `buddynext_member_retain_map` | filter | The list of tables deliberately kept on erasure. Every add-on user table must be on exactly one of the two maps. | `array $map` (unprefixed table => reason) |
+| `buddynext_privacy_export_exclusions` | filter | Tables that are erased but not exported. Each needs a human reason. | `array $exclusions` (unprefixed table => reason) |
+| `buddynext_privacy_export_redactions` | filter | Columns omitted from an otherwise exported table. | `array $redactions` (unprefixed table => columns) |
+| `buddynext_privacy_export_table_label` | filter | The export group label for a derived table is resolved. | `string $label, string $table` |
+| `buddynext_export_per_page` | filter | Rows per export page (default `100`). | `int $per_page` |
+| `buddynext_data_export_cooldown` | filter | A member requests their data export. How long until they can request another (default 5 minutes). | `int $seconds` |
+| `buddynext_purge_post_chunk` | filter | A member purge cascades authored posts in slices (default `100`). | `int $chunk` |
+| `buddynext_purge_time_budget` | filter | A purge sets how long it may run in one request before deferring the rest (default `10` seconds). | `float $seconds, int $user_id, string $context` (`delete` or `gdpr-erase`) |
+
+### Capability denial
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_capability_denied_error` | filter | A REST action is refused by a capability check and the `WP_Error` is built. Free's message blames the member's role; a listener that denies for another reason, such as a plan limit, replaces it. Listeners must return a `WP_Error`. | `WP_Error $error, string $capability, int $user_id, array $context` |
 
 ## Notes / gotchas
 

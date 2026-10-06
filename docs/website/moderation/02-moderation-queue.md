@@ -41,7 +41,7 @@ Above the list:
 
 Choose a type and sort, then select **Filter**. Paging keeps your choice.
 
-> **Note:** Reported photos and videos do not come here. They go to the media plugin's own review queue, under **WPMediaVerse > Media Moderation** in the WordPress admin, because that plugin owns the media. If your community allows photo and video uploads, put both queues on your moderators' rounds.
+> **Note:** Reported photos and videos do not come here. They go to the media plugin's own review queue, under **MediaVerse > Moderation** in the WordPress admin, because that plugin owns the media. If your community allows photo and video uploads, put both queues on your moderators' rounds.
 
 ## Acting on a report
 
@@ -65,6 +65,8 @@ Warning, striking, and suspending act on the person rather than the single item.
 
 On a phone, each row stacks: the report on top, the actions underneath.
 
+Above the list, Community Admin Moderation has tabs for **Reports**, **Appeals** (Approve & lift suspension, or Deny), **Pending joins**, **Recent signups** and **Recent actions**.
+
 ### Every action is logged
 
 Every moderation decision - dismiss, remove, warn, strike, reverse, suspend - is written to a permanent moderation log. The log is the audit trail of who did what and when, so a community can answer "why was this removed" and review its moderators' decisions over time.
@@ -75,14 +77,18 @@ When nothing matches the current filter, the queue says so. An empty queue is th
 
 ## The wp-admin mirror (for site administrators)
 
-The same reports also appear in the WordPress admin, under **BuddyNext > Moderation**. It reads and writes the same reports as Community Admin, but it is restricted to whoever can manage the site, and it groups the whole moderation workflow into tabs:
+The same reports also appear in the WordPress admin, under **BuddyNext > Moderation**. It reads and writes the same reports as Community Admin, but it is restricted to whoever can manage the site, and it groups the whole moderation workflow into these tabs:
 
 | Tab | What it shows |
 |---|---|
+| Controls | The moderation settings: auto-hide, queue alert, strike thresholds and content safeguards. See Content Safeguards. |
 | Pending | Posts held for approval before they went live. Empty on almost every site - see Content Safeguards for when this applies. |
 | Reports | The same report queue, as a table with type, reason, and sort filters. |
 | Suspensions | Every active suspension, with a one-click lift. See Moderating a Member. |
 | Appeals | Pending appeals awaiting a decision. See Appeals. |
+| Moderation Log | Every moderation action, with filters and an **Export CSV** button. |
+
+With BuddyNext Pro active, **Rules** and **Bulk Moderation** tabs appear here as well.
 
 Site administrators also get a **View all** link from Community Admin to this table. Both surfaces write to the same moderation log.
 

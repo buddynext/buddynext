@@ -18,13 +18,12 @@ The action and filter seams for unified search, the hashtag system, the search i
 | `buddynext_search_results` | filter | Before the built-in SQL runs; return a non-null result set to bypass BuddyNext's query entirely (external search driver) | `null\|array $result, string $query, string $type, int $per_page, int $page` |
 | `buddynext_search_query_args` | filter | The query args are assembled, before the built-in SQL builds its WHERE clauses (the Pro advanced-filter seam: plan, space, member-label, joined-after) | `array $args, string $query, int $viewer_id` |
 | `buddynext_search_item` | filter | Once per result row on the built-in SQL path (mutate-only; does not run when a driver short-circuits) | `array $item, string $query, string $type, int $viewer_id, array $args` |
-| `buddynext_search_results` (results side) | filter | After items are built, to post-process the result set | `array $results, ...` |
 | `buddynext_search_performed` | action | A search has completed and the result set is finalised | `string $query, int $viewer_id, array $args, array $results` |
 | `buddynext_search_filter_options` | filter | The advanced member-search controls are populated (Pro supplies plan / space / member-label option lists; empty groups hide their control) | `array $options, int $viewer_id` |
 | `buddynext_search_viewer_spaces` | filter | The spaces whose content a logged-in viewer may find, resolved from membership. Answer with ADDITIONAL space ids the viewer may read without having joined (Pro adds gated spaces whose `required_ability` they hold). Widening only: membership ids are re-added regardless, and every addition is verified against `can_view_content()` before it is honoured, so a listener cannot grant reach into a space the viewer may not read | `int[] $space_ids, int $viewer_id` |
 | `buddynext_search_entitled_space_limit` | filter | How many entitled-but-unjoined spaces a single search will verify. Each costs a space fetch and an ability check, so the list is cut rather than allowed to grow. Default `200` | `int $limit, int $viewer_id` |
-| `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line | `string $html, ...` |
-| `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | - |
+| `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line. Return pre-escaped HTML. | `string $html, int $member_id` |
+| `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | `int $current_user_id` |
 | `buddynext_search_space_object_type` | filter | A space is (re)indexed. Return another slug to list that space in its own search section and tab instead of Spaces (since 1.2.2) | `string $type = 'space', array $space_row` |
 | `buddynext_route_core_search` | filter | A front-end core `?s=` search runs (not a BuddyNext hub). Return `true` to redirect it to the community search page. Default `false` since 1.2.4: core, theme and WooCommerce search stay with WordPress, and the theme's results page links to community results instead | `bool $route` |
 | `buddynext_search_type_labels` | filter | The search page names its extra-type sections and tabs | `array<string,string> $labels` (type slug => plural label) |
@@ -143,7 +142,7 @@ The admin hub owns the BuddyNext top-level menu and arranges every settings tab 
 | `buddynext_outbound_webhook_limit` | filter | The max number of outbound webhooks an admin can register | `int $limit` |
 | `buddynext_search_fuzzy_max_rows` | filter | The largest search index on which the fuzzy fallback still runs | `int $max_rows` |
 | `buddynext_explore_aside_pulse` | action | Fires at the top of the Explore sidebar, for a live community-pulse card | `int $uid` |
-| `buddynext_nav_icon_choices` | filter | The icon slugs offered by the nav-item picker. Any slug in `assets/icons/` works whether or not it is listed here; this only shapes the picker | (none) |
+| `buddynext_nav_icon_choices` | filter | The icon slugs offered by the nav-item picker. Any slug in `assets/icons/` works whether or not it is listed here; this only shapes the picker | `string[] $icons` |
 | `buddynext_object_cache_warn_threshold` | filter | The member count above which a missing persistent object cache is worth warning the owner about | `int $threshold` |
 | `buddynext_feature_labels` | filter | Feature labels and descriptions are read for the Settings screen, after init. An add-on that adds features through `buddynext_features` supplies its translated strings here (the catalog itself is read too early to translate). Since 1.2.4. | `array $labels` (feature slug => `label`, `description`) |
 | `buddynext_theme_container_width` | filter | BuddyNext resolves the width for the "Theme default" container setting. Classic themes that keep their width in a theme setting rather than theme.json return it here; 0 falls back to 1200. Since 1.2.4. | `int $px` |
@@ -151,6 +150,53 @@ The admin hub owns the BuddyNext top-level menu and arranges every settings tab 
 | `buddynext_integration_search_disabled` | action | An integration's search indexing is switched OFF, so its bridge can clear what it indexed | `string $key` |
 
 > **Note:** `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` use the internal `bn_*` prefix because they wire admin chrome. They are stable extension points, but treat the section/tab keys as the public contract rather than the surrounding admin classes. See Hooks Overview for the `buddynext_*` vs `bn_*` distinction.
+
+## More admin, routing, and platform seams
+
+Narrower hooks around the admin screens, URL routing, the page head, and rendering. Same table shape as above.
+
+### Admin screens
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_admin_menu_sections` | filter | The admin menu decides which hub sections keep a WP admin menu link (default `get-started`, `members`, `moderation`, `settings`). | `string[] $keys` |
+| `buddynext_admin_docs_url` | filter | The admin "Docs" button builds its link. The default points at the guide for the current section and tab. | `string $url, string $section, string $tab` |
+| `buddynext_admin_notice_owner_dirs` | filter | The Hub strips other plugins' admin notices. Add your plugin's directory so its notice survives on Hub screens. | `string[] $dirs` (normalised, trailing-slashed paths) |
+| `buddynext_settings_tabs` | filter | The Settings hub tab strip is built. Register your own section as `slug => label`; the slug must resolve through `PageRouter::settings_url()` and you provide the template. | `array $tabs, string $active` |
+| `buddynext_settings_tab_reset` | action | An admin resets a settings tab to its declared defaults. | `string $tab, string[] $keys, int $user_id` |
+| `buddynext_export_option_is_sensitive` | filter | The settings export decides whether a BuddyNext option is sensitive and must be left out. | `bool $sensitive, string $name` |
+| `buddynext_webhook_event_catalogue` | filter | The outbound-webhook event list is built for the settings screen (`slug => label`). Pro adds its membership and payment events here. | `array $catalogue` |
+| `buddynext_pro_upgrade_url` | filter | The "Upgrade to Pro" link is built. | `string $url` |
+| `buddynext_recommended_defaults` | filter | The recommended first-run option values are read. | `array $map` (option name => value) |
+| `buddynext_wp_cron_disabled` | filter | BuddyNext decides whether WP-Cron can be trusted to fire a scheduled event. Defaults to the `DISABLE_WP_CRON` constant or a detected dead cron. Return `false` if you run a real system cron. | `bool $disabled` |
+| `buddynext_setup_complete` | action | The admin setup wizard is completed. | none |
+| `buddynext_insights_after` | action | At the end of the Insights tab. Pro renders its analytics suite below the Free summary here. | none |
+| `buddynext_community_admin_before` / `buddynext_community_admin_after` | action | Before and after the Community Admin inner content. | none |
+| `buddynext_edit_member_sections` | action | Inside the Account tab of the admin edit-member form, for member-level sections such as member type or labels. | `int $user_id, WP_User $user` |
+| `buddynext_admin_member_profile_saved` | action | After an admin saves a member's profile. Receives the sanitized BuddyNext field map, not raw `$_POST`. | `int $user_id, WP_User $user, array $profile_data` |
+
+### Routing, head, and rendering
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_rest_init` | action | Before BuddyNext registers its REST routes, in the same `rest_api_init` pass. Register routes under `buddynext/v1` here. | none |
+| `buddynext_rest_routes_registered` | action | After all core REST routes are registered. Use it to decorate or override a core endpoint. | none |
+| `buddynext_create_hub_page` | filter | A hub's backing page is missing and BuddyNext is about to create it. Return `false` to stop. | `bool $create, object $hub` |
+| `buddynext_client_nav_deny_patterns` | filter | The client router builds the URL patterns it must never swap in place (full page loads only). | `string[] $patterns` (regex fragments) |
+| `buddynext_keyboard_shortcuts_enabled` | filter | The single-key shortcuts (`n`, `/`, `g` then `f`) are switched on or off. On by default; `__return_false` turns them off. | `bool $enabled` |
+| `buddynext_meta_description` | filter | The community meta description tag is built. Return `''` to drop the tag. | `string $description` |
+| `buddynext_seo_plugin_active` | filter | BuddyNext decides whether an SEO plugin owns the page head. | `bool $active` |
+| `buddynext_head_meta_image` | filter | The fallback social image is chosen for a surface with no image of its own. | `string $url` |
+| `buddynext_template_html` | filter | A BuddyNext template's rendered HTML. Only runs when a callback is attached. The template has already escaped its output; you own the safety of what you return. | `string $html, string $relative, string $path` |
+| `buddynext_theme_token_map` | filter | The host-theme token map is built. Return `--bn-token => value` pairs to point BuddyNext's tokens at a theme's variables; an empty array means no adoption. | `array $map, string $template` |
+| `buddynext_asset_isolation_enabled` | filter | Asset isolation on BuddyNext routes is about to run (default `true`). | `bool $enabled` |
+| `buddynext_late_print_script_modules` | filter | The late script-module print pass is about to run. | `bool $enabled` |
+| `buddynext_time_ago_date_format` | filter | A timestamp is too old for relative time and needs a date format (default `j F`, or `j F Y` outside the current year). | `string $format, bool $is_current_year, string $gmt_datetime` |
+| `buddynext_pwa_offline_page` | filter | The PWA offline fallback page HTML is built. | `string $html` |
+| `buddynext_nav_tabs` | filter | The main-nav tab catalogue is built. A tab a plugin adds here with a URL also surfaces as a rail link. | `array $tabs` |
+| `buddynext_nav_show_tab_count` | filter | A nav item that would skip its count asks whether to resolve it anyway (default `false`). | `bool $show, object $item` |
+| `buddynext_fallback_nav_excludes` | filter | The fallback page-list nav omits these BuddyNext pages. | `array $excludes, bool $logged_in` |
+| `buddynext_companion_activation_redirect_keys` | filter | The setup wizard clears "just activated, redirect me" transients after activating a companion plugin. | `array $map, string $basename` (plugin slug => transient keys) |
 
 ## Examples
 

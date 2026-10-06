@@ -1,6 +1,6 @@
 # Roles and Permissions
 
-Roles and Permissions is where you decide who is allowed to do what across your whole community. Instead of a fixed set of rules, BuddyNext lets you set the minimum role required for each action - creating posts, starting spaces, following members, reporting content, and more - so the same platform can run a wide-open public community or a tightly controlled private one. You find it under **BuddyNext > Members**, on the **Roles & Capabilities** tab.
+Roles and Permissions is where you decide who is allowed to do what across your whole community. Instead of a fixed set of rules, BuddyNext lets you set the minimum role required for each action - creating posts, starting spaces, following members, reporting content, and more - so the same platform can run a wide-open public community or a tightly controlled private one. You find it under **BuddyNext > Members > Roles & Capabilities**.
 
 ![The BuddyNext admin Roles and Capabilities tab, where each community action is mapped to a minimum role](../images/admin-roles.webp)
 
@@ -23,7 +23,7 @@ Each action has a single dropdown with four choices for the minimum role allowed
 | Choice | Who can do the action |
 |--------|-----------------------|
 | All members | Every logged-in member, and everyone above them. |
-| Moderators and up | Moderators and Admins only. |
+| Moderators & up | Moderators and Admins only. |
 | Admins only | Community Admins only. |
 | Off (site admins only) | No community role can do it - only your WordPress site administrators. |
 

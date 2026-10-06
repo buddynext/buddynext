@@ -13,11 +13,11 @@ Moderation on BuddyNext is reactive by design - members post freely, and problem
 
 ## Steps
 
-1. **Learn the queue.** Every report lands in one review queue with the context a moderator needs to decide. Know how to action, dismiss, and escalate before volume arrives.
+1. **Learn the queue.** Every report on a post, comment, message, profile or space lands in one review queue with the context a moderator needs to decide (Community Admin > Moderation on the front end, **BuddyNext > Moderation > Reports** in wp-admin). Reports on photos and videos go to **MediaVerse > Moderation** instead. Know how to action, dismiss, and escalate before volume arrives.
    Full guide: [Moderation Queue](../moderation/02-moderation-queue.md) and [Reporting Content](../moderation/01-reporting-content.md).
 
 2. **Recruit moderators.** Give trusted members moderator capability so reviews are shared. Set expectations for what gets removed versus warned.
-   Full guide: [Community Roles and Moderators](../moderation/06-community-roles-and-moderators.md). For per-member actions - suspend, warn, restrict - see [User Moderation](../moderation/03-user-moderation.md).
+   Full guide: [Community Roles and Moderators](../moderation/06-community-roles-and-moderators.md). For per-member actions - warn, strike, suspend - see [User Moderation](../moderation/03-user-moderation.md).
 
 3. **Set safeguards.** Turn on the content safeguards that catch the obvious cases automatically, so the queue only holds the judgement calls.
    Full guide: [Content Safeguards](../moderation/05-content-safeguards.md). Members you action can contest a decision - see [Appeals](../moderation/04-appeals.md).

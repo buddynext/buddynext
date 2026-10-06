@@ -4,9 +4,9 @@ Reactions let members respond to a post or comment with an emoji instead of typi
 
 ![A BuddyNext post detail view showing reaction counts on the post and its comments](../images/post-detail.webp)
 
-![The reaction picker open on a post — Like, Love, Haha, Wow, Sad and Angry](../images/reaction-picker.webp)
+![The reaction picker open on a post - Like, Love, Haha, Wow, Sad and Angry](../images/reaction-picker.webp)
 
-![The "see who reacted" popover — each member who reacted, with their avatar, name and the emoji they chose](../images/reactors-popover.webp)
+![The "see who reacted" popover - each member who reacted, with their avatar, name and the emoji they chose](../images/reactors-popover.webp)
 
 ![The reaction palette, under the Social tab's Activity Feed section, where the site owner chooses which reactions members can use](../images/admin-social.webp)
 
@@ -16,7 +16,7 @@ A reaction is the lowest-effort way for a member to show they have seen and valu
 
 The six reactions also carry more meaning than a single "like". Love, haha, wow, sad, and angry let a member match their response to the moment - celebrating good news, laughing at something funny, or showing sympathy on a hard post. That range is what members expect from a modern social feed, and it keeps interactions feeling human rather than mechanical.
 
-For an owner, reactions work the moment the feature is on, with no per-post setup. They feed the rest of the platform too: the post author gets a notification, points are awarded where gamification is connected, and the activity stays lively without anyone having to write a word.
+For an owner, reactions work the moment the feature is on, with no per-post setup. They feed the rest of the platform too: the post author gets a bell notification (once per person per post, however many times they change their reaction), points are awarded where gamification is connected, and the activity stays lively without anyone having to write a word.
 
 ## How it works (for members)
 
@@ -41,12 +41,12 @@ Each post and comment shows a running count of reactions. Open the "who reacted"
 
 Reactions are on by default. You can turn the whole feature off, and you can decide which of the six emoji members are allowed to use.
 
-The feature toggle lives under Platform > Features. The reaction palette lives under the Activity Feed settings, in the Reactions block.
+The feature toggle lives under **BuddyNext > Platform > Features**. The reaction palette lives under **BuddyNext > Engagement > Social**, in the **Reactions** control of the Activity Feed section.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Reactions feature | Master on/off switch for reactions. When off, the reaction picker and counts are removed everywhere - on the page and over the API. Found under Platform > Features. | On |
-| Reaction palette | Choose which of the six reactions (like, love, haha, wow, sad, angry) members may use on posts and comments. At least one is always kept. | All six enabled |
+| Reactions feature | Master on/off switch for reactions. When off, the reaction picker and counts are removed everywhere - on the page and over the API. Found under **Platform > Features**. | On |
+| Reaction palette | Choose which of the six reactions (like, love, haha, wow, sad, angry) members may use on posts and comments, plus any custom reactions you have added with Pro. If you untick them all, every reaction stays on. | All six enabled |
 
 > **Note:** The reaction palette only takes effect while the Reactions feature is on. If you turn the feature off, the palette is disabled and shows a pointer back to the feature toggle.
 

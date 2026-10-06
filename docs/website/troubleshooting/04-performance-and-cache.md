@@ -1,6 +1,6 @@
 # Performance and Cache Issues
 
-Problems that show up as a community grows: slow lists, stale-looking data, and weak rate limits.
+Problems that show up as a community grows: slow lists, stale-looking data, and rate limits that seem not to work.
 
 ## The feed, member directory, or notification counts feel slow as the community grows
 
@@ -18,11 +18,15 @@ This is a recommendation, not a strict requirement - BuddyNext works without one
 
 **Symptom:** A member seems to be able to post far more comments per minute, or create far more accounts per hour, than the configured limit allows.
 
-**Likely cause:** Rate limiting counts actions **across requests**, which requires a **persistent** object cache to share counters between them. Without one, there is nothing to count into between requests, so limits are far weaker than the configured number suggests - this is a correctness issue, not just a speed one.
+**Likely cause:** The limits do not need a persistent object cache. BuddyNext counts posts from the database, and counts comments and sign-ups in a database table when no object cache is present. The usual causes are a switch that is off, an exempt account, or a shared IP address.
 
-**Fix:** Install a persistent object cache (see above). This is the same underlying cause as general slowness, but it's worth calling out separately because a weak rate limit can look like "the settings didn't take" rather than "there's no cache."
+**Fix:**
+1. Open **BuddyNext > Moderation > Controls > Content safeguards** and check that **Rate-limit posting** and **Rate-limit commenting** are ticked, with the numbers you expect. Unticked means no limit.
+2. Test as an ordinary member. Administrators and moderators are exempt from the post limit.
+3. For sign-ups, open **BuddyNext > Members > Registration & Login > Spam & Abuse Protection** and check **Rate-limit sign-ups per IP** (default 5 per hour).
+4. The sign-up limit counts per IP address. If your site sits behind a proxy or CDN that hides visitors' real addresses, everyone can look like one IP address, so the limit trips too early or not at all. A developer can map the real address with the `buddynext_client_ip` filter.
 
-See [Object Cache at Scale](../getting-started/09-object-cache-at-scale.md).
+See [Content Safeguards](../moderation/05-content-safeguards.md).
 
 ## The notification bell or "new posts" pill is slow to update
 
@@ -42,9 +46,9 @@ See [Near-Real-Time Updates](../engagement/03-realtime-updates.md) and [Real-tim
 
 ## Data still looks stale after switching Include in search off and back on for an integration
 
-**Symptom:** Turning a companion integration's "Include in search" switch back on doesn't seem to bring old content back into search immediately.
+**Symptom:** Turning a companion integration's "Include in search" switch (under **BuddyNext > Integration Settings**) back on doesn't seem to bring old content back into search immediately.
 
-**Explanation, not a bug:** Switching search off for an integration removes the content already in the search index, not just new content - that's deliberate, so a search switch that left old results behind wouldn't actually work as "off." Switching it back on re-indexes content as it is created or updated going forward, not instantly in bulk. If you need existing content re-indexed immediately after re-enabling search, check **Platform > Tools** for a reindex action, or wait for members to naturally interact with (update) that content.
+**Explanation, not a bug:** Switching search off for an integration removes the content already in the search index, not just new content - that's deliberate, so a search switch that left old results behind wouldn't actually work as "off." Switching it back on re-indexes content as it is created or updated going forward, not instantly in bulk. If you need existing content re-indexed immediately after re-enabling search, use **Rebuild search index** under **BuddyNext > Platform > Tools**, or wait for members to naturally interact with (update) that content.
 
 See [Integrations Overview](../integrations/01-overview.md).
 

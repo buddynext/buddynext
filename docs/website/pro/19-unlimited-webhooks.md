@@ -2,7 +2,7 @@
 
 Outbound webhooks let your community send a signed message to an outside service every time something happens - a member registers, a post is created, someone follows another member, a report is filed. Free BuddyNext includes the full webhook engine but limits you to one registered destination. Pro removes that limit so you can connect as many outbound destinations as you need.
 
-![The Realtime & Push > Webhooks admin tab where you register multiple outbound webhook destinations](../images/admin-webhooks.webp)
+![The Platform > Webhooks admin tab where you register multiple outbound webhook destinations](../images/admin-webhooks.webp)
 
 ## Why use it
 
@@ -24,7 +24,7 @@ The setup, the events, the signing, the retries, and the delivery log are all pa
 
 Everything about how a single webhook behaves is unchanged:
 
-- Each endpoint is a secure (https) address plus an optional signing secret. Insecure addresses are rejected.
+- Each endpoint is a secure (https) address plus a signing secret (BuddyNext generates a 40-character one when you do not supply it). Insecure addresses are rejected.
 - BuddyNext sends a small message to your address within seconds of each matching event, carrying the event name, a timestamp, and the event's details.
 - Every delivery is signed with your secret so your receiving service can confirm the message genuinely came from your community and was not tampered with.
 - An endpoint can subscribe to specific events or to all events.
@@ -36,7 +36,7 @@ Everything about how a single webhook behaves is unchanged:
 |---|---|---|
 | Maximum registered endpoints | The number of outbound webhook endpoints you can register at once. Free allows one; Pro lifts the limit so you can register as many as you need. | Free: 1. Pro: unlimited |
 
-There is nothing extra to switch on. Once Pro is active, the "Register endpoint" form on the Webhooks settings tab simply stops blocking you after the first endpoint - add a second, a third, and beyond, each with its own URL, events, and secret.
+There is nothing extra to switch on in Pro. The webhook engine itself is part of free BuddyNext and has its own **Webhooks** switch under Platform > Features; the endpoint list and form are on **Platform > Webhooks**. Once Pro is active, the **Register endpoint** form (New endpoint URL, Events to forward) simply stops blocking you after the first endpoint - add a second, a third, and beyond, each with its own URL, events, and secret.
 
 
 ## Good to know

@@ -1,6 +1,6 @@
 # Tools and Maintenance
 
-Tools and Maintenance is a small health-check screen that tells you whether the behind-the-scenes parts of your community are working, and gives you a button to fix them if they are not. It covers three things every owner occasionally needs to check: background tasks, the object cache, and the search index. You find it under **BuddyNext > Platform > Tools**.
+Tools and Maintenance is a small health-check screen that tells you whether the behind-the-scenes parts of your community are working, and gives you a button to fix them if they are not. It covers the things every owner occasionally needs to check or fix: background tasks, the object cache, the search index, the database, counters, caches, settings export and import, and demo data. You find it under **BuddyNext > Platform > Tools**.
 
 ![The BuddyNext admin Tools tab showing background task, object cache and search index status](../images/admin-tools.webp)
 
@@ -24,7 +24,7 @@ This panel simply tells you whether one is active. If it is, you are set up the 
 
 Global search reads a single index of members, posts, and spaces. Normally BuddyNext keeps this current for you.
 
-If search ever looks empty or out of date - it returns nothing, or misses recent content - this panel shows the index status and a **Rebuild** button. Rebuilding re-reads your content and restores the fast full-text index. The panel also shows how many rows are indexed, whether the fast full-text index is present, and when the last full rebuild ran, so you can tell at a glance whether a rebuild is worth doing.
+If search ever looks empty or out of date - it returns nothing, or misses recent content - this panel shows the index status and a **Rebuild search index** button. Rebuilding re-reads your content and restores the fast full-text index. The panel also shows how many rows are indexed, whether the fast full-text index is present, and when the last full rebuild ran, so you can tell at a glance whether a rebuild is worth doing.
 
 ## Database and default emails
 
@@ -38,11 +38,17 @@ WordPress **Tools > Site Health** also reports missing BuddyNext tables and link
 
 ## Demo data
 
-A brand-new community has nothing in it, which makes it hard to judge what a real one will look like. This panel seeds realistic sample members, spaces, posts, comments, reactions, follows, and connections (using bundled offline images, no external requests) so you can walk every surface before inviting anyone. It reports what was installed as a count of members, spaces, posts, and profile fields, and a single **Remove Demo Data** button clears all of it again. You will also see the same option offered on the last step of the setup wizard.
+A brand-new community has nothing in it, which makes it hard to judge what a real one will look like. This panel seeds realistic sample members, spaces, posts, comments, reactions, follows, and connections (using bundled offline images, no external requests) so you can walk every surface before inviting anyone. It reports what was installed as a count of members, spaces, posts, and profile fields, and a single **Remove demo data** button clears all of it again. Before anything is installed the button reads **Install demo data**. The same option is offered on the last step of the setup wizard.
+
+## Repair counters, caches, and settings export
+
+- **Repair counters** recomputes the cached counts that can drift after an import or a manual database change: space members, follow counts, connection counts, post reactions and comments, and poll votes. It is safe to run at any time and may take a moment on large communities.
+- **Caches** has a **Flush BuddyNext cache** button. Use it after changing a setting if a stale value persists.
+- **Export / Import settings** downloads every BuddyNext setting as a JSON file and restores it on another site, for example from staging to production. Only BuddyNext settings are touched.
 
 ## Plugin isolation
 
-Some plugins do their heaviest work on every page, or add markup and scripts that only matter on their own screens. Plugin isolation lets you choose which other plugins load on BuddyNext's own community pages (the activity feed, spaces, member profiles), so they run where they are needed and stay out of the way where they are not.
+Plugin isolation has its own tab, **BuddyNext > Platform > Plugin isolation**. Some plugins do their heaviest work on every page, or add markup and scripts that only matter on their own screens. Plugin isolation lets you choose which other plugins load on BuddyNext's own community pages (the activity feed, spaces, member profiles), so they run where they are needed and stay out of the way where they are not.
 
 It is **off by default** - every plugin keeps running everywhere until you turn isolation on and pick what to skip - so nothing changes on your site until you opt in. When it is on, BuddyNext will never remove a plugin that a plugin you kept depends on, so you cannot accidentally break a feature by isolating the plugin underneath it. Reach for this only if a specific plugin is slowing your community pages or interfering with them; most sites never need it.
 

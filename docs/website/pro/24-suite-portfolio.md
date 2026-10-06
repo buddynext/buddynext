@@ -1,6 +1,6 @@
 # Suite Portfolio
 
-The Portfolio tab is a single profile tab that gathers a member's activity from your other Wbcom apps into one place. Jobs and a resume from Career Board, listings from WB Listora, courses and certificates from Learnomy - they all appear as panels inside one "Portfolio" tab on the member's BuddyNext profile, rather than each app adding a tab of its own.
+The Portfolio tab is a single profile tab that gathers a member's activity from your other Wbcom apps into one place. Jobs and a resume from Career Board, listings from WB Listora, courses and certificates from Learnomy - they all appear inside one "Portfolio" tab on the member's BuddyNext profile, each as its own sub-tab, rather than each app adding a tab of its own.
 
 ![A member profile showing the Portfolio tab with panels from the connected Wbcom apps](../images/member-profile.webp)
 
@@ -14,16 +14,16 @@ The Portfolio tab solves that once. Every integration contributes a panel to the
 
 ## How it works (for members)
 
-A member's profile shows a Portfolio tab whenever there is something to put in it. Inside, each connected app contributes its own panel:
+A member's profile shows a Portfolio tab whenever there is something to put in it. Inside, each connected app contributes its own sub-tab (a panel):
 
-- **Career Board** - the member's jobs and their public resume, each linking out to the Career Board page.
-- **WB Listora** - the member's directory listings, linking out to each listing, plus an owner-only link to manage their business.
-- **Learnomy** - the member's credentials: completed courses and certificates (a public credential), courses they teach, and a private "Continue Learning" shelf.
+- **Career Board** - **Jobs** and **Resume** (the member's public resume), each linking out to the Career Board page. The owner sees "Manage Jobs" and "Manage Resume" links.
+- **WB Listora** - **Listings**, the member's directory listings, linking out to each listing, plus an owner-only "Manage Business" link.
+- **Learnomy** - **Certifications** (completed courses and certificates, public), **Teaching** (courses they teach, public), and a private **Learning** shelf of in-progress courses.
 
 Two things keep the tab honest:
 
 - **Panels are gated by their own data.** A member who has no jobs, no listings, and no courses has no Portfolio tab at all - it appears only when a panel has content, so the tab is never empty.
-- **Some panels are for the member only.** Learnomy's "Continue Learning" shelf (in-progress courses with progress bars) shows only on the member's own profile as a personal resume shortcut. It is never shown to other people. Public credentials like certificates are visible to everyone.
+- **Some panels are for the member only.** Learnomy's **Learning** sub-tab (in-progress courses with a completion percentage) shows only on the member's own profile as a personal resume shortcut. It is never shown to other people. Public credentials like certificates are visible to everyone.
 
 Every panel links out to the source app rather than trying to reproduce it. The Portfolio tab surfaces the member's activity and points to where it lives; it never takes over the other app's screens, and its copy stays about the member, not about the plugin behind it.
 
@@ -39,7 +39,9 @@ There is nothing to assemble. The Portfolio tab is built into Pro and fills itse
 
 1. Make sure BuddyNext Pro is active.
 2. Install and activate the companion apps you want - Career Board, WB Listora, or Learnomy.
-3. On the Platform → Integration Settings tab, each integration has the usual switches (show in navigation, post to the feed, include in search). Its Portfolio panel appears automatically once the app is active and a member has content.
+3. Open **Integration Settings** (its own section in the BuddyNext admin menu). Each integration has the usual switches: Show in navigation, Post to the activity feed, and Include in search (Include in search appears only for integrations that have searchable content). Its Portfolio sub-tab appears automatically once the app is active, **Show in navigation** is on, and a member has content. The card also shows a badge when the partner is older than BuddyNext supports ("Update needed") or newer than it was built for ("Newer partner").
+
+BuddyNext Pro declares these minimum partner versions: Career Board 1.4.3 and Learnomy 1.9.4. WB Listora declares none.
 
 Each integration's own behaviour - what a job or listing or course does - is configured in that app, not here. The Portfolio tab only decides how a member's activity from those apps is shown on their profile.
 

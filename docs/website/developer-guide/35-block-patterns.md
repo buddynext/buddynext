@@ -80,13 +80,13 @@ BuddyNext Free does not register any custom post types or taxonomies. There are 
 
 For completeness, two integration surfaces that BuddyNext Free **does** register (in addition to the 19 blocks and these 4 patterns):
 
-- **Shortcodes.** `ShortcodeService` (`includes/Shortcodes/ShortcodeService.php`, initialised in `Plugin::init()`) registers 7 hub shortcodes: `[buddynext_activity]`, `[buddynext_people]`, `[buddynext_spaces]`, `[buddynext_messages]`, `[buddynext_notifications]`, `[buddynext_auth]`, and `[buddynext_community_admin]`. These render the same surfaces the blocks do, for classic (non-block) themes.
+- **Shortcodes.** `ShortcodeService` (`includes/Shortcodes/ShortcodeService.php`, initialised in `Plugin::init()`) registers 8 shortcodes: `[buddynext_activity]`, `[buddynext_people]`, `[buddynext_spaces]`, `[buddynext_messages]`, `[buddynext_notifications]`, `[buddynext_auth]`, `[buddynext_community_admin]` and `[buddynext_search]`. These render the same surfaces the blocks do, for classic (non-block) themes.
 - **Widgets.** `WidgetService` (`includes/Widgets/WidgetService.php`, initialised in `Plugin::init()`) registers 3 classic `WP_Widget` widgets: Online Members, Trending Hashtags, and Recent Activity. The block-based equivalents (for block themes) are the `buddynext/*` blocks above.
 
-> **Note:** Counting shortcodes, you may see 8 rather than 7 - the eighth is the `buddynext_user_menu` closure, which is registered the same way but is chrome rather than a hub. BuddyNext registers no custom post types and no taxonomies.
+> **Note:** Counting shortcodes, you may see 9 rather than 8 - the ninth is `[buddynext_user_menu]`, registered in `buddynext.php`, which is chrome rather than a hub surface. BuddyNext registers no custom post types and no taxonomies.
 
 ## Notes / gotchas
 
 - **Patterns inherit block behaviour.** Because patterns are pure compositions, every scale, auth, and REST rule from Blocks Reference applies unchanged. For example, the directories inside the directory patterns are paginated by their `perPage` attribute and back onto cursor/paged `buddynext/v1` routes.
 - **Editing after insert is local.** Reconfiguring a block inside an inserted pattern (changing `perPage`, swapping `layout`, removing a block) affects only that page. The registered pattern definition is unchanged.
-- **Free vs Pro.** All 4 patterns ship in Free. Pro does not register replacement patterns; it extends the embedded blocks (for example membership gating) which then surface within these same layouts.
+- **Free vs Pro.** All 4 patterns above ship in Free. Pro does not replace them; it registers one more pattern, `buddynext/membership-pricing-page` (header, community proof, plans, plan comparison and FAQ), in the same `buddynext` category.

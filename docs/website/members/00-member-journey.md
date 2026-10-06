@@ -55,7 +55,7 @@ A short list of members with their headlines ("Product designer", "UX writer", "
 
 ![Onboarding step 5: choose notification channels](../images/onboarding-5-notifications.webp)
 
-Three channel toggles with sensible defaults: **Email** (daily summary) and **In-app** (bell badge) are on, **Sound** is off. The member can fine-tune exactly which events reach each channel later, from Settings - this step just sets the broad strokes.
+Channel toggles with sensible defaults: **Email** (daily summary) and **In-app** (bell badge) are on, **Sound** is off. A **Push** toggle also appears when push notifications are available on the site. The member can fine-tune exactly which events reach each channel later, from Settings - this step just sets the broad strokes.
 
 ### Step 6 - Pick your membership
 

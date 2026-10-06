@@ -1,6 +1,6 @@
 # Schema: Moderation and Trust
 
-Reference for the tables that back BuddyNext's moderation, trust, and audit subsystem: `bn_reports`, `bn_mod_log`, `bn_user_strikes`, `bn_user_suspensions`, `bn_appeals`, `bn_invites`, `bn_activity_log`, and the safeguard counter `bn_rate_limits`. All eight are created by `BuddyNext\Core\Installer` via `dbDelta()` and live in the site table prefix (shown below as `wp_`). This page is for developers reading, extending, or writing against these tables directly.
+Reference for the tables that back BuddyNext's moderation, trust, and audit subsystem: `bn_reports`, `bn_mod_log`, `bn_user_strikes`, `bn_user_suspensions`, `bn_appeals`, `bn_invites`, and the safeguard counter `bn_rate_limits`. All seven are created by `BuddyNext\Core\Installer` via `dbDelta()` and live in the site table prefix (shown below as `wp_`). This page is for developers reading, extending, or writing against these tables directly.
 
 ![The moderation queue backed by the bn_reports, strikes, suspensions, and audit-log tables documented here](../images/moderation-queue.webp)
 
@@ -11,7 +11,7 @@ Reference for the tables that back BuddyNext's moderation, trust, and audit subs
 The moderation surface is split into three concerns:
 
 - **Intake** - members file reports into `bn_reports`. One reporter can file at most one report per object.
-- **Action + audit** - moderators act, and every action is recorded. `bn_mod_log` is the append-only audit trail; `bn_user_strikes` and `bn_user_suspensions` are the durable state of trust actions against a user; `bn_activity_log` is the broader (non-moderation-specific) action log.
+- **Action + audit** - moderators act, and every action is recorded. `bn_mod_log` is the append-only audit trail; `bn_user_strikes` and `bn_user_suspensions` are the durable state of trust actions against a user.
 - **Recourse** - a suspended or struck user can file an appeal into `bn_appeals`, reviewed by a moderator.
 
 Two structural rules shaped the schema:
@@ -29,7 +29,7 @@ Member-filed reports against a piece of content or a user. The queue read path i
 | `reporter_id` | `BIGINT UNSIGNED NOT NULL` | The user who filed the report. |
 | `object_type` | `VARCHAR(32) NOT NULL` | The kind of object reported, e.g. `post`, `comment`, `user`. |
 | `object_id` | `BIGINT UNSIGNED NOT NULL` | The id of the reported object. |
-| `reason` | `ENUM('spam','harassment','misinformation','inappropriate','fake','impersonation','other') NOT NULL DEFAULT 'other'` | The selected report reason. |
+| `reason` | `VARCHAR(32) NOT NULL DEFAULT 'other'` | The selected report reason key (for example `spam`, `harassment`, `misinformation`, `inappropriate`, `fake`, `impersonation`, `other`). It is a plain string so the `buddynext_report_reasons` filter can add reasons without a schema change. |
 | `notes` | `TEXT NULL` | Optional free-text detail from the reporter. |
 | `status` | `ENUM('pending','dismissed','escalated','resolved') NOT NULL DEFAULT 'pending'` | Queue state. |
 | `resolved_by` | `BIGINT UNSIGNED NULL` | Moderator who closed the report. |
@@ -46,6 +46,7 @@ Member-filed reports against a piece of content or a user. The queue read path i
 | `object_status` | `object_type, object_id, status` | "Does this object have open reports?" and per-object report counts. |
 | `status_date` | `status, created_at` | The moderation queue: reports by status, newest first. |
 | `space` | `space_id` | Per-space report queues. |
+| `object_reported` | `object_type, object_id, created_at` | An object's reports in time order. |
 
 ### Relationships
 
@@ -79,6 +80,8 @@ Append-only audit trail of moderation actions. Every moderator action writes a r
 | `created` | `created_at` | Chronological audit feed. |
 | `space` | `space_id` | Per-space audit. |
 | `object` | `object_type, object_id` | "What moderation touched this object?" |
+| `action_time` | `action, created_at` | Filtering the audit feed by action type. |
+| `space_action_time` | `space_id, action, created_at` | A space's audit feed filtered by action type. |
 
 ### Relationships
 
@@ -207,35 +210,9 @@ Email invitations to join the community, optionally scoped to a space. Each invi
 - `space_id` references `bn_spaces.id` when set (the `space_id` column was added in schema revision 2 for space-linked invitations).
 - On acceptance, the invite resolves to a new `wp_users` row; the link is by `email` + `token`, not a stored user id.
 
-## `bn_activity_log`
-
-A general per-user action log, broader than moderation. Used for audit and activity history across the platform.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | `BIGINT UNSIGNED` AUTO_INCREMENT | Primary key. |
-| `user_id` | `BIGINT UNSIGNED NOT NULL` | The user who performed the action. |
-| `action` | `VARCHAR(64) NOT NULL` | Action slug. |
-| `object_type` | `VARCHAR(32) NULL` | The object the action targeted, if any. |
-| `object_id` | `BIGINT UNSIGNED NULL` | The id of that object. |
-| `created_at` | `DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP` | When the action occurred. |
-
-### Indexes
-
-| Key | Columns | Purpose |
-|---|---|---|
-| `PRIMARY` | `id` | Row identity. |
-| `user_action` | `user_id, action, created_at` | A user's actions of a given kind, newest first. |
-| `created_at` | `created_at` | Chronological feed across all users (also the sweep key for pruning). |
-
-### Relationships
-
-- `user_id` references `wp_users.ID`.
-- `object_type` + `object_id` is a polymorphic pointer.
-
 ## `bn_rate_limits`
 
-A generic, key-based counter that backs the safeguard rate limits (post and comment throttles, sign-ups per hour, duplicate-post window). Each row is one bucket, keyed by an opaque `rl_key` the caller composes (for example an action name plus the actor id or IP), holding a hit count and an expiry after which the bucket is considered empty. There are no foreign keys — it is a self-expiring tally, not audit state.
+A generic, key-based counter that backs the safeguard rate limits (post and comment throttles, sign-ups per hour, duplicate-post window). Each row is one bucket, keyed by an opaque `rl_key` the caller composes (for example an action name plus the actor id or IP), holding a hit count and an expiry after which the bucket is considered empty. There are no foreign keys - it is a self-expiring tally, not audit state.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -251,5 +228,5 @@ A generic, key-based counter that backs the safeguard rate limits (post and comm
 
 - **`one_per_reporter` is enforced at the DB.** A second report from the same reporter on the same object is rejected by the unique key, not by application logic. Handle the duplicate-insert case rather than pre-checking.
 - **Active state is computed, not stored.** A suspension is "active" when `lifted_at IS NULL AND (expires_at IS NULL OR expires_at > now)`; that is what `active_check` indexes. There is no single boolean column for it. The same reversibility pattern applies to strikes via `is_reversed`.
-- **`bn_mod_log` and `bn_activity_log` are append-only.** Treat them as audit trails: insert, never update. `bn_mod_log` is moderation-specific (carries `actor_id` / `target_user_id` / `space_id`); `bn_activity_log` is the broader per-user action log.
+- **`bn_mod_log` is append-only.** Treat it as an audit trail: insert, never update. It is moderation-specific (carries `actor_id` / `target_user_id` / `space_id`) and is what the community admin's Recent actions reads. The old `bn_activity_log` table was never written and is no longer created; an install that ran an earlier version may still hold an empty copy, which uninstall drops.
 - **Site vs space scope is the nullable `space_id`.** `bn_reports` and `bn_mod_log` both serve site-level and per-space moderation off the same table; a null `space_id` is the site-level case.

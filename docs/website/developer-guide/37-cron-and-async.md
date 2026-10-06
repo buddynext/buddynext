@@ -27,9 +27,8 @@ Registered on `wp_loaded` by `Core\CronScheduler` under the Action Scheduler gro
 | `buddynext_daily_digest` | Daily | Sends the daily activity digest. |
 | `buddynext_weekly_digest` | Weekly | Sends the weekly activity digest. |
 | `buddynext_cleanup_tokens` | Daily | Prunes expired auth / verification tokens. |
-| `buddynext_cleanup_notifications` | Weekly | Prunes read notification rows older than 90 days. |
-| `buddynext_cleanup_activity_log` | Weekly | Prunes activity-log rows past the data-retention window. |
-| `buddynext_cleanup_email_log` | Weekly | Prunes `bn_email_log` rows past the data-retention window. |
+| `buddynext_purge_logs` | Daily | Age-purges read notifications, `bn_email_log`, the webhook delivery logs and stale presence rows, in batches. The window is the `buddynext_log_retention_days` option (30, 60 or 90 days, default 60); unread notifications are kept until a hard maximum of 90 days. Registered by `Core\LogRetentionService` on `init`, group `buddynext`. |
+| `buddynext_cleanup_reports` | Weekly | Prunes closed `bn_reports` rows past the data-retention window. |
 | `buddynext_recount_stats` | Daily | Reconcile pass for counters. Counters are maintained incrementally on every write; this only repairs drift. |
 | `buddynext_daily_queue_check` | Daily | Sweeps the moderation queue for items needing a daily reconcile (aging reports, expiring strikes). Registered by the moderation listener. |
 | `buddynext_publish_scheduled_sweep` | Hourly | Safety sweep that publishes any scheduled post whose time has passed. Registered by `Feed\ScheduledPostsPublisher`. |
@@ -43,10 +42,12 @@ Armed on demand and self-clearing - they do not poll when there is no work.
 | `buddynext_publish_scheduled` | Armed at the next due scheduled post's time | Publishes due scheduled posts, then re-arms for the next one (or stays disarmed). Free-owned - runs with Pro absent. |
 | `bn_onboarding_nudge_24h` | Single event, 24h after signup | Sends the first onboarding nudge to a member who has not finished the setup steps. Armed per user at registration; self-clears once onboarding completes. |
 | `bn_onboarding_nudge_72h` | Single event, 72h after signup | Sends the second onboarding nudge if the member is still incomplete at 72 hours. Same per-user arming model as the 24h nudge. |
-| `buddynext_reindex_all_cron` | Single event | Runs a full rebuild of the `bn_search_index` table (members, posts, spaces, hashtags). Dispatched on demand - for example after a settings change that invalidates the index - not on a fixed cadence. |
-| `buddynext_webhook_deliver` | Single event, per outbound delivery | Delivers one outbound webhook off-request. Enqueued async (Action Scheduler) when a webhook fires. |
+| `buddynext_reindex_all_cron` | Single event, 30 seconds after a rebuild is requested | WP-Cron fallback for a full rebuild of the `bn_search_index` table (members, posts, spaces, hashtags), used when Action Scheduler is absent. With Action Scheduler the same rebuild runs as the async `buddynext_reindex_all` action. |
+| `buddynext_webhook_deliver` | Single event, per outbound dispatch | Delivers the outbound webhooks for one event off-request. Enqueued async (Action Scheduler, group `buddynext`) when an event fires; `buddynext_webhook_deliver_one` delivers a single webhook the same way. |
 | `buddynext_webhook_retry_single` | Single event, per failed delivery | Retries a failed webhook delivery with exponential backoff (300s base, up to 3 attempts). |
 | `edd_sl_sdk_weekly_license_check_{slug}` | Weekly | License-validation check from the bundled EDD Software Licensing SDK. Gates plugin updates only, never functionality. |
+
+> **Note:** `buddynext_cleanup_notifications`, `buddynext_cleanup_activity_log` and `buddynext_cleanup_email_log` are retired. The constants remain on `CronScheduler` only so that an upgrade can unschedule them where they are still armed; nothing listens to them.
 
 > **Note:** There is no recurring webhook-retry poll. Outbound delivery uses single events (`buddynext_webhook_deliver` / `buddynext_webhook_retry_single`) scheduled per delivery with exponential backoff, so nothing polls when the queue is empty. The old custom sub-hour recurrences (`buddynext_1min`, `buddynext_5min`, `buddynext_30min`) were removed in the cron-minimisation pass - every remaining recurring job uses a built-in `daily` / `weekly` / `hourly` recurrence.
 
@@ -60,7 +61,11 @@ Pro adds its own recurring jobs. Unlike Free they do **not** share the `buddynex
 | `buddynextpro_drip_tick` | Hourly | `buddynextpro_email` | Advances drip email sequences - enqueues the next due email for each enrolled member. Handled by `Email\DripEnrollmentService` / `Email\DripService`; self-(un)scheduling - stays disarmed when no enrollments are active. |
 | `buddynextpro_expire_subscriptions` | Daily | `buddynextpro` | Expires membership subscriptions past their end date and revokes the matching entitlements. Handled by `Membership\SubscriptionService`. |
 | `buddynextpro_ai_mod_sweep` | Configurable cadence (from the AI-moderation settings) | `buddynextpro_ai_moderation` | Recurring AI-moderation sweep over recent content. Handled by `Moderation\AiModerationSweep`. |
-| `buddynextpro_ai_mod_cleanup` | Daily | `buddynextpro_ai_moderation` | Prunes old AI-moderation bookkeeping rows. Handled by `Moderation\AiModerationSweep`. |
+| `buddynextpro_renewal_reminders` | Daily | `buddynextpro` | Sends renewal reminders for subscriptions nearing their end date. Handled by `Membership\RenewalReminderService`; re-enqueues itself while a full batch remains. |
+| `buddynextpro_reconcile_memberships` | Daily | `buddynextpro` | Reconciles membership grants with the registered grant bridges. Registered by `Bridges\GrantBridgeRegistrar`. |
+| `buddynextpro_data_retention` | Daily | `buddynextpro_analytics` | Prunes `bn_analytics_events` and `bn_ai_signals` rows past the `buddynext_data_retention_days` window; skipped when retention is set to keep forever. Handled by `Analytics\RetentionJob`. |
+
+> **Note:** `buddynextpro_ai_mod_cleanup` is retired. `Moderation\AiModerationSweep` and `Analytics\RetentionJob` only unschedule it where an earlier version armed it.
 
 > **Note:** Pro does not register its own scheduled-post publish cron. Publishing is Free-owned - `Feed\ScheduledPostsService` delegates the actual publish to Free's `Feed\ScheduledPostsPublisher` (the `buddynext_publish_scheduled` single event above).
 
@@ -110,6 +115,20 @@ if ( function_exists( 'as_enqueue_async_action' ) ) {
 | `buddynext_async_space_post_emails` | DELIVER stage: send the space new-post emails for a recipient batch, off the fan-out task (self-paginating in chunks of 50) | `array{ post_id, space_id, author_id, recipients }` |
 | `buddynext_async_index_hashtags` | A post or other content needs hashtag extraction + sync | `object_type, object_id, content` |
 | `buddynext_reindex_all` | A full search-index rebuild is requested | none |
+| `buddynext_async_index_post` | A post is created or edited and needs indexing | `int $post_id, int $user_id` |
+| `buddynext_async_deindex_post` | A post is removed from search | `int $post_id` |
+| `buddynext_async_index_space` | A space is created or edited and needs indexing | `int $space_id` |
+| `buddynext_async_deindex_space` | A space is removed from search | `int $space_id` |
+| `buddynext_async_reindex_space_posts` | A space's posts need re-indexing (self-paginating) | `int $space_id, int $offset` |
+| `buddynext_async_index_user` | A member's profile changed and needs indexing | `int $user_id` |
+| `buddynext_async_fetch_link_meta` | A post with a link needs its preview fetched | `int $post_id` |
+| `buddynext_async_send_invite_email` | An invitation email is queued | `array $payload` |
+| `buddynext_async_announcement_fanout` | An announcement needs notification fan-out | `array` |
+| `buddynext_send_notification_email` | A notification email is sent off-request | `int $user_id, string $notification_type, array $data` |
+| `buddynext_retry_notification_email` | A failed notification email is retried | `int $user_id, string $notification_type, array $data` |
+| `buddynext_resync_hashtags` | A batched hashtag re-sync runs | `int $offset` |
+| `buddynext_recount_hashtags` | A batched hashtag usage recount runs | `int $after_id` |
+| `buddynext_mvs_media_activity` | A WPMediaVerse upload is turned into a feed post, two minutes after the upload | `$media_id, $user_id, $media_type` |
 
 Rules for any new fan-out you add:
 

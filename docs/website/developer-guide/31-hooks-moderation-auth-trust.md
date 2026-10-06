@@ -37,7 +37,7 @@ Because it runs on both, the filter is passed a final `$context` argument - `'cr
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_automatic_sanction_failed` | action | An automatic sanction (strike, suspension, shadow-ban) could not be applied. Fires so a site can alert a human rather than let the moderation rule fail silently — the report stays open and nothing was applied. | `int $user_id, string $sanction, string $reason` |
+| `buddynext_automatic_sanction_failed` | action | An automatic sanction (strike, suspension, shadow-ban) could not be applied. Fires so a site can alert a human rather than let the moderation rule fail silently - the report stays open and nothing was applied. | `int $user_id, string $sanction, string $reason` |
 | `buddynext_safeguard_check` | filter | A post is about to be saved (create or edit), after the built-in automated checks pass | `true\|WP_Error $result, int $user_id, string $content, string $link_url, string $context` |
 | `buddynext_client_ip` | filter | The safeguard service resolves the request IP for the blocked-IP check | `string $ip` |
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
@@ -226,6 +226,51 @@ add_filter(
 ```
 
 > **Note:** WordPress's own `wp_safe_redirect()` at the apply point is the safety net - an off-site target still needs `allowed_redirect_hosts` or it falls back to `$fallback`.
+
+## More moderation, auth, and onboarding seams
+
+Narrower hooks around report handling, the sign-up and login screens, and onboarding. Same table shape as above.
+
+### Moderation and safeguards
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_premod_is_trusted` | filter | A post is about to be held by pre-moderation. Return `true` to exempt a trusted author. | `bool $trusted, int $user_id, array $data` |
+| `buddynext_rate_limit_exempt` | filter | The post rate limit is checked. Default: site admins and moderators are exempt. One filter lifts every post throttle, for example during an import replay. | `bool $exempt, int $user_id` |
+| `buddynext_report_reason_labels` | filter | Report reason labels are resolved. Pair with `buddynext_report_reasons`, which decides which reasons exist. | `array $labels` (slug => label) |
+| `buddynext_reportable_object_types` | filter | A report is filed. The closed list of object types that may be reported (default `post`, `comment`, `user`, `message`, `media`). | `string[] $types` |
+| `buddynext_removed_content_author` | filter | A takedown notice needs the author of removed content. An extension that claimed its own object type resolves the author here. | `int $author_id, string $object_type, int $object_id` |
+| `buddynext_object_label` | filter | A moderation object gets its label in reports and the log. Name your own object type here, or moderators see a bare "Thing #12". | `string $label, string $object_type, int $object_id` |
+| `buddynext_engagement_object_types` | filter | Reactions and comments check which object types they accept (default `post`, `comment`). | `string[] $types` |
+| `buddynext_run_moderation_jobs` | action | An admin clicks "Run now" on the moderation log. Background jobs such as the Pro AI sweep listen and run on demand. | none |
+| `buddynext_account_status_appeal` | action | Inside the suspension banner, after the appeal form or note, so an add-on can extend the appeal experience. | `array $suspension, bool $has_pending_appeal, int $user_id` |
+
+### Sign-up, login, and verification
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_auth_rate_limit` | filter | A credential endpoint reads its attempt cap per 15 minutes (default `10`; `0` disables it). | `int $max, string $action` (`login`, `lost`, or `reset`) |
+| `buddynext_gate_unverified` | filter | An unverified member is about to be held on the verify screen (also applied to REST requests). Return `false` to let them through. | `bool $gate, int $user_id` |
+| `buddynext_enforce_2fa_enrolment` | filter | A member whose role requires 2FA is about to be held on the setup screen. Return `false` to skip the hold. | `bool $enforce, int $user_id` |
+| `buddynext_social_email_verified` | filter | A social login decides whether the provider vouches for the email address. Revoke trust for a provider you do not want to rely on. | `bool $verified, string $provider_id, array $claims` |
+| `buddynext_default_login_redirect` | filter | A login without `?redirect_to=` picks where to send the visitor. Return `''` to always use the owner's After login setting. | `string $destination, string $referer` |
+| `buddynext_post_register_redirect` | filter | A freshly registered member is sent on. Pro uses it to resume a checkout started before sign-up. | `string $url, int $user_id, array $params` |
+| `buddynext_signup_form_fields` | action | At the top of the sign-up form, inside the `<form>`. Any input tagged `data-bn-signup-extra` is forwarded into the `POST /auth/register` body; validate it server-side. | none |
+| `buddynext_signup_subtitle` | filter | The sign-up screen's sub-heading is resolved. | `string $subtitle` |
+| `buddynext_invite_request_url` | filter | The "Request an invitation" button on the invite-only sign-up screen is built (default a `mailto:` to the admin email; `''` hides the button). | `string $url, string $invite_token` |
+| `buddynext_invite_space_join_failed` | action | A member registered through an invite that names a space, but joining that space failed. | `int $user_id, int $space_id, WP_Error $error` |
+| `buddynext_invite_csv_max_rows` | filter | An invite CSV is uploaded. Caps the rows processed per upload (default `500`). | `int $max` |
+| `buddynext_legal_page_url` | filter | A terms or privacy page URL is resolved for the sign-up consent text. Answer for terms hosted off-site. Applied on every path, including unreadable pages. | `string $url, int $page_id` |
+| `buddynext_unverified_purge_days` | filter | The cron purge reads how many days a never-verified account is kept (default `7`; `0` disables the purge). | `int $days` |
+| `buddynext_auth_show_form_logo` | filter | The auth card decides whether to repeat the logo above the form (default `false`; the theme header already shows it). | `bool $show` |
+| `buddynext_signup_url` / `buddynext_reset_url` / `buddynext_verify_url` | filter | The sign-up, password-reset, and email-verification screen URLs are resolved. Defaults are `{auth}/signup/`, `{auth}/reset/`, and `{auth}/verify/`. | `string $url` |
+
+### Onboarding
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_onboarding_should_redirect` | filter | A request is about to be redirected to the onboarding wizard. Return `false` to let a route opt out without disabling onboarding. | `bool $should_redirect, int $user_id, string $hub` |
+| `buddynext_onboarding_render_extra_steps` | action | The onboarding page renders sections for steps added through `buddynext_onboarding_steps`. Each add-on prints its own `bn-ob-step` section at its position. | `array $steps, array $step_pos, int $user_id` |
 
 ## Examples
 
