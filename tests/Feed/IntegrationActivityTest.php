@@ -108,6 +108,32 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * rewrite() upgrades the card that has a link, in place, and leaves another
+	 * member's card of the same course alone.
+	 *
+	 * @return void
+	 */
+	public function test_rewrite_by_link_upgrades_only_that_card(): void {
+		global $wpdb;
+		$other = self::factory()->user->create();
+		$mine  = IntegrationActivity::publish( $this->member_id, 'completed a course', 'https://example.test/course/go/?bn_learner=1', 'Go', 'course', '', 0, array( 'course_id' => 2 ) );
+		$their = IntegrationActivity::publish( $other, 'completed a course', 'https://example.test/course/go/?bn_learner=2', 'Go', 'course', '', 0, array( 'course_id' => 2 ) );
+		$when  = $wpdb->get_var( $wpdb->prepare( "SELECT created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $mine ) );
+
+		$this->assertSame( 1, IntegrationActivity::rewrite( 'https://example.test/course/go/?bn_learner=1', 'course', 'earned a certificate', 'https://example.test/verify/a/', 'Go', '', array( 'course_id' => 2, 'certificate_id' => 9 ) ) );
+
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT content, link_url, link_meta, created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $mine ) );
+		$this->assertSame( 'earned a certificate', $row->content );
+		$this->assertSame( 'https://example.test/verify/a/', $row->link_url );
+		$this->assertSame( $when, $row->created_at );
+		$this->assertSame( 9, (int) json_decode( (string) $row->link_meta, true )['certificate_id'] );
+		$this->assertSame( 'completed a course', $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}bn_posts WHERE id = %d", $their ) ) );
+
+		$this->assertSame( 0, IntegrationActivity::rewrite( 'https://example.test/course/none/', 'course', 'x', 'https://example.test/verify/z/' ), 'no card has that link' );
+		$this->assertSame( 0, IntegrationActivity::rewrite( 'https://example.test/course/go/?bn_learner=2', 'course', 'x', 'https://example.test/verify/a/' ), 'one card per link: the target is taken' );
+	}
+
+	/**
 	 * A typed publish() records the type and merges the meta into link_meta.
 	 *
 	 * @return void

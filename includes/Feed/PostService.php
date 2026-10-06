@@ -2927,7 +2927,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				"SELECT id FROM {$wpdb->prefix}bn_posts
 				 WHERE type = %s
 				   AND link_meta IS NOT NULL
 				   AND JSON_VALID( link_meta )
@@ -2939,11 +2939,52 @@ class PostService {
 			),
 			ARRAY_A
 		);
-		if ( empty( $rows ) ) {
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// LIMIT 1: one card per link, so at most one row may take the new link.
+		return empty( $rows ) ? 0 : $this->rewrite_card( (int) $rows[0]['id'], $content, $link_url, $meta );
+	}
+
+	/**
+	 * Rewrite the card of a type that currently has a given link, in place.
+	 *
+	 * The link-keyed counterpart of rewrite_link_meta_card(), for a card whose
+	 * snapshot carries no id unique to it (a course completion card stores the
+	 * course id, which every learner's card shares; its link is per learner).
+	 * Used through IntegrationActivity::rewrite().
+	 *
+	 * @param string               $type         Post type marker (e.g. 'course').
+	 * @param string               $old_link_url Link the card has now.
+	 * @param string               $content      New text.
+	 * @param string               $link_url     New link.
+	 * @param array<string, mixed> $meta         New link_meta snapshot.
+	 * @return int Cards rewritten.
+	 */
+	public function rewrite_link_card( string $type, string $old_link_url, string $content, string $link_url, array $meta ): int {
+		if ( '' === $link_url || ( $link_url !== $old_link_url && $this->exists_by_link( $type, $link_url ) ) ) {
 			return 0;
 		}
-		// LIMIT 1: one card per link, so at most one row may take the new link.
-		$updated = $wpdb->update(
+		$id = $this->get_id_by_link( $type, $old_link_url );
+
+		return $id > 0 ? $this->rewrite_card( $id, $content, $link_url, $meta ) : 0;
+	}
+
+	/**
+	 * Replace one card's text, link and snapshot, keeping its id, author, dates,
+	 * status, space and counts.
+	 *
+	 * @param int                  $id       Card (bn_posts) id.
+	 * @param string               $content  New text.
+	 * @param string               $link_url New link.
+	 * @param array<string, mixed> $meta     New link_meta snapshot.
+	 * @return int 1 when the row was written, else 0.
+	 */
+	private function rewrite_card( int $id, string $content, string $link_url, array $meta ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+		$updated  = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
 			array(
 				'content'    => $content,
@@ -2951,16 +2992,16 @@ class PostService {
 				'link_meta'  => wp_json_encode( $meta ),
 				'updated_at' => current_time( 'mysql', true ),
 			),
-			array( 'id' => (int) $rows[0]['id'] ),
+			array( 'id' => $id ),
 			array( '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		wp_cache_delete( 'post_' . (int) $rows[0]['id'], self::CACHE_GROUP );
-		if ( ! empty( $rows[0]['space_id'] ) ) {
+		wp_cache_delete( 'post_' . $id, self::CACHE_GROUP );
+		if ( $space_id > 0 ) {
 			/** Documented in create(). */
-			do_action( 'buddynext_space_posts_changed', (int) $rows[0]['space_id'] );
+			do_action( 'buddynext_space_posts_changed', $space_id );
 		}
 
 		return is_int( $updated ) ? $updated : 0;

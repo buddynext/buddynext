@@ -405,6 +405,32 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Turn the card that has a given link into a different card, in place.
+	 *
+	 * As rewrite_by_meta(), for a card found by its link: use it when the card's
+	 * snapshot holds no id of its own (a course completion card carries only the
+	 * course id, shared by every learner; its link is per learner). A later
+	 * certificate upgrades that card rather than adding a second post.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param string               $old_link_url Link the card has now.
+	 * @param string               $type         Card post type (e.g. 'course').
+	 * @param string               $content      New card text.
+	 * @param string               $link_url     New link.
+	 * @param string               $link_title   New link title.
+	 * @param string               $excerpt      New preview line.
+	 * @param array<string, mixed> $meta         Extra snapshot fields, as for publish().
+	 * @return int 1 when the card was rewritten, else 0.
+	 */
+	public static function rewrite( string $old_link_url, string $type, string $content, string $link_url, string $link_title = '', string $excerpt = '', array $meta = array() ): int {
+		if ( '' === $old_link_url || '' === $type || '' === $link_url ) {
+			return 0;
+		}
+		return ( new PostService() )->rewrite_link_card( $type, $old_link_url, $content, $link_url, self::card_meta( $link_url, $link_title, $excerpt, $meta ) );
+	}
+
+	/**
 	 * The link_meta snapshot an integration card is stored with.
 	 *
 	 * @param string               $link_url   Link the card points at.
