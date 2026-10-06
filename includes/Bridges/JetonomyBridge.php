@@ -2113,8 +2113,8 @@ class JetonomyBridge {
 				'version'        => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
 				// No hard floor evidenced for the model/action seams this bridge
 				// consumes, so none is declared (an invented floor would be worse
-				// than an honest null). Tested against the current release, 1.9.7.
-				'tested_version' => '1.9.7',
+				// than an honest null). Tested against 2.0.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
+				'tested_version' => '2.0.0',
 				'has_nav'        => true,
 				'has_feed'       => true,
 				'has_search'     => true,

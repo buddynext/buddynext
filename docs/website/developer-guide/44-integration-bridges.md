@@ -67,6 +67,9 @@ Each bridge declares two version fields in its `buddynext_integrations` registry
 
 - **`min_version`** - the floor below which the bridge's wired seams no-op. Declared per bridge (there is no central map).
 - **`tested_version`** - the partner release the bridge was last built and verified against.
+- **`feature_versions`** (optional) - a map of feature label to the partner version that feature needs, for features newer than the floor (Pro suite bridges: `integration_feature_versions()`). The bridge stays on below such a version; the feature must detect the partner API it needs, and Integration Settings and `wp buddynext bridge-status` name each feature the installed partner is too old for (`IntegrationRegistry::features_needing_update()`). Prefer this to raising `min_version`, which switches every seam off.
+
+Bump `tested_version` once per release, after checking every hook and API the bridge uses against the partner's tagged code.
 
 Two surfaces read them:
 

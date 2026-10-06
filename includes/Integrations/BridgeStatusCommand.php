@@ -91,6 +91,14 @@ class BridgeStatusCommand {
 
 		WP_CLI\Utils\format_items( 'table', $rows, array( 'integration', 'installed', 'floor', 'tested', 'state' ) );
 
+		// Features that need a newer partner than the floor: informational, the
+		// bridge itself works (each such feature detects the API it needs).
+		foreach ( $entries as $key => $entry ) {
+			foreach ( IntegrationRegistry::features_needing_update( (array) $entry ) as $feature => $needs ) {
+				WP_CLI::log( sprintf( '%s: %s available from %s (installed %s).', $key, $feature, $needs, (string) ( $entry['version'] ?? '' ) ) );
+			}
+		}
+
 		if ( $below_floor > 0 ) {
 			WP_CLI::error(
 				sprintf(

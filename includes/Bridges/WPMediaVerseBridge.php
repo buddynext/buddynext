@@ -1241,9 +1241,9 @@ class WPMediaVerseBridge {
 				'label'          => __( 'Media', 'buddynext' ),
 				'version'        => defined( 'MVS_VERSION' ) ? MVS_VERSION : null,
 				// Floor: 2.4.0 added the collections / document-drive / trash seams
-				// the bridge wires. Tested against the current release, 2.5.0.
+				// the bridge wires. Tested against 2.6.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
 				'min_version'    => '2.4.0',
-				'tested_version' => '2.5.0',
+				'tested_version' => '2.6.0',
 				'has_nav'        => true,
 				'has_feed'       => true,
 				'subtabs'        => array(

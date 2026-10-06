@@ -131,6 +131,14 @@ class IntegrationControlsAdmin {
 									}
 									?>
 								</p>
+								<?php foreach ( \BuddyNext\Integrations\IntegrationRegistry::features_needing_update( $entry ) as $bn_feature => $bn_needs ) : ?>
+									<p class="bn-field-hint">
+										<?php
+										/* translators: 1: feature name (may be plural), 2: partner version it needs. */
+										printf( esc_html__( '%1$s: available from version %2$s. Everything else works now.', 'buddynext' ), esc_html( $bn_feature ), esc_html( $bn_needs ) );
+										?>
+									</p>
+								<?php endforeach; ?>
 							<?php endif; ?>
 							<?php if ( ! empty( $entry['has_nav'] ) ) : ?>
 								<div class="bn-toggle-row">
