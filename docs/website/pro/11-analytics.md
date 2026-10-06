@@ -37,7 +37,7 @@ The panel stays hidden until the member has at least one view, so a new profile 
 
 ### Opting out of profile-view tracking
 
-Any member can switch on **Hide my profile views** in their privacy settings (hint: "When on, your visits to other profiles are not recorded."). In practice the visit is still counted in the other member's totals, but the member's name and avatar are hidden: they show as "Someone" in the viewer list.
+Any member can switch on **Hide my profile views** in their privacy settings (hint: "When on, your visits to other profiles are not recorded."). While the switch is on, the member's visits are not stored at all, so they do not appear in anyone's viewer list or view totals. Visits made before the member switched it on stay in the totals, shown as "Someone" with no name or avatar.
 
 > **Note:** The opt-out is honored everywhere a viewer's identity could be shown, including the admin Profile views screen. Administrators see the counts, but never the name of a member who has opted out.
 
@@ -73,7 +73,7 @@ The dashboard has no required configuration. It starts collecting and displaying
 |---|---|---|---|
 | Analytics | Features catalogue | Master switch for collecting events, the dashboard and the profile-views panel. | On |
 | Show space owners their stats | Engagement → Insights, above the view tabs | Adds a "Last 30 days" row (new members, left, net growth, posts) to each space's admin page, for the people who manage that space. Off means only site admins see analytics. | Off |
-| Hide my profile views | Each member's privacy settings | Hides the member's name from other people's viewer lists. Set by the member, not the owner. | Off |
+| Hide my profile views | Each member's privacy settings | Stops the member's visits to other profiles from being recorded. Set by the member, not the owner. | Off |
 | Data retention (days) | Free settings, Data retention section | How long analytics events are kept. | 365 |
 
 ## How long analytics data is kept

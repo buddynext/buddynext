@@ -278,7 +278,15 @@ $can_pin = $is_own_post && 'profile' === $context && 0 === $bn_space_id;
 $bn_can_interact = ( $current_user_id > 0
 	&& ( ! function_exists( 'buddynext_can' ) || buddynext_can( $current_user_id, 'buddynext-feed/interact' ) ) );
 
-$can_report = ( $current_user_id > 0 && ! $is_own_post && $bn_can_interact );
+// Commenting and reporting each have their own ability on Roles & Capabilities
+// (and their own server gate), so each control follows its own: an owner who
+// raises "React, share, bookmark and vote" has not thereby switched off comments
+// or reports. Both abilities deny a suspended member, like every write.
+$bn_holds = static function ( string $ability ) use ( $current_user_id ): bool {
+	return $current_user_id > 0 && ( ! function_exists( 'buddynext_can' ) || buddynext_can( $current_user_id, $ability ) );
+};
+
+$can_report = ( ! $is_own_post && $bn_holds( 'buddynext-moderation/report' ) );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).
 // When the owner disables it the React button + emoji picker and the engagement
@@ -296,7 +304,7 @@ $can_react            = ( $current_user_id > 0 && $bn_reactions_enabled && $bn_c
 $bn_comments_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'comments' );
-$can_comment         = ( $current_user_id > 0 && $bn_comments_enabled && $bn_can_interact );
+$can_comment         = ( $bn_comments_enabled && $bn_holds( 'buddynext-comments/create' ) );
 
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not
@@ -901,8 +909,8 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 		);
 
 		// Gate the composer on $can_comment, not merely "logged in": that flag
-		// already folds in the comments feature toggle AND the suspension write
-		// gate ($bn_can_interact), so a suspended member sees the comment thread
+		// already folds in the comments feature toggle AND the comment ability
+		// (which a suspension denies), so a suspended member sees the comment thread
 		// (a read) on the auto-expanded permalink but no composer to write into it.
 		// Without this the Comment BUTTON hid while the permalink still surfaced the
 		// composer that 403s on submit.

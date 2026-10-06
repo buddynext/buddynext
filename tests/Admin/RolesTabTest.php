@@ -32,6 +32,25 @@ class RolesTabTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * One list: the screen offers exactly the abilities the permission map
+	 * marks owner-facing. Two (interact, resolve reports) were in the map with
+	 * comments promising an owner could remap them, and not on the screen.
+	 *
+	 * @return void
+	 */
+	public function test_the_screen_lists_exactly_the_owner_facing_abilities(): void {
+		preg_match_all( '/name="cap\[([^\]]+)\]"/', $this->render(), $m );
+		$shown    = $m[1];
+		$expected = \BuddyNext\Core\PermissionService::owner_facing_abilities();
+		sort( $shown );
+		sort( $expected );
+
+		$this->assertSame( $expected, $shown );
+		$this->assertContains( 'buddynext-feed/interact', $shown );
+		$this->assertContains( 'buddynext-moderation/dismiss', $shown );
+	}
+
+	/**
 	 * The hand-rolled footer this tab used to print crammed Save and Reset into
 	 * one <p> in the SAME form, and called the reset button "Reset to defaults"
 	 * — a different wording from the "Restore defaults" every other settings

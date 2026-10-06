@@ -196,7 +196,7 @@ final class CoreSpaceFields {
 			'banned_words',
 			array(
 				'label'          => __( 'Banned words', 'buddynext' ),
-				'description'    => __( 'One word or phrase per line. Posts containing these are held for review.', 'buddynext' ),
+				'description'    => __( 'One word or phrase per line. A post using any of them is rejected.', 'buddynext' ),
 				'type'           => 'textarea',
 				'default'        => '',
 				'section'        => 'moderation',

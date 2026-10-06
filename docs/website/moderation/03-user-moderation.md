@@ -48,7 +48,7 @@ Escalation always applies the strongest plan reached, strongest first. The thres
 
 ## Setting it up (for owners)
 
-Strike thresholds and the report auto-hide limit live under **BuddyNext > Moderation > Controls**. The defaults below are the plugin's built-in values. A brand-new install is seeded a little stricter (suspension at 4 strikes, permanent ban at 6), and you can see the values your site uses on the Controls tab. Tighten or loosen them to suit your community.
+Strike thresholds and the report auto-hide limit live under **BuddyNext > Moderation > Controls**. The defaults below are what a new install starts with and what **Restore defaults** returns to. A site set up before 1.2.4 may still hold the earlier starting values (suspension at 4 strikes, permanent ban at 6); the Controls tab shows the values your site uses. Tighten or loosen them to suit your community.
 
 | Setting | What it does | Default |
 |---|---|---|

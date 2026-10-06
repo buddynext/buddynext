@@ -152,22 +152,6 @@ class Members extends AdminPageBase {
 		update_user_meta( $user->ID, 'bn_last_login', time() );
 	}
 
-	/**
-	 * Add the Members submenu under the BuddyNext top-level menu.
-	 *
-	 * @return void
-	 */
-	public function add_submenu(): void {
-		add_submenu_page(
-			'buddynext',
-			__( 'Members', 'buddynext' ),
-			__( 'Members', 'buddynext' ),
-			'manage_options',
-			'buddynext-members',
-			array( $this, 'render_page' )
-		);
-	}
-
 	// ── Query ──────────────────────────────────────────────────────────────────
 
 	/**

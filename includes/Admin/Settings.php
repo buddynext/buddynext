@@ -1431,7 +1431,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_strike_warn_threshold',
 							'type'    => 'number',
 							'label'   => __( 'Strikes before warning', 'buddynext' ),
-							'default' => 2,
+							'default' => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_warn_threshold' ),
 							'min'     => 1,
 							'hint'    => __( 'A warning email is sent to the member after this many active strikes.', 'buddynext' ),
 						)
@@ -1441,7 +1441,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_strike_suspend_threshold',
 							'type'    => 'number',
 							'label'   => __( 'Strikes before suspension', 'buddynext' ),
-							'default' => 5,
+							'default' => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_suspend_threshold' ),
 							'min'     => 1,
 							'hint'    => __( 'The member is automatically suspended after this many active strikes.', 'buddynext' ),
 						)
@@ -1452,7 +1452,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'         => 'optional_limit',
 							'toggle_label' => __( 'Permanently ban after enough strikes', 'buddynext' ),
 							'label'        => __( 'Strikes before permanent ban', 'buddynext' ),
-							'default'      => 0,
+							'default'      => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_perma_ban_threshold' ),
 							'min'          => 0,
 							'hint'         => __( 'The member is permanently banned after this many lifetime strikes.', 'buddynext' ),
 						)
@@ -2996,7 +2996,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			\BuddyNext\Core\RedirectSettings::OPT_ONBOARDING,
 			__( 'After onboarding', 'buddynext' ),
 			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, '' ),
-			__( 'Where new members go after finishing onboarding. Leave blank for their profile (default).', 'buddynext' )
+			__( 'Where new members go after finishing onboarding. Leave blank for the activity feed (default).', 'buddynext' )
 		);
 
 		$this->close_section();
@@ -3181,9 +3181,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		echo '<p class="bn-field-hint">';
 		printf(
-			/* translators: %s: link to the Features tab. */
-			esc_html__( 'Install companions here; enable them under %s.', 'buddynext' ),
-			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'features' ) ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+			/* translators: %s: link to the Integration Settings screen. */
+			esc_html__( 'Install companions here; choose where each one appears under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 		);
 		echo '</p>';
 		?>
@@ -3506,7 +3506,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						(int) $webhook_limit
 					);
 				} else {
-					esc_html_e( 'Each request is signed with the shared secret above. The host receives a JSON payload with `event`, `payload`, `timestamp`, and a verifying `X-BuddyNext-Signature` header.', 'buddynext' );
+					esc_html_e( 'Each endpoint has its own signing secret. The host receives JSON with `event`, `timestamp` and `data`, and an `X-BuddyNext-Signature` header to verify it.', 'buddynext' );
 				}
 				?>
 			</p>

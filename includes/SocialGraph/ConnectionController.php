@@ -89,10 +89,11 @@ class ConnectionController extends BaseRestController {
 						'default'           => 20,
 						'sanitize_callback' => 'absint',
 					),
-					'page'     => array(
-						'type'              => 'integer',
-						'default'           => 1,
-						'sanitize_callback' => 'absint',
+					'cursor'   => array(
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
 					),
 				),
 			)
@@ -111,11 +112,10 @@ class ConnectionController extends BaseRestController {
 						'default'           => 20,
 						'sanitize_callback' => 'absint',
 					),
-					'cursor'   => array(
-						'type'              => 'string',
-						'default'           => '',
-						'sanitize_callback' => 'sanitize_text_field',
-						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
 					),
 				),
 			)
@@ -430,13 +430,9 @@ class ConnectionController extends BaseRestController {
 			$body['ids'] = $pending;
 		}
 
-		$response = new WP_REST_Response( $body, 200 );
-		// This inbox still pages by offset, but `page` is deprecated in favour of
-		// the cursor convention the sibling follow/connection lists moved to, so an
-		// old client that keeps sending it fails loud with the same Deprecation +
-		// Warning signal the siblings emit rather than silently (card 10284805802).
-		$this->flag_deprecated_page_param( $request, $response );
-
-		return $response;
+		// This inbox pages by `page`, which is what the route declares. It used to
+		// stamp `page` as deprecated in favour of a cursor this route does not
+		// return, sending a client to an argument that does not exist.
+		return new WP_REST_Response( $body, 200 );
 	}
 }

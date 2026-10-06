@@ -77,7 +77,7 @@ The role map holds 24 generic capabilities:
 | `buddynext-feed/delete-any-post` | `moderator` |
 | `buddynext-feed/pin-post` | `moderator` |
 | `buddynext-feed/schedule-post` | `member` |
-| `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; not in `Abilities::CATALOG` or the Roles tab) |
+| `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes; not in `Abilities::CATALOG`) |
 | `buddynext-comments/create` | `member` |
 | `buddynext-spaces/create` | `member` (see note) |
 | `buddynext-spaces/join` | `member` |
@@ -90,7 +90,7 @@ The role map holds 24 generic capabilities:
 | `buddynext-connections/connect` | `member` |
 | `buddynext-moderation/report` | `member` |
 | `buddynext-moderation/review-queue` | `moderator` |
-| `buddynext-moderation/dismiss` | `moderator` (acting on a report; not in `Abilities::CATALOG` or the Roles tab) |
+| `buddynext-moderation/dismiss` | `moderator` (acting on a report; on the Roles tab as "Resolve reports"; not in `Abilities::CATALOG`) |
 | `buddynext-moderation/issue-strike` | `moderator` |
 | `buddynext-moderation/suspend-user` | `moderator` |
 

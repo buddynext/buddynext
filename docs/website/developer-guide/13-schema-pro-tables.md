@@ -247,10 +247,8 @@ Per-recipient delivery and engagement tracking. The unique `(campaign_id, user_i
 | `id` | BIGINT(20) UNSIGNED | Primary key, auto-increment |
 | `campaign_id` | BIGINT(20) UNSIGNED | References `bn_email_campaigns.id` |
 | `user_id` | BIGINT(20) UNSIGNED | Recipient |
-| `status` | ENUM('queued','sent','opened','clicked','bounced','unsubscribed') | Default `queued` |
+| `status` | ENUM('queued','sent','bounced','unsubscribed') | Default `queued` |
 | `sent_at` | DATETIME | Nullable |
-| `opened_at` | DATETIME | Nullable |
-| `clicked_at` | DATETIME | Nullable |
 
 Keys: `PRIMARY (id)`, `UNIQUE campaign_user (campaign_id, user_id)`, `KEY campaign_status (campaign_id, status)`, `KEY user_campaigns (user_id)`, `KEY status_campaign (status, campaign_id, id)`.
 

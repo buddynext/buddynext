@@ -57,13 +57,16 @@ class RecommendedDefaults {
 		'buddynext_reg_challenge'              => true,
 		// Moderation thresholds — present and usable, but lenient. The goal is a
 		// welcoming community, not one that auto-kicks newcomers: members are
-		// only warned/suspended after repeated, sustained violations. Zero here
-		// would read as an unconfigured (blank) screen, so we ship real numbers.
+		// only warned/suspended after repeated, sustained violations. No automatic
+		// permanent ban (0 = off): that one is the owner's decision to switch on.
+		// The Moderation > Controls fields and ModerationListener read these same
+		// values through value(), so a fresh install, the screen's default and
+		// "Restore defaults" cannot disagree.
 		'buddynext_auto_hide_threshold'        => 5,
 		'buddynext_mod_queue_alert_threshold'  => 20,
 		'buddynext_strike_warn_threshold'      => 2,
-		'buddynext_strike_suspend_threshold'   => 4,
-		'buddynext_strike_perma_ban_threshold' => 6,
+		'buddynext_strike_suspend_threshold'   => 5,
+		'buddynext_strike_perma_ban_threshold' => 0,
 	);
 
 	/**
@@ -79,6 +82,16 @@ class RecommendedDefaults {
 		 */
 		$map = apply_filters( 'buddynext_recommended_defaults', self::MAP );
 		return is_array( $map ) ? $map : self::MAP;
+	}
+
+	/**
+	 * The recommended value for one option, or null when it has none.
+	 *
+	 * @param string $option Option name.
+	 * @return bool|int|string|null
+	 */
+	public static function value( string $option ) {
+		return self::map()[ $option ] ?? null;
 	}
 
 	/**

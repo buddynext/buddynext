@@ -189,14 +189,6 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.bookmark_milestone'       => array(
-				'label'              => __( 'Bookmark milestones', 'buddynext' ),
-				'description'        => __( 'Your post was bookmarked a notable number of times.', 'buddynext' ),
-				'group'              => self::GROUP_FEED,
-				'default_on_site'    => true,
-				'default_email_freq' => 'off',
-				'can_email'          => false,
-			),
 
 			// Spaces.
 			'bn.space_join'               => array(

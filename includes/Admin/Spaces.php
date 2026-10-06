@@ -147,22 +147,6 @@ class Spaces extends AdminPageBase {
 		wp_set_script_translations( 'bn-admin-spaces', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 	}
 
-	/**
-	 * Add the Spaces submenu under the BuddyNext top-level menu.
-	 *
-	 * @return void
-	 */
-	public function add_submenu(): void {
-		add_submenu_page(
-			'buddynext',
-			__( 'Spaces', 'buddynext' ),
-			__( 'Spaces', 'buddynext' ),
-			'manage_options',
-			'buddynext-spaces',
-			array( $this, 'render_page' )
-		);
-	}
-
 	// ── AdminPageBase interface ────────────────────────────────────────────────
 
 	/**

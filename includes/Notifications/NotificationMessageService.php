@@ -244,14 +244,6 @@ class NotificationMessageService {
 					$actor_name
 				);
 
-			case 'bn.bookmark_milestone':
-				$count = isset( $data['count'] ) ? max( 1, (int) $data['count'] ) : 1;
-				return sprintf(
-					/* translators: %d: number of bookmarks. */
-					_n( 'Your post has been bookmarked %d time.', 'Your post has been bookmarked %d times.', $count, 'buddynext' ),
-					$count
-				);
-
 			case 'bn.space_join':
 				return sprintf(
 					/* translators: 1: actor display name, 2: space name. */
@@ -657,11 +649,6 @@ class NotificationMessageService {
 					'tone'  => 'accent',
 					'label' => __( 'Mention', 'buddynext' ),
 				),
-				'bn.bookmark_milestone'       => array(
-					'icon'  => 'bookmark',
-					'tone'  => 'info',
-					'label' => __( 'Bookmark milestone', 'buddynext' ),
-				),
 				'bn.space_join'               => array(
 					'icon'  => 'users',
 					'tone'  => 'info',
@@ -911,7 +898,6 @@ class NotificationMessageService {
 			case 'bn.comment_reply':
 			case 'bn.post_shared':
 			case 'bn.mention':
-			case 'bn.bookmark_milestone':
 			case 'bn.space_new_post':
 			case 'bn.post_approved':
 				// object_id is a bn_posts row id — deep-link to the canonical

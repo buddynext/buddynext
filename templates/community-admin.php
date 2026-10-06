@@ -347,8 +347,12 @@ $posts_pct_abs = abs( $posts_pct );
 						// (card 10331285055 follow-up: "View all" on a >5-report queue went
 						// nowhere). wp-admin's Moderation > Reports tab is the real full,
 						// paginated, filterable list — reuse it instead of building a second
-						// one here.
-						$tab_href = \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' );
+						// one here. Only for someone who can open wp-admin: a community
+						// moderator without that access got a 403, so they go to the Open
+						// reports card on this page instead (same condition as its "View all").
+						$tab_href = current_user_can( 'manage_options' )
+							? \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' )
+							: $admin_base . '#bn-ca-reports-title';
 					} else {
 						$tab_href = $bn_ca_routed
 							? ( 'overview' === $key ? $admin_base : trailingslashit( $admin_base . $key ) )

@@ -111,9 +111,9 @@ class ModerationListener implements ListenerInterface {
 		// meaningfully stronger than the plain suspend tier (indefinite but
 		// content-visible) — so the "Strikes before permanent ban" setting does
 		// something distinct.
-		$warn_threshold      = (int) get_option( 'buddynext_strike_warn_threshold', 2 );
-		$suspend_threshold   = (int) get_option( 'buddynext_strike_suspend_threshold', 5 );
-		$perma_ban_threshold = (int) get_option( 'buddynext_strike_perma_ban_threshold', 0 );
+		$warn_threshold      = (int) get_option( 'buddynext_strike_warn_threshold', \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_warn_threshold' ) );
+		$suspend_threshold   = (int) get_option( 'buddynext_strike_suspend_threshold', \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_suspend_threshold' ) );
+		$perma_ban_threshold = (int) get_option( 'buddynext_strike_perma_ban_threshold', \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_perma_ban_threshold' ) );
 		$active_strikes      = buddynext_service( 'moderation' )->get_active_strike_count( $user_id );
 
 		// A single strike notice (+ one email). When the member has reached the

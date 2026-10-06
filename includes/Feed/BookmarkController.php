@@ -41,7 +41,7 @@ class BookmarkController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'bookmark' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					'permission_callback' => array( $this, 'require_interact' ),
 				),
 				array(
 					'methods'             => 'DELETE',

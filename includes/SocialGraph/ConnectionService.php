@@ -44,7 +44,7 @@ class ConnectionService {
 	 * requester would let the recipient's side grow unbounded, which is the same bug with
 	 * an extra step.
 	 */
-	private const MAX_CONNECTIONS = 5000;
+	public const MAX_CONNECTIONS = 5000;
 
 	/**
 	 * Ceiling on how many mutual IDs a single call will materialise.

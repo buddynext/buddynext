@@ -79,7 +79,7 @@ A scheduled or sending campaign has a **Cancel** button. It clears the queued re
 
 ### Viewing recipients
 
-Each campaign has a **Recipients** view that breaks delivery down by status (Queued, Sent, Unsubscribed, Bounced) so you can confirm a send went through and see how many opted out. It shows per-status counts rather than a per-member list. The table also has Opened and Clicked rows, which stay at 0 because open and click tracking is not available.
+Each campaign has a **Recipients** view that breaks delivery down by status (Queued, Sent, Unsubscribed, Bounced) so you can confirm a send went through and see how many opted out. It shows per-status counts rather than a per-member list.
 
 ### Settings
 

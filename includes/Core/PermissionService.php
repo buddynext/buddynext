@@ -92,6 +92,35 @@ class PermissionService {
 	);
 
 	/**
+	 * Abilities in ROLE_MAP an owner cannot remap, and why. Everything else in
+	 * the map is owner-facing and is listed on Roles & Capabilities; a test holds
+	 * the screen to exactly that set, so a new ability lands on the screen or
+	 * here, never in neither.
+	 *
+	 * @var array<string, string>
+	 */
+	private const FIXED_ABILITIES = array(
+		'buddynext-profile/edit-own'       => 'A member always edits their own profile.',
+		'buddynext-profile/view'           => 'Decided by profile privacy, not by role.',
+		'buddynext-feed/delete-own-post'   => 'A member always deletes their own post.',
+		'buddynext-spaces/join-gated'      => 'Decided by the space and the membership plan.',
+		'buddynext-spaces/manage-settings' => 'Owner-scoped: decided per space.',
+		'buddynext-spaces/delete'          => 'Owner-scoped: decided per space.',
+		'buddynext-moderate-space'         => 'Space-scoped: decided by the space role.',
+		'buddynext-manage-space'           => 'Space-scoped: decided by the space role.',
+		'buddynext-own-space'              => 'Space-scoped: decided by the space role.',
+	);
+
+	/**
+	 * The abilities an owner can remap on Roles & Capabilities.
+	 *
+	 * @return string[]
+	 */
+	public static function owner_facing_abilities(): array {
+		return array_keys( array_diff_key( self::ROLE_MAP, self::FIXED_ABILITIES ) );
+	}
+
+	/**
 	 * Memoised, filtered capability → required-role map (per request).
 	 *
 	 * @var array<string, string|null>|null
