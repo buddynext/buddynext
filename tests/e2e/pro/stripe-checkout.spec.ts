@@ -110,7 +110,8 @@ test.describe('pro / stripe checkout', () => {
         // The plan card links to the on-site order summary first; its own submit
         // starts the gateway session.
         await cta.click();
-        const pay = page.locator('form.bn-order__summary button.bn-order__submit');
+        // One button per gateway switched on; this journey pays with Stripe.
+        const pay = page.locator('form.bn-order__summary button.bn-order__submit[value="stripe"]');
         await expect(pay, 'the order summary should offer the payment step').toBeVisible({ timeout: 10_000 });
         await pay.click();
         await page.waitForURL((u) => u.origin !== homeOrigin || u.searchParams.has('bn_checkout_error'), {

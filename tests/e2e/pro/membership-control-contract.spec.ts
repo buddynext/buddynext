@@ -230,7 +230,9 @@ test.describe('pro / membership control contract', () => {
                     .isVisible()
                     .catch(() => false);
                 const switchVisible = await panel
-                    .getByRole('button', { name: /^switch$/i })
+                    // The button reads "Switch to <plan>: N days"; an exact "Switch" never matched,
+                    // so this check could not see a rendered button at all.
+                    .getByRole('button', { name: /^switch to /i })
                     .first()
                     .isVisible()
                     .catch(() => false);
