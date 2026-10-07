@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { openMemberSession, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { openMemberSession, restPost, readRestNonce, type MemberSession } from '../_fixtures/feed-wave1.helpers';
 import { userId, resetPair } from '../_fixtures/wp';
 
 /**
@@ -19,7 +19,7 @@ import { userId, resetPair } from '../_fixtures/wp';
  * fails the Following leg. Seeded post + follow state torn down in `finally`.
  *
  * Covers: cap-run-an-activity-feed-members-post-to
- * Roles: admin
+ * Roles: admin, member
  */
 test.describe('feed / filter tabs', () => {
     const tab = (slug: string) => `.bn-feed-filter-tab[data-filter="${slug}"]`;
@@ -38,15 +38,22 @@ test.describe('feed / filter tabs', () => {
 
         const stamp = Date.now().toString().slice(-6);
         const content = `j521 discovery ${stamp}`;
-        let author: MemberSession | null = null;
+        let viewer: MemberSession | null = null;
         let postId = 0;
+        let nonce = '';
 
         try {
             // The viewer must NOT follow the author for the scope difference to hold.
             await resetPair(meId, authorId);
 
-            author = await openMemberSession(browser, authorSlug);
-            const created = await restPost<{ id?: number }>(author.request, author.nonce, '/posts', {
+            // The seeded member is the VIEWER and the test account the author.
+            // For you ranks a viewer's connections first, so on a site where the
+            // test account has many of them a stranger's post is on a later page:
+            // true to the product, and nothing to do with the tab scope under test.
+            // The seeded member has no connections, so page one is by recency.
+            await page.goto(urls.feed, { waitUntil: 'domcontentloaded' });
+            nonce = await readRestNonce(page);
+            const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', {
                 content,
                 privacy: 'public',
             });
@@ -54,24 +61,26 @@ test.describe('feed / filter tabs', () => {
             postId = created.body.id ?? 0;
             expect(postId).toBeGreaterThan(0);
 
+            viewer = await openMemberSession(browser, authorSlug);
+
             // For-you (discovery) — the public post from a non-followed author shows.
-            await page.goto(`${urls.feed}?filter=for-you`, { waitUntil: 'domcontentloaded' });
-            await expect(page.locator(`${tab('for-you')}[aria-current="true"]`)).toHaveCount(1);
-            await expect(page.locator(sel.postCard).filter({ hasText: content }).first()).toBeVisible({ timeout: 10_000 });
+            await viewer.page.goto(`${urls.feed}?filter=for-you`, { waitUntil: 'domcontentloaded' });
+            await expect(viewer.page.locator(`${tab('for-you')}[aria-current="true"]`)).toHaveCount(1);
+            await expect(viewer.page.locator(sel.postCard).filter({ hasText: content }).first()).toBeVisible({ timeout: 10_000 });
 
             // Following — scoped to authors I follow; the same post is absent.
-            await page.goto(`${urls.feed}?filter=following`, { waitUntil: 'domcontentloaded' });
-            await expect(page.locator(`${tab('following')}[aria-current="true"]`)).toHaveCount(1);
-            await expect(page.locator(sel.postCard).filter({ hasText: content })).toHaveCount(0);
+            await viewer.page.goto(`${urls.feed}?filter=following`, { waitUntil: 'domcontentloaded' });
+            await expect(viewer.page.locator(`${tab('following')}[aria-current="true"]`)).toHaveCount(1);
+            await expect(viewer.page.locator(sel.postCard).filter({ hasText: content })).toHaveCount(0);
         } finally {
-            if (author && postId) {
-                await author.request
-                    .delete(`/wp-json/buddynext/v1/posts/${postId}`, { headers: { 'X-WP-Nonce': author.nonce } })
+            if (postId) {
+                await page.request
+                    .delete(`/wp-json/buddynext/v1/posts/${postId}`, { headers: { 'X-WP-Nonce': nonce } })
                     .catch(() => undefined);
             }
             await resetPair(meId, authorId).catch(() => {});
-            if (author) {
-                await author.ctx.close().catch(() => {});
+            if (viewer) {
+                await viewer.ctx.close().catch(() => {});
             }
         }
     });

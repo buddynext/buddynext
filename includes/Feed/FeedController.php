@@ -252,11 +252,18 @@ class FeedController extends BaseRestController {
 				'callback'            => array( $this, 'home_feed_page' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'filter' => array(
+					'filter'   => array(
 						'type'              => 'string',
 						'default'           => 'for-you',
 						'enum'              => FeedService::HOME_FILTERS,
 						'sanitize_callback' => 'sanitize_key',
+					),
+					'after_id' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'minimum'           => 0,
+						'description'       => 'Return the posts newer than this id (the ones the new-posts pill counted) instead of a page.',
+						'sanitize_callback' => 'absint',
 					),
 				),
 			)
@@ -1216,6 +1223,21 @@ class FeedController extends BaseRestController {
 		$filter   = (string) ( $request->get_param( 'filter' ) ?? 'for-you' );
 		if ( ! in_array( $filter, FeedService::HOME_FILTERS, true ) ) {
 			$filter = 'for-you';
+		}
+
+		// The new-posts pill: the posts it counted, to place at the top of the list.
+		$after_id = absint( $request->get_param( 'after_id' ) );
+		if ( $after_id > 0 ) {
+			$items = $this->feed_service()->home_feed_new_items( $user_id, $after_id, $filter );
+
+			return new WP_REST_Response(
+				array(
+					'html'        => $this->render_items_html( $items, $user_id, 'home' ),
+					'next_cursor' => null,
+					'count'       => count( $items ),
+				),
+				200
+			);
 		}
 
 		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page, $filter );

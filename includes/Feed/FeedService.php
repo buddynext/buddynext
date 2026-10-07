@@ -111,6 +111,12 @@ class FeedService {
 	private const NEW_COUNT_CAP = 99;
 
 	/**
+	 * Most posts one pill click loads in place. More than this and the page
+	 * reloads instead of rendering a long batch of cards on a click.
+	 */
+	public const NEW_ITEMS_LIMIT = 20;
+
+	/**
 	 * TTL (seconds) for the home-tab count memo. The four per-tab COUNT(*) are
 	 * heavy on a large bn_posts, so collapse the repeat loads (nav re-render,
 	 * poll, multiple tabs) onto one set of counts. A nav badge tolerates this much
@@ -1034,6 +1040,71 @@ class FeedService {
 		wp_cache_set( $cache_key, $counts, self::CACHE_GROUP, self::HOME_COUNTS_TTL );
 
 		return $counts;
+	}
+
+	/**
+	 * The posts the new-posts pill counted, newest first.
+	 *
+	 * Same scope as {@see self::home_feed_new_count()}: published, due, in the
+	 * viewer's source blend, newer than $after_id and not the viewer's own. The
+	 * pill said "N new posts"; this is those N, so a click can put them on
+	 * screen. Reloading instead re-ran the For you ranking, which places a
+	 * non-connection's post below every connection's and often off page one:
+	 * the member clicked and saw nothing new.
+	 *
+	 * Bounded by $limit; a caller with more to show than that reloads.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param int    $user_id  Viewing user ID.
+	 * @param int    $after_id Highest post id the client had when the page rendered.
+	 * @param string $filter   Filter slug: for-you | following | spaces | network.
+	 * @param int    $limit    Maximum rows (1 to NEW_ITEMS_LIMIT).
+	 * @return array<int,array<string,mixed>> Post rows.
+	 */
+	public function home_feed_new_items( int $user_id, int $after_id, string $filter = 'for-you', int $limit = self::NEW_ITEMS_LIMIT ): array {
+		global $wpdb;
+
+		if ( $user_id <= 0 || $after_id <= 0 ) {
+			return array();
+		}
+		if ( ! in_array( $filter, self::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
+		$limit = max( 1, min( self::NEW_ITEMS_LIMIT, $limit ) );
+
+		$excluded_where = $this->excluded_users_where();
+
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
+		[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT *
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'published'
+				   AND type <> 'announcement'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND id > %d
+				   AND user_id <> %d
+				   AND ({$source_where})
+				   {$excluded_where}
+				   {$hidden_where}
+				 ORDER BY id DESC
+				 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...array_merge( array( $after_id, $user_id ), $source_params, $hidden_params, array( $limit ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+		foreach ( $rows as $row ) {
+			/** This action is documented in includes/Feed/FeedService.php */
+			do_action( 'buddynext_post_impression', (int) $row['id'], $user_id, 'home_feed' );
+		}
+
+		return $rows;
 	}
 
 	/**

@@ -131,6 +131,11 @@
 	 * call the lightbox already makes on every open.
 	 */
 	var currentPostId = 0;
+	// Settles once the open item's post parent is known. A reaction waits on it:
+	// a fast click on a tile that carried no post id used to be stored on the
+	// media, then hidden when the post's (empty) reactions painted over it.
+	var contextReady = Promise.resolve();
+	var contextDone  = function () {};
 
 	/**
 	 * Paint the POST's reaction summary onto the chip strip.
@@ -253,6 +258,9 @@
 
 	function loadPanel( id ) {
 		current = id;
+		// Pending from the moment the item opens, not from when the context
+		// request starts (that waits on the media fetch below).
+		contextReady = new Promise( function ( done ) { contextDone = done; } );
 		// Private DM media has no social layer — skip reactions/comments/favorite/
 		// views entirely (the chrome is also hidden via .bn-lightbox--dm).
 		var isDM = !! ( gallery[ index ] && gallery[ index ].dm );
@@ -283,7 +291,7 @@
 				var dl = isDM ? panel.dmDownload : panel.download;
 				if ( dl ) { dl.setAttribute( 'href', m.file_url ); }
 			}
-		} ).catch( function () {} );
+		} ).catch( function () { contextDone(); } );
 
 		// DM media: no favorite / reactions / comments / view tracking. The image
 		// and author (from the meta fetch above) are all that show.
@@ -464,6 +472,10 @@
 		// Runs for every viewer now, not only where an unlink control exists: the
 		// same response carries the post parent that decides which object the
 		// reactions belong to.
+		var settle = contextDone;
+		if ( ! ( LOGGED_IN && current ) ) {
+			settle();
+		}
 		if ( LOGGED_IN && current ) {
 			var forId = current;
 			window.buddynextRest.restFetch( '/media/' + current + '/space-context', {
@@ -500,7 +512,7 @@
 						setSaved( !! res.data.bookmarked );
 					}
 				}
-			} );
+			} ).catch( function () {} ).then( settle );
 		}
 	}
 
@@ -558,6 +570,13 @@
 
 	function react( type ) {
 		if ( ! requireLogin() || ! current ) { return; }
+		var opened = current;
+		contextReady.then( function () {
+			if ( current === opened ) { reactNow( type ); }
+		} );
+	}
+
+	function reactNow( type ) {
 		var id = current;
 
 		// A photo that is a feed post reacts as the POST, so the chip the member

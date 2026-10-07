@@ -9935,6 +9935,16 @@
                             ],
                             "default": "for-you"
                         }
+                    },
+                    {
+                        "name": "after_id",
+                        "in": "query",
+                        "required": false,
+                        "description": "Return the posts newer than this id (the ones the new-posts pill counted) instead of a page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 0
+                        }
                     }
                 ],
                 "responses": {

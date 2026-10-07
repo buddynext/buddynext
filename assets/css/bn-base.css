@@ -544,6 +544,13 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 			calc(r * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))))
 			calc(g * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))))
 			calc(b * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b)))));
+		/* The tokens components read, re-declared here so they are computed on
+		   THIS element. Declared on :root alone they were inherited already
+		   computed, so an element that remaps --bn-accent without a light/dark
+		   value (the cookie notice, data-bn-theme="inherit") kept :root's fill:
+		   a blue button on a red-accent site. */
+		--bn-accent-fg: var(--bn-accent-fg-auto);
+		--bn-accent-solid: var(--bn-accent-solid-auto);
 	}
 
 	/* Dark mode: the accent is light by design; whichever label contrasts more. */
@@ -554,6 +561,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+		--bn-accent-solid: var(--bn-accent);
 	}
 
 	@media (prefers-color-scheme: dark) {
@@ -562,6 +570,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+			--bn-accent-solid: var(--bn-accent);
 		}
 	}
 }

@@ -23,10 +23,10 @@
  * clean answer: the watermark has to be the newest post that EXISTS for this
  * viewer, not the newest one that happened to rank onto page one.
  *
- * It does not pin down the second half — a genuinely new low-tier post may still
- * not reach page one after a refresh. That is inherent to counting
- * chronologically while ranking by affinity, and needs a product decision rather
- * than a patch. Recorded on the card.
+ * And the second half: a genuinely new low-tier post does not reach page one
+ * after a refresh, because the ranking is unchanged. The owner's decision
+ * (7 Oct 2026): a click on the pill shows the posts it counted, at the top.
+ * `home_feed_new_items()` returns exactly those posts.
  *
  * @package BuddyNext\Tests\Feed
  */
@@ -41,6 +41,7 @@ namespace BuddyNext\Tests\Feed;
  *
  * @covers \BuddyNext\Feed\FeedService::home_feed_new_count
  * @covers \BuddyNext\Feed\FeedService::home_feed_watermark
+ * @covers \BuddyNext\Feed\FeedService::home_feed_new_items
  */
 class NewPostsPillCountsOnlyRealNewsTest extends \WP_UnitTestCase {
 
@@ -266,5 +267,43 @@ class NewPostsPillCountsOnlyRealNewsTest extends \WP_UnitTestCase {
 
 		$this->assertSame( $stranger_post, $for_you, 'For-you includes public community activity, so the stranger post is its newest.' );
 		$this->assertLessThan( $stranger_post, $network, 'The network tab sees connections only, so its watermark must sit below the stranger post.' );
+	}
+
+	/**
+	 * A stranger posts after the page rendered: the pill counts it, the ranked
+	 * page still does not carry it, and the pill's own list does.
+	 *
+	 * @return void
+	 */
+	public function test_the_pill_delivers_the_posts_it_counted(): void {
+		$service = buddynext_service( 'feed' );
+
+		for ( $i = 0; $i < 20; $i++ ) {
+			$this->post( $this->friend, 'Friend post ' . $i, gmdate( 'Y-m-d H:i:s', time() - ( 60 * $i ) - 60 ) );
+		}
+		wp_cache_flush();
+		$watermark = $service->home_feed_watermark( $this->viewer, 'for-you' );
+
+		// News: two strangers' posts and one by the viewer, all after the render.
+		$first  = $this->post( $this->stranger, 'Stranger news one', gmdate( 'Y-m-d H:i:s' ) );
+		$second = $this->post( $this->stranger, 'Stranger news two', gmdate( 'Y-m-d H:i:s' ) );
+		$own    = $this->post( $this->viewer, 'My own post', gmdate( 'Y-m-d H:i:s' ) );
+
+		wp_cache_flush();
+		$count = $service->home_feed_new_count( $this->viewer, $watermark, 'for-you' );
+		$this->assertSame( 2, $count['count'], 'The pill counts the two posts by other people.' );
+
+		$page     = $service->home_feed( $this->viewer, null, 20, 'for-you' );
+		$page_ids = array_map( static fn( array $p ): int => (int) $p['id'], (array) ( $page['items'] ?? array() ) );
+		$this->assertNotContains( $first, $page_ids, 'Precondition: a reload alone leaves the stranger post off page one.' );
+
+		$items = $service->home_feed_new_items( $this->viewer, $watermark, 'for-you' );
+		$ids   = array_map( static fn( array $p ): int => (int) $p['id'], $items );
+		$this->assertSame( array( $second, $first ), $ids, 'Exactly the counted posts, newest first, without the viewer\'s own.' );
+		$this->assertNotContains( $own, $ids );
+
+		$this->assertSame( array(), $service->home_feed_new_items( $this->viewer, 0, 'for-you' ), 'No watermark, no list.' );
+		$this->assertCount( 1, $service->home_feed_new_items( $this->viewer, $watermark, 'for-you', 1 ), 'The limit bounds the batch.' );
+		$this->assertSame( array(), $service->home_feed_new_items( 0, $watermark, 'for-you' ), 'Logged out: nothing.' );
 	}
 }
