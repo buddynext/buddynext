@@ -1478,6 +1478,7 @@ class AssetService {
 					'format' => (string) get_option( 'time_format', 'g:i A' ),
 				),
 				'i18n'  => array(
+					'sendFailed'                => __( 'Could not send. Try again.', 'buddynext' ),
 					'composeNewGroup'           => __( 'New group', 'buddynext' ),
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),
 					'composeHint'               => __( 'Search for a person to message.', 'buddynext' ),
@@ -1783,10 +1784,26 @@ class AssetService {
 	 */
 	private function i18n_moderation(): void {
 		wp_interactivity_state(
+			'buddynext/community-admin',
+			array(
+				'i18n' => array(
+					'roleUpdated' => __( 'Member role updated.', 'buddynext' ),
+					'roleFailed'  => __( 'Could not update the role. Try again.', 'buddynext' ),
+				),
+			)
+		);
+
+		wp_interactivity_state(
 			'buddynext/moderation',
 			array(
 				'i18n'              => array(
 					'dismissFailed'         => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
+					'warnPolicyReminder'    => __( 'Content policy reminder', 'buddynext' ),
+					'warnSpaceRule'         => __( 'Space rule violation', 'buddynext' ),
+					'strikeReportedContent' => __( 'Strike issued for reported content', 'buddynext' ),
+					'cwAdded'               => __( 'Content warning applied', 'buddynext' ),
+					'cwCleared'             => __( 'Content warning cleared', 'buddynext' ),
+					'cwFailed'              => __( 'Could not update the content warning. Try again.', 'buddynext' ),
 					'removeContentTitle'    => __( 'Remove this content?', 'buddynext' ),
 					'removeContentBody'     => __( 'The reported item will be taken down from public view and the report marked resolved.', 'buddynext' ),
 					'removeLabel'           => __( 'Remove', 'buddynext' ),

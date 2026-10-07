@@ -545,7 +545,8 @@
 				// card mirrors the post-card state instead of always reading "Follow".
 				function applyFollowState( following ) {
 					followBtn.hidden = false;
-					followBtn.textContent = following ? 'Following' : 'Follow';
+					var followI18n = ( window.bnShellData && window.bnShellData.i18n ) || {};
+					followBtn.textContent = following ? ( followI18n.following || 'Following' ) : ( followI18n.follow || 'Follow' );
 					followBtn.classList.toggle( 'is-following', !! following );
 					followBtn.onclick = function () {
 						if ( ! data.restUserUrl ) return;

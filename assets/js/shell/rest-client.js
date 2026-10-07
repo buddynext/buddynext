@@ -346,6 +346,7 @@ export async function restFetch( path, opts ) {
 		} else if ( opts.toastOnError !== false ) {
 			bnToast(
 				( result.data && result.data.message ) ||
+					( window.bnShellData && window.bnShellData.i18n && window.bnShellData.i18n.genericError ) ||
 					'Something went wrong. Try again.',
 				{ tone: 'danger' }
 			);

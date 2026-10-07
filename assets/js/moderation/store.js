@@ -222,7 +222,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { message: 'Content policy reminder', space_id: ctx.spaceId || 0 },
+				body: { message: t( 'warnPolicyReminder', 'Content policy reminder' ), space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
 			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnUserFailed', 'Could not warn the user.' ) ), { tone: res.ok ? 'success' : 'danger' } );
@@ -236,7 +236,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { reason: 'Strike issued for reported content' },
+				body: { reason: t( 'strikeReportedContent', 'Strike issued for reported content' ) },
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
@@ -466,7 +466,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { message: 'Space rule violation', space_id: ctx.spaceId || 0 },
+				body: { message: t( 'warnSpaceRule', 'Space rule violation' ), space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
 			bnToast( res.ok ? t( 'memberWarned', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnMemberFailed', 'Could not warn the member.' ) ), { tone: res.ok ? 'success' : 'danger' } );

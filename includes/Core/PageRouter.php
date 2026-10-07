@@ -2183,6 +2183,11 @@ class PageRouter {
 				'blockStopContact'       => __( 'Stop them from following you or sending you messages.', 'buddynext' ),
 				'blockRemoveLinks'       => __( 'Remove any existing connection or follow between you.', 'buddynext' ),
 				'blockHelp'              => __( 'You can unblock from your settings at any time.', 'buddynext' ),
+				'follow'                 => __( 'Follow', 'buddynext' ),
+				'following'              => __( 'Following', 'buddynext' ),
+				'genericError'           => __( 'Something went wrong. Try again.', 'buddynext' ),
+				/* translators: %d: page number of a document preview. */
+				'pageNumber'             => __( 'Page %d', 'buddynext' ),
 				'block'                  => __( 'Block', 'buddynext' ),
 				// Toast: the close control on a toast that stays, and the default link label.
 				'dismiss'                => __( 'Dismiss', 'buddynext' ),
