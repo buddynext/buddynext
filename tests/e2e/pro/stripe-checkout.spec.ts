@@ -72,6 +72,17 @@ test.describe('pro / stripe checkout', () => {
     });
 
     test('clicking Subscribe redirects to Stripe Checkout', async ({ page }, testInfo) => {
+        // This journey is about STRIPE. On a site with no Stripe keys but another
+        // gateway switched on (the built-in Test gateway on a fresh install), the
+        // purchase completes on-site and never leaves for checkout.stripe.com.
+        const stripeReady = (
+            await wp(['eval', `echo ( new \\BuddyNextPro\\Stripe\\StripeClient() )->is_configured() ? '1' : '0';`])
+        ).trim();
+        if (stripeReady !== '1') {
+            testInfo.skip(true, 'Stripe is not configured on this site - nothing to redirect to.');
+            return;
+        }
+
         await page.goto(`/?autologin=${MEMBER}`, { waitUntil: 'domcontentloaded' });
         await page.goto(pricingUrl, { waitUntil: 'domcontentloaded' });
 
