@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use WP_Error;
+use BuddyNext\Core\CursorCodec;
 use BuddyNext\Profile\Handle;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Moderation\ModerationService;
@@ -1112,34 +1113,34 @@ class PostService {
 
 	/**
 	 * List a user's own scheduled (future) posts, soonest first, hydrated through
-	 * the canonical mapper. Powers the owner-only profile "Scheduled" tab.
+	 * the canonical mapper. Powers the owner-only profile "Scheduled" tab and
+	 * GET /me/scheduled-posts.
 	 *
-	 * @param int $user_id Author user ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id Author user ID.
+	 * @param int         $limit   Rows per page (1-100). Default 20.
+	 * @param string|null $cursor  Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_scheduled_posts( int $user_id, int $limit = 20 ): array {
+	public function user_scheduled_posts( int $user_id, int $limit = 20, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_posts
-				 WHERE user_id = %d AND status = 'scheduled'
-				 ORDER BY scheduled_at ASC
-				 LIMIT %d",
-				$user_id,
-				$limit
-			),
-			ARRAY_A
+		$page          = $this->keyset_page(
+			"SELECT *, scheduled_at AS bn_cursor_ts, id AS bn_cursor_id FROM {$wpdb->prefix}bn_posts
+			 WHERE user_id = %d AND status = 'scheduled'",
+			array( $user_id ),
+			array( 'scheduled_at', 'id' ),
+			true,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
+		return $page;
 	}
 
 	/**
@@ -1173,32 +1174,31 @@ class PostService {
 	 *
 	 * @since 1.1.6
 	 *
-	 * @param int $user_id Author user ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id Author user ID.
+	 * @param int         $limit   Rows per page (1-100). Default 20.
+	 * @param string|null $cursor  Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_pending_posts( int $user_id, int $limit = 20 ): array {
+	public function user_pending_posts( int $user_id, int $limit = 20, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_posts
-				 WHERE user_id = %d AND status = 'pending'
-				 ORDER BY created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$limit
-			),
-			ARRAY_A
+		$page          = $this->keyset_page(
+			"SELECT *, created_at AS bn_cursor_ts, id AS bn_cursor_id FROM {$wpdb->prefix}bn_posts
+			 WHERE user_id = %d AND status = 'pending'",
+			array( $user_id ),
+			array( 'created_at', 'id' ),
+			false,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
+		return $page;
 	}
 
 	/**
@@ -1245,43 +1245,39 @@ class PostService {
 	 * relationship clauses (follow / connection / space membership) rather than a flat
 	 * predicate.
 	 *
-	 * @param int $user_id   Comment author user ID.
-	 * @param int $limit     Max rows (1-50). Default 20.
-	 * @param int $viewer_id Who is looking (0 = logged out). Gates the PARENT post.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id   Comment author user ID.
+	 * @param int         $limit     Rows per page (1-100). Default 20.
+	 * @param int         $viewer_id Who is looking (0 = logged out). Gates the PARENT post.
+	 * @param string|null $cursor    Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_replies( int $user_id, int $limit = 20, int $viewer_id = 0 ): array {
+	public function user_replies( int $user_id, int $limit = 20, int $viewer_id = 0, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT c.id, c.content, c.created_at, c.object_id,
-				        p.content AS post_content, p.type AS post_type,
-				        u.display_name AS post_author_name
-				 FROM {$wpdb->prefix}bn_comments c
-				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
-				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-				 WHERE c.user_id = %d
-				   AND ( c.is_hidden = 0 OR c.user_id = %d )
-				   AND p.status = 'published'
-				   AND ( p.privacy = 'public' OR p.user_id = %d )
-				 ORDER BY c.created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$viewer_id,
-				$viewer_id,
-				$limit
-			),
-			ARRAY_A
+		return $this->keyset_page(
+			"SELECT c.id, c.content, c.created_at, c.object_id,
+			        p.content AS post_content, p.type AS post_type,
+			        u.display_name AS post_author_name,
+			        c.created_at AS bn_cursor_ts, c.id AS bn_cursor_id
+			 FROM {$wpdb->prefix}bn_comments c
+			 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
+			 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+			 WHERE c.user_id = %d
+			   AND ( c.is_hidden = 0 OR c.user_id = %d )
+			   AND p.status = 'published'
+			   AND ( p.privacy = 'public' OR p.user_id = %d )",
+			array( $user_id, $viewer_id, $viewer_id ),
+			array( 'c.created_at', 'c.id' ),
+			false,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**
@@ -1293,38 +1289,93 @@ class PostService {
 	 * published its text to anyone who opened your profile. See user_replies() for
 	 * the full note.
 	 *
-	 * @param int $user_id   Reacting user ID.
-	 * @param int $limit     Max rows (1-50). Default 20.
-	 * @param int $viewer_id Who is looking (0 = logged out). Gates the LIKED post.
-	 * @return array<int,array<string,mixed>>
+	 * @param int         $user_id   Reacting user ID.
+	 * @param int         $limit     Rows per page (1-100). Default 20.
+	 * @param int         $viewer_id Who is looking (0 = logged out). Gates the LIKED post.
+	 * @param string|null $cursor    Keyset cursor from a previous page; null for the first.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
 	 */
-	public function user_liked_posts( int $user_id, int $limit = 20, int $viewer_id = 0 ): array {
+	public function user_liked_posts( int $user_id, int $limit = 20, int $viewer_id = 0, ?string $cursor = null ): array {
 		if ( $user_id <= 0 ) {
-			return array();
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+			);
 		}
-		$limit = max( 1, min( 50, $limit ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT p.*
-				 FROM {$wpdb->prefix}bn_reactions r
-				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
-				 WHERE r.user_id = %d
-				   AND p.status = 'published'
-				   AND ( p.privacy = 'public' OR p.user_id = %d )
-				 ORDER BY r.created_at DESC
-				 LIMIT %d",
-				$user_id,
-				$viewer_id,
-				$limit
-			),
-			ARRAY_A
+		// bn_reactions has no surrogate id (PRIMARY KEY user_id, object_type,
+		// object_id), so the liked post's id breaks ties on the reaction time.
+		$page          = $this->keyset_page(
+			"SELECT p.*, r.created_at AS bn_cursor_ts, r.object_id AS bn_cursor_id
+			 FROM {$wpdb->prefix}bn_reactions r
+			 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
+			 WHERE r.user_id = %d
+			   AND p.status = 'published'
+			   AND ( p.privacy = 'public' OR p.user_id = %d )",
+			array( $user_id, $viewer_id ),
+			array( 'r.created_at', 'r.object_id' ),
+			false,
+			$cursor,
+			$limit
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
+		return $page;
+	}
 
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	/**
+	 * One keyset page of a profile list (Scheduled, Pending, Replies, Likes).
+	 *
+	 * Appends the cursor predicate, a two-key ORDER BY and LIMIT n+1 to $sql,
+	 * then builds the next cursor from the last row kept. $sql must select the
+	 * two sort keys as `bn_cursor_ts` and `bn_cursor_id`; both are stripped from
+	 * the returned rows. Never OFFSET: page 500 of a long history costs what
+	 * page 1 does, on the (user_id, created_at) indexes these tables carry.
+	 *
+	 * @param string                      $sql      SELECT ... WHERE ... with %-placeholders, no ORDER BY/LIMIT.
+	 * @param array<int, mixed>           $params   Values for $sql's placeholders.
+	 * @param array{0: string, 1: string} $keys Timestamp and id columns, as written in $sql.
+	 * @param bool                        $asc      Oldest first (true) or newest first (false).
+	 * @param string|null                 $cursor   Cursor from a previous page; null or invalid = first page.
+	 * @param int                         $per_page Rows per page, clamped to 1-100.
+	 * @return array{items: array<int,array<string,mixed>>, next_cursor: string|null}
+	 */
+	private function keyset_page( string $sql, array $params, array $keys, bool $asc, ?string $cursor, int $per_page ): array {
+		global $wpdb;
+
+		$per_page        = max( 1, min( FeedService::MAX_PER_PAGE, $per_page ) );
+		$dir             = $asc ? 'ASC' : 'DESC';
+		$cmp             = $asc ? '>' : '<';
+		list( $ts, $id ) = $keys;
+
+		$decoded = null !== $cursor && '' !== $cursor ? CursorCodec::decode( $cursor ) : null;
+		if ( null !== $decoded ) {
+			$sql     .= " AND ( {$ts} {$cmp} %s OR ( {$ts} = %s AND {$id} {$cmp} %d ) )";
+			$params[] = $decoded['created_at'];
+			$params[] = $decoded['created_at'];
+			$params[] = $decoded['id'];
+		}
+		$sql     .= " ORDER BY {$ts} {$dir}, {$id} {$dir} LIMIT %d";
+		$params[] = $per_page + 1;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $sql is built from fixed fragments; every value is a placeholder.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( $sql, $params ), ARRAY_A );
+
+		$next = null;
+		if ( count( $rows ) > $per_page ) {
+			$rows = array_slice( $rows, 0, $per_page );
+			$last = end( $rows );
+			$next = CursorCodec::encode( (string) $last['bn_cursor_ts'], (int) $last['bn_cursor_id'] );
+		}
+
+		foreach ( $rows as $i => $row ) {
+			unset( $rows[ $i ]['bn_cursor_ts'], $rows[ $i ]['bn_cursor_id'] );
+		}
+
+		return array(
+			'items'       => array_values( $rows ),
+			'next_cursor' => $next,
+		);
 	}
 
 	/**
@@ -1388,6 +1439,28 @@ class PostService {
 	 */
 	public static function is_pre_publication( string $status ): bool {
 		return ! empty( self::STATUSES[ $status ]['pre_publication'] );
+	}
+
+	/**
+	 * Whether a post is still inside the edit window for this user.
+	 *
+	 * The one rule behind update(), the web post card and the REST can_edit flag:
+	 * buddynext_post_edit_window minutes (0 = unlimited) after created_at.
+	 * Administrators and posts nobody has read yet (see is_pre_publication())
+	 * are always inside it.
+	 *
+	 * @param string $created_at Post created_at (UTC, MySQL format).
+	 * @param string $status     Post status.
+	 * @param int    $user_id    The would-be editor.
+	 * @return bool
+	 */
+	public static function within_edit_window( string $created_at, string $status, int $user_id ): bool {
+		$window = (int) get_option( 'buddynext_post_edit_window', 60 );
+		if ( $window <= 0 || self::is_pre_publication( $status ) || user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+		$created = (int) strtotime( $created_at . ' UTC' );
+		return $created > 0 && ( time() - $created ) <= $window * MINUTE_IN_SECONDS;
 	}
 
 	/**
@@ -1490,7 +1563,8 @@ class PostService {
 			? array()
 			: array(
 				'label' => __( 'Log in to view', 'buddynext' ),
-				'url'   => wp_login_url(),
+				// BuddyNext's login screen, returning to this post (same in the page and REST).
+				'url'   => \BuddyNext\Core\PageRouter::login_url( \BuddyNext\Core\PageRouter::post_url( (int) ( $post['id'] ?? 0 ) ) ),
 			);
 
 		return array(
@@ -1498,6 +1572,68 @@ class PostService {
 			'teaser' => $this->members_only_teaser( wp_strip_all_tags( (string) ( $post['content'] ?? '' ) ) ),
 			'cta'    => (array) apply_filters( 'buddynext_members_only_cta', $default_cta, $viewer, $post_ctx ),
 		);
+	}
+
+	/**
+	 * The post as this viewer may see it: the members-only paywall applied.
+	 *
+	 * The one place that knows which fields carry a post's body. A viewer without
+	 * access gets the teaser instead of the content, and no media, link URL or link
+	 * preview (title, description, image); `is_locked` and `members_only_cta` say
+	 * so. The author and viewers the access filter grants get the post unchanged.
+	 *
+	 * Every surface (REST feeds and single post, the post card, the Explore card,
+	 * the single-post head meta) renders the result of this, so a field added to
+	 * posts later is redacted everywhere at once. Each surface used to strip its own
+	 * list and the REST copy missed link_url and link_meta (card 10369172985).
+	 *
+	 * @param array<string,mixed> $post   Hydrated post.
+	 * @param int                 $viewer Viewer user ID (0 = guest).
+	 * @return array<string,mixed>
+	 */
+	public function members_only_view( array $post, int $viewer ): array {
+		$gate              = $this->members_only_gate( $post, $viewer );
+		$post['is_locked'] = $gate['locked'];
+		if ( ! $gate['locked'] ) {
+			return $post;
+		}
+		$post['content']          = $gate['teaser'];
+		$post['media_ids']        = array();
+		$post['link_url']         = '';
+		$post['link_meta']        = null;
+		$post['members_only_cta'] = $gate['cta'];
+		return $post;
+	}
+
+	/**
+	 * May this post be shared outside the community (social networks, messaging)?
+	 *
+	 * Yes when anyone who opens the link sees it: the site is not a private
+	 * community, the post is published, public and not members-only, and its
+	 * space (if any) shows content to logged-out visitors. Link scrapers visit as
+	 * guests, so this is also exactly when a link preview carries the post. The
+	 * web share dialog and the REST `shareable` field both read this one answer.
+	 *
+	 * @param array<string,mixed> $post Hydrated post (privacy, members_only, space_id, status).
+	 * @return bool
+	 */
+	public function is_publicly_shareable( array $post ): bool {
+		$space_id  = (int) ( $post['space_id'] ?? 0 );
+		$shareable = ! \BuddyNext\Core\PrivateCommunity::is_enabled()
+			&& 'public' === (string) ( $post['privacy'] ?? 'public' )
+			&& empty( $post['members_only'] )
+			&& 'published' === (string) ( $post['status'] ?? 'published' )
+			&& ( 0 === $space_id || \BuddyNext\Spaces\SpaceVisibility::can_view_content( ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ), 0 ) );
+
+		/**
+		 * Filter whether a post may be shared outside the community.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param bool                $shareable Whether the post is public to anyone with the link.
+		 * @param array<string,mixed> $post      Hydrated post.
+		 */
+		return (bool) apply_filters( 'buddynext_post_publicly_shareable', $shareable, $post );
 	}
 
 	/**
@@ -1891,7 +2027,9 @@ class PostService {
 	 *
 	 * @param int   $post_id  Post to update.
 	 * @param int   $user_id  Requesting user (must be owner).
-	 * @param array $data     Fields to change: content, privacy, content_warning, content_warning_type.
+	 * @param array $data     Fields to change: content, privacy, content_warning, content_warning_type,
+	 *                        media_ids (the full new list: add and remove), scheduled_at, members_only,
+	 *                        remove_link_preview.
 	 * @return true|WP_Error True on success, WP_Error on permission / edit-window / content-safeguard failure.
 	 */
 	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
@@ -1925,20 +2063,15 @@ class PostService {
 		// pre-moderation alike: the window guards against rewriting history members
 		// have already read, and neither has been read. An `under_review` post is
 		// NOT exempt, because it was published before it was hidden.
-		$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
-		if ( $edit_window > 0 && ! user_can( $user_id, 'manage_options' ) ) {
-			global $wpdb;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$row            = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
-			$created_at     = $row['created_at'] ?? '';
-			$is_unpublished = self::is_pre_publication( (string) ( $row['status'] ?? '' ) );
-			if ( ! $is_unpublished && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
-				return new WP_Error(
-					'edit_window_closed',
-					__( 'The time window for editing this post has passed.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
-			}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+		if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
+			return new WP_Error(
+				'edit_window_closed',
+				__( 'The time window for editing this post has passed.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		// Re-scan edited content through the content safeguards (banned words +
@@ -2062,6 +2195,56 @@ class PostService {
 			}
 
 			$fields['scheduled_at'] = gmdate( 'Y-m-d H:i:s', $ts );
+			$formats[]              = '%s';
+		}
+
+		// MEDIA. media_ids is the post's complete new list, so one field both adds
+		// and removes. Ownership is checked exactly as create() checks it, against
+		// the post's AUTHOR (a moderator fixing someone's post cannot attach their
+		// own files to it; a site admin keeps create()'s curator exemption).
+		// Removing only detaches: the file stays in its owner's media library.
+		$media_change = null;
+		if ( array_key_exists( 'media_ids', $data ) ) {
+			$media_post = $this->get( $post_id );
+			if ( null === $media_post ) {
+				return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+			}
+			$media_owner = user_can( $user_id, 'manage_options' ) ? $user_id : (int) $media_post['user_id'];
+			$new_media   = $this->authorize_media_ids( (array) $data['media_ids'], $media_owner );
+			if ( is_wp_error( $new_media ) ) {
+				return $new_media;
+			}
+			$old_media = array_values( array_map( 'intval', (array) ( $media_post['media_ids'] ?? array() ) ) );
+
+			// The post's type follows what it carries: text gains a photo -> photo,
+			// photo loses its last one -> text. Every other type (poll, event, link,
+			// share...) keeps its type; its media is an attachment to it.
+			$type = (string) ( $media_post['type'] ?? 'text' );
+			if ( 'text' === $type && ! empty( $new_media ) ) {
+				$fields['type'] = 'photo';
+				$formats[]      = '%s';
+			} elseif ( 'photo' === $type && empty( $new_media ) ) {
+				$fields['type'] = 'text';
+				$formats[]      = '%s';
+			}
+
+			// A post may not end up empty, the same rule create() applies.
+			$next_text = trim( wp_strip_all_tags( (string) ( $data['content'] ?? $media_post['content'] ?? '' ) ) );
+			if ( empty( $new_media ) && '' === $next_text && in_array( $type, array( 'text', 'photo' ), true ) ) {
+				return new WP_Error(
+					'empty_post',
+					__( 'A post needs some text or at least one photo.', 'buddynext' ),
+					array( 'status' => 400 )
+				);
+			}
+
+			$fields['media_ids'] = empty( $new_media ) ? null : wp_json_encode( $new_media );
+			$formats[]           = '%s';
+			$media_change        = array(
+				'added'   => array_values( array_diff( $new_media, $old_media ) ),
+				'removed' => array_values( array_diff( $old_media, $new_media ) ),
+				'all'     => $new_media,
+			);
 		}
 
 		if ( isset( $data['privacy'] ) ) {
@@ -2107,6 +2290,23 @@ class PostService {
 		}
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// Keep the media indexes in step with media_ids, as create() does.
+		if ( null !== $media_change ) {
+			$this->index_media( $post_id, $media_change['added'] );
+			foreach ( $media_change['removed'] as $removed_id ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->delete(
+					$wpdb->prefix . 'bn_post_media',
+					array(
+						'post_id'  => $post_id,
+						'media_id' => $removed_id,
+					),
+					array( '%d', '%d' )
+				);
+			}
+			\BuddyNext\Media\ObjectMediaLink::set( \BuddyNext\Media\ObjectMediaLink::POST, $post_id, $media_change['all'] );
+		}
 
 		// Re-arm on a reschedule. set_schedule() and clear_schedule() both do this, and this is
 		// the third way scheduled_at changes: without it, moving a post EARLIER leaves the cron
@@ -2298,6 +2498,11 @@ class PostService {
 		// includes notifications whose post was just deleted, for up to the 30s TTL —
 		// the "3 over a list of 2" mismatch (card 10264293036).
 		$notif_recipients = array();
+		// Hashtags these posts carried, gathered before their links go, so the tags'
+		// post_count is recounted afterwards. The bn_post_hashtags rows were deleted
+		// here BEFORE buddynext_post_deleted fired, so the listener's sync() found
+		// nothing to recount and a tag page kept "Posts 15" over an empty list.
+		$hashtag_ids = array();
 
 		foreach ( array_chunk( $post_ids, self::CASCADE_CHUNK ) as $chunk ) {
 			$in = implode( ',', array_map( 'absint', $chunk ) );
@@ -2326,7 +2531,10 @@ class PostService {
 			$del( "DELETE FROM {$wpdb->prefix}bn_comments WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_shares WHERE post_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE post_id IN ({$in})" );
-			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id IN ({$in})" );
+			// Only the posts' own links: the table also holds media, discussions and
+			// jobs (object_type), whose ids can equal a post id.
+			$hashtag_ids = array_merge( $hashtag_ids, (array) $wpdb->get_col( "SELECT DISTINCT hashtag_id FROM {$wpdb->prefix}bn_post_hashtags WHERE object_type = 'post' AND post_id IN ({$in})" ) );
+			$del( "DELETE FROM {$wpdb->prefix}bn_post_hashtags WHERE object_type = 'post' AND post_id IN ({$in})" );
 			// create() mirrors attached media into MediaVerse's link store; detach
 			// it here or the link outlives the post (the media itself stays in its
 			// owner's library). Through the engine seam, never its table directly.
@@ -2339,6 +2547,14 @@ class PostService {
 			$del( "DELETE FROM {$wpdb->prefix}bn_notifications WHERE object_type = 'post' AND object_id IN ({$in})" );
 			$del( "DELETE FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id IN ({$in})" );
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		}
+
+		$hashtag_ids = array_values( array_unique( array_filter( array_map( 'intval', $hashtag_ids ) ) ) );
+		if ( $hashtag_ids && function_exists( 'buddynext_service' ) ) {
+			$bn_hashtags = buddynext_service( 'hashtags' );
+			if ( $bn_hashtags instanceof \BuddyNext\Hashtags\HashtagService ) {
+				$bn_hashtags->recount( $hashtag_ids );
+			}
 		}
 
 		$notif_recipients = array_values( array_unique( array_map( 'intval', $notif_recipients ) ) );
@@ -2683,6 +2899,112 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $this->move_status( (array) $rows, $from, $to );
+	}
+
+	/**
+	 * Rewrite the text, link and snapshot of the card of a type whose link_meta
+	 * id matches (one card per link, so at most one), keeping everything else (id, author, dates, status, space,
+	 * counts). Used through IntegrationActivity::rewrite_by_meta().
+	 *
+	 * Skipped when another card of the type already has the new link, so the
+	 * one-card-per-link rule publish() keeps still holds.
+	 *
+	 * @param string               $type     Post type marker (e.g. 'course').
+	 * @param string               $meta_key link_meta field name.
+	 * @param int                  $value    Value to match.
+	 * @param string               $content  New text.
+	 * @param string               $link_url New link.
+	 * @param array<string, mixed> $meta     New link_meta snapshot.
+	 * @return int Cards rewritten.
+	 */
+	public function rewrite_link_meta_card( string $type, string $meta_key, int $value, string $content, string $link_url, array $meta ): int {
+		if ( '' === $type || '' === $meta_key || '' === $link_url || $this->exists_by_link( $type, $link_url ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d
+				 LIMIT 1",
+				$type,
+				'$.' . $meta_key,
+				$value
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// LIMIT 1: one card per link, so at most one row may take the new link.
+		return empty( $rows ) ? 0 : $this->rewrite_card( (int) $rows[0]['id'], $content, $link_url, $meta );
+	}
+
+	/**
+	 * Rewrite the card of a type that currently has a given link, in place.
+	 *
+	 * The link-keyed counterpart of rewrite_link_meta_card(), for a card whose
+	 * snapshot carries no id unique to it (a course completion card stores the
+	 * course id, which every learner's card shares; its link is per learner).
+	 * Used through IntegrationActivity::rewrite().
+	 *
+	 * @param string               $type         Post type marker (e.g. 'course').
+	 * @param string               $old_link_url Link the card has now.
+	 * @param string               $content      New text.
+	 * @param string               $link_url     New link.
+	 * @param array<string, mixed> $meta         New link_meta snapshot.
+	 * @return int Cards rewritten.
+	 */
+	public function rewrite_link_card( string $type, string $old_link_url, string $content, string $link_url, array $meta ): int {
+		if ( '' === $link_url || ( $link_url !== $old_link_url && $this->exists_by_link( $type, $link_url ) ) ) {
+			return 0;
+		}
+		$id = $this->get_id_by_link( $type, $old_link_url );
+
+		return $id > 0 ? $this->rewrite_card( $id, $content, $link_url, $meta ) : 0;
+	}
+
+	/**
+	 * Replace one card's text, link and snapshot, keeping its id, author, dates,
+	 * status, space and counts.
+	 *
+	 * @param int                  $id       Card (bn_posts) id.
+	 * @param string               $content  New text.
+	 * @param string               $link_url New link.
+	 * @param array<string, mixed> $meta     New link_meta snapshot.
+	 * @return int 1 when the row was written, else 0.
+	 */
+	private function rewrite_card( int $id, string $content, string $link_url, array $meta ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ) );
+		$updated  = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'content'    => $content,
+				'link_url'   => $link_url,
+				'link_meta'  => wp_json_encode( $meta ),
+				'updated_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( 'post_' . $id, self::CACHE_GROUP );
+		if ( $space_id > 0 ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $space_id );
+		}
+
+		return is_int( $updated ) ? $updated : 0;
 	}
 
 	/**
@@ -4023,6 +4345,23 @@ class PostService {
 	}
 
 	/**
+	 * Is this row an announcement that is still running?
+	 *
+	 * Flagged as an announcement and not past its end time. Ending one (by hand
+	 * or when its time runs out) only stamps the end time.
+	 *
+	 * @param array<string,mixed> $row Raw bn_posts row.
+	 * @return bool
+	 */
+	public static function is_live_announcement( array $row ): bool {
+		if ( 1 !== (int) ( $row['is_announcement'] ?? 0 ) ) {
+			return false;
+		}
+		$expires = (string) ( $row['site_pin_expires_at'] ?? '' );
+		return '' === $expires || strtotime( $expires . ' UTC' ) > time();
+	}
+
+	/**
 	 * End an announcement by expiring its site pin now. Returns true if a row changed.
 	 *
 	 * @param int $post_id Post id.
@@ -4035,15 +4374,14 @@ class PostService {
 
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// Clear is_announcement so the post stops rendering the announcement
-		// banner/End button on its post card (post-card.php gates only on
-		// is_announcement). site_pin_expires_at is also stamped so any expiry-
-		// based reads settle immediately; the feed-prepend queries already honour
-		// both. The post itself stays in the feed as a normal post.
+		// Stamp the end time and keep is_announcement: the post stays an
+		// announcement on record (Engagement > Announcements lists it as Ended),
+		// and hydrate() reports it as no longer live, so its card drops the
+		// banner and End button. This used to clear the flag instead, which made
+		// every announcement ended from its card vanish from the admin list.
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
 			array(
-				'is_announcement'     => 0,
 				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
 				'updated_at'          => current_time( 'mysql', true ),
 			),
@@ -4051,7 +4389,7 @@ class PostService {
 				'id'              => $post_id,
 				'is_announcement' => 1,
 			),
-			array( '%d', '%s', '%s' ),
+			array( '%s', '%s' ),
 			array( '%d', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -4122,7 +4460,7 @@ class PostService {
 		$post = $this->get( $post_id );
 
 		if ( null === $post ) {
-			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ) );
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// The post owner may manage their own post; a site admin
@@ -4350,7 +4688,10 @@ class PostService {
 			'comment_count'        => (int) ( $row['comment_count'] ?? 0 ),
 			'share_count'          => (int) ( $row['share_count'] ?? 0 ),
 			'is_pinned'            => (int) ( $row['is_pinned'] ?? 0 ),
-			'is_announcement'      => (int) ( $row['is_announcement'] ?? 0 ),
+			// Live, not merely flagged: an announcement past its end time (ended by
+			// hand or run its course) keeps the column for the admin record, but
+			// every card, API reader and app must treat it as an ordinary post.
+			'is_announcement'      => self::is_live_announcement( $row ) ? 1 : 0,
 			'content_warning'      => (bool) ( $row['content_warning'] ?? false ),
 			'content_warning_type' => $row['content_warning_type'] ?? null,
 			'members_only'         => (bool) ( $row['members_only'] ?? false ),

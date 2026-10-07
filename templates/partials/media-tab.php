@@ -25,6 +25,9 @@ $bn_mt_is_owner = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
 // this file.
 $bn_mt_space_id  = isset( $bn_mt_space_id ) ? (int) $bn_mt_space_id : 0;
 $bn_mt_media_ids = isset( $bn_mt_media_ids ) ? (array) $bn_mt_media_ids : array();
+// Upload controls only for someone the site lets upload (MediaVerse "Who can
+// upload media"); a member who may not upload still manages what they have.
+$bn_mt_can_upload = \BuddyNext\Media\MediaClient::can_upload( get_current_user_id() );
 // Owner control: the Albums sub-view can be hidden via BuddyNext -> Integrations
 // (Media -> Albums sub-tab). Default on. When off, only the flat Media gallery shows.
 $bn_mt_albums_enabled = ! isset( $bn_mt_albums_enabled ) || (bool) $bn_mt_albums_enabled;
@@ -56,6 +59,9 @@ $bn_mt_ctx = array(
 	// True while an in-picker upload is in flight — disables the file input and shows
 	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
 	'pickerUploading'    => false,
+	'pickerPercent'      => 0,
+	'pickerIndex'        => 0,
+	'pickerTotal'        => 0,
 	// The album picker uploads as the viewer, against the same ceiling as every
 	// other media upload. See WPMediaVerseBridge::media_max_bytes().
 	'maxSizeMB'          => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
@@ -118,7 +124,7 @@ $bn_mt_ctx = array(
 	<?php // ── MEDIA VIEW ─────────────────────────────────────────────────────── ?>
 	<div class="bn-media-view" data-wp-bind--hidden="!state.viewIsMedia">
 		<?php
-		if ( $bn_mt_is_owner ) {
+		if ( $bn_mt_is_owner && $bn_mt_can_upload ) {
 			buddynext_get_template(
 				'partials/media-upload-composer.php',
 				array(
@@ -226,7 +232,7 @@ $bn_mt_ctx = array(
 				<label class="bn-field">
 					<span class="bn-field__label"><?php esc_html_e( 'Name', 'buddynext' ); ?></span>
 					<input class="bn-input" type="text" maxlength="120"
-						placeholder="<?php esc_attr_e( 'e.g. Summer trip', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'For example: Summer trip', 'buddynext' ); ?>"
 						data-wp-bind--value="context.createTitle"
 						data-wp-on--input="actions.setCreateTitle" />
 				</label>
@@ -284,6 +290,7 @@ $bn_mt_ctx = array(
 				// dressed up as a workflow. The file input goes through the SAME upload
 				// path as the composer; what lands is pre-selected, so "Add" just works.
 				?>
+				<?php if ( $bn_mt_can_upload ) : ?>
 				<div class="bn-album-picker__actions">
 					<label class="bn-btn bn-album-picker__upload" data-variant="secondary">
 						<?php buddynext_icon( 'upload', 'bn-album-picker__upload-icon' ); ?>
@@ -300,9 +307,11 @@ $bn_mt_ctx = array(
 					<span class="bn-album-picker__uploading" data-wp-class--is-hidden="!context.pickerUploading">
 						<span class="bn-album-picker__spinner" aria-hidden="true"></span>
 						<?php esc_html_e( 'Uploading…', 'buddynext' ); ?>
+						<span class="bn-album-picker__percent" aria-hidden="true" data-wp-text="state.pickerPercentText"></span>
 					</span>
 				</div>
 				<p class="bn-album-picker__hint"><?php esc_html_e( 'Tap media to select, or upload something new.', 'buddynext' ); ?></p>
+				<?php endif; ?>
 				<div class="bn-album-picker__grid" data-bn-picker-grid></div>
 			</div>
 			<div class="bn-modal__foot">

@@ -181,15 +181,19 @@ final class SpaceNav {
 	}
 
 	/**
-	 * Clean-URL builder for a space tab — /spaces/{slug}/{tab}/ (feed = the base).
+	 * Clean-URL builder for a space tab — /spaces/{slug}/{tab}/.
+	 *
+	 * Every tab, Feed included, has its own address. The bare space URL renders
+	 * the space's landing tab (resolve_default_landing_tab()), which is not always
+	 * the feed, so Feed linking to the base sent members to About instead.
 	 *
 	 * @param int    $space_id Space ID.
-	 * @param string $tab      Tab slug ('' = the feed/base URL).
+	 * @param string $tab      Tab slug ('' = the base URL, i.e. the landing tab).
 	 * @return string
 	 */
 	private function tab_url( int $space_id, string $tab ): string {
 		$base = trailingslashit( PageRouter::space_url( $space_id ) );
-		return '' === $tab || 'feed' === $tab ? $base : $base . $tab . '/';
+		return '' === $tab ? $base : $base . $tab . '/';
 	}
 
 	/**
@@ -264,6 +268,21 @@ final class SpaceNav {
 					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_media_tab' ),
 				'render'    => function ( NavContext $c ): void {
 					$this->render_media_panel( $c->subject_id );
+				},
+			),
+			array(
+				'id'        => 'leaderboard',
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => __( 'Leaderboard', 'buddynext' ),
+				'priority'  => 46,
+				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'leaderboard' ),
+				// The space owner's switch (default off) on top of the site-wide
+				// Gamification switch, like every space integration tab. The board ranks
+				// site-wide points and lists this space's members only.
+				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\GamificationBridge::space_leaderboard_on( (int) $c->subject_id ),
+				'render'    => static function ( NavContext $c ): void {
+					buddynext_get_template( 'gamification/leaderboard.php', array( 'space_id' => (int) $c->subject_id ) );
 				},
 			),
 			array(
@@ -469,7 +488,8 @@ final class SpaceNav {
 		// search is big enough to overflow one page of it, so the twentieth match
 		// cannot be the last one a member can reach.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination on a GET form.
-		$search_page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+		// /spaces/{slug}/feed/page/N/?bn_sf_q= (an old ?paged=N link redirects there).
+		$search_page = max( 1, absint( get_query_var( 'paged', 0 ) ), isset( $_GET['paged'] ) ? absint( $_GET['paged'] ) : 1 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only page number.
 		$has_prev    = false;
 		$has_next    = false;
 

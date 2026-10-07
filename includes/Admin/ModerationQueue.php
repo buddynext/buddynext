@@ -92,6 +92,13 @@ class ModerationQueue {
 			$version,
 			true
 		);
+
+		// Suspend asks for a reason, length and hide-posts in the same confirm modal
+		// the Members screen uses (one dialog, one reader: Members::suspension_from_request()).
+		wp_enqueue_style( 'bn-admin-members', $plugin_url . 'assets/css/bn-admin-members.css', array( 'bn-admin' ), $version );
+		wp_enqueue_script( 'bn-admin-members', $plugin_url . 'assets/js/admin/members.js', array( 'wp-i18n', 'bn-admin-more-menu' ), $version, true );
+		wp_set_script_translations( 'bn-admin-members', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+		add_action( 'admin_footer', array( Members::class, 'render_confirm_modal' ) );
 	}
 
 	// ── Renderers ───────────────────────────────────────────────────────────
@@ -502,7 +509,7 @@ class ModerationQueue {
 				if ( $bn_report_count > 1 ) {
 					printf(
 						/* translators: %d: number of users who reported this content */
-						esc_html( _n( 'Reported by %d user', 'Reported by %d users', $bn_report_count, 'buddynext' ) ),
+						esc_html( _n( 'Reported by %d member', 'Reported by %d members', $bn_report_count, 'buddynext' ) ),
 						(int) $bn_report_count
 					);
 				} elseif ( $reporter ) {
@@ -515,7 +522,7 @@ class ModerationQueue {
 					// so this is the common case rather than a curiosity.
 					echo esc_html__( 'System (auto-flagged)', 'buddynext' );
 				} else {
-					echo esc_html__( '(deleted user)', 'buddynext' );
+					echo esc_html__( '(deleted member)', 'buddynext' );
 				}
 				?>
 			</td>
@@ -560,9 +567,9 @@ class ModerationQueue {
 								$this->report_button( $report_id, 'escalate', __( 'Escalate', 'buddynext' ), 'secondary', '', true );
 							}
 							if ( $author_id > 0 && 'user' !== $object_type ) {
-								$this->user_inline_actions( $author_id );
+								$this->user_inline_actions( $author_id, 'author' );
 							} elseif ( 'user' === $object_type && $object_id > 0 ) {
-								$this->user_inline_actions( $object_id );
+								$this->user_inline_actions( $object_id, 'member' );
 							}
 							?>
 						</div>
@@ -805,7 +812,7 @@ class ModerationQueue {
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ) ); ?></td>
 								<td>
 								<?php $bn_action_slug = (string) ( $row['action'] ?? '' ); ?>
-								<span class="bn-badge" data-tone="neutral" title="<?php echo esc_attr( $bn_action_slug ); ?>"><?php echo esc_html( $this->action_label( $bn_action_slug ) ); ?></span>
+								<span class="bn-badge" data-tone="neutral" title="<?php echo esc_attr( $bn_action_slug ); ?>"><?php echo esc_html( \BuddyNext\Moderation\ModerationLogService::action_label( $bn_action_slug ) ); ?></span>
 							</td>
 								<td><?php echo esc_html( buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ) ); ?></td>
 								<td><?php echo esc_html( $object ); ?></td>
@@ -890,72 +897,6 @@ class ModerationQueue {
 	 * @param array{page:int, query:array<string,mixed>} $filters Active filters.
 	 * @return void
 	 */
-	/**
-	 * Human labels for moderation-log action slugs.
-	 *
-	 * ONE map, so the filter dropdown, the Action column and the CSV export all
-	 * read the same way. The column used to print the raw slug (dismiss_report)
-	 * while the filter above it showed the label ("Report dismissed"), so an owner
-	 * could not tell they were the same thing.
-	 *
-	 * @return array<string,string>
-	 */
-	private function action_labels(): array {
-		return array(
-			// Member sanctions. 'suspend' (automatic, from the strike threshold) and
-			// 'suspend_user' (a moderator/admin acting directly) are BOTH written and
-			// are distinct slugs — labelled distinctly so filtering by one does not
-			// silently drop the other (card 10284912236). The dead 'unsuspend' slug
-			// nothing ever wrote is gone; the real one is 'unsuspend_user'.
-			// 'warn' is a high-volume, filterable sanction written by
-			// ModerationService::warn(); without a label the dropdown and the column
-			// badge disagreed for it (card 10284912236 item 1). 'warned' is the legacy
-			// slug some older rows carry.
-			'warn'              => __( 'Warning issued', 'buddynext' ),
-			'warned'            => __( 'Warning issued', 'buddynext' ),
-			'issue_strike'      => __( 'Strike issued', 'buddynext' ),
-			'reverse_strike'    => __( 'Strike reversed', 'buddynext' ),
-			'suspend_user'      => __( 'Suspended', 'buddynext' ),
-			'suspend'           => __( 'Suspended (automatic)', 'buddynext' ),
-			'unsuspend_user'    => __( 'Unsuspended', 'buddynext' ),
-			'perma_ban'         => __( 'Permanent ban', 'buddynext' ),
-			'shadow_ban'        => __( 'Shadow ban', 'buddynext' ),
-			'remove_shadow_ban' => __( 'Shadow ban removed', 'buddynext' ),
-			// Space sanctions.
-			'space_ban'         => __( 'Banned from space', 'buddynext' ),
-			'space_unban'       => __( 'Space ban lifted', 'buddynext' ),
-			// Reports + content.
-			'dismiss_report'    => __( 'Report dismissed', 'buddynext' ),
-			'escalate_report'   => __( 'Report escalated', 'buddynext' ),
-			'resolve_report'    => __( 'Report resolved', 'buddynext' ),
-			'remove_content'    => __( 'Content removed', 'buddynext' ),
-			'approve_pending'   => __( 'Post approved', 'buddynext' ),
-			'reject_pending'    => __( 'Post rejected', 'buddynext' ),
-			// Appeals.
-			'approve_appeal'    => __( 'Appeal approved', 'buddynext' ),
-			'deny_appeal'       => __( 'Appeal denied', 'buddynext' ),
-			'resolve_appeal'    => __( 'Appeal resolved', 'buddynext' ),
-			// AI sweep (pro), written with the ai_ prefix + the system actor.
-			'ai_remove_content' => __( 'AI: content removed', 'buddynext' ),
-			'ai_escalate'       => __( 'AI: escalated', 'buddynext' ),
-			'ai_dismiss'        => __( 'AI: dismissed', 'buddynext' ),
-		);
-	}
-
-	/**
-	 * Label for one action slug, with a humanised fallback for anything not in the
-	 * map (a partner-registered action, say) so the column never shows a bare slug.
-	 *
-	 * @param string $slug Action slug.
-	 * @return string
-	 */
-	private function action_label( string $slug ): string {
-		$labels = $this->action_labels();
-		if ( isset( $labels[ $slug ] ) ) {
-			return $labels[ $slug ];
-		}
-		return '' === $slug ? '—' : ucfirst( str_replace( '_', ' ', $slug ) );
-	}
 
 	/**
 	 * Render the moderation-log filter toolbar: action dropdown, moderator / target
@@ -967,7 +908,7 @@ class ModerationQueue {
 	 */
 	private function render_log_toolbar( array $filters ): void {
 		$q          = $filters['query'];
-		$actions    = $this->action_labels();
+		$actions    = \BuddyNext\Moderation\ModerationLogService::action_labels();
 		$cur_action = (string) ( $q['action'] ?? '' );
 
 		// Legacy slugs folded into a canonical option (e.g. 'warned' -> 'warn')
@@ -1083,7 +1024,7 @@ class ModerationQueue {
 					array(
 						(string) ( $row['created_at'] ?? '' ),
 						buddynext_member_label( (int) ( $row['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ),
-						$this->action_label( (string) ( $row['action'] ?? '' ) ),
+						\BuddyNext\Moderation\ModerationLogService::action_label( (string) ( $row['action'] ?? '' ) ),
 						buddynext_member_label( (int) ( $row['target_user_id'] ?? 0 ) ),
 						(string) ( $row['object_type'] ?? '' ),
 						(int) ( $row['object_id'] ?? 0 ),
@@ -1177,7 +1118,7 @@ class ModerationQueue {
 				break;
 		}
 
-		$this->redirect_back( 'reports', $result );
+		$this->redirect_back( 'reports', $result, $op );
 	}
 
 	/**
@@ -1202,7 +1143,20 @@ class ModerationQueue {
 				$result = $service->issue_strike( $user_id, $actor, __( 'Issued from the moderation queue.', 'buddynext' ) );
 				break;
 			case 'suspend':
-				$result = $service->suspend_user( $user_id, $actor, __( 'Suspended from the moderation queue.', 'buddynext' ) );
+				$bn_req = Members::suspension_from_request();
+				$result = is_wp_error( $bn_req )
+					? $bn_req
+					: $service->suspend_user(
+						$user_id,
+						$actor,
+						$bn_req['reason'],
+						array_filter(
+							array(
+								'duration_days' => $bn_req['duration_days'],
+								'hide_posts'    => $bn_req['hide_posts'],
+							)
+						)
+					);
 				break;
 			case 'unsuspend':
 				$result = $service->unsuspend_user( $user_id, $actor );
@@ -1212,7 +1166,7 @@ class ModerationQueue {
 		// issue_strike() / suspend_user() / unsuspend_user() each write their own
 		// bn_mod_log row now (card 10264294456), so no log() call here.
 
-		$this->redirect_back( $tab, $result );
+		$this->redirect_back( $tab, $result, $op );
 	}
 
 	/**
@@ -1244,7 +1198,7 @@ class ModerationQueue {
 			);
 		}
 
-		$this->redirect_back( 'appeals', $result );
+		$this->redirect_back( 'appeals', $result, 'appeal' );
 	}
 
 	/**
@@ -1299,7 +1253,7 @@ class ModerationQueue {
 			);
 		}
 
-		$this->redirect_back( 'pending', $result );
+		$this->redirect_back( 'pending', $result, $op_action );
 	}
 
 	// ── Small render + flow helpers ─────────────────────────────────────────
@@ -1433,13 +1387,16 @@ class ModerationQueue {
 	}
 
 	/**
-	 * Render strike + suspend buttons for a content author.
+	 * Render strike + suspend buttons for the person a report is about.
 	 *
-	 * @param int $user_id Author user ID.
+	 * @param int    $user_id User ID.
+	 * @param string $who     'author' for a content report, 'member' for a profile report,
+	 *                        so the label names the right person (the front-end queue does the same).
 	 * @return void
 	 */
-	private function user_inline_actions( int $user_id ): void {
-		$this->user_button( $user_id, 'strike', __( 'Strike author', 'buddynext' ), 'secondary', '', true );
+	private function user_inline_actions( int $user_id, string $who = 'author' ): void {
+		$is_member = 'member' === $who;
+		$this->user_button( $user_id, 'strike', $is_member ? __( 'Strike member', 'buddynext' ) : __( 'Strike author', 'buddynext' ), 'secondary', '', true );
 
 		// Already suspended: show the state, not a Suspend button. Re-suspending is
 		// a server-side no-op (suspend_user() returns the existing active
@@ -1451,7 +1408,30 @@ class ModerationQueue {
 			return;
 		}
 
-		$this->user_button( $user_id, 'suspend', __( 'Suspend author', 'buddynext' ), 'delete', __( 'Suspend this member?', 'buddynext' ), true );
+		$bn_user = get_userdata( $user_id );
+		$this->action_form(
+			'bn_mod_user_action',
+			array(
+				'user_id'    => $user_id,
+				'op'         => 'suspend',
+				'return_tab' => 'reports',
+			),
+			$is_member ? __( 'Suspend member', 'buddynext' ) : __( 'Suspend author', 'buddynext' ),
+			'delete',
+			'',
+			true,
+			array(
+				'data-bn-confirm'         => '1',
+				'data-bn-confirm-suspend' => '1',
+				'data-bn-confirm-title'   => __( 'Suspend this member?', 'buddynext' ),
+				'data-bn-confirm-body'    => sprintf(
+					/* translators: %s: member display name. */
+					__( 'Suspend %s? They lose posting access and see the reason you choose on their account page and in the suspension email.', 'buddynext' ),
+					$bn_user ? $bn_user->display_name : '#' . $user_id
+				),
+				'data-bn-confirm-label'   => __( 'Suspend member', 'buddynext' ),
+			)
+		);
 	}
 
 	/**
@@ -1506,18 +1486,20 @@ class ModerationQueue {
 	/**
 	 * Render a tiny inline admin-post form carrying one action.
 	 *
-	 * @param string              $action      admin-post action (also the nonce).
-	 * @param array<string,mixed> $fields      Hidden field name => value.
-	 * @param string              $label       Button label.
-	 * @param string              $variant     Button class hint.
-	 * @param string              $confirm     Optional confirm() prompt.
-	 * @param bool                $in_dropdown Render the submit as a `.bn-dropdown-item`
-	 *                                         (for a `.bn-more-dropdown` overflow menu,
-	 *                                         see assets/js/admin/more-menu.js) instead
-	 *                                         of an inline `.bn-btn`.
+	 * @param string               $action      admin-post action (also the nonce).
+	 * @param array<string,mixed>  $fields      Hidden field name => value.
+	 * @param string               $label       Button label.
+	 * @param string               $variant     Button class hint.
+	 * @param string               $confirm     Optional confirm() prompt.
+	 * @param bool                 $in_dropdown Render the submit as a `.bn-dropdown-item`
+	 *                                          (for a `.bn-more-dropdown` overflow menu,
+	 *                                          see assets/js/admin/more-menu.js) instead
+	 *                                          of an inline `.bn-btn`.
+	 * @param array<string,string> $attrs      Extra form attributes, e.g. the Members
+	 *                                         confirm-modal flags for suspend.
 	 * @return void
 	 */
-	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm, bool $in_dropdown = false ): void {
+	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm, bool $in_dropdown = false, array $attrs = array() ): void {
 		$data_variant = 'secondary';
 		if ( 'primary' === $variant ) {
 			$data_variant = 'primary';
@@ -1531,7 +1513,10 @@ class ModerationQueue {
 			// every buddynext-* admin page); replaces the native browser confirm().
 			if ( '' !== $confirm ) :
 				?>
-				data-bn-confirm="<?php echo esc_attr( $confirm ); ?>" data-bn-confirm-tone="<?php echo esc_attr( 'delete' === $variant ? 'danger' : 'neutral' ); ?>"<?php endif; ?>>
+				data-bn-confirm="<?php echo esc_attr( $confirm ); ?>" data-bn-confirm-tone="<?php echo esc_attr( 'delete' === $variant ? 'danger' : 'neutral' ); ?>"<?php endif; ?>
+			<?php foreach ( $attrs as $bn_attr => $bn_value ) : ?>
+				<?php echo esc_attr( (string) $bn_attr ); ?>="<?php echo esc_attr( (string) $bn_value ); ?>"
+			<?php endforeach; ?>>
 			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
 			<?php wp_nonce_field( $action ); ?>
 			<?php foreach ( $fields as $name => $value ) : ?>
@@ -1560,6 +1545,30 @@ class ModerationQueue {
 	}
 
 	/**
+	 * What a moderation action did, in the words the moderator expects to read.
+	 *
+	 * @param string $done Op key from redirect_back().
+	 * @return string
+	 */
+	private static function done_message( string $done ): string {
+		$messages = array(
+			'dismiss'         => __( 'Report dismissed.', 'buddynext' ),
+			'resolve'         => __( 'Report resolved.', 'buddynext' ),
+			'remove'          => __( 'Content removed.', 'buddynext' ),
+			'escalate'        => __( 'Report escalated.', 'buddynext' ),
+			'cw_set'          => __( 'Content warning added.', 'buddynext' ),
+			'cw_clear'        => __( 'Content warning removed.', 'buddynext' ),
+			'strike'          => __( 'Strike issued.', 'buddynext' ),
+			'suspend'         => __( 'Member suspended.', 'buddynext' ),
+			'unsuspend'       => __( 'Suspension lifted.', 'buddynext' ),
+			'appeal'          => __( 'Appeal decided.', 'buddynext' ),
+			'approve_pending' => __( 'Post approved.', 'buddynext' ),
+			'reject_pending'  => __( 'Post rejected.', 'buddynext' ),
+		);
+		return $messages[ $done ] ?? __( 'Done.', 'buddynext' );
+	}
+
+	/**
 	 * Redirect back to a moderation tab, reflecting the action's outcome.
 	 *
 	 * A WP_Error result (e.g. unsuspending a user who is not suspended, or acting
@@ -1569,9 +1578,10 @@ class ModerationQueue {
 	 *
 	 * @param string          $tab    Tab slug.
 	 * @param mixed|\WP_Error $result Service return value; WP_Error means failure.
+	 * @param string          $done   What succeeded (an op key, see done_message()).
 	 * @return void
 	 */
-	private function redirect_back( string $tab, $result = true ): void {
+	private function redirect_back( string $tab, $result = true, string $done = '' ): void {
 		$args = array(
 			'page' => 'buddynext-moderation',
 			'tab'  => $tab,
@@ -1580,7 +1590,7 @@ class ModerationQueue {
 		if ( is_wp_error( $result ) ) {
 			$args['bn_error'] = rawurlencode( $result->get_error_message() );
 		} else {
-			$args['bn_done'] = '1';
+			$args['bn_done'] = '' !== $done ? sanitize_key( $done ) : '1';
 		}
 
 		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
@@ -1595,7 +1605,7 @@ class ModerationQueue {
 	private function maybe_notice(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
 		if ( ! empty( $_GET['bn_done'] ) ) {
-			AdminPageBase::render_notice( __( 'Done.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
+			AdminPageBase::render_notice( self::done_message( sanitize_key( wp_unslash( (string) $_GET['bn_done'] ) ) ), 'success', false, array( 'data-bn-clear-param' => 'bn_done bn_error' ) );
 		}
 
 		if ( ! empty( $_GET['bn_error'] ) ) {

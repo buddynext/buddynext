@@ -200,11 +200,14 @@ test.describe('directory / members', () => {
             // (e.g. admin, user id 1) - it can sit on the last page of 130+ members,
             // never rendered on page 1. Search for it by login so the assertion below
             // proves the cover renders on the actual card, not on "whatever card the
-            // default sort happens to put first".
+            // default sort happens to put first". The directory searches what members
+            // see, the display name, which need not equal the login (an owner who
+            // renames the admin account to "Community Team" is not found by "admin").
             if ((await card.count()) === 0) {
                 const input = page.locator(sel.directorySearch).first();
                 if (await input.isVisible().catch(() => false)) {
-                    await input.fill(targetLogin);
+                    const shownName = (await wp(['user', 'get', String(targetId), '--field=display_name'])).trim();
+                    await input.fill(shownName || targetLogin);
                     await expect.poll(() => card.count(), { timeout: 5_000 }).toBeGreaterThan(0);
                 }
             }

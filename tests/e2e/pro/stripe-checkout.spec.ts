@@ -72,13 +72,24 @@ test.describe('pro / stripe checkout', () => {
     });
 
     test('clicking Subscribe redirects to Stripe Checkout', async ({ page }, testInfo) => {
+        // This journey is about STRIPE. On a site with no Stripe keys but another
+        // gateway switched on (the built-in Test gateway on a fresh install), the
+        // purchase completes on-site and never leaves for checkout.stripe.com.
+        const stripeReady = (
+            await wp(['eval', `echo ( new \\BuddyNextPro\\Stripe\\StripeClient() )->is_configured() ? '1' : '0';`])
+        ).trim();
+        if (stripeReady !== '1') {
+            testInfo.skip(true, 'Stripe is not configured on this site - nothing to redirect to.');
+            return;
+        }
+
         await page.goto(`/?autologin=${MEMBER}`, { waitUntil: 'domcontentloaded' });
         await page.goto(pricingUrl, { waitUntil: 'domcontentloaded' });
 
         const card = page.locator(`#bnpro-plan-${tierId}`);
         await expect(card, 'the seeded paid plan should render as a card').toBeVisible({ timeout: 10_000 });
 
-        const cta = card.locator('form.bn-membership-pricing__form button[type="submit"]').first();
+        const cta = card.locator('a.bn-plan-card__buy').first();
 
         if (!(await cta.isVisible().catch(() => false)) || (await cta.isDisabled().catch(() => true))) {
             testInfo.skip(
@@ -96,7 +107,13 @@ test.describe('pro / stripe checkout', () => {
         // success OR failure) before the browser actually navigates - so wait
         // for the URL to leave the pricing page rather than for a load-state
         // event that can fire before any of that completes.
+        // The plan card links to the on-site order summary first; its own submit
+        // starts the gateway session.
         await cta.click();
+        // One button per gateway switched on; this journey pays with Stripe.
+        const pay = page.locator('form.bn-order__summary button.bn-order__submit[value="stripe"]');
+        await expect(pay, 'the order summary should offer the payment step').toBeVisible({ timeout: 10_000 });
+        await pay.click();
         await page.waitForURL((u) => u.origin !== homeOrigin || u.searchParams.has('bn_checkout_error'), {
             timeout: 20_000,
         });

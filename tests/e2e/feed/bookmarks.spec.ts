@@ -145,7 +145,15 @@ test.describe('feed / bookmarks + share', () => {
 
             // Quote + repost (the modal's POST /posts/{id}/share with the note).
             await page.locator(shareNote).first().fill(quote);
-            await page.locator(shareRepost).first().click();
+            // Wait for the write to finish before leaving the page: navigating at once
+            // races the POST, and the feed can render before the reshare exists.
+            await Promise.all([
+                page.waitForResponse(
+                    (r) => r.request().method() === 'POST' && /\/posts\/\d+\/share/.test(r.url()),
+                    { timeout: 15_000 },
+                ),
+                page.locator(shareRepost).first().click(),
+            ]);
 
             // The reshare is my own public post — it surfaces at the top of my feed.
             await page.goto(urls.feed);

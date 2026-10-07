@@ -20,7 +20,9 @@ defined( 'ABSPATH' ) || exit;
 
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
-$login_url  = \BuddyNext\Core\PageRouter::auth_url();
+// Carries the visitor's incoming destination on to "Sign in" (login_url() does
+// this on every auth screen).
+$login_url = \BuddyNext\Core\PageRouter::login_url();
 
 /*
  * Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
@@ -161,7 +163,7 @@ if ( 'invite' === $bn_reg_mode ) {
 							<p class="bn-auth-sub"><?php esc_html_e( 'Ask a member of this community to send you an invitation.', 'buddynext' ); ?></p>
 						<?php endif; ?>
 
-						<a class="bn-btn" data-variant="ghost" data-size="lg" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() ); ?>">
+						<a class="bn-btn" data-variant="ghost" data-size="lg" href="<?php echo esc_url( $login_url ); ?>">
 							<?php esc_html_e( 'Back to sign in', 'buddynext' ); ?>
 						</a>
 					</section>
@@ -225,6 +227,12 @@ if ( 'invite' === $bn_reg_mode ) {
 				'askUsername'      => ! empty( $bn_requirements['ask_username'] ),
 				'password'         => '',
 				'termsAgreed'      => false,
+				// Whether the form shows the consent checkbox at all: only when the
+				// owner requires consent AND a terms page is readable (the server's own
+				// rule). The store demanded consent regardless, so on a new site, with
+				// the privacy page still a draft and no checkbox on screen, nobody could
+				// sign up ("Please agree to the Terms...").
+				'termsRequired'    => ! empty( $bn_requirements['terms'] ),
 				'passwordStrength' => 0,
 				'strengthLabel'    => '',
 				'submitting'       => false,

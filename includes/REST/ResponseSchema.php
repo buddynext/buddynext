@@ -67,6 +67,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/spaces/slug/{slug}',
+				'resource' => 'space_detail',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/spaces/{id}',
 				'resource' => 'space_detail',
 				'shape'    => 'item',
@@ -99,6 +105,30 @@ final class ResponseSchema {
 				'method'   => 'GET',
 				'path'     => '/posts/{id}/poll',
 				'resource' => 'poll',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/users/{id}/likes',
+				'resource' => 'post',
+				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/users/{id}/replies',
+				'resource' => 'profile_reply',
+				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/me/scheduled-posts',
+				'resource' => 'post',
+				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/moderation/suspension-reasons',
+				'resource' => 'suspension_reasons',
 				'shape'    => 'item',
 			),
 			array(
@@ -238,6 +268,12 @@ final class ResponseSchema {
 				'path'     => '/feed/explore',
 				'resource' => 'feed_explore',
 				'shape'    => 'paginated',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/feed/explore/deck',
+				'resource' => 'feed_explore_deck',
+				'shape'    => 'item',
 			),
 			array(
 				'method'   => 'GET',
@@ -385,8 +421,14 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/me/notifications/this-week',
+				'resource' => 'me_notifications_this_week',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/me/notifications/unread-count',
-				'resource' => 'me_follow_requests_count',
+				'resource' => 'me_notifications_unread_count',
 				'shape'    => 'item',
 			),
 			array(
@@ -609,6 +651,36 @@ final class ResponseSchema {
 				'method'   => 'GET',
 				'path'     => '/users/{id}/following',
 				'resource' => 'users_followers',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/users/{id}/connections',
+				'resource' => 'users_followers',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/users/{id}/spaces',
+				'resource' => 'member_space',
+				'shape'    => 'array',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/spaces/featured',
+				'resource' => 'space',
+				'shape'    => 'array',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/me/social',
+				'resource' => 'social_account',
+				'shape'    => 'array',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/spaces/{id}/discussion',
+				'resource' => 'space_discussion',
 				'shape'    => 'item',
 			),
 			array(
@@ -939,6 +1011,54 @@ final class ResponseSchema {
 				'fields'            => array( 'type' => array( 'object', 'array' ) ),
 				'parent'            => array( 'type' => array( 'object', 'null' ) ),
 				'landing_tab'       => array( 'type' => 'string' ),
+				'can_add_subspace'  => array( 'type' => 'boolean' ),
+				'linked_source'     => array(
+					'type'        => array( 'object', 'null' ),
+					'description' => 'Pro + Learnomy: the course or Learnomy Space this community belongs to.',
+				),
+				'post_count'        => array( 'type' => 'integer' ),
+				'brand_color'       => array( 'type' => 'string' ),
+				'cover_focal'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'x'    => array( 'type' => 'number' ),
+						'y'    => array( 'type' => 'number' ),
+						'zoom' => array( 'type' => 'number' ),
+					),
+				),
+				'team'              => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'object' ),
+				),
+				'top_contributors'  => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'object' ),
+				),
+				'subspace_limit'    => array(
+					'type'       => 'object',
+					'properties' => array(
+						'max'  => array( 'type' => 'integer' ),
+						'used' => array( 'type' => 'integer' ),
+					),
+				),
+				'invite_link'       => array(
+					'type' => 'string',
+					'enum' => array( 'valid', 'invalid' ),
+				),
+				'nav'               => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'id'       => array( 'type' => 'string' ),
+							'label'    => array( 'type' => 'string' ),
+							'icon'     => array( 'type' => array( 'string', 'null' ) ),
+							'url'      => array( 'type' => array( 'string', 'null' ) ),
+							'count'    => array( 'type' => array( 'integer', 'null' ) ),
+							'children' => array( 'type' => 'array' ),
+						),
+					),
+				),
 				'subspace_count'    => array( 'type' => 'integer' ),
 				'join_method'       => array( 'type' => 'string' ),
 				'membership_role'   => array( 'type' => array( 'string', 'null' ) ),
@@ -1006,6 +1126,10 @@ final class ResponseSchema {
 				'type_label'         => array( 'type' => 'string' ),
 				'type_tone'          => array( 'type' => 'string' ),
 				'join_method'        => array( 'type' => 'string' ),
+				'parent'             => array(
+					'description' => 'The space this sub-space belongs to; null for a top-level space or a hidden parent the viewer may not see.',
+					'type'        => array( 'object', 'null' ),
+				),
 				'membership_role'    => array( 'type' => array( 'string', 'null' ) ),
 				'membership_status'  => array( 'type' => array( 'string', 'null' ) ),
 				'can_invite'         => array( 'type' => 'boolean' ),
@@ -1033,7 +1157,12 @@ final class ResponseSchema {
 				'space_id'             => array( 'type' => array( 'integer', 'null' ) ),
 				'space_type'           => array( 'type' => array( 'string', 'null' ) ),
 				'shared_post_id'       => array( 'type' => array( 'integer', 'null' ) ),
-				'shared_post'          => array( 'type' => array( 'object', 'null' ) ),
+				// Only re-shares carry it (FeedController::embed_shared_posts), so a
+				// sample of ordinary posts is not drift.
+				'shared_post'          => array(
+					'type'             => array( 'object', 'null' ),
+					'x-bn-conditional' => true,
+				),
 				'type'                 => array( 'type' => 'string' ),
 				'content'              => array( 'type' => 'string' ),
 				'media_ids'            => array(
@@ -1055,6 +1184,18 @@ final class ResponseSchema {
 				'content_warning'      => array( 'type' => 'boolean' ),
 				'content_warning_type' => array( 'type' => array( 'string', 'null' ) ),
 				'members_only'         => array( 'type' => 'boolean' ),
+				// Members-only posts only (PostService::members_only_view): whether this
+				// viewer gets the teaser, and how to gain access when they do.
+				'is_locked'            => array(
+					'type'             => 'boolean',
+					'x-bn-conditional' => true,
+				),
+				'members_only_cta'     => array(
+					'type'             => 'object',
+					'x-bn-conditional' => true,
+				),
+				// Whether the share sheet may offer the link (PostService::is_publicly_shareable).
+				'shareable'            => array( 'type' => 'boolean' ),
 				'status'               => array( 'type' => 'string' ),
 				'site_pin_expires_at'  => array( 'type' => array( 'string', 'null' ) ),
 				'edited_at'            => array( 'type' => array( 'string', 'null' ) ),
@@ -1086,6 +1227,7 @@ final class ResponseSchema {
 						'my_voted_option_id' => array( 'type' => array( 'integer', 'null' ) ),
 						'my_share'           => array( 'type' => array( 'object', 'null' ) ),
 						'can_edit'           => array( 'type' => 'boolean' ),
+						'has_reported'       => array( 'type' => 'boolean' ),
 					),
 				),
 				'media'                => array(
@@ -1100,6 +1242,58 @@ final class ResponseSchema {
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
+			),
+		);
+	}
+
+	/**
+	 * The reasons a moderator picks when suspending (GET /moderation/suspension-reasons).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function suspension_reasons(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'suspension_reasons',
+			'type'       => 'object',
+			'properties' => array(
+				'items'    => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'code'          => array( 'type' => 'string' ),
+							'label'         => array( 'type' => 'string' ),
+							'note_required' => array( 'type' => 'boolean' ),
+						),
+					),
+				),
+				'note_max' => array( 'type' => 'integer' ),
+			),
+		);
+	}
+
+	/**
+	 * A reply on a member's profile Replies list (GET /users/{id}/replies): the
+	 * reply plus a short excerpt of the post it answers.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function profile_reply(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'profile_reply',
+			'type'       => 'object',
+			'properties' => array(
+				'id'               => array( 'type' => 'integer' ),
+				'content'          => array( 'type' => 'string' ),
+				'content_html'     => array( 'type' => 'string' ),
+				'created_at'       => array( 'type' => 'string' ),
+				'post_id'          => array( 'type' => 'integer' ),
+				'post_type'        => array( 'type' => 'string' ),
+				'post_author_name' => array( 'type' => 'string' ),
+				'post_excerpt'     => array( 'type' => 'string' ),
+				'post_url'         => array( 'type' => 'string' ),
 			),
 		);
 	}
@@ -1409,35 +1603,36 @@ final class ResponseSchema {
 			'title'      => 'notification',
 			'type'       => 'object',
 			'properties' => array(
-				'id'             => array( 'type' => 'integer' ),
-				'sender_id'      => array( 'type' => 'integer' ),
-				'type'           => array( 'type' => 'string' ),
-				'object_type'    => array( 'type' => array( 'string', 'null' ) ),
-				'object_id'      => array( 'type' => array( 'integer', 'null' ) ),
-				'group_key'      => array( 'type' => 'string' ),
-				'group_count'    => array( 'type' => 'integer' ),
-				'group_size'     => array( 'type' => 'integer' ),
-				'group_ids'      => array(
+				'id'               => array( 'type' => 'integer' ),
+				'sender_id'        => array( 'type' => 'integer' ),
+				'type'             => array( 'type' => 'string' ),
+				'object_type'      => array( 'type' => array( 'string', 'null' ) ),
+				'object_id'        => array( 'type' => array( 'integer', 'null' ) ),
+				'group_key'        => array( 'type' => 'string' ),
+				'group_count'      => array( 'type' => 'integer' ),
+				'group_size'       => array( 'type' => 'integer' ),
+				'group_ids'        => array(
 					'type'  => 'array',
 					'items' => array( 'type' => 'integer' ),
 				),
-				'group_actors'   => array(
+				'group_actors'     => array(
 					'type'  => 'array',
 					'items' => array( 'type' => 'object' ),
 				),
-				'is_read'        => array( 'type' => 'boolean' ),
-				'created_at'     => array( 'type' => 'string' ),
-				'data'           => array( 'type' => 'object' ),
-				'message'        => array( 'type' => 'string' ),
-				'url'            => array(
+				'is_read'          => array( 'type' => 'boolean' ),
+				'created_at'       => array( 'type' => 'string' ),
+				'data'             => array( 'type' => 'object' ),
+				'message'          => array( 'type' => 'string' ),
+				'url'              => array(
 					'type'   => 'string',
 					'format' => 'uri',
 				),
-				'icon'           => array( 'type' => 'string' ),
-				'tone'           => array( 'type' => 'string' ),
-				'label'          => array( 'type' => 'string' ),
-				'actor_name'     => array( 'type' => 'string' ),
-				'created_at_gmt' => array(
+				'icon'             => array( 'type' => 'string' ),
+				'tone'             => array( 'type' => 'string' ),
+				'label'            => array( 'type' => 'string' ),
+				'actor_name'       => array( 'type' => 'string' ),
+				'actor_avatar_url' => array( 'type' => 'string' ),
+				'created_at_gmt'   => array(
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
@@ -1457,24 +1652,31 @@ final class ResponseSchema {
 			'title'      => 'moderation-report',
 			'type'       => 'object',
 			'properties' => array(
-				'id'             => array( 'type' => 'integer' ),
-				'reporter_id'    => array( 'type' => 'integer' ),
-				'object_type'    => array( 'type' => 'string' ),
-				'object_id'      => array( 'type' => 'integer' ),
-				'space_id'       => array( 'type' => 'integer' ),
-				'reason'         => array( 'type' => 'string' ),
-				'reasons'        => array(
+				'id'                 => array( 'type' => 'integer' ),
+				'reporter_id'        => array( 'type' => 'integer' ),
+				'object_type'        => array( 'type' => 'string' ),
+				'object_id'          => array( 'type' => 'integer' ),
+				'space_id'           => array( 'type' => 'integer' ),
+				'reason'             => array( 'type' => 'string' ),
+				'reasons'            => array(
 					'type'  => 'array',
 					'items' => array( 'type' => 'string' ),
 				),
-				'report_count'   => array( 'type' => 'integer' ),
-				'reporter_count' => array( 'type' => 'integer' ),
-				'notes'          => array( 'type' => 'string' ),
-				'status'         => array( 'type' => 'string' ),
-				'resolved_by'    => array( 'type' => array( 'integer', 'null' ) ),
-				'resolved_at'    => array( 'type' => array( 'string', 'null' ) ),
-				'created_at'     => array( 'type' => 'string' ),
-				'created_at_gmt' => array(
+				'report_count'       => array( 'type' => 'integer' ),
+				'reporter_count'     => array( 'type' => 'integer' ),
+				'notes'              => array( 'type' => 'string' ),
+				'status'             => array( 'type' => 'string' ),
+				'resolved_by'        => array( 'type' => array( 'integer', 'null' ) ),
+				'resolved_at'        => array( 'type' => array( 'string', 'null' ) ),
+				// The reported person (user reports; the sender for message reports;
+				// 0 / null otherwise): ModerationService prime of the queue rows.
+				'offender_id'        => array( 'type' => 'integer' ),
+				'strikes_count'      => array( 'type' => 'integer' ),
+				'offender_name'      => array( 'type' => array( 'string', 'null' ) ),
+				'offender_joined'    => array( 'type' => array( 'string', 'null' ) ),
+				'offender_suspended' => array( 'type' => 'boolean' ),
+				'created_at'         => array( 'type' => 'string' ),
+				'created_at_gmt'     => array(
 					'type'   => 'string',
 					'format' => 'date-time',
 				),
@@ -1545,6 +1747,39 @@ final class ResponseSchema {
 				'legal'            => array( 'type' => 'object' ),
 				'auth'             => array( 'type' => 'object' ),
 				'realtime'         => array( 'type' => 'object' ),
+				'settings_tabs'    => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'object' ),
+				),
+				'spaces'           => array(
+					'type'       => 'object',
+					'properties' => array(
+						'can_create'       => array( 'type' => 'boolean' ),
+						'types'            => array( 'type' => 'array' ),
+						'default_type'     => array( 'type' => 'string' ),
+						'default_category' => array( 'type' => 'integer' ),
+					),
+				),
+				'posting'          => array(
+					'type'       => 'object',
+					'properties' => array(
+						'default_privacy'     => array( 'type' => 'string' ),
+						'edit_window_minutes' => array( 'type' => 'integer' ),
+						'link_preview'        => array( 'type' => 'boolean' ),
+						'emoji_picker'        => array( 'type' => 'boolean' ),
+						'media_max_mb'        => array( 'type' => 'integer' ),
+						'report_reasons'      => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'slug'  => array( 'type' => 'string' ),
+									'label' => array( 'type' => 'string' ),
+								),
+							),
+						),
+					),
+				),
 			),
 		);
 	}
@@ -1817,6 +2052,12 @@ final class ResponseSchema {
 						),
 					),
 				),
+				'ask_name'       => array(
+					'type' => 'boolean',
+				),
+				'ask_username'   => array(
+					'type' => 'boolean',
+				),
 				'reg_token'      => array(
 					'type' => 'string',
 				),
@@ -1990,6 +2231,17 @@ final class ResponseSchema {
 				'members_only'         => array(
 					'type' => 'boolean',
 				),
+				'is_locked'            => array(
+					'type'             => 'boolean',
+					'x-bn-conditional' => true,
+				),
+				'members_only_cta'     => array(
+					'type'             => 'object',
+					'x-bn-conditional' => true,
+				),
+				'shareable'            => array(
+					'type' => 'boolean',
+				),
 				'status'               => array(
 					'type' => 'string',
 				),
@@ -2046,6 +2298,9 @@ final class ResponseSchema {
 						'can_edit'           => array(
 							'type' => 'boolean',
 						),
+						'has_reported'       => array(
+							'type' => 'boolean',
+						),
 					),
 				),
 				'media'                => array(
@@ -2090,6 +2345,49 @@ final class ResponseSchema {
 				'count'       => array(
 					'type' => 'integer',
 				),
+			),
+		);
+	}
+
+	/**
+	 * Response of GET /feed/explore/deck: the mixed Explore deck for the app.
+	 *
+	 * Each item is one card: a post (`kind` post-*, with an optional `hashtag`),
+	 * a member or a space. Only the matching object rides on each item
+	 * (FeedController::explore_deck), so all three are conditional.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function feed_explore_deck(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'feed-explore-deck',
+			'type'       => 'object',
+			'properties' => array(
+				'items'       => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'kind'    => array( 'type' => 'string' ),
+							'post'    => array_merge( self::post(), array( 'x-bn-conditional' => true ) ),
+							'hashtag' => array(
+								'type'             => 'string',
+								'x-bn-conditional' => true,
+							),
+							'member'  => array(
+								'type'             => 'object',
+								'x-bn-conditional' => true,
+							),
+							'space'   => array(
+								'type'             => 'object',
+								'x-bn-conditional' => true,
+							),
+						),
+					),
+				),
+				'next_cursor' => array( 'type' => array( 'string', 'null' ) ),
+				'filter'      => array( 'type' => 'string' ),
 			),
 		);
 	}
@@ -2623,6 +2921,49 @@ final class ResponseSchema {
 	}
 
 	/**
+	 * The notifications page's "This week" card (GET /me/notifications/this-week).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function me_notifications_this_week(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'me-notifications-this-week',
+			'type'       => 'object',
+			'properties' => array(
+				'notifications'   => array( 'type' => 'integer' ),
+				'read'            => array( 'type' => 'integer' ),
+				'new_followers'   => array( 'type' => 'integer' ),
+				'engagement'      => array( 'type' => 'integer' ),
+				'wow_delta_label' => array( 'type' => 'string' ),
+				'wow_trend'       => array( 'type' => 'string' ),
+				'read_rate_label' => array( 'type' => 'string' ),
+			),
+		);
+	}
+
+	/**
+	 * The bell badge and the notifications page's per-tab unread counts
+	 * (GET /me/notifications/unread-count).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function me_notifications_unread_count(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'me-notifications-unread-count',
+			'type'       => 'object',
+			'properties' => array(
+				'count'  => array( 'type' => 'integer' ),
+				'by_tab' => array(
+					'type'                 => 'object',
+					'additionalProperties' => array( 'type' => 'integer' ),
+				),
+			),
+		);
+	}
+
+	/**
 	 * Response of GET /me/follow-requests/count (authored from the live response).
 	 *
 	 * @return array<string,mixed>
@@ -3017,32 +3358,6 @@ final class ResponseSchema {
 							),
 						),
 						'bn.mention'                       => array(
-							'type'       => 'object',
-							'properties' => array(
-								'on_site'     => array(
-									'type' => 'boolean',
-								),
-								'email_freq'  => array(
-									'type' => 'string',
-								),
-								'label'       => array(
-									'type' => 'string',
-								),
-								'group'       => array(
-									'type' => 'string',
-								),
-								'can_email'   => array(
-									'type' => 'boolean',
-								),
-								'email_only'  => array(
-									'type' => 'boolean',
-								),
-								'description' => array(
-									'type' => 'string',
-								),
-							),
-						),
-						'bn.bookmark_milestone'            => array(
 							'type'       => 'object',
 							'properties' => array(
 								'on_site'     => array(
@@ -4153,6 +4468,17 @@ final class ResponseSchema {
 				'step'     => array(
 					'type' => 'integer',
 				),
+				'steps'    => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'key'   => array( 'type' => 'string' ),
+							'label' => array( 'type' => 'string' ),
+							'icon'  => array( 'type' => 'string' ),
+						),
+					),
+				),
 				'total'    => array(
 					'type' => 'integer',
 				),
@@ -4308,6 +4634,20 @@ final class ResponseSchema {
 						),
 					),
 				),
+				'pending_email'     => array( 'type' => 'string' ),
+				'privacy'           => array(
+					'type'       => 'object',
+					'properties' => array(
+						'bn_privacy_profile_visibility' => array( 'type' => 'string' ),
+						'bn_privacy_who_can_follow'     => array( 'type' => 'string' ),
+						'bn_privacy_who_can_connect'    => array( 'type' => 'string' ),
+						'bn_privacy_mention'            => array( 'type' => 'string' ),
+						'bn_account_private'            => array( 'type' => 'boolean' ),
+						'bn_privacy_show_in_directory'  => array( 'type' => 'boolean' ),
+						'bn_privacy_search_indexable'   => array( 'type' => 'boolean' ),
+						'bn_pro_hide_profile_views'     => array( 'type' => 'boolean' ),
+					),
+				),
 				'strength'          => array(
 					'type'       => 'object',
 					'properties' => array(
@@ -4428,6 +4768,16 @@ final class ResponseSchema {
 			'title'      => 'me-standing',
 			'type'       => 'object',
 			'properties' => array(
+				'warnings'   => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'note'       => array( 'type' => 'string' ),
+							'created_at' => array( 'type' => 'string' ),
+						),
+					),
+				),
 				'strikes'    => array(
 					'type' => 'integer',
 				),
@@ -5370,6 +5720,83 @@ final class ResponseSchema {
 	}
 
 	/**
+	 * A space's Discussion (Jetonomy) status (GET/POST /spaces/{id}/discussion).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function space_discussion(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'space-discussion',
+			'type'       => 'object',
+			'properties' => array(
+				'has_discussion' => array( 'type' => 'boolean' ),
+				'enabled'        => array( 'type' => 'boolean' ),
+				'forum_id'       => array( 'type' => 'integer' ),
+				'name'           => array( 'type' => 'string' ),
+				'url'            => array( 'type' => 'string' ),
+			),
+		);
+	}
+
+	/**
+	 * One of the member's sign-in accounts (GET /me/social).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function social_account(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'social-account',
+			'type'       => 'object',
+			'properties' => array(
+				'id'              => array( 'type' => 'string' ),
+				'label'           => array( 'type' => 'string' ),
+				'icon'            => array( 'type' => 'string' ),
+				'linked'          => array( 'type' => 'boolean' ),
+				'only_credential' => array( 'type' => 'boolean' ),
+				'connect_url'     => array( 'type' => 'string' ),
+			),
+		);
+	}
+
+	/**
+	 * A space in a member's "Member of" list (GET /users/{id}/spaces).
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function member_space(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'member-space',
+			'type'       => 'object',
+			'properties' => array(
+				'id'     => array( 'type' => 'integer' ),
+				'name'   => array( 'type' => 'string' ),
+				'slug'   => array( 'type' => 'string' ),
+				'type'   => array( 'type' => 'string' ),
+				'role'   => array( 'type' => 'string' ),
+				'url'    => array(
+					'type'   => 'string',
+					'format' => 'uri',
+				),
+				'parent' => array(
+					'description' => 'The space this sub-space belongs to; null for a top-level space or a hidden parent the viewer may not see.',
+					'type'        => array( 'object', 'null' ),
+					'properties'  => array(
+						'id'   => array( 'type' => 'integer' ),
+						'name' => array( 'type' => 'string' ),
+						'url'  => array(
+							'type'   => 'string',
+							'format' => 'uri',
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
 	 * Response of GET /users/{id}/followers (authored from the live response).
 	 *
 	 * @return array<string,mixed>
@@ -5468,6 +5895,39 @@ final class ResponseSchema {
 			'title'      => 'users-profile',
 			'type'       => 'object',
 			'properties' => array(
+				'nav'               => array(
+					'type'       => 'object',
+					'properties' => array(
+						'tabs'    => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'id'       => array( 'type' => 'string' ),
+									'label'    => array( 'type' => 'string' ),
+									'icon'     => array( 'type' => array( 'string', 'null' ) ),
+									'url'      => array( 'type' => array( 'string', 'null' ) ),
+									'count'    => array( 'type' => array( 'integer', 'null' ) ),
+									'children' => array( 'type' => 'array' ),
+								),
+							),
+						),
+						'metrics' => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'id'       => array( 'type' => 'string' ),
+									'label'    => array( 'type' => 'string' ),
+									'icon'     => array( 'type' => array( 'string', 'null' ) ),
+									'url'      => array( 'type' => array( 'string', 'null' ) ),
+									'count'    => array( 'type' => array( 'integer', 'null' ) ),
+									'children' => array( 'type' => 'array' ),
+								),
+							),
+						),
+					),
+				),
 				'user_id'           => array(
 					'type' => 'integer',
 				),

@@ -60,7 +60,7 @@ $related_tags      = array();
 $top_contributors  = array();
 $contributor_count = 0;
 $bn_next_cursor    = null;
-$bn_prev_cursor    = '';
+$bn_prev_trail     = array();
 
 if ( ! $hashtag_not_found ) {
 	$hashtag_id = (int) $hashtag['id'];
@@ -77,7 +77,9 @@ if ( ! $hashtag_not_found ) {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only opaque cursor.
 	$bn_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['cursor'] ) ) : '';
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only flag.
-	$bn_prev_cursor = isset( $_GET['prev'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['prev'] ) ) : '';
+	// ?prev carries the trail of earlier cursors (CursorCodec, as the space
+	// members pager does), so Previous steps back exactly one page.
+	$bn_prev_trail = \BuddyNext\Core\CursorCodec::parse_trail( isset( $_GET['prev'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['prev'] ) ) : '' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only opaque cursor trail.
 
 	$bn_feed = $bn_hashtag_service->get_feed(
 		$hashtag_slug,
@@ -186,7 +188,7 @@ else :
 	<div class="bn-hashtag-shell">
 
 		<!-- ── Feed column ── -->
-		<main class="bn-hashtag-feed-area" id="bn-hashtag-feed-main" role="main">
+		<div class="bn-hashtag-feed-area" id="bn-hashtag-feed-main">
 
 			<?php
 			buddynext_get_template(
@@ -240,44 +242,28 @@ else :
 			// existed, so pagination was dead.
 			$bn_pg_base  = \BuddyNext\Core\PageRouter::hashtag_feed_url( $hashtag_slug );
 			$bn_pg_extra = ( isset( $bn_sort ) && '' !== (string) $bn_sort && 'latest' !== $bn_sort ) ? array( 'sort' => $bn_sort ) : array();
+			$bn_pg_base  = add_query_arg( $bn_pg_extra, $bn_pg_base );
 			$bn_pg_more  = ! empty( $bn_next_cursor );
-			$bn_pg_prev  = '' !== (string) $bn_prev_cursor;
-			$bn_cur_seen = isset( $bn_cursor ) ? (string) $bn_cursor : '';
+			// Any page past the first has a Previous, even when page 1's cursor is empty.
+			$bn_pg_prev = isset( $bn_cursor ) && '' !== (string) $bn_cursor;
+
+			$bn_pg_hrefs     = \BuddyNext\Core\CursorCodec::pager_hrefs( $bn_pg_base, $bn_prev_trail, isset( $bn_cursor ) ? (string) $bn_cursor : '', $bn_pg_more ? (string) $bn_next_cursor : null, 'cursor', 'prev' );
+			$bn_pg_prev_href = $bn_pg_hrefs['prev'];
+			$bn_pg_next_href = $bn_pg_hrefs['next'];
 			if ( $bn_pg_prev || $bn_pg_more ) :
 				?>
 				<nav class="bn-hashtag-pager" aria-label="<?php esc_attr_e( 'Hashtag feed pagination', 'buddynext' ); ?>">
 					<?php if ( $bn_pg_prev ) : ?>
-						<a class="bn-btn" data-variant="secondary" data-size="md" rel="prev"
-							href="<?php echo esc_url( add_query_arg( array_merge( $bn_pg_extra, array( 'cursor' => $bn_prev_cursor ) ), $bn_pg_base ) ); ?>">
-							<?php esc_html_e( 'Previous', 'buddynext' ); ?>
-						</a>
+						<a class="bn-btn" data-variant="secondary" data-size="md" rel="prev" href="<?php echo esc_url( $bn_pg_prev_href ); ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
 					<?php endif; ?>
 					<?php if ( $bn_pg_more ) : ?>
-						<a class="bn-btn" data-variant="secondary" data-size="md" rel="next"
-							href="
-							<?php
-							echo esc_url(
-								add_query_arg(
-									array_merge(
-										$bn_pg_extra,
-										array(
-											'cursor' => $bn_next_cursor,
-											'prev'   => $bn_cur_seen,
-										)
-									),
-									$bn_pg_base
-								)
-							);
-							?>
-									">
-							<?php esc_html_e( 'Next', 'buddynext' ); ?>
-						</a>
+						<a class="bn-btn" data-variant="secondary" data-size="md" rel="next" href="<?php echo esc_url( $bn_pg_next_href ); ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
 					<?php endif; ?>
 				</nav>
 				<?php
 			endif;
 			?>
-		</main>
+		</div>
 	</div>
 
 </div><!-- /.bn-hashtag-feed -->

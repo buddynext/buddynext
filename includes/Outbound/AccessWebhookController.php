@@ -88,7 +88,7 @@ class AccessWebhookController {
 		if ( ! $user ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}

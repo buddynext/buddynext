@@ -32,7 +32,7 @@ Explore lives under your community's activity area.
 
 ### Type filters
 
-Explore carries type filters so you can focus the deck on one kind of content rather than the full mix. This keeps the discovery view useful when you only want to browse, say, a single type of activity.
+Explore carries type tabs so you can focus the deck on one kind of content rather than the full mix: **All**, **Members**, **Spaces**, **Posts**, **Discussions** and **Media**. The header shows live counts of members, spaces and posts, and a **Search the community** link opens search.
 
 ### What you will and will not see
 

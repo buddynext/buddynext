@@ -184,7 +184,7 @@ class NavManager extends AdminPageBase {
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Community hubs', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-field-hint">
-						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Hubs are virtual routes: only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
+						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Changing a slug changes the address, so links to the old one stop working. Hubs are virtual routes: only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
 					</p>
 					<!--
 					Scroll host on the WRAPPER, never the table (admin table contract, rule 3):
@@ -288,7 +288,7 @@ class NavManager extends AdminPageBase {
 					</div><!-- .bn-table-wrap__scroll -->
 				</div>
 			</div>
-			<p class="submit"><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Pages & URLs', 'buddynext' ); ?></button></p>
+			<p class="submit"><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button></p>
 		</form>
 		<?php
 	}
@@ -533,7 +533,7 @@ class NavManager extends AdminPageBase {
 				'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1/' ) ),
 				'restNonce' => wp_create_nonce( 'wp_rest' ),
 				'i18n'      => array(
-					'slugHint'  => __( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ),
+					'slugHint'  => __( 'URL path for this hub, for example "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ),
 					'slugFree'  => __( 'Slug is available', 'buddynext' ),
 					'slugWarn'  => __( 'An existing page uses this slug, it will become unreachable', 'buddynext' ),
 					'slugBlock' => __( 'This slug is reserved or used by another hub', 'buddynext' ),
@@ -1185,7 +1185,7 @@ class NavManager extends AdminPageBase {
 	private function render_scope_sidebar(): void {
 		?>
 		<div class="bn-nav-scope-sidebar">
-			<div class="bn-scope-header"><?php esc_html_e( 'Navigation Scope', 'buddynext' ); ?></div>
+			<div class="bn-scope-header"><?php esc_html_e( 'Navigation scope', 'buddynext' ); ?></div>
 			<div class="bn-scope-item bn-scope-active" data-scope="main" role="button" tabindex="0">
 				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
 				echo $this->svg( 'scope-main' );
@@ -1307,7 +1307,7 @@ class NavManager extends AdminPageBase {
 						data-action="bn-open-add-tab"
 						aria-label="<?php echo esc_attr( 'account' === $scope ? __( 'Add a custom link to the account dropdown', 'buddynext' ) : __( 'Add a custom link to the main navigation', 'buddynext' ) ); ?>">
 						<span aria-hidden="true">+</span>
-						<?php esc_html_e( 'Add Custom Link', 'buddynext' ); ?>
+						<?php esc_html_e( 'Add custom link', 'buddynext' ); ?>
 					</button>
 				</div>
 
@@ -1696,7 +1696,7 @@ class NavManager extends AdminPageBase {
 				<summary><?php esc_html_e( 'Advanced', 'buddynext' ); ?></summary>
 				<div class="bn-cf">
 					<label for="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>">
-						<?php esc_html_e( 'Required Capability', 'buddynext' ); ?>
+						<?php esc_html_e( 'Required capability', 'buddynext' ); ?>
 					</label>
 					<input type="text"
 							id="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>"
@@ -1704,7 +1704,7 @@ class NavManager extends AdminPageBase {
 							value="<?php echo esc_attr( $capability ); ?>"
 							maxlength="80">
 					<span class="bn-cf-hint">
-						<?php esc_html_e( 'A WordPress capability, e.g. read or edit_posts. Used when Visibility is set to "Custom capability": members whose role lacks it will not see this item. Leave as read to allow everyone.', 'buddynext' ); ?>
+						<?php esc_html_e( 'A WordPress capability, for example read or edit_posts. Used when Visibility is set to "Custom capability": members whose role lacks it will not see this item. Leave as read to allow everyone.', 'buddynext' ); ?>
 					</span>
 				</div>
 			</details>
@@ -1741,7 +1741,7 @@ class NavManager extends AdminPageBase {
 
 			<div class="bn-cf">
 				<label for="bn-cfg-guest-<?php echo esc_attr( $slug ); ?>">
-					<?php esc_html_e( 'Guest Label', 'buddynext' ); ?>
+					<?php esc_html_e( 'Guest label', 'buddynext' ); ?>
 				</label>
 				<input type="text"
 						id="bn-cfg-guest-<?php echo esc_attr( $slug ); ?>"
@@ -1750,7 +1750,7 @@ class NavManager extends AdminPageBase {
 						placeholder="<?php esc_attr_e( 'Shown to guests instead', 'buddynext' ); ?>"
 						maxlength="50">
 				<span class="bn-cf-hint">
-					<?php esc_html_e( 'Shown in nav when user is not logged in.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Shown in the menu to visitors who are not logged in.', 'buddynext' ); ?>
 				</span>
 			</div>
 
@@ -1790,7 +1790,7 @@ class NavManager extends AdminPageBase {
 		?>
 		<div class="bn-nav-section">
 			<div class="bn-nav-section-header">
-				<div class="bn-nav-section-title"><?php esc_html_e( 'Mobile Nav Note', 'buddynext' ); ?></div>
+				<div class="bn-nav-section-title"><?php esc_html_e( 'Mobile nav note', 'buddynext' ); ?></div>
 			</div>
 			<p class="bn-mobile-note">
 				<?php esc_html_e( 'Only the top 5 visible items are displayed in the mobile bottom bar. Drag to reorder; toggle to include or exclude.', 'buddynext' ); ?>
@@ -1864,12 +1864,12 @@ class NavManager extends AdminPageBase {
 			<div class="bn-add-tab-inline-inner">
 				<div class="bn-cf">
 					<label for="bn-new-tab-label-<?php echo esc_attr( $scope ); ?>">
-						<?php esc_html_e( 'Tab Label', 'buddynext' ); ?>
+						<?php esc_html_e( 'Tab label', 'buddynext' ); ?>
 					</label>
 					<input type="text"
 						id="bn-new-tab-label-<?php echo esc_attr( $scope ); ?>"
 						name="bn_new_tab[<?php echo esc_attr( $scope ); ?>][label]"
-						placeholder="<?php esc_attr_e( 'e.g. Resources', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'For example: Resources', 'buddynext' ); ?>"
 						maxlength="50">
 				</div>
 				<div class="bn-cf">
@@ -1891,8 +1891,8 @@ class NavManager extends AdminPageBase {
 							esc_html_e( 'This tab is added to EVERY space, so the link must point at whichever space the member is viewing. Use a placeholder and it is filled in per space:', 'buddynext' );
 							?>
 							<br>
-							<code>{space_url}</code>: <?php esc_html_e( 'that space\'s address, e.g. /spaces/design-critique/', 'buddynext' ); ?><br>
-							<code>{slug}</code>: <?php esc_html_e( 'that space\'s slug, e.g. design-critique', 'buddynext' ); ?><br>
+							<code>{space_url}</code>: <?php esc_html_e( 'that space\'s address, for example /spaces/design-critique/', 'buddynext' ); ?><br>
+							<code>{slug}</code>: <?php esc_html_e( 'that space\'s slug, for example design-critique', 'buddynext' ); ?><br>
 							<code>{space_id}</code>: <?php esc_html_e( 'that space\'s numeric ID', 'buddynext' ); ?>
 							<?php
 						} elseif ( 'profile' === $scope ) {
@@ -1914,7 +1914,7 @@ class NavManager extends AdminPageBase {
 				</div>
 				<div class="bn-add-tab-inline-actions">
 					<button type="submit" class="bn-btn" data-variant="primary" data-size="sm">
-						<?php esc_html_e( 'Add Tab', 'buddynext' ); ?>
+						<?php esc_html_e( 'Add tab', 'buddynext' ); ?>
 					</button>
 					<button type="button" class="bn-btn bn-cancel-add-tab" data-variant="secondary" data-size="sm"
 						data-scope="<?php echo esc_attr( $scope ); ?>">
@@ -2372,7 +2372,7 @@ class NavManager extends AdminPageBase {
 			),
 			array(
 				'slug'           => 'edit-profile',
-				'label'          => __( 'Edit Profile', 'buddynext' ),
+				'label'          => __( 'Edit profile', 'buddynext' ),
 				'order'          => 210,
 				'icon'           => 'tab-edit',
 				'description'    => __( 'Edit the current member\'s own profile.', 'buddynext' ),

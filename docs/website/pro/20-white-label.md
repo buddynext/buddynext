@@ -18,19 +18,19 @@ White-labeling has no effect on the community front end at all. Members see the 
 
 ## Setting it up (for owners)
 
-The White-label settings live under the BuddyNext menu in wp-admin, in a single **Brand identity** section. Set your values and save.
+The White-label settings live in the BuddyNext admin under **Settings > White-label**, in a single **Brand identity** section. White-label also has its own switch in the Features catalogue, **White-label branding**, which is on by default; turn it off and the BuddyNext name and logo return everywhere. Set your values and save.
 
 | Setting | What it does | Default |
 |---|---|---|
 | Brand name | The name shown in place of "BuddyNext" in wp-admin - the top-level menu item, the plugin row on the Plugins screen, dashboard widget titles, and admin page titles. Maximum 60 characters. Leave it blank to keep the BuddyNext name. | Empty (shows "BuddyNext") |
-| Logo | Pick an image from the media library, or paste an image URL directly. Shown in the admin header and used as the logo in every BuddyNext email. Leave it blank to fall back to the Settings > Appearance logo. | Empty |
+| Logo | Pick an image with **Select logo**, or paste an image URL directly (it must be a valid absolute URL). Shown in the BuddyNext admin header and used as the logo in every BuddyNext email. Leave it blank to fall back to the Settings > Appearance logo. | Empty |
 
 The logo field uses the standard WordPress media picker, so you can select, preview, and remove a logo the same way you would anywhere else in wp-admin.
 
 ## Good to know
 
-- **The admin name swap needs a brand name.** The "BuddyNext" name in wp-admin is replaced only when you set the Brand name field. If you set a logo but leave the name blank, admin surfaces still read "BuddyNext."
-- **Emails already use your site name.** Outgoing community emails are built around your WordPress site name. The white-label logo, when set, replaces the default logo in the email header; without one, emails fall back to your Settings > Appearance logo.
+- **The admin name swap needs a brand name.** The "BuddyNext" name in wp-admin is replaced only when you set the Brand name field. If you set a logo but leave the name blank, the menu, plugin row and page titles still read "BuddyNext" (the logo still applies in the admin header and in emails).
+- **Emails keep your site name.** Outgoing community emails are built around your WordPress site name. The white-label logo, when set, replaces the default logo in the email header; the brand name is not inserted into email text. Without a logo, emails fall back to your Settings > Appearance logo.
 - **The front end is never touched.** No brand name, no logo, and no color change from this screen ever reaches the community front end - it always follows your active theme.
 
 ## Free vs Pro

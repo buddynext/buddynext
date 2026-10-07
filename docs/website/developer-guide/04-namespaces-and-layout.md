@@ -17,7 +17,7 @@ Every feature domain owns its full vertical stack in one folder - Service, Contr
 | Layer | Directory | Namespace | Responsibility |
 |---|---|---|---|
 | 0 - Core | `includes/Core/` | `BuddyNext\Core` | Single-instance services every feature uses: `Plugin` (bootstrap), `Container` (DI), `Installer` (schema), `AssetService`, `PageRouter`, `PermissionService`, `IconService`, `FeatureRegistry`, `CronScheduler`. |
-| 1 - Bridges | `includes/Bridges/` | `BuddyNext\Bridges` | Adapters to external plugins. `{Plugin}Bridge` (adapter) + `{Plugin}BridgeListener` (hook registrar). Each self-guards via `class_exists`. |
+| 1 - Bridges | `includes/Bridges/` | `BuddyNext\Bridges` | Adapters to external plugins. `{Plugin}Bridge` (adapter, registers its own hooks in `init()`). Each self-guards via `class_exists`. |
 | 2 - Features | `includes/{Feature}/` | `BuddyNext\{Feature}` | Self-contained feature modules - e.g. `Feed/`, `SocialGraph/`, `Profile/`, `Spaces/`, `Notifications/`, `Moderation/`, `Search/`, `Hashtags/`, `Reactions/`, `Comments/`, `Auth/`, `Onboarding/`, `Outbound/`, `Sidebar/`. |
 | 3 - UI | `templates/`, `assets/` | (not PHP-namespaced) | `templates/parts/*.php` partials, `assets/css/bn-{feature}.css`, `assets/js/{feature}/store.js`. |
 | 4 - Composition | `templates/{hub}/` | (not PHP-namespaced) | Hub templates that compose Layer 3 parts and call Layer 2 services. |
@@ -25,7 +25,7 @@ Every feature domain owns its full vertical stack in one folder - Service, Contr
 | Blocks | `includes/Blocks/` | `BuddyNext\Blocks` | `BlockRegistrar` + dynamic-block render classes for the Gutenberg blocks. |
 | Theme | `includes/Theme/` | `BuddyNext\Theme` | `TokenService` (injects `--bn-*` CSS custom properties), `Appearance` (front-end branding). |
 
-Other feature-adjacent namespaces in the tree follow the same rule (folder name = namespace segment): `BuddyNext\Nav`, `BuddyNext\Realtime`, `BuddyNext\Engagement`, `BuddyNext\Media`, `BuddyNext\Privacy`, `BuddyNext\PWA`, `BuddyNext\Shortcodes`, `BuddyNext\Widgets`, `BuddyNext\MemberTypes`, `BuddyNext\ActivityLog`, `BuddyNext\Contracts`, `BuddyNext\REST`.
+Other feature-adjacent namespaces in the tree follow the same rule (folder name = namespace segment): `BuddyNext\Nav`, `BuddyNext\Realtime`, `BuddyNext\Engagement`, `BuddyNext\Media`, `BuddyNext\Privacy`, `BuddyNext\PWA`, `BuddyNext\Shortcodes`, `BuddyNext\Widgets`, `BuddyNext\MemberTypes`, `BuddyNext\Contracts`, `BuddyNext\REST`, `BuddyNext\App` (mobile app config and connect), `BuddyNext\Cert`, `BuddyNext\CommunityAdmin`, `BuddyNext\Demo`, `BuddyNext\Header`, `BuddyNext\Integrations` (companion installer, bridge status), `BuddyNext\Messages` and `BuddyNext\Support`.
 
 ### Admin sub-namespace rules
 
@@ -118,7 +118,6 @@ These are the keys bound in `Plugin::register_services()`. Resolve any of them w
 | `moderation` | `Moderation\ModerationService` |
 | `mod_log` | `Moderation\ModerationLogService` |
 | `safeguard` | `Moderation\SafeguardService` |
-| `activity_log` | `ActivityLog\ActivityLogService` |
 
 ### Auth, onboarding, platform
 
@@ -133,6 +132,11 @@ These are the keys bound in `Plugin::register_services()`. Resolve any of them w
 | `widgets` | `Widgets\WidgetService` |
 | `pwa` | `PWA\PwaService` |
 | `webhooks` | `Outbound\OutboundWebhookService` |
+| `registration_policy` | `Auth\RegistrationPolicy` |
+| `registration` | `Auth\RegistrationService` |
+| `session` | `Auth\SessionIssuer` |
+| `cross_space_activity` | `Spaces\CrossSpaceActivityService` |
+| `shell_nav` | `Nav\ShellNavService` |
 
 ### Admin (bound, resolved in `is_admin()` context)
 

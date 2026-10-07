@@ -155,7 +155,9 @@ final class RestHoldGate implements ListenerInterface {
 
 		// Unverified email / 2FA-enrolment hold the WHOLE partner surface — a member
 		// who has not finished onboarding should not read partner content either.
-		if ( $this->is_unverified_under_full_enforcement( $user_id ) || $this->needs_2fa_enrolment( $user_id ) ) {
+		// An add-on's hold (MemberHold) is a community hold too: partner content
+		// (DMs, media) is community, never account or billing.
+		if ( $this->is_unverified_under_full_enforcement( $user_id ) || $this->needs_2fa_enrolment( $user_id ) || null !== MemberHold::get( $user_id ) ) {
 			return true;
 		}
 
@@ -286,6 +288,19 @@ final class RestHoldGate implements ListenerInterface {
 				'buddynext_2fa_required',
 				__( 'Your role requires two-factor authentication. Set it up to continue.', 'buddynext' ),
 				array( 'status' => 403 )
+			);
+		}
+
+		// An add-on's hold, after Free's own: identity and enrolment come first.
+		$hold = MemberHold::get( $user_id );
+		if ( null !== $hold && ! MemberHold::allows_route( $hold, $route ) ) {
+			return new WP_Error(
+				$hold['code'],
+				$hold['message'],
+				array(
+					'status'   => 403,
+					'hold_url' => $hold['url'],
+				)
 			);
 		}
 

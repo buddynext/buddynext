@@ -449,7 +449,7 @@
 }
 .bn-ob-chip[aria-pressed="true"],
 .bn-ob-chip.is-selected {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	border-color: var(--bn-accent);
 }

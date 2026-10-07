@@ -78,7 +78,7 @@ $preview_fg = '' !== $val_text_color ? $val_text_color : '#ffffff';
 						class="bn-text-input"
 						value="<?php echo esc_attr( $val_name ); ?>"
 						data-bn-tax-name
-						placeholder="<?php esc_attr_e( 'e.g. Alumni', 'buddynext' ); ?>"
+						placeholder="<?php esc_attr_e( 'For example: Alumni', 'buddynext' ); ?>"
 						required>
 				</div>
 

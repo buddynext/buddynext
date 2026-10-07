@@ -42,7 +42,11 @@ The leaderboard can rank members over three windows, chosen with the period tabs
 | This month | Points earned in the current month (the default view) |
 | All time | Points earned since the member joined |
 
-The board opens on "This month" by default. The window is part of the link, so a member can share a leaderboard view and the recipient sees the same window. The list shows the top members for the selected window.
+The board opens on "This month" by default. The window is part of the link, so a member can share a leaderboard view and the recipient sees the same window. The list shows the top members for the selected window, 10, 25, 50 or 100 at a time (the **Show** menu).
+
+### Browsing the whole board
+
+Signed-in members can page through the entire board, not just the top: under the list, **Next** opens the following page and a status line reads "Showing 11 to 20 of 128 · Page 2 of 13". Ranks continue from page to page. **Top** returns to the first page, and the browser's back button steps back. There is no jump-to-page, by design: on a very large community that keeps every page fast. Changing the period or the page size starts again from the top. If you rank below the page you are viewing, your own row stays pinned under the list as **Your position**. Visitors who are not signed in see the first page only, so member names and points cannot be read out page by page. Paging needs WB Gamification 1.6.5 or newer; on older versions the board shows the top members with no pager.
 
 ## Setting it up (for owners)
 
@@ -61,6 +65,7 @@ The leaderboard is part of gamification, so its setup is the gamification setup:
 - **Without the companion.** If WB Gamification is not installed or active, the leaderboard shows a friendly notice instead of rankings and waits quietly until the companion is in place. Nothing breaks.
 - **Built for large communities.** The board shows a fixed set of top members and reads each member's details only for those visible rows, so it stays fast whether your community has fifty members or fifty thousand. It does not load every member to render the page.
 - **When Jetonomy runs the board.** If WB Gamification hands the leaderboard to Jetonomy, BuddyNext hides its own leaderboard links and forwards its leaderboard address to the Jetonomy one.
+- **Space leaderboards.** A space's **Leaderboard** tab shows the same board limited to that space's members, still ranked by site-wide points. It needs WB Gamification 1.6.5 or newer and the Gamification switch on.
 - **Where the numbers come from.** Rankings, points, levels, streaks, and badges all come from WB Gamification. BuddyNext displays them; it does not keep its own separate score, so the leaderboard always matches what the gamification engine has recorded.
 
 ## Free vs Pro

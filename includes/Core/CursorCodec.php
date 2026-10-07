@@ -119,6 +119,50 @@ final class CursorCodec {
 	}
 
 	/**
+	 * Previous / Next hrefs for a cursor-paginated list.
+	 *
+	 * One implementation for every keyset pager, so the next pagination fix is
+	 * made once (two copies of this block are how 1.2.4's Previous-button
+	 * regression happened). Previous pops the trail: the popped cursor is the
+	 * prior page's (none means page 1), the rest stays the trail. Next pushes
+	 * this page's cursor so the following page can walk back here.
+	 *
+	 * @param string      $base       Page URL with the list's filters and no cursor args.
+	 * @param string[]    $trail      Decoded trail (parse_trail()).
+	 * @param string      $current    This page's cursor ('' on page 1).
+	 * @param string|null $next       Next page's cursor, or null on the last page.
+	 * @param string      $cursor_key Query arg carrying the cursor.
+	 * @param string      $trail_key  Query arg carrying the trail.
+	 * @return array{prev: string, next: string} Hrefs; equal to $base where there is no move.
+	 */
+	public static function pager_hrefs( string $base, array $trail, string $current, ?string $next, string $cursor_key, string $trail_key ): array {
+		$prev = $base;
+		if ( '' !== $current ) {
+			$step = self::pop_trail( $trail );
+			if ( '' !== $step['after'] ) {
+				$prev = add_query_arg( $cursor_key, $step['after'], $prev );
+			}
+			if ( '' !== $step['trail'] ) {
+				$prev = add_query_arg( $trail_key, $step['trail'], $prev );
+			}
+		}
+
+		$next_href = $base;
+		if ( null !== $next && '' !== $next ) {
+			$next_href = add_query_arg( $cursor_key, $next, $base );
+			$pushed    = self::push_trail( $trail, $current );
+			if ( '' !== $pushed ) {
+				$next_href = add_query_arg( $trail_key, $pushed, $next_href );
+			}
+		}
+
+		return array(
+			'prev' => $prev,
+			'next' => $next_href,
+		);
+	}
+
+	/**
 	 * Step the trail back one page for the "Previous" link. Pops the last cursor
 	 * (the previous page's bn_after; '' => the previous page is page 1) and
 	 * returns the shortened trail that page should carry.

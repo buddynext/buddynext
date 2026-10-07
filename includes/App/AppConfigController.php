@@ -216,24 +216,30 @@ class AppConfigController {
 	}
 
 	/**
+	 * Per-request memo of the locales the plugin ships a .mo for.
+	 *
+	 * @var array|null
+	 */
+	private static ?array $plugin_locales_memo = null;
+
+	/**
 	 * The locales the plugin ships a buddynext-<locale>.mo for, cached per request.
 	 *
 	 * @return string[]
 	 */
 	private function plugin_locales(): array {
-		static $locales = null;
-		if ( null !== $locales ) {
-			return $locales;
+		if ( null !== self::$plugin_locales_memo ) {
+			return self::$plugin_locales_memo;
 		}
-		$locales = array();
+		self::$plugin_locales_memo = array();
 		foreach ( (array) glob( BUDDYNEXT_DIR . 'languages/buddynext-*.mo' ) as $path ) {
 			$base = basename( (string) $path, '.mo' );
 			$loc  = substr( $base, strlen( 'buddynext-' ) );
 			if ( '' !== $loc ) {
-				$locales[] = $loc;
+				self::$plugin_locales_memo[] = $loc;
 			}
 		}
-		return $locales;
+		return self::$plugin_locales_memo;
 	}
 
 	/**
@@ -275,6 +281,25 @@ class AppConfigController {
 			// legacy wp-admin authorize flow": absent means degrade, never
 			// break.
 			'auth'             => $this->auth(),
+
+			// What the web composer and report dialog read, so the app posts and
+			// reports the same way. Additive block.
+			'posting'          => $this->posting(),
+
+			// What the create-space form needs: may this viewer create one, the
+			// types with their join rule, and the owner's defaults. Additive block.
+			'spaces'           => $this->spaces(),
+
+			// The Settings hub's sections, add-on sections (Pro Membership) included.
+			'settings_tabs'    => array_map(
+				static fn( string $slug, string $label ): array => array(
+					'slug'  => $slug,
+					'label' => $label,
+					'url'   => \BuddyNext\Core\PageRouter::settings_url( $slug ),
+				),
+				array_keys( \BuddyNext\Core\PageRouter::settings_tabs() ),
+				array_values( \BuddyNext\Core\PageRouter::settings_tabs() )
+			),
 		);
 
 		/**
@@ -291,6 +316,58 @@ class AppConfigController {
 		$data = apply_filters( 'buddynext_app_config', $data, $request );
 
 		return new WP_REST_Response( $data, 200 );
+	}
+
+	/**
+	 * The create-space form's facts, from the sources the web form reads
+	 * (directory Create button, partials/create-space-modal.php).
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function spaces(): array {
+		$types = array();
+		foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $key => $cfg ) {
+			$types[] = array(
+				'key'   => (string) $key,
+				'label' => (string) ( $cfg['label'] ?? $key ),
+				'join'  => (string) ( $cfg['join'] ?? '' ),
+			);
+		}
+
+		return array(
+			'can_create'       => buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ),
+			'types'            => $types,
+			'default_type'     => \BuddyNext\Spaces\SpaceTypeRegistry::instance()->default_type(),
+			'default_category' => (int) get_option( 'buddynext_space_default_category', 0 ),
+		);
+	}
+
+	/**
+	 * Composer defaults and the report vocabulary, from the same sources the web
+	 * composer (partials/composer.php) and report dialog (PageRouter) read.
+	 *
+	 * The media size limit is per viewer (a plan can raise it), so a guest gets the
+	 * site default.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function posting(): array {
+		$reasons = array();
+		foreach ( \BuddyNext\Moderation\ModerationService::reason_choices() as $slug => $label ) {
+			$reasons[] = array(
+				'slug'  => (string) $slug,
+				'label' => (string) $label,
+			);
+		}
+
+		return array(
+			'default_privacy'     => (string) get_option( 'buddynext_default_post_privacy', 'public' ),
+			'edit_window_minutes' => max( 0, (int) get_option( 'buddynext_post_edit_window', 60 ) ),
+			'link_preview'        => (bool) get_option( 'buddynext_enable_link_preview', true ),
+			'emoji_picker'        => (bool) get_option( 'buddynext_enable_emoji_picker', true ),
+			'media_max_mb'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
+			'report_reasons'      => $reasons,
+		);
 	}
 
 	/**
@@ -425,11 +502,11 @@ class AppConfigController {
 	private function limits(): array {
 		return array(
 			'connect_note_max_length' => (int) apply_filters( 'buddynext_connect_note_max_length', 500 ),
-			'max_connections'         => (int) apply_filters( 'buddynext_max_connections', 5000 ),
+			'max_connections'         => (int) apply_filters( 'buddynext_max_connections', \BuddyNext\SocialGraph\ConnectionService::MAX_CONNECTIONS, get_current_user_id() ),
 			// Default MUST match FollowService's enforced write cap (same filter,
 			// default 5000) — advertising 7500 here let the app promise a ceiling the
 			// server then refused at 5000.
-			'max_following'           => (int) apply_filters( 'buddynext_max_following', 5000 ),
+			'max_following'           => (int) apply_filters( 'buddynext_max_following', 5000, get_current_user_id() ),
 			// The batch ceiling on GET /feed/viewer-state. The app chunks on this, so
 			// it reads from the route's own constant — restating the literal here is
 			// how the two drift and the app starts chunking at the wrong size.

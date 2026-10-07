@@ -3,7 +3,7 @@
     "info": {
         "title": "BuddyNext REST API (Free + Pro)",
         "description": "The complete REST surface of BuddyNext: the Free plugin under `buddynext/v1` and BuddyNext Pro under `buddynext-pro/v1` (membership, payments, AI, analytics, email, push, moderation). Generated from the live route registry by bin/gen-openapi.php; do not hand-edit. The narrative reference lives in the Developer Guide.",
-        "version": "1.2.2",
+        "version": "1.2.4",
         "contact": {
             "name": "Wbcom Designs",
             "url": "https://wbcomdesigns.com"
@@ -127,6 +127,10 @@
         {
             "name": "Pro: Spaces",
             "description": "Spaces, space categories, members, requests and space feeds."
+        },
+        {
+            "name": "Scheduled Posts",
+            "description": "Posts scheduled for later (Pro)."
         },
         {
             "name": "Search and Hashtags",
@@ -2717,7 +2721,7 @@
                                     },
                                     "color": {
                                         "type": "string",
-                                        "description": "6-digit hex color, e.g. \"#059669\"."
+                                        "description": "6-digit hex color, for example \"#059669\"."
                                     },
                                     "icon": {
                                         "type": "string",
@@ -2843,7 +2847,7 @@
                                     },
                                     "color": {
                                         "type": "string",
-                                        "description": "6-digit hex color, e.g. \"#059669\"."
+                                        "description": "6-digit hex color, for example \"#059669\"."
                                     },
                                     "icon": {
                                         "type": "string",
@@ -2926,7 +2930,7 @@
                                     },
                                     "color": {
                                         "type": "string",
-                                        "description": "6-digit hex color, e.g. \"#059669\"."
+                                        "description": "6-digit hex color, for example \"#059669\"."
                                     },
                                     "icon": {
                                         "type": "string",
@@ -3009,7 +3013,7 @@
                                     },
                                     "color": {
                                         "type": "string",
-                                        "description": "6-digit hex color, e.g. \"#059669\"."
+                                        "description": "6-digit hex color, for example \"#059669\"."
                                     },
                                     "icon": {
                                         "type": "string",
@@ -3491,6 +3495,113 @@
                         }
                     }
                 }
+            }
+        },
+        "/buddynext-pro/v1/me/invoices": {
+            "get": {
+                "tags": [
+                    "Pro: Misc"
+                ],
+                "operationId": "get_buddynext_pro_v1_me_invoices",
+                "summary": "GET /buddynext-pro/v1/me/invoices",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedInvoice"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext-pro/v1/me/invoices/{id}": {
+            "get": {
+                "tags": [
+                    "Pro: Misc"
+                ],
+                "operationId": "get_buddynext_pro_v1_me_invoices_id_",
+                "summary": "GET /buddynext-pro/v1/me/invoices/{id}",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Invoice"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/buddynext-pro/v1/me/plan-change": {
@@ -4367,7 +4478,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ScheduledPosts"
+                                    "$ref": "#/components/schemas/PaginatedPost"
                                 }
                             }
                         }
@@ -7004,17 +7115,12 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    },
                     "400": {
                         "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
+                    {},
                     {
                         "cookieAuth": []
                     },
@@ -9619,6 +9725,83 @@
                 ]
             }
         },
+        "/buddynext/v1/feed/explore/deck": {
+            "get": {
+                "tags": [
+                    "Feed and Posts"
+                ],
+                "operationId": "get_buddynext_v1_feed_explore_deck",
+                "summary": "GET /buddynext/v1/feed/explore/deck",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Items per page (1-50).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "filter",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "all",
+                                "members",
+                                "spaces",
+                                "posts",
+                                "discussions",
+                                "media"
+                            ],
+                            "default": "all"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FeedExploreDeck"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/feed/explore/page": {
             "get": {
                 "tags": [
@@ -9751,6 +9934,16 @@
                                 "network"
                             ],
                             "default": "for-you"
+                        }
+                    },
+                    {
+                        "name": "after_id",
+                        "in": "query",
+                        "required": false,
+                        "description": "Return the posts newer than this id (the ones the new-posts pill counted) instead of a page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 0
                         }
                     }
                 ],
@@ -10213,6 +10406,21 @@
                         "description": "",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "latest",
+                                "top",
+                                "following"
+                            ],
+                            "default": "latest"
                         }
                     }
                 ],
@@ -11196,13 +11404,13 @@
                         }
                     },
                     {
-                        "name": "cursor",
+                        "name": "page",
                         "in": "query",
                         "required": false,
-                        "description": "Opaque keyset cursor from a prior response next_cursor. Omit for the first page.",
+                        "description": "",
                         "schema": {
-                            "type": "string",
-                            "default": ""
+                            "type": "integer",
+                            "default": 1
                         }
                     }
                 ],
@@ -11256,13 +11464,13 @@
                         }
                     },
                     {
-                        "name": "page",
+                        "name": "cursor",
                         "in": "query",
                         "required": false,
-                        "description": "",
+                        "description": "Opaque keyset cursor from a prior response next_cursor. Omit for the first page.",
                         "schema": {
-                            "type": "integer",
-                            "default": 1
+                            "type": "string",
+                            "default": ""
                         }
                     }
                 ],
@@ -12400,6 +12608,41 @@
                 ]
             }
         },
+        "/buddynext/v1/me/notifications/this-week": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "operationId": "get_buddynext_v1_me_notifications_this_week",
+                "summary": "GET /buddynext/v1/me/notifications/this-week",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MeNotificationsThisWeek"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/me/notifications/unread-count": {
             "get": {
                 "tags": [
@@ -12413,7 +12656,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/MeFollowRequestsCount"
+                                    "$ref": "#/components/schemas/MeNotificationsUnreadCount"
                                 }
                             }
                         }
@@ -13177,6 +13420,65 @@
                 ]
             }
         },
+        "/buddynext/v1/me/scheduled-posts": {
+            "get": {
+                "tags": [
+                    "Scheduled Posts"
+                ],
+                "operationId": "get_buddynext_v1_me_scheduled_posts",
+                "summary": "GET /buddynext/v1/me/scheduled-posts",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedPost"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/me/shares": {
             "get": {
                 "tags": [
@@ -13225,6 +13527,44 @@
                     },
                     "400": {
                         "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext/v1/me/social": {
+            "get": {
+                "tags": [
+                    "Social Graph"
+                ],
+                "operationId": "get_buddynext_v1_me_social",
+                "summary": "GET /buddynext/v1/me/social",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SocialAccount"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
                     }
                 },
                 "security": [
@@ -13836,6 +14176,24 @@
                 "summary": "GET /buddynext/v1/moderation/log",
                 "parameters": [
                     {
+                        "name": "space_id",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "since_days",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
                         "name": "user_id",
                         "in": "query",
                         "required": false,
@@ -13953,6 +14311,41 @@
                     },
                     "400": {
                         "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext/v1/moderation/suspension-reasons": {
+            "get": {
+                "tags": [
+                    "Moderation and Trust"
+                ],
+                "operationId": "get_buddynext_v1_moderation_suspension_reasons",
+                "summary": "GET /buddynext/v1/moderation/suspension-reasons",
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SuspensionReasons"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
                     }
                 },
                 "security": [
@@ -15087,7 +15480,8 @@
                                         "default": false
                                     },
                                     "is_searchable": {
-                                        "type": "boolean"
+                                        "type": "boolean",
+                                        "description": "Add the value to member search (directory search box and global search). Does not create a directory filter."
                                     },
                                     "show_on_register": {
                                         "type": "boolean"
@@ -15187,7 +15581,8 @@
                                         "type": "boolean"
                                     },
                                     "is_searchable": {
-                                        "type": "boolean"
+                                        "type": "boolean",
+                                        "description": "Add the value to member search (directory search box and global search). Does not create a directory filter."
                                     },
                                     "show_on_register": {
                                         "type": "boolean"
@@ -16091,6 +16486,15 @@
                 "operationId": "get_buddynext_v1_reports_queue",
                 "summary": "GET /buddynext/v1/reports/queue",
                 "parameters": [
+                    {
+                        "name": "space_id",
+                        "in": "query",
+                        "required": false,
+                        "description": "One space's open reports (a space moderator: a space they moderate).",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
                     {
                         "name": "per_page",
                         "in": "query",
@@ -17615,6 +18019,54 @@
                 }
             }
         },
+        "/buddynext/v1/spaces/featured": {
+            "get": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "get_buddynext_v1_spaces_featured",
+                "summary": "GET /buddynext/v1/spaces/featured",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer",
+                            "default": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Space"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/spaces/fields": {
             "get": {
                 "tags": [
@@ -17632,6 +18084,58 @@
                                 }
                             }
                         }
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext/v1/spaces/slug/{slug}": {
+            "get": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "get_buddynext_v1_spaces_slug_slug_",
+                "summary": "GET /buddynext/v1/spaces/slug/{slug}",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "invite",
+                        "in": "query",
+                        "required": false,
+                        "description": "Invite-link token from a shared link (?invite=). A valid one unlocks the preview of a private or secret space.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpaceDetail"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -17712,6 +18216,15 @@
                         "required": true,
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "invite",
+                        "in": "query",
+                        "required": false,
+                        "description": "Invite-link token from a shared link (?invite=). A valid one unlocks the preview of a private or secret space.",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 ],
@@ -18441,6 +18954,121 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/buddynext/v1/spaces/{id}/discussion": {
+            "get": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "get_buddynext_v1_spaces_id_discussion",
+                "summary": "GET /buddynext/v1/spaces/{id}/discussion",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpaceDiscussion"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "post_buddynext_v1_spaces_id_discussion",
+                "summary": "POST /buddynext/v1/spaces/{id}/discussion",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "link_id": {
+                                        "type": "integer",
+                                        "default": 0
+                                    }
+                                },
+                                "required": [
+                                    "enabled"
+                                ]
+                            }
+                        }
+                    }
+                }
             }
         },
         "/buddynext/v1/spaces/{id}/discussion-search": {
@@ -19278,6 +19906,29 @@
                             "type": "integer",
                             "default": 50
                         }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "description": "Name search, as the web members tab.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "owner",
+                                "moderator",
+                                "member"
+                            ]
+                        }
                     }
                 ],
                 "responses": {
@@ -20092,17 +20743,12 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Not authenticated."
-                    },
-                    "403": {
-                        "description": "Authenticated but not permitted."
-                    },
                     "400": {
                         "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
+                    {},
                     {
                         "cookieAuth": []
                     },
@@ -20553,6 +21199,69 @@
                 ]
             }
         },
+        "/buddynext/v1/users/{id}/connections": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_buddynext_v1_users_id_connections",
+                "summary": "GET /buddynext/v1/users/{id}/connections",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a prior response next_cursor. Omit for the first page.",
+                        "schema": {
+                            "type": "string",
+                            "default": ""
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UsersFollowers"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/users/{id}/cover": {
             "post": {
                 "tags": [
@@ -20958,6 +21667,68 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/UsersFollowers"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/buddynext/v1/users/{id}/likes": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_buddynext_v1_users_id_likes",
+                "summary": "GET /buddynext/v1/users/{id}/likes",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Items per page (1-50).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedPost"
                                 }
                             }
                         }
@@ -21448,6 +22219,68 @@
                 ]
             }
         },
+        "/buddynext/v1/users/{id}/replies": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_buddynext_v1_users_id_replies",
+                "summary": "GET /buddynext/v1/users/{id}/replies",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Items per page (1-50).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedProfileReply"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/users/{id}/restrict": {
             "post": {
                 "tags": [
@@ -21682,6 +22515,62 @@
                 ]
             }
         },
+        "/buddynext/v1/users/{id}/spaces": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_buddynext_v1_users_id_spaces",
+                "summary": "GET /buddynext/v1/users/{id}/spaces",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "integer",
+                            "default": 5
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MemberSpace"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/buddynext/v1/users/{id}/strikes": {
             "get": {
                 "tags": [
@@ -21901,7 +22790,17 @@
                                 "properties": {
                                     "reason": {
                                         "type": "string",
-                                        "default": ""
+                                        "default": "",
+                                        "description": "Free-text reason shown to the member. Required unless reason_code is sent."
+                                    },
+                                    "reason_code": {
+                                        "type": "string",
+                                        "description": "A code from GET /moderation/suspension-reasons. Takes precedence over reason."
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "Optional note added to reason_code (required for \"other\"), max 300 characters."
                                     },
                                     "duration_days": {
                                         "type": "integer"
@@ -22747,6 +23646,12 @@
                             }
                         }
                     },
+                    "ask_name": {
+                        "type": "boolean"
+                    },
+                    "ask_username": {
+                        "type": "boolean"
+                    },
                     "reg_token": {
                         "type": "string"
                     },
@@ -22848,6 +23753,23 @@
                     },
                     "step": {
                         "type": "integer"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "icon": {
+                                    "type": "string"
+                                }
+                            }
+                        }
                     },
                     "total": {
                         "type": "integer"
@@ -23028,6 +23950,63 @@
                     },
                     "realtime": {
                         "type": "object"
+                    },
+                    "settings_tabs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "spaces": {
+                        "type": "object",
+                        "properties": {
+                            "can_create": {
+                                "type": "boolean"
+                            },
+                            "types": {
+                                "type": "array"
+                            },
+                            "default_type": {
+                                "type": "string"
+                            },
+                            "default_category": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "posting": {
+                        "type": "object",
+                        "properties": {
+                            "default_privacy": {
+                                "type": "string"
+                            },
+                            "edit_window_minutes": {
+                                "type": "integer"
+                            },
+                            "link_preview": {
+                                "type": "boolean"
+                            },
+                            "emoji_picker": {
+                                "type": "boolean"
+                            },
+                            "media_max_mb": {
+                                "type": "integer"
+                            },
+                            "report_reasons": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "slug": {
+                                            "type": "string"
+                                        },
+                                        "label": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -23259,6 +24238,15 @@
                     "members_only": {
                         "type": "boolean"
                     },
+                    "is_locked": {
+                        "type": "boolean"
+                    },
+                    "members_only_cta": {
+                        "type": "object"
+                    },
+                    "shareable": {
+                        "type": "boolean"
+                    },
                     "status": {
                         "type": "string"
                     },
@@ -23349,6 +24337,9 @@
                             },
                             "can_edit": {
                                 "type": "boolean"
+                            },
+                            "has_reported": {
+                                "type": "boolean"
                             }
                         }
                     },
@@ -23365,6 +24356,26 @@
                     "updated_at_gmt": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "PaginatedPost": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Post"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
                     }
                 }
             },
@@ -23438,26 +24449,6 @@
                     "thumbnail": {
                         "type": "string",
                         "format": "uri"
-                    }
-                }
-            },
-            "PaginatedPost": {
-                "type": "object",
-                "properties": {
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/Post"
-                        }
-                    },
-                    "next_cursor": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "total": {
-                        "type": "integer"
                     }
                 }
             },
@@ -23584,6 +24575,15 @@
                     "members_only": {
                         "type": "boolean"
                     },
+                    "is_locked": {
+                        "type": "boolean"
+                    },
+                    "members_only_cta": {
+                        "type": "object"
+                    },
+                    "shareable": {
+                        "type": "boolean"
+                    },
                     "status": {
                         "type": "string"
                     },
@@ -23644,6 +24644,9 @@
                             },
                             "can_edit": {
                                 "type": "boolean"
+                            },
+                            "has_reported": {
+                                "type": "boolean"
                             }
                         }
                     },
@@ -23674,6 +24677,335 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/FeedExplore"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "FeedExploreDeck": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "kind": {
+                                    "type": "string"
+                                },
+                                "post": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "user_id": {
+                                            "type": "integer"
+                                        },
+                                        "space_id": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "space_type": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "shared_post_id": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "shared_post": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        },
+                                        "type": {
+                                            "type": "string"
+                                        },
+                                        "content": {
+                                            "type": "string"
+                                        },
+                                        "media_ids": {
+                                            "type": [
+                                                "array",
+                                                "null"
+                                            ],
+                                            "items": {
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "link_url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "format": "uri"
+                                        },
+                                        "link_meta": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        },
+                                        "poll_options": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "option_text": {
+                                                        "type": "string"
+                                                    },
+                                                    "display_order": {
+                                                        "type": "integer"
+                                                    },
+                                                    "vote_count": {
+                                                        "type": "integer"
+                                                    },
+                                                    "end_date": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "privacy": {
+                                            "type": "string"
+                                        },
+                                        "reaction_count": {
+                                            "type": "integer"
+                                        },
+                                        "comment_count": {
+                                            "type": "integer"
+                                        },
+                                        "share_count": {
+                                            "type": "integer"
+                                        },
+                                        "is_pinned": {
+                                            "type": "integer"
+                                        },
+                                        "is_announcement": {
+                                            "type": "integer"
+                                        },
+                                        "content_warning": {
+                                            "type": "boolean"
+                                        },
+                                        "content_warning_type": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "members_only": {
+                                            "type": "boolean"
+                                        },
+                                        "is_locked": {
+                                            "type": "boolean"
+                                        },
+                                        "members_only_cta": {
+                                            "type": "object"
+                                        },
+                                        "shareable": {
+                                            "type": "boolean"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "site_pin_expires_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "edited_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "edited_at_gmt": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "description": "ISO 8601 UTC form of edited_at; present when edited_at is set."
+                                        },
+                                        "scheduled_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "scheduled_at_gmt": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "description": "ISO 8601 UTC form of scheduled_at; present when scheduled_at is set."
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "updated_at": {
+                                            "type": "string"
+                                        },
+                                        "author": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "display_name": {
+                                                    "type": "string"
+                                                },
+                                                "avatar_url": {
+                                                    "type": "string",
+                                                    "format": "uri"
+                                                },
+                                                "is_online": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        },
+                                        "top_reactors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "content_html": {
+                                            "type": "string"
+                                        },
+                                        "viewer_state": {
+                                            "type": "object",
+                                            "properties": {
+                                                "my_reaction": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "is_bookmarked": {
+                                                    "type": "boolean"
+                                                },
+                                                "my_voted_option_id": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "my_share": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "can_edit": {
+                                                    "type": "boolean"
+                                                },
+                                                "has_reported": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        },
+                                        "media": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "created_at_gmt": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "updated_at_gmt": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        }
+                                    }
+                                },
+                                "hashtag": {
+                                    "type": "string"
+                                },
+                                "member": {
+                                    "type": "object"
+                                },
+                                "space": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "filter": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ProfileReply": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "content_html": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "ISO 8601 UTC form of created_at; present when created_at is set."
+                    },
+                    "post_id": {
+                        "type": "integer"
+                    },
+                    "post_type": {
+                        "type": "string"
+                    },
+                    "post_author_name": {
+                        "type": "string"
+                    },
+                    "post_excerpt": {
+                        "type": "string"
+                    },
+                    "post_url": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PaginatedProfileReply": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProfileReply"
                         }
                     },
                     "next_cursor": {
@@ -23836,6 +25168,81 @@
             "UsersProfile": {
                 "type": "object",
                 "properties": {
+                    "nav": {
+                        "type": "object",
+                        "properties": {
+                            "tabs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "label": {
+                                            "type": "string"
+                                        },
+                                        "icon": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "count": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "children": {
+                                            "type": "array"
+                                        }
+                                    }
+                                }
+                            },
+                            "metrics": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "label": {
+                                            "type": "string"
+                                        },
+                                        "icon": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "url": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "count": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "children": {
+                                            "type": "array"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
                     "user_id": {
                         "type": "integer"
                     },
@@ -24209,6 +25616,38 @@
                             },
                             "recommended_total": {
                                 "type": "integer"
+                            }
+                        }
+                    },
+                    "pending_email": {
+                        "type": "string"
+                    },
+                    "privacy": {
+                        "type": "object",
+                        "properties": {
+                            "bn_privacy_profile_visibility": {
+                                "type": "string"
+                            },
+                            "bn_privacy_who_can_follow": {
+                                "type": "string"
+                            },
+                            "bn_privacy_who_can_connect": {
+                                "type": "string"
+                            },
+                            "bn_privacy_mention": {
+                                "type": "string"
+                            },
+                            "bn_account_private": {
+                                "type": "boolean"
+                            },
+                            "bn_privacy_show_in_directory": {
+                                "type": "boolean"
+                            },
+                            "bn_privacy_search_indexable": {
+                                "type": "boolean"
+                            },
+                            "bn_pro_hide_profile_views": {
+                                "type": "boolean"
                             }
                         }
                     },
@@ -24766,6 +26205,13 @@
                     "join_method": {
                         "type": "string"
                     },
+                    "parent": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "The space this sub-space belongs to; null for a top-level space or a hidden parent the viewer may not see."
+                    },
                     "membership_role": {
                         "type": [
                             "string",
@@ -24958,6 +26404,101 @@
                     "landing_tab": {
                         "type": "string"
                     },
+                    "can_add_subspace": {
+                        "type": "boolean"
+                    },
+                    "linked_source": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "Pro + Learnomy: the course or Learnomy Space this community belongs to."
+                    },
+                    "post_count": {
+                        "type": "integer"
+                    },
+                    "brand_color": {
+                        "type": "string"
+                    },
+                    "cover_focal": {
+                        "type": "object",
+                        "properties": {
+                            "x": {
+                                "type": "number"
+                            },
+                            "y": {
+                                "type": "number"
+                            },
+                            "zoom": {
+                                "type": "number"
+                            }
+                        }
+                    },
+                    "team": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "top_contributors": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "subspace_limit": {
+                        "type": "object",
+                        "properties": {
+                            "max": {
+                                "type": "integer"
+                            },
+                            "used": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "invite_link": {
+                        "type": "string",
+                        "enum": [
+                            "valid",
+                            "invalid"
+                        ]
+                    },
+                    "nav": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "icon": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "url": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "count": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "children": {
+                                    "type": "array"
+                                }
+                            }
+                        }
+                    },
                     "subspace_count": {
                         "type": "integer"
                     },
@@ -25082,6 +26623,49 @@
                     },
                     "total_pages": {
                         "type": "integer"
+                    }
+                }
+            },
+            "MemberSpace": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "parent": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "The space this sub-space belongs to; null for a top-level space or a hidden parent the viewer may not see.",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "url": {
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        }
                     }
                 }
             },
@@ -25335,6 +26919,9 @@
                     "actor_name": {
                         "type": "string"
                     },
+                    "actor_avatar_url": {
+                        "type": "string"
+                    },
                     "created_at_gmt": {
                         "type": "string",
                         "format": "date-time"
@@ -25358,6 +26945,46 @@
                     },
                     "total": {
                         "type": "integer"
+                    }
+                }
+            },
+            "MeNotificationsThisWeek": {
+                "type": "object",
+                "properties": {
+                    "notifications": {
+                        "type": "integer"
+                    },
+                    "read": {
+                        "type": "integer"
+                    },
+                    "new_followers": {
+                        "type": "integer"
+                    },
+                    "engagement": {
+                        "type": "integer"
+                    },
+                    "wow_delta_label": {
+                        "type": "string"
+                    },
+                    "wow_trend": {
+                        "type": "string"
+                    },
+                    "read_rate_label": {
+                        "type": "string"
+                    }
+                }
+            },
+            "MeNotificationsUnreadCount": {
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "integer"
+                    },
+                    "by_tab": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        }
                     }
                 }
             },
@@ -25602,32 +27229,6 @@
                                 }
                             },
                             "bn.mention": {
-                                "type": "object",
-                                "properties": {
-                                    "on_site": {
-                                        "type": "boolean"
-                                    },
-                                    "email_freq": {
-                                        "type": "string"
-                                    },
-                                    "label": {
-                                        "type": "string"
-                                    },
-                                    "group": {
-                                        "type": "string"
-                                    },
-                                    "can_email": {
-                                        "type": "boolean"
-                                    },
-                                    "email_only": {
-                                        "type": "boolean"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "bn.bookmark_milestone": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {
@@ -27346,6 +28947,27 @@
                             "null"
                         ]
                     },
+                    "offender_id": {
+                        "type": "integer"
+                    },
+                    "strikes_count": {
+                        "type": "integer"
+                    },
+                    "offender_name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "offender_joined": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "offender_suspended": {
+                        "type": "boolean"
+                    },
                     "created_at": {
                         "type": "string"
                     },
@@ -27462,6 +29084,31 @@
                     }
                 }
             },
+            "SuspensionReasons": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "note_required": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    },
+                    "note_max": {
+                        "type": "integer"
+                    }
+                }
+            },
             "Appeals": {
                 "type": "object",
                 "properties": {
@@ -27560,6 +29207,25 @@
             "MeStanding": {
                 "type": "object",
                 "properties": {
+                    "warnings": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "note": {
+                                    "type": "string"
+                                },
+                                "created_at": {
+                                    "type": "string"
+                                },
+                                "created_at_gmt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "description": "ISO 8601 UTC form of created_at; present when created_at is set."
+                                }
+                            }
+                        }
+                    },
                     "strikes": {
                         "type": "integer"
                     },
@@ -27982,6 +29648,29 @@
                     }
                 }
             },
+            "SocialAccount": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "icon": {
+                        "type": "string"
+                    },
+                    "linked": {
+                        "type": "boolean"
+                    },
+                    "only_credential": {
+                        "type": "boolean"
+                    },
+                    "connect_url": {
+                        "type": "string"
+                    }
+                }
+            },
             "PwaManifest": {
                 "type": "object",
                 "properties": {
@@ -28093,6 +29782,26 @@
                                 }
                             }
                         }
+                    }
+                }
+            },
+            "SpaceDiscussion": {
+                "type": "object",
+                "properties": {
+                    "has_discussion": {
+                        "type": "boolean"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "forum_id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string"
                     }
                 }
             },
@@ -28271,7 +29980,89 @@
                     "annual_savings_pct": {
                         "type": "integer"
                     },
+                    "owned": {
+                        "type": "boolean"
+                    },
+                    "access_until": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "can_purchase": {
+                        "type": "boolean"
+                    },
                     "buyable": {
+                        "type": "boolean"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "trial_days": {
+                        "type": "integer"
+                    },
+                    "display": {
+                        "type": "object",
+                        "properties": {
+                            "price": {
+                                "type": "object"
+                            },
+                            "annual": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ]
+                            }
+                        }
+                    },
+                    "cta": {
+                        "type": "object",
+                        "properties": {
+                            "state": {
+                                "type": "string"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "href": {
+                                "type": "string"
+                            },
+                            "points": {
+                                "type": "string"
+                            },
+                            "until": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "spaces": {
+                        "type": "object",
+                        "properties": {
+                            "names": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "more": {
+                                "type": "integer"
+                            },
+                            "all": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "recommended": {
                         "type": "boolean"
                     }
                 }
@@ -28444,6 +30235,10 @@
                     "tier_price": {
                         "type": "number"
                     },
+                    "scheduled": {
+                        "type": "boolean",
+                        "description": "Queued to start when the current plan ends (expires_at is that start); nothing is charged until then."
+                    },
                     "capabilities": {
                         "type": "object",
                         "properties": {
@@ -28476,6 +30271,76 @@
                                 "type": "string"
                             }
                         }
+                    }
+                }
+            },
+            "Invoice": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "number": {
+                        "type": "string"
+                    },
+                    "plan_id": {
+                        "type": "integer"
+                    },
+                    "plan_name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "total": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "points": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_at_gmt": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "tax": {
+                        "type": "number"
+                    },
+                    "discount": {
+                        "type": "number"
+                    },
+                    "refunded": {
+                        "type": "number"
+                    }
+                }
+            },
+            "PaginatedInvoice": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Invoice"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "total": {
+                        "type": "integer"
                     }
                 }
             },
@@ -28682,12 +30547,6 @@
                             "sent": {
                                 "type": "integer"
                             },
-                            "opened": {
-                                "type": "integer"
-                            },
-                            "clicked": {
-                                "type": "integer"
-                            },
                             "unsubscribed": {
                                 "type": "integer"
                             },
@@ -28851,60 +30710,6 @@
                     "created_at_gmt": {
                         "type": "string",
                         "format": "date-time"
-                    }
-                }
-            },
-            "ScheduledPosts": {
-                "type": "object",
-                "properties": {
-                    "posts": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "integer"
-                                },
-                                "user_id": {
-                                    "type": "integer"
-                                },
-                                "space_id": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ]
-                                },
-                                "type": {
-                                    "type": "string"
-                                },
-                                "content": {
-                                    "type": "string"
-                                },
-                                "privacy": {
-                                    "type": "string"
-                                },
-                                "status": {
-                                    "type": "string"
-                                },
-                                "scheduled_at": {
-                                    "type": "string"
-                                },
-                                "created_at": {
-                                    "type": "string"
-                                },
-                                "created_at_gmt": {
-                                    "type": "string",
-                                    "format": "date-time"
-                                },
-                                "scheduled_at_gmt": {
-                                    "type": "string",
-                                    "format": "date-time"
-                                }
-                            }
-                        }
-                    },
-                    "total": {
-                        "type": "integer"
                     }
                 }
             },

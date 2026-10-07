@@ -56,6 +56,7 @@ $bn_sf_is_space    = 'user' !== ( isset( $bn_sf_drive_type ) ? (string) $bn_sf_d
 $bn_sf_can_write = isset( $bn_sf_can_write ) ? (bool) $bn_sf_can_write : false;
 // New folder / Rename / Trash / Restore: the drive's managers only (RendersDriveFiles).
 $bn_sf_can_manage_folders = ! empty( $bn_sf_can_manage_folders );
+$bn_sf_can_open_trash     = isset( $bn_sf_can_open_trash ) ? (bool) $bn_sf_can_open_trash : $bn_sf_can_manage_folders;
 // New folder follows MediaVerse's create answer; rows follow each folder's own
 // can_manage. Both fall back to the single flag when a caller does not pass them.
 $bn_sf_can_create_folder = isset( $bn_sf_can_create_folder ) ? (bool) $bn_sf_can_create_folder : $bn_sf_can_manage_folders;
@@ -79,25 +80,8 @@ $bn_sf_up_i18n        = (string) wp_json_encode(
 	)
 );
 
-// A short type chip, the same shorthand MediaVerse uses so the two libraries
-// read the same. Unknown types fall back to FILE rather than guessing.
-$bn_sf_chip = static function ( $doc_type ): string {
-	$map = array(
-		'pdf'              => 'PDF',
-		'word'             => 'DOC',
-		'excel'            => 'XLS',
-		'powerpoint'       => 'PPT',
-		'odf_text'         => 'ODT',
-		'odf_sheet'        => 'ODS',
-		'odf_presentation' => 'ODP',
-		'text'             => 'TXT',
-		'markdown'         => 'MD',
-		'csv'              => 'CSV',
-		'rtf'              => 'RTF',
-	);
-	$key = (string) $doc_type;
-	return isset( $map[ $key ] ) ? $map[ $key ] : 'FILE';
-};
+// The short type chip (PDF, DOC, TXT...): one map, shared with the Trash view.
+$bn_sf_chip = 'buddynext_doc_type_chip';
 
 $bn_sf_folder_url = static function ( int $fid ) use ( $bn_sf_base_url ): string {
 	return $fid > 0 ? add_query_arg( 'bn_folder', $fid, $bn_sf_base_url ) : $bn_sf_base_url;
@@ -214,7 +198,7 @@ if ( $bn_sf_is_space ) {
 	$bn_sf_rm_i18n     = (string) wp_json_encode(
 		array(
 			'confirmTitle' => __( 'Remove this file?', 'buddynext' ),
-			'confirmBody'  => __( 'It is removed from this list.', 'buddynext' ),
+			'confirmBody'  => __( 'It moves to Trash, where you can restore it.', 'buddynext' ),
 			'confirm'      => __( 'Remove', 'buddynext' ),
 			'cancel'       => __( 'Cancel', 'buddynext' ),
 			'done'         => __( 'File removed.', 'buddynext' ),
@@ -279,6 +263,8 @@ if ( $bn_sf_is_space ) {
 					<?php esc_html_e( 'New folder', 'buddynext' ); ?>
 				</button>
 				<?php endif; ?>
+			<?php endif; ?>
+			<?php if ( $bn_sf_can_open_trash && ! $bn_sf_is_search ) : ?>
 				<a class="bn-files__tool-btn" href="<?php echo esc_url( add_query_arg( 'bn_trash', 1, $bn_sf_base_url ) ); ?>">
 					<span class="bn-files__tool-icon" aria-hidden="true"><?php buddynext_icon( 'trash' ); ?></span>
 					<?php esc_html_e( 'Trash', 'buddynext' ); ?>

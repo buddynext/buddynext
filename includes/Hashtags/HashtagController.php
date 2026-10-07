@@ -151,6 +151,12 @@ class HashtagController {
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_text_field',
 					),
+					'sort'     => array(
+						'required' => false,
+						'type'     => 'string',
+						'default'  => 'latest',
+						'enum'     => array( 'latest', 'top', 'following' ),
+					),
 				),
 			)
 		);
@@ -389,7 +395,13 @@ class HashtagController {
 	 */
 	public function get_feed( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$slug = (string) $request->get_param( 'slug' );
-		$args = array( 'per_page' => (int) $request->get_param( 'per_page' ) );
+		// The web page's Latest / Top / Following tabs: the same sort and viewer
+		// args templates/hashtags/feed.php passes.
+		$args = array(
+			'per_page'  => (int) $request->get_param( 'per_page' ),
+			'sort'      => (string) ( $request->get_param( 'sort' ) ?? 'latest' ),
+			'viewer_id' => get_current_user_id(),
+		);
 
 		$cursor = (string) $request->get_param( 'cursor' );
 		if ( '' !== $cursor ) {

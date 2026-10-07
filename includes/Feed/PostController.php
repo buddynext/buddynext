@@ -154,6 +154,31 @@ class PostController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/me/scheduled-posts',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'my_scheduled_posts' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'cursor'   => array(
+						'type'              => 'string',
+						'required'          => false,
+						'description'       => 'Opaque keyset cursor from a previous response.',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 100,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/me/pending-posts',
 			array(
 				'methods'             => 'GET',
@@ -297,6 +322,22 @@ class PostController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( $post, 201 );
+	}
+
+	/**
+	 * The current member's scheduled posts, soonest first (profile Scheduled tab).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function my_scheduled_posts( WP_REST_Request $request ): WP_REST_Response {
+		$user_id = get_current_user_id();
+		$cursor  = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$page    = ( new PostService() )->user_scheduled_posts( $user_id, absint( $request->get_param( 'per_page' ) ), $cursor );
+
+		$page['items'] = ( new FeedController() )->enrich_for_rest( $page['items'], $user_id );
+
+		return new WP_REST_Response( $page, 200 );
 	}
 
 	/**
@@ -459,12 +500,16 @@ class PostController extends BaseRestController {
 		if ( null !== $request->get_param( 'content_warning_type' ) ) {
 			$data['content_warning_type'] = $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) );
 		}
+		// The post's full media list after the edit (add and remove in one field);
+		// PostService::update() checks every id belongs to the post's author.
+		if ( null !== $request->get_param( 'media_ids' ) ) {
+			$data['media_ids'] = array_map( 'absint', (array) $request->get_param( 'media_ids' ) );
+		}
 
 		$result = $service->update( $post_id, $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( $service->get( $post_id ), 200 );
@@ -494,8 +539,7 @@ class PostController extends BaseRestController {
 		$result = $service->delete( $post_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
@@ -517,8 +561,7 @@ class PostController extends BaseRestController {
 		$result  = ( new PostService() )->pin( $post_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( array( 'pinned' => true ), 200 );
@@ -538,11 +581,27 @@ class PostController extends BaseRestController {
 		$result  = ( new PostService() )->unpin( $post_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			return self::forbidden_unless_status( $result );
 		}
 
 		return new WP_REST_Response( array( 'pinned' => false ), 200 );
+	}
+
+	/**
+	 * A service refusal as a REST error: the service's own status wins (404 for a
+	 * missing post, 409 not scheduled, 400 empty post); only an error that carries
+	 * none reads as 403. Forcing 403 on every error answered "not allowed" for a
+	 * post that does not exist.
+	 *
+	 * @param WP_Error $error Service error.
+	 * @return WP_Error
+	 */
+	private static function forbidden_unless_status( WP_Error $error ): WP_Error {
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+			$error->add_data( array( 'status' => 403 ) );
+		}
+		return $error;
 	}
 
 	/**

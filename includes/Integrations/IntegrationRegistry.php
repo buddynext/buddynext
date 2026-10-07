@@ -111,17 +111,21 @@ final class IntegrationRegistry {
 			$tested_version = isset( $entry['tested_version'] ) ? trim( (string) $entry['tested_version'] ) : '';
 
 			$out[ $key ] = array(
-				'key'            => $key,
-				'label'          => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
-				'version'        => '' !== $version ? sanitize_text_field( $version ) : null,
-				'min_version'    => '' !== $min_version ? sanitize_text_field( $min_version ) : null,
-				'tested_version' => '' !== $tested_version ? sanitize_text_field( $tested_version ) : null,
-				'has_nav'        => ! empty( $entry['has_nav'] ),
-				'has_feed'       => ! empty( $entry['has_feed'] ),
+				'key'              => $key,
+				'label'            => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
+				'version'          => '' !== $version ? sanitize_text_field( $version ) : null,
+				'min_version'      => '' !== $min_version ? sanitize_text_field( $min_version ) : null,
+				'tested_version'   => '' !== $tested_version ? sanitize_text_field( $tested_version ) : null,
+				// Features that need a newer partner than the floor: label => version.
+				// Below one, only that feature is absent (it detects the partner API it
+				// needs); the bridge stays on and the owner is told which to update for.
+				'feature_versions' => self::feature_versions( $entry['feature_versions'] ?? array() ),
+				'has_nav'          => ! empty( $entry['has_nav'] ),
+				'has_feed'         => ! empty( $entry['has_feed'] ),
 				// Whether this integration writes into the search index. Only integrations
 				// that declare it get the "Include in search" switch — otherwise the owner
 				// is offered a control that governs nothing.
-				'has_search'     => ! empty( $entry['has_search'] ),
+				'has_search'       => ! empty( $entry['has_search'] ),
 				// The partner's OWN REST namespace, when it has one. BuddyNext
 				// never proxies partner data — the bridge contract is "reference,
 				// not embed" — so a client that wants a partner's own endpoints
@@ -132,10 +136,10 @@ final class IntegrationRegistry {
 				// Declared by the integration, never inferred: a guessed namespace
 				// that 404s is worse than an honest null, which a client reads as
 				// "this integration exposes nothing of its own".
-				'rest_namespace' => isset( $entry['rest_namespace'] ) && '' !== (string) $entry['rest_namespace']
+				'rest_namespace'   => isset( $entry['rest_namespace'] ) && '' !== (string) $entry['rest_namespace']
 					? sanitize_text_field( (string) $entry['rest_namespace'] )
 					: null,
-				'subtabs'        => $subtabs,
+				'subtabs'          => $subtabs,
 			);
 		}
 
@@ -159,5 +163,40 @@ final class IntegrationRegistry {
 	 */
 	public function reset(): void {
 		$this->resolved = null;
+	}
+
+	/**
+	 * Clean a bridge's feature => partner version map.
+	 *
+	 * @param mixed $raw Declared map.
+	 * @return array<string,string>
+	 */
+	private static function feature_versions( $raw ): array {
+		$out = array();
+		foreach ( (array) $raw as $label => $version ) {
+			$label   = sanitize_text_field( (string) $label );
+			$version = sanitize_text_field( trim( (string) $version ) );
+			if ( '' !== $label && '' !== $version ) {
+				$out[ $label ] = $version;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * The features of an entry that the installed partner is too old for.
+	 *
+	 * @param array<string,mixed> $entry Normalised registry entry.
+	 * @return array<string,string> Feature label => version it needs.
+	 */
+	public static function features_needing_update( array $entry ): array {
+		$installed = (string) ( $entry['version'] ?? '' );
+		if ( '' === $installed ) {
+			return array();
+		}
+		return array_filter(
+			(array) ( $entry['feature_versions'] ?? array() ),
+			static fn( $needs ) => version_compare( $installed, (string) $needs, '<' )
+		);
 	}
 }

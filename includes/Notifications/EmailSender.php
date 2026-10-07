@@ -268,11 +268,14 @@ class EmailSender {
 		$composed_exempt = $has_inline && in_array( $notification_type, self::COMPOSED_EMAIL_TYPES, true );
 
 		// Defense-in-depth: honour the can_email gate here too (in case this is
-		// ever invoked outside the send() path). Transactional account emails and
+		// ever invoked outside the send() path). Transactional emails and
 		// composed campaign/drip emails are exempt — they are not
-		// catalogue-governed preferences.
+		// catalogue-governed preferences. The FILTERED set, the same one send()
+		// routes here by: a type Pro declares transactional (the renewal notice,
+		// the refund receipt) is can_email=false on purpose, and checking the bare
+		// constant dropped every one of them right after send() let them through.
 		if ( '' !== $notification_type
-			&& ! in_array( $notification_type, self::TRANSACTIONAL_TYPES, true )
+			&& ! in_array( $notification_type, $this->transactional_types(), true )
 			&& ! $composed_exempt
 			&& ! $this->catalogue->can_email( $notification_type )
 		) {

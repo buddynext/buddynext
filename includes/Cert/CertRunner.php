@@ -316,8 +316,13 @@ class CertRunner {
 	 */
 	private function probe_post_id(): int {
 		global $wpdb;
+		// The first post the certifying user can actually see. Probing a post they
+		// cannot see (blocked author, private, hidden) answers 404 before the
+		// feature gate runs, which reported a false failure on a site with a block.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (int) $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}bn_posts ORDER BY id ASC LIMIT 1" );
+		$candidates = array_map( 'intval', (array) $wpdb->get_col( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE status = 'published' ORDER BY id ASC LIMIT 50" ) );
+		$visible    = buddynext_service( 'post_service' )->filter_visible( $candidates, get_current_user_id() );
+		return (int) ( $visible[0] ?? 0 );
 	}
 
 	/**

@@ -82,7 +82,7 @@ function renderPage( pdf, num, holder ) {
 		canvas.style.width = '100%';
 		canvas.style.height = 'auto';
 		canvas.setAttribute( 'role', 'img' );
-		canvas.setAttribute( 'aria-label', 'Page ' + num );
+		canvas.setAttribute( 'aria-label', ( ( window.bnShellData && window.bnShellData.i18n && window.bnShellData.i18n.pageNumber ) || 'Page %d' ).replace( '%d', num ) );
 
 		holder.replaceChildren( canvas );
 

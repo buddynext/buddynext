@@ -72,6 +72,34 @@ class MediaControllerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Uploading follows the owner's "Who can upload media" choice (upload_mvs_media).
+	 */
+	public function test_upload_needs_the_upload_capability(): void {
+		wp_set_current_user( $this->member );
+		// MediaVerse grants the capability per role on activation; grant it here.
+		$allow = static function ( array $caps ): array {
+			$caps['upload_mvs_media'] = true;
+			return $caps;
+		};
+		add_filter( 'user_has_cap', $allow );
+		$this->assertTrue( $this->controller->require_upload(), 'A member whose role may upload is let through.' );
+		remove_filter( 'user_has_cap', $allow );
+
+		$deny = static function ( array $caps ): array {
+			$caps['upload_mvs_media'] = false;
+			return $caps;
+		};
+		add_filter( 'user_has_cap', $deny );
+		$result = $this->controller->require_upload();
+		remove_filter( 'user_has_cap', $deny );
+
+		$this->assertTrue( \BuddyNext\Media\MediaClient::available(), 'The test bootstrap stubs the engine.' );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'upload_not_allowed', $result->get_error_code() );
+		$this->assertFalse( \BuddyNext\Media\MediaClient::can_upload( 0 ), 'Guests never upload.' );
+	}
+
+	/**
 	 * Delete reports the engine is unavailable when the media repository is
 	 * absent (the guard fires before any ownership check).
 	 */
@@ -249,6 +277,34 @@ class MediaControllerTest extends \WP_UnitTestCase {
 
 		$album = $wp_rest_server->dispatch( new WP_REST_Request( 'POST', '/buddynext/v1/me/albums' ) );
 		$this->assertSame( 401, $album->get_status() );
+
+		$wp_rest_server = null;
+	}
+
+	/**
+	 * Guests can read a member's albums the way they read the member's public
+	 * photos: the Albums tab used to call these routes, get 401, and say "No
+	 * albums yet." Each album still answers to its own privacy in the handler,
+	 * and a profile the guest may not see hides its albums (404), as
+	 * /users/{id}/spaces does.
+	 */
+	public function test_guests_reach_album_reads_but_not_a_hidden_profile(): void {
+		global $wp_rest_server;
+		$wp_rest_server = new WP_REST_Server();
+		( new Router() )->register();
+		do_action( 'rest_api_init' );
+
+		wp_set_current_user( 0 );
+
+		$list = $wp_rest_server->dispatch( new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->member . '/albums' ) );
+		$this->assertSame( 200, $list->get_status(), 'a guest must not get 401 on a public profile' );
+
+		$missing = $wp_rest_server->dispatch( new WP_REST_Request( 'GET', '/buddynext/v1/albums/987654' ) );
+		$this->assertSame( 404, $missing->get_status(), 'the single-album read is open to guests and 404s what they may not see' );
+
+		buddynext_service( 'privacy' )->set_preference( $this->member, 'profile_visibility', 'private' );
+		$hidden = $wp_rest_server->dispatch( new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->member . '/albums' ) );
+		$this->assertSame( 404, $hidden->get_status() );
 
 		$wp_rest_server = null;
 	}

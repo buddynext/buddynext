@@ -2,9 +2,9 @@
 
 A member profile is the public page that represents a person in your community. It carries their avatar, cover photo, display name, bio, custom field details, and the buttons other people use to follow or connect with them.
 
-![BuddyNext member profile — cover photo and avatar, display name and bio, profile field details, follow/connect actions, and the member's activity, spaces and connections.](../images/member-profile.webp)
+![BuddyNext member profile - cover photo and avatar, display name and bio, profile field details, follow/connect actions, and the member's activity, spaces and connections.](../images/member-profile.webp)
 
-![Editing your profile — Change cover and Change photo controls, plus name, headline and bio fields](../images/profile-edit.webp)
+![Editing your profile - Change cover and Change photo controls, plus name, headline and bio fields](../images/profile-edit.webp)
 
 ## Why use it
 
@@ -70,15 +70,17 @@ The block has two display options the owner can toggle when placing it:
 | Show stats | Shows the follower and connection counts in the header | On |
 | Show actions | Shows the follow and connect buttons in the header | On |
 
+The small row of details under the member's name (by default Location and Website) is not fixed. Each profile field has a **Show in the profile header** switch in **BuddyNext > Members > Directory > Profile Fields**, and the fields with that switch on, in their sort order, make up the row. See [Custom Profile Fields](02-profile-fields.md).
+
 A related block, the Member Card block, shows a compact version of a member - avatar, name, and a follow button - for sidebars and widgets.
 
 ## Setting it up (for owners)
 
-Profiles work out of the box. The settings below control how members appear when they have not uploaded their own images. They live in the Members admin area under the Avatar and Cover tab.
+Profiles work out of the box. The settings below control how members appear when they have not uploaded their own images. They live under **BuddyNext > Members > Directory > Avatar & cover**.
 
 | Setting | What it does | Default |
 | --- | --- | --- |
-| Default avatar style | What to show when a member has no uploaded avatar. `Initials` draws a coloured circle with the member's initials and makes no network request. `Default image` shows a single image you upload for every member without an avatar. `Gravatar` uses the WordPress / Gravatar fallback. In all three, a member's own uploaded avatar still overrides the default. | Initials |
+| Default avatar style | What to show when a member has no uploaded avatar. `Initials` draws a colored circle with the member's initials and makes no network request. `Default image` shows a single image you upload for every member without an avatar. `Gravatar` uses the WordPress / Gravatar fallback. In all three, a member's own uploaded avatar still overrides the default. | Initials |
 | Default avatar image | The image shown for members with no avatar. Only takes effect when the avatar style is set to `Default image`. Upload from the media library or paste an image URL. | Empty |
 | Default cover photo | The banner shown on profiles where the member has not uploaded their own cover. Upload from the media library or paste an image URL. | Empty |
 
@@ -87,11 +89,11 @@ To remove a default avatar or cover image you previously set, use the remove con
 
 ## Good to know
 
-- **An admin can edit a member's whole profile, not just their avatar.** Beyond removing an avatar, administrators can open any member from **BuddyNext > Members** and edit their display name, email, role, handle, avatar and cover photo, and every custom profile field - see [Editing a Member from the Admin](14-admin-editing-a-member.md). After an avatar removal, the member falls back to the site's default avatar style until they upload a new one. Members can always re-upload their own.
+- **An admin can edit a member's whole profile, not just their avatar.** Beyond removing an avatar, administrators can open any member from **BuddyNext > Members > Directory** and edit their display name, email, role, handle, avatar and cover photo, and every custom profile field - see [Editing a Member from the Admin](14-admin-editing-a-member.md). After an avatar removal, the member falls back to the site's default avatar style until they upload a new one. Members can always re-upload their own.
 - **Handles are unique across the whole community.** No two members can hold the same handle, and the system-reserved address pattern is protected, so a member cannot claim an address that points to someone else.
 - **Privacy is enforced on read, not just on display.** When a field is set to followers-only or connections-only, it is filtered out for everyone who does not qualify, both on the profile page and in any connected app - so a hidden field is genuinely hidden, not just visually removed.
 - **Empty profiles hide their own detail.** A field group with no filled values does not render, so a brand-new profile looks clean rather than showing a wall of blank rows. This is also why completing your profile matters - filled fields are what make the page worth visiting.
-- **Author links go to the profile.** Wherever a theme or plugin links to a post's author - the byline and author box under a post, category and search results, an author archive header - the link opens that member's BuddyNext profile instead of a WordPress author archive. The `/author/` address itself still opens. The link stays on the WordPress address when the viewer is not allowed to see that profile (private or followers-only), so a byline never leads to a wall, and for wp-admin, the REST API, feeds and the sitemap. To keep WordPress author archives, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Platform > Integration Settings**, or return `false` from the `buddynext_author_link_to_profile` filter (it receives the author's user ID).
+- **Author links go to the profile while it lists the author's posts.** With WB Member Blog active (so profiles have an **Articles** tab), wherever a theme or plugin links to a post's author - the byline and author box under a post, category and search results, an author archive header - the link opens that member's BuddyNext profile instead of a WordPress author archive. Without Member Blog the profile has no list of the author's posts, so bylines keep the WordPress author archive, which does. The `/author/` address itself still opens. The link stays on the WordPress address when the viewer is not allowed to see that profile (private or followers-only), so a byline never leads to a wall, and for wp-admin, the REST API, feeds and the sitemap. To keep WordPress author archives, turn off the **nav** aspect of the **Blog posts** integration under **BuddyNext > Integration Settings**, or return `false` from the `buddynext_author_link_to_profile` filter (it receives the author's user ID).
 
 ## Free vs Pro
 

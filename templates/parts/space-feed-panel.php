@@ -289,7 +289,7 @@ printf(
 			data-size="md"
 		><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
 	</div>
-<?php elseif ( ! $bn_is_guest && ! $bn_is_member && ! $bn_is_pending && 'open' === $bn_space->type && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
+<?php elseif ( ! $bn_is_guest && ! $bn_is_member && ! $bn_is_pending && 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_space->type ) && buddynext_service( 'space_members' )->can_join( $bn_space, get_current_user_id() ) ) : ?>
 	<?php
 	// Logged-in non-members only. A guest is already handled by the $bn_is_guest
 	// branch above, whose "Log in" link carries the auth redirect. Without the
@@ -375,14 +375,12 @@ printf(
  * Rendered outside the results branch on purpose: someone who lands past the
  * last page sees the empty state AND still has a way back.
  */
-$bn_pager_url = static function ( int $page ) use ( $bn_search_query, $bn_search_base ): string {
-	return add_query_arg(
-		array(
-			'bn_sf_q' => $bn_search_query,
-			'paged'   => $page,
-		),
-		$bn_search_base
-	);
+// Always the Feed tab's own address (/spaces/{slug}/feed/page/N/), never the
+// space home: the home renders the space's landing tab, and /spaces/{slug}/page/N/
+// would read "page" as a tab.
+$bn_pager_url = static function ( int $page ) use ( $bn_search_query, $bn_space_id ): string {
+	$bn_feed = trailingslashit( \BuddyNext\Core\PageRouter::space_url( $bn_space_id ) ) . 'feed/';
+	return add_query_arg( 'bn_sf_q', $bn_search_query, \BuddyNext\Core\PageRouter::page_url( $bn_feed, $page ) );
 };
 ?>
 <?php if ( $bn_is_searching && ( $bn_has_prev || $bn_has_next ) ) : ?>

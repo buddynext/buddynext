@@ -135,10 +135,10 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 					// Preselect the owner's default (Spaces -> Settings). The select
 					// always submits a value, so without this the first option (open)
 					// silently overrode buddynext_space_default_type on every create.
-					$bn_default_type = (string) get_option( 'buddynext_space_default_type', 'open' );
+					$bn_default_type = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->default_type();
 					foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $bn_type_key => $bn_type_cfg ) :
 						$bn_hint  = $bn_join_hints[ $bn_type_cfg['join'] ] ?? '';
-						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ' — ' . $bn_hint : '' );
+						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ': ' . $bn_hint : '' );
 						?>
 						<option value="<?php echo esc_attr( (string) $bn_type_key ); ?>" <?php selected( $bn_default_type, (string) $bn_type_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>
@@ -159,8 +159,14 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 						<option value="">
 							<?php esc_html_e( '- Select a category -', 'buddynext' ); ?>
 						</option>
-						<?php foreach ( $bn_csm_categories as $bn_csm_cat ) : ?>
-							<option value="<?php echo esc_attr( (string) $bn_csm_cat->id ); ?>">
+						<?php
+						// Pre-select the owner's default category, as the visibility select
+						// above does. Without it the member saw "Select a category" while the
+						// server quietly filed the space under the default anyway.
+						$bn_default_cat = (int) get_option( 'buddynext_space_default_category', 0 );
+						foreach ( $bn_csm_categories as $bn_csm_cat ) :
+							?>
+							<option value="<?php echo esc_attr( (string) $bn_csm_cat->id ); ?>" <?php selected( $bn_default_cat, (int) $bn_csm_cat->id ); ?>>
 								<?php echo esc_html( $bn_csm_cat->name ); ?>
 							</option>
 						<?php endforeach; ?>

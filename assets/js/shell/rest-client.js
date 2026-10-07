@@ -120,7 +120,57 @@ function doFetch( url, init ) {
 	if ( typeof init.signal === 'undefined' ) {
 		delete init.signal;
 	}
+	const onUploadProgress = init.onUploadProgress;
+	delete init.onUploadProgress;
+	if ( 'function' === typeof onUploadProgress && 'function' === typeof XMLHttpRequest ) {
+		return xhrFetch( url, init, onUploadProgress );
+	}
 	return fetch( url, init );
+}
+
+/**
+ * fetch() with upload progress, for file uploads.
+ *
+ * fetch() cannot report how much of a request body has been sent, so a large
+ * video showed only a spinner and members thought nothing was happening. XHR
+ * can; the reply is wrapped in a standard Response so everything after
+ * doFetch() (parseBody, the nonce retry, error toasts) is unchanged.
+ *
+ * @param {string}   url        Request URL.
+ * @param {Object}   init       fetch-style init (method, headers, body, signal).
+ * @param {Function} onProgress Called with ( loadedBytes, totalBytes ).
+ * @return {Promise<Response>} Rejects like fetch(): TypeError on network failure, AbortError on abort.
+ */
+function xhrFetch( url, init, onProgress ) {
+	return new Promise( ( resolve, reject ) => {
+		const xhr = new XMLHttpRequest();
+		xhr.open( init.method || 'GET', url, true );
+		xhr.withCredentials = true;
+		Object.keys( init.headers || {} ).forEach( ( k ) => xhr.setRequestHeader( k, init.headers[ k ] ) );
+		xhr.upload.onprogress = ( e ) => {
+			if ( e.lengthComputable ) {
+				onProgress( e.loaded, e.total );
+			}
+		};
+		xhr.onload = () => {
+			const headers = new Headers();
+			xhr.getAllResponseHeaders().trim().split( /[\r\n]+/ ).forEach( ( line ) => {
+				const at = line.indexOf( ':' );
+				if ( at > 0 ) {
+					headers.append( line.slice( 0, at ).trim(), line.slice( at + 1 ).trim() );
+				}
+			} );
+			// 204/205/304 must not carry a body, or the Response constructor throws.
+			const body = [ 204, 205, 304 ].includes( xhr.status ) ? null : xhr.responseText;
+			resolve( new Response( body, { status: xhr.status, statusText: xhr.statusText, headers } ) );
+		};
+		xhr.onerror = () => reject( new TypeError( 'network_error' ) );
+		xhr.onabort = () => reject( new DOMException( 'Aborted', 'AbortError' ) );
+		if ( init.signal ) {
+			init.signal.addEventListener( 'abort', () => xhr.abort() );
+		}
+		xhr.send( typeof init.body === 'undefined' ? null : init.body );
+	} );
 }
 
 function refreshNonce() {
@@ -207,6 +257,8 @@ function performRequest( path, opts, isRetry ) {
 		credentials: 'same-origin',
 		headers,
 		signal,
+		// Upload progress callback ( loaded, total ); switches the transport to XHR.
+		onUploadProgress: opts.onUploadProgress,
 	};
 	if ( typeof body !== 'undefined' && method !== 'GET' && method !== 'HEAD' ) {
 		init.body = body;
@@ -264,7 +316,8 @@ function performRequest( path, opts, isRetry ) {
  * Perform a REST request.
  *
  * @param {string} path Path relative to the namespace base (or absolute URL).
- * @param {Object} [opts] fetch-like options plus { base, nonce, toastOnError }.
+ * @param {Object} [opts] fetch-like options plus { base, nonce, toastOnError,
+ *                        onUploadProgress( loaded, total ) }.
  * @return {Promise<{ok:boolean,status:number,data:*,error?:string}>} Result.
  */
 export async function restFetch( path, opts ) {
@@ -293,6 +346,7 @@ export async function restFetch( path, opts ) {
 		} else if ( opts.toastOnError !== false ) {
 			bnToast(
 				( result.data && result.data.message ) ||
+					( window.bnShellData && window.bnShellData.i18n && window.bnShellData.i18n.genericError ) ||
 					'Something went wrong. Try again.',
 				{ tone: 'danger' }
 			);

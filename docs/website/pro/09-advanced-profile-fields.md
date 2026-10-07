@@ -12,7 +12,7 @@ To show any field (of any type) only when another answer matches, use [Condition
 
 ## Why use it
 
-Plain text fields capture text, and not much else. When you want clean, structured member data, you need controls that match the data. A "Location" field that records a real place on a map is far more useful than a free-text "City" box that members spell five different ways. A "Resume" field that accepts only PDFs is safer than a text box where people paste a link. A number field with a unit and a sensible minimum and maximum stops members entering "lots" in a field meant for years of experience.
+Plain text fields capture text, and not much else. When you want clean, structured member data, you need controls that match the data. A "Location" field that records a real place on a map is far more useful than a free-text "City" box that members spell five different ways. A number field with a unit and a sensible minimum and maximum stops members entering "lots" in a field meant for years of experience.
 
 Richer field types pay off in three places:
 
@@ -27,7 +27,7 @@ A member opens their profile edit screen and sees each Pro field rendered with i
 
 ### Date (extended)
 
-Renders a native date picker. The member picks a day from the calendar control instead of typing a date string. On the profile view the value is shown using your site's configured date format.
+Renders a native date picker. The member picks a day from the calendar control instead of typing a date string. On the profile view the value is shown the way you set under **Display as** on the field, the same as the free date type (for example the full date, month and year, year only, or age).
 
 ### Location (map)
 
@@ -54,7 +54,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 | Setting | What it controls | Default |
 |---|---|---|
-| (none) | The extended date type has no extra options. It renders a date picker and displays using your site date format. | - |
+| (none) | The extended date type has no Pro-only options. Like the free date type it offers the **Display as** choice that controls how the date is shown on the profile. | - |
 
 ### Location (map)
 
@@ -66,19 +66,19 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 | Setting | What it controls | Default |
 |---|---|---|
-| Choices | The list members pick from, one option per line. | empty |
+| Choices | The list members pick from, one choice per line. Use `value\|Label` to give a choice a different label; with no pipe the text is used as both value and label. | empty |
 
 ### Number (advanced)
 
 | Setting | What it controls | Default |
 |---|---|---|
-| Unit | A label shown next to the input, such as years, km, or kg. | empty |
-| Min | The lowest value a member may enter. | empty (no minimum) |
-| Max | The highest value a member may enter. | empty (no maximum) |
-| Step | The increment the input snaps to (for example 1 for whole numbers, 0.5 for halves). | any |
+| Unit label | A label shown next to the input, such as years, km, or kg. | empty |
+| Min / Max / Step | Three boxes in one row. Min is the lowest value a member may enter and Max the highest; leave either empty for no limit. Step is the increment the input snaps to (for example 1 for whole numbers, 0.5 for halves). | empty (no limit, any step) |
 
 ## Good to know
 
+- When your default plan does not include the **Advanced Profile Fields** perk, the four type names carry a **(plan-gated)** suffix in the type dropdown and the field shows a notice: members who have not bought a paid plan see the field but cannot fill it in.
+- The file upload type is not available. A field set to it cannot take new files; switch it to a URL type.
 - Pro field types are built on the free field engine, so visibility, required, and ordering work the same as any free field. See Profile Fields for those base behaviours.
 - The location map is a progressive enhancement layered on the saved value. If scripts do not load, members still get a working text input and the value still saves - the picker UX is the enhancement, not the storage.
 - Connected clients save through the same checks as the website, so a value entered through the API is validated and stored exactly like one entered on the site.
@@ -89,7 +89,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 The free plugin ships the core field types (text, textarea, select, checkbox, and the other standard inputs) and the whole field builder, member edit form, and profile view. See Profile Fields for that baseline.
 
 Pro adds the four field types documented here - extended date, location, advanced multi-select, and advanced number - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
-> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.
+> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk (**Advanced Profile Fields** under Profile): members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Plans.
 
 ## Related
 

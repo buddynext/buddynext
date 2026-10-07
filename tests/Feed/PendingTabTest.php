@@ -70,7 +70,7 @@ class PendingTabTest extends \WP_UnitTestCase {
 		$this->seed_post( $this->author, 'published' );
 		$this->seed_post( $this->other, 'pending' );
 
-		$rows = $this->service->user_pending_posts( $this->author, 20 );
+		$rows = $this->service->user_pending_posts( $this->author, 20 )['items'];
 
 		$this->assertCount( 1, $rows );
 		$this->assertSame( $mine, (int) $rows[0]['id'] );
@@ -81,7 +81,7 @@ class PendingTabTest extends \WP_UnitTestCase {
 		// hydrated shape - a raw row would render a broken card.
 		$this->seed_post( $this->author, 'pending' );
 
-		$rows = $this->service->user_pending_posts( $this->author, 20 );
+		$rows = $this->service->user_pending_posts( $this->author, 20 )['items'];
 
 		$this->assertNotEmpty( $rows );
 		$this->assertSame( 'pending', $rows[0]['status'] );
@@ -93,7 +93,7 @@ class PendingTabTest extends \WP_UnitTestCase {
 	}
 
 	public function test_no_pending_posts_is_an_empty_list_not_an_error(): void {
-		$this->assertSame( array(), $this->service->user_pending_posts( $this->author, 20 ) );
+		$this->assertSame( array(), $this->service->user_pending_posts( $this->author, 20 )['items'] );
 		$this->assertSame( 0, $this->service->user_pending_count( $this->author ) );
 	}
 }

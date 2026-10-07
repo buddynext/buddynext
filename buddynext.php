@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.2.3
+ * Version:     1.2.4
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.2.3' );
+define( 'BUDDYNEXT_VERSION', '1.2.4' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -119,6 +119,8 @@ register_deactivation_hook(
 		// deactivation (re-armed on next activation / write).
 		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::HOOK );
 		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::SWEEP_HOOK );
+		// A switched-off plugin asks the store nothing; activation re-arms it.
+		wp_clear_scheduled_hook( \BuddyNext\Core\PresetActivation::HOOK );
 	}
 );
 
@@ -905,6 +907,31 @@ function buddynext_default_reg_mode(): string {
 }
 
 /**
+ * The registration modes buddynext_reg_mode can hold. The one list: the
+ * Registration settings field and the setup wizard both offer exactly these,
+ * and both save only one of them.
+ *
+ * @since 1.2.4
+ *
+ * @return string[]
+ */
+function buddynext_reg_modes(): array {
+	return array( 'open', 'invite', 'approval', 'closed' );
+}
+
+/*
+ * The setup wizard used to save "Admin approval" as 'approve', which nothing
+ * reads, so those sites held nobody. Read it as 'approval': the owner chose
+ * approval, and every reader of the option now honours that.
+ */
+add_filter(
+	'option_buddynext_reg_mode',
+	static function ( $value ) {
+		return 'approve' === $value ? 'approval' : $value;
+	}
+);
+
+/**
  * Product-level default values for the login / sign-up branding panel.
  *
  * Single source of truth so the admin Settings fields and the front-end auth
@@ -1140,6 +1167,34 @@ function buddynext_space_moderation_url( string $slug ): string {
 }
 
 /**
+ * The short type chip for a document (PDF, DOC, TXT ...).
+ *
+ * The same shorthand WPMediaVerse uses, so the two libraries read the same.
+ * Shared by the Files list and its Trash view. Unknown types read FILE rather
+ * than a guess.
+ *
+ * @param string $doc_type WPMediaVerse document type (pdf, word, text, ...).
+ * @return string
+ */
+function buddynext_doc_type_chip( $doc_type ): string {
+	$map = array(
+		'pdf'              => 'PDF',
+		'word'             => 'DOC',
+		'excel'            => 'XLS',
+		'powerpoint'       => 'PPT',
+		'odf_text'         => 'ODT',
+		'odf_sheet'        => 'ODS',
+		'odf_presentation' => 'ODP',
+		'text'             => 'TXT',
+		'markdown'         => 'MD',
+		'csv'              => 'CSV',
+		'rtf'              => 'RTF',
+	);
+	$key = (string) $doc_type;
+	return isset( $map[ $key ] ) ? $map[ $key ] : 'FILE';
+}
+
+/**
  * Copy for the Files UI's folder controls (New folder, Rename, Trash, Restore),
  * shared by the Files list and its Trash view and read by media/file-upload.js.
  *
@@ -1175,6 +1230,7 @@ function buddynext_drive_folder_strings(): array {
 		'renamed'      => __( 'Folder renamed.', 'buddynext' ),
 		'trashed'      => __( 'Folder moved to trash.', 'buddynext' ),
 		'restored'     => __( 'Folder restored.', 'buddynext' ),
+		'fileRestored' => __( 'File restored.', 'buddynext' ),
 		// translators: %s: folder name.
 		'purgeTitle'   => __( 'Delete “%s” permanently?', 'buddynext' ),
 		// translators: %s: what it holds, e.g. "4 items".

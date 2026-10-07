@@ -121,7 +121,7 @@
 	padding: var(--bn-s2) var(--bn-s4);
 	border: 0;
 	border-radius: var(--bn-r-md);
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
@@ -198,6 +198,18 @@
 	margin: 0 0 var(--bn-s2);
 	color: var(--bn-ink-3);
 	font-size: var(--bn-text-sm);
+}
+
+/* "Files" sub-heading between trashed folders and trashed files in the Trash. */
+.bn-files-trash__heading {
+	margin-block: var(--bn-s5) var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	color: var(--bn-ink-2);
+}
+
+.bn-files__crumbs + .bn-files-trash__heading {
+	margin-block-start: var(--bn-s3);
 }
 
 /* ── List + rows ────────────────────────────────────────────────────────── */
@@ -581,7 +593,7 @@ a.bn-files__name:focus-visible {
 	gap: var(--bn-s2);
 	padding: var(--bn-s2) var(--bn-s4);
 	border-radius: var(--bn-r-md);
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
@@ -857,7 +869,7 @@ a.bn-files__name:focus-visible {
 	padding: var(--bn-s2) var(--bn-s4);
 	border: 0;
 	border-radius: var(--bn-r-md);
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
@@ -1128,7 +1140,7 @@ a.bn-files__name:focus-visible {
 	padding: var(--bn-s2) var(--bn-s4);
 	border: 0;
 	border-radius: var(--bn-r-md);
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);

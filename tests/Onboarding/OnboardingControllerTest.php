@@ -167,6 +167,22 @@ class OnboardingControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 1, $count );
 	}
 
+	/**
+	 * Finishing lands on the activity feed by default (it used to be the
+	 * member's own profile), the owner's After onboarding setting wins over that,
+	 * and a repeat submit answers the same as the first.
+	 */
+	public function test_complete_lands_on_the_feed_unless_the_owner_chose_a_page(): void {
+		wp_set_current_user( $this->user_id );
+		$complete = static fn(): string => (string) rest_do_request( new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/complete' ) )->get_data()['redirect_to'];
+
+		$this->assertSame( \BuddyNext\Core\PageRouter::activity_url(), $complete() );
+
+		update_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, home_url( '/spaces/' ) );
+		$this->assertSame( home_url( '/spaces/' ), $complete(), 'the owner setting must win on a repeat submit too' );
+		delete_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING );
+	}
+
 	// ── GET/POST /me/interests ───────────────────────────────────────────────
 
 	/**
@@ -209,5 +225,30 @@ class OnboardingControllerTest extends \WP_Test_REST_TestCase {
 		return (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_space_categories WHERE slug = %s", sanitize_title( $name ) )
 		);
+	}
+
+	/**
+	 * GET /me/onboarding lists the steps the web stepper draws, add-on steps included.
+	 *
+	 * @return void
+	 */
+	public function test_state_lists_the_steps(): void {
+		$plan = static function ( array $steps ): array {
+			$steps[] = array(
+				'key'   => 'plan',
+				'label' => 'Membership',
+				'icon'  => 'crown',
+			);
+			return $steps;
+		};
+		add_filter( 'buddynext_onboarding_steps', $plan );
+		wp_set_current_user( self::factory()->user->create() );
+
+		$data = rest_do_request( new \WP_REST_Request( 'GET', '/buddynext/v1/me/onboarding' ) )->get_data();
+		$this->assertSame( wp_list_pluck( array_values( buddynext_service( 'onboarding' )->step_list() ), 'key' ), wp_list_pluck( $data['steps'], 'key' ) );
+		$this->assertSame( 'plan', end( $data['steps'] )['key'], 'An add-on step (Pro plan) is listed.' );
+		$this->assertSame( count( $data['steps'] ), $data['total'] );
+
+		remove_filter( 'buddynext_onboarding_steps', $plan );
 	}
 }

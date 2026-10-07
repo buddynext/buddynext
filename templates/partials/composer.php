@@ -133,8 +133,9 @@ $composer_has_pro = defined( 'BUDDYNEXTPRO_VERSION' );
 // Media uploads route through WPMediaVerse. When the engine is absent the Image
 // affordance must not render — otherwise pickMedia() POSTs to a non-existent
 // mvs/v1 route and 404s. BN degrades gracefully: no button, no console error.
+// The same check hides it from a member the site does not let upload.
 $composer_media_enabled = class_exists( '\BuddyNext\Media\MediaClient' )
-	&& \BuddyNext\Media\MediaClient::available();
+	&& \BuddyNext\Media\MediaClient::can_upload( get_current_user_id() );
 
 // Document attach (WPMediaVerse Pro 2.4.0). enabled/accept/max_size come from
 // MVS's own app config — never BN constants — so the composer cannot offer a
@@ -186,7 +187,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'submitting'            => false,
 				'mediaIds'              => array(),
 				'mediaPreviews'         => array(),
-				'mediaUploading'        => false,
+				'mediaUploading'        => 0,
 				'errorMessage'          => '',
 				'scheduleOpen'          => false,
 				'scheduledAt'           => '',
@@ -214,6 +215,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'documentId'            => 0,
 				'documentName'          => '',
 				'documentUploading'     => false,
+				'waitNotice'            => false,
 			)
 		)
 	);
@@ -259,6 +261,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				data-wp-bind--hidden="state.appealHidden"
 				data-wp-bind--href="state.appealUrl"><?php esc_html_e( 'Review your account status', 'buddynext' ); ?></a>
 		</div>
+
+		<p class="bn-composer__notice" role="status" hidden data-wp-bind--hidden="!state.waitNoticeText" data-wp-text="state.waitNoticeText"></p>
 
 		<textarea class="bn-composer__prompt"
 			rows="2"

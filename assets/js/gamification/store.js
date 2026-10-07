@@ -19,6 +19,9 @@ store( 'buddynext/gamification', {
 		setWindow( event ) {
 			const url = new URL( window.location.href );
 			url.searchParams.set( 'window', event.target.value );
+			// A new page size starts the board from the top.
+			url.searchParams.delete( 'cursor' );
+			url.hash = '';
 			window.location.href = url.toString();
 		},
 	},

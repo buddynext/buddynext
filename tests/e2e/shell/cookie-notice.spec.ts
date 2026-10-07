@@ -61,17 +61,25 @@ test('J-810 cookie notice shows on any page, remembers Got it, and returns when 
     const notice = page.locator('[data-bn-cookie-consent]');
     await expect(notice, 'shown to a visitor who has not accepted').toBeVisible();
 
-    // Site colours: the button follows the page's resolved accent inside the notice.
+    // Site colours: the button is filled with the notice's OWN accent, deepened
+    // for a white label (--bn-accent-solid), not with the page root's. Both probes
+    // sit inside the notice, so a fill inherited from :root (a blue button on a
+    // red-accent site) fails here.
     const colours = await notice.evaluate((el) => {
         const btn = el.querySelector('.bn-btn') as HTMLElement;
         const probe = document.createElement('span');
-        probe.style.color = 'var(--bn-accent)';
         el.appendChild(probe);
-        const accent = getComputedStyle(probe).color;
+        probe.style.backgroundColor = 'var(--bn-accent-solid)';
+        const solid = getComputedStyle(probe).backgroundColor;
+        // The same derivation applied to the notice's accent by hand: what the
+        // fill must equal when it is computed from this element's accent.
+        probe.style.setProperty('--bn-accent-solid', 'var(--bn-accent-solid-auto, var(--bn-accent))');
+        const derivedHere = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        return { button: getComputedStyle(btn).backgroundColor, accent };
+        return { button: getComputedStyle(btn).backgroundColor, solid, derivedHere };
     });
-    expect(colours.button, 'button uses the resolved site accent').toBe(colours.accent);
+    expect(colours.button, 'button uses the solid accent').toBe(colours.solid);
+    expect(colours.solid, 'the solid accent is derived from the notice accent, not inherited from the root').toBe(colours.derivedHere);
 
     // Phone width: compact, fully on screen, no sideways scroll.
     const box = await notice.boundingBox();

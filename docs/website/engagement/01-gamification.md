@@ -70,7 +70,7 @@ Gamification is an integration, so setup is two steps: install the companion, th
 
 ### 1. Install the WB Gamification companion
 
-From the BuddyNext admin, open the integrations area and install WB Gamification with one click. BuddyNext handles the download and activation for you; you do not upload a zip or search the plugin directory. Once it is active, BuddyNext starts sending member actions to it and the gamification surfaces come to life. See the Gamification integration page for the install walkthrough and what each surface lights up.
+From the BuddyNext admin, open **BuddyNext > Platform > Add-ons** and install WB Gamification with one click. BuddyNext handles the download and activation for you; you do not upload a zip or search the plugin directory. Once it is active, BuddyNext starts sending member actions to it and the gamification surfaces come to life. See the Gamification integration page for the install walkthrough and what each surface lights up.
 
 ### 2. Set the gamification hub page
 

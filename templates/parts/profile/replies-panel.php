@@ -9,7 +9,8 @@
  *
  * @package BuddyNext
  *
- * @var object[] $replies Reply rows (->object_id / ->content / ->post_author_name / ->post_content / ->created_at).
+ * @var object[]             $replies Reply rows (->object_id / ->content / ->post_author_name / ->post_content / ->created_at).
+ * @var array<string,string> $pager   Optional FeedWindow::links() result: Load more / older replies.
  */
 
 declare( strict_types=1 );
@@ -28,6 +29,12 @@ if ( empty( $bn_rp_replies ) ) :
 	return;
 endif;
 
+// Router region around the rows + Load more, as on the feeds.
+$bn_rp_region = (bool) apply_filters( 'buddynext_feed_client_pagination', true )
+	? ' data-wp-interactive="buddynext/feed" data-wp-router-region="buddynext/feed"'
+	: '';
+echo '<div class="bn-feed-region"' . $bn_rp_region . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute string.
+
 foreach ( $bn_rp_replies as $bn_rp_reply ) :
 	$bn_rp_url = \BuddyNext\Core\PageRouter::post_url( (int) $bn_rp_reply->object_id );
 	?>
@@ -42,3 +49,13 @@ foreach ( $bn_rp_replies as $bn_rp_reply ) :
 	</a>
 	<?php
 endforeach;
+
+buddynext_get_template(
+	'parts/feed-load-more.php',
+	array_merge(
+		isset( $pager ) && is_array( $pager ) ? $pager : array(),
+		array( 'next_label' => __( 'Older replies', 'buddynext' ) )
+	)
+);
+\BuddyNext\Core\IconService::print_region_sprite(); // Shapes travel with the swapped region.
+echo '</div>';

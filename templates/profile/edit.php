@@ -26,9 +26,7 @@ defined( 'ABSPATH' ) || exit;
 // Must be logged in and editing own profile (or admin).
 $current_user_id = get_current_user_id();
 if ( ! $current_user_id ) {
-	$bn_auth = \BuddyNext\Core\PageRouter::auth_url();
-	$bn_here = \BuddyNext\Core\PageRouter::current_url();
-	wp_safe_redirect( '' !== $bn_auth ? add_query_arg( 'redirect_to', rawurlencode( $bn_here ), $bn_auth ) : wp_login_url( $bn_here ) );
+	wp_safe_redirect( \BuddyNext\Core\PageRouter::login_url() );
 	exit;
 }
 
@@ -369,7 +367,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 		</header>
 
 		<!-- Main form column -->
-		<main class="bn-ep-form">
+		<div class="bn-ep-form">
 
 			<?php
 			// Hero card.
@@ -823,7 +821,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			}
 
 			?>
-		</main><!-- /form area -->
+		</div><!-- /form area -->
 
 		<?php
 		// Sidebar.

@@ -59,10 +59,9 @@ class IntegrationControlsAdmin {
 
 		echo '<p class="bn-field-hint">';
 		printf(
-			/* translators: 1: link to the Integrations tab, 2: link to the Features tab. */
-			esc_html__( 'Choose where enabled integrations appear; install and enable them under %1$s and %2$s.', 'buddynext' ),
-			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ) . '">' . esc_html__( 'Add-ons', 'buddynext' ) . '</a>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
-			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'features' ) ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+			/* translators: %s: link to the Add-ons tab. */
+			esc_html__( 'Choose where each installed integration appears. Install them under %s.', 'buddynext' ),
+			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ) . '">' . esc_html__( 'Add-ons', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 		);
 		echo '</p>';
 		?>
@@ -131,6 +130,14 @@ class IntegrationControlsAdmin {
 									}
 									?>
 								</p>
+								<?php foreach ( \BuddyNext\Integrations\IntegrationRegistry::features_needing_update( $entry ) as $bn_feature => $bn_needs ) : ?>
+									<p class="bn-field-hint">
+										<?php
+										/* translators: 1: feature name (may be plural), 2: partner version it needs. */
+										printf( esc_html__( '%1$s: available from version %2$s. Everything else works now.', 'buddynext' ), esc_html( $bn_feature ), esc_html( $bn_needs ) );
+										?>
+									</p>
+								<?php endforeach; ?>
 							<?php endif; ?>
 							<?php if ( ! empty( $entry['has_nav'] ) ) : ?>
 								<div class="bn-toggle-row">

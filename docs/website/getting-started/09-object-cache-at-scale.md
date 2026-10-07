@@ -27,13 +27,13 @@ Nothing about that is unique to BuddyNext. It is what any community platform loo
 | Feed page 1 | The hottest page in the product, recomputed per request |
 | Rate limiting | Degrades - counters cannot be shared between requests |
 
-The rate-limiting row is worth calling out, because it is a correctness point rather than a speed one. Rate limits count actions across requests. With a request-local cache there is nothing to count in, so limits are far weaker than they look. `Core/RateLimiter` checks for a persistent cache in several places for exactly this reason.
+The rate-limiting row is worth calling out, because it is a correctness point rather than a speed one. Rate limits count actions across requests. With a request-local cache there is nothing to count in, so limits are far weaker than they look. BuddyNext checks for a persistent cache in several places for exactly this reason.
 
 ## Do I have one?
 
-**In BuddyNext:** Platform → Tools → Object cache. The panel reports the status directly, and past a few thousand members it will tell you if one is missing.
+**In BuddyNext:** Platform > Tools > Object cache. The panel reports the status directly, and past a few thousand members it will tell you if one is missing.
 
-**In WordPress:** Tools → Site Health → Info → Caching.
+**In WordPress:** Tools > Site Health > Info > Caching.
 
 **With WP-CLI:**
 

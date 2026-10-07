@@ -55,8 +55,8 @@ class SpaceSuggestionInterestTest extends \WP_UnitTestCase {
 		// non-deterministic. Start each test from an empty space graph.
 		global $wpdb;
 		foreach ( array( 'bn_spaces', 'bn_space_members', 'bn_space_categories' ) as $table ) {
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-			$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}{$table}" );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( "DELETE FROM {$wpdb->prefix}{$table}" );
 		}
 
 		$this->service  = new SpaceSuggestionService();

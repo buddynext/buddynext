@@ -63,7 +63,7 @@ const loginStore = store( 'buddynext/auth-login', {
 			const c = ctx();
 			return c.emailHint
 				? fmt( t( 'codeSentTo', 'Code sent to %s' ), c.emailHint )
-				: t( 'codeSentCheckEmail', 'Code sent — check your email' );
+				: t( 'codeSentCheckEmail', 'Code sent: check your email' );
 		},
 		get twofaDisabled() {
 			const c = ctx();

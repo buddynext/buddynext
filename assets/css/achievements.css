@@ -296,6 +296,18 @@ a.bn-achievements__badge-link:focus-visible {
 	padding: var(--bn-s4);
 }
 
+/* The panel is the card. A gamification block draws its own card too, which
+   read as a box inside a box; inside our panel it keeps only its content.
+   One class more than wb-gamification's block-card.css rule, which loads later. */
+.bn-card.bn-gam-points__panel > [class*="wp-block-wb-gamification"] {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+}
+
 /* ── Kudos tab ──────────────────────────────────────────────────────────── */
 .bn-gam-kudos {
 	display: flex;

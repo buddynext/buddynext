@@ -126,7 +126,8 @@ class SpaceMemberService {
 		 * @param bool   $can      Whether the user may proceed. Default true.
 		 * @param array  $space    Space row from bn_spaces (empty array when row missing).
 		 * @param int    $user_id  User attempting to join.
-		 * @param string $action   Action being performed — always 'join' from this method.
+		 * @param string $action   Action being performed: 'join' here, 'request' from
+		 *                         request_join(), 'approve' when an admin approves a request.
 		 */
 		$can = (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'join' );
 		if ( ! $can ) {
@@ -431,7 +432,8 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
-		if ( empty( $this->load_space_row( $space_id ) ) ) {
+		$space = $this->load_space_row( $space_id );
+		if ( empty( $space ) ) {
 			return new WP_Error(
 				'space_not_found',
 				__( 'This space no longer exists.', 'buddynext' ),
@@ -453,8 +455,16 @@ class SpaceMemberService {
 		if ( 'pending' !== $current_status ) {
 			return new WP_Error(
 				'no_pending_request',
-				__( 'No pending join request found for this user.', 'buddynext' )
+				__( 'No pending join request found for this member.', 'buddynext' )
 			);
+		}
+
+		// Approval is a join: the same buddynext_can_join_space gate join() and
+		// request_join() run (seat caps, paid plans, invite-only rules), or an admin
+		// approval bypassed every limit. A refused request stays pending.
+		/** This filter is documented in includes/Spaces/SpaceMemberService.php (join()). */
+		if ( ! (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'approve' ) ) {
+			return $this->denied_join_error( $space_id, $user_id, $space, 'approve' );
 		}
 
 		global $wpdb;
@@ -521,7 +531,7 @@ class SpaceMemberService {
 		if ( 'pending' !== $current_status ) {
 			return new WP_Error(
 				'no_pending_request',
-				__( 'No pending join request found for this user.', 'buddynext' )
+				__( 'No pending join request found for this member.', 'buddynext' )
 			);
 		}
 
@@ -1930,11 +1940,16 @@ class SpaceMemberService {
 	 * (name/slug) plus the viewer's role per space without a per-row lookup.
 	 * Ordered newest-joined first; capped by $limit.
 	 *
-	 * @param int $user_id Member to look up.
-	 * @param int $limit   Max rows (1-50). Default 5.
-	 * @return object[] Each row: id, name, slug, role.
+	 * Pass $viewer_id when someone else is looking (another member's profile):
+	 * secret/unlisted spaces are then dropped unless the viewer belongs to them
+	 * too, or is a site admin. The member's own rail passes no viewer.
+	 *
+	 * @param int      $user_id   Member to look up.
+	 * @param int      $limit     Max rows (1-50). Default 5.
+	 * @param int|null $viewer_id Who is looking; null = the member themselves.
+	 * @return object[] Each row: id, name, slug, type, role.
 	 */
-	public function membership_rows( int $user_id, int $limit = 5 ): array {
+	public function membership_rows( int $user_id, int $limit = 5, ?int $viewer_id = null ): array {
 		$user_id = absint( $user_id );
 		if ( $user_id <= 0 ) {
 			return array();
@@ -1954,7 +1969,7 @@ class SpaceMemberService {
 		// that only changes when the member joins or leaves something. Cache the
 		// unfiltered ceiling once per member (not per requested limit); the addon
 		// filter + the slice run per call so an exclusion change is never served stale.
-		$cache_key = 'membership_rows_v' . self::membership_summary_version( $user_id ) . "_{$user_id}";
+		$cache_key = 'membership_rows3_v' . self::membership_summary_version( $user_id ) . "_{$user_id}"; // v3: rows carry parent_id.
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
@@ -1968,7 +1983,7 @@ class SpaceMemberService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.id, s.name, s.slug, s.category_id, sm.role
+					"SELECT s.id, s.name, s.slug, s.type, s.category_id, s.parent_id, sm.role
 					 FROM {$wpdb->prefix}bn_spaces s
 					 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id
 					 WHERE sm.user_id = %d AND sm.status = 'active'
@@ -1996,13 +2011,49 @@ class SpaceMemberService {
 		 *
 		 * @since 1.2.0
 		 *
-		 * @param array<int,object> $rows    Space rows (id, name, slug, category_id, role).
+		 * @param array<int,object> $rows    Space rows (id, name, slug, type, category_id, parent_id, role).
 		 * @param int               $user_id The member whose spaces these are.
 		 * @param int               $limit   Row cap the caller requested.
 		 */
 		$rows = apply_filters( 'buddynext_membership_rows', $rows, $user_id, $limit );
 
-		// Slice to the requested cap AFTER the addon exclusion, so a member always
+		// Space privacy wins: another viewer never learns a secret space exists
+		// unless they are in it too (a logged-out visitor saw them all).
+		if ( null !== $viewer_id && $viewer_id !== $user_id && ! user_can( $viewer_id, 'manage_options' ) ) {
+			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+			$shared   = $viewer_id > 0 ? array_flip( $this->spaces_for_user( $viewer_id ) ) : array();
+			$rows     = array_values(
+				array_filter(
+					$rows,
+					static fn( $row ): bool => ! in_array( (string) ( $row->type ?? '' ), $unlisted, true ) || isset( $shared[ (int) $row->id ] )
+				)
+			);
+
+			// An archived space is retired everywhere else (directory, Explore,
+			// Featured, joining), so another viewer is not sent to it either. Read
+			// fresh, not from the cached rows: archiving does not bump the membership
+			// version those rows are keyed on. The member still sees it in their own list.
+			if ( array() !== $rows ) {
+				global $wpdb;
+				$ids          = array_map( static fn( $row ): int => (int) $row->id, $rows );
+				$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				$archived = array_flip(
+					array_map(
+						'intval',
+						(array) $wpdb->get_col(
+							$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_spaces WHERE is_archived = 1 AND id IN ({$placeholders})", ...$ids )
+						)
+					)
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				if ( array() !== $archived ) {
+					$rows = array_values( array_filter( $rows, static fn( $row ): bool => ! isset( $archived[ (int) $row->id ] ) ) );
+				}
+			}
+		}
+
+		// Slice to the requested cap AFTER the exclusions, so a member always
 		// sees up to $limit VISIBLE spaces, not $limit-minus-hidden.
 		return array_slice( $rows, 0, $limit );
 	}
@@ -2694,7 +2745,7 @@ class SpaceMemberService {
 		 * @param int                  $space_id Space the user was denied.
 		 * @param int                  $user_id  User attempting to join.
 		 * @param array<string, mixed> $space    Space row (may be empty on miss).
-		 * @param string               $action   'join' or 'request'.
+		 * @param string               $action   'join', 'request' or 'approve' (an admin approving a request).
 		 */
 		$data = (array) apply_filters( 'buddynext_space_join_denied_data', $data, $space_id, $user_id, $space, $action );
 
@@ -2702,9 +2753,12 @@ class SpaceMemberService {
 			$data['status'] = 403;
 		}
 
+		$default = 'approve' === $action
+			? __( 'This member cannot join this space, so the request stays pending.', 'buddynext' )
+			: __( 'You cannot join this space.', 'buddynext' );
 		$message = isset( $data['message'] ) && is_string( $data['message'] ) && '' !== $data['message']
 			? $data['message']
-			: __( 'You cannot join this space.', 'buddynext' );
+			: $default;
 		unset( $data['message'] );
 
 		return new WP_Error( 'cannot_join_space', $message, $data );

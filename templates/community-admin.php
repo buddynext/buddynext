@@ -212,10 +212,11 @@ $bn_ca_queue    = $bn_ca_mod->get_queue(
 $report_rows    = $bn_ca_queue['items'];
 $bn_ca_rp_pages = (int) ceil( (int) $bn_ca_queue['total'] / 20 );
 
-// ── Recent activity log (site-wide) ──────────────────────────────────────────
+// ── Recent actions: the moderation log (site-wide) ─────────────────────────────
+// The latest moderator actions, from the same ModerationLogService the space
+// Moderation tab, REST /moderation/log and wp-admin Moderation Log read.
 
-$bn_ca_log     = buddynext_service( 'activity_log' );
-$activity_rows = $bn_ca_log->recent( 20 );
+$activity_rows = ( new \BuddyNext\Moderation\ModerationLogService() )->get_log( array( 'per_page' => 20 ) )['items'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -228,30 +229,6 @@ if ( ! function_exists( 'bn_time_diff' ) ) {
 	 */
 	function bn_time_diff( string $datetime ): string {
 		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
-	}
-}
-
-if ( ! function_exists( 'bn_activity_icon' ) ) {
-	/**
-	 * Return an activity log SVG icon based on action type.
-	 *
-	 * @param string $action Activity action slug.
-	 * @return string SVG icon markup via buddynext_get_icon().
-	 */
-	function bn_activity_icon( string $action ): string {
-		$map = array(
-			'new_member'      => buddynext_get_icon( 'user' ),
-			'space_created'   => buddynext_get_icon( 'home' ),
-			'report_resolved' => buddynext_get_icon( 'shield' ),
-			'post_flagged'    => buddynext_get_icon( 'flag' ),
-			'member_approved' => buddynext_get_icon( 'check-circle' ),
-			'member_warned'   => buddynext_get_icon( 'ban' ),
-			'space_requested' => buddynext_get_icon( 'home' ),
-			'invite_sent'     => buddynext_get_icon( 'mail' ),
-			'space_approved'  => buddynext_get_icon( 'check-circle' ),
-			'profile_flagged' => buddynext_get_icon( 'user' ),
-		);
-		return $map[ $action ] ?? buddynext_get_icon( 'copy' );
 	}
 }
 
@@ -370,8 +347,12 @@ $posts_pct_abs = abs( $posts_pct );
 						// (card 10331285055 follow-up: "View all" on a >5-report queue went
 						// nowhere). wp-admin's Moderation > Reports tab is the real full,
 						// paginated, filterable list — reuse it instead of building a second
-						// one here.
-						$tab_href = \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' );
+						// one here. Only for someone who can open wp-admin: a community
+						// moderator without that access got a 403, so they go to the Open
+						// reports card on this page instead (same condition as its "View all").
+						$tab_href = current_user_can( 'manage_options' )
+							? \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' )
+							: $admin_base . '#bn-ca-reports-title';
 					} else {
 						$tab_href = $bn_ca_routed
 							? ( 'overview' === $key ? $admin_base : trailingslashit( $admin_base . $key ) )
@@ -1322,55 +1303,48 @@ $posts_pct_abs = abs( $posts_pct );
 
 			<?php else : // 'actions' section. ?>
 
-				<!-- Recent activity log -->
+				<!-- Recent actions: the moderation log -->
 				<section class="bn-ca-card" aria-labelledby="bn-ca-actions-title">
 					<header class="bn-ca-card__head">
 						<span id="bn-ca-actions-title" class="bn-ca-card__title">
-							<?php buddynext_icon( 'copy' ); ?>
+							<?php buddynext_icon( 'shield' ); ?>
 							<?php esc_html_e( 'Recent actions', 'buddynext' ); ?>
 						</span>
-						<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'log', $admin_base ) ); ?>" class="bn-ca-card__link">
-							<?php esc_html_e( 'View full log', 'buddynext' ); ?>
-						</a>
+						<?php if ( current_user_can( 'manage_options' ) ) : // The full log lives in wp-admin. ?>
+							<a href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'log' ) ); ?>" class="bn-ca-card__link">
+								<?php esc_html_e( 'View full log', 'buddynext' ); ?>
+							</a>
+						<?php endif; ?>
 					</header>
 
-					<div class="bn-ca-activity-scroll" role="log" aria-label="<?php esc_attr_e( 'Recent site activity', 'buddynext' ); ?>">
+					<div class="bn-ca-activity-scroll" role="log" aria-label="<?php esc_attr_e( 'Recent moderation actions', 'buddynext' ); ?>">
 						<?php if ( empty( $activity_rows ) ) : ?>
-							<p class="bn-ca-card__empty"><?php esc_html_e( 'No recent activity.', 'buddynext' ); ?></p>
+							<p class="bn-ca-card__empty"><?php esc_html_e( 'No moderation actions yet.', 'buddynext' ); ?></p>
 						<?php else : ?>
 							<?php foreach ( $activity_rows as $act ) : ?>
 								<?php
-								$act_action = '' !== (string) ( $act['action'] ?? '' ) ? (string) $act['action'] : 'note';
-								$act_icon   = bn_activity_icon( $act_action );
-								$act_type   = (string) ( $act['object_type'] ?? '' );
-								$act_desc   = '' !== (string) ( $act['action'] ?? '' )
-									? ucfirst( str_replace( '_', ' ', (string) $act['action'] ) ) . ( '' !== $act_type ? ' (' . $act_type . ')' : '' )
-									: '';
-								$act_ts     = ! empty( $act['created_at'] ) ? (int) strtotime( (string) $act['created_at'] ) : 0;
-								$act_iso    = $act_ts ? gmdate( DATE_ATOM, $act_ts ) : '';
-								$act_meta   = $act_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $act_ts, time() ) ) : '';
-								$act_report = ( 'post_flagged' === $act_action );
+								$act_action = (string) ( $act['action'] ?? '' );
+								$act_target = (int) ( $act['target_user_id'] ?? 0 );
+								$act_note   = trim( (string) ( $act['note'] ?? '' ) );
+								$act_desc   = \BuddyNext\Moderation\ModerationLogService::action_label( $act_action )
+									. ( $act_target > 0 ? ': ' . buddynext_member_label( $act_target ) : '' );
+								$act_ts     = ! empty( $act['created_at'] ) ? (int) strtotime( (string) $act['created_at'] . ' UTC' ) : 0;
+								$act_meta   = sprintf(
+									/* translators: 1: moderator name, 2: human-readable time difference, e.g. "3 hours". */
+									__( 'by %1$s, %2$s ago', 'buddynext' ),
+									buddynext_member_label( (int) ( $act['actor_id'] ?? 0 ), __( 'System', 'buddynext' ) ),
+									$act_ts ? human_time_diff( $act_ts, time() ) : ''
+								);
 								?>
 								<div class="bn-ca-activity-row">
-									<span class="bn-ca-activity-row__icon" aria-hidden="true"><?php echo $act_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG via buddynext_get_icon(), already wp_kses() sanitized. ?></span>
+									<span class="bn-ca-activity-row__icon" aria-hidden="true"><?php buddynext_icon( \BuddyNext\Moderation\ModerationLogService::action_icon( $act_action ) ); ?></span>
 									<div class="bn-ca-activity-row__body">
 										<div class="bn-ca-activity-row__desc"><?php echo esc_html( $act_desc ); ?></div>
-										<?php if ( $act_iso ) : ?>
-											<time class="bn-ca-activity-row__meta" datetime="<?php echo esc_attr( $act_iso ); ?>"><?php echo esc_html( $act_meta ); ?></time>
-										<?php else : ?>
-											<div class="bn-ca-activity-row__meta"><?php echo esc_html( $act_meta ); ?></div>
+										<?php if ( '' !== $act_note ) : ?>
+											<div class="bn-ca-activity-row__meta"><?php echo esc_html( $act_note ); ?></div>
 										<?php endif; ?>
+										<time class="bn-ca-activity-row__meta" datetime="<?php echo esc_attr( $act_ts ? gmdate( DATE_ATOM, $act_ts ) : '' ); ?>"><?php echo esc_html( $act_meta ); ?></time>
 									</div>
-									<?php if ( $act_report ) : ?>
-										<div class="bn-ca-activity-row__action">
-											<a
-												href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'moderation', 'reports' ) ); ?>"
-												class="bn-btn"
-												data-variant="secondary"
-												data-size="sm"
-											><?php esc_html_e( 'Review', 'buddynext' ); ?></a>
-										</div>
-									<?php endif; ?>
 								</div>
 							<?php endforeach; ?>
 						<?php endif; ?>

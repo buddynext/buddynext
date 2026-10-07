@@ -149,17 +149,7 @@ class IntegrationActivity {
 					// open space -> everyone, private/secret -> members only.
 					'privacy'   => $space_id > 0 ? 'space_members' : 'public',
 					'link_url'  => $link_url,
-					'link_meta' => self::normalise_link_meta(
-						array_merge(
-							array(
-								'title'       => $link_title,
-								'description' => $excerpt,
-								'image'       => '',
-								'url'         => $link_url,
-							),
-							$meta
-						)
-					),
+					'link_meta' => self::card_meta( $link_url, $link_title, $excerpt, $meta ),
 				)
 			);
 		} finally {
@@ -380,6 +370,87 @@ class IntegrationActivity {
 			return 0;
 		}
 		return ( new PostService() )->transition_link_meta_status( $type, $meta_key, $value, 'draft', 'published' );
+	}
+
+	/**
+	 * Turn a partner id's card into a different card, in place.
+	 *
+	 * For a card whose meaning changes but whose moment still stands: a course
+	 * certificate that expires is no longer worth advertising, but the member did
+	 * finish the course. The card keeps its id, author, date, status, space,
+	 * reactions and comments, so it never resurfaces in a feed; only its text,
+	 * link and snapshot change, built exactly as publish() builds them.
+	 *
+	 * A card is left alone when another card of the type already owns the new
+	 * link (publish() keeps one card per link), so the caller can fall back to
+	 * withdraw_by_meta().
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param string               $type       Card post type (e.g. 'course').
+	 * @param string               $meta_key   link_meta field the id was stored under.
+	 * @param int                  $value      The partner id whose cards to rewrite.
+	 * @param string               $content    New card text.
+	 * @param string               $link_url   New link.
+	 * @param string               $link_title New link title.
+	 * @param string               $excerpt    New preview line.
+	 * @param array<string, mixed> $meta       Extra snapshot fields, as for publish().
+	 * @return int 1 when the card was rewritten, else 0.
+	 */
+	public static function rewrite_by_meta( string $type, string $meta_key, int $value, string $content, string $link_url, string $link_title = '', string $excerpt = '', array $meta = array() ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 || '' === $link_url ) {
+			return 0;
+		}
+		return ( new PostService() )->rewrite_link_meta_card( $type, $meta_key, $value, $content, $link_url, self::card_meta( $link_url, $link_title, $excerpt, $meta ) );
+	}
+
+	/**
+	 * Turn the card that has a given link into a different card, in place.
+	 *
+	 * As rewrite_by_meta(), for a card found by its link: use it when the card's
+	 * snapshot holds no id of its own (a course completion card carries only the
+	 * course id, shared by every learner; its link is per learner). A later
+	 * certificate upgrades that card rather than adding a second post.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param string               $old_link_url Link the card has now.
+	 * @param string               $type         Card post type (e.g. 'course').
+	 * @param string               $content      New card text.
+	 * @param string               $link_url     New link.
+	 * @param string               $link_title   New link title.
+	 * @param string               $excerpt      New preview line.
+	 * @param array<string, mixed> $meta         Extra snapshot fields, as for publish().
+	 * @return int 1 when the card was rewritten, else 0.
+	 */
+	public static function rewrite( string $old_link_url, string $type, string $content, string $link_url, string $link_title = '', string $excerpt = '', array $meta = array() ): int {
+		if ( '' === $old_link_url || '' === $type || '' === $link_url ) {
+			return 0;
+		}
+		return ( new PostService() )->rewrite_link_card( $type, $old_link_url, $content, $link_url, self::card_meta( $link_url, $link_title, $excerpt, $meta ) );
+	}
+
+	/**
+	 * The link_meta snapshot an integration card is stored with.
+	 *
+	 * @param string               $link_url   Link the card points at.
+	 * @param string               $link_title Link title.
+	 * @param string               $excerpt    Preview line.
+	 * @param array<string, mixed> $meta       Extra fields (ids, badges, image).
+	 * @return array<string, mixed>
+	 */
+	private static function card_meta( string $link_url, string $link_title, string $excerpt, array $meta ): array {
+		return self::normalise_link_meta(
+			array_merge(
+				array(
+					'title'       => $link_title,
+					'description' => $excerpt,
+					'image'       => '',
+					'url'         => $link_url,
+				),
+				$meta
+			)
+		);
 	}
 
 	/**

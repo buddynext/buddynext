@@ -20,6 +20,8 @@ The BuddyNext frontend is 100% REST. Every data interaction from templates, fron
 | Pagination | Cursor-based (`next_cursor`) for timelines/directories; page-numbered for bounded admin/search lists |
 | `per_page` max | 50 on collection reads; webhook delivery log allows up to 100 |
 
+Routes registered as editable accept `POST`, `PUT` and `PATCH` on the same path (the WordPress `EDITABLE` method set); the route pages list `PUT` for these. Creatable-only routes accept `POST` alone.
+
 The Free surface registers its routes under `buddynext/v1`; Pro registers its own under `buddynext-pro/v1`. Pro never registers into the Free namespace, so a future `buddynext/v2` can ship without breaking integrations. The route pages that follow are the reference; to enumerate the live surface on a given install, read `/wp-json/buddynext/v1` rather than trusting a count in prose.
 
 ## Authentication: the X-WP-Nonce header
@@ -212,9 +214,14 @@ Top-level response keys:
 | `branding` | object | Pre-auth theming: `app_name`, `accent_color`, `logo_url`, `login_bg_url`, `color_scheme_default` (`auto`/`light`/`dark`). Empty values mean "use your own default". |
 | `features` | object | Feature flags keyed by slug, resolved through `FeatureRegistry` so the app sees the same answer the site does (mandatory tiers, unmet dependencies, and absent partner plugins already folded in). Always `map<string, bool>` - integrations live in their own key precisely so this shape stays flat. |
 | `integrations` | object | Installed integrations keyed by integration key, each `{ enabled: bool, version: string\|null }`. See below. |
-| `limits` | object | Server-side limits the app enforces locally: `connect_note_max_length`, `max_connections`, `max_following`, `viewer_state_max_ids`. |
+| `limits` | object | Server-side limits the app enforces locally: `connect_note_max_length`, `max_connections`, `max_following`, `viewer_state_max_ids`, `face_stack_size` (how many faces each feed item's `top_reactors` carries). |
 | `time` | object | The site's time contract: `site_timezone` (WP `timezone_string`), `gmt_offset` (hours, float), `server_utc` (UTC ISO-8601 with `Z`). The app renders in the site owner's WordPress timezone. |
 | `legal` | object | Links required for App Store review: `privacy_url`, `terms_url`, `eula_url`, `guidelines_url`, `abuse_contact`. Emitted empty rather than invented when the site has not set one. |
+| `locale` | object | `default`, `languages`, and `strings_version` (cache-bust integer for the translated-strings fetch; filter `buddynext_app_strings_version`). |
+| `auth` | object | How the app signs a member in here: `social_providers`, `twofactor`, `register`, `app_passwords_available`, `connect_url`, `connect_schemes`. An absent key means "use the legacy authorize flow". |
+| `posting` | object | What the web composer reads: `default_privacy`, `edit_window_minutes`, `link_preview`, `emoji_picker`, `media_max_mb`, `report_reasons`. |
+| `spaces` | object | What the create-space form needs: `can_create`, `types` (each `key`, `label`, `join`), `default_type`, `default_category`. |
+| `settings_tabs` | array | The Settings hub sections as `{ slug, label, url }`, add-on sections included. |
 
 ```bash
 curl 'https://example.com/wp-json/buddynext/v1/app/config' \

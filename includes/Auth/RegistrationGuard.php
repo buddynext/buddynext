@@ -270,7 +270,7 @@ class RegistrationGuard {
 		if ( ! $this->domain_allowed( $email ) ) {
 			return new WP_Error(
 				'bn_reg_domain',
-				__( 'Only users from allowed email domains may register.', 'buddynext' )
+				__( 'Sign-ups here need an email address from an approved domain.', 'buddynext' )
 			);
 		}
 

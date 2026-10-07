@@ -34,9 +34,9 @@ Above all three sits the **site administrator** - the WordPress admin who instal
 
 There are two places to change a member's community role. Both write the same role, so use whichever you have open.
 
-**From the front end** - open the **Community Admin** panel (under **Settings** in the left menu, or your community admin link), go to **Members**, and pick a new role from the dropdown next to the person. The change saves immediately.
+**From the front end** - open the **Community Admin** panel (the **Community Admin** tab at the end of the front-end **Settings** tabs, visible to moderators and admins), go to **Members**, and pick a new role from the dropdown next to the person. The change saves immediately.
 
-**From the WordPress admin** - go to **Users**, find the person, and set their role in the **Community role** column. Save the row.
+**From the WordPress admin** - go to **BuddyNext > Members > Directory**, open the member to edit them, and set their role in the **Community role** section (Member, Moderator or Admin). Save the profile. The directory table also shows each member's community role in a **Community role** column.
 
 A few rules keep this safe:
 

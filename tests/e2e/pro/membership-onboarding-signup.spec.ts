@@ -47,6 +47,9 @@ test.describe('pro / sell a plan during onboarding', () => {
     let tierName = '';
     let pricingUrl = '';
     let bnPrevRegistration: 'open' | 'invite' | 'closed' = 'open';
+    // The human-check question is spam protection, not what this journey tests;
+    // switch it off for the run and put the owner's setting back after.
+    let bnPrevChallenge = '1';
 
     test.beforeAll(async () => {
         const stamp = Date.now().toString().slice(-6);
@@ -70,12 +73,15 @@ test.describe('pro / sell a plan during onboarding', () => {
 
         if (dbSeedingAvailable()) {
             bnPrevRegistration = (await setRegistrationMode('open')) as 'open' | 'invite' | 'closed';
+            bnPrevChallenge = (await wp(['option', 'get', 'buddynext_reg_challenge']).catch(() => '1')).trim() || '1';
+            await wp(['option', 'update', 'buddynext_reg_challenge', '0']);
         }
     });
 
     test.afterAll(async () => {
         if (dbSeedingAvailable()) {
             await setRegistrationMode(bnPrevRegistration);
+            await wp(['option', 'update', 'buddynext_reg_challenge', bnPrevChallenge]);
         }
         await wp([
             'eval',
@@ -91,7 +97,7 @@ test.describe('pro / sell a plan during onboarding', () => {
             waitUntil: 'domcontentloaded',
         });
 
-        const row = page.locator('tr', { hasText: tierName }).or(page.locator('.bnpro-plan-card', { hasText: tierName }));
+        const row = page.locator('.bnpro-plan-row', { hasText: tierName });
         await expect(row.first(), 'the plan created for signup should be listed').toBeVisible({ timeout: 10_000 });
         await expect(row.first()).toContainText(/active/i);
     });
@@ -107,9 +113,9 @@ test.describe('pro / sell a plan during onboarding', () => {
         const card = page.locator(`#bnpro-plan-${tierId}`);
         await expect(card, 'the plan card should render for an anonymous visitor').toBeVisible({ timeout: 10_000 });
 
-        const buyButton = card
-            .locator('form.bn-membership-pricing__form:not(.bn-membership-pricing__form--points) button[type="submit"]')
-            .first();
+        // The buy CTA is a link to the plan's checkout page; the disabled
+        // "Checkout is unavailable" state is a span with the same class.
+        const buyButton = card.locator('a.bn-plan-card__buy').first();
 
         if (!(await buyButton.isVisible().catch(() => false)) || (await buyButton.isDisabled().catch(() => true))) {
             testInfo.skip(
@@ -132,16 +138,24 @@ test.describe('pro / sell a plan during onboarding', () => {
         const login = `bn_e2e_onboard_${stamp}`;
         const email = `${login}@e2e.test`;
 
+        // Email is always asked; name and username are owner options (username is
+        // off by default), so fill them only when the form shows them.
+        const nameField = page.locator('#bn-signup-name').first();
         const userField = page.locator('#bn-signup-username').first();
         const emailField = page.locator('#bn-signup-email, #user_email, [name="user_email"]').first();
         const passField = page.locator('#bn-signup-password').first();
 
-        if (!(await userField.isVisible().catch(() => false))) {
+        if (!(await emailField.isVisible().catch(() => false))) {
             testInfo.skip(true, 'Signup form did not render (registration closed on this site).');
             return;
         }
 
-        await userField.fill(login);
+        if (await nameField.isVisible().catch(() => false)) {
+            await nameField.fill('E2E Plan Buyer');
+        }
+        if (await userField.isVisible().catch(() => false)) {
+            await userField.fill(login);
+        }
         await emailField.fill(email);
         await passField.fill('Playwright!Pass1');
 
@@ -151,6 +165,10 @@ test.describe('pro / sell a plan during onboarding', () => {
         }
 
         const submit = page.locator('.bn-auth-form button[type="submit"], #wp-submit, .bn-auth__submit').first();
+
+        // RegistrationGuard's time-trap refuses a form sent within 2 seconds of
+        // loading; a person filling it takes longer. Keep the protection on.
+        await page.waitForTimeout(2_500);
 
         // EFFECT: registering with a paid plan intent must not just create an
         // account - it must resume checkout for that plan (never leave the new
@@ -172,7 +190,7 @@ test.describe('pro / sell a plan during onboarding', () => {
         await wp([
             'eval',
             `require_once ABSPATH . 'wp-admin/includes/user.php';` +
-                ` $u = get_user_by( 'login', '${login}' ); if ( $u ) { wp_delete_user( (int) $u->ID ); }`,
+                ` $u = get_user_by( 'email', '${email}' ); if ( $u ) { wp_delete_user( (int) $u->ID ); }`,
         ]).catch(() => undefined);
     });
 });

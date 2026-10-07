@@ -349,7 +349,7 @@ class SpaceService {
 		}
 
 		// Default visibility for new spaces (Settings → Spaces → New-space defaults).
-		$req_type = (string) ( $data['type'] ?? get_option( 'buddynext_space_default_type', 'open' ) );
+		$req_type = (string) ( $data['type'] ?? SpaceTypeRegistry::instance()->default_type() );
 		$type     = SpaceTypeRegistry::instance()->is_valid( $req_type ) ? $req_type : 'open';
 
 		// Enforce two-level sub-space depth limit.
@@ -424,7 +424,7 @@ class SpaceService {
 						'max_sub_spaces_exceeded',
 						sprintf(
 							/* translators: %d: maximum number of sub-spaces allowed per parent. */
-							__( 'This space already has the maximum of %d sub-spaces.', 'buddynext' ),
+							_n( 'This space already has the maximum of %d sub-space.', 'This space already has the maximum of %d sub-spaces.', $max_sub, 'buddynext' ),
 							$max_sub
 						),
 						array( 'status' => 422 )
@@ -924,7 +924,7 @@ class SpaceService {
 		}
 
 		if ( $new_owner_id <= 0 || ! get_userdata( $new_owner_id ) ) {
-			return new WP_Error( 'invalid_owner', __( 'That user does not exist.', 'buddynext' ), array( 'status' => 422 ) );
+			return new WP_Error( 'invalid_owner', __( 'That member does not exist.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
 		// User context: owner-only (or manage_options, via PermissionService's
@@ -944,7 +944,7 @@ class SpaceService {
 		// is_space_banned() covers BOTH surfaces (bn_space_bans + the
 		// status = 'banned' membership row), so it is the single check here.
 		if ( buddynext_service( 'permissions' )->is_space_banned( $new_owner_id, $space_id ) ) {
-			return new WP_Error( 'heir_banned', __( 'A banned user cannot be made the owner of this space.', 'buddynext' ), array( 'status' => 409 ) );
+			return new WP_Error( 'heir_banned', __( 'A banned member cannot be made the owner of this space.', 'buddynext' ), array( 'status' => 409 ) );
 		}
 
 		$previous_owner_id = (int) ( $space['owner_id'] ?? 0 );
@@ -1465,6 +1465,117 @@ class SpaceService {
 	}
 
 	/**
+	 * The spaces directory request: the query args (?bn_search, ?bn_cat, ?bn_type,
+	 * ?bn_sort, ?bn_subspaces) plus the scope and membership the /spaces/mine/ rewrites set
+	 * as query vars, with a query var winning over the same key in the query string.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function directory_request_input(): array {
+		$input = wp_unslash( $_GET ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only directory filters.
+		foreach ( array( 'bn_scope', 'bn_membership' ) as $var ) {
+			$value = (string) get_query_var( $var, '' );
+			if ( '' !== $value ) {
+				$input[ $var ] = $value;
+			}
+		}
+		return is_array( $input ) ? $input : array();
+	}
+
+	/**
+	 * Turn a spaces directory request into what the server-rendered page lists.
+	 *
+	 * Shared by the directory template and PageRouter, which must decide BEFORE any
+	 * output whether /spaces/page/N/ is past the end (a real 404). One parser, so the
+	 * router can never 404 a page the template would render, or the reverse.
+	 *
+	 * Modes: 'sections' (My spaces split into Managed and Joined, capped, one page
+	 * only), 'search' (a term is set), 'list' (the paginated grid).
+	 *
+	 * @param int                  $viewer_id Viewing user (0 = logged out).
+	 * @param bool                 $is_admin  Whether the viewer is a site admin.
+	 * @param array<string, mixed> $input     directory_request_input().
+	 * @param int                  $page      1-based page number.
+	 * @return array{page:int, per_page:int, search:string, cat_slug:string, visibility:string, orderby:string, include_subspaces:bool, scope:string, membership:string, is_mine:bool, mode:string, query_args:array<string,mixed>}
+	 */
+	public function directory_request( int $viewer_id, bool $is_admin, array $input, int $page ): array {
+		$page       = max( 1, $page );
+		$per_page   = 18;
+		$search     = sanitize_text_field( (string) ( $input['bn_search'] ?? '' ) );
+		$cat_slug   = sanitize_key( (string) ( $input['bn_cat'] ?? '' ) );
+		$visibility = sanitize_key( (string) ( $input['bn_type'] ?? '' ) );
+		$orderby    = sanitize_key( (string) ( $input['bn_sort'] ?? 'popular' ) );
+		$scope      = sanitize_key( (string) ( $input['bn_scope'] ?? '' ) );
+		$membership = sanitize_key( (string) ( $input['bn_membership'] ?? '' ) );
+		$subspaces  = '1' === (string) ( $input['bn_subspaces'] ?? '' );
+
+		$sort_map                  = self::sort_map();
+		list( $order_col, $order ) = $sort_map[ $orderby ] ?? $sort_map['popular'];
+
+		$args = array(
+			'per_page' => $per_page,
+			'page'     => $page,
+			'orderby'  => $order_col,
+			'order'    => $order,
+			'viewer'   => $viewer_id,
+			'is_admin' => $is_admin,
+		);
+
+		// Space type is a registry key; an unknown one is ignored, not an empty list.
+		if ( '' !== $visibility && SpaceTypeRegistry::instance()->is_valid( $visibility ) ) {
+			$args['type'] = $visibility;
+		}
+
+		if ( '' !== $cat_slug ) {
+			foreach ( $this->categories_with_counts( 0, true ) as $category ) {
+				if ( (string) $category['slug'] === $cat_slug ) {
+					$args['category_id'] = (int) $category['id'];
+					break;
+				}
+			}
+		}
+
+		// My spaces: everything the viewer belongs to, optionally narrowed to the
+		// ones they manage or the ones they only joined.
+		$is_mine = 'mine' === $scope && $viewer_id > 0;
+		if ( $is_mine ) {
+			$args['member'] = $viewer_id;
+			if ( in_array( $membership, array( 'managed', 'joined' ), true ) ) {
+				$args['member_role'] = 'managed' === $membership ? 'manage' : 'joined';
+			}
+		}
+
+		// The public grid lists top-level spaces unless sub-spaces were asked for;
+		// My spaces lists every membership, sub-spaces included.
+		if ( ! isset( $args['member'] ) && ! $subspaces ) {
+			$args['roots_only'] = true;
+		}
+
+		if ( $is_mine && '' === $membership && '' === $search ) {
+			$mode = 'sections';
+		} elseif ( '' !== $search ) {
+			$mode = 'search';
+		} else {
+			$mode = 'list';
+		}
+
+		return array(
+			'page'              => $page,
+			'per_page'          => $per_page,
+			'search'            => $search,
+			'cat_slug'          => $cat_slug,
+			'visibility'        => $visibility,
+			'orderby'           => $orderby,
+			'include_subspaces' => $subspaces,
+			'scope'             => $scope,
+			'membership'        => $membership,
+			'is_mine'           => $is_mine,
+			'mode'              => $mode,
+			'query_args'        => $args,
+		);
+	}
+
+	/**
 	 * Write-throttle window (seconds) for the comment-driven activity stamp.
 	 *
 	 * @var int
@@ -1548,6 +1659,23 @@ class SpaceService {
 	}
 
 	/**
+	 * A space cover's focal point as the owner set it, clamped: x/y in percent
+	 * (default centre), zoom 1-3 (default 1). The one read the space hero and
+	 * GET /spaces/{id} share.
+	 *
+	 * @param int $space_id Space.
+	 * @return array{x:float,y:float,zoom:float}
+	 */
+	public static function cover_focal( int $space_id ): array {
+		$focal = (array) get_space_meta( $space_id, 'buddynext_cover_focal', true );
+		return array(
+			'x'    => isset( $focal['x'] ) ? max( 0.0, min( 100.0, (float) $focal['x'] ) ) : 50.0,
+			'y'    => isset( $focal['y'] ) ? max( 0.0, min( 100.0, (float) $focal['y'] ) ) : 50.0,
+			'zoom' => isset( $focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $focal['zoom'] ) ) : 1.0,
+		);
+	}
+
+	/**
 	 * Resolve the featured spaces for a viewer — the single source of truth for
 	 * every surface (directory sidebar, mobile strip, onboarding, suggestions).
 	 *
@@ -1566,7 +1694,7 @@ class SpaceService {
 	 *
 	 * @param int    $viewer_id Viewer user ID (0 = logged out).
 	 * @param int    $limit     Max spaces. 0 = the configured limit.
-	 * @param string $surface   Surface tag for the filter ('sidebar'|'directory_mobile'|'onboarding'|'suggestions').
+	 * @param string $surface   Surface tag for the filter ('sidebar'|'directory_mobile'|'onboarding'|'suggestions'|'app').
 	 * @return array[] Hydrated space rows in resolved order.
 	 */
 	public function featured_spaces( int $viewer_id, int $limit = 0, string $surface = 'sidebar' ): array {
@@ -1778,6 +1906,48 @@ class SpaceService {
 	 */
 	public static function flush_space_lists(): void {
 		wp_cache_set( self::LIST_VERSION_KEY, self::list_version() + 1, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Names and links for the parents of sub-spaces, for "in {parent}" labels.
+	 *
+	 * One query for every parent on a list, so a rail, a profile or a page of
+	 * cards never asks per row. A parent the viewer may not know exists (a hidden
+	 * space they are not in) is left out, under the same rule as the space page
+	 * itself (SpaceVisibility::can_view_space()).
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param array<int, int|string|null> $parent_ids Parent ids; empty and 0 are skipped.
+	 * @param int                         $viewer_id  Viewer (0 = logged out).
+	 * @return array<int, array{id: int, name: string, url: string}> Keyed by parent id.
+	 */
+	public function parent_labels( array $parent_ids, int $viewer_id ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $parent_ids ) ) ) );
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		global $wpdb;
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare( "SELECT id, name, slug, type FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$placeholders})", ...$ids ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		$labels = array();
+		foreach ( $rows as $row ) {
+			if ( SpaceVisibility::can_view_space( $row, $viewer_id ) ) {
+				$labels[ (int) $row['id'] ] = array(
+					'id'   => (int) $row['id'],
+					'name' => (string) $row['name'],
+					'url'  => \BuddyNext\Core\PageRouter::space_url( (int) $row['id'] ),
+				);
+			}
+		}
+		return $labels;
 	}
 
 	/**

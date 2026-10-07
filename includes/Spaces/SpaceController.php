@@ -156,6 +156,12 @@ class SpaceController extends BaseRestController {
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
+		// One existence gate for every /spaces/{id} route (Free and Pro), ahead of
+		// each route's own permission check. remove first: register_routes() can
+		// run more than once in a request (tests, rest_api_init re-fires).
+		remove_filter( 'rest_request_before_callbacks', array( self::class, 'hide_unseen_space' ), 5 );
+		add_filter( 'rest_request_before_callbacks', array( self::class, 'hide_unseen_space' ), 5, 3 );
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces',
@@ -178,6 +184,25 @@ class SpaceController extends BaseRestController {
 		// Suggested spaces for the current viewer (ranked discovery). Auth-required —
 		// suggestions are per-viewer. Registered before '/spaces/(?P<id>\d+)' so the
 		// literal 'suggestions' segment is unambiguous.
+		// The site's featured spaces as members see them (directory strip and
+		// sidebar): curated order, visibility-scoped, guests included.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/featured',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'featured_for_viewer' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'limit' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/suggestions',
@@ -238,6 +263,19 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// A shared space link carries the slug, not the id: resolve it to the
+		// same response as GET /spaces/{id} (and the same invite handling).
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/slug/(?P<slug>[a-z0-9-]+)',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_space_by_slug' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->invite_token_args(),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)',
@@ -246,6 +284,7 @@ class SpaceController extends BaseRestController {
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'get_space' ),
 					'permission_callback' => '__return_true',
+					'args'                => $this->invite_token_args(),
 				),
 				array(
 					'methods'             => 'PUT',
@@ -293,6 +332,26 @@ class SpaceController extends BaseRestController {
 						'maximum'           => 100,
 						'sanitize_callback' => 'absint',
 						'description'       => 'Media-bearing posts per page. Each post may carry several attachments.',
+					),
+				),
+			)
+		);
+
+		// The spaces a member belongs to: the profile "Member of" card.
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/spaces',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_member_spaces' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 5,
+						'minimum'           => 1,
+						'maximum'           => 50,
+						'sanitize_callback' => 'absint',
 					),
 				),
 			)
@@ -1121,6 +1180,20 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * GET /spaces/featured - SpaceService::featured_spaces() for this viewer, the
+	 * list the web directory strip and sidebar show ('app' surface for the
+	 * buddynext_featured_spaces filter), as directory rows.
+	 *
+	 * @param WP_REST_Request $request REST request (limit; 0 = the site's limit).
+	 * @return WP_REST_Response
+	 */
+	public function featured_for_viewer( WP_REST_Request $request ): WP_REST_Response {
+		$viewer = get_current_user_id();
+		$rows   = ( new SpaceService() )->featured_spaces( $viewer, min( 24, absint( $request->get_param( 'limit' ) ) ), 'app' );
+		return new WP_REST_Response( $this->enrich_directory_rows( $rows, $viewer ), 200 );
+	}
+
+	/**
 	 * GET /spaces/suggestions — ranked suggested spaces for the current viewer.
 	 *
 	 * @param WP_REST_Request $request REST request.
@@ -1243,8 +1316,12 @@ class SpaceController extends BaseRestController {
 			$member_svc->prime_viewer_roles( $viewer_id, $viewer_roles );
 		}
 
+		// "in {parent}" for sub-spaces, one query for the page (hidden parents left out).
+		$parents = buddynext_service( 'spaces' )->parent_labels( array_column( $rows, 'parent_id' ), $viewer_id );
+
 		foreach ( $rows as &$row ) {
 			$sid                   = (int) ( $row['id'] ?? 0 );
+			$row['parent']         = $parents[ (int) ( $row['parent_id'] ?? 0 ) ] ?? null;
 			$row['category_name']  = $cat_map[ $sid ]['category_name'] ?? null;
 			$row['category_slug']  = $cat_map[ $sid ]['category_slug'] ?? null;
 			$row['subspace_count'] = (int) ( $subspace_counts[ $sid ] ?? 0 );
@@ -1459,7 +1536,7 @@ class SpaceController extends BaseRestController {
 			return $from_visibility;
 		}
 
-		return sanitize_key( (string) get_option( 'buddynext_space_default_type', 'open' ) );
+		return SpaceTypeRegistry::instance()->default_type();
 	}
 
 	/**
@@ -1566,6 +1643,36 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * GET /spaces/slug/{slug} - the space a shared link points at, as GET /spaces/{id}.
+	 *
+	 * @param WP_REST_Request $request REST request (slug, invite).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_space_by_slug( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space = ( new SpaceService() )->get_by_slug( (string) $request->get_param( 'slug' ) );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		$request->set_param( 'id', (int) $space['id'] );
+		return $this->get_space( $request );
+	}
+
+	/**
+	 * The optional invite-link token GET /spaces/{id} and /spaces/slug/{slug} take.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function invite_token_args(): array {
+		return array(
+			'invite' => array(
+				'type'              => 'string',
+				'description'       => 'Invite-link token from a shared link (?invite=). A valid one unlocks the preview of a private or secret space.',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+		);
+	}
+
+	/**
 	 * Get a single space.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -1583,9 +1690,24 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
+		// An invite link (?invite=token) unlocks the preview exactly as the web
+		// link does (SpaceInviteLinkService::prime_from_request skips REST). A dead
+		// token gets the web's own "no longer valid" answer.
+		$invite       = (string) $request->get_param( 'invite' );
+		$invite_check = '' !== $invite ? ( new SpaceInviteLinkService() )->validate( $space_id, $invite ) : null;
+		if ( true === $invite_check ) {
+			SpaceVisibility::unlock_via_invite( $space_id );
+		}
+
 		// Existence gate — the canonical resolver, the same one the server-rendered
-		// space page consults, so the app and the page can never disagree.
+		// space page consults, so the app and the page can never disagree. A dead
+		// token only matters when it was the way in; on a space the viewer can see
+		// anyway the page still opens (with invite_link 'invalid', as the web
+		// shows its notice).
 		if ( ! SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			if ( is_wp_error( $invite_check ) ) {
+				return $invite_check;
+			}
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Space not found.', 'buddynext' ),
@@ -1608,6 +1730,55 @@ class SpaceController extends BaseRestController {
 		// Visibility-scoped so the count matches the children this viewer can actually
 		// open — never leak a total that includes secret/unlisted sub-spaces.
 		$space['subspace_count'] = ( new SpaceService() )->count_visible_subspaces( (int) $space['id'], $viewer_id, current_user_can( 'manage_options' ) );
+
+		// The Sub-spaces tab's "Add sub-space": the one rule every Add control reads,
+		// and the per-parent cap (0 = unlimited) counted as the create path counts it.
+		$bn_sub_max                = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+		$bn_sub_used               = $bn_sub_max > 0 ? ( new SpaceService() )->count_subspaces( (int) $space['id'] ) : 0;
+		$space['subspace_limit']   = array(
+			'max'  => $bn_sub_max,
+			'used' => $bn_sub_used,
+		);
+		$space['can_add_subspace'] = \BuddyNext\Nav\Providers\SpaceNav::can_add_subspace_to( (int) $space['id'], $viewer_id )
+			&& ( 0 === $bn_sub_max || $bn_sub_used < $bn_sub_max );
+
+		// The header and hero as the web space page draws them: the directory row's
+		// display fields (category, privacy label/tone, cover tone; existing keys are
+		// kept), the viewer-scoped post count, the cover focal point, and the brand
+		// colour (the hero applies it for every visitor, though the field itself is
+		// members-only in `fields`).
+		$space                = $space + ( $this->enrich_directory_rows( array( $space ), $viewer_id )[0] ?? array() );
+		$space['post_count']  = (int) buddynext_service( 'feed' )->space_post_count( (int) $space['id'], $viewer_id );
+		$space['cover_focal'] = SpaceService::cover_focal( (int) $space['id'] );
+		$space['brand_color'] = (string) buddynext_get_space_field( (int) $space['id'], 'brand_color' );
+
+		// The space sidebar's "Owner & moderators" card (shown to anyone who can see
+		// the space, members or not) and "Top contributors" (roster viewers only),
+		// from the same SpaceMemberService / SpaceService calls the sidebar makes.
+		$bn_members                = new SpaceMemberService();
+		$space['team']             = array_map(
+			static fn( $row ): array => array(
+				'user_id'      => (int) ( (array) $row )['user_id'],
+				'role'         => (string) ( (array) $row )['role'],
+				'display_name' => (string) ( (array) $row )['display_name'],
+				'avatar_url'   => (string) ( (array) $row )['avatar_url'],
+			),
+			array_merge(
+				$bn_members->get_members( (int) $space['id'], $viewer_id, 0, 0, array( 'role' => 'owner' ) ),
+				$bn_members->get_members( (int) $space['id'], $viewer_id, 0, 0, array( 'role' => 'moderator' ) )
+			)
+		);
+		$space['top_contributors'] = SpaceVisibility::can_view_roster( $space, $viewer_id )
+			? array_map(
+				static fn( $row ): array => array(
+					'user_id'      => (int) ( (array) $row )['user_id'],
+					'display_name' => (string) ( (array) $row )['display_name'],
+					'avatar_url'   => get_avatar_url( (int) ( (array) $row )['user_id'], array( 'size' => 96 ) ),
+					'post_count'   => (int) ( (array) $row )['post_count'],
+				),
+				( new SpaceService() )->top_contributors( (int) $space['id'], 3 )
+			)
+			: array();
 
 		// Viewer-relative membership — the SAME block list_spaces() attaches, so the space
 		// header and the directory row can never disagree on join state (member / pending /
@@ -1634,8 +1805,65 @@ class SpaceController extends BaseRestController {
 			new \BuddyNext\Nav\NavContext( 'space', $bn_space_id, $viewer_id, (string) $space['membership_role'] )
 		);
 		$space['landing_tab'] = ( new SpaceService() )->landing_tab( $space, $viewer_id, $bn_landing_nav->layer( 'primary' ) );
+		if ( null !== $invite_check ) {
+			$space['invite_link'] = true === $invite_check ? 'valid' : 'invalid';
+		}
+		// The tab bar the web space header renders for this viewer: same resolved
+		// nav (order, gates, owner overrides, integration tabs, counts).
+		$space['nav'] = array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_landing_nav->layer( 'primary' ) ) );
+
+		/**
+		 * Filter the single-space REST item, so add-ons can attach what they show
+		 * on the space page (e.g. Pro's linked-course banner). Add fields only.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param array<string,mixed> $space     The space item.
+		 * @param int                 $viewer_id Current viewer (0 = guest).
+		 */
+		$space = (array) apply_filters( 'buddynext_rest_space_item', $space, $viewer_id );
 
 		return new WP_REST_Response( $space, 200 );
+	}
+
+	/**
+	 * GET /users/{id}/spaces - the member's spaces, as the profile "Member of"
+	 * card shows them to this viewer (secret spaces only when the viewer is in
+	 * them too). Hidden like the profile itself when the viewer cannot see it.
+	 *
+	 * @param WP_REST_Request $request REST request (id, per_page).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_member_spaces( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = (int) $request->get_param( 'id' );
+		$viewer  = get_current_user_id();
+		$privacy = buddynext_service( 'privacy' );
+		if ( ! get_userdata( $user_id ) || ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService && ! $privacy->can_view_profile( $viewer, $user_id ) ) ) {
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// ponytail: capped list (max 50), the card shows 5; no paging until a
+		// member's space list needs it.
+		$rows    = buddynext_service( 'space_members' )->membership_rows( $user_id, (int) $request->get_param( 'per_page' ), $viewer );
+		$parents = buddynext_service( 'spaces' )->parent_labels( array_column( $rows, 'parent_id' ), $viewer );
+
+		return new WP_REST_Response(
+			array_map(
+				static fn( $row ): array => array(
+					'id'     => (int) $row->id,
+					'name'   => (string) $row->name,
+					'slug'   => (string) $row->slug,
+					'type'   => (string) $row->type,
+					'role'   => (string) $row->role,
+					'url'    => \BuddyNext\Core\PageRouter::space_url( (int) $row->id ),
+					// The space a sub-space belongs to ({id, name, url}), or null: top
+					// level, or a hidden parent this viewer may not know about.
+					'parent' => $parents[ (int) ( $row->parent_id ?? 0 ) ] ?? null,
+				),
+				$rows
+			),
+			200
+		);
 	}
 
 	/**
@@ -1982,6 +2210,15 @@ class SpaceController extends BaseRestController {
 				'minimum' => 1,
 				'maximum' => 100,
 			),
+			'search'   => array(
+				'type'              => 'string',
+				'description'       => 'Name search, as the web members tab.',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'role'     => array(
+				'type' => 'string',
+				'enum' => array( 'owner', 'moderator', 'member' ),
+			),
 		);
 	}
 
@@ -2093,6 +2330,46 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * What the web roster card shows besides the row: the member's cover, add-on
+	 * fields such as Pro labels (the directory's buddynext_directory_members_primed
+	 * + buddynext_rest_member_item hooks, so no add-on needs a second seam), and,
+	 * for the space's owner/moderators and site admins only, joined_via_link.
+	 * Batched: one prime and one invite-link lookup per page.
+	 *
+	 * @param int                            $space_id  Space.
+	 * @param int                            $viewer_id Viewer.
+	 * @param array<int,array<string,mixed>> $items     Roster rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function roster_card_fields( int $space_id, int $viewer_id, array $items ): array {
+		if ( empty( $items ) ) {
+			return $items;
+		}
+
+		$ids = array_map( static fn( $row ) => (int) $row['user_id'], $items );
+		/** This action is documented in includes/Profile/MemberDirectoryController.php */
+		do_action( 'buddynext_directory_members_primed', $ids, $viewer_id );
+
+		$role       = $viewer_id > 0 ? (string) ( new SpaceMemberService() )->get_role( $space_id, $viewer_id ) : '';
+		$manages    = in_array( $role, array( 'owner', 'moderator' ), true ) || ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) );
+		$via_link   = $manages ? ( new SpaceInviteLinkService() )->joined_via_link_map( $space_id ) : array();
+		$with_cover = function_exists( 'buddynext_user_cover_url' );
+
+		foreach ( $items as &$row ) {
+			$uid              = (int) $row['user_id'];
+			$row['cover_url'] = $with_cover ? buddynext_user_cover_url( $uid ) : '';
+			if ( $manages ) {
+				$row['joined_via_link'] = isset( $via_link[ $uid ] );
+			}
+			/** This filter is documented in includes/Profile/MemberDirectoryController.php */
+			$row = (array) apply_filters( 'buddynext_rest_member_item', $row, $uid );
+		}
+		unset( $row );
+
+		return $items;
+	}
+
+	/**
 	 * GET /spaces/{id}/members — the space roster.
 	 *
 	 * @param WP_REST_Request $request Request object.
@@ -2135,10 +2412,17 @@ class SpaceController extends BaseRestController {
 		$per_page       = $per_page > 0 ? min( 100, $per_page ) : 50;
 		$cursor         = (string) $request->get_param( 'cursor' );
 
-		$page  = $member_service->get_members_keyset( $space_id, $viewer_id, ( '' !== $cursor ? $cursor : null ), $per_page );
-		$total = $member_service->count_members( $space_id, $viewer_id );
+		// The web members tab's own query args: search, role, and suspended
+		// members left out. X-WP-Total counts the same filtered set.
+		$args  = array(
+			'search'            => (string) $request->get_param( 'search' ),
+			'role'              => (string) $request->get_param( 'role' ),
+			'exclude_suspended' => true,
+		);
+		$page  = $member_service->get_members_keyset( $space_id, $viewer_id, ( '' !== $cursor ? $cursor : null ), $per_page, $args );
+		$total = $member_service->count_members( $space_id, $viewer_id, $args );
 
-		$response = new WP_REST_Response( $page['items'], 200 );
+		$response = new WP_REST_Response( $this->roster_card_fields( $space_id, $viewer_id, $page['items'] ), 200 );
 		$response->header( 'X-WP-Total', (string) $total );
 		$response->header( 'X-BN-Next-Cursor', (string) ( $page['next_cursor'] ?? '' ) );
 
@@ -2498,6 +2782,59 @@ class SpaceController extends BaseRestController {
 		( new SpaceInviteLinkService() )->revoke( $space_id );
 
 		return new WP_REST_Response( array( 'invite_link' => null ), 200 );
+	}
+
+	/**
+	 * Answer every /spaces/{id}/... (and /spaces/slug/{slug}) request about a space
+	 * the viewer may not know exists exactly as for an id that does not exist:
+	 * 404 space_not_found.
+	 *
+	 * "Secret" promises a non-member cannot tell the space is there. GET
+	 * /spaces/{id} and /invite-link kept that promise; 14 other routes answered
+	 * 403 (or 200, or another error code) instead of 404, so secret ids could be
+	 * enumerated (card 10369170447). Running here, before each route's own
+	 * permission callback, closes every route at once, including ones added
+	 * later and Pro's.
+	 *
+	 * Who still gets through: anyone SpaceVisibility::can_view_space() lets see
+	 * the space (members, the owner, admins, any visible type), anyone with a
+	 * membership row (an invited person knows it exists), and a request carrying
+	 * a VALID invite token for this space (an invalid one must not answer
+	 * differently from a missing space). Visible spaces, private ones included,
+	 * keep their existing answers.
+	 *
+	 * @param mixed           $response Response so far (WP_Error or null).
+	 * @param array           $handler  Matched route handler.
+	 * @param WP_REST_Request $request  Request.
+	 * @return mixed
+	 */
+	public static function hide_unseen_space( $response, $handler, $request ) {
+		unset( $handler );
+		if ( is_wp_error( $response ) || ! $request instanceof WP_REST_Request ) {
+			return $response;
+		}
+		// Normalised: WordPress matches routes case-insensitively, so /SPACES/6
+		// reaches the same handler and must reach this gate too.
+		$route = \BuddyNext\Core\RestRoute::normalize( $request );
+		if ( preg_match( '#^/buddynext(?:-pro)?/v1/spaces/(\d+)(?:/|$)#', $route, $m ) ) {
+			$space = ( new SpaceService() )->get( (int) $m[1] );
+		} elseif ( preg_match( '#^/buddynext/v1/spaces/slug/([^/]+)$#', $route, $m ) ) {
+			// The slug route promises the same: a secret slug answered rest_forbidden
+			// where an unknown one answered space_not_found.
+			$space = ( new SpaceService() )->get_by_slug( sanitize_title( urldecode( $m[1] ) ) );
+		} else {
+			return $response;
+		}
+		$space_id = (int) ( $space['id'] ?? 0 );
+		$viewer   = get_current_user_id();
+		if ( null !== $space && (
+			SpaceVisibility::can_view_space( $space, $viewer )
+			|| ( $viewer > 0 && null !== ( new SpaceMemberService() )->get_status( $space_id, $viewer ) )
+			|| true === ( new SpaceInviteLinkService() )->validate( $space_id, (string) $request->get_param( 'invite' ) )
+		) ) {
+			return $response;
+		}
+		return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 	}
 
 	/**

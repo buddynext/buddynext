@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
 add_action(
 	'init',
 	static function (): void {
-		if ( ! isset( $_GET['autologin'] ) || is_user_logged_in() ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $_GET['autologin'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return;
 		}
 
@@ -22,6 +22,13 @@ add_action(
 		$user  = ( '1' === $param || 'admin' === $param )
 			? get_user_by( 'ID', 1 )
 			: ( get_user_by( 'login', $param ) ?: get_user_by( 'email', $param ) );
+
+		// Already this member: nothing to do. A DIFFERENT member switches the
+		// session: journeys walk two members in one browser, and ignoring the
+		// second ?autologin left them testing the first member twice.
+		if ( $user && is_user_logged_in() && (int) get_current_user_id() === (int) $user->ID ) {
+			return;
+		}
 
 		if ( $user ) {
 			wp_set_current_user( $user->ID );

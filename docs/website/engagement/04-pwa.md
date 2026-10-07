@@ -28,16 +28,16 @@ The first time the app loads, it caches the home shell. If a member opens the ap
 
 ## Setting it up (for owners)
 
-The app experience is active by default on the front end and needs no admin action to turn on. There is no settings screen to configure: it works the moment your community is live, using sensible defaults drawn from your existing site.
+The app experience is active by default on the front end and needs no admin action to turn on. The only admin control is an on/off switch, **Installable app (PWA)**, under **BuddyNext > Platform > Features**. There is no settings screen to configure the app itself: it works the moment your community is live, using sensible defaults drawn from your existing site.
 
 | What it covers | What it does | Default |
 |---|---|---|
-| App name and details | The name, description, and colours members see when they install and launch the app. | Your site name, your site tagline, and your brand colour |
+| App name and details | The name, description, and colours members see when they install and launch the app. | Your WordPress site title and tagline, a white background and a blue (#0073aa) theme colour |
 | App icon | The home-screen icon members tap to open the community. | A BuddyNext app icon shipped with the plugin |
 | Launch window | How the app opens once installed. | Its own full-screen window, in portrait |
 | Offline shell | Whether the app opens to a cached home screen when there is no connection. | On |
 
-The defaults are ready to go: the app name is your site name, the app uses your brand colour, and it launches in its own portrait window. The icon is a real image file shipped with BuddyNext, at the two sizes phones and desktops ask for.
+The defaults are ready to go: the app name is your WordPress site title, and it launches in its own portrait window. The theme colour is not taken from your brand colour setting; a developer can change it with the `buddynext_pwa_manifest` filter. The icon is a real image file shipped with BuddyNext, at the two sizes phones and desktops ask for.
 
 **Replacing the app icon with your own** is worth doing before you tell members to install the community, because it is the icon they will see on their home screen every day. It is not a settings field - your developer swaps it from your site's code, and the same goes for a custom app name or colour, or turning the offline behaviour off. No technical setup is needed for the default installable experience to work; this is polish, not plumbing.
 
@@ -46,6 +46,7 @@ The defaults are ready to go: the app name is your site name, the app uses your 
 - The install prompt and offline behaviour are evaluated by the browser, not by BuddyNext. Browsers require the site to be served over HTTPS (or localhost during development) before they offer to install. The PWA is intended for the front-end community surface and does not apply in the WordPress admin.
 - The app icon ships at 192 and 512 pixels, and the larger one is also marked "maskable", so it crops cleanly into the rounded or circular shapes different phones use. If you replace the icon, supply both sizes and leave a little padding around your mark, or a phone that crops to a circle will clip its edges.
 - Offline coverage is the home shell plus pages a member has already visited. A first-time, fully-offline visit to a deep page will not have cached content to show.
+- The app only keeps copies of BuddyNext's own files (its styles, scripts and the offline page). Your theme's files, other plugins' files and uploads are left to the browser as if the app were not installed, so updating any of them shows up on the very next page view. After a BuddyNext update the new files are used straight away too; a saved copy is only used when there is no connection. Developers can add another plugin's directory with the `buddynext_pwa_asset_paths` filter.
 - Installability depends on the member's browser and device. Some browsers show the prompt automatically; others require the member to choose "Install" or "Add to Home Screen" from a menu.
 
 ## Free vs Pro

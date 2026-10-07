@@ -11,19 +11,20 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 - **Removal vs ban are distinct events.** A ban also removes the membership, so a ban fires both `buddynext_space_member_removed` (so removal listeners such as cache busting always react) and `buddynext_space_user_banned` (so ban-specific listeners react). Listen to whichever matches your intent.
 - **Idempotent membership writes.** Joins, requests, and invites use `INSERT IGNORE`; their actions fire only when the membership state actually changes. Unban fires only when an active ban row was deleted.
 - **Space types are config maps, not classes.** `buddynext_space_types` filters a slug-keyed array. Behaviour (visibility and join flow) is derived from each entry's `visibility` field; the three built-in types cannot be removed.
-- **Visibility has ONE decision point.** `BuddyNext\Spaces\SpaceVisibility` answers "can this viewer see this space / its roster / its content?" for every surface — the server-rendered template AND the REST route. `buddynext_space_can_view_roster` is applied inside it, so a single `add_filter()` changes the members page and `GET /spaces/{id}/members` together; the page and the app cannot disagree.
+- **Visibility has ONE decision point.** `BuddyNext\Spaces\SpaceVisibility` answers "can this viewer see this space / its roster / its content?" for every surface - the server-rendered template AND the REST route. `buddynext_space_can_view_roster` is applied inside it, so a single `add_filter()` changes the members page and `GET /spaces/{id}/members` together; the page and the app cannot disagree.
 
 ## Space visibility
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
+| `buddynext_rest_space_item` | filter | The single-space REST item is built (`GET buddynext/v1/spaces/{id}`). Add the fields your space-page UI needs (Pro adds its linked-course banner); add fields only, never remove. Since 1.2.4. | `array $space, int $viewer_id` |
 | `buddynext_can_view_space_content` | filter | A viewer's access to a space's **content** is resolved, before it is rendered or cached. Return `false` to withhold the space's posts while leaving the space itself visible. Fired from `SpaceVisibility` and again in `FeedService` when building a space feed, so an add-on that gates content only has to answer once. Default `true`. | `bool $can_view, int $space_id, int $viewer_id` |
 | `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: WPMediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
 | `buddynext_document_card_url` | filter | Where a feed document card links, for a viewer allowed to open the file. Default: the space's file page (preview + Download) when the post is in a space whose Files tab this viewer gets, otherwise a direct download. | `string $url, int $doc_id, array $post` |
 | `buddynext_space_default_tab` | filter | Which tab a space opens on when the URL names none (`/spaces/{slug}/`). Runs for the resolved default only - a non-member of a private space gets `about`, then the space's own "Space opens on" setting, then the first inline tab in the site's Navigation order - never for an explicit `/spaces/{slug}/{tab}/`. Return a tab id; a value the viewer cannot see falls back to the first renderable tab, so a bad return can never blank the space. Example: open course spaces on About - `return 'about';`. | `string $tab, array $space, int $viewer_id` |
 
-Default: `true` for open spaces; `false` for private and secret spaces unless the viewer is an active member, a moderator, the space owner, or a site admin. A private space is **listed but gated** — its name, description, house rules, avatar, cover, category, member COUNT, and its owner + moderator list stay public (a stranger needs them to decide whether to request to join), while the full member roster does not.
+Default: `true` for open spaces; `false` for private and secret spaces unless the viewer is an active member, a moderator, the space owner, or a site admin. A private space is **listed but gated** - its name, description, house rules, avatar, cover, category, member COUNT, and its owner + moderator list stay public (a stranger needs them to decide whether to request to join), while the full member roster does not.
 
 Return `true` to re-open private rosters Facebook-style. The filter is applied at the single decision point, so this one call re-opens both the members page and the REST roster route:
 
@@ -47,7 +48,7 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 |---|---|---|---|
 | `buddynext_space_created` | action | A new space is created | `int $space_id, int $owner_id` |
 | `buddynext_reserved_space_slugs` | filter | A space slug is generated or validated. These slugs are refused because they collide with BuddyNext's own space sub-routes (`members`, `files`, `about`, …); a space claiming one would shadow its own tab. Add your own to reserve them. | `string[] $slugs` |
-| `buddynext_space_updated` | action | A space's fields are edited | `int $space_id, int $user_id, array $fields` (columns written this update). **See the arity warning below - one call site passes only `$space_id`.** |
+| `buddynext_space_updated` | action | A space's fields are edited | `int $space_id, int $user_id, array $fields` (columns written this update). Every call site passes all three arguments; see the note below. |
 | `buddynext_space_archived` | action | A space is archived | `int $space_id, int $actor_id` |
 | `buddynext_space_unarchived` | action | A space is unarchived | `int $space_id, int $actor_id` |
 | `buddynext_space_ownership_transferred` | action | A space's ownership moves to a new owner | `int $space_id, int $new_owner_id, int $actor_id, int $previous_owner_id` |
@@ -126,6 +127,28 @@ Each space-type entry has this shape. Visibility drives the behaviour: `public` 
 
 The built-in types are `open` (public/direct), `private` (private/request), and `secret` (secret/invite). They cannot be removed by the filter, only added to.
 
+## More space seams
+
+Narrower hooks around space rendering, fields, limits, and cleanup. Same table shape as above.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_prepare_space` | filter | A space is hydrated for any payload (single-space REST responses and list rows), so add-ons can attach computed fields on every surface. | `array $space, array $row` (`$row` is the raw `bn_spaces` row) |
+| `buddynext_space_fields_saved` | action | Space custom fields are saved, for any field. Unlike `buddynext_space_updated`, which only fires when a searchable public field changed. | `int $space_id, array $saved` (field key => REST value) |
+| `buddynext_sanitize_space_required_ability` | filter | A space's required ability is about to be saved. Return the validated slug, `''` to clear, or `null` to ignore. | `string\|null $ability, mixed $raw, int $space_id, int $user_id` |
+| `buddynext_plan_limit_error` | filter | A pinned-post or space-creation cap is reached and the `WP_Error` is built. Listeners must return a `WP_Error`. | `WP_Error $error, string $limit_key, int $limit, int $user_id` (`$limit_key` is `pinned_posts` or `spaces_created`) |
+| `buddynext_membership_count` | filter | A member's active-membership count (the "My spaces" badge) is read. Keep it consistent with `buddynext_membership_rows`. | `int $count, int $user_id` |
+| `buddynext_cross_space_activity_total` | filter | The cross-space activity log adds a contributor's rows to its pager total. Fired on every page, not only when contributed rows land. | `int $extra_total, int[] $space_ids` |
+| `buddynext_purge_space_data` | action | A space is deleted. Add-ons purge their own per-space data here. | `int $space_id, int $user_id` |
+| `buddynext_space_option_suffixes` | filter | A space is deleted. Lets an integration that still keeps its own per-space option register the suffix so nothing is left behind (default empty). | `string[] $suffixes` |
+| `buddynext_space_use_db_transaction` | filter | An ownership write decides whether to run inside an explicit SQL transaction. Defaults to `true` except in the WordPress test suite. | `bool $use, string $context` |
+| `buddynext_space_public_tabs` | filter | The space home decides which tabs a viewer without access to a private space may still open (default `about`, the space's public identity). | `string[] $tabs, array $space_row` |
+| `buddynext_space_feed_show_guest_cta` | filter | The space feed panel renders for a guest. Return `false` to hide the join call to action. | `bool $show, int $space_id` |
+| `buddynext_space_gate_plan_name` | filter | Asked which plan blocks a member from a space (default `''`), so the refusal message and the space page can name the same plan. Return `''` when the plan is not the blocker. | `string $plan_name, array $space, int $user_id` |
+| `buddynext_space_home_before` / `buddynext_space_home_after` | action | Before and after the space home content. | `int $space_id, int $current_user_id` |
+| `buddynext_spaces_directory_before` / `buddynext_spaces_directory_after` | action | Before and after the spaces directory content. | `int $current_user_id` |
+| `buddynext_space_admin_after_stats` | action | After the stats row on the space admin page. | `int $space_id, int $user_id` |
+
 ## Examples
 
 ### Gate a space behind a membership plan
@@ -200,9 +223,9 @@ add_filter( 'buddynext_featured_spaces', function ( array $spaces, int $viewer_i
 }, 10, 3 );
 ```
 
-- The directory sidebar "Featured" card is registered via `buddynext_sidebar_widgets` with id `spaces-featured` (priority 10) — remove or reorder it there.
+- The directory sidebar "Featured" card is registered via `buddynext_sidebar_widgets` with id `spaces-featured` (priority 10) - remove or reorder it there.
 - Featured spaces the member has not joined are boosted in feed/explore suggestions via the existing `buddynext_space_suggestions` filter (behind the member's strongest personal matches).
-- REST: `GET`/`POST /spaces/... ` — see `16-rest-spaces.md` (`/settings/featured-spaces`).
+- REST: `GET`/`POST /spaces/... ` - see `16-rest-spaces.md` (`/settings/featured-spaces`).
 
 ## Space admin page
 

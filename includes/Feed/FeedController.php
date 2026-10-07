@@ -180,12 +180,54 @@ class FeedController extends BaseRestController {
 			)
 		);
 
+		// The Explore page's discovery deck as typed JSON cards (post, member,
+		// space), per filter: what /feed/explore/page renders as HTML.
+		register_rest_route(
+			'buddynext/v1',
+			'/feed/explore/deck',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'explore_deck' ),
+				'permission_callback' => array( $this, 'require_public_explore' ),
+				'args'                => $this->feed_pagination_args() + array(
+					'filter' => array(
+						'type'    => 'string',
+						'default' => 'all',
+						'enum'    => ExploreService::FILTERS,
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/users/(?P<id>[\d]+)/feed',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'profile_feed' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
+			)
+		);
+
+		// The profile's Likes and Replies tabs, paged by keyset cursor like the feed.
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/likes',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'profile_likes' ),
+				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/replies',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'profile_replies' ),
 				'permission_callback' => '__return_true',
 				'args'                => $this->feed_pagination_args(),
 			)
@@ -210,11 +252,18 @@ class FeedController extends BaseRestController {
 				'callback'            => array( $this, 'home_feed_page' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'filter' => array(
+					'filter'   => array(
 						'type'              => 'string',
 						'default'           => 'for-you',
 						'enum'              => FeedService::HOME_FILTERS,
 						'sanitize_callback' => 'sanitize_key',
+					),
+					'after_id' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'minimum'           => 0,
+						'description'       => 'Return the posts newer than this id (the ones the new-posts pill counted) instead of a page.',
+						'sanitize_callback' => 'absint',
 					),
 				),
 			)
@@ -317,7 +366,7 @@ class FeedController extends BaseRestController {
 	 * @param int   $viewer   Current user ID (0 when logged out).
 	 * @param int[] $post_ids Posts on this page.
 	 * @param int[] $poll_ids The subset that are polls.
-	 * @return array{reactions:array,votes:array,bookmarks:array,shares:array}
+	 * @return array{reactions:array,votes:array,bookmarks:array,shares:array,reported:array}
 	 */
 	private function prime_viewer_maps( int $viewer, array $post_ids, array $poll_ids = array() ): array {
 		if ( $viewer <= 0 || empty( $post_ids ) ) {
@@ -326,6 +375,7 @@ class FeedController extends BaseRestController {
 				'votes'     => array(),
 				'bookmarks' => array(),
 				'shares'    => array(),
+				'reported'  => array(),
 			);
 		}
 
@@ -337,6 +387,8 @@ class FeedController extends BaseRestController {
 			// replace.
 			'bookmarks' => buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids ),
 			'shares'    => buddynext_service( 'shares' )->shared_among( $viewer, $post_ids ),
+			// The post card's "Reported" state (one batched lookup, as the web feed primes it).
+			'reported'  => buddynext_service( 'moderation' )->user_reported_map( $viewer, 'post', $post_ids ),
 		);
 	}
 
@@ -344,9 +396,9 @@ class FeedController extends BaseRestController {
 	 * Apply the members-only paywall to one enriched item for the current viewer.
 	 *
 	 * The author of the post, and any viewer the access filter grants, see the
-	 * post unchanged. Everyone else gets `is_locked = true`, the body replaced by
-	 * a teaser (a fraction of the words, owner-tunable, nothing for short posts),
-	 * media stripped, and a `members_only_cta` describing how to gain access.
+	 * post unchanged. Everyone else gets PostService::members_only_view(): the
+	 * body replaced by a teaser, no media, link URL or link preview, and a
+	 * `members_only_cta` describing how to gain access.
 	 *
 	 * Free→Pro seam: the access decision defaults to "any logged-in member" and
 	 * the CTA to a login prompt for guests; Pro filters both — requiring a paid
@@ -360,16 +412,10 @@ class FeedController extends BaseRestController {
 	 * @return array<string,mixed>
 	 */
 	private function apply_members_only_gate( array $item, int $viewer, bool $format ): array {
-		$gate              = buddynext_service( 'post_service' )->members_only_gate( $item, $viewer );
-		$item['is_locked'] = $gate['locked'];
-		if ( ! $gate['locked'] ) {
-			return $item;
+		$item = buddynext_service( 'post_service' )->members_only_view( $item, $viewer );
+		if ( $item['is_locked'] ) {
+			$item['content_html'] = $format ? buddynext_format_content( (string) $item['content'] ) : (string) $item['content'];
 		}
-
-		$item['content']          = $gate['teaser'];
-		$item['content_html']     = $format ? buddynext_format_content( $gate['teaser'] ) : $gate['teaser'];
-		$item['media_ids']        = array(); // Do not leak the media that sits behind the wall.
-		$item['members_only_cta'] = $gate['cta'];
 
 		return $item;
 	}
@@ -391,6 +437,7 @@ class FeedController extends BaseRestController {
 			'is_bookmarked'      => isset( $maps['bookmarks'][ $post_id ] ),
 			'my_voted_option_id' => isset( $maps['votes'][ $post_id ] ) ? (int) $maps['votes'][ $post_id ] : 0,
 			'my_share'           => isset( $maps['shares'][ $post_id ] ),
+			'has_reported'       => ! empty( $maps['reported'][ $post_id ] ),
 		);
 	}
 
@@ -547,15 +594,25 @@ class FeedController extends BaseRestController {
 			// viewer without access. Applied here, in the single feed builder, so
 			// every surface (home / space / explore / profile / single / bookmark /
 			// shared-embed) gates identically and web + app get the same shape.
+			// Read before the members-only gate swaps the body for a teaser.
+			$editable_text = PostService::has_editable_text( (string) ( $item['type'] ?? '' ), (string) ( $item['content'] ?? '' ) );
+
 			if ( ! empty( $item['members_only'] ) ) {
 				$item = $this->apply_members_only_gate( $item, $viewer, $format );
 			}
 
+			// Whether the app may offer its share sheet (link works for anyone).
+			$item['shareable'] = buddynext_service( 'post_service' )->is_publicly_shareable( $item );
+
 			$item['viewer_state'] = $this->viewer_state_for( $pid, $maps ) + array(
 				// Stable, so it rides the initial shape only and not the refresh route.
-				// Baseline: author or admin. Under-reports for space moderators
-				// (safe direction — never shows an edit affordance the API rejects).
-				'can_edit' => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
+				// The web post card's rule: own post inside the edit window, or admin,
+				// and only when the card has text to edit. Under-reports for space
+				// moderators (safe direction: never offers an edit the API rejects).
+				'can_edit' => $viewer > 0 && $editable_text && (
+					( $viewer === $aid && PostService::within_edit_window( (string) ( $item['created_at'] ?? '' ), (string) ( $item['status'] ?? 'published' ), $viewer ) )
+					|| user_can( $viewer, 'manage_options' )
+				),
 			);
 
 			// Resolve attachment IDs to real URLs so a client can render the image. Without
@@ -696,7 +753,8 @@ class FeedController extends BaseRestController {
 				'thumb_url' => '' !== $thumb ? $thumb : ( 'image' === $d['type'] ? $url : '' ),
 				'width'     => (int) ( $d['width'] ?? 0 ),
 				'height'    => (int) ( $d['height'] ?? 0 ),
-				'alt'       => (string) ( $d['title'] ?? '' ),
+				// The engine's alt (AI description first), falling back to the title.
+				'alt'       => (string) ( '' !== (string) ( $d['alt'] ?? '' ) ? $d['alt'] : ( $d['title'] ?? '' ) ),
 				'duration'  => (string) ( $d['duration'] ?? '' ),
 			);
 		}
@@ -935,6 +993,90 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
+	 * Whether the viewer may see this member's profile lists.
+	 *
+	 * The same gate the profile page applies before rendering any tab: the owner
+	 * and site admins always pass, everyone else needs can_view_profile() (block +
+	 * public / followers / connections). Each list then filters its rows by the
+	 * viewer, as the web tabs do.
+	 *
+	 * @param int $profile_user_id Profile owner.
+	 * @param int $viewer_id       Current user (0 = logged out).
+	 * @return bool
+	 */
+	private function can_view_profile_lists( int $profile_user_id, int $viewer_id ): bool {
+		if ( $profile_user_id <= 0 || ! get_userdata( $profile_user_id ) ) {
+			return false;
+		}
+		if ( $profile_user_id === $viewer_id || current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		$privacy = buddynext_service( 'privacy' );
+		return ! ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) || $privacy->can_view_profile( $viewer_id, $profile_user_id );
+	}
+
+	/**
+	 * The posts a member has reacted to, newest reaction first (profile Likes tab).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function profile_likes( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$profile_user_id = (int) $request->get_param( 'id' );
+		$viewer_id       = get_current_user_id();
+		if ( ! $this->can_view_profile_lists( $profile_user_id, $viewer_id ) ) {
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$page   = buddynext_service( 'post_service' )->user_liked_posts( $profile_user_id, (int) $request->get_param( 'per_page' ), $viewer_id, $cursor );
+
+		return $this->enriched_response( $page, $viewer_id );
+	}
+
+	/**
+	 * A member's replies, newest first, each with the post it answers (profile
+	 * Replies tab).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function profile_replies( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$profile_user_id = (int) $request->get_param( 'id' );
+		$viewer_id       = get_current_user_id();
+		if ( ! $this->can_view_profile_lists( $profile_user_id, $viewer_id ) ) {
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$page   = buddynext_service( 'post_service' )->user_replies( $profile_user_id, (int) $request->get_param( 'per_page' ), $viewer_id, $cursor );
+
+		$items = array();
+		foreach ( $page['items'] as $row ) {
+			$items[] = array(
+				'id'               => (int) $row['id'],
+				'content'          => (string) $row['content'],
+				'content_html'     => buddynext_format_content( (string) $row['content'] ),
+				'created_at'       => (string) $row['created_at'],
+				'post_id'          => (int) $row['object_id'],
+				'post_type'        => (string) $row['post_type'],
+				'post_author_name' => (string) $row['post_author_name'],
+				// The same short context the web tab shows, never the whole post.
+				'post_excerpt'     => wp_trim_words( wp_strip_all_tags( (string) $row['post_content'] ), 15 ),
+				'post_url'         => \BuddyNext\Core\PageRouter::post_url( (int) $row['object_id'] ),
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'       => $items,
+				'next_cursor' => $page['next_cursor'],
+			),
+			200
+		);
+	}
+
+	/**
 	 * Return the feed for a given space.
 	 *
 	 * Enforces secret-space membership before returning posts: secret spaces
@@ -1047,17 +1189,15 @@ class FeedController extends BaseRestController {
 
 		$post_id = (int) $request->get_param( 'id' );
 
-		if ( ! buddynext_service( 'post_service' )->end_announcement( $post_id ) ) {
+		// Same path as Engagement > Announcements > End now, so ending from the
+		// card also clears the featured pointer and every cached home feed.
+		if ( ! $this->feed_service()->end_announcement_now( $post_id ) ) {
 			return new WP_Error(
 				'not_found',
 				__( 'Announcement not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
-
-		// Ending an announcement affects everyone — bust all page-1 home feeds so it
-		// disappears immediately rather than after the 30s TTL.
-		$this->feed_service()->flush_all_home_caches();
 
 		return new WP_REST_Response( array( 'ended' => true ), 200 );
 	}
@@ -1085,6 +1225,21 @@ class FeedController extends BaseRestController {
 			$filter = 'for-you';
 		}
 
+		// The new-posts pill: the posts it counted, to place at the top of the list.
+		$after_id = absint( $request->get_param( 'after_id' ) );
+		if ( $after_id > 0 ) {
+			$items = $this->feed_service()->home_feed_new_items( $user_id, $after_id, $filter );
+
+			return new WP_REST_Response(
+				array(
+					'html'        => $this->render_items_html( $items, $user_id, 'home' ),
+					'next_cursor' => null,
+					'count'       => count( $items ),
+				),
+				200
+			);
+		}
+
 		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page, $filter );
 		$html   = $this->render_items_html( (array) ( $result['items'] ?? array() ), $user_id, 'home' );
 
@@ -1093,6 +1248,72 @@ class FeedController extends BaseRestController {
 				'html'        => $html,
 				'next_cursor' => $result['next_cursor'] ?? null,
 				'count'       => count( (array) ( $result['items'] ?? array() ) ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /feed/explore/deck - the Explore deck as typed cards for the app.
+	 *
+	 * The same ExploreService::deck() the web grid renders. Post cards go through
+	 * enrich_for_rest() (author, viewer state, members-only gate) and member cards
+	 * through the directory's hydrate_members(), each in one batch; space cards
+	 * are already viewer-scoped by the deck. A card whose subject can no longer be
+	 * shown is dropped.
+	 *
+	 * @param WP_REST_Request $request Request (filter, cursor, per_page).
+	 * @return WP_REST_Response
+	 */
+	public function explore_deck( WP_REST_Request $request ): WP_REST_Response {
+		$viewer = get_current_user_id();
+		$cursor = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$result = ( new ExploreService( $this->feed_service() ) )->deck( (string) $request->get_param( 'filter' ), $cursor, (int) $request->get_param( 'per_page' ) );
+		$cards  = (array) ( $result['items'] ?? array() );
+
+		$posts   = array_values( array_filter( array_map( static fn( $c ) => is_array( $c['post'] ?? null ) ? $c['post'] : null, $cards ) ) );
+		$by_post = array();
+		foreach ( $posts ? $this->enrich_for_rest( $posts, $viewer ) : array() as $post ) {
+			$by_post[ (int) $post['id'] ] = $post;
+		}
+		$member_ids = array_values( array_filter( array_map( static fn( $c ) => 'member' === ( $c['kind'] ?? '' ) ? (int) $c['user_id'] : 0, $cards ) ) );
+		$by_member  = array();
+		foreach ( $member_ids ? ( new \BuddyNext\Profile\MemberDirectoryController() )->hydrate_members( $member_ids, $viewer ) : array() as $member ) {
+			$by_member[ (int) $member['user_id'] ] = $member;
+		}
+
+		$items = array();
+		foreach ( $cards as $card ) {
+			$kind = (string) ( $card['kind'] ?? '' );
+			if ( is_array( $card['post'] ?? null ) ) {
+				$post = $by_post[ (int) $card['post']['id'] ] ?? null;
+				if ( null !== $post ) {
+					$items[] = array_filter(
+						array(
+							'kind'    => $kind,
+							'post'    => $post,
+							'hashtag' => (string) ( $card['hashtag'] ?? '' ),
+						)
+					);
+				}
+			} elseif ( 'member' === $kind && isset( $by_member[ (int) $card['user_id'] ] ) ) {
+				$items[] = array(
+					'kind'   => $kind,
+					'member' => $by_member[ (int) $card['user_id'] ],
+				);
+			} elseif ( is_array( $card['space'] ?? null ) ) {
+				$items[] = array(
+					'kind'  => $kind,
+					'space' => $card['space'],
+				);
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'       => $items,
+				'next_cursor' => $result['next_cursor'] ?? null,
+				'filter'      => (string) ( $result['filter'] ?? 'all' ),
 			),
 			200
 		);
@@ -1146,6 +1367,7 @@ class FeedController extends BaseRestController {
 			return '';
 		}
 
+		$this->feed_service()->prime_media( array_filter( array_column( $cards, 'post' ) ) );
 		ob_start();
 		foreach ( $cards as $card ) {
 			buddynext_get_template(

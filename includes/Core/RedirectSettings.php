@@ -5,8 +5,10 @@
  * One small resolver reused by every apply point so the behaviour is identical
  * everywhere: an empty option keeps the built-in default (so nothing changes
  * until an owner sets a value), and a configured value is validated with
- * wp_validate_redirect() — local-host only — so a stale or off-site value can
- * never redirect a member away from the site.
+ * wp_validate_redirect() when it is on this site. An off-site address is the
+ * owner's own configuration, not request input, so it is honoured exactly as
+ * saved; no host is added to allowed_redirect_hosts site-wide (that would let any
+ * ?redirect_to= on the site point at that host).
  *
  * Options are registered for save/sanitize on the Registration & Login settings
  * tab via the admin settings registry (Settings::fields_registration(), url type
@@ -54,6 +56,50 @@ class RedirectSettings {
 	public static function register(): void {
 		add_filter( 'login_redirect', array( self::class, 'filter_login_redirect' ), 10, 3 );
 		add_filter( 'logout_redirect', array( self::class, 'filter_logout_redirect' ) );
+		add_action( 'login_form_login', array( self::class, 'seed_wp_login_return' ) );
+	}
+
+	/**
+	 * Carry the visitor's page through a wp-login.php sign-in.
+	 *
+	 * Themes that link to wp_login_url() with no argument (BuddyX's header) land
+	 * on wp-login.php, whose form then posts back to itself, so by sign-in time
+	 * the page the visitor came from is gone and they were sent to the default.
+	 * Seeding redirect_to while the form renders puts that page in core's hidden
+	 * field, the same rule BuddyNext's own login page applies.
+	 *
+	 * @return void
+	 */
+	public static function seed_wp_login_return(): void {
+		if ( isset( $_REQUEST['redirect_to'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only presence check.
+			return;
+		}
+		$destination = \BuddyNext\Auth\AuthController::referer_destination();
+		if ( '' !== $destination ) {
+			$_REQUEST['redirect_to'] = $destination;
+		}
+	}
+
+	/**
+	 * Save-time clean-up for the three redirect settings.
+	 *
+	 * Owners type a page, not a URL: "activity", "/spaces/" or a full address.
+	 * Run through esc_url_raw alone, "activity" became "http://activity", which
+	 * resolve() then threw away as off-site, so the setting silently did nothing.
+	 * Anything without a scheme is a path on this site.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string Absolute URL, or '' for the built-in default.
+	 */
+	public static function sanitize( $value ): string {
+		$raw = trim( (string) $value );
+		if ( '' === $raw ) {
+			return '';
+		}
+		if ( ! preg_match( '#^[a-z][a-z0-9+.-]*://#i', $raw ) ) {
+			$raw = home_url( '/' . ltrim( $raw, '/' ) ); // bn-route-ok: absolutises a path the site owner typed, not a BuddyNext route.
+		}
+		return esc_url_raw( $raw );
 	}
 
 	/**
@@ -65,8 +111,7 @@ class RedirectSettings {
 	 */
 	public static function resolve( string $option, string $fallback ): string {
 		$raw = trim( (string) get_option( $option, '' ) );
-		// Local-host only; an off-site or malformed value falls back to $fallback.
-		$url = ( '' === $raw ) ? $fallback : wp_validate_redirect( $raw, $fallback );
+		$url = ( '' === $raw ) ? $fallback : self::saved_destination( $raw, $fallback );
 
 		$contexts = array(
 			self::OPT_LOGIN      => 'login',
@@ -83,13 +128,65 @@ class RedirectSettings {
 		 * — a developer with a different preference (a custom dashboard, an
 		 * external portal, a per-role destination) overrides here without touching
 		 * the settings UI. WordPress's own wp_safe_redirect at the apply point is
-		 * the safety net, so an off-site target still needs `allowed_redirect_hosts`.
+		 * the safety net, so an off-site target set HERE still needs
+		 * `allowed_redirect_hosts`; only the owner's saved address is let through.
 		 *
 		 * @param string $url      Resolved destination (owner setting, else built-in default).
 		 * @param string $context  Which redirect: 'login' | 'logout' | 'onboarding'.
 		 * @param string $fallback The built-in default for this redirect.
 		 */
 		return (string) apply_filters( 'buddynext_redirect_url', $url, $contexts[ $option ] ?? $option, $fallback );
+	}
+
+	/**
+	 * The owner's saved value as a destination.
+	 *
+	 * On this site it goes through wp_validate_redirect() as before. Off-site,
+	 * the field promises "or a full address", and this value can only come from a
+	 * site admin saving the setting, so a well-formed http(s) address is used as
+	 * saved. Anything else falls back.
+	 *
+	 * @param string $raw      Saved option value.
+	 * @param string $fallback Built-in default.
+	 * @return string
+	 */
+	private static function saved_destination( string $raw, string $fallback ): string {
+		$host = wp_parse_url( $raw, PHP_URL_HOST );
+		if ( ! is_string( $host ) || '' === $host || strtolower( $host ) === strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) ) {
+			return wp_validate_redirect( $raw, $fallback );
+		}
+
+		$scheme = strtolower( (string) wp_parse_url( $raw, PHP_URL_SCHEME ) );
+		return in_array( $scheme, array( 'http', 'https' ), true ) ? esc_url_raw( $raw ) : $fallback;
+	}
+
+	/**
+	 * Let core's wp_safe_redirect() follow the owner's off-site address for this
+	 * request only.
+	 *
+	 * WordPress (wp-login.php) validates the login_redirect / logout_redirect result with
+	 * wp_safe_redirect() right after these filters run, which refuses any host
+	 * but this site's. The host is allowed only when the filter is returning the
+	 * owner's saved address, so a visitor-supplied redirect_to never gains it.
+	 *
+	 * @param string $url    Destination the filter is returning.
+	 * @param string $option Option it came from (one of the OPT_* constants).
+	 * @return string The same URL.
+	 */
+	private static function allow_saved_off_site( string $url, string $option ): string {
+		$saved = trim( (string) get_option( $option, '' ) );
+		$host  = wp_parse_url( $url, PHP_URL_HOST );
+		if ( '' !== $saved && esc_url_raw( $saved ) === $url && is_string( $host ) && '' !== $host ) {
+			add_filter(
+				'allowed_redirect_hosts',
+				static function ( $hosts ) use ( $host ): array {
+					$hosts   = (array) $hosts;
+					$hosts[] = strtolower( $host );
+					return $hosts;
+				}
+			);
+		}
+		return $url;
 	}
 
 	/**
@@ -105,7 +202,7 @@ class RedirectSettings {
 	/**
 	 * Configured post-onboarding destination, or the given default.
 	 *
-	 * @param string $fallback Default URL (today's behaviour, e.g. the member profile).
+	 * @param string $fallback Default URL (the activity feed).
 	 * @return string
 	 */
 	public static function onboarding( string $fallback ): string {
@@ -134,7 +231,7 @@ class RedirectSettings {
 			|| false !== strpos( $requested, 'wp-login.php' )
 			|| false !== strpos( $requested, '/wp-admin' );
 		$fallback      = $is_wp_default ? \BuddyNext\Core\PageRouter::auth_url() : $requested;
-		return self::resolve( self::OPT_LOGOUT, $fallback );
+		return self::allow_saved_off_site( self::resolve( self::OPT_LOGOUT, $fallback ), self::OPT_LOGOUT );
 	}
 
 	/**
@@ -169,6 +266,6 @@ class RedirectSettings {
 			return (string) $redirect_to;
 		}
 
-		return self::login( \BuddyNext\Core\PageRouter::activity_url() );
+		return self::allow_saved_off_site( self::login( \BuddyNext\Core\PageRouter::activity_url() ), self::OPT_LOGIN );
 	}
 }

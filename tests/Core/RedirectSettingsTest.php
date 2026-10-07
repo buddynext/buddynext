@@ -29,6 +29,7 @@ class RedirectSettingsTest extends \WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		delete_option( RedirectSettings::OPT_LOGIN );
+		delete_option( RedirectSettings::OPT_ONBOARDING );
 		parent::tear_down();
 	}
 
@@ -90,5 +91,32 @@ class RedirectSettingsTest extends \WP_UnitTestCase {
 	public function test_non_wp_user_passthrough(): void {
 		$err = new \WP_Error( 'bad', 'nope' );
 		$this->assertSame( admin_url(), RedirectSettings::filter_login_redirect( admin_url(), '', $err ), 'a failed login (WP_Error) is passed through untouched' );
+	}
+
+	/**
+	 * An off-site address the owner saved is where the member goes, as the field
+	 * promises ("or a full address"); before, it was saved and silently dropped.
+	 *
+	 * The host is NOT allowed site-wide: a visitor-supplied redirect_to on that
+	 * host stays refused, so the setting is not an open redirect. Only the login
+	 * filter returning the owner's own address lets core's wp_safe_redirect()
+	 * follow it.
+	 */
+	public function test_saved_off_site_address_is_honoured_but_not_opened_site_wide(): void {
+		RedirectSettings::register();
+		update_option( RedirectSettings::OPT_ONBOARDING, RedirectSettings::sanitize( 'https://partner.example.com/after' ) );
+		update_option( RedirectSettings::OPT_LOGIN, RedirectSettings::sanitize( 'https://partner.example.com/welcome' ) );
+
+		$this->assertSame( 'https://partner.example.com/after', RedirectSettings::onboarding( home_url( '/members/x/' ) ) );
+		$this->assertSame( 'fallback', wp_validate_redirect( 'https://partner.example.com/phish', 'fallback' ), 'saving an address must not open its host to every redirect_to' );
+
+		// A visitor asks to be sent somewhere on that host: passed through untouched, and still refused by core.
+		$phish = RedirectSettings::filter_login_redirect( 'https://partner.example.com/phish', 'https://partner.example.com/phish', $this->member() );
+		$this->assertSame( 'fallback', wp_validate_redirect( $phish, 'fallback' ) );
+
+		// The default bounce becomes the owner's address, which core may now follow.
+		$owner = RedirectSettings::filter_login_redirect( admin_url(), '', $this->member() );
+		$this->assertSame( 'https://partner.example.com/welcome', $owner );
+		$this->assertSame( $owner, wp_validate_redirect( $owner, 'fallback' ) );
 	}
 }

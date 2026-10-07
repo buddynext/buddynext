@@ -1555,6 +1555,9 @@ class AuthController {
 				'mode'           => $requirements['mode'],
 				'terms'          => $requirements['terms'],
 				'terms_url'      => $requirements['terms_url'],
+				// The same two owner levers the web signup form follows.
+				'ask_name'       => ! empty( $requirements['ask_name'] ),
+				'ask_username'   => ! empty( $requirements['ask_username'] ),
 				'fields'         => $fields,
 				'reg_token'      => RegistrationGuard::issue_token(),
 				'honeypot_field' => RegistrationGuard::honeypot_field(),
@@ -2225,7 +2228,7 @@ class AuthController {
 		$user_id = (int) $request['id'];
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'rest_user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'rest_user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		if ( ! get_user_meta( $user_id, 'bn_pending_approval', true ) ) {
@@ -2248,6 +2251,48 @@ class AuthController {
 		do_action( 'buddynext_member_approved', $user_id );
 
 		return new WP_REST_Response( array( 'approved' => true ), 200 );
+	}
+
+	/**
+	 * Where a login opened without ?redirect_to= should return the visitor.
+	 *
+	 * Themes and plugins link to the login page without a redirect (Reign's and
+	 * BuddyX's header Login, most plugins), so the visitor lost their place on
+	 * every deep link. When they arrived from a page on this site, send them
+	 * back there. The front page, wp-admin and the login, signup and reset pages
+	 * are not "a place" and leave the owner's After login setting in charge, as
+	 * does arriving with no referrer (typed URL, bookmark).
+	 *
+	 * @return string Same-site URL, or '' to defer to the owner's setting.
+	 */
+	public static function referer_destination(): string {
+		$referer    = (string) wp_get_referer(); // Same-host only (wp_validate_redirect).
+		$path       = (string) wp_parse_url( $referer, PHP_URL_PATH );
+		$skip       = array(
+			\BuddyNext\Core\PageRouter::auth_url(),
+			\BuddyNext\Core\PageRouter::signup_url(),
+			\BuddyNext\Core\PageRouter::reset_url(),
+			admin_url(),
+			wp_login_url(),
+		);
+		$is_skipped = '' === $referer
+			|| untrailingslashit( $path ) === untrailingslashit( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ) );
+		foreach ( $skip as $url ) {
+			$skip_path  = (string) wp_parse_url( $url, PHP_URL_PATH );
+			$is_skipped = $is_skipped || ( '' !== trim( $skip_path, '/' ) && str_starts_with( trailingslashit( $path ), trailingslashit( $skip_path ) ) );
+		}
+
+		/**
+		 * Filter where a login without ?redirect_to= returns the visitor.
+		 *
+		 * Return '' to always use the owner's After login setting instead.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param string $destination The referring page, or '' when it does not count.
+		 * @param string $referer     The raw same-site referrer ('' when none).
+		 */
+		return (string) apply_filters( 'buddynext_default_login_redirect', $is_skipped ? '' : $referer, $referer );
 	}
 
 	/**

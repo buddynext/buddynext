@@ -116,16 +116,42 @@ class AppearanceTab {
 				</div>
 			</div>
 
+			<?php
+			$bn_cw_mode   = (string) get_option( 'buddynext_container_width', 'full' );
+			$bn_cw_custom = (int) get_option( 'buddynext_container_width_custom', 1280 );
+			$bn_cw_theme  = \BuddyNext\Theme\Appearance::container_width_for( 'theme' );
+			?>
+			<div class="bn-settings-section">
+				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Layout', 'buddynext' ); ?></span></div>
+				<div class="bn-ss-body">
+					<p class="bn-av-section-desc"><?php esc_html_e( 'How wide the community pages are on desktop. Full width uses the whole screen. A boxed width centres the navigation, content and sidebar like your other pages. Phones always use the full screen, and sign-up and onboarding keep their own layout.', 'buddynext' ); ?></p>
+					<fieldset class="bn-cw-options">
+						<legend class="screen-reader-text"><?php esc_html_e( 'Container width', 'buddynext' ); ?></legend>
+						<label class="bn-check-inline"><input type="radio" name="bn_container_width" value="full" <?php checked( 'full', $bn_cw_mode ); ?>> <?php esc_html_e( 'Full width', 'buddynext' ); ?></label>
+						<label class="bn-check-inline"><input type="radio" name="bn_container_width" value="theme" <?php checked( 'theme', $bn_cw_mode ); ?>>
+							<?php
+							/* translators: %d: width in pixels the active theme provides. */
+							echo esc_html( sprintf( __( 'Theme default (%dpx)', 'buddynext' ), $bn_cw_theme ) );
+							?>
+						</label>
+						<label class="bn-check-inline"><input type="radio" name="bn_container_width" value="custom" <?php checked( 'custom', $bn_cw_mode ); ?>> <?php esc_html_e( 'Custom', 'buddynext' ); ?></label>
+						<label class="bn-check-inline">
+							<input type="number" name="bn_container_width_custom" class="bn-input bn-cw-options__px" min="<?php echo (int) \BuddyNext\Theme\Appearance::CONTAINER_MIN; ?>" max="<?php echo (int) \BuddyNext\Theme\Appearance::CONTAINER_MAX; ?>" step="1" value="<?php echo (int) $bn_cw_custom; ?>" aria-label="<?php esc_attr_e( 'Custom width in pixels', 'buddynext' ); ?>"> px
+						</label>
+					</fieldset>
+				</div>
+			</div>
+
 			<div class="bn-settings-section">
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Custom CSS', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
-					<p class="bn-av-section-desc"><?php esc_html_e( 'Injected on community pages after the theme styles. Use the BuddyNext token variables (e.g. var(--bn-accent)) where you can.', 'buddynext' ); ?></p>
+					<p class="bn-av-section-desc"><?php esc_html_e( 'Injected on community pages after the theme styles. Use the BuddyNext token variables (for example var(--bn-accent)) where you can.', 'buddynext' ); ?></p>
 					<?php // #bn-custom-css is upgraded to the core code editor (CodeMirror) by AssetService when the tab is active; without it this stays a plain textarea. ?>
 					<textarea id="bn-custom-css" name="bn_custom_css" class="bn-textarea large-text code" rows="10" spellcheck="false"><?php echo esc_textarea( $css ); ?></textarea>
 				</div>
 			</div>
 
-			<p><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save appearance', 'buddynext' ); ?></button></p>
+			<p><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button></p>
 		</form>
 		<?php
 	}
@@ -153,6 +179,13 @@ class AppearanceTab {
 		// Default theme.
 		$theme = isset( $_POST['bn_default_theme'] ) ? sanitize_key( wp_unslash( (string) $_POST['bn_default_theme'] ) ) : 'auto';
 		update_option( 'buddynext_default_theme', in_array( $theme, array( 'auto', 'light', 'dark' ), true ) ? $theme : 'auto' );
+
+		// Layout: full width (default), theme width, or a custom width clamped to the
+		// range Appearance::container_width() enforces.
+		$cw_mode = isset( $_POST['bn_container_width'] ) ? sanitize_key( wp_unslash( (string) $_POST['bn_container_width'] ) ) : 'full';
+		update_option( 'buddynext_container_width', in_array( $cw_mode, array( 'full', 'theme', 'custom' ), true ) ? $cw_mode : 'full' );
+		$cw_px = isset( $_POST['bn_container_width_custom'] ) ? absint( wp_unslash( $_POST['bn_container_width_custom'] ) ) : 1280;
+		update_option( 'buddynext_container_width_custom', max( \BuddyNext\Theme\Appearance::CONTAINER_MIN, min( \BuddyNext\Theme\Appearance::CONTAINER_MAX, $cw_px ) ) );
 
 		// Custom CSS — stored verbatim (manage_options); neutralised on output.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized

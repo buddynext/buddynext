@@ -24,6 +24,20 @@ use WP_Error;
  * Handles notification creation, read-state, and listing.
  */
 class NotificationService {
+	/**
+	 * Notification types behind each filter tab of the notifications page.
+	 *
+	 * @var array<string,string[]>
+	 */
+	public const TAB_TYPES = array(
+		'reaction' => array( 'bn.post_reacted', 'mediaverse.media_reaction' ),
+		'comment'  => array( 'bn.post_commented', 'bn.media_commented' ),
+		'mention'  => array( 'bn.mention', 'mediaverse.media_mention' ),
+		'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
+		'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
+		'message'  => array( 'bn.new_message' ),
+	);
+
 
 	/**
 	 * Cache group.
@@ -541,6 +555,46 @@ class NotificationService {
 	}
 
 	/**
+	 * Mark one member's notifications about one object read.
+	 *
+	 * For a partner plugin that knows the member has read the thing itself (opened
+	 * the conversation): only that member's rows change, so another recipient of
+	 * the same object keeps theirs unread. Uses the object_ref index.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param string $object_type Stored object type (e.g. 'jetonomy_message').
+	 * @param int    $object_id   Object id.
+	 * @param int    $user_id     The member who read it.
+	 * @return int Rows marked read.
+	 */
+	public function mark_read_for_object( string $object_type, int $object_id, int $user_id ): int {
+		if ( '' === $object_type || $object_id <= 0 || $user_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$marked = (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_notifications
+				 SET is_read = 1
+				 WHERE object_type = %s AND object_id = %d AND recipient_id = %d AND is_read = 0",
+				$object_type,
+				$object_id,
+				$user_id
+			)
+		);
+
+		if ( $marked > 0 ) {
+			$this->forget_counts( $user_id );
+		}
+
+		return $marked;
+	}
+
+	/**
 	 * Mark a single notification unread (ownership-checked).
 	 *
 	 * The inverse of mark_read(): lets a member restore a notification to the
@@ -716,6 +770,11 @@ class NotificationService {
 	 * WITHOUT marking anything read. The Unread tab keeps using unread_count()
 	 * (is_read = 0), so the two are intentionally independent.
 	 *
+	 * Only rows that are also still unread count: something the member already
+	 * read at its source (opened the conversation in the partner plugin) is not
+	 * news, and a badge that sent them to the bell to find nothing new was the
+	 * complaint (owner decision 2026-10-06).
+	 *
 	 * @param int $user_id User to query.
 	 * @return int
 	 */
@@ -739,7 +798,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND created_at > %s" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
+				 WHERE recipient_id = %d AND created_at > %s AND is_read = 0" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
 				$user_id,
 				$last_seen
 			)
@@ -1075,6 +1134,76 @@ class NotificationService {
 	}
 
 	/**
+	 * Inbox page size on /notifications/.
+	 */
+	public const INBOX_PER_PAGE = 25;
+
+	/**
+	 * The inbox tabs this site offers. No Messages tab while messaging is off
+	 * in WPMediaVerse.
+	 *
+	 * @return string[]
+	 */
+	public static function inbox_filters(): array {
+		$filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
+		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
+			$filters = array_values( array_diff( $filters, array( 'message' ) ) );
+		}
+		return $filters;
+	}
+
+	/**
+	 * One inbox page: the rows and the total for a tab.
+	 *
+	 * Shared by the inbox template and PageRouter, which must know BEFORE any
+	 * output whether /notifications/page/N/ is past the end (a real 404).
+	 *
+	 * All and Unread page in SQL and count with count_for_user(). A type tab
+	 * cannot push its type set through the count, so it reads one bounded batch
+	 * (200, newest first) and filters in PHP; type tabs are small.
+	 *
+	 * @param int    $user_id Inbox owner.
+	 * @param string $filter  Tab key; anything not in inbox_filters() reads as 'all'.
+	 * @param int    $page    1-based page number.
+	 * @param bool   $rows    False when only the total is needed (the router).
+	 * @return array{filter:string, page:int, per_page:int, items:array<int,array<string,mixed>>, total:int}
+	 */
+	public function inbox_page( int $user_id, string $filter, int $page, bool $rows = true ): array {
+		$filter = in_array( $filter, self::inbox_filters(), true ) ? $filter : 'all';
+		$page   = max( 1, $page );
+		$offset = ( $page - 1 ) * self::INBOX_PER_PAGE;
+		$types  = self::TAB_TYPES[ $filter ] ?? array();
+		$items  = array();
+
+		if ( ! empty( $types ) ) {
+			$listed  = $this->list_for_user( $user_id, null, 200, 'all', 0 );
+			$matched = array_values(
+				array_filter(
+					$listed['items'] ?? array(),
+					static fn( array $item ): bool => in_array( (string) ( $item['type'] ?? '' ), $types, true )
+				)
+			);
+			$total   = count( $matched );
+			$items   = array_slice( $matched, $offset, self::INBOX_PER_PAGE );
+		} else {
+			$read_state = 'unread' === $filter ? 'unread' : 'all';
+			$total      = $this->count_for_user( $user_id, $read_state );
+			if ( $rows ) {
+				$listed = $this->list_for_user( $user_id, null, self::INBOX_PER_PAGE, $read_state, $offset );
+				$items  = $listed['items'] ?? array();
+			}
+		}
+
+		return array(
+			'filter'   => $filter,
+			'page'     => $page,
+			'per_page' => self::INBOX_PER_PAGE,
+			'items'    => $items,
+			'total'    => $total,
+		);
+	}
+
+	/**
 	 * Count a user's notifications, optionally narrowed by read-state.
 	 *
 	 * The 'unread' filter reuses the cached unread_count() path; 'all' and
@@ -1101,6 +1230,25 @@ class NotificationService {
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Unread counts per notifications-page tab (TAB_TYPES) plus the Unread tab's
+	 * total: the badges the web page and the app show. One query.
+	 *
+	 * @param int $user_id Recipient user ID.
+	 * @return array<string,int> tab => unread count ('unread' = all types).
+	 */
+	public function unread_counts_by_tab( int $user_id ): array {
+		$by_type = $this->unread_counts_by_type( $user_id );
+		$tabs    = array( 'unread' => array_sum( array_map( 'intval', $by_type ) ) );
+		foreach ( self::TAB_TYPES as $tab => $types ) {
+			$tabs[ $tab ] = 0;
+			foreach ( $types as $type ) {
+				$tabs[ $tab ] += (int) ( $by_type[ $type ] ?? 0 );
+			}
+		}
+		return $tabs;
 	}
 
 	/**

@@ -23,9 +23,11 @@ BuddyNext creates a notification when another member does something that involve
 | Connection request | Someone sends you a connection request |
 | Connection accepted | Someone accepts your connection request |
 | Reaction on your post | Someone reacts to a post you authored |
+| Reaction on your comment | Someone reacts to a comment you authored |
 | Comment on your post | Someone comments on a post you authored |
 | Reply to your comment | Someone replies to one of your comments |
 | Share of your post | Someone shares a post you authored |
+| Comment on your media | Someone comments on a photo or video you posted |
 | Mention | Someone mentions you in a post or comment |
 | New member in your space | Someone joins a space you own |
 | Space join request | Someone asks to join a space you moderate |
@@ -44,7 +46,7 @@ A member never gets notified about their own actions, and notifications are supp
 
 ### Viewing notifications
 
-The bell icon sits in the site header. When you have unread notifications, a small badge shows the count (it caps at "99+"). Click the bell to open the full Notifications page, which lists everything addressed to you, newest first, grouped into Today, Yesterday, and Older. Each row shows who acted, what they did, and a relative time, and links to the post, profile, or space it refers to.
+The bell icon sits in the site header. When you have new notifications, a small badge shows the count (it caps at "99+"). On a computer or tablet, clicking the bell opens a preview of your latest eight notifications right under it, with **Mark all as read** and **See all notifications**; opening it clears the badge without marking anything read, the same as opening the page. Escape or a click elsewhere closes it. On a phone, the bell goes straight to the full Notifications page, which lists everything addressed to you, newest first, grouped into Today, Yesterday, and Older. Each row shows who acted, what they did, and a relative time, and links to the post, profile, or space it refers to.
 
 
 ### Marking as read and mark-all-read
@@ -60,7 +62,7 @@ Each row has a dismiss action that removes that notification permanently. Dismis
 
 ### Filtering
 
-The Notifications page has filter tabs so you can narrow the list (for example, unread only). Switching tabs updates the list in place, without reloading the page.
+The Notifications page has filter tabs: **All**, **Unread**, **Mentions**, **Comments**, **Reactions**, **Spaces**, **Follows** and **Messages** (the Messages tab is left out while messages are switched off). Switching tabs updates the list in place, without reloading the page.
 
 ### Grouped notifications
 
@@ -72,7 +74,7 @@ You do not need to refresh the page to see new activity. The bell badge checks f
 
 ## Setting it up (for owners)
 
-Notifications are on out of the box - there is nothing a member must enable to start receiving them. As the owner, what you control is the default state for the most common notification types, so new members start with sensible settings they can later adjust. Those defaults live under BuddyNext > Notifications and are covered in Notification Preferences.
+Notifications are on out of the box - there is nothing a member must enable to start receiving them. As the owner, what you control is the default state for the most common notification types, so new members start with sensible settings they can later adjust. Those defaults live under **BuddyNext > Notifications > Notifications** and are covered in Notification Preferences.
 
 The bell ships as part of the user menu, which you place in your header with the `[buddynext_user_menu]` shortcut (BuddyNext-aware themes already include it). It shows the bell icon with the live unread badge for the logged-in member and links to the full Notifications page. Logged-out visitors see nothing. The standalone Notification Bell block is no longer offered in the block inserter.
 
@@ -84,7 +86,7 @@ The bell ships as part of the user menu, which you place in your header with the
 - Grouped rows count as one notification toward the unread badge, no matter how many events they represent.
 - Notifications between blocked members are never created, so neither side can use them to reach the other.
 - **Declining a connection request is silent.** A member is told when their request is accepted, and told nothing when it is not. There is no "your request was declined" notification, by design: turning someone down should not cost them a notification, and it should not put the person who declined on the spot. The request simply goes away.
-- **Notifications from a companion plugin are display-only.** Badges and level-ups (from WB Gamification), reactions and mentions on media (from WPMediaVerse), and forum replies, mentions, and accepted answers (from Jetonomy) all show up in your notification center so everything lands in one place - but BuddyNext never emails you about them, immediately or in a digest. The partner plugin that generated the event owns its own email, and mirroring it into an email here would mean two emails for the same thing. These types show an on-site toggle in your preferences but no email-frequency selector, because there is no email to schedule.
+- **Notifications from a companion plugin are display-only.** Badges and level-ups (from WB Gamification), reactions on media (from WPMediaVerse), and forum replies, mentions, and accepted answers (from Jetonomy) all show up in your notification center so everything lands in one place - but BuddyNext does not email you about them, immediately or in a digest. The partner plugin that generated the event owns its own email, and mirroring it into an email here would mean two emails for the same thing. These types show an on-site toggle in your preferences but no email-frequency selector, because there is no email to schedule. The one exception is a mention in a media comment from WPMediaVerse: it has an email-frequency selector (Immediate by default).
 
 ## Free vs Pro
 

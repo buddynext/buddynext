@@ -16,7 +16,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnBlockConfirm, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
-import { onNavReady } from '@buddynext/nav-init';
+import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -125,8 +125,8 @@ function syncUrl( ctx ) {
 		} else {
 			url.searchParams.delete( 'online' );
 		}
-		url.searchParams.delete( 'paged' );
-		window.history.replaceState( {}, '', url.toString() );
+		// A filter change lands on page 1.
+		window.history.replaceState( {}, '', bnPageUrl( url.toString(), 1 ) );
 	} catch ( _e ) { /* history not available — soft-fail */ }
 }
 
@@ -150,11 +150,7 @@ function syncPager( total ) {
 
 	// A filter change resets to page 1; links carry the current filters (already
 	// written to the URL by syncUrl) plus the target page.
-	const hrefFor = ( n ) => {
-		const u = new URL( window.location.href );
-		u.searchParams.set( 'paged', String( n ) );
-		return u.pathname + u.search;
-	};
+	const hrefFor = ( n ) => bnPageUrl( window.location.href, n );
 	const linkBtn = ( n, label ) => {
 		const a = document.createElement( 'a' );
 		a.className   = 'bn-page-btn';

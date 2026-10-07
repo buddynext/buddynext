@@ -1,6 +1,6 @@
 # Payment Gateways
 
-BuddyNext Pro is built to work with whichever payment gateway you connect, not just one. You enable the gateways you want on a single Payment Gateways tab, each shows its own status, and checkout routes members to your preferred gateway. Alongside the built-in Stripe integration, Pro ships a PayPal gateway, a Gamification Points gateway, an Offline payment method, and a Test sandbox - all configured in the same place.
+BuddyNext Pro is built to work with whichever payment gateway you connect, not just one. You enable the gateways you want on a single Payment Gateways tab, each shows its own status, and checkout routes members to your preferred gateway. Alongside the built-in Stripe integration, Pro ships a PayPal gateway, a Gamification Points gateway, an Offline payment method (recorded by you, not offered at checkout), and a Test sandbox - all configured in the same place.
 
 ![The Monetization Payments admin tab listing every payment gateway with its own enable toggle and status badge](../images/admin-payments.webp)
 
@@ -34,13 +34,17 @@ Every gateway shows a status badge. For gateways that can verify their credentia
 | Connected | The credentials work. The provider answered. |
 | Not working | The credentials are filled in but the provider rejected them. The reason is shown next to the field that is wrong. |
 | Needs setup | Required fields are still empty. |
+| Active | The gateway is on and ready, but it has no remote service to ask (for example Points and Test). |
+| Admin only | The Offline method is on. Members never see it at checkout. |
 | Off | The gateway is switched off. |
 
 Trust the badge over the fact that the fields look full - a typo in a secret looks exactly like a correct one.
 
 ### The default gateway
 
-A single Default gateway picker chooses which active gateway checkout routes members to first. If you offer more than one, this is the one members meet by default. If a gateway is switched off or loses its credentials, checkout falls back to another active gateway rather than breaking.
+A single **Checkout default** picker (in the Default gateway section) chooses which active gateway checkout routes members to first. It starts on **Automatic (first active gateway)**. If you offer more than one, this is the one members meet by default. If the chosen gateway is switched off or loses its credentials, checkout uses the next available gateway rather than breaking.
+
+The same tab also has a **Default currency** setting for new plans. Each plan can override it, and only supported ISO-4217 currencies are accepted.
 
 ### The same final amount, every gateway
 
@@ -60,9 +64,11 @@ Open the Payment Gateways tab, find the PayPal section, and fill in:
 | Secret | Your PayPal app's Secret. Kept masked on screen. | Empty |
 | Mode | Sandbox (testing) or Live. Credentials are per-environment - your sandbox app and your live app use different keys, so switching mode needs the matching credentials. | Sandbox |
 | Webhook ID | The ID of the webhook you create in PayPal, so BuddyNext can confirm updates genuinely came from PayPal. | Empty |
-| Webhook endpoint URL | The address to paste into PayPal when you create the webhook. Read-only - copy it, do not type over it. | (shown) |
+| Webhook endpoint URL | The address to paste into PayPal when you create the webhook (`/wp-json/buddynext-pro/v1/paypal/membership-webhook` on your site). Read-only - copy it, do not type over it. | (shown) |
 
-Recurring plans use a PayPal billing subscription on a product and plan BuddyNext provisions for you; one-time plans use a PayPal order captured when the member returns. Either way, fulfilment is idempotent - the member is never granted access twice even if both the return and the webhook arrive.
+When you add the webhook in PayPal, subscribe it to these event types: `BILLING.SUBSCRIPTION.ACTIVATED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.SALE.COMPLETED` (renewals), `BILLING.SUBSCRIPTION.CANCELLED`, `BILLING.SUBSCRIPTION.EXPIRED`, `BILLING.SUBSCRIPTION.PAYMENT.FAILED`, `BILLING.SUBSCRIPTION.SUSPENDED`, `PAYMENT.SALE.REFUNDED` and `PAYMENT.CAPTURE.REFUNDED`. Then copy the Webhook ID PayPal shows into the Webhook ID field. Once the Webhook ID is saved, the Payment Gateways screen checks your webhook with PayPal about once an hour and shows a warning naming any of these events it is missing.
+
+Recurring plans use a PayPal billing subscription on a product and plan BuddyNext provisions for you; one-time plans use a PayPal order captured when the member returns. PayPal does not take a recurring plan that has a free trial or a fixed monthly billing day; for those the member is asked to pay by card instead. Either way, fulfilment is idempotent - the member is never granted access twice even if both the return and the webhook arrive.
 
 > **Warning:** Set up the PayPal webhook before you go live. Like Stripe, the webhook is how renewals, cancellations, and failed payments reach your members. There is a safety net for the moment of purchase (the return from PayPal is captured directly), but it does not replace the webhook for the life of the subscription.
 
@@ -72,7 +78,7 @@ The Points gateway lets members redeem a membership plan with WB Gamification po
 
 ### Set up Points
 
-The Points gateway appears on the Payment Gateways tab only when WB Gamification is active, and it is off by default - charging points for paid plans is a deliberate choice, so you switch it on yourself.
+The Gamification Points gateway appears on the Payment Gateways tab only when WB Gamification is active, and it is off by default - charging points for paid plans is a deliberate choice, so you switch it on yourself.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -86,13 +92,18 @@ A plan is redeemable with points only when you give it a points price greater th
 
 The Offline method covers money paid outside the site - a bank transfer, cheque, cash, or an invoice settled elsewhere. Unlike the other gateways, it is not a checkout rail a member starts: it is an **admin action**. You record the payment against a member's plan yourself, and BuddyNext grants access. Use it when a customer pays you directly and you want their membership to reflect it without a card ever touching the site.
 
-You can rename it (for example to "Bank transfer" or "Invoice") so the label members and admins see matches how you actually take the payment.
+You record a payment under Monetization > Subscriptions, on the Orders view, with Add order. The Offline method is on by default, and it is limited to one-time and lifetime plans, because nothing can charge the member again.
+
+| Setting | What it does | Default |
+|---|---|---|
+| Method name | How the method is named on orders and receipts, for example "Bank transfer" or "Cheque". | Offline payment |
+| Payment details | Account details or a reference format, kept for your own records and shown when you record an order. | Empty |
 
 ## Test sandbox
 
 The Test gateway lets you walk the entire checkout flow without any real charge, so you can confirm the paywall, checkout, and access grant all work before you connect a live gateway.
 
-It is opt-in and off by default in every environment - you must switch it on explicitly. This is deliberate: a live member's payment is never silently routed to a no-charge sandbox. Use it to try things out, then switch it off and enable Stripe or PayPal for real payments.
+It is called "Test (sandbox)", needs no setup, and is opt-in and off by default in every environment - you must switch it on explicitly. This is deliberate: a live member's payment is never silently routed to a no-charge sandbox. Use it to try things out, then switch it off and enable Stripe or PayPal for real payments.
 
 ## Good to know
 

@@ -15,7 +15,7 @@ The **At a glance** panel shows the headline numbers, several with a short-term 
 | Metric | What it tells you |
 |--------|-------------------|
 | Members | Total members, with how many joined this week. |
-| Active (30 days) | How many members did something in the last month, shown as a share of your total. |
+| Active, last 30 days | How many members did something in the last month, shown as a share of your total. |
 | Posts | Total posts, with how many were published this week. |
 | Spaces | How many spaces exist in the community. |
 | Comments | Total comments across the community. |

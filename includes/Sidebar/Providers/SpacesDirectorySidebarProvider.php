@@ -280,17 +280,22 @@ class SpacesDirectorySidebarProvider {
 		if ( ! function_exists( 'buddynext_space_url' ) ) {
 			return;
 		}
+		$parents = $this->parent_labels( $spaces );
 		?>
 		<ul class="bn-sd-side-list">
 			<?php
 			foreach ( $spaces as $space ) :
-				$space = $this->resolve_slug( $space, $cat_by_id );
+				$space  = $this->resolve_slug( $space, $cat_by_id );
+				$parent = $parents[ (int) ( $space['parent_id'] ?? 0 ) ] ?? null;
 				?>
 				<li>
 					<a href="<?php echo esc_url( buddynext_space_url( (string) $space['slug'] ) ); ?>" class="bn-sd-side-row">
 						<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo $this->side_emblem( $space ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns esc_url()'d img or wp_kses()-sanitized SVG. ?></span>
 						<span class="bn-sd-side-row__main">
 							<span><?php echo esc_html( (string) $space['name'] ); ?></span>
+							<?php if ( null !== $parent ) : ?>
+								<span class="bn-sd-side-row__parent"><?php echo esc_html( $this->in_parent( $parent ) ); ?></span>
+							<?php endif; ?>
 							<span class="bn-sd-side-row__meta">
 							<?php
 							$member_count = (int) $space['member_count'];
@@ -304,6 +309,27 @@ class SpacesDirectorySidebarProvider {
 			<?php endforeach; ?>
 		</ul>
 		<?php
+	}
+
+	/**
+	 * Parent names for the sub-spaces in a list, one query (hidden parents left out).
+	 *
+	 * @param array<int,array<string,mixed>> $spaces Space rows.
+	 * @return array<int, array{id: int, name: string, url: string}>
+	 */
+	private function parent_labels( array $spaces ): array {
+		return buddynext_service( 'spaces' )->parent_labels( array_column( $spaces, 'parent_id' ), get_current_user_id() );
+	}
+
+	/**
+	 * "in {parent}" for a sub-space row.
+	 *
+	 * @param array{name: string} $label Parent label.
+	 * @return string
+	 */
+	private function in_parent( array $label ): string {
+		/* translators: %s: name of the space this sub-space belongs to. */
+		return sprintf( _x( 'in %s', 'sub-space parent label', 'buddynext' ), $label['name'] );
 	}
 
 	/**
@@ -330,6 +356,8 @@ class SpacesDirectorySidebarProvider {
 				'spaces' => $joined,
 			),
 		);
+		// One lookup for both groups: "in {parent}" under each sub-space.
+		$parents = $this->parent_labels( array_merge( $managed, $joined ) );
 		foreach ( $groups as $group ) :
 			if ( empty( $group['spaces'] ) ) {
 				continue;
@@ -339,12 +367,18 @@ class SpacesDirectorySidebarProvider {
 			<ul class="bn-sd-side-list">
 				<?php
 				foreach ( $group['spaces'] as $space ) :
-					$space = $this->resolve_slug( $space, $cat_by_id );
+					$space  = $this->resolve_slug( $space, $cat_by_id );
+					$parent = $parents[ (int) ( $space['parent_id'] ?? 0 ) ] ?? null;
 					?>
 					<li>
 						<a href="<?php echo esc_url( buddynext_space_url( (string) $space['slug'] ) ); ?>" class="bn-sd-side-row">
 							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo $this->side_emblem( $space ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns esc_url()'d img or wp_kses()-sanitized SVG. ?></span>
-							<span><?php echo esc_html( (string) $space['name'] ); ?></span>
+							<span class="bn-sd-side-row__main">
+								<span><?php echo esc_html( (string) $space['name'] ); ?></span>
+								<?php if ( null !== $parent ) : ?>
+									<span class="bn-sd-side-row__parent"><?php echo esc_html( $this->in_parent( $parent ) ); ?></span>
+								<?php endif; ?>
+							</span>
 						</a>
 					</li>
 				<?php endforeach; ?>

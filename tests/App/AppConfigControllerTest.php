@@ -580,4 +580,71 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 			$this->get_config()['auth']['connect_url']
 		);
 	}
+
+	/**
+	 * The composer defaults and report reasons the web uses reach the app.
+	 *
+	 * @return void
+	 */
+	public function test_posting_block_matches_the_web_sources(): void {
+		update_option( 'buddynext_default_post_privacy', 'followers' );
+		update_option( 'buddynext_post_edit_window', 15 );
+		update_option( 'buddynext_enable_emoji_picker', '0' );
+		add_filter(
+			'buddynext_report_reasons',
+			static function ( array $reasons ): array {
+				$reasons[] = 'off_topic';
+				return $reasons;
+			}
+		);
+		$cache = new \ReflectionProperty( \BuddyNext\Moderation\ModerationService::class, 'reasons_cache' );
+		$cache->setValue( null, null );
+
+		$posting = rest_get_server()->dispatch( new \WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) )->get_data()['posting'];
+
+		$this->assertSame( 'followers', $posting['default_privacy'] );
+		$this->assertSame( 15, $posting['edit_window_minutes'] );
+		$this->assertFalse( $posting['emoji_picker'] );
+		$this->assertTrue( $posting['link_preview'] );
+		$this->assertSame(
+			array_keys( \BuddyNext\Moderation\ModerationService::reason_choices() ),
+			wp_list_pluck( $posting['report_reasons'], 'slug' ),
+			'Same reasons, same order as the web report dialog.'
+		);
+		$this->assertContains( 'off_topic', wp_list_pluck( $posting['report_reasons'], 'slug' ), 'A filtered-in reason is offered.' );
+
+		remove_all_filters( 'buddynext_report_reasons' );
+		$cache->setValue( null, null );
+	}
+
+	/**
+	 * The signup config says which identity fields the form asks for.
+	 *
+	 * @return void
+	 */
+	public function test_register_config_says_what_signup_asks(): void {
+		update_option( 'buddynext_reg_ask_name', '0' );
+		update_option( 'buddynext_reg_ask_username', true );
+
+		$data = rest_get_server()->dispatch( new \WP_REST_Request( 'GET', '/buddynext/v1/auth/register/config' ) )->get_data();
+
+		$this->assertFalse( $data['ask_name'] );
+		$this->assertTrue( $data['ask_username'] );
+	}
+
+	/**
+	 * The settings sections, add-on ones included, as the web tab strip lists them.
+	 *
+	 * @return void
+	 */
+	public function test_settings_tabs_match_the_web_strip(): void {
+		$extra = static fn( array $tabs ): array => $tabs + array( 'addon' => 'Add-on' );
+		add_filter( 'buddynext_settings_tabs', $extra );
+
+		$tabs = rest_get_server()->dispatch( new \WP_REST_Request( 'GET', '/buddynext/v1/app/config' ) )->get_data()['settings_tabs'];
+		$this->assertSame( array_keys( \BuddyNext\Core\PageRouter::settings_tabs() ), wp_list_pluck( $tabs, 'slug' ) );
+		$this->assertContains( 'addon', wp_list_pluck( $tabs, 'slug' ), 'Add-on sections reach the app.' );
+
+		remove_filter( 'buddynext_settings_tabs', $extra );
+	}
 }

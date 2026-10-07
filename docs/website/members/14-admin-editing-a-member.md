@@ -6,11 +6,11 @@ Every member's account and profile can be opened and changed directly from the a
 
 ## Why use it
 
-Support requests are the main reason this exists. A member locked out of their email, unable to clear a bad value from a required field, or asking you to fix a typo in their bio has no way to do any of that themselves if their account is stuck - and you should not have to sign in as them to help. Opening their record from **BuddyNext > Members** and using **Edit** gives you the same fields they would see on their own Edit Profile screen, from your own admin session.
+Support requests are the main reason this exists. A member locked out of their email, unable to clear a bad value from a required field, or asking you to fix a typo in their bio has no way to do any of that themselves if their account is stuck - and you should not have to sign in as them to help. Opening their record from **BuddyNext > Members > Directory** and using **Edit** gives you the same fields they would see on their own Edit Profile screen, from your own admin session.
 
 ## Where to find it
 
-Go to **BuddyNext > Members**, find the member in the list, and select **Edit** in their row's actions (next to **View**, which opens their public profile in a new tab instead).
+Go to **BuddyNext > Members > Directory**, find the member in the list, and select **Edit** in their row's actions (next to **View**, which opens their public profile in a new tab instead).
 
 ## What you can change
 

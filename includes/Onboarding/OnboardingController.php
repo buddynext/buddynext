@@ -229,12 +229,16 @@ class OnboardingController {
 	 */
 	public function get_state(): WP_REST_Response {
 		$user_id = get_current_user_id();
+		$steps   = array_values( $this->service->step_list() );
 
 		return new WP_REST_Response(
 			array(
 				'complete' => $this->service->is_complete( $user_id ),
 				'step'     => $this->service->get_step( $user_id ),
-				'total'    => count( $this->service->step_list() ),
+				'total'    => count( $steps ),
+				// The wizard's steps in order (key, label, icon), add-on steps such as
+				// Pro's 'plan' included, as the web stepper draws them.
+				'steps'    => $steps,
 			),
 			200
 		);
@@ -304,7 +308,7 @@ class OnboardingController {
 			return new WP_REST_Response(
 				array(
 					'completed'   => true,
-					'redirect_to' => $this->pending_invite_redirect( $user_id, \BuddyNext\Core\PageRouter::profile_url( $user_id ) ),
+					'redirect_to' => $this->completion_destination( $user_id ),
 				),
 				200
 			);
@@ -413,17 +417,29 @@ class OnboardingController {
 				'handle_normalized' => '' !== $bn_saved_handle
 					&& is_string( $slug )
 					&& trim( $slug ) !== $bn_saved_handle,
-				// Land the new member on their own profile — the thing they just
-				// built in the wizard — rather than the activity feed. Owners can
-				// override the destination in Settings > Registration & Login. But
-				// if they arrived via a space invite link, that space wins: it is
-				// where they were actually headed.
-				'redirect_to'       => $this->pending_invite_redirect(
-					$user_id,
-					\BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::profile_url( $user_id ) )
-				),
+				'redirect_to'       => $this->completion_destination( $user_id ),
 			),
 			200
+		);
+	}
+
+	/**
+	 * Where a member goes when onboarding is done.
+	 *
+	 * The activity feed by default: the community is what they joined for, and
+	 * the feed is where it is happening (it used to be their own profile, which
+	 * left a new member looking at a page they had just filled in). The owner's
+	 * "After onboarding" setting wins over that, and a pending space invite wins
+	 * over both, because that space is where they were actually headed. The same
+	 * answer on first completion and on a repeat submit.
+	 *
+	 * @param int $user_id Member finishing onboarding.
+	 * @return string
+	 */
+	private function completion_destination( int $user_id ): string {
+		return $this->pending_invite_redirect(
+			$user_id,
+			\BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::activity_url() )
 		);
 	}
 

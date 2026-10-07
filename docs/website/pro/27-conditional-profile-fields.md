@@ -18,11 +18,11 @@ Show a profile field only when a member picks a certain answer. Ask "Beard style
 - **Changing your mind:** if a member switches the answer and the field hides, anything they typed stays in the box until they save. When they save, the answer to the hidden field is removed, so it never shows on their profile, in search or in the app.
 - If every field in a section is hidden for a member, the whole section is hidden too.
 
-The admin member editor (BuddyNext > Members > Edit) follows the same rules.
+The admin member editor (BuddyNext > Members > Directory, then Edit on a member) follows the same rules.
 
 ## Setting it up (for owners)
 
-1. Go to **BuddyNext > Members > Profile Fields**.
+1. Go to **BuddyNext > Members > Directory > Profile Fields**.
 2. Open **Add Field**, or the edit panel of an existing field.
 3. Tick **Only show this field when**.
 4. Pick the field that decides, choose **is** or **is not**, and tick the answers.

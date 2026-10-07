@@ -85,6 +85,19 @@ use BuddyNext\SocialGraph\PrivacyService;
 class Plugin {
 
 	/**
+	 * Options read on every request (see init()). Hub slug options are primed by
+	 * the hub registry itself. Keep this list current: RequestOptionsPrimedTest
+	 * fails when an every-request reader queries an option on its own.
+	 *
+	 * @var string[]
+	 */
+	public const REQUEST_OPTIONS = array(
+		'buddynext_features',
+		'buddynext_cookie_consent',
+		'buddynext_isolation_strip',
+	);
+
+	/**
 	 * Guards against double-boot.
 	 *
 	 * @var bool
@@ -102,6 +115,12 @@ class Plugin {
 		}
 
 		self::$booted = true;
+
+		// Options read on every request, loaded in ONE query. Without a persistent
+		// object cache each get_option() of a non-autoloaded or never-saved option
+		// is its own query on every page, REST call, image and heartbeat; priming
+		// also remembers the missing ones for the rest of the request.
+		wp_prime_option_caches( self::REQUEST_OPTIONS );
 
 		$container = Container::instance();
 		self::register_services( $container );
@@ -352,7 +371,7 @@ class Plugin {
 					}
 					$wizard_url = admin_url( 'admin.php?page=buddynext-setup' );
 					printf(
-						'<div class="notice notice-info is-dismissible"><p><strong>%s</strong> — <a href="%s">%s</a></p></div>',
+						'<div class="notice notice-info is-dismissible"><p><strong>%s</strong>: <a href="%s">%s</a></p></div>',
 						esc_html__( 'BuddyNext setup is not complete.', 'buddynext' ),
 						esc_url( $wizard_url ),
 						esc_html__( 'Run the setup wizard', 'buddynext' )
@@ -406,6 +425,10 @@ class Plugin {
 		// RestHoldGate; it runs at rest_pre_dispatch:11, behind PrivateCommunity's
 		// anonymous gate at 10.
 		( new \BuddyNext\Auth\RestHoldGate() )->register();
+
+		// A hold an add-on places on a member (Pro: "Paying members only"), on the
+		// web. RestHoldGate enforces the same hold over REST.
+		( new \BuddyNext\Auth\MemberHold() )->register();
 
 		// Enforce 2FA enrolment for the roles the owner requires it of. The setting
 		// used to be read and then ignored — purely advisory, surfaced as a UI hint
@@ -1068,7 +1091,6 @@ class Plugin {
 		$container->bind( 'hashtags', fn() => new HashtagService() );
 		$container->bind( 'moderation', fn() => new ModerationService() );
 		$container->bind( 'mod_log', fn() => new ModerationLogService() );
-		$container->bind( 'activity_log', fn() => new \BuddyNext\ActivityLog\ActivityLogService() );
 		$container->bind( 'member_types', fn( $c ) => new \BuddyNext\MemberTypes\MemberTypeService( $c->get( 'cache' ) ) );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'template_loader', fn() => new TemplateLoader() );

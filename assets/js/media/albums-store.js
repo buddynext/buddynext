@@ -135,6 +135,14 @@ async function fetchAlbums( ctx ) {
 
 const albumsStore = store( 'buddynext/media-albums', {
 	state: {
+		get pickerPercentText() {
+			const c   = getContext();
+			const pct = ( c.pickerPercent || 0 ) + '%';
+			// With several files, say which one: "42% · File 2 of 3".
+			return c.pickerTotal > 1
+				? pct + ' · ' + t( 'uploadingFileOf', 'File %1$d of %2$d' ).replace( '%1$d', c.pickerIndex ).replace( '%2$d', c.pickerTotal )
+				: pct;
+		},
 		get viewIsMedia()  { return getContext().view !== 'albums'; },
 		get viewIsAlbums() { return getContext().view === 'albums'; },
 		get hasAlbums()    { return !! getContext().hasAlbums; },
@@ -307,7 +315,10 @@ const albumsStore = store( 'buddynext/media-albums', {
 
 			const uploaded = [];
 
+			ctx.pickerTotal = files.length;
+			ctx.pickerIndex = 0;
 			for ( const file of files ) {
+				ctx.pickerIndex++;
 				const invalid = validateMedia( file, {
 					maxSizeMB:   ctx.maxSizeMB,
 					badTypeMsg:  t( 'badType', 'Only images, video and audio can be uploaded.' ),
@@ -318,9 +329,11 @@ const albumsStore = store( 'buddynext/media-albums', {
 					continue;
 				}
 
+				ctx.pickerPercent = 0;
 				const res = await uploadMedia( file, {
 					nonce:   ctx.restNonce,
 					privacy: mediaPrivacyFor( ctx ),
+					onProgress: ( percent ) => { ctx.pickerPercent = percent; },
 				} );
 				if ( ! res.ok || ! res.mediaId ) {
 					bnToast( res.message || t( 'uploadFailed', 'Could not upload that file.' ), { tone: 'danger' } );
@@ -519,6 +532,7 @@ function enhanceDetailTiles( grid ) {
 		cover.className = 'bn-media-cell__cover';
 		cover.setAttribute( 'data-bn-album-cover', id );
 		cover.setAttribute( 'aria-label', t( 'setCover', 'Set as cover' ) );
+		cover.title = t( 'setCover', 'Set as cover' );
 		cover.textContent = '★';
 		cell.appendChild( cover );
 
@@ -527,6 +541,7 @@ function enhanceDetailTiles( grid ) {
 		del.className = 'bn-media-cell__delete';
 		del.setAttribute( 'data-bn-album-remove', id );
 		del.setAttribute( 'aria-label', t( 'removeFromAlbum', 'Remove from album' ) );
+		del.title = t( 'removeFromAlbum', 'Remove from album' );
 		del.textContent = '×';
 		cell.appendChild( del );
 	} );

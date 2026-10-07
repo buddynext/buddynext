@@ -79,7 +79,7 @@ class MemberExport {
 				__( 'ID', 'buddynext' ),
 				__( 'Login', 'buddynext' ),
 				__( 'Email', 'buddynext' ),
-				__( 'Display Name', 'buddynext' ),
+				__( 'Display name', 'buddynext' ),
 				__( 'Registered', 'buddynext' ),
 				__( 'Suspended', 'buddynext' ),
 			)

@@ -388,7 +388,18 @@ class FeatureRegistry {
 	 * @return array<string,array<int,array>>
 	 */
 	public function by_group(): array {
-		$labels = self::labels();
+		/**
+		 * Filter the display label and description of each feature, at display time.
+		 *
+		 * An add-on that adds features through `buddynext_features` supplies its
+		 * translated strings here, after init, instead of in the catalog (which is
+		 * read at plugins_loaded, too early to translate).
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param array<string,array{label:string,description:string}> $labels Keyed by feature slug.
+		 */
+		$labels = (array) apply_filters( 'buddynext_feature_labels', self::labels() );
 		$out    = array();
 		foreach ( $this->catalog() as $feature ) {
 			$slug = (string) ( $feature['slug'] ?? '' );
@@ -450,7 +461,7 @@ class FeatureRegistry {
 			),
 			'search'          => array(
 				'label'       => __( 'Search index', 'buddynext' ),
-				'description' => __( 'Unified FULLTEXT index across posts, users, spaces, hashtags.', 'buddynext' ),
+				'description' => __( 'Unified FULLTEXT index across posts, members, spaces, hashtags.', 'buddynext' ),
 			),
 			'moderation'      => array(
 				'label'       => __( 'Moderation', 'buddynext' ),

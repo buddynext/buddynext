@@ -172,8 +172,12 @@ class PwaService {
 	 *   member who loses the network still sees something that looks like the
 	 *   community rather than an unstyled list of links. Precaching only "/" — as
 	 *   this did — left the one cached page rendering with 61 failed assets.
-	 * - STATIC sub-resources are cached as they are used, capped, so repeat views
-	 *   are fast and the offline page keeps its styling.
+	 * - STATIC sub-resources are cached only when they are BuddyNext's own files
+	 *   (the plugin directories in buddynext_pwa_asset_paths). The worker claims the
+	 *   whole origin, so caching everything put it in front of the theme's and every
+	 *   other plugin's files, and their updates were served stale for a view. A
+	 *   cached copy is served only for the EXACT URL (a ?ver= bump always fetches
+	 *   the new file); the version-blind match is the offline fallback only.
 	 * - NAVIGATIONS go to the network first and fall back to a real offline page.
 	 * - PAGE HTML IS DELIBERATELY NEVER CACHED. A community page is personalised;
 	 *   replaying a stored copy would show one member's feed, notifications or DMs
@@ -187,7 +191,9 @@ class PwaService {
 	public function get_service_worker_script(): string {
 		$version     = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
 		$shell_cache = 'buddynext-shell-' . $version;
-		$asset_cache = 'buddynext-assets-' . $version;
+		// "own-" marks the cache that holds BuddyNext's files only; the previous
+		// catch-all cache (theme and other plugins' files) is deleted on activate.
+		$asset_cache = 'buddynext-assets-own-' . $version;
 
 		// Path AND query. On a site without pretty permalinks rest_url() returns
 		// "/?rest_route=/buddynext/v1/pwa/offline", so taking PHP_URL_PATH alone
@@ -225,6 +231,35 @@ class PwaService {
 
 		$offline_js = wp_json_encode( $offline_url );
 
+		$own_urls = array( defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : '' );
+		if ( defined( 'BUDDYNEXTPRO_PLUGIN_URL' ) ) {
+			$own_urls[] = BUDDYNEXTPRO_PLUGIN_URL;
+		}
+		/**
+		 * Filters the URL prefixes whose static files the service worker caches.
+		 *
+		 * Everything outside these prefixes (the theme, other plugins, uploads) is
+		 * left to the browser's normal HTTP cache, so their updates are never
+		 * served stale by BuddyNext's worker. A family plugin that ships offline
+		 * assets through buddynext_pwa_worker_imports adds its own directory here.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param string[] $own_urls Plugin directory URLs (absolute or root-relative).
+		 */
+		$own_urls  = (array) apply_filters( 'buddynext_pwa_asset_paths', $own_urls );
+		$own_paths = array();
+		foreach ( $own_urls as $own_url ) {
+			// Decoded here; the worker encodes it the browser's way (browserPath()),
+			// because PHP's rawurlencode() is stricter than a browser's pathname:
+			// it encodes ( ) + ' @ , which url.pathname leaves alone.
+			$own_path = rawurldecode( (string) wp_parse_url( (string) $own_url, PHP_URL_PATH ) );
+			if ( '' !== $own_path && '/' !== $own_path ) {
+				$own_paths[] = trailingslashit( $own_path );
+			}
+		}
+		$own_paths_js = wp_json_encode( array_values( array_unique( $own_paths ) ), JSON_UNESCAPED_SLASHES );
+
 		/*
 		 * The real admin and login paths, not assumed ones.
 		 *
@@ -245,13 +280,13 @@ class PwaService {
 		 * WordPress allows the admin to live somewhere other than the site root, and
 		 * a guess is what this bug is made of.
 		 */
-		$admin_path = (string) wp_parse_url( admin_url( '/' ), PHP_URL_PATH );
+		$admin_path = rawurldecode( (string) wp_parse_url( admin_url( '/' ), PHP_URL_PATH ) );
 		// site_url('wp-login.php'), NOT wp_login_url(): BuddyNext points the latter
 		// at its own /login/ page, so using it would guard the community's auth
 		// screen and quietly stop guarding WordPress's — which is the nonce-bearing
 		// one the original bail was written for.
-		$login_path = (string) wp_parse_url( site_url( 'wp-login.php' ), PHP_URL_PATH );
-		$rest_path  = (string) wp_parse_url( rest_url( '/' ), PHP_URL_PATH );
+		$login_path = rawurldecode( (string) wp_parse_url( site_url( 'wp-login.php' ), PHP_URL_PATH ) );
+		$rest_path  = rawurldecode( (string) wp_parse_url( rest_url( '/' ), PHP_URL_PATH ) );
 
 		// JSON_UNESCAPED_SLASHES so the generated worker reads as "/wp-admin/" rather
 		// than "\/wp-admin\/". Both parse identically; this file is read in DevTools
@@ -305,9 +340,17 @@ const SHELL_ASSETS = {$shell};
 // assumed to be at the origin root: on a subdirectory install they are
 // "/community/wp-admin/" and so on, and the guards below used to test for a
 // leading "/wp-admin" that never matched there.
-const ADMIN_PATH = {$admin_path_js};
-const LOGIN_PATH = {$login_path_js};
-const REST_PATH = {$rest_path_js};
+// Every path below is compared with url.pathname, so encode it exactly the way
+// this browser does (a space becomes %20, ( ) + ' @ stay as they are). PHP sends
+// the decoded path; a stricter or looser encoding on that side never matched on
+// sites installed in such a folder.
+const browserPath = (path) => new URL(path, self.location.origin).pathname;
+const ADMIN_PATH = browserPath({$admin_path_js});
+const LOGIN_PATH = browserPath({$login_path_js});
+const REST_PATH = browserPath({$rest_path_js});
+
+// The only static files this worker caches: BuddyNext's own plugin directories.
+const OWN_ASSET_PATHS = {$own_paths_js}.map(browserPath);
 
 // Cap the runtime asset cache. A community with many themes, avatars and icon
 // sets can otherwise grow without limit on a member's device, and a phone that
@@ -458,12 +501,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static sub-resources: serve from cache, and refresh in the background so an
-  // updated file is picked up on the next view rather than pinned until the
-  // plugin version changes.
+  // Static sub-resources. Only BuddyNext's own files are handled; the theme's,
+  // other plugins' and uploads are left to the browser exactly as if no worker
+  // were installed, so their updates are never answered with an old copy.
+  if (!OWN_ASSET_PATHS.some((path) => url.pathname.indexOf(path) === 0)) {
+    return;
+  }
+
+  // EXACT URL hit: serve it and refresh in the background. No exact hit (a
+  // ?ver= bump after an update, or a first view): the network answers, so the
+  // new file is used on this very view. The version-blind copy (the shell is
+  // precached without ?ver=) is only the offline fallback.
   event.respondWith(
     (async () => {
-      const cached = await bnMatch(request);
+      const exact = await caches.match(request);
 
       const network = fetch(request).then(async (response) => {
         const cacheable = await bnCacheable(response.clone());
@@ -475,12 +526,17 @@ self.addEventListener('fetch', (event) => {
         return response;
       }).catch(() => null);
 
-      if (cached) {
-        return cached;
+      if (exact && !exact.redirected) {
+        event.waitUntil(network);
+        return exact;
       }
 
       const fresh = await network;
-      return fresh || Response.error();
+      if (fresh) {
+        return fresh;
+      }
+      const offline = await bnMatch(request);
+      return offline || Response.error();
     })()
   );
 });

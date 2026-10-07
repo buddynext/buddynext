@@ -58,9 +58,9 @@ If you cannot use your authenticator or your backup codes, choose the option to 
 From the **Two-factor authentication** card under **Settings > Account**, once 2FA is on you can:
 
 - **Regenerate backup codes** - generate a fresh set, which immediately replaces and invalidates your old codes.
-- **Turn off two-factor authentication** - switch 2FA off.
+- **Turn off** - switch 2FA off.
 
-Both of these ask for your account password again before they take effect, so that someone using an already-open session cannot quietly weaken your account.
+Both of these ask for your account password again ("Confirm your password to change these settings") before they take effect, so that someone using an already-open session cannot quietly weaken your account.
 
 ## Setting it up (for owners)
 
@@ -71,7 +71,7 @@ You can also **require** it. Go to **BuddyNext > Members > Registration & Login*
 | Setting | What it does | Default |
 |---|---|---|
 | Require two-factor authentication | Who must use 2FA. Choose **Nobody** (members can still switch it on themselves), **Administrators**, **Administrators and editors**, or **Everyone**. | Nobody |
-| Community name in the app | The community name shown next to the account inside the authenticator app, so members can tell your account apart from others. This one is a developer option, not a settings field. | Your site name |
+| Community name in the app | The name shown next to the account inside the authenticator app, so members can tell your account apart from others. This one is a developer option (the `buddynext_2fa_issuer` filter), not a settings field. | Your site title |
 
 ### What "required" actually does
 
@@ -88,7 +88,7 @@ Choose the level deliberately:
 
 - **Lost device.** If you lose the phone with your authenticator app, sign in with one of your saved **backup codes**, or use the **email a code** option on the sign-in screen. Once back in, go to **Settings > Account** and regenerate backup codes or set up the app again on your new device.
 - **Backup codes are one-time.** Each backup code works exactly once. When you are running low, regenerate a fresh set from your account settings - the old set stops working as soon as you do.
-- **Email fallback is time-limited.** An emailed sign-in code is valid for a short window. If it expires, request a new one from the sign-in screen.
+- **Email fallback is time-limited.** An emailed sign-in code is valid for 10 minutes, and a new one can be requested once a minute. If it expires, request a new one from the sign-in screen.
 - **Re-enrolling.** To move 2FA to a new app or device, turn 2FA off (this asks for your password), then set it up again from scratch. Setting up fresh always produces a new set of backup codes.
 - **Codes are checked on your device's clock.** Authenticator codes are time-based, so keep your phone's time accurate (automatic time is fine). A small amount of clock drift is tolerated.
 

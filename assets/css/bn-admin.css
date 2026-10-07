@@ -56,7 +56,9 @@
 	 * reference --bn-* directly. Dark mode flips through the v2 source. */
 
 	/* -- Brand ------------------------------------------------------------ */
-	--bn-a-brand:             var(--bn-accent);
+	/* The accent, deepened just enough to read on the admin's light surfaces and
+	   behind a white label (bn-base.css, --bn-accent-solid). */
+	--bn-a-brand:             var(--bn-accent-solid);
 	--bn-a-brand-hover:       var(--bn-accent-700);
 	--bn-a-brand-light:       var(--bn-accent-100);
 
@@ -266,19 +268,18 @@
 	border: 0;
 	border-radius: var(--bn-a-r-sm);
 	background: none;
-	/* Inherit so the button reads as part of its own notice rather than
-	   introducing a third colour on a green or red ground. */
-	color: inherit;
+	/* Body ink, full strength: the notice's own tint at reduced opacity read at
+	   under 3:1 on the amber and blue grounds (an icon button needs 3:1). */
+	color: var(--bn-a-text-2);
 	font-size: var(--bn-a-text-lg);
 	line-height: 1;
-	opacity: 0.7;
 	cursor: pointer;
 }
 
 .bn-notice__dismiss:hover,
 .bn-notice__dismiss:focus-visible {
-	opacity: 1;
-	background: rgba( 0, 0, 0, 0.06 );
+	color: var(--bn-a-text-1);
+	background: color-mix(in oklch, var(--bn-a-text-1) 8%, transparent);
 }
 
 .bn-notice__dismiss:focus-visible {
@@ -962,6 +963,15 @@ select.bn-select-input:focus,
 
 select.bn-select-input {
 	min-width: var(--bn-a-input-min-w);
+}
+
+/* The uniform padding above is the same on both sides and !important, which
+ * beat the arrow-room rule below: a long option ran under the dropdown arrow
+ * ("The day each member joined"). Every class-styled select keeps that room. */
+select.bn-text-input,
+select.bn-select-input,
+select.bn-select {
+	padding-inline-end: var(--bn-a-s6) !important;
 }
 
 select.bn-text-input {
@@ -1916,7 +1926,7 @@ table.bn-table tr:hover td {
 	border-radius: var(--bn-a-r-lg);
 	margin-inline-start: var(--bn-a-s2);
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg);
+	color: var(--bn-accent-fg);
 	vertical-align: middle;
 }
 
@@ -1957,13 +1967,13 @@ table.bn-table tr:hover td {
 
 .bn-btn-primary {
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg);
+	color: var(--bn-accent-fg);
 	border-color: transparent;
 }
 
 .bn-btn-primary:hover {
-	background: var(--bn-a-brand-hover);
-	color: var(--bn-a-bg);
+	background: color-mix(in oklch, var(--bn-a-brand) 82%, black);
+	color: var(--bn-accent-fg);
 }
 
 .bn-btn-secondary {
@@ -2090,7 +2100,7 @@ button.bn-btn-danger:hover {
 
 .bn-page-link.current {
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg) !important;
+	color: var(--bn-accent-fg) !important;
 	border-color: var(--bn-a-brand);
 }
 
@@ -2244,7 +2254,7 @@ button.bn-btn-danger:hover {
 
 .bn-filter-tab.active {
 	background: var(--bn-a-brand);
-	color: var(--bn-a-bg);
+	color: var(--bn-accent-fg);
 }
 
 .bn-filter-tab:hover:not(.active) {
@@ -4339,4 +4349,57 @@ code.bn-ep-code {
    row's overflow menu already covers a suspended author. */
 .bn-more-dropdown .bn-badge {
 	margin: var(--bn-a-s1) var(--bn-a-s4);
+}
+
+/* Appearance > Layout: one option per line, the custom width beside "Custom". */
+.bn-cw-options {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s2);
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.bn-cw-options .bn-cw-options__px {
+	width: 8em;
+}
+
+/* --------------------------------------------------------------------------
+   Email Log: one filter row (search, type, status) above the log.
+   -------------------------------------------------------------------------- */
+
+.bn-email-log__filters .bn-segment {
+	margin-inline-start: auto;
+}
+
+/* A smaller starting width keeps search, type, Filter and status on one row down
+   to a 1280px window; below that the status switch wraps under them. Row layout
+   only: under 783px .bn-filter-bar stacks into a column, where a flex-basis is a
+   HEIGHT (this rule unscoped made the search a 192px-tall box at 390px). The
+   shared stacked rule above already gives the field auto height, full width. */
+@media screen and ( min-width: 783px ) {
+
+	.bn-email-log__filters input[type="search"] {
+		flex: 1 1 12rem;
+	}
+}
+
+/* Failures are the reason the owner opens this screen: the count reads as an alert. */
+.bn-email-log__filters .bn-segment__item.is-alert:not(.is-active) {
+	color: var(--bn-a-red);
+}
+
+.bn-email-log__error {
+	margin-top: var(--bn-a-s1);
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+
+.bn-email-log td {
+	vertical-align: middle;
+}
+
+.bn-email-log time {
+	white-space: nowrap;
 }

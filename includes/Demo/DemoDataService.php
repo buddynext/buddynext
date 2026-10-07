@@ -601,14 +601,14 @@ class DemoDataService {
 		'Shipped a new prototype today. Spent way too long on the empty states but it was worth it. #design #ux',
 		'Hot take: most dashboards would be better as a single well-chosen number. #data #design',
 		'Finally got dark mode pixel-perfect across the whole app. #frontend #css #accessibility',
-		'Weekend trail was brutal — 1,200m of climbing in the fog. Legs gone, soul restored. #running #outdoors',
+		'Weekend trail was brutal: 1,200m of climbing in the fog. Legs gone, soul restored. #running #outdoors',
 		'Reading a wonderful book on systems thinking. Anyone else in the #bookclub want to discuss chapter 4?',
 		'Roasted a new single-origin this morning. Bright, citrusy, dangerous. #coffee',
 		'Spent the evening soldering a new synth voice. It bleeps! #synthDIY #music',
 		'Docs are a feature. Rewrote our getting-started guide and onboarding drop-off halved. #opensource #docs',
 		'Tried shooting only at golden hour for a week. Completely changed how I see light. #photography',
 		'Refactored the gnarliest module in our codebase. 400 lines became 120. #engineering',
-		'New illustration set is up — soft gradients and rounded everything. #illustration #design',
+		'New illustration set is up. Soft gradients and rounded everything. #illustration #design',
 		'Climate model run finished after 9 hours. The ocean is telling us things. #climate #science',
 	);
 
@@ -618,7 +618,7 @@ class DemoDataService {
 	 * @var string[]
 	 */
 	private const COMMENTS = array(
-		'This is great — love the direction.',
+		'This is great, love the direction.',
 		'Saving this. Exactly what I needed today.',
 		'How did you approach the edge cases?',
 		'Congrats! That is a real milestone.',
@@ -664,7 +664,7 @@ class DemoDataService {
 		array(
 			'author'  => 1,
 			'space'   => 1,
-			'content' => 'Great primer on modern CSS layout — sharing it in the guild. #css #frontend',
+			'content' => 'Great primer on modern CSS layout, sharing it in the guild. #css #frontend',
 			'url'     => 'https://web.dev/learn/css/',
 		),
 		array(
@@ -691,7 +691,7 @@ class DemoDataService {
 		),
 		array(
 			'author'  => 3,
-			'content' => 'New gradient study — soft, rounded, calm. #illustration #design',
+			'content' => 'New gradient study: soft, rounded, calm. #illustration #design',
 			'img'     => 'covers/cover-05.png',
 		),
 		array(
@@ -1595,7 +1595,7 @@ class DemoDataService {
 				array(
 					'by'   => 3,
 					'post' => 0,
-					'note' => 'Worth a look — sharing with the group.',
+					'note' => 'Worth a look, sharing with the group.',
 				),
 				array(
 					'by'   => 6,
@@ -1783,7 +1783,7 @@ class DemoDataService {
 		// 5) A light scatter of posts so the feed is not empty.
 		$posts         = new PostService();
 		$created_posts = array();
-		$snippets      = array( 'Just joined — excited to be here!', 'Anyone else testing at scale today?', 'Sharing a quick note with the community.', 'Loving the new activity feed.', 'What is everyone working on this week?' );
+		$snippets      = array( 'Just joined, excited to be here!', 'Anyone else testing at scale today?', 'Sharing a quick note with the community.', 'Loving the new activity feed.', 'What is everyone working on this week?' );
 		foreach ( $ids as $i => $uid ) {
 			if ( 0 !== $i % 4 ) {
 				continue;

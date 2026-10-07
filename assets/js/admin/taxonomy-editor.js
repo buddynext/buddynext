@@ -19,7 +19,10 @@
 		return value
 			.toLowerCase()
 			.replace( /[^a-z0-9]+/g, '-' )
-			.replace( /^-|-$/g, '' );
+			.replace( /^-|-$/g, '' )
+			// The slug fields' maxlength; cut at a word boundary where possible.
+			.slice( 0, 64 )
+			.replace( /-+$/, '' );
 	}
 
 	/**

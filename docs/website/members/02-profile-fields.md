@@ -13,7 +13,7 @@ A profile is the first thing one member sees about another. Out of the box you g
 Two things make this worth setting up early:
 
 - **Richer profiles.** Members who can describe themselves are more likely to be recognised, followed, and trusted. A profile that answers "who is this and why should I connect" does more for engagement than any feature you can bolt on later.
-- **Better directory filtering.** Fields you mark as searchable feed the member directory and search. If you collect "Skills" or "Department" as a field, members can find each other by it. Empty profiles cannot be filtered, so the fields you ask for today are the filters you get tomorrow.
+- **Easier to find each other.** Fields you mark **Include in search** are added to member search - the directory's search box and the site search. If you collect "Skills" or "Department" as a field, typing "React" or "Finance" finds the members who filled it in. Empty profiles cannot be found this way, so the fields you ask for today are what members can search on tomorrow.
 
 You group fields so they render as tidy sections (Basic Info, Work Experience, and so on), control who can see each one, and choose which fields appear on the sign-up form so you collect the essentials before a member ever reaches their profile.
 
@@ -45,11 +45,12 @@ Every field carries the following controls.
 | Control | What it controls | Default |
 |---|---|---|
 | Label | The field name members see on the form and the profile. | (required, no default) |
-| Field type | How the field is captured and displayed - see the type table below. | Text |
+| Field type | How the field is captured and displayed - see the type table below. You can change the type of an existing field. Values members already entered are converted where the new type can hold them (for example a plain-text Location becomes a map address) and shown as best they can be otherwise. | Short text |
 | Visibility | Who can see the value: Public, Members only, Followers only, Connections only, or Only me. This is the starting value each member gets; a member can then set their own field's audience anywhere up to the group's ceiling. | Members only |
 | Required | Marks the field as expected. The member is nudged to complete it (it counts against their profile completion score). | Off |
-| Searchable | Mirrors the value into search so members can find each other by this field in the directory and search. Available on text-style fields only. How far it reaches depends on the field's visibility - see below. | Off |
-| Show on registration | Adds the field to the sign-up form so you collect it before the member reaches their profile. Fields in a repeating group cannot be added to sign-up. | Off |
+| Include in search | Adds the value to member search, so members can find each other by typing it into the directory's search box or the site search. It does not add a directory filter. Available on text-style fields only. How far it reaches depends on the field's visibility - see below. | Off |
+| Ask for this on the registration form | Adds the field to the sign-up form so you collect it before the member reaches their profile. Fields in a repeating group cannot be added to sign-up. | Off |
+| Show in the profile header | Puts the field's value in the row of details under the member's name in the profile header (the default header shows Location and Website). Which fields appear, and their order, is entirely up to this flag and the field's sort order - there is no fixed list. Fields in a repeating group cannot be shown in the header. | Off, except Location and Website, which start on |
 | Sort order | The position of the field within its group. Lower numbers appear first. | Appended last |
 
 ### Group controls
@@ -67,8 +68,8 @@ The free plan covers the everyday field types most communities need.
 
 | Type | Use it for |
 |---|---|
-| Text | Short single-line answers (job title, city). |
-| Paragraph | Longer free text (bio, about me). |
+| Short text | Short single-line answers (job title, city). |
+| Long text | Longer free text (bio, about me). |
 | Number | Numeric values (years of experience). |
 | URL | A single web address. |
 | Email | An email address. |
@@ -76,17 +77,17 @@ The free plan covers the everyday field types most communities need.
 | Date | A single date. |
 | Yes / No | A simple boolean toggle. |
 | Dropdown | One choice from a list you define. |
-| Radio | One choice shown as radio buttons. |
+| Radio buttons | One choice shown as radio buttons. |
 | Multi-select | Several choices from a list. |
-| Colour | A colour value. |
+| Color | A color value. |
 
-> **Tip:** Mark the one or two fields your directory should filter on (such as Skills or Department) as searchable, and the rest as not searchable. Only searchable fields can be used to find members.
+> **Tip:** Turn on **Include in search** for the fields people will look each other up by (such as Skills or Department), and leave it off for the rest. It makes the value findable by typing it into search; it does not add a filter to the member directory.
 
 ### How far a searchable field reaches (1.0.8)
 
-Ticking **Searchable** does not override the field's visibility - it works inside it. What "searchable" gets you therefore depends on which visibility the field carries:
+Ticking **Include in search** does not override the field's visibility - it works inside it. What "searchable" gets you therefore depends on which visibility the field carries:
 
-| Field visibility | Ticking Searchable means... |
+| Field visibility | Ticking Include in search means... |
 |---|---|
 | Public | Anyone can find the member by this value, including a logged-out visitor. |
 | Members only | Only a signed-in member can find them by it. A logged-out visitor never matches it. |
@@ -138,12 +139,12 @@ When a field is set up in a way that stops members from answering it, the Profil
 
 | Problem | What members experience |
 |---|---|
-| A Dropdown, Radio or Checkboxes field has no options | Nobody can answer it. If it is required, members cannot save their profile. |
+| A Dropdown, Radio or Multi-select field has no options | Nobody can answer it. If it is required, members cannot save their profile. |
 | A conditional field is asked on the registration form but the field that decides is not (Pro) | It never shows at signup. |
 | A conditional field depends on member types members cannot choose at signup (Pro) | It never shows at signup. |
 | A condition's field was deleted or lost the answers it checks (Pro) | The field is shown to everyone until you fix it. |
 
-The field panel also blocks saving a Dropdown, Radio or Checkboxes field with no options, with a message just above the Save button.
+The field panel also blocks saving a Dropdown, Radio or Multi-select field with no options, with a message just above the Save button.
 
 On the registration and "Almost there" forms, a problem with an answer (a missing required field, for example) is shown under that field and the cursor moves to it, instead of a general message at the top of the form.
 
@@ -160,7 +161,7 @@ On the registration and "Almost there" forms, a problem with an answer (a missin
 
 ## Free vs Pro
 
-The free plan covers the basics: the everyday field types listed above (text, paragraph, number, URL, email, phone, date, yes/no, dropdown, radio, multi-select, and colour), grouped into sections with visibility, required, searchable, and show-on-registration controls. For a typical community a handful of well-chosen fields is enough to get started.
+The free plan covers the basics: the everyday field types listed above (text, paragraph, number, URL, email, phone, date, yes/no, dropdown, radio, multi-select, and color), grouped into sections with visibility, required, searchable, show-on-registration and show-in-header controls. For a typical community a handful of well-chosen fields is enough to get started.
 
 Pro adds four advanced field types for communities that need richer data capture:
 

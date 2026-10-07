@@ -88,7 +88,7 @@ class MembersTest extends \WP_UnitTestCase {
 	 */
 	public function test_suspend_member_marks_member_suspended(): void {
 		$user_id = $this->factory->user->create();
-		$this->members->suspend_member( $user_id );
+		$this->members->suspend_member( $user_id, 'Spam or scams' );
 		$this->assertTrue( buddynext_service( 'moderation' )->is_suspended( $user_id ) );
 	}
 
@@ -98,7 +98,7 @@ class MembersTest extends \WP_UnitTestCase {
 	 */
 	public function test_unsuspend_member_lifts_suspension(): void {
 		$user_id = $this->factory->user->create();
-		$this->members->suspend_member( $user_id );
+		$this->members->suspend_member( $user_id, 'Spam or scams' );
 		$this->assertTrue( buddynext_service( 'moderation' )->is_suspended( $user_id ) );
 
 		$this->members->unsuspend_member( $user_id );
@@ -119,7 +119,7 @@ class MembersTest extends \WP_UnitTestCase {
 				}
 			}
 		);
-		$this->members->suspend_member( $user_id );
+		$this->members->suspend_member( $user_id, 'Spam or scams' );
 		$this->assertTrue( $fired );
 	}
 
@@ -132,7 +132,7 @@ class MembersTest extends \WP_UnitTestCase {
 		// Must be suspended first: the canonical mutator fires the hook only when a
 		// row is actually lifted (it no longer fires "unsuspended" when nothing was
 		// suspended, which the old hand-rolled path did — card 10296532578).
-		$this->members->suspend_member( $user_id );
+		$this->members->suspend_member( $user_id, 'Spam or scams' );
 		add_action(
 			'buddynext_member_unsuspended',
 			function ( $id ) use ( &$fired, $user_id ) {

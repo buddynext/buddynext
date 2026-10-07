@@ -1,6 +1,6 @@
 # Real-time WebSocket
 
-Real-time WebSocket (Pro) connects your community to a WebSocket server so notifications, feed activity, and messaging update the instant they happen, instead of waiting for the next poll. It uses the Pusher protocol, so it works with Sockudo (free, self-hosted) or any other Pusher-compatible server.
+Real-time WebSocket (Pro) connects your community to a WebSocket server so notifications, feed activity, and messaging update the instant they happen, instead of waiting for the next poll. It uses the Pusher protocol, so it works with Sockudo (free, self-hosted, the recommended choice) or any other Pusher-compatible server. Polling stays the baseline: real-time is an optional upgrade.
 
 > **Need to stand up a server?** This page covers the feature and its settings. For step-by-step deployment - Docker Compose, systemd, Redis, TLS, and a first-connection checklist - see [Deploying a realtime server](25-realtime-server-deployment.md).
 
@@ -10,13 +10,13 @@ Real-time WebSocket (Pro) connects your community to a WebSocket server so notif
 
 ## Why it matters
 
-The free plugin keeps the community live by polling: the notification bell checks for new items every few seconds, the feed checks for new posts roughly once a minute. That works and nothing is broken without Pro - it is just slower. A member can wait up to a minute to see a new post appear, and the bell only catches up on its next check.
+The free plugin keeps the community live by polling: the notification bell checks for new items about every 30 seconds when idle (every 5 seconds for a minute after activity), and the feed checks for new posts roughly once a minute. That works and nothing is broken without Pro - it is just slower. A member can wait up to a minute to see a new post appear, and the bell only catches up on its next check.
 
 Real-time removes that wait. When the WebSocket transport is connected, an event is delivered to the browser the moment the server fires it. A reaction, a comment, a new post in a space, a notification, an incoming direct message - they surface immediately, the way they do on a mainstream social app. That difference is what makes a community feel alive rather than static, and it is the single clearest signal that members are in a shared, active space rather than refreshing a page.
 
 For the owner this is a transport upgrade, not a feature rebuild. The same events that polling reads are published over the socket, so turning real-time on makes existing surfaces faster without changing how they work. When real-time is off or the server is unreachable, the community quietly falls back to polling - no broken features, just the slower cadence.
 
-> **Note:** Real-time needs a WebSocket server you run or subscribe to. Until one is configured and enabled, the community runs on the free polling transport. Direct-message real-time additionally relies on the WPMediaVerse Pro messaging engine.
+> **Note:** Real-time needs a WebSocket server you run or subscribe to. Until one is configured and enabled, the community runs on the free polling transport. Direct-message real-time additionally relies on the WPMediaVerse messaging engine.
 
 ## How it works (for members)
 
@@ -33,27 +33,26 @@ If the server is unreachable, the member sees no error - the experience falls ba
 
 ## Setting it up (for owners)
 
-Realtime settings live under the BuddyNext admin, on the Realtime tab (Advanced section). The page opens with a setup guide for choosing a server.
+Realtime settings live in the BuddyNext admin under **Realtime & Push > Realtime**. The page opens with a setup guide for choosing a server. Realtime has its own switch in the Features catalogue, **Realtime**, which is off by default. Turn it on first; the Realtime screen then shows whether it is off, on but not yet configured, or on and configured.
 
 ### Requirements
 
-- A Pusher-compatible WebSocket server. Sockudo (open-source, self-hosted, actively maintained) is the recommended option and is free; Laravel Reverb is another self-hosted choice; Pusher Channels or Ably (in Pusher-compatible mode) are hosted drop-in alternatives that need no server of your own.
+- A Pusher-compatible WebSocket server. Sockudo (open-source, self-hosted, actively maintained) is the recommended option and is free; Laravel Reverb is another self-hosted choice; Pusher Channels or Ably (in Pusher-compatible mode) are hosted drop-in alternatives that need no server of your own. The same Host, App ID, Key and Secret fields work for all of them; there are no separate port or scheme fields, so put the scheme (and port, if any) in the Host.
 
 ### Choosing and connecting a server
 
 1. Stand up a server. The recommended path is Sockudo on any VPS or container. Full instructions are in [Deploying a realtime server](25-realtime-server-deployment.md).
 2. Optionally front it with a Cloudflare Tunnel so you get HTTPS and DDoS protection without exposing the server's IP or opening ports. Map a hostname (for example realtime.yourdomain.com) to the server's port, and use that HTTPS hostname as the Host.
-3. Copy the server's App ID, Key, and Secret into the fields below, set the Host, enable realtime, and save.
+3. Turn on **Realtime** in the Features catalogue, then copy the server's App ID, Key, and Secret into the fields below, set the Host, and save.
 
 > **Note:** Cloudflare Workers do not speak the Pusher protocol, so a realtime server is still required. Cloudflare only fronts it.
 
-> **Sockudo and Soketi both work.** Same protocol, same settings - we test against both. Soketi has not had a release since 2024, so Sockudo is the better pick for a new server; if you already run Soketi, stay on it.
+> **Sockudo is recommended; Soketi is legacy.** Same protocol, same settings. Soketi is no longer maintained (no release since 2024), so choose Sockudo for a new server. If you already run Soketi it keeps working.
 
 ### Settings
 
 | Setting | What it does | Default |
 |---|---|---|
-| Enable realtime | Master switch. When on, BuddyNext Pro publishes lifecycle events (posts, reactions, comments, notifications, messages) to the configured server. When off, the community uses polling. | Off |
 | Host | The server's full base URL with scheme and no trailing slash, for example https://realtime.example.com. | Empty |
 | App ID | The app id configured on your server. | Empty |
 | Key | The public app key. It ships to the browser and identifies the connection. | Empty |
@@ -73,13 +72,13 @@ Public feed and public-space activity uses open channels and needs no per-member
 
 ### The connection self-test
 
-The Realtime page has a **Test connection** button. It pings your configured server and reports the number of connected channels it sees, which confirms the Host, App ID, Key, and Secret are correct and the server is reachable before you rely on it.
+The Realtime page has a **Test connection** button, in the Diagnostics section. It pings your configured server and reports the number of connected channels it sees, which confirms the Host, App ID, Key, and Secret are correct and the server is reachable before you rely on it.
 
 ## Good to know
 
 - Real-time is an upgrade to the free polling transport, not a replacement for the features it accelerates. Every live surface keeps working on polling when realtime is off or the server is down.
 - The transport loads for logged-in members so the notification bell stays current site-wide, and on BuddyNext hub pages. An owner can refine where it loads if needed.
-- Direct-message real-time is delivered through the WPMediaVerse Pro messaging engine on a per-conversation channel. The messaging engine must be present for DM live updates.
+- Direct-message real-time is delivered through the WPMediaVerse messaging engine on a per-conversation channel. The messaging engine must be present for DM live updates.
 - Private channels (personal notifications, conversations, members-only spaces) are authorized per member, so a member can never subscribe to another member's stream or a space they do not belong to.
 - Posts in a members-only space are routed to that space's private channel rather than a public one, so a non-member subscribing to public channels cannot read private-space activity.
 - Member presence and the "Online now" filter are handled by the free presence heartbeat, independently of the WebSocket connection.

@@ -144,18 +144,23 @@ trait RendersDriveFiles {
 		// may create a folder or manage one. MediaVerse scopes the trash list to
 		// what the viewer may restore.
 		$can_manage_folders = $can_create_folder || $any_row_managed;
+		// The Trash: folder managers, and always the owner of a personal drive -
+		// they are the one whose Remove sends a file there.
+		$can_open_trash = $can_manage_folders || ( 'user' === $drive_type && get_current_user_id() === $drive_id );
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view switch.
-		if ( $can_manage_folders && ! empty( $_GET['bn_trash'] ) ) {
-			$trash = WPMediaVerseBridge::drive_trash( $drive_type, $drive_id, $page );
+		if ( $can_open_trash && ! empty( $_GET['bn_trash'] ) ) {
+			$trash       = $can_manage_folders ? WPMediaVerseBridge::drive_trash( $drive_type, $drive_id, $page ) : null;
+			$trash_files = WPMediaVerseBridge::drive_trashed_documents( $drive_type, $drive_id, $page );
 			buddynext_get_template(
 				'partials/space-files-trash.php',
 				array(
 					'bn_sft_drive'    => $drive_type . ':' . $drive_id,
 					'bn_sft_base_url' => $base_url,
 					'bn_sft_items'    => null === $trash ? array() : $trash['items'],
-					'bn_sft_page'     => null === $trash ? 1 : $trash['page'],
-					'bn_sft_pages'    => null === $trash ? 1 : $trash['pages'],
+					'bn_sft_files'    => null === $trash_files ? array() : $trash_files['items'],
+					'bn_sft_page'     => $page,
+					'bn_sft_pages'    => max( null === $trash ? 1 : $trash['pages'], null === $trash_files ? 1 : $trash_files['pages'] ),
 				)
 			);
 			return;
@@ -188,6 +193,7 @@ trait RendersDriveFiles {
 				// An embed may hide the write controls; it can never grant them.
 				'bn_sf_can_write'          => $can_write,
 				'bn_sf_can_manage_folders' => $can_manage_folders,
+				'bn_sf_can_open_trash'     => $can_open_trash,
 				'bn_sf_can_create_folder'  => $can_create_folder,
 				'bn_sf_doc_query'          => $doc_query_links,
 				'bn_sf_can_moderate'       => $can_moderate,

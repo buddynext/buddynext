@@ -334,29 +334,12 @@ final class UserLinks {
 			case '#bn-logout':
 				return wp_logout_url( home_url( '/' ) );
 			case '#bn-login':
-				return self::auth_url_or( 'wp_login_url' );
+				return PageRouter::login_url();
 			case '#bn-register':
 				return self::register_url();
 			default:
 				return null;
 		}
-	}
-
-	/**
-	 * The BuddyNext auth hub URL when configured, else a WordPress fallback.
-	 *
-	 * BuddyNext's auth hub serves both login and registration, so both tokens
-	 * point at it when present; otherwise we fall back to the core URL.
-	 *
-	 * @param string $fallback Fallback function name: wp_login_url|wp_registration_url.
-	 * @return string
-	 */
-	private static function auth_url_or( string $fallback ): string {
-		$auth = PageRouter::auth_url();
-		if ( '' !== $auth ) {
-			return $auth;
-		}
-		return (string) call_user_func( $fallback );
 	}
 
 	/**

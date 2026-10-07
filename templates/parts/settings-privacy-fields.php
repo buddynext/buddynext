@@ -77,36 +77,22 @@ $privacy_connect_options    = array(
 // Shown only while messaging is on.
 // Both methods arrive together in WPMediaVerse 2.6.0; check both so a build that
 // has only one never fatals, it just hides the row.
-$bn_dm_service   = '\\WPMediaVerse\\Services\\ProfileService';
-$bn_dm_options   = ( \BuddyNext\Messages\MessagesData::entry_enabled() && is_callable( array( $bn_dm_service, 'dm_access_options' ) ) && is_callable( array( $bn_dm_service, 'effective_dm_access' ) ) )
+$bn_dm_service = '\\WPMediaVerse\\Services\\ProfileService';
+$bn_dm_options = ( \BuddyNext\Messages\MessagesData::entry_enabled() && is_callable( array( $bn_dm_service, 'dm_access_options' ) ) && is_callable( array( $bn_dm_service, 'effective_dm_access' ) ) )
 	? (array) call_user_func( array( $bn_dm_service, 'dm_access_options' ) )
 	: array();
-$bn_dm_value     = $bn_dm_options ? (string) call_user_func( array( $bn_dm_service, 'effective_dm_access' ), (int) $user_id ) : '';
-$privacy_mention = (string) get_user_meta( $user_id, 'bn_privacy_mention', true );
-if ( '' === $privacy_mention ) {
-	$privacy_mention = 'everyone';
-}
-$privacy_show_in_directory = '0' !== (string) get_user_meta( $user_id, 'bn_privacy_show_in_directory', true );
-$privacy_search_indexable  = '0' !== (string) get_user_meta( $user_id, 'bn_privacy_search_indexable', true );
-// `bn_pro_hide_profile_views` is the canonical Pro-shared key (Pro P5.3 reads
-// it to opt the viewer out of the who-viewed-your-profile widget). Free can
-// save it too so the toggle stays consistent across plans.
-$privacy_hide_views      = '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
-$privacy_account_private = (bool) get_user_meta( $user_id, 'bn_account_private', true );
-
-// Profile-view / follow / connect gates. Read through PrivacyService so the
-// stored value (and its default fallback) match exactly what the enforcement
-// reads back. Degrade to the documented defaults if the service is absent.
-$privacy_service            = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
-$privacy_profile_visibility = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
-	? (string) $privacy_service->get_preference( $user_id, 'profile_visibility' )
-	: 'public';
-$privacy_who_can_follow     = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
-	? (string) $privacy_service->get_preference( $user_id, 'who_can_follow' )
-	: 'everyone';
-$privacy_who_can_connect    = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
-	? (string) $privacy_service->get_preference( $user_id, 'who_can_connect' )
-	: 'everyone';
+$bn_dm_value   = $bn_dm_options ? (string) call_user_func( array( $bn_dm_service, 'effective_dm_access' ), (int) $user_id ) : '';
+// Stored values with their defaults, from the same PrivacyService read that
+// GET /me/profile returns (and that enforcement reads back).
+$bn_privacy                 = buddynext_service( 'privacy' )->member_settings( (int) $user_id );
+$privacy_mention            = (string) $bn_privacy['bn_privacy_mention'];
+$privacy_show_in_directory  = (bool) $bn_privacy['bn_privacy_show_in_directory'];
+$privacy_search_indexable   = (bool) $bn_privacy['bn_privacy_search_indexable'];
+$privacy_hide_views         = (bool) $bn_privacy['bn_pro_hide_profile_views'];
+$privacy_account_private    = (bool) $bn_privacy['bn_account_private'];
+$privacy_profile_visibility = (string) $bn_privacy['bn_privacy_profile_visibility'];
+$privacy_who_can_follow     = (string) $bn_privacy['bn_privacy_who_can_follow'];
+$privacy_who_can_connect    = (string) $bn_privacy['bn_privacy_who_can_connect'];
 
 /**
  * Render a notif/privacy toggle or audience-select row, returning HTML.

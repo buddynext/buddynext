@@ -14,7 +14,7 @@ You do not do anything to appear online. As you browse the community while logge
 
 Where presence shows up:
 
-- **Member directory.** Each member card shows an online indicator when that person is currently active. The directory also offers an "Online now" view that lists only members active in the last few minutes, and a most-active sort so the people around right now rise to the top.
+- **Member directory.** Each member card shows an online indicator when that person is currently active. The directory also has an **Online only** switch that lists only members active in the last few minutes, and a **Recently active** sort so the people around right now rise to the top. The sidebar shows an **Online now** list of members too.
 - **Member profiles.** A member's profile reflects whether they are currently active.
 - **Member cards anywhere they appear**, including sidebar widgets such as an online-members list.
 - **The messaging rail**, so you can see at a glance whether the person you are chatting with is around.
@@ -30,7 +30,7 @@ This runs without JavaScript. Even on a plain page view, your presence is refres
 
 ## Setting it up (for owners)
 
-Online presence works automatically. There is no admin setting to switch it on, no provider to connect, and no keys to enter - the moment members are browsing, presence is recorded and shown. The directory's "Online now" filter and most-active sort are part of the member directory and need no separate configuration.
+Online presence works automatically. There is no admin setting to switch it on, no provider to connect, and no keys to enter - the moment members are browsing, presence is recorded and shown. The directory's **Online only** switch and **Recently active** sort are part of the member directory and need no separate configuration.
 
 There is currently no per-member privacy control to hide your online status. Presence is shown for active members as described above. If you need presence gated behind a different rule for your community, that is a developer-level customization rather than a built-in setting.
 
@@ -39,15 +39,15 @@ There is currently no per-member privacy control to hide your online status. Pre
 - **Active means the last five minutes.** Anyone active inside that window shows as online; after it, they quietly stop showing as online.
 - **Presence is passive.** Members do not toggle themselves online or off - it follows real activity.
 - **No flicker for active members.** The once-a-minute refresh sits comfortably inside the five-minute window, so someone who is genuinely around stays shown as online.
-- **Empty "Online now" is normal.** On a quiet site at a quiet hour, the "Online now" view can legitimately be empty - that means no one has been active in the last few minutes, not that something is broken.
+- **An empty online list is normal.** On a quiet site at a quiet hour, the **Online only** view can legitimately be empty - that means no one has been active in the last few minutes, not that something is broken.
 - **No admin toggle and no member opt-out.** Presence is on by default and does not have a built-in privacy switch.
 
 ## Free vs Pro
 
-Everything described here - the online indicators, the "active recently" window, the automatic heartbeat, and the "Online now" directory view - works in free BuddyNext over standard polling. Pro can upgrade the transport underneath to push real-time updates over a live connection, but it uses the same presence signal, so the indicators and behavior members see are the same. Presence never breaks or disappears without Pro; Pro only makes the updates feel more instant.
+Everything described here - the online indicators, the "active recently" window, the automatic heartbeat, and the **Online only** directory view - works in free BuddyNext over standard polling. Pro can upgrade the transport underneath to push real-time updates over a live connection, but it uses the same presence signal, so the indicators and behavior members see are the same. Presence never breaks or disappears without Pro; Pro only makes the updates feel more instant.
 
 ## Related
 
-- [Member Directory](04-member-directory.md) - the Online now filter and most-active sort
+- [Member Directory](04-member-directory.md) - the Online only switch and Recently active sort
 - [Direct Messaging](../messaging-notifications/01-direct-messaging.md) - the messaging rail that shows presence
 - [Near-Real-Time Updates](../engagement/03-realtime-updates.md) - how presence stays current across the site

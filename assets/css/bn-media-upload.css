@@ -169,6 +169,26 @@
 	.bn-mu-file__status--uploading { animation: none; }
 }
 
+/* Percent sent while the file uploads: a large video takes a while. */
+.bn-mu-file__percent {
+	position: absolute;
+	inset-block-end: var(--bn-s1);
+	inset-inline: 0;
+	margin-inline: auto;
+	width: fit-content;
+	padding: 0 var(--bn-s1);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.bn-mu-file__percent[hidden] {
+	display: none;
+}
+
 .bn-mu-file__remove {
 	position: absolute;
 	inset-block-start: var(--bn-s1);
@@ -534,6 +554,11 @@
 	gap: var(--bn-s2);
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-3);
+}
+
+.bn-album-picker__percent {
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
 }
 
 .bn-album-picker__uploading.is-hidden {

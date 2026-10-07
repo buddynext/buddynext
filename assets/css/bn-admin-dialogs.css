@@ -123,7 +123,7 @@
 }
 
 .bn-dialog__ok {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	border-color: var(--bn-accent);
 }

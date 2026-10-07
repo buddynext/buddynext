@@ -21,8 +21,9 @@ In short:
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/me/notifications` | auth | List the current user's notifications, each enriched with a rendered message, link, icon, tone, and label. Accepts `?cursor=` and `?per_page=` (max 50). |
-| GET | `/me/notifications/unread-count` | auth | Unread count for the bell badge. |
+| GET | `/me/notifications` | auth | List the current user's notifications, each enriched with a rendered message, link, icon, tone, and label. Accepts `?cursor=`, `?per_page=` (max 50), `?filter=` (`all`, `unread`, `read`; default `all`), `?offset=` (offset paging as an alternative to the cursor) and `?since=` (a timestamp lower bound). |
+| GET | `/me/notifications/unread-count` | auth | Bell badge numbers: `count` is the **unseen** count (rows created since the list was last viewed, cleared by `seen`, not by reading), and `by_tab` holds the per-tab unread counts for the notifications page. The route name is kept for compatibility. |
+| GET | `/me/notifications/this-week` | auth | The numbers behind the "This week" card (`notifications`, `read`, `new_followers`, `engagement`, week-over-week label and trend). Returns `404 bn_feature_disabled` while the Sidebar feature is off. |
 | PUT | `/me/notifications/seen` | auth | Advance the caller's "last seen" timestamp, clearing the bell/nav badge. Also accepts `POST`. Deliberately separate from read: viewing the list must not flip rows to `is_read=1`, or the Unread tab would empty the instant the page opens and defeat Mark-unread. Per-item read state changes only via an explicit `read`/`unread`/`read-all` call. |
 | PUT | `/me/notifications/read-all` | auth | Mark all of the current user's notifications read. Also accepts `POST`. |
 | PUT | `/me/notifications/(?P<id>[\d]+)/read` | auth | Mark one notification read. Also accepts `POST`. |
@@ -35,7 +36,7 @@ In short:
 | GET | `/me/space-notification-prefs` | auth | One row per active space membership with the resolved preference (defaults to `all`). |
 | POST | `/me/space-notification-prefs` | auth | Set the current user's preference for one space. Body: `space_id` and `pref` (one of `all`, `mentions_only`, `none`). Non-members get `403`. |
 
-> **Note:** There is no `/spaces/{id}/notification-pref` route. Per-space notification preferences are written through `POST /me/space-notification-prefs` with `space_id` in the body, so they sit under the `/me/...` user scope alongside the other preference routes.
+> **Note:** Per-space preferences have two equivalent entry points: `POST /me/space-notification-prefs` (`space_id` and `pref` in the body) and the space-scoped `GET`/`POST /spaces/{id}/notification-pref`, documented on the REST: Spaces page.
 
 ### Preference value reference
 

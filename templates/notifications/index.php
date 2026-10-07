@@ -36,65 +36,20 @@ use BuddyNext\Profile\AvatarService;
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
-// Resolve active filter tab (sanitized).
-$allowed_filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
-// No Messages filter while messaging is off in WPMediaVerse (card 10344001598).
-if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
-	$allowed_filters = array_values( array_diff( $allowed_filters, array( 'message' ) ) );
-}
-$active_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
-	$active_filter = 'all';
-}
-
-// Filter-key -> notification type list. Shared between the type-filtered fetch
-// below and the per-type unread tally (so the in-template SQL is gone but the
-// "which types belong to which tab" mapping stays declarative).
-$filter_type_map = array(
-	'reaction' => array( 'bn.post_reacted', 'mediaverse.media_reaction' ),
-	'comment'  => array( 'bn.post_commented', 'bn.media_commented' ),
-	'mention'  => array( 'bn.mention', 'mediaverse.media_mention' ),
-	'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
-	'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
-	'message'  => array( 'bn.new_message' ),
-);
-
-// Pagination (simple offset; cap at 25 per page).
-$bn_per_page = 25;
-// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_paged  = isset( $_GET['paged'] ) ? max( 1, (int) sanitize_text_field( wp_unslash( $_GET['paged'] ) ) ) : 1;
-$bn_offset = ( $bn_paged - 1 ) * $bn_per_page;
-
+// Tab + page, read by the service (the same call PageRouter makes to answer 404
+// for a page past the end).
+$allowed_filters      = NotificationService::inbox_filters();
 $notification_service = new NotificationService();
-
-// Map the active filter tab onto the service's read-state filter. The 'unread'
-// tab maps to the read-state filter; the type tabs all list 'all' read-states
-// and are narrowed in PHP after fetch (the type set is small and capped at one
-// page, so this stays a single query + a cheap in-memory filter).
-$svc_filter     = ( 'unread' === $active_filter ) ? 'unread' : 'all';
-$active_types   = $filter_type_map[ $active_filter ] ?? array();
-$is_type_filter = ! empty( $active_types );
-
-// For type tabs we cannot push the type set through count_for_user(), so fetch
-// a generous page and count the matched rows; All / Unread use the service
-// count directly. Type tabs are inherently small.
-if ( $is_type_filter ) {
-	$listed      = $notification_service->list_for_user( $current_user_id, null, 200, 'all', 0 );
-	$all_items   = array_values(
-		array_filter(
-			$listed['items'] ?? array(),
-			static function ( array $item ) use ( $active_types ): bool {
-				return in_array( (string) ( $item['type'] ?? '' ), $active_types, true );
-			}
-		)
-	);
-	$total_count = count( $all_items );
-	$items       = array_slice( $all_items, $bn_offset, $bn_per_page );
-} else {
-	$listed      = $notification_service->list_for_user( $current_user_id, null, $bn_per_page, $svc_filter, $bn_offset );
-	$items       = $listed['items'] ?? array();
-	$total_count = $notification_service->count_for_user( $current_user_id, $svc_filter );
-}
+$bn_inbox             = $notification_service->inbox_page(
+	$current_user_id,
+	isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all', // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	max( 1, absint( get_query_var( 'paged', 1 ) ) )
+);
+$active_filter        = $bn_inbox['filter'];
+$bn_paged             = $bn_inbox['page'];
+$bn_per_page          = $bn_inbox['per_page'];
+$items                = $bn_inbox['items'];
+$total_count          = $bn_inbox['total'];
 
 // Hydrated service rows are associative; the row/group parts read them as
 // objects, so coerce. They carry id/type/sender_id/object_id/object_type/
@@ -110,26 +65,18 @@ $total_pages = (int) max( 1, ceil( $total_count / $bn_per_page ) );
 
 // Per-type unread counts -> tab + sidebar badges (replaces the in-template
 // conditional-SUM query). Aggregate the per-type map onto each filter tab.
-$type_unread = $notification_service->unread_counts_by_type( $current_user_id );
-$sum_types   = static function ( array $types ) use ( $type_unread ): int {
-	$sum = 0;
-	foreach ( $types as $t ) {
-		$sum += (int) ( $type_unread[ $t ] ?? 0 );
-	}
-	return $sum;
-};
-
-$total_unread = array_sum( array_map( 'intval', $type_unread ) );
+$tab_unread   = $notification_service->unread_counts_by_tab( $current_user_id );
+$total_unread = $tab_unread['unread'];
 // Badge (bell / nav) = UNSEEN, distinct from the Unread TAB count above. By the
 // time this hub renders, the list has been marked seen (PageRouter), so this is
 // 0 here — keeping the mobile badge consistent with every other surface.
 $badge_unseen    = (int) $notification_service->unseen_count( $current_user_id );
-$reaction_unread = $sum_types( $filter_type_map['reaction'] );
-$comment_unread  = $sum_types( $filter_type_map['comment'] );
-$mention_unread  = $sum_types( $filter_type_map['mention'] );
-$follow_unread   = $sum_types( $filter_type_map['follow'] );
-$space_unread    = $sum_types( $filter_type_map['space'] );
-$message_unread  = $sum_types( $filter_type_map['message'] );
+$reaction_unread = $tab_unread['reaction'];
+$comment_unread  = $tab_unread['comment'];
+$mention_unread  = $tab_unread['mention'];
+$follow_unread   = $tab_unread['follow'];
+$space_unread    = $tab_unread['space'];
+$message_unread  = $tab_unread['message'];
 
 // Message composer service: composes per-row copy/url/icon/tone/label AND
 // primes the WP user cache (compose_batch -> cache_users), so the actor avatar
@@ -470,7 +417,7 @@ $initial_context = wp_json_encode(
 		<nav class="bn-notif-pagination" aria-label="<?php esc_attr_e( 'Notifications pagination', 'buddynext' ); ?>">
 			<?php if ( $bn_paged > 1 ) : ?>
 				<a class="bn-btn" data-variant="ghost" data-size="sm"
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>">
+					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( '', $bn_paged - 1 ) ); ?>">
 					<?php buddynext_icon( 'chevron-left' ); ?>
 					<?php esc_html_e( 'Previous', 'buddynext' ); ?>
 				</a>
@@ -489,7 +436,7 @@ $initial_context = wp_json_encode(
 			</span>
 			<?php if ( $bn_paged < $total_pages ) : ?>
 				<a class="bn-btn" data-variant="ghost" data-size="sm"
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>">
+					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::page_url( '', $bn_paged + 1 ) ); ?>">
 					<?php esc_html_e( 'Next', 'buddynext' ); ?>
 					<?php buddynext_icon( 'chevron-right' ); ?>
 				</a>

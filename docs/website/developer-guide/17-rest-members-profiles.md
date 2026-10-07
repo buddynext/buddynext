@@ -25,7 +25,8 @@ Permission callbacks fall into a few classes used throughout this surface:
 |---|---|
 | `__return_true` | Public read; visibility is still enforced per row by the service layer |
 | `require_auth` | Caller must be logged in (own `/me/*` data) |
-| `require_admin` | Site admin (or a role granted the matching capability) |
+| `require_admin` | Site admin (`manage_options`) |
+| `require_moderator` | Anyone holding a moderation ability: a site admin, a community moderator, or a member granted one (see REST: Moderation and Trust) |
 | `require_edit_any_profile` | Resolves `buddynext-profile/edit-any` through the role map |
 | `can_set_user_type` | Self-assignable types, or admin for any user |
 
@@ -64,7 +65,7 @@ These are read-only list views of the caller's own social-graph state. The write
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/me/blocked` | require_auth | List users the caller has blocked |
+| GET | `/me/blocked` | require_auth | List users the caller has blocked. Accepts `page`, `per_page` (default 50) and `expand=members` (the default) |
 | GET | `/me/muted` | require_auth | List users the caller has muted |
 | GET | `/me/restricted` | require_auth | List users the caller has restricted |
 
@@ -75,7 +76,7 @@ These are read-only list views of the caller's own social-graph state. The write
 | GET | `/me/onboarding` | require_auth | Read the caller's onboarding wizard state (current step, completion) |
 | POST | `/me/onboarding/step` | require_auth | Persist progress for one onboarding step |
 | POST | `/me/onboarding/skip` | require_auth | Skip the onboarding wizard |
-| POST | `/me/onboarding/complete` | require_auth | Mark onboarding complete (fires `buddynext_onboarding_completed`) |
+| POST | `/me/onboarding/complete` | require_auth | Mark onboarding complete (fires `buddynext_onboarding_completed`). Optional body carries the wizard's answers: `display_name`, `bio`, `slug`, `channels`, `spaces`, `user_ids`, `interests`. |
 | GET | `/me/interests` | require_auth | Read the caller's picked interest categories as `{ interests: [ { id, name }, ... ] }` (deleted categories drop out) |
 | POST | `/me/interests` | require_auth | Persist the caller's interest categories. Body: `interests` (array of category IDs). Returns `{ saved: true, interests: [...] }` |
 | POST | `/me/presence/heartbeat` | require_auth | Refresh the caller's `bn_last_active` stamp for online/presence |
@@ -86,6 +87,7 @@ These are read-only list views of the caller's own social-graph state. The write
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
+| GET | `/me/social` | is_user_logged_in | The caller's sign-in accounts as Settings lists them: one row per provider that is linked or ready to connect, each `{ id, label, icon, linked, only_credential, connect_url }`. `only_credential` is true when unlinking would leave no way to sign in, in which case the unlink is refused. |
 | DELETE | `/me/social/{provider}` | is_user_logged_in | Unlink a connected social-login provider; `{provider}` matches `[a-z0-9_-]+` |
 
 ### Notification and space-notification preferences
@@ -101,7 +103,7 @@ These are read-only list views of the caller's own social-graph state. The write
 | GET | `/me/notification-channels` | require_auth | Read per-channel delivery preferences (in-app, email, push) |
 | GET | `/me/space-notification-prefs` | require_auth | Read per-space notification overrides |
 
-> **Note:** `/me/notification-prefs`, `/me/notification-channels`, and `/me/space-notification-prefs` are documented here as the read endpoints. Preference writes for these surfaces are submitted through the profile/account save flow (`PUT /me/profile` for the email/digest toggles) and the notification-channel handlers; see the Notifications schema page for the underlying `bn_notification_prefs` storage.
+> **Note:** The three preference surfaces are read here; the matching writes (`PUT /me/notification-prefs`, `PUT /me/notification-channels`, `POST /me/space-notification-prefs`) and the remaining notification routes (`seen`, `unread`, `this-week`) are documented on the REST: Notifications page. See the Notifications schema page for the underlying `bn_notification_prefs` storage.
 
 ### Account: 2FA, password, email, and sessions
 
@@ -126,7 +128,7 @@ Two-factor lives under `/account/2fa/*`; password, email, and session controls l
 |---|---|---|---|
 | POST | `/me/appeals` | require_auth | Submit an appeal against a moderation action (fires `buddynext_appeal_submitted`) |
 | GET | `/me/data-export` | require_auth | Download the caller's own data (gated by `buddynext_allow_data_export`, per-user cooldown) |
-| DELETE | `/me/account` | require_auth | Self-delete the caller's account |
+| DELETE | `/me/account` | require_auth | Self-delete the caller's account. Body: `password` (re-verified before anything is erased; `400 password_required` / `422 incorrect_password`). Refused with `403` when account deletion is turned off, and always for administrators. |
 
 ## /users/{id}/* - routes that target a specific user
 
@@ -142,7 +144,10 @@ Two-factor lives under `/account/2fa/*`; password, email, and session controls l
 | DELETE | `/users/{id}/avatar` | require_edit_any_profile | Admin removal of a user's avatar |
 | POST | `/users/{id}/cover` | require_edit_any_profile | Admin upload of a user's cover image |
 | DELETE | `/users/{id}/cover` | require_edit_any_profile | Admin removal of a user's cover image |
+| GET | `/users/{id}/spaces` | public | The spaces a member belongs to (the profile "Member of" card), as `{ id, name, slug, type, role, url }` rows. Query: `per_page` (default 5, max 50). Secret spaces appear only when the viewer is in them too; `404 user_not_found` when the viewer cannot see the profile. |
 | GET | `/users/{id}/feed` | public | A user's own post timeline (gated by `buddynext_public_explore`) |
+| GET | `/users/{id}/likes` | public* | Posts the member reacted to (profile Likes tab), keyset `cursor` paging. See the feed reference. |
+| GET | `/users/{id}/replies` | public* | The member's replies with the post each answers (profile Replies tab), keyset `cursor` paging. See the feed reference. |
 
 ### Companion-gated member routes
 
@@ -166,18 +171,22 @@ Registered by `MemberBlogBridge` / `MemberBlogRestController`, present only when
 
 These are administrative moderation routes. The member-facing counterpart is `POST /me/appeals` above.
 
-Every route below except `warn` uses the `require_admin` permission callback - **site admin (`manage_options`), not the community `moderator` role.** The one exception is `POST /users/{id}/warn`, which is authenticated at the route and authorized inside the handler, so a space owner or moderator may warn a member within a space they moderate. See REST: Moderation and Trust for the full authorization model.
+Every route below except `warn` uses the `require_moderator` permission callback: a site admin, a community moderator, or a member granted the matching moderation ability. The one exception is `POST /users/{id}/warn`, which is authenticated at the route and authorized inside the handler, so a space owner or moderator may warn a member within a space they moderate. See REST: Moderation and Trust for the full authorization model.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/users/{id}/strikes` | admin | List a user's strikes |
-| POST | `/users/{id}/strikes/{sid}/reverse` | admin | Reverse a specific strike |
-| POST | `/users/{id}/suspend` | admin | Suspend a user (reason, duration, content visibility) |
-| GET | `/users/{id}/suspension` | admin | Read a user's active suspension |
-| GET | `/users/{id}/suspensions` | admin | List a user's suspension history |
+| GET | `/users/{id}/strikes` | moderator | List a user's strikes |
+| POST | `/users/{id}/strikes/{sid}/reverse` | moderator | Reverse a specific strike |
+| POST | `/users/{id}/suspend` | moderator | Suspend a user. Body: `reason_code` (or free-text `reason`), `note`, `duration_days`, `hide_posts` |
+| GET | `/users/{id}/suspension` | moderator | Read a user's active suspension |
+| GET | `/users/{id}/suspensions` | moderator | List a user's suspension history |
 | POST | `/users/{id}/warn` | auth + space scope | Issue a warning (fires `buddynext_user_warned`). Site admins may warn anyone; a space owner/moderator only within a space they moderate (pass `space_id`). |
-| GET | `/users/{id}/warnings` | admin | List a user's warnings |
-| POST | `/users/{id}/shadow-ban` | admin | Shadow-ban a user |
+| GET | `/users/{id}/warnings` | moderator | List a user's warnings |
+| POST | `/users/{id}/strikes` | moderator | Add a strike (`reason`) |
+| DELETE | `/users/{id}/suspend` | moderator | Lift a suspension |
+| GET | `/users/{id}/shadow-ban` | moderator | Read a user's shadow-ban state |
+| POST | `/users/{id}/shadow-ban` | moderator | Shadow-ban a user |
+| DELETE | `/users/{id}/shadow-ban` | moderator | Lift a shadow-ban |
 
 > **Note:** The relationship and trust actions that also live on `/users/{id}/*` - `block`, `mute`, `restrict`, `connect` (+ accept/decline), `follow`, `followers`, `following`, `connection/status`, `mutual-connections`, `account-type` - are member-driven social-graph routes, not moderation. They are documented in full on the REST: Social Graph page.
 
@@ -200,8 +209,8 @@ Profile groups contain fields. Lists are public; all writes require `require_adm
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/profile-fields` | public | List all field definitions |
-| POST | `/profile-fields` | require_admin | Create a field (`group_id`, `field_key`, `label`, `type`, `is_required`, `sort_order`) |
-| PUT | `/profile-fields/{id}` | require_admin | Update a field (`label`, `type`, `options`, `is_required`, `visibility`, `sort_order`) |
+| POST | `/profile-fields` | require_admin | Create a field (`group_id` or `group_name`, `field_key`, `label`, `type`, `options`, `description`, `placeholder`, `is_required`, `is_searchable`, `show_on_register`, `show_in_header`, `visibility`, `sort_order`) |
+| PUT | `/profile-fields/{id}` | require_admin | Update a field (any of the create fields except `field_key`: `label`, `type`, `options`, `description`, `placeholder`, `is_required`, `is_searchable`, `show_on_register`, `show_in_header`, `visibility`, `sort_order`, `group_id`) |
 | DELETE | `/profile-fields/{id}` | require_admin | Delete a field |
 | POST | `/profile-fields/{id}/reorder` | require_admin | Move a field up or down (`direction`) |
 
@@ -239,6 +248,7 @@ Type definitions are public to read and admin to write. Assignment to a user is 
 | `online` | boolean | `false` | Only members currently online |
 | `cursor` | string | `""` | Opaque cursor from the previous page's `next_cursor` |
 | `per_page` | integer | `20` | Clamped to a hard maximum of 50 |
+| `messageable` | boolean | `false` | Recipient-picker mode: only members the viewer may message (`mvs_can_send_message`); pages over the filter so a page is not returned short |
 
 > **Note:** `relation=following` and `relation=connections` are applied inside the directory query (a JOIN on `bn_follows` / connections), so the total count and cursor reflect the filtered set. Do not post-filter directory rows on the client.
 
@@ -298,7 +308,7 @@ Validation-failure response (422):
 
 ### Create a profile field
 
-`POST /profile-fields` requires `require_admin`. `group_id`, `field_key`, and `label` are required; `type`, `is_required`, and `sort_order` default as shown. The create returns 201 with the new field ID.
+`POST /profile-fields` requires `require_admin`. `field_key` and `label` are required, plus a group via `group_id` or `group_name`; `type`, `is_required`, and `sort_order` default as shown. The create returns 201 with the new field ID.
 
 ```bash
 curl -X POST 'https://example.com/wp-json/buddynext/v1/profile-fields' \

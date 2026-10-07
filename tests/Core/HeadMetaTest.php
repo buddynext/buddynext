@@ -154,6 +154,47 @@ class HeadMetaTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Page N of a list is its own canonical, like any WordPress archive.
+	 */
+	public function test_paged_list_is_canonical_at_its_own_page(): void {
+		$this->set_permalink_structure( '/%postname%/' );
+		set_query_var( 'paged', 2 );
+		$out = $this->render( array( 'url' => 'https://example.test/members/' ) );
+		set_query_var( 'paged', 0 );
+
+		$this->assertStringContainsString( 'rel="canonical" href="https://example.test/members/page/2/"', $out );
+	}
+
+	/**
+	 * On a page-backed view core's rel_canonical() prints the tag; BuddyNext
+	 * feeds it the surface URL instead of printing a second one.
+	 */
+	public function test_core_prints_the_only_canonical_on_a_page_backed_view(): void {
+		$page = self::factory()->post->create( array( 'post_type' => 'page', 'post_name' => 'qa-page-backed' ) );
+		$this->go_to( get_permalink( $page ) );
+		$this->assertTrue( is_singular() );
+
+		$out = $this->render( array( 'url' => 'https://example.test/members/alice/' ) );
+
+		$this->assertSame( 1, substr_count( $out, 'rel="canonical"' ), $out );
+		$this->assertStringContainsString( 'https://example.test/members/alice/', $out );
+	}
+
+	/**
+	 * With an SEO plugin active BuddyNext prints no canonical of its own and
+	 * hands the URL to the plugin's filter.
+	 */
+	public function test_seo_plugin_owns_the_canonical(): void {
+		add_filter( 'buddynext_seo_plugin_active', '__return_true' );
+		$out = $this->render( array( 'url' => 'https://example.test/spaces/design/' ) );
+		$yoast = apply_filters( 'wpseo_canonical', 'https://example.test/spaces/' );
+		remove_filter( 'buddynext_seo_plugin_active', '__return_true' );
+
+		$this->assertSame( 0, substr_count( $out, 'rel="canonical"' ) );
+		$this->assertSame( 'https://example.test/spaces/design/', $yoast );
+	}
+
+	/**
 	 * A second surface cannot describe the same response.
 	 */
 	public function test_first_descriptor_wins(): void {

@@ -56,6 +56,8 @@ A button only appears for members once a provider is both enabled and has both k
 | Client Secret | The private app secret from the provider's developer console. | Empty |
 | Redirect link | Read-only. The exact callback URL to paste into the provider's app settings. | Auto-generated per provider |
 
+> **Note:** Social sign-in returns to your site over a secure cross-site request, so it only works on HTTPS. On a site without HTTPS the button stays hidden even when the provider is set up.
+
 > **Note:** Each provider's redirect link is specific to your site and that provider. Paste the exact link shown on the card - if it does not match what the provider has on file, sign-in fails.
 
 ## Good to know

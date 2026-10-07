@@ -83,6 +83,18 @@ class NotificationController extends BaseRestController {
 			)
 		);
 
+		// The notifications page's "This week" card (notifications, read rate,
+		// new followers, engagement, week-over-week), cached per member.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/notifications/this-week',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'this_week' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/notifications/unread-count',
@@ -259,17 +271,34 @@ class NotificationController extends BaseRestController {
 			$result['items'][ $i ] = array_merge(
 				$item,
 				array(
-					'message'    => (string) ( $payload['message'] ?? '' ),
-					'url'        => (string) ( $payload['url'] ?? '' ),
-					'icon'       => (string) ( $payload['icon'] ?? 'bell' ),
-					'tone'       => (string) ( $payload['tone'] ?? 'info' ),
-					'label'      => (string) ( $payload['label'] ?? '' ),
-					'actor_name' => (string) ( $payload['actor_name'] ?? '' ),
+					'message'          => (string) ( $payload['message'] ?? '' ),
+					'url'              => (string) ( $payload['url'] ?? '' ),
+					'icon'             => (string) ( $payload['icon'] ?? 'bell' ),
+					'tone'             => (string) ( $payload['tone'] ?? 'info' ),
+					'label'            => (string) ( $payload['label'] ?? '' ),
+					'actor_name'       => (string) ( $payload['actor_name'] ?? '' ),
+					// compose_batch() primed the user cache, so this is a cache hit.
+					'actor_avatar_url' => (int) ( $payload['actor_id'] ?? 0 ) > 0 ? (string) get_avatar_url( (int) $payload['actor_id'], array( 'size' => 64 ) ) : '',
 				)
 			);
 		}
 
 		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * GET /me/notifications/this-week - the "This week" card's numbers, from the
+	 * same Sidebar\WidgetService::weekly_stats() the web card renders. That
+	 * service (and the card) exist only while the Sidebar feature is on.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function this_week(): WP_REST_Response|WP_Error {
+		$widgets = buddynext_service( 'sidebar_widgets' );
+		if ( ! $widgets instanceof \BuddyNext\Sidebar\WidgetService ) {
+			return new WP_Error( 'bn_feature_disabled', __( 'This feature is turned off.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		return new WP_REST_Response( $widgets->weekly_stats( get_current_user_id() ), 200 );
 	}
 
 	/**
@@ -284,9 +313,17 @@ class NotificationController extends BaseRestController {
 		// viewed). Viewing the list (mark_seen) clears it without marking items
 		// read, so the Unread tab stays intact. The route name is kept for
 		// backward compatibility.
-		$count = ( new NotificationService() )->unseen_count( $user_id );
+		$service = new NotificationService();
+		$count   = $service->unseen_count( $user_id );
 
-		return new WP_REST_Response( array( 'count' => $count ), 200 );
+		// by_tab: the notifications page's per-tab unread badges ('unread' = all).
+		return new WP_REST_Response(
+			array(
+				'count'  => $count,
+				'by_tab' => $service->unread_counts_by_tab( $user_id ),
+			),
+			200
+		);
 	}
 
 	/**

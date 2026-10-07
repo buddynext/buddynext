@@ -19,11 +19,12 @@ These live in the admin area under **BuddyNext > Members > Privacy & Data**.
 
 | Setting | What it controls | Default |
 |---|---|---|
-| Cookie consent banner | Shows a cookie consent notice to visitors so your community asks for consent before non-essential cookies. Turn on where local law requires a consent prompt. | Off |
-| Data retention (days) | How many days member data is kept before it is eligible for cleanup. Use this to enforce a retention policy rather than holding data forever. | 365 |
-| Allow data export | Lets members download a copy of their own data from their settings. Turning this off removes the Export control for members. | On |
-| Allow account deletion | Lets members permanently delete their own account from their settings. Turning this off removes the Delete account control for members. | On |
-| Search-engine indexing | Controls whether search engines may index community content. Choose the policy that matches how public you want the community to be. | Public posts |
+| Show cookie consent notice | Shows a cookie consent notice to visitors. Turn on where local law requires a consent prompt. | Off |
+| Delete records after a set time / Data retention (days) | Automatically deletes records older than this many days: closed moderation reports and (with Pro) analytics events. Open reports and the moderation log are never deleted. It does not delete member profiles or posts. | 365 |
+| Notification and email log retention | How long read notifications and email-log entries are kept: 30, 60 or 90 days. Unread notifications are always kept for 90 days, whatever you choose. This permanently deletes the older entries. | 60 days |
+| Allow members to export their data | Lets members download a copy of their own data from their settings. Turning this off removes the Export control for members. | On |
+| Allow members to delete their account | Lets members permanently delete their own account from their settings. Turning this off removes the Delete account control for members. Admins can always delete accounts. | On |
+| Allow search engines to index | Controls the search-engine hint on community pages: **Everything** (public posts, profiles and spaces), **Public posts only**, or **Nothing** (noindex all community pages). Profiles and spaces always respect their own privacy settings. | Public posts only |
 
 > **Note:** Export and deletion are member rights under privacy law. Leave them on unless you have a specific reason and an alternative process for handling member requests. If you turn them off, make sure members know how else to reach you with a data request.
 
@@ -33,7 +34,7 @@ These live in the admin area under **BuddyNext > Members > Privacy & Data**.
 
 Some communities are not meant to be seen by the public - an internal team space, a paid community, or a group that should only be visible to its own members. The Private Community setting puts your whole community behind a login screen.
 
-**Where to find it:** in the admin area, open BuddyNext, then Members, then the Privacy & Data tab, and look under Private Community. Turn on "Require login to view the community."
+**Where to find it:** in the admin area, open BuddyNext, then Members, then the Privacy & Data tab, and look under Private community. Turn on "Require login to view the community."
 
 **What happens when it is on:** a visitor who is not signed in is sent to your login page instead of seeing the feed, member directory, spaces, or any other community page. The login, registration, password-reset, and email-verification screens stay reachable, so a new visitor can still sign up or sign in. Once someone logs in, they see the community normally.
 
@@ -45,7 +46,7 @@ Some communities are not meant to be seen by the public - an internal team space
 
 If your community needs to ask visitors for cookie consent - for example under EU or GDPR rules - BuddyNext can show a small cookie notice at the bottom of the screen on a visitor's first visit.
 
-**Where to find the cookie banner setting:** in the admin area, open BuddyNext, then Members, then the Privacy & Data tab, and look under Cookie Consent. Turn on "Show cookie consent notice."
+**Where to find the cookie banner setting:** in the admin area, open BuddyNext, then Members, then the Privacy & Data tab, and look under Cookie consent. Turn on "Show cookie consent notice."
 
 **Change the cookie notice text:** once the banner is on, a "Notice text" box appears right below the toggle. Type your own wording there and save. Leave it blank to use the built-in message. If your site has a Privacy Policy page set (under the WordPress Settings, Privacy screen), the banner links to it automatically.
 
@@ -54,6 +55,10 @@ If your community needs to ask visitors for cookie consent - for example under E
 **How the notice behaves:** it appears once. When a visitor clicks the accept button, their choice is remembered and the banner is not shown again. BuddyNext itself only sets essential cookies, such as the one that keeps members signed in.
 
 > **Tip:** can't find it from a search? The cookie banner lives on the Privacy & Data tab. You can also press Cmd/Ctrl + K anywhere in the BuddyNext admin and type "cookie" to jump straight to it.
+
+## What members control on their own Privacy tab
+
+Under **Settings > Privacy**, each change saves as soon as a member makes it. The controls are **Who can see my profile**, **Who can follow me**, **Who can send me connection requests**, **Who can @mention me in posts**, **Private account** (only approved followers see posts; new follows arrive as requests), **Show me in the member directory**, **Show my profile to search engines** and **Hide my profile views**. **Who can message me** is shown here too, but it is set in WPMediaVerse and BuddyNext only displays it.
 
 ## Export my data
 

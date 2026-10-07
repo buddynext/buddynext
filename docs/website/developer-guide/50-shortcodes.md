@@ -1,12 +1,12 @@
 # Shortcodes reference
 
-BuddyNext registers a small set of shortcodes that place a full community hub - the activity feed, member directory, spaces, messages, notifications, auth, or the community admin panel - on any page, plus a `[buddynext_user_menu]` chrome shortcode. They exist for classic and page-builder themes (and any place you cannot drop a Gutenberg block); on a block theme the equivalent `buddynext/*` blocks are usually the better fit. This page documents each shortcode, its attributes, and when to reach for it versus the block.
+BuddyNext registers a small set of shortcodes that place a full community hub - the activity feed, member directory, spaces, messages, notifications, auth, or the community admin panel - on any page, plus the `[buddynext_search]` and `[buddynext_user_menu]` chrome shortcodes. BuddyNext Pro adds membership shortcodes (see the end of the reference). They exist for classic and page-builder themes (and any place you cannot drop a Gutenberg block); on a block theme the equivalent `buddynext/*` blocks are usually the better fit. This page documents each shortcode, its attributes, and when to reach for it versus the block.
 
 ![The community activity feed that [buddynext_activity] renders on a page](../images/community-activity-feed.webp)
 
 ## Overview / Contract
 
-The hub shortcodes are registered by `BuddyNext\Shortcodes\ShortcodeService` (`includes/Shortcodes/ShortcodeService.php`); `[buddynext_user_menu]` is registered in `buddynext.php`. Two things are true of every hub shortcode:
+The eight Free shortcodes `[buddynext_activity]`, `[buddynext_people]`, `[buddynext_spaces]`, `[buddynext_messages]`, `[buddynext_notifications]`, `[buddynext_auth]`, `[buddynext_community_admin]` and `[buddynext_search]` are registered by `BuddyNext\Shortcodes\ShortcodeService` (`includes/Shortcodes/ShortcodeService.php`); `[buddynext_user_menu]` is registered in `buddynext.php`. Two things are true of every hub shortcode:
 
 - **They route by query var, not by attribute.** Each one reads the hub query vars that `PageRouter` sets (for example `bn_activity_action`, `bn_profile_action`, `bn_space_action`) and renders the template for the active endpoint. A single `[buddynext_activity]` on a page therefore serves the feed, explore, a hashtag feed, search, or the leaderboard depending on the URL.
 - **They self-enqueue and self-scope.** When a shortcode sits on an arbitrary page (off the routed hub path), the service enqueues the shell stylesheet and the feature bundles it needs, and wraps the output in a `.bn-app.bn-app--embedded` scoping canvas so the `--bn-*` tokens and layout apply. You do not need to enqueue anything yourself.
@@ -52,9 +52,9 @@ The Notifications hub (the full notifications list). Requires login.
 
 ### `[buddynext_auth]`
 
-The Auth hub. Logged-in users are redirected to the Activity hub immediately; guests are shown the login template, which carries both the sign-in and create-account forms. It enqueues the auth styles and the `@buddynext/auth-login` + `@buddynext/auth-signup` modules so the forms work even off the routed auth path.
+The Auth hub. Logged-in users are redirected to the Activity hub immediately; guests are shown the sign-in form by default, or the create-account form with `view="signup"`. With no `view`, the routed hub's own action is honoured. `view="signup"` falls back to sign-in when WordPress registration is closed. It enqueues the auth styles and the matching `@buddynext/auth-login` or `@buddynext/auth-signup` module so the form works even off the routed auth path.
 
-- **Attributes:** none.
+- **Attributes:** `view` (string, default `""`): `login` or `signup`.
 - **Use vs block:** Use the shortcode for the combined login + registration surface on a single page. Use the `buddynext/login-form` and `buddynext/registration-form` blocks to place either form on its own, with a `redirectUrl` attribute.
 
 ### `[buddynext_community_admin]`
@@ -89,7 +89,7 @@ A theme that draws its own header icons places the pieces one at a time with the
 A community search bar: a GET form that opens the BuddyNext search results page (members, spaces, posts, hashtags). Chrome, not a hub - drop it in a header, a sidebar, or page content. It does **not** replace WordPress or WooCommerce `?s=` search; it is a first-class entry point into *community* search that themes should use instead of hand-building a form against the search URL.
 
 - **Attributes:**
-  - `placeholder` (string, default `Search…`) - the input placeholder.
+  - `placeholder` (string, default empty, which shows the built-in `Search…` text) - the input placeholder.
   - `type` (string, default `all`) - which results tab to open: `all`, `members`, `spaces`, or `posts`. Any other value falls back to `all`.
 - **Use vs block:** The exact equivalent is the `buddynext/search-bar` block (attributes `placeholder`, `searchIn`). For a classic PHP header, call the helper directly instead:
 
@@ -99,11 +99,23 @@ A community search bar: a GET form that opens the BuddyNext search results page 
 
   The block, the `[buddynext_search]` shortcode and `buddynext_search_bar()` all render the **same** markup - the helper is the single source, the other two wrap it. `buddynext_search_bar( array $args = [] ): string` returns the markup (safe to echo) and enqueues the one stylesheet it needs, so it is safe in a theme header.
 
+## Pro membership shortcodes
+
+BuddyNext Pro registers these when the Monetization feature is on; they return nothing otherwise.
+
+| Shortcode | Attributes | Renders |
+|---|---|---|
+| `[buddynext_membership_pricing]` | `heading`, `subcopy` | The pricing table for the listed plans. |
+| `[buddynext_my_membership]` | none | The member's active plan and status. |
+| `[buddynext_plan_button]` | `plan` (plan id), `label`, `class` (default `bn-btn`) | A link straight to one plan on the pricing page; nothing for an unknown, inactive or archived plan. |
+| `[buddynext_membership_header]`, `[buddynext_membership_proof]`, `[buddynext_membership_compare]`, `[buddynext_membership_faq]` | The matching `bn-membership-*` block's attributes | The sections of a pricing page, each also available as a block. |
+| `[buddynext_members_only plan="slug"]...[/buddynext_members_only]` | `plan` (optional tier slug) | Wrapped content shown to entitled members, a locked card to everyone else. |
+
 ## Notes / gotchas
 
 - **These are for classic and page-builder themes.** On a block theme, prefer the matching `buddynext/*` blocks (see the Blocks reference) - they expose attributes and edit in place. The shortcodes shine when you cannot use a block: a classic theme, a page-builder text widget, or a custom PHP template via `do_shortcode()`.
 - **Routing comes from the URL, not the attributes.** Most hub shortcodes take no attributes because the active endpoint is chosen from the hub query vars `PageRouter` sets. The same `[buddynext_activity]` renders different surfaces at `/activity/`, `/activity/explore/`, and `/activity/hashtag/{slug}/`.
-- **A few shortcodes carry attributes:** `[buddynext_people view="profile"]`, `[buddynext_search placeholder="…" type="members"]`, and the block-equivalent `redirectUrl` on the auth blocks. The rest take none.
+- **A few shortcodes carry attributes:** `[buddynext_people view="profile"]`, `[buddynext_auth view="signup"]`, `[buddynext_search placeholder="…" type="members"]`, and the block-equivalent `redirectUrl` on the auth blocks. The rest take none.
 - **Auth gating is built in.** `[buddynext_messages]`, `[buddynext_notifications]`, and `[buddynext_community_admin]` show a login prompt to guests; `[buddynext_auth]` redirects logged-in users away; `[buddynext_user_menu]` is empty for guests.
 - **No manual enqueue needed.** The service loads the shell stylesheet and the per-feature bundles for an embedded shortcode and scopes the output in `.bn-app--embedded`, so the hub renders styled even on an arbitrary page.
 

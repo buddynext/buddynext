@@ -23,8 +23,8 @@ A community keeps people when contribution feels seen. This recipe turns on the 
 3. **Label your standout members (Pro).** Give badges or titles - Founder, Expert, Verified - that appear next to a member's name across the community.
    Full guide: [Member Labels](../pro/08-member-labels.md). For a verified-identity badge specifically, see [Email Verification](../accounts-access/04-email-verification.md).
 
-4. **Keep the feed lively (Pro).** Schedule posts and prompts ahead so the community never looks empty on a quiet day.
-   Full guide: [Scheduled Posts](../pro/05-scheduled-posts.md).
+4. **Keep the feed lively.** Schedule posts and prompts ahead with the composer's **Schedule for later** button so the community never looks empty on a quiet day. Pro adds a queue to manage every scheduled post.
+   Full guide: [Post Composer](../community/02-post-composer.md) and [Scheduled Posts](../pro/05-scheduled-posts.md).
 
 ## What your members see
 

@@ -2,7 +2,7 @@
 
 Push Notifications (Pro) delivers your community's notifications to a member's browser through Firebase Cloud Messaging, so a member sees a banner even when they are not on the site. This is **web push**, and it reaches desktop browsers and mobile browsers alike - including a member who has installed your community to their phone's home screen as an app (see the PWA page).
 
-> **About the native mobile app:** BuddyNext's native iOS and Android app is **planned, not yet released**. The push system on this page is built on Firebase Cloud Messaging, which is the same delivery service the app will use when it arrives, so the Firebase project you set up now will carry over and there is nothing to redo. But today there is no BuddyNext app in the App Store or Play Store, and nothing on this page requires one. Everything described here works in the browser.
+> **About the native mobile app:** Everything on this page works in the browser and needs no app. The BuddyNext mobile app registers its own push tokens with your site, and the same push switch and per-type preferences cover it. App tokens are delivered through Expo's push service, which needs no Firebase fields on this screen. The Firebase fields below are for browser push.
 
 ![Community notifications that can be delivered as push banners](../images/notifications.webp)
 
@@ -22,7 +22,7 @@ For the site owner this is a one-time setup: create a free Firebase project, pas
 
 ## How it works (for members)
 
-The member-facing controls live on the notification preferences page (Notifications, then Preferences). Push appears there as a "Browser push" panel below the standard preferences.
+The member-facing controls live on the notification preferences page (Settings > Notifications). Push appears there as a "Browser push" panel.
 
 ### Opt in to browser push
 
@@ -40,13 +40,13 @@ Below the enable control is a list of notification types with a toggle each - ne
 
 ### Mute or turn off push on a device
 
-To stop push on the current browser, use the panel's turn-off control. You can re-enable it later from the same place. Muting a single type uses the per-type toggles above.
+To stop push on the current browser, use **Turn off on this device** in the panel. You can re-enable it later from the same place. Muting a single type uses the per-type toggles above.
 
-> **Tip:** Push preferences are per member and per device. Muting a type on your phone does not change your in-app notifications or your email preferences - those are separate.
+> **Tip:** The per-type toggles are saved per member, so muting a type applies to every device you have enabled. They do not change your in-app notifications or your email preferences - those are separate.
 
 ## Setting it up (for owners)
 
-Push settings live under the BuddyNext admin, on the Push tab (Advanced section). The page opens with a short setup guide.
+Push settings live in the BuddyNext admin under **Realtime & Push > Push**. The page opens with a short setup guide. Push also has its own switch in the Features catalogue, **Push notifications**, which is off by default. Turn it on first; a screen status line then tells you whether push is off, on but not yet configured, or on and configured.
 
 ### Requirements
 
@@ -65,15 +65,14 @@ Those two fields connect your site to Firebase. **To deliver push to your member
 
 | Setting | What it does | Default |
 |---|---|---|
-| Enable push delivery | Master switch. When on, notifications also fan out to registered devices. When off, nothing is sent even if credentials are present. | Off |
 | Firebase project ID | Your Firebase project's ID, from Project Settings, General. | Empty |
-| Service account JSON | The contents of the private-key file you downloaded from Firebase. This is what lets your site authenticate with Firebase to send. A saved value is masked, so leave the mask untouched to keep existing credentials. | Empty |
+| Service-account JSON | The contents of the private-key file you downloaded from Firebase. This is what lets your site authenticate with Firebase to send. A saved value is masked, so leave the mask untouched to keep existing credentials. | Empty |
 | Web API key | Your web app's API key, copied from the Firebase web app config. Lets a member's browser register for push. | Empty |
 | Messaging sender ID | Your web app's messaging sender ID, from the same Firebase web app config. | Empty |
 | Web app ID | Your web app's app ID, from the same Firebase web app config. | Empty |
 | VAPID key pair (public) | The public Web Push (VAPID) key pair from Firebase Cloud Messaging, under Web Push certificates. Required for browser push. | Empty |
 
-> **Note:** The Web API key, sender ID, web app ID, and VAPID key are public values meant for the browser - they are not secrets. The service account JSON is a secret and is never sent to the browser. Leaving the four web fields blank disables browser push, which today means disabling push altogether.
+> **Note:** The Web API key, sender ID, web app ID, and VAPID key are public values meant for the browser - they are not secrets. The service account JSON is a secret and is never sent to the browser. Leaving the four web fields blank disables browser push.
 
 ### The self-test
 
@@ -84,7 +83,7 @@ The result message tells you what happened:
 - Delivered to a number of devices - your setup is working; check the device for the banner.
 - Sent, but you have no registered devices - credentials are fine, but you have not enabled web push on your own preferences page yet, so there is nowhere to deliver. Enable browser push for yourself first, then test again.
 - Push is not configured - set the Firebase project ID and service-account JSON first.
-- Push delivery is currently disabled - turn on Enable push delivery and save, then test.
+- Push delivery is currently disabled - turn on the Push notifications capability on the Features tab first.
 
 > **Tip:** The "delivered to N devices" count is the metric to watch during setup. It is the count from your last test send, not a long-term log. If it reports zero devices, enable browser push on your own preferences page and re-run the test.
 
@@ -92,6 +91,7 @@ The result message tells you what happened:
 
 ## Good to know
 
+- The Push notifications switch also covers the members' own per-type push toggles; the older separate push-preferences switch was folded into it.
 - Push is layered on top of your existing notifications. It does not create new notification types - it delivers the ones you already have to off-site devices.
 - Delivery respects each member's per-type push preferences. A member who muted a type will not get a push for it, even though it still appears in their in-app notifications.
 - Registered devices that have gone stale (uninstalled, permission revoked) are pruned automatically when Firebase reports them as gone, so the device list stays clean over time.
@@ -101,7 +101,7 @@ The result message tells you what happened:
 
 ## Free vs Pro
 
-Push Notifications are a Pro feature. The free plugin shows in-app notifications and can send notification emails, but it cannot deliver to a browser or mobile device when the member is off-site. Pro adds the Firebase delivery layer, the web push enrollment panel, the per-type push toggles, and the admin self-test.
+Push Notifications are a Pro feature. The free plugin shows in-app notifications and can send notification emails, but it cannot deliver to a browser or mobile device when the member is off-site. Pro adds the delivery layer (Firebase for browsers, Expo for the mobile app), the web push enrollment panel, the per-type push toggles, and the admin self-test. There is no separate switch for the per-type toggles: they come with **Push notifications**. An admin also has a **Push prefs** tab next to Push, with the same per-type toggles for their own account.
 
 For the related real-time transport that updates the notification bell and feed live while a member is on the site, see Real-time WebSocket.
 

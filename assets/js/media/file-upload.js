@@ -367,10 +367,12 @@ function bindFolders( root ) {
 	}
 	const fmt = ( tpl, ...vals ) => { let i = 0; return String( tpl || '' ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); };
 
-	async function call( path, method, body, done, btn ) {
+	const docBase = ( root.getAttribute( 'data-bn-doc-endpoint' ) || '' ).replace( /\/$/, '' );
+
+	async function call( path, method, body, done, btn, at = base ) {
 		if ( btn ) { btn.disabled = true; }
 		try {
-			const res = await fetch( base + path, {
+			const res = await fetch( at + path, {
 				method,
 				credentials: 'same-origin',
 				headers:     Object.assign( { 'X-WP-Nonce': nonce }, body ? { 'Content-Type': 'application/json' } : {} ),
@@ -438,6 +440,12 @@ function bindFolders( root ) {
 
 	root.querySelectorAll( '[data-bn-folder-restore]' ).forEach( ( btn ) => btn.addEventListener( 'click', () => {
 		call( '/' + btn.getAttribute( 'data-bn-id' ) + '/restore', 'POST', null, t.restored, btn );
+	} ) );
+
+	// Trash view: a removed FILE comes back through WPMediaVerse Pro's document
+	// restore (its DELETE only trashed it).
+	root.querySelectorAll( '[data-bn-doc-restore]' ).forEach( ( btn ) => btn.addEventListener( 'click', () => {
+		call( '/' + btn.getAttribute( 'data-bn-id' ) + '/restore', 'POST', null, t.fileRestored || t.restored, btn, docBase );
 	} ) );
 
 	// Trash view: Delete now empties one trashed folder for good (WPMediaVerse's

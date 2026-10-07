@@ -196,7 +196,7 @@ final class CoreSpaceFields {
 			'banned_words',
 			array(
 				'label'          => __( 'Banned words', 'buddynext' ),
-				'description'    => __( 'One word or phrase per line. Posts containing these are held for review.', 'buddynext' ),
+				'description'    => __( 'One word or phrase per line. A post using any of them is rejected.', 'buddynext' ),
 				'type'           => 'textarea',
 				'default'        => '',
 				'section'        => 'moderation',
@@ -257,6 +257,18 @@ final class CoreSpaceFields {
 				'default'    => '0',
 				'section'    => 'integrations',
 				'sort_order' => 20,
+				'visibility' => 'members',
+				'core'       => true,
+			)
+		);
+		$registry->register(
+			'gamification_leaderboard_tab',
+			array(
+				'label'      => __( 'Show the Leaderboard tab in this space', 'buddynext' ),
+				'type'       => 'boolean',
+				'default'    => '0',
+				'section'    => 'integrations',
+				'sort_order' => 40,
 				'visibility' => 'members',
 				'core'       => true,
 			)

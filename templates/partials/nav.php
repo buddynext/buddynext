@@ -188,7 +188,7 @@ if ( ! empty( $bn_context_items ) ) :
 		),
 		array(
 			'key'   => 'login',
-			'url'   => PageRouter::auth_url(),
+			'url'   => PageRouter::login_url(),
 			'icon'  => 'log-in',
 			'label' => __( 'Log in', 'buddynext' ),
 			'show'  => 0 === $bn_nav_current_user,

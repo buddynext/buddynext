@@ -96,7 +96,9 @@ Details:
   ) );
   ```
 
-  Declare your types on `{prefix}_community_notification_types` (slug => `label`, `description`, `default_on`) to give members a switch per type; answer `{prefix}_community_notification_visible` (`array $visible, int $viewer_id, array $targets`, return key => bool) to hide rows the viewer may no longer see; fire `{prefix}_community_notification_removed( $object_type, $object_id )` when an object is permanently deleted. A grouped row ("Aisha and 2 others replied") carries the container as its object (the topic) and one event per person: send `item_type` and `item_id` (the reply), `message_single` (one person, `{actor}` placeholder) and `message_grouped` (`{actor}` and `{others}`, which becomes a translated "1 other" / "3 others"). BuddyNext keeps each event as (person, item), counts people, not events, and asks your `_visible` filter about each item too (target `item => true`, with the person as `actor_id`): answer false for a gone, trashed or banned item and the row shrinks, then disappears when none is left. Send an anonymous event with `actor_id` 0 and its own `group_key` and it never merges. The `group_key` and the object must describe what `url` opens, because a merged row keeps the first event's link. BuddyNext reads the payload only once your types are declared. For a running notice whose number only grows (a weekly best), add `'renotify' => false` with a `group_key` per period: repeats then refresh the existing row quietly instead of alerting again.
+  Declare your types on `{prefix}_community_notification_types` (slug => `label`, `description`, `default_on`) to give members a switch per type; answer `{prefix}_community_notification_visible` (`array $visible, int $viewer_id, array $targets`, return key => bool) to hide rows the viewer may no longer see; fire `{prefix}_community_notification_removed( $object_type, $object_id )` when an object is permanently deleted. Fire `{prefix}_community_notification_read( $object_type, $object_id, $user_id )` when one member has read the object in your plugin (opened the conversation): that member's rows for it are marked read and their unread count drops, while other recipients keep theirs. A grouped row ("Aisha and 2 others replied") carries the container as its object (the topic) and one event per person: send `item_type` and `item_id` (the reply), `message_single` (one person, `{actor}` placeholder) and `message_grouped` (`{actor}` and `{others}`, which becomes a translated "1 other" / "3 others"). BuddyNext keeps each event as (person, item), counts people, not events, and asks your `_visible` filter about each item too (target `item => true`, with the person as `actor_id`): answer false for a gone, trashed or banned item and the row shrinks, then disappears when none is left. Send an anonymous event with `actor_id` 0 and its own `group_key` and it never merges. The `group_key` and the object must describe what `url` opens, because a merged row keeps the first event's link. BuddyNext reads the payload only once your types are declared. For a running notice whose number only grows (a weekly best), add `'renotify' => false` with a `group_key` per period: repeats then refresh the existing row quietly instead of alerting again.
+
+  **Email.** Contract types are bell-only by default. While BuddyNext is active it owns member email, so a plugin that stops sending its own should let BuddyNext send it instead: add `'email' => true` to the type's declaration. That type then appears in the member's notification settings with email on (they can turn it off), and BuddyNext emails your `message` as the subject with a View link to your `url`, in the site's email layout. A site or another plugin can opt a type in or out without your release through `buddynext_notification_type_email` (`bool $emails, string $source, string $slug, array $type`). Example: BuddyNext's own MediaVerse bridge opts `mediaverse.media_mention` in, while reactions stay bell-only.
 - `buddynext_notification_group_label` names a settings section by its group key when BuddyNext does not own the group. Integration sections are named already.
 
 ## Preference hooks
@@ -131,6 +133,7 @@ The email channel is driven by `EmailSender`. Event emails render from a `bn_ema
 | `buddynext_queue_email_digest` | action | A notification is routed to a digest queue instead of an immediate send | `int $user_id, string $notification_type, array $data` |
 | `buddynext_send_notification_email` | action | Action Scheduler callback to send a notification email asynchronously | `int $user_id, string $notification_type, array $data` |
 | `buddynext_email_template_catalogue` | filter | Building the list of templates on Settings -> Notifications -> Email Templates | `array $catalogue` |
+| `buddynext_email_test_placeholders` | filter | An owner sends a test of an email template. Supply sample values for the tokens your own templates use, or the test shows them as raw `{{braces}}`. Since 1.2.4. | `array $placeholders, string $slug` |
 | `buddynext_logs_purged` | action | A retention purge finishes, so a site can log or monitor what was removed | `array{notifications:int,email_log:int} $deleted, int $window` |
 | `buddynext_email_failure_alert_threshold` | filter | The Email Log admin banner decides whether to warn about delivery. It shows once failed sends in the last 24 hours reach this number. Default `5`; return `0` to never show it (1.2.0) | `int $threshold` |
 
@@ -138,9 +141,9 @@ Details:
 
 - `buddynext_email_payload` receives `$payload` with keys `to`, `subject`, `body`, `headers`. Return the array to modify recipients, subject, or body. Return an array with `'send' => false` to suppress the `wp_mail()` call entirely - Pro broadcast and drip use this to capture the message for batched campaign delivery rather than sending inline. `$template_slug` is the notification type (matches `bn_email_templates.type`); `$context` is the original `$data` array.
 - Sender identity is centralized: `EmailSender::from_name()` and `from_address()` fall back to the site name and admin email when Settings -> Email is blank, and `build_identity_headers()` applies the configured Reply-To as a per-message header so it survives any `wp_mail_from` override.
-- `buddynext_email_template_catalogue` is how a plugin puts its own emails on the owner's editor screen, and it is not cosmetic. That screen writes to `bn_email_templates`, which is where `EmailSender` reads the subject, the body, and the `enabled` flag it checks before sending. **A type absent from the catalogue cannot be switched off by the owner at all** — on a screen that lists every other email the site sends, which reads as "that email does not exist here". Seeding a row is half the feature; this filter is the other half.
+- `buddynext_email_template_catalogue` is how a plugin puts its own emails on the owner's editor screen, and it is not cosmetic. That screen writes to `bn_email_templates`, which is where `EmailSender` reads the subject, the body, and the `enabled` flag it checks before sending. **A type absent from the catalogue cannot be switched off by the owner at all** - on a screen that lists every other email the site sends, which reads as "that email does not exist here". Seeding a row is half the feature; this filter is the other half.
 
-  Add a group keyed by its heading. Every key is required, and `tokens` drives the test-send sampler — a token you leave out of it reaches the owner's test email as a literal `{{brace}}`.
+  Add a group keyed by its heading. Every key is required, and `tokens` drives the test-send sampler - a token you leave out of it reaches the owner's test email as a literal `{{brace}}`.
 
   ```php
   add_filter( 'buddynext_email_template_catalogue', function ( array $catalogue ): array {
@@ -159,9 +162,25 @@ Details:
   } );
   ```
 
-  Define this copy **once** and have your installer's seed read the same array. Two literals — one seeded, one for the editor — drift apart silently, and the drift lands in the worst possible place: the owner edits one body and the member receives the other.
+  Define this copy **once** and have your installer's seed read the same array. Two literals - one seeded, one for the editor - drift apart silently, and the drift lands in the worst possible place: the owner edits one body and the member receives the other.
 
 - The digest path fires `buddynext_queue_email_digest` when an event is destined for a digest rather than an immediate email. There is no per-user accumulator meta: the daily and weekly digest crons batch straight from the `bn_notifications` rows (joined against `bn_notification_prefs`), so nothing has to be written to a queue and kept in sync. A member's per-type `email_freq` preference (`immediate`, `daily`, `weekly`, `off`) decides whether an event emails immediately, is picked up by the digest cron, or is suppressed.
+
+## More notification and email seams
+
+Narrower hooks around message copy, delivery tuning, and the notification templates. Same table shape as above.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_notification_message` | filter | A notification's text is composed for a type Free does not know. Bridge plugins return copy for their own types; a non-empty string suppresses the fallback warning. | `string $message, string $type, string $actor_name, int $object_id, array $data` |
+| `buddynext_notification_meta` | filter | The notification center resolves the icon, tone, and label for a type Free does not know (integration types such as `suite.*`). | `array $meta, string $type` (`$meta` has `icon`, `tone`, `label`) |
+| `buddynext_notification_fanout_batch` | filter | A space post fans out to members in batches. Sets how many members each batch handles. | `int $size` |
+| `buddynext_push_available` | filter | BuddyNext asks whether push can really deliver. Free only asks while the Pro push feature is on; Pro answers with its configured state. | `bool $available` (default `true`) |
+| `buddynext_email_header_html` | filter | The email header block (inside the coloured header cell) is built. | `string $header_html, string $subject` |
+| `buddynext_email_footer_html` | filter | The email footer block is built. | `string $footer_html, string $subject` |
+| `buddynext_email_default_history` | filter | The email template registry loads, so a plugin can register templates whose default wording changed. | `array $history` (template type => `current`, `previous` list) |
+| `buddynext_notification_prefs_channels_after` | action | Inside the Channels card of the notification preferences page, after the core channel toggles and inside the `buddynext/notification-prefs` Interactivity scope. | `int $current_user_id` |
+| `buddynext_notifications_before` / `buddynext_notifications_after` | action | Before and after the notifications page content. | `int $current_user_id` |
 
 ## Examples
 

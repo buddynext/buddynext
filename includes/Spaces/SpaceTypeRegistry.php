@@ -185,6 +185,26 @@ class SpaceTypeRegistry {
 	}
 
 	/**
+	 * The type a new space gets when the creator names none: the owner's default
+	 * (Spaces > Settings), or 'open' when that value is not a registered type.
+	 *
+	 * The one reader of buddynext_space_default_type. The option can outlive the
+	 * type it names (an add-on registered it, the owner chose it, the add-on was
+	 * switched off). Four places read it on their own: the service fell back to
+	 * open, the REST route refused the create, and the app was handed the dead
+	 * slug.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @return string A registered type slug.
+	 */
+	public function default_type(): string {
+		$stored = sanitize_key( (string) get_option( 'buddynext_space_default_type', 'open' ) );
+
+		return $this->is_valid( $stored ) ? $stored : 'open';
+	}
+
+	/**
 	 * Whether a slug is a registered type.
 	 *
 	 * @param string $type Type slug.

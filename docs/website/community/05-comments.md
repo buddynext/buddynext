@@ -41,13 +41,13 @@ Comments support the same reactions as posts. Open the reaction picker on a comm
 
 ### Pin a comment
 
-A moderator (a user with site management rights) can pin one comment to the top of a thread - useful for an official answer, a correction, or the most helpful reply. Pinning a second comment replaces the first; there is one pinned comment per post. Moderators can unpin at any time.
+A site administrator, or the owner or a moderator of the space the post is in, can pin one top-level comment to the top of a thread - useful for an official answer, a correction, or the most helpful reply. A reply cannot be pinned. Pinning a second comment replaces the first; there is one pinned comment per post. They can unpin at any time.
 
 ## Setting it up (for owners)
 
 Comments are on by default. You can turn the whole feature off, and you can set how many comments a member may post per minute.
 
-The feature toggle lives under Platform > Features. The comment rate limit lives under the Moderation settings.
+The feature toggle lives under **BuddyNext > Platform > Features**. The comment rate limit lives under **BuddyNext > Moderation > Controls**.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -62,7 +62,7 @@ The feature toggle lives under Platform > Features. The comment rate limit lives
 - Depth is capped at five levels. Replies nest up to five deep. A reply that would exceed the fifth level is not accepted - the member is told the thread has reached its maximum reply depth - and in the thread view the deepest level is flattened so it stays readable rather than marching off the side of the screen.
 - Suspended members cannot comment. If a member has been suspended through Moderation, their attempt to comment is blocked with a clear message. See Moderation for how suspensions work.
 - Restricted members are hidden from others. If a post owner has restricted a member, that member's comments are hidden from other viewers on the owner's own posts, while still visible to the owner, admins, and the member themselves.
-- Editing and deleting are limited to your own comments, plus moderators. A member can only edit or delete what they wrote; a moderator can act on any comment.
+- Editing and deleting are limited to your own comments, plus site administrators. A member can only edit or delete what they wrote; a site administrator can do either on any comment, and moderators remove a reported comment with **Remove** in the moderation queue.
 - The comment count includes replies. The number shown on a post counts every comment in the thread, including nested replies, so it can be higher than the count of top-level comments you see at a glance.
 
 ## Free vs Pro

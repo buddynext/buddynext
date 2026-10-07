@@ -122,7 +122,8 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 39, $total );
+		// 37: the two reaction templates went when reactions became bell-only.
+		$this->assertSame( 37, $total );
 	}
 
 	/**

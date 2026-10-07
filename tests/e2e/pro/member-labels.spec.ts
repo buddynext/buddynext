@@ -13,7 +13,7 @@ import { wp, ensureUser, userId } from '../_fixtures/wp';
  * Labels are defined once (LabelService — buddynext-pro/includes/Members/LabelService.php)
  * and assigned per member from a checkbox list inside the SAME edit-member form
  * MemberMembershipPanel uses (MemberLabelsAdmin::render_member_labels_field(),
- * hooked on buddynext_edit_member_sections; saves with Save Profile, no form of
+ * hooked on buddynext_edit_member_sections; saves with Save changes, no form of
  * its own). The effect under test is the real one: the checkbox persists a row via
  * LabelAssignmentService, and ProfileLabelInjector renders it as a `.bn-badge`
  * chip in the profile hero (hero_badges_filter() on buddynext_part_profile_hero_after)

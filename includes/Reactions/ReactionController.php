@@ -35,7 +35,7 @@ class ReactionController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'toggle' ),
-				'permission_callback' => array( $this, 'require_auth' ),
+				'permission_callback' => array( $this, 'require_interact' ),
 				'args'                => array(
 					'object_type' => array(
 						'required'          => true,

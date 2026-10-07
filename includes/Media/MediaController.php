@@ -3,11 +3,11 @@
  * Member-facing media REST controller (buddynext/v1).
  *
  * Powers the BuddyNext-native upload + gallery experience on a member's own
- * profile Media tab. Members upload to their OWN profile only; the engine's own
- * upload REST is NOT used (it requires the upload_mvs_media capability that most
- * members lack). Instead this controller consumes the WPMediaVerse engine purely
- * through the BuddyNext\Media\MediaClient seam, server-side, and BuddyNext's own
- * ownership gate (logged-in + acting on own media) is the authority.
+ * profile Media tab. Members upload to their OWN profile only. This controller
+ * consumes the WPMediaVerse engine through the BuddyNext\Media\MediaClient seam,
+ * server-side; uploading needs MediaClient::can_upload() (the owner's "Who can
+ * upload media" choice in MediaVerse) and every other action BuddyNext's own
+ * ownership gate (logged-in + acting on own media).
  *
  *   POST   /me/media               — upload one file to own profile (auth)
  *   GET    /users/{id}/media       — paginated gallery HTML for a profile (auth)
@@ -63,7 +63,7 @@ class MediaController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'upload_own_media' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					'permission_callback' => array( $this, 'require_upload' ),
 				),
 			)
 		);
@@ -133,7 +133,11 @@ class MediaController extends BaseRestController {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'list_user_albums' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					// Anonymous-readable, gated in the handler, like /spaces/{id}/albums:
+					// require_auth gave a guest 401, so a member's Albums tab said "No
+					// albums yet." beside the public photos the same tab shows them.
+					// Each album still answers to its own privacy (Galleries).
+					'permission_callback' => '__return_true',
 					'args'                => array(
 						'id'       => array( 'sanitize_callback' => 'absint' ),
 						'page'     => array(
@@ -210,7 +214,8 @@ class MediaController extends BaseRestController {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'get_album' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					// Anonymous-readable; get_album() 404s anything the viewer may not see.
+					'permission_callback' => '__return_true',
 					'args'                => array(
 						'id'       => array( 'sanitize_callback' => 'absint' ),
 						'page'     => array(
@@ -569,14 +574,19 @@ class MediaController extends BaseRestController {
 	}
 
 	/**
-	 * GET /users/{id}/albums — a user's albums, privacy-filtered for the viewer.
+	 * GET /users/{id}/albums — a user's albums, privacy-filtered for the viewer
+	 * (guests included). 404 when the viewer may not see the member's profile.
 	 *
 	 * @param WP_REST_Request $request Request.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function list_user_albums( WP_REST_Request $request ): WP_REST_Response {
-		$owner    = (int) $request->get_param( 'id' );
-		$viewer   = get_current_user_id();
+	public function list_user_albums( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$owner  = (int) $request->get_param( 'id' );
+		$viewer = get_current_user_id();
+		if ( ! $this->can_see_member( $viewer, $owner ) ) {
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
 		$page     = max( 1, (int) $request->get_param( 'page' ) );
 		$per_page = min( 60, max( 1, (int) $request->get_param( 'per_page' ) ) );
 		$offset   = ( $page - 1 ) * $per_page;
@@ -589,6 +599,22 @@ class MediaController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Whether the viewer may see this member's profile (and so their albums).
+	 * The same gate GET /users/{id}/spaces uses.
+	 *
+	 * @param int $viewer Viewing user (0 = guest).
+	 * @param int $member Profile owner.
+	 * @return bool
+	 */
+	private function can_see_member( int $viewer, int $member ): bool {
+		if ( ! get_userdata( $member ) ) {
+			return false;
+		}
+		$privacy = buddynext_service( 'privacy' );
+		return ! ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) || $privacy->can_view_profile( $viewer, $member );
 	}
 
 	/**
@@ -779,7 +805,13 @@ class MediaController extends BaseRestController {
 		}
 
 		$is_owner = $this->album_owned_by_current( $album_id );
-		if ( ! $is_owner && ! Galleries::can_view_album( $album_id, $viewer ) ) {
+		// A member's own album also follows their profile visibility; a space
+		// album answers to its space alone (can_view_album()).
+		$is_hidden = ! $is_owner && (
+			! Galleries::can_view_album( $album_id, $viewer )
+			|| ( 0 === Galleries::album_space( $album_id ) && ! $this->can_see_member( $viewer, (int) get_post_field( 'post_author', $album_id ) ) )
+		);
+		if ( $is_hidden ) {
 			// Do not disclose existence of a private album.
 			return new WP_Error( 'bn_album_not_found', __( 'Album not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
@@ -788,8 +820,8 @@ class MediaController extends BaseRestController {
 		$per_page = min( 60, max( 1, (int) $request->get_param( 'per_page' ) ) );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		$ids     = Galleries::album_media_ids( $album_id, $per_page, $offset );
-		$summary = Galleries::album_summary( $album_id );
+		$ids     = Galleries::album_media_ids( $album_id, $viewer, $per_page, $offset );
+		$summary = Galleries::album_summary( $album_id, $viewer );
 
 		return new WP_REST_Response(
 			array_merge(
@@ -1014,6 +1046,22 @@ class MediaController extends BaseRestController {
 			return $gate;
 		}
 
+		// Owner's privacy lock, checked before anything is written (WPMediaVerse's
+		// own PUT /albums/{id} contract). An album's privacy is carried onto every
+		// photo in it, so a member the owner has stopped from choosing privacy
+		// cannot change it here either. Re-sending the current value is fine: the
+		// edit modal always sends it.
+		$privacy     = $request->get_param( 'privacy' );
+		$space_album = Galleries::album_space( $album_id ) > 0;
+		$album_svc   = MediaClient::albums();
+		$mvs_privacy = '\\WPMediaVerse\\Services\\PrivacyService';
+		if ( null !== $privacy && ! $space_album && $album_svc && method_exists( $album_svc, 'get_privacy' )
+			&& is_callable( array( $mvs_privacy, 'user_may_choose_privacy' ) )
+			&& ! $mvs_privacy::user_may_choose_privacy()
+			&& $this->sanitize_album_privacy( (string) $privacy ) !== $album_svc->get_privacy( $album_id ) ) {
+			return new WP_Error( 'bn_privacy_locked', __( 'Privacy is set by the site owner, so it cannot be changed here.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		// An album is a WPMediaVerse post type (mvs_album); WPMediaVerse owns its
 		// storage. This used to build a wp_update_post() array here and write the
 		// description to post_excerpt - a key WPMediaVerse never reads. Its own
@@ -1093,11 +1141,24 @@ class MediaController extends BaseRestController {
 		// already discards the request value and hardcodes 'private'; the edit
 		// modal PUTs to /me/albums/{id}, which is this handler, so the create path
 		// looked correct while the edit path wrote through.
-		$privacy = $request->get_param( 'privacy' );
-		if ( null !== $privacy && Galleries::album_space( $album_id ) <= 0 ) {
-			$repo = MediaClient::repo();
-			if ( $repo && method_exists( $repo, 'set' ) ) {
-				$repo->set( $album_id, 'privacy', $this->sanitize_album_privacy( (string) $privacy ) );
+		//
+		// The write goes through AlbumService::set_privacy(), which stores it where
+		// WPMediaVerse reads it (album post meta) and carries it onto the album's
+		// photos. It used to be MediaRepository::set( $album_id, ... ): the media
+		// repository is keyed by MEDIA id, so the album's real privacy never
+		// changed, its photos stayed public, and on any site where a media id
+		// equals the album's post id that row's privacy was overwritten instead
+		// (card 10369186079). The repository write survives only for a
+		// WPMediaVerse older than set_privacy() (2.4.0), which stored it there.
+		if ( null !== $privacy && ! $space_album ) {
+			$clean = $this->sanitize_album_privacy( (string) $privacy );
+			if ( $album_svc && method_exists( $album_svc, 'set_privacy' ) ) {
+				$album_svc->set_privacy( $album_id, $clean );
+			} else {
+				$repo = MediaClient::repo();
+				if ( $repo && method_exists( $repo, 'set' ) ) {
+					$repo->set( $album_id, 'privacy', $clean );
+				}
 			}
 		}
 
@@ -1222,6 +1283,27 @@ class MediaController extends BaseRestController {
 
 		return $viewer > 0
 			&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer );
+	}
+
+	/**
+	 * Permission for POST /me/media: logged in and allowed to upload on this site.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function require_upload(): bool|WP_Error {
+		$auth = $this->require_auth();
+		if ( true !== $auth ) {
+			return $auth;
+		}
+		// Engine absent: let the callback answer 503 (unavailable), not "not allowed".
+		if ( MediaClient::available() && ! MediaClient::can_upload( get_current_user_id() ) ) {
+			return new WP_Error(
+				'upload_not_allowed',
+				__( 'Your account cannot upload media on this site.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+		return true;
 	}
 
 	/**

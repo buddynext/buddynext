@@ -366,6 +366,30 @@
 	color: var(--bn-accent);
 }
 
+/* "in {parent}" under a sub-space's name. Tighter to the name than the body's
+ * gap, one line, truncated; the parent name links to the parent space. */
+.bn-sd-card__parent {
+	margin: calc(-1 * var(--bn-s1)) 0 0;
+	min-inline-size: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-sd-card__parent a {
+	color: var(--bn-ink-2);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.bn-sd-card__parent a:hover,
+.bn-sd-card__parent a:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
 .bn-sd-card__name {
 	font-family: var(--bn-font-display);
 	font-size: var(--bn-text-base);
@@ -719,6 +743,16 @@
 	font-size: 11px;
 	color: var(--bn-ink-3);
 	font-weight: var(--bn-fw-normal);
+}
+
+/* "in {parent}" under a sub-space's name, as on the rail and the cards. */
+.bn-sd-side-row__parent {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-weight: var(--bn-fw-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* Community pulse — compact stat rows in the spaces-directory sidebar. */
@@ -2950,6 +2984,7 @@ a.bn-sh-statpill:focus-visible {
 	border: 0;
 	padding: var(--bn-s2) var(--bn-s3);
 	font: inherit;
+	font-size: var(--bn-text-sm); /* no ancestor sets one: inherit alone lands on the theme body size */
 	color: inherit;
 	cursor: pointer;
 }
@@ -3022,6 +3057,14 @@ a.bn-sh-statpill:focus-visible {
 	flex-direction: column;
 	align-items: center;
 	gap: var(--bn-s3);
+}
+
+/* The empty states' buttons: one centred row, wrapping with a gap on phones. */
+.bn-sd-empty__actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bn-s2);
 }
 
 /* Create-space modal form */
@@ -3778,9 +3821,11 @@ a.bn-sh-statpill:focus-visible {
 	margin-block-end: var(--bn-s4);
 }
 
-/* The panel is a plain block, so the composer needs the same bottom rhythm as
-   the search bar above it, or the first post sits flush against it. */
-.bn-space-feed-panel > .bn-composer {
+/* The panel is a plain block, so the composer (or, for a non-member, the join
+   card in its place) needs the same bottom rhythm as the search bar above it,
+   or the first post sits flush against it. */
+.bn-space-feed-panel > .bn-composer,
+.bn-space-feed-panel > .bn-sh-guest-cta {
 	margin-block-end: var(--bn-s4);
 }
 
@@ -4020,5 +4065,33 @@ a.bn-sh-statpill:focus-visible {
 
 	.bn-sd-featured-strip__join {
 		width: 100%;
+	}
+}
+
+/* Phone overrides for the directory strip. Last in the file on purpose: they
+   must win over the equal-specificity base rules above. */
+@media (max-width: 640px) {
+	/* The strip wraps on a phone, so the inline gap that separated the form from
+	   its neighbour became a 16px indent: search started at 28px, chips at 12px. */
+	.bn-sd-stack .bn-filter-strip__form {
+		margin-inline-start: 0;
+	}
+
+	/* One scrolling row on a phone (fade from .bn-tabs) instead of a dozen chips
+	   wrapping into six rows above the first space. 2px block padding keeps the
+	   scroller from shaving the rounded pills, which is why it was visible. */
+	.bn-tabs.bn-sd-chips {
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		overflow-y: hidden;
+		padding-block: 2px;
+		/* A flex child sizes to its content by default; without this the strip
+		   grew to every chip's width and scrolled the whole page sideways. */
+		min-inline-size: 0;
+		max-inline-size: 100%;
+	}
+
+	.bn-tabs.bn-sd-chips .bn-sd-chip {
+		flex: 0 0 auto;
 	}
 }

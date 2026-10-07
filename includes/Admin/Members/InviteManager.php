@@ -273,7 +273,7 @@ class InviteManager {
 
 			<div class="bn-settings-section bn-a-narrow-form">
 				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Invite a Member', 'buddynext' ); ?></span>
+					<span class="bn-ss-title"><?php esc_html_e( 'Invite a member', 'buddynext' ); ?></span>
 				</div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Send a single invitation by email.', 'buddynext' ); ?></p>
@@ -288,14 +288,14 @@ class InviteManager {
 							<label for="bn_invite_first_name"><?php esc_html_e( 'First name', 'buddynext' ); ?></label>
 							<input type="text" id="bn_invite_first_name" name="bn_invite_first_name" class="bn-text-input regular-text">
 						</div>
-						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send Invitation', 'buddynext' ); ?></button>
+						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send invitation', 'buddynext' ); ?></button>
 					</form>
 				</div>
 			</div>
 
 			<div class="bn-settings-section bn-a-narrow-form">
 				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Send Bulk Invitations', 'buddynext' ); ?></span>
+					<span class="bn-ss-title"><?php esc_html_e( 'Send bulk invitations', 'buddynext' ); ?></span>
 				</div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Upload a CSV file. Each row: email, first_name (first_name is optional). Up to 500 rows per upload.', 'buddynext' ); ?></p>
@@ -303,10 +303,10 @@ class InviteManager {
 						<?php wp_nonce_field( 'bn_bulk_invite' ); ?>
 						<input type="hidden" name="action" value="bn_bulk_invite">
 						<div class="bn-field">
-							<label for="bn_invite_csv"><?php esc_html_e( 'CSV File', 'buddynext' ); ?></label>
+							<label for="bn_invite_csv"><?php esc_html_e( 'CSV file', 'buddynext' ); ?></label>
 							<input type="file" id="bn_invite_csv" name="bn_invite_csv" accept=".csv,text/csv" required>
 						</div>
-						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send Invitations', 'buddynext' ); ?></button>
+						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send invitations', 'buddynext' ); ?></button>
 					</form>
 				</div>
 			</div>
@@ -360,7 +360,7 @@ class InviteManager {
 						<thead>
 							<tr>
 								<th><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
-								<th><?php esc_html_e( 'First Name', 'buddynext' ); ?></th>
+								<th><?php esc_html_e( 'First name', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Sent', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Expires', 'buddynext' ); ?></th>

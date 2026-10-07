@@ -239,8 +239,9 @@ class ProfileController extends BaseRestController {
 			// Stored only where it can do something — see
 			// FieldType::is_searchable_applicable(), applied in the service.
 			'is_searchable'    => array(
-				'required' => false,
-				'type'     => 'boolean',
+				'required'    => false,
+				'type'        => 'boolean',
+				'description' => 'Add the value to member search (directory search box and global search). Does not create a directory filter.',
 			),
 			'show_on_register' => array(
 				'required' => false,
@@ -1001,7 +1002,7 @@ class ProfileController extends BaseRestController {
 			&& ! $privacy->can_view_profile( $viewer_id, $profile_user_id ) ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -1012,7 +1013,7 @@ class ProfileController extends BaseRestController {
 		if ( null === $profile ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -1123,6 +1124,15 @@ class ProfileController extends BaseRestController {
 			do_action( 'buddynext_profile_viewed', $profile_user_id, $viewer_id );
 		}
 
+		// The profile's tabs and metric pills as the web profile renders them for
+		// this viewer: same resolved nav (order, owner overrides, integration and
+		// Pro tabs, sub-tabs, counts).
+		$bn_nav         = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', $profile_user_id, $viewer_id ) );
+		$profile['nav'] = array(
+			'tabs'    => array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_nav->layer( 'primary' ) ) ),
+			'metrics' => array_map( static fn( \BuddyNext\Nav\NavItem $item ): array => $item->to_array(), array_values( $bn_nav->layer( 'metric' ) ) ),
+		);
+
 		return new WP_REST_Response( $profile, 200 );
 	}
 
@@ -1176,6 +1186,10 @@ class ProfileController extends BaseRestController {
 
 		$profile['completion'] = $service->get_completion_score( $user_id );
 		$profile['strength']   = $service->get_strength( $user_id, is_array( $profile ) && ! empty( $profile['groups'] ) ? $profile : null );
+		// Own profile only: the stored privacy choices, keyed as PUT accepts them.
+		$profile['privacy'] = buddynext_service( 'privacy' )->member_settings( $user_id );
+		// An email change waiting for verification (Settings > Account notice); '' when none.
+		$profile['pending_email'] = (string) get_user_meta( $user_id, 'bn_pending_email', true );
 
 		return new WP_REST_Response( $profile, 200 );
 	}
@@ -1547,12 +1561,7 @@ class ProfileController extends BaseRestController {
 
 		// Profile-view / follow / connect gates: each key has its own enum,
 		// mirroring the PrivacyService gate that reads it back.
-		$gate_enums = array(
-			'bn_privacy_profile_visibility' => array( 'public', 'followers', 'connections', 'private' ),
-			'bn_privacy_who_can_follow'     => array( 'everyone', 'nobody' ),
-			'bn_privacy_who_can_connect'    => array( 'everyone', 'followers', 'nobody' ),
-		);
-		foreach ( $gate_enums as $gate_key => $allowed ) {
+		foreach ( self::PROFILE_META_GATES as $gate_key => $allowed ) {
 			if ( ! array_key_exists( $gate_key, $data ) ) {
 				continue;
 			}
@@ -1772,7 +1781,7 @@ class ProfileController extends BaseRestController {
 		if ( ! get_userdata( $user_id ) ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -2253,7 +2262,7 @@ class ProfileController extends BaseRestController {
 		if ( ! get_userdata( $user_id ) ) {
 			return new WP_Error(
 				'user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -2271,7 +2280,7 @@ class ProfileController extends BaseRestController {
 		$user_id = (int) $request->get_param( 'id' );
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		buddynext_service( 'profiles' )->delete_avatar( $user_id );
@@ -2295,7 +2304,7 @@ class ProfileController extends BaseRestController {
 		$user_id = absint( $request->get_param( 'id' ) );
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		return $this->handle_cover_upload( $user_id );
@@ -2311,7 +2320,7 @@ class ProfileController extends BaseRestController {
 		$user_id = absint( $request->get_param( 'id' ) );
 
 		if ( ! get_userdata( $user_id ) ) {
-			return new WP_Error( 'not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		$this->purge_user_cover( $user_id );

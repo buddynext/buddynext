@@ -1,6 +1,6 @@
 # The Companion Install Model
 
-BuddyNext integrates with a set of Wbcom companion plugins (MediaVerse, Jetonomy, Gamification, Career Board, Learnomy, Listora) and can install and activate any of them in one click from the Integrations screen, with no manual zip upload or Plugins-screen search. This page documents that model: the declarative companion registry, the `buddynext_companions` filter that extends it, the `POST /companions/install` REST route, and the EDD-backed installer. It is for developers adding a new companion to the catalog or building an addon that wants to be one-click installable from BuddyNext.
+BuddyNext integrates with a set of Wbcom companion plugins (MediaVerse, Jetonomy, Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog) and can install and activate any of them in one click from the Add-ons screen, with no manual zip upload or Plugins-screen search. This page documents that model: the declarative companion registry, the `buddynext_companions` filter that extends it, the `POST /companions/install` REST route, and the EDD-backed installer. It is for developers adding a new companion to the catalog or building an addon that wants to be one-click installable from BuddyNext.
 
 ![The Platform Add-ons admin tab where companion plugins are installed one-click via the model documented here](../images/admin-integrations.webp)
 
@@ -12,12 +12,12 @@ The model has three parts, each a class under `includes/Integrations/`:
 - **`CompanionController`** - the REST controller exposing `POST /companions/install` under `buddynext/v1`.
 - **`CompanionInstaller`** - resolves the signed package from the Wbcom store over the companion's own EDD channel, downloads it through WP core's `Plugin_Upgrader`, and activates it.
 
-The Integrations admin tab (rendered by `Settings::render_tab_integrations()`) reads the registry and paints one card per companion with an Install / Activate / Connected state. The browser code in `assets/js/admin/settings.js` (`initCompanions`) wires the Install buttons to the REST route.
+The Add-ons admin tab (slug `integrations`, rendered by `Settings::render_tab_integrations()`) reads the registry and paints one card per companion with an Install / Activate / Connected state. The browser code in `assets/js/admin/settings.js` (`initCompanions`) wires the Install buttons to the REST route.
 
 Every UI and integration decision keys off a runtime capability probe (`is_active()`), never a hardcoded plugin path. Capability present -> BuddyNext delegates to the companion; absent -> it offers to install. That is what lets BuddyNext work standalone and avoid duplicating a companion's features.
 
 ```
-[Integrations tab] --reads--> CompanionRegistry::all() (filtered by buddynext_companions)
+[Add-ons tab] --reads--> CompanionRegistry::all() (filtered by buddynext_companions)
         |  Install click
         v
 POST buddynext/v1/companions/install { slug }
@@ -110,7 +110,7 @@ The `slug` is sanitized with `sanitize_key` and must exist in the registry; an u
 }
 ```
 
-`redirect_url` is the companion's `setup_url` resolved through `admin_url()` when declared, otherwise the Plugins screen. The browser navigates there after a successful install so the user lands in the companion's own setup flow rather than back on the Integrations list.
+`redirect_url` is the companion's `setup_url` resolved through `admin_url()` when declared, otherwise the Plugins screen. The browser navigates there after a successful install so the user lands in the companion's own setup flow rather than back on the Add-ons list.
 
 ```bash
 curl -X POST "https://example.com/wp-json/buddynext/v1/companions/install" \

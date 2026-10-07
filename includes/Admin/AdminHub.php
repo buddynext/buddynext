@@ -1187,6 +1187,13 @@ class AdminHub {
 	}
 
 	/**
+	 * Per-request memo of the filtered tab-slug => icon-slug map.
+	 *
+	 * @var array|null
+	 */
+	private static ?array $default_icon_map = null;
+
+	/**
 	 * Return a sensible default Lucide icon slug for a tab whose registration
 	 * didn't pass one. Falls back to a generic icon for unmapped slugs.
 	 *
@@ -1197,14 +1204,13 @@ class AdminHub {
 	 * @return string Icon slug (matches /assets/icons/{slug}.svg).
 	 */
 	private static function default_icon_for( string $tab_slug ): string {
-		static $cached = null;
-		if ( null === $cached ) {
+		if ( null === self::$default_icon_map ) {
 			/**
 			 * Filter the default tab-slug → icon-slug map.
 			 *
 			 * @param array<string, string> $map
 			 */
-			$cached = apply_filters(
+			self::$default_icon_map = (array) apply_filters(
 				'bn_admin_hub_default_icon_map',
 				array(
 					// Settings section.
@@ -1262,7 +1268,7 @@ class AdminHub {
 				)
 			);
 		}
-		return $cached[ $tab_slug ] ?? 'more-horizontal';
+		return self::$default_icon_map[ $tab_slug ] ?? 'more-horizontal';
 	}
 
 	/**

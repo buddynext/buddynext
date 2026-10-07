@@ -38,28 +38,31 @@ use BuddyNext\Sidebar\Surface;
 Surface::set( 'spaces' );
 
 // ── Query parameters ─────────────────────────────────────────────────────────
-
-$current_user_id = get_current_user_id();
-$bn_search       = isset( $_GET['bn_search'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_search'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_cat_slug     = isset( $_GET['bn_cat'] ) ? sanitize_key( wp_unslash( $_GET['bn_cat'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_visibility   = isset( $_GET['bn_type'] ) ? sanitize_key( wp_unslash( $_GET['bn_type'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_orderby      = isset( $_GET['bn_sort'] ) ? sanitize_key( wp_unslash( $_GET['bn_sort'] ) ) : 'popular'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_paged        = isset( $_GET['bn_page'] ) ? max( 1, absint( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_per_page     = 18;
-// Opt-in: include sub-spaces in the directory (off by default — the directory is
-// roots-only so it stays uncrowded and bounded at 20-30k member-created spaces).
-$bn_include_subspaces = isset( $_GET['bn_subspaces'] ) && '1' === $_GET['bn_subspaces']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-// Scope comes from the pretty rewrite (/spaces/mine/ → query var bn_scope) or,
-// as a fallback, a legacy ?bn_scope= query string.
-$bn_scope = (string) get_query_var( 'bn_scope', '' );
-if ( '' === $bn_scope && isset( $_GET['bn_scope'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$bn_scope = wp_unslash( $_GET['bn_scope'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-}
-$bn_scope   = sanitize_key( $bn_scope );
-$rest_nonce = wp_create_nonce( 'wp_rest' );
-
+$current_user_id  = get_current_user_id();
 $bn_is_site_admin = current_user_can( 'manage_options' );
 $bn_space_service = new \BuddyNext\Spaces\SpaceService();
+
+// Parsed by the service, the same call PageRouter makes to answer 404 for a page
+// past the end, so the two can never disagree.
+$bn_request           = $bn_space_service->directory_request(
+	$current_user_id,
+	$bn_is_site_admin,
+	\BuddyNext\Spaces\SpaceService::directory_request_input(),
+	max( 1, absint( get_query_var( 'paged', 1 ) ) )
+);
+$bn_search            = $bn_request['search'];
+$bn_cat_slug          = $bn_request['cat_slug'];
+$bn_visibility        = $bn_request['visibility'];
+$bn_orderby           = $bn_request['orderby'];
+$bn_paged             = $bn_request['page'];
+$bn_per_page          = $bn_request['per_page'];
+$bn_include_subspaces = $bn_request['include_subspaces'];
+$bn_scope             = $bn_request['scope'];
+$bn_membership        = $bn_request['membership'];
+$bn_is_mine           = $bn_request['is_mine'];
+$bn_query_args        = $bn_request['query_args'];
+$bn_render_sections   = 'sections' === $bn_request['mode'];
+$rest_nonce           = wp_create_nonce( 'wp_rest' );
 
 // ── Categories (chip row + per-card category label resolution) ────────────────
 // Single source: the same service the category controller uses. Each row carries
@@ -75,60 +78,8 @@ foreach ( $bn_categories as $bn_cat_row ) {
 	$bn_cat_by_slug[ (string) $bn_cat_row['slug'] ] = $bn_cat_row;
 }
 
-// ── Resolve the active scope/filter into service args ─────────────────────────
-// Mirrors SpaceController::list_spaces() so the SSR grid and the GET /spaces
-// REST route the reactive filter calls return the identical set of spaces.
-$bn_sort_map                           = \BuddyNext\Spaces\SpaceService::sort_map();
-list( $bn_orderby_col, $bn_order_dir ) = $bn_sort_map[ $bn_orderby ] ?? $bn_sort_map['popular'];
-
-$bn_query_args = array(
-	'per_page' => $bn_per_page,
-	'page'     => $bn_paged,
-	'orderby'  => $bn_orderby_col,
-	'order'    => $bn_order_dir,
-	'viewer'   => $current_user_id,
-	'is_admin' => $bn_is_site_admin,
-);
-
-// Visibility-type chip (rarely used; kept for shareable ?bn_type= links).
-if ( '' !== $bn_visibility && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( $bn_visibility ) ) {
-	$bn_query_args['type'] = $bn_visibility;
-}
-
-// Category chip → category_id (service filters on the id, not the slug).
-if ( '' !== $bn_cat_slug && isset( $bn_cat_by_slug[ $bn_cat_slug ] ) ) {
-	$bn_query_args['category_id'] = (int) $bn_cat_by_slug[ $bn_cat_slug ]['id'];
-}
-
-// "My Spaces" scope → the service's `member` arg (owned or active membership).
-// A `bn_membership` sub-filter ('managed' = owner/moderator, 'joined' = member)
-// narrows to one bucket — the paginated "View all" target. Without it, My Spaces
-// renders as two sections (managed + joined), fetched separately below so each
-// stays bounded and pagination never straddles the two groups.
-$bn_membership = (string) get_query_var( 'bn_membership', '' );
-if ( '' === $bn_membership && isset( $_GET['bn_membership'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$bn_membership = wp_unslash( $_GET['bn_membership'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-}
-$bn_membership = sanitize_key( $bn_membership );
-$bn_is_mine    = ( 'mine' === $bn_scope && $current_user_id > 0 );
-if ( $bn_is_mine ) {
-	$bn_query_args['member'] = $current_user_id;
-	if ( in_array( $bn_membership, array( 'managed', 'joined' ), true ) ) {
-		$bn_query_args['member_role'] = 'managed' === $bn_membership ? 'manage' : 'joined';
-	}
-}
-
-// Two-section "My Spaces" view: only when no sub-filter and no search is active.
-$bn_render_sections = $bn_is_mine && '' === $bn_membership && '' === $bn_search;
-$bn_section_cap     = 12;
-
-// Top-level browse shows root spaces only — sub-spaces are discovered from their
-// parent, so the grid never flattens a deep tree. "My Spaces" (member-scoped) and
-// search still surface sub-spaces directly; the "Include sub-spaces" toggle opts
-// the All view into the full flat list.
-if ( ! isset( $bn_query_args['member'] ) && ! $bn_include_subspaces ) {
-	$bn_query_args['roots_only'] = true;
-}
+// My Spaces sections show at most this many per group; "View all" pages the rest.
+$bn_section_cap = 12;
 
 // ── Fetch spaces + total via the service layer ────────────────────────────────
 $bn_managed_spaces = array();
@@ -361,6 +312,10 @@ $bn_subtitle = sprintf(
 	);
 	?>
 
+	<?php
+	// "in {parent}" on sub-space cards: one query for the page.
+	$bn_parent_by_id = buddynext_service( 'spaces' )->parent_labels( array_column( (array) $bn_spaces, 'parent_id' ), (int) $current_user_id );
+	?>
 	<div class="bn-sd-filter-row">
 		<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces', 'buddynext' ); ?>" data-bn-scope-chips>
 			<?php
@@ -383,13 +338,17 @@ $bn_subtitle = sprintf(
 				<a
 					class="bn-tab bn-sd-chip"
 					role="tab"
-					aria-selected="<?php echo $bn_is_mine ? 'true' : 'false'; ?>"
+					aria-selected="<?php echo ( $bn_is_mine && '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
 					href="<?php echo esc_url( trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() ) . 'mine/' ); ?>"
 				><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></a>
 			<?php endif; ?>
-			<?php // Category chips refine the All-spaces directory (reactive); they don't apply to the sectioned My Spaces view, so hide them there. ?>
-			<?php if ( ! $bn_is_mine ) : ?>
-				<?php foreach ( $categories as $bn_cat_item ) : ?>
+			<?php
+			// Category chips refine the All view reactively. On My Spaces they are
+			// links that stay inside it (/spaces/mine/?bn_cat=slug): the sectioned
+			// query already takes the category, so a member in many spaces can narrow
+			// their own list.
+			?>
+			<?php foreach ( $categories as $bn_cat_item ) : ?>
 					<?php
 						// The category's own colour + icon as a small leading swatch — the
 						// same signal the admin pill and space-card badge carry, so a
@@ -405,6 +364,14 @@ $bn_subtitle = sprintf(
 							: '';
 						$bn_chip_icon   = bn_space_category_icon( (string) $bn_cat_item->slug, (string) $bn_cat_item->icon_svg );
 					?>
+					<?php if ( $bn_is_mine ) : ?>
+					<a
+						class="bn-tab bn-sd-chip"
+						role="tab"
+						aria-selected="<?php echo ( $bn_cat_item->slug === $bn_cat_slug ) ? 'true' : 'false'; ?>"
+						href="<?php echo esc_url( add_query_arg( 'bn_cat', (string) $bn_cat_item->slug, trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() ) . 'mine/' ) ); ?>"
+					>
+					<?php else : ?>
 					<button
 						type="button"
 						class="bn-tab bn-sd-chip"
@@ -414,9 +381,11 @@ $bn_subtitle = sprintf(
 						data-bn-cat-id="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
 						data-bn-cat-slug="<?php echo esc_attr( (string) $bn_cat_item->slug ); ?>"
 						data-wp-on--click="actions.setScope"
-					><span class="bn-sd-chip__icon" aria-hidden="true"<?php echo $bn_chip_swatch; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped attribute string built from esc_attr(). ?>><?php echo $bn_chip_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bn_space_category_icon() returns a wp_kses'd SVG. ?></span><?php echo esc_html( $bn_cat_item->name ); ?></button>
+					>
+					<?php endif; ?>
+					<span class="bn-sd-chip__icon" aria-hidden="true"<?php echo $bn_chip_swatch; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped attribute string built from esc_attr(). ?>><?php echo $bn_chip_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bn_space_category_icon() returns a wp_kses'd SVG. ?></span><?php echo esc_html( $bn_cat_item->name ); ?>
+					<?php echo $bn_is_mine ? '</a>' : '</button>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static closing tag. ?>
 				<?php endforeach; ?>
-			<?php endif; ?>
 		</nav>
 
 		<div class="bn-sd-sort" data-bn-sort-popover>
@@ -457,7 +426,7 @@ $bn_subtitle = sprintf(
 				class="bn-btn bn-sd-subspaces-toggle"
 				data-variant="<?php echo $bn_include_subspaces ? 'primary' : 'secondary'; ?>"
 				data-size="sm"
-				href="<?php echo esc_url( $bn_include_subspaces ? remove_query_arg( 'bn_subspaces' ) : add_query_arg( 'bn_subspaces', '1' ) ); ?>"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::first_page( $bn_include_subspaces ? remove_query_arg( 'bn_subspaces' ) : add_query_arg( 'bn_subspaces', '1' ) ) ); ?>"
 				aria-pressed="<?php echo $bn_include_subspaces ? 'true' : 'false'; ?>"
 			>
 				<?php buddynext_icon( 'layers' ); ?>
@@ -654,6 +623,7 @@ $bn_subtitle = sprintf(
 								'membership'      => $membership_map[ (int) $space['id'] ] ?? null,
 								'current_user_id' => $current_user_id,
 								'cat_by_id'       => $bn_cat_by_id,
+								'parent_by_id'    => $bn_parent_by_id,
 								'subspace_count'  => (int) ( $bn_subspace_counts[ (int) $space['id'] ] ?? 0 ),
 							)
 						);
@@ -664,9 +634,37 @@ $bn_subtitle = sprintf(
 			<?php
 		endforeach;
 
-		// Zero-space member: neither section rendered (both empty), so show a
-		// friendly cold-start instead of a blank "My Spaces" page.
-		if ( empty( $bn_managed_spaces ) && empty( $bn_joined_spaces ) ) :
+		// Filtered to a category the member has no space in: say that, not "not in
+		// any spaces yet", which is untrue for someone in many other spaces.
+		if ( empty( $bn_managed_spaces ) && empty( $bn_joined_spaces ) && '' !== $bn_cat_slug ) :
+			$bn_mine_cat_name = (string) ( $bn_cat_by_slug[ $bn_cat_slug ]['name'] ?? $bn_cat_slug );
+			?>
+			<div class="bn-sd-empty">
+				<?php
+				buddynext_get_template(
+					'parts/empty-state.php',
+					array(
+						'icon'  => 'search',
+						/* translators: %s: space category name. */
+						'title' => sprintf( __( 'None of your spaces are in %s', 'buddynext' ), $bn_mine_cat_name ),
+						'body'  => __( 'Pick another category, or browse every space in this one.', 'buddynext' ),
+					)
+				);
+				?>
+				<div class="bn-sd-empty__actions">
+					<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_slug, \BuddyNext\Core\PageRouter::spaces_url() ) ); ?>">
+						<?php
+						/* translators: %s: space category name. */
+						echo esc_html( sprintf( __( 'Browse %s', 'buddynext' ), $bn_mine_cat_name ) );
+						?>
+					</a>
+					<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() ) . 'mine/' ); ?>"><?php esc_html_e( 'Show all my spaces', 'buddynext' ); ?></a>
+				</div>
+			</div>
+			<?php
+			// Zero-space member: neither section rendered (both empty), so show a
+			// friendly cold-start instead of a blank "My Spaces" page.
+		elseif ( empty( $bn_managed_spaces ) && empty( $bn_joined_spaces ) ) :
 			?>
 			<div class="bn-sd-empty bn-sd-empty--coldstart">
 				<?php
@@ -729,6 +727,7 @@ $bn_subtitle = sprintf(
 						'membership'      => $membership_map[ (int) $space['id'] ] ?? null,
 						'current_user_id' => $current_user_id,
 						'cat_by_id'       => $bn_cat_by_id,
+						'parent_by_id'    => $bn_parent_by_id,
 						'subspace_count'  => (int) ( $bn_subspace_counts[ (int) $space['id'] ] ?? 0 ),
 						'active_label'    => $bn_active_label,
 					)
@@ -746,7 +745,6 @@ $bn_subtitle = sprintf(
 				array(
 					'current'    => $bn_paged,
 					'total'      => $total_pages,
-					'query_var'  => 'bn_page',
 					'aria_label' => __( 'Spaces directory pages', 'buddynext' ),
 				)
 			);

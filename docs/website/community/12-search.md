@@ -2,7 +2,7 @@
 
 Search lets anyone find members, posts, spaces, and hashtags from one query. Type a word and BuddyNext returns grouped, viewer-aware results across the whole community.
 
-![BuddyNext search results — one query grouped into members, posts, spaces and hashtags with result counts per type, plus date and sort refinements.](../images/search.webp)
+![BuddyNext search results - one query grouped into members, posts, spaces and hashtags with result counts per type, plus date and sort refinements.](../images/search.webp)
 
 ## Why use it
 
@@ -37,7 +37,7 @@ Selecting a tab shows only that section, which is faster when you already know w
 
 ### Sort and date controls
 
-Results carry date and sort controls so you can order them by recency or relevance and limit them to a time window. Changing a control reloads the results with the new ordering.
+Results carry two controls. **Date** limits results to Any time, Past week, Past month or Past year. **Sort by** orders them by Most relevant or Most recent. Changing a control reloads the results with the new ordering. If an add-on plugin (for example jobs or listings) feeds the search index, its results get their own tab and section as well.
 
 ### What you will and will not see
 
@@ -67,13 +67,20 @@ Search is on as soon as BuddyNext is active - there are no keys to enter and no 
 
 ### The Search Bar block
 
-You can place a search input anywhere on your site with the Search Bar block. Add it through the block editor, where it is named "Search Bar" in the BuddyNext block category. It renders a unified search input that opens the grouped results page. The block has one option:
+You can place a search input anywhere on your site with the Search Bar block. Add it through the block editor, where it is named "Search Bar" in the BuddyNext block category. It renders a unified search input that opens the grouped results page. The block has two options:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Placeholder | The grey hint text shown inside the empty search field | Empty (uses the built-in default text) |
+| Placeholder text | The grey hint text shown inside the empty search field | Empty (uses the built-in default text) |
+| Search in | Which results the box opens: Everything, Members, Spaces or Posts | Everything |
 
 The block also supports the standard editor controls for background and text color, font size, padding, and margin, so it fits the design of whatever page you place it on.
+
+### Your site's own search stays yours
+
+BuddyNext does not take over WordPress search. The search box in your theme, WooCommerce product search and any other directory search keep working exactly as before. When someone runs a site search, the theme's results page shows a short note at the top - "Looking for people, spaces or community posts? See community results for ..." - that opens the same terms in community search. Product and other catalogue searches do not get the note.
+
+If you would rather every site search open community search instead, add `add_filter( 'buddynext_route_core_search', '__return_true' );` to a small plugin or your child theme.
 
 ### Public explore and search visibility
 
@@ -99,15 +106,15 @@ You do not normally need to reindex. The index is updated as content changes. A 
 
 Unified search across members, posts, spaces, hashtags, and media - with viewer-aware filtering and the Search Bar block - is included free.
 
-Pro adds advanced member filters on the search page. When BuddyNext Pro is active, the results page shows an "Advanced member filters" card that lets members narrow people by:
+The results page shows an "Advanced member filters" card for people searches. Free includes two filters in it: **Joined on or after** a chosen date, and **Active within (days)**.
+
+Pro adds more advanced member filters to the same card, so members can also narrow people by:
 
 - Membership plan
-- Space they belong to
+- Space they belong to ("Member of space")
 - Member label
-- Joined after a chosen date
-- Active within a chosen number of days
 
-Pro also adds saved searches, so a member can save a filter combination and re-run it later. These filters apply when there is a query and do not change the free behavior - when Pro is inactive, the advanced card is hidden and core search keeps working. The space filter only ever offers spaces the viewer already belongs to, so the advanced filters stay privacy-aware.
+Pro also adds saved searches, so a member can save a filter combination and re-run it later. These filters apply when there is a query and do not change the free behavior - when Pro is inactive, the plan, space and label filters are hidden (the card says they appear when BuddyNext Pro is active) and core search keeps working. The space filter only ever offers spaces the viewer already belongs to, so the advanced filters stay privacy-aware.
 
 ## Related
 

@@ -250,7 +250,17 @@ class AssetService {
 
 		// Shared taxonomy editor (Member Types tab + Spaces > Categories subtab).
 		// Both surfaces render templates/parts/taxonomy-editor.php, so the editor
-		// CSS + live-preview JS load on either page.
+		// CSS + live-preview JS load on either page. The script is registered on
+		// every BuddyNext screen so another editor form (Pro's member labels) can
+		// enqueue the handle for its [data-bn-tax-editor] form instead of copying it.
+		wp_register_script(
+			'bn-admin-taxonomy',
+			$this->assets_url . 'js/admin/taxonomy-editor.js',
+			array( 'wp-i18n' ),
+			self::VERSION,
+			true
+		);
+		wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 		if ( false !== strpos( $hook_suffix, 'buddynext-members' )
 			|| false !== strpos( $hook_suffix, 'buddynext-spaces' ) ) {
 			wp_enqueue_style(
@@ -259,14 +269,7 @@ class AssetService {
 				array( 'bn-admin' ),
 				self::VERSION
 			);
-			wp_enqueue_script(
-				'bn-admin-taxonomy',
-				$this->assets_url . 'js/admin/taxonomy-editor.js',
-				array( 'wp-i18n' ),
-				self::VERSION,
-				true
-			);
-			wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+			wp_enqueue_script( 'bn-admin-taxonomy' );
 		}
 
 		// Shared media-library picker for single-image fields
@@ -679,6 +682,7 @@ class AssetService {
 				array( 'id' => '@wordpress/interactivity' ),
 				array( 'id' => '@buddynext/shell-dialog' ),
 				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/upload-core' ),
 				array( 'id' => '@buddynext/feed-shared' ),
 				array( 'id' => '@buddynext/popover' ),
 			),
@@ -921,8 +925,8 @@ class AssetService {
 					'follow'                  => __( 'Follow', 'buddynext' ),
 					'following'               => __( 'Following', 'buddynext' ),
 					'requested'               => __( 'Requested', 'buddynext' ),
-					'ariaFollow'              => __( 'Follow this user', 'buddynext' ),
-					'ariaUnfollow'            => __( 'Unfollow this user', 'buddynext' ),
+					'ariaFollow'              => __( 'Follow this member', 'buddynext' ),
+					'ariaUnfollow'            => __( 'Unfollow this member', 'buddynext' ),
 					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
 					/* translators: %s: member display name. */
 					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
@@ -1018,10 +1022,10 @@ class AssetService {
 					'timeHoursAgo'              => __( '%dh ago', 'buddynext' ),
 					/* translators: %d: number of days. */
 					'timeDaysAgo'               => __( '%dd ago', 'buddynext' ),
-					'user'                      => __( 'User', 'buddynext' ),
+					'user'                      => __( 'Member', 'buddynext' ),
 					'you'                       => __( 'You', 'buddynext' ),
 					/* translators: %s: user ID */
-					'userNumber'                => __( 'User #%s', 'buddynext' ),
+					'userNumber'                => __( 'Member #%s', 'buddynext' ),
 					'loading'                   => __( 'Loading…', 'buddynext' ),
 					'retry'                     => __( 'Retry', 'buddynext' ),
 					'save'                      => __( 'Save', 'buddynext' ),
@@ -1054,6 +1058,9 @@ class AssetService {
 					'oneReaction'               => __( '1 reaction', 'buddynext' ),
 					/* translators: %d: number of reactions */
 					'manyReactions'             => __( '%d reactions', 'buddynext' ),
+					'seeOneReaction'            => __( 'See 1 reaction', 'buddynext' ),
+					/* translators: %d: total number of reactions */
+					'seeAllReactions'           => __( 'See all %d reactions', 'buddynext' ),
 					'writeReply'                => __( 'Write a reply...', 'buddynext' ),
 					'postReply'                 => __( 'Post reply', 'buddynext' ),
 					'commentDeleted'            => __( 'This comment was deleted.', 'buddynext' ),
@@ -1091,6 +1098,10 @@ class AssetService {
 					'postUpdateFailed'          => __( 'Could not update the post. Try again.', 'buddynext' ),
 					'linkPreviewAttached'       => __( 'Link preview attached', 'buddynext' ),
 					'removeLinkPreview'         => __( 'Remove link preview', 'buddynext' ),
+					// Photos on the post-card edit form.
+					'addPhotoOrVideo'           => __( 'Add photo or video', 'buddynext' ),
+					'removeMedia'               => __( 'Remove from post', 'buddynext' ),
+					'mediaUploadFailed'         => __( 'That file could not be uploaded.', 'buddynext' ),
 					'postPinned'                => __( 'Post pinned', 'buddynext' ),
 					'postUnpinned'              => __( 'Post unpinned', 'buddynext' ),
 					'postPinFailed'             => __( 'Could not pin this post. Try again.', 'buddynext' ),
@@ -1125,6 +1136,10 @@ class AssetService {
 					'documentServerFault'       => __( 'Something went wrong on our side and the document was not saved. Nothing you did caused this.', 'buddynext' ),
 					'documentUploadFailed'      => __( 'That document could not be uploaded.', 'buddynext' ),
 					'documentStillUploading'    => __( 'Wait for the document to finish uploading.', 'buddynext' ),
+					'mediaStillUploading'       => __( 'Wait for the upload to finish, then post.', 'buddynext' ),
+					'uploadWaiting'             => __( 'Waiting', 'buddynext' ),
+					/* translators: %s: file name. */
+					'uploadingFile'             => __( 'Uploading %s', 'buddynext' ),
 					'repost'                    => __( 'Repost', 'buddynext' ),
 					'reposting'                 => __( 'Reposting…', 'buddynext' ),
 					'reposted'                  => __( 'Reposted', 'buddynext' ),
@@ -1304,6 +1319,8 @@ class AssetService {
 					'labelJoined'                     => __( 'Joined', 'buddynext' ),
 					'labelRequested'                  => __( 'Requested', 'buddynext' ),
 					'labelRequestToJoin'              => __( 'Request to join', 'buddynext' ),
+					/* translators: %s: name of the space this sub-space belongs to. */
+					'labelInParent'                   => _x( 'in %s', 'sub-space parent label', 'buddynext' ),
 					'labelManage'                     => __( 'Manage', 'buddynext' ),
 					'labelPublic'                     => __( 'Public', 'buddynext' ),
 					'ariaJoinedClickToLeave'          => __( 'Joined - click to leave', 'buddynext' ),
@@ -1461,6 +1478,7 @@ class AssetService {
 					'format' => (string) get_option( 'time_format', 'g:i A' ),
 				),
 				'i18n'  => array(
+					'sendFailed'                => __( 'Could not send. Try again.', 'buddynext' ),
 					'composeNewGroup'           => __( 'New group', 'buddynext' ),
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),
 					'composeHint'               => __( 'Search for a person to message.', 'buddynext' ),
@@ -1574,6 +1592,8 @@ class AssetService {
 					'coverSet'                => __( 'Cover updated', 'buddynext' ),
 					'coverFailed'             => __( 'Could not set the cover.', 'buddynext' ),
 					'uploadFailed'            => __( 'Could not upload that file.', 'buddynext' ),
+					/* translators: 1: file number, 2: files being uploaded. */
+					'uploadingFileOf'         => __( 'File %1$d of %2$d', 'buddynext' ),
 					'uploadedOne'             => __( 'Uploaded and selected. Choose Add to put it in the album.', 'buddynext' ),
 					'uploadedMany'            => __( 'Uploaded and selected. Choose Add to put them in the album.', 'buddynext' ),
 					'uploadedSharedOne'       => __( 'Uploaded and shared to your feed. Choose Add to also put it in the album.', 'buddynext' ),
@@ -1764,10 +1784,26 @@ class AssetService {
 	 */
 	private function i18n_moderation(): void {
 		wp_interactivity_state(
-			'buddynext/moderation',
+			'buddynext/community-admin',
 			array(
 				'i18n' => array(
+					'roleUpdated' => __( 'Member role updated.', 'buddynext' ),
+					'roleFailed'  => __( 'Could not update the role. Try again.', 'buddynext' ),
+				),
+			)
+		);
+
+		wp_interactivity_state(
+			'buddynext/moderation',
+			array(
+				'i18n'              => array(
 					'dismissFailed'         => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
+					'warnPolicyReminder'    => __( 'Content policy reminder', 'buddynext' ),
+					'warnSpaceRule'         => __( 'Space rule violation', 'buddynext' ),
+					'strikeReportedContent' => __( 'Strike issued for reported content', 'buddynext' ),
+					'cwAdded'               => __( 'Content warning applied', 'buddynext' ),
+					'cwCleared'             => __( 'Content warning cleared', 'buddynext' ),
+					'cwFailed'              => __( 'Could not update the content warning. Try again.', 'buddynext' ),
 					'removeContentTitle'    => __( 'Remove this content?', 'buddynext' ),
 					'removeContentBody'     => __( 'The reported item will be taken down from public view and the report marked resolved.', 'buddynext' ),
 					'removeLabel'           => __( 'Remove', 'buddynext' ),
@@ -1778,7 +1814,7 @@ class AssetService {
 					'reportEscalated'       => __( 'Report escalated', 'buddynext' ),
 					'escalateFailed'        => __( 'Could not escalate the report. Try again.', 'buddynext' ),
 					'warningSent'           => __( 'Warning sent.', 'buddynext' ),
-					'warnUserFailed'        => __( 'Could not warn the user.', 'buddynext' ),
+					'warnUserFailed'        => __( 'Could not warn the member.', 'buddynext' ),
 					'strikeIssued'          => __( 'Strike issued.', 'buddynext' ),
 					'strikeUserFailed'      => __( 'Could not issue a strike.', 'buddynext' ),
 					// Reverse strike — the counterpart to the above. The report row's
@@ -1789,11 +1825,22 @@ class AssetService {
 					'noActiveStrikes'       => __( 'This member has no active strikes.', 'buddynext' ),
 					/* translators: %d: number of active strikes. */
 					'reverseStrikeAria'     => __( 'Reverse the most recent strike (%d active)', 'buddynext' ),
-					'suspendUserTitle'      => __( 'Suspend this user?', 'buddynext' ),
-					'suspendUserBody'       => __( 'They will be unable to post or interact for 7 days, and their posts will be hidden.', 'buddynext' ),
+					'suspendUserTitle'      => __( 'Suspend this member?', 'buddynext' ),
+					'suspendUserBody'       => __( 'They lose posting access, and see the reason you choose on their account page and in the suspension email.', 'buddynext' ),
 					'suspendLabel'          => __( 'Suspend', 'buddynext' ),
-					'userSuspended'         => __( 'User suspended for 7 days.', 'buddynext' ),
-					'suspendUserFailed'     => __( 'Could not suspend the user.', 'buddynext' ),
+					'suspendReasonLabel'    => __( 'Reason (shown to the member)', 'buddynext' ),
+					'suspendReasonPick'     => __( 'Choose a reason', 'buddynext' ),
+					'suspendNoteLabel'      => __( 'Note (optional, required for Other)', 'buddynext' ),
+					'suspendLengthLabel'    => __( 'Suspension length', 'buddynext' ),
+					'suspendIndefinite'     => __( 'Indefinite (until lifted)', 'buddynext' ),
+					/* translators: %d: number of days. */
+					'suspendDays'           => __( '%d days', 'buddynext' ),
+					'suspendOneDay'         => __( '1 day', 'buddynext' ),
+					'suspendHidePosts'      => __( 'Hide their posts while suspended', 'buddynext' ),
+					'suspendNeedReason'     => __( 'Choose a reason. The member will see it.', 'buddynext' ),
+					'suspendNeedNote'       => __( 'Add a note to explain the reason when you choose Other.', 'buddynext' ),
+					'userSuspended'         => __( 'Member suspended.', 'buddynext' ),
+					'suspendUserFailed'     => __( 'Could not suspend the member.', 'buddynext' ),
 					'appealTooShort'        => __( 'Describe why you are appealing (at least 10 characters).', 'buddynext' ),
 					'appealSubmitted'       => __( 'Your appeal has been submitted.', 'buddynext' ),
 					'appealSubmitFailed'    => __( 'Could not submit your appeal. Try again.', 'buddynext' ),
@@ -1819,6 +1866,15 @@ class AssetService {
 					'approveRequestFailed'  => __( 'Could not approve the join request. Try again.', 'buddynext' ),
 					'declineRequestFailed'  => __( 'Could not decline the join request. Try again.', 'buddynext' ),
 				),
+				// The suspend dialog's reason list (one source: ModerationService) and
+				// whether this viewer may suspend with no end date (admins only).
+				'suspensionReasons' => array_map(
+					static fn( $code, $label ): array => array( (string) $code, (string) $label ),
+					array_keys( \BuddyNext\Moderation\ModerationService::suspension_reasons() ),
+					array_values( \BuddyNext\Moderation\ModerationService::suspension_reasons() )
+				),
+				'suspendNoteMax'    => \BuddyNext\Moderation\ModerationService::SUSPENSION_NOTE_MAX,
+				'canSuspendForever' => current_user_can( 'manage_options' ),
 			)
 		);
 	}

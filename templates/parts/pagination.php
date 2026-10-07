@@ -13,7 +13,8 @@
  * @var int    $total        Required. Total number of pages.
  * @var string $base_url     Optional. Base URL pattern with %#% placeholder. When
  *                           omitted, uses the current page URL.
- * @var string $query_var    Optional. Query var used in the base URL. Default 'paged'.
+ * @var string $query_var    Optional. Query var used in the base URL. Default 'paged',
+ *                           which produces core's /page/N/ links.
  * @var int    $end_size     Optional. Number of page numbers shown at the edges. Default 1.
  * @var int    $mid_size     Optional. Number of page numbers shown around the current page. Default 2.
  * @var string $prev_text    Optional. Previous-link text. Defaults to a localized arrow.
@@ -72,16 +73,7 @@ $bn_class   = trim(
 	)
 );
 
-if ( '' === (string) $args['base_url'] ) {
-	$bn_current_url = remove_query_arg( (string) $args['query_var'] );
-	$bn_base        = add_query_arg( (string) $args['query_var'], '%#%', $bn_current_url );
-} else {
-	$bn_base = (string) $args['base_url'];
-}
-
 $bn_paginate_args = array(
-	'base'      => $bn_base,
-	'format'    => '',
 	'current'   => (int) $args['current'],
 	'total'     => (int) $args['total'],
 	'end_size'  => (int) $args['end_size'],
@@ -90,6 +82,25 @@ $bn_paginate_args = array(
 	'next_text' => (string) $args['next_text'],
 	'type'      => 'array',
 );
+
+// A custom query var keeps the ?var=N form; 'paged' builds /page/N/ through
+// PageRouter::page_url() (see below).
+if ( '' !== (string) $args['base_url'] ) {
+	$bn_paginate_args['base']   = (string) $args['base_url'];
+	$bn_paginate_args['format'] = '';
+} elseif ( 'paged' !== (string) $args['query_var'] ) {
+	$bn_paginate_args['base']   = add_query_arg( (string) $args['query_var'], '%#%', remove_query_arg( (string) $args['query_var'] ) );
+	$bn_paginate_args['format'] = '';
+} else {
+	// /page/N/ links come from PageRouter::page_url(), the one builder every list
+	// uses. Core only draws the numbers: its %_% slot sits where page_url() puts
+	// the page segment, so page 1 stays the bare address.
+	$bn_seg                     = user_trailingslashit( 'page/2', 'paged' );
+	$bn_two                     = \BuddyNext\Core\PageRouter::page_url( '', 2 );
+	$bn_at                      = (int) strrpos( $bn_two, $bn_seg );
+	$bn_paginate_args['base']   = substr_replace( $bn_two, '%_%', $bn_at, strlen( $bn_seg ) );
+	$bn_paginate_args['format'] = user_trailingslashit( 'page/%#%', 'paged' );
+}
 
 /** Computed paginate_links() args. @var array<string,mixed> $bn_paginate_args */
 $bn_paginate_args = (array) apply_filters( 'buddynext_part_pagination_paginate_args', $bn_paginate_args, $args );

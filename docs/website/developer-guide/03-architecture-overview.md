@@ -37,8 +37,7 @@ Every feature is grouped by component and core. Cross-layer dependencies only po
                               ^  uses Core services, hooks between features
 +----------------------------------------------------------------------+
 |  LAYER 1  Bridges (cross-plugin adapters)  (includes/Bridges/)       |
-|   {Plugin}Bridge.php          adapter                                |
-|   {Plugin}BridgeListener.php  hook registrar                         |
+|   {Plugin}Bridge.php          adapter + its own hook registration    |
 +----------------------------------------------------------------------+
                               ^  calls feature services to normalize data
 +----------------------------------------------------------------------+
@@ -130,8 +129,10 @@ plugins_loaded:20  BuddyNext Pro::init() hooks in (extends free)
 plugins_loaded:25  do_action( 'buddynext_load_bridges' )
                      - BuddyXBridge (always; theme bridge)
                      - WPMediaVerseBridge / GamificationBridge /
-                       JetonomyBridge  (each gated on its feature toggle
-                       + self-guarded by class_exists)
+                       JetonomyBridge / MemberBlogBridge  (all wired
+                       unconditionally; each self-guards by class_exists
+                       and gates its surfaces on the per-aspect
+                       Integrations toggle, buddynext_integration_enabled)
 ```
 
 Addons initialize before BuddyNext so the bridge classes can inspect their state and set deferral flags before any `init` hook fires. Pro hooks `buddynext_loaded` and `buddynext_services_registered` to extend or rebind free services. Bridges run last (`:25`) so they fire after both free (`:15`) and Pro-tier partner plugins (`:20`).

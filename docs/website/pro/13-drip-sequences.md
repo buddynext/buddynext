@@ -15,73 +15,75 @@ A drip sequence handles it for you. Write a welcome on day zero, a "here is how 
 Members do not set anything up. Once you enable a sequence with a matching trigger, the member is enrolled and starts receiving the steps:
 
 - When a member registers (or finishes onboarding, depending on the sequence's trigger), they are enrolled automatically.
-- Each step arrives after its own delay. The first step can go out immediately (a delay of zero days); later steps follow on their own schedule.
+- Each step arrives after its own delay. The first step can go out at the next delivery run (a delay of zero days); later steps follow on their own schedule.
 - The emails are sent through BuddyNext's normal email system, so they carry your community's branding and From address.
 
 ### Unsubscribing
 
 Members stay in control of their inbox:
 
-- A member who unsubscribes from all community email stops receiving drip steps. The sequence is paused for them rather than deleted, so if they ever opt back in, it can resume.
-- A member can also unsubscribe from one specific sequence (every drip email carries a per-sequence unsubscribe link). Their opt-out is recorded and their enrollment is kept - it is skipped, not erased - so the history is preserved and it can resume if they re-subscribe.
+- A member who unsubscribes from all broadcast email stops receiving drip steps. The sequence is paused for them rather than deleted, so if they ever opt back in, it can resume.
+- A member can also unsubscribe from one specific sequence (every drip email carries a per-sequence unsubscribe link, "Unsubscribe from this sequence" unless your step body places its own `{{unsubscribe_url}}`). Their opt-out is recorded and their enrollment is kept - it is skipped, not erased - so the history is preserved and it can resume if they re-subscribe.
 
 ## Setting it up (for owners)
 
-Drip sequences are managed under the BuddyNext admin menu, on the Drip Sequences page.
+Drip sequences are managed in the BuddyNext admin under **Campaigns > Drip sequences**. They also have their own switch in the Features catalogue, **Drip sequences**, which is on by default.
 
 ### Create a sequence
 
-1. Open the Drip Sequences page. If you have none yet, you will see an empty state inviting you to create one.
-2. Give the sequence a name (for example, "Welcome Journey") and choose a trigger.
-3. Save it. The new sequence starts disabled so you can build its steps first; the step editor opens so you can add them. Enable it from the list when it is ready to go live.
+1. Open **Campaigns > Drip sequences**. If you have none yet, you will see "No sequences yet".
+2. In the **New sequence** form, give the sequence a name (for example, "Welcome Journey") and choose a trigger.
+3. Select **Create sequence**. The new sequence starts disabled so you can build its steps first. Use **Edit steps** on its row to add them, then **Enable** it when it is ready to go live.
 
 A sequence has these top-level settings:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Name | A label so you can recognize the sequence in the list. Required. | Empty (you must set it) |
-| Trigger | What starts the sequence for a member. See the trigger table below. Required. | Empty (you must choose one) |
-| Enabled | Whether the sequence is live. While disabled, no member is auto-enrolled and no steps go out. | Disabled when created (turn it on from the list once your steps are ready) |
+| Sequence name | A label so you can recognize the sequence in the list. Required. | Empty (you must set it) |
+| Trigger | What starts the sequence for a member. See the trigger table below. | Member sign-up (first option in the list) |
+| Enabled | Whether the sequence is live. While disabled, no new member is auto-enrolled and no step is sent to members already enrolled. | Disabled when created (turn it on from the list once your steps are ready) |
 
 #### Triggers
 
 | Trigger | When a member is enrolled |
 |---|---|
-| New member registers | The moment a new account is created. |
+| Member sign-up | The moment a new account is created. |
 | Onboarding completed | When a member finishes the onboarding flow. |
-| Manual | Never automatically; members are enrolled through the REST API (see Manage enrollments). |
+| Manual (enroll via API) | Never automatically; members are enrolled through the REST API (see Manage enrollments). |
+
+A developer can add more triggers with the `buddynext_drip_triggers` filter; they then appear in this list.
 
 ### Add steps
 
-Each step is one email in the sequence. Add as many as you need; they are sent in the order you add them.
+Each step is one email in the sequence. Use the **Add step** form for each one. Add as many as you need. The step list shows each step's day and subject, in the order they are delivered (sorted by delay).
 
 | Setting | What it does | Default |
 |---|---|---|
-| Delay (days) | How long to wait before this step is sent, measured from the previous step (or from enrollment, for the first step). Use 0 to send right away. | 0 |
+| Delay (days) | How long to wait before this step is sent, measured from the previous step (or from enrollment, for the first step). Use 0 for the next delivery run. | 0 |
 | Subject | The email subject line. Required and must not be empty. | Empty (you must set it) |
 | Body | The email content. Accepts HTML and supports merge tags such as `{{first_name}}`. Required and must not be empty. | Empty (you must set it) |
 
 > **Note:** A step will not save with a blank subject or body. This is deliberate - it stops the sequence from emailing members an empty message.
 
-You can edit a step, reorder steps, and remove a step from the editor. Because each step's delay is measured from the previous step, reordering changes when later steps go out.
+You can **Edit** or **Delete** a step from the step list. There is no manual reordering: steps are shown and delivered in order of their delay, so to move a step, change its delay.
 
 ### Enable, disable, and delete
 
-- Toggle a sequence on or off from its row in the list or from the editor. Disabling stops new auto-enrollments and pauses delivery; it does not delete anything.
-- Deleting a sequence removes it permanently along with every enrollment tied to it. There is no separate delete for a single member's enrollment from here - deleting the whole sequence is the only removal path.
+- Use **Enable** or **Disable** on the sequence's row in the list. Disabling pauses the sequence: no new member is enrolled and members already enrolled receive nothing, but everyone keeps their place. Enabling it again resumes each member with their next step; the steps that came due while it was paused are not sent all at once. Delete a sequence only when you want its enrollments gone.
+- **Delete** removes a sequence permanently, after a confirmation, along with every enrollment tied to it. There is no separate delete for a single member's enrollment from here - deleting the whole sequence is the only removal path.
 
 ### Manage enrollments
 
 - Members who match a sequence's trigger are enrolled automatically while the sequence is enabled.
-- You can also enroll a member through the REST API (`POST /drip-sequences/{id}/enroll`). This is the only way members enter a "Manual" sequence, and it is useful for adding existing members to a sequence built after they joined.
+- You can also enroll a member through the REST API (`POST /buddynext-pro/v1/drip-sequences/{id}/enroll`). This is the only way members enter a "Manual" sequence, and it is useful for adding existing members to a sequence built after they joined.
 - If you enroll someone who is already in the sequence, their progress resets to the first step rather than creating a duplicate. A member is never enrolled twice in the same sequence.
 
 ## Good to know
 
-- **One step per run.** Delivery is handled by a background task that runs on a schedule. Each time it runs, it advances each active member by at most one step. After a step's delay has passed, that member's next step goes out on the following run - steps do not all fire at once. If the background task was paused for a while and several steps are overdue, members catch up one step per run rather than receiving a burst of emails.
+- **One step per run.** Delivery is handled by a background task that runs about once an hour while there are active enrollments, so a step goes out within roughly an hour after it is due. Each time it runs, it advances each active member by at most one step. After a step's delay has passed, that member's next step goes out on the following run - steps do not all fire at once. If the background task was paused for a while and several steps are overdue, members catch up one step per run rather than receiving a burst of emails.
 - **The schedule arms itself.** The background task only runs while there are active enrollments. When the last enrollment finishes, it stops on its own, and it starts again the next time someone is enrolled. There is nothing to turn on.
 - **Duplicate enrollment is prevented.** Re-triggering enrollment for a member who is already in a sequence resets their progress instead of adding a second copy.
-- **Global opt-out wins.** A member who has unsubscribed from all community email is skipped by the sequence without losing their place, so they resume if they re-subscribe.
+- **Global opt-out wins.** A member who has unsubscribed from all broadcast email is skipped by the sequence without losing their place, so they resume if they re-subscribe.
 - **Completed sequences stop.** Once a member receives the last step, their enrollment is marked complete and they get nothing further from that sequence unless you re-enroll them.
 
 ## Free vs Pro

@@ -132,6 +132,32 @@ class MemberDirectoryService {
 			return (int) $cached;
 		}
 
+		// The header's community size differs from the grid's total only by the
+		// viewer (count_viewer drops the self-exclusion). Counting the whole user
+		// table twice for that one row cost ~230ms per page at 100k members with
+		// no object cache. The grid total plus a primary-key check of the viewer's
+		// own row (same clauses, so the same answer) gives the exact number.
+		if ( ! empty( $filters['count_viewer'] ) && $viewer_id > 0 && empty( $filters['viewer_row_only'] ) ) {
+			$grid_filters = $filters;
+			unset( $grid_filters['count_viewer'] );
+			$viewer_set = isset( $filters['include'] ) && is_array( $filters['include'] )
+				? ( in_array( $viewer_id, array_map( 'intval', $filters['include'] ), true ) ? array( $viewer_id ) : array() )
+				: array( $viewer_id );
+			$total      = $this->directory_total( $viewer_id, $grid_filters )
+				+ ( $viewer_set ? $this->directory_total(
+					$viewer_id,
+					array_merge(
+						$filters,
+						array(
+							'include'         => $viewer_set,
+							'viewer_row_only' => true,
+						)
+					)
+				) : 0 );
+			wp_cache_set( $cache_key, $total, self::CACHE_GROUP, self::CACHE_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+			return $total;
+		}
+
 		$user_col = $wpdb->users . '.ID';
 
 		// Same exclusion set the GRID uses, or the number will not match what it shows.
@@ -231,12 +257,14 @@ class MemberDirectoryService {
 	 *   'online_only'       (bool)    — restrict to users active within the last 5 minutes.
 	 *   'sort'              (string)  — 'newest' (default), 'alphabetical', 'most_active',
 	 *                                   or 'online' (alias: implies online_only + most_active order).
+	 *   'with_total'        (bool)    — false skips the exact COUNT (total is null) for
+	 *                                   callers that never show it. Default true.
 	 *
 	 * @param int         $viewer_id ID of the viewing user (excluded from results).
 	 * @param string|null $cursor    Opaque pagination cursor from a previous page.
 	 * @param int         $per_page  Number of members per page (max 50).
 	 * @param array       $filters   Optional associative filter/sort options.
-	 * @return array{items: array[], next_cursor: string|null, total: int}
+	 * @return array{items: array[], next_cursor: string|null, total: int|null} total is null when $filters['with_total'] is false.
 	 */
 	public function list_members( int $viewer_id = 0, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, array $filters = array() ): array {
 		global $wpdb;
@@ -610,12 +638,17 @@ class MemberDirectoryService {
 		// so phpcs can't see them in the literal string — UnfinishedPrepare is a
 		// false positive here.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->users} u {$join_sql} WHERE {$count_where_sql}",
-				...$count_params
+		// A caller that never shows the total (the sidebar's newest-members widgets)
+		// passes with_total => false: at 100k members this COUNT is the most
+		// expensive query on the page when there is no persistent object cache.
+		$total = ( ! array_key_exists( 'with_total', $filters ) || ! empty( $filters['with_total'] ) )
+			? (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->users} u {$join_sql} WHERE {$count_where_sql}",
+					...$count_params
+				)
 			)
-		);
+			: null;
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$rows     = (array) $rows;
@@ -1057,6 +1090,103 @@ class MemberDirectoryService {
 				: $frag;
 			$query->query_where .= ' AND ' . $clause; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		};
+	}
+
+	/**
+	 * Turn a directory request into the query the server-rendered page runs.
+	 *
+	 * One place for it, because two callers need the same answer: the directory
+	 * template, to render the page, and PageRouter, which must know BEFORE any
+	 * output whether /members/page/N/ is past the end (a real 404, as core does
+	 * for /blog/page/999/). Two copies of this parsing would drift, and the
+	 * router would then 404 a page the template could render, or the reverse.
+	 *
+	 * @param int                  $viewer_id Viewing user (0 = logged out).
+	 * @param array<string, mixed> $request   Raw query args ($_GET): s, orderby, relation, online, type.
+	 * @param int                  $page      1-based page number.
+	 * @return array{page:int, per_page:int, search:string, orderby:string, relation:string, online_only:bool, member_type:string, filters_active:bool, query_args:array<string,mixed>, filters:array<string,mixed>}
+	 */
+	public function ssr_request( int $viewer_id, array $request, int $page ): array {
+		$page        = max( 1, $page );
+		$search      = sanitize_text_field( wp_unslash( (string) ( $request['s'] ?? '' ) ) );
+		$orderby     = sanitize_key( (string) ( $request['orderby'] ?? 'registered' ) );
+		$relation    = sanitize_key( (string) ( $request['relation'] ?? 'all' ) );
+		$online_only = '1' === sanitize_key( wp_unslash( (string) ( $request['online'] ?? '' ) ) );
+		// Member type comes from ?type=, the one filter contract on this screen.
+		$member_type = sanitize_key( wp_unslash( (string) ( $request['type'] ?? '' ) ) );
+
+		$orderby  = in_array( $orderby, array( 'registered', 'display_name', 'post_count' ), true ) ? $orderby : 'registered';
+		$relation = in_array( $relation, array( 'all', 'following', 'connections' ), true ) ? $relation : 'all';
+
+		// "Newest" and "most active" paint as ID DESC: ID is registration order and
+		// the primary key, so it is filesort-free and matches list_members()'s
+		// newest sort exactly (the JS re-sorts most-active over REST).
+		$query_orderby = 'display_name' === $orderby ? 'display_name' : 'ID';
+
+		$query_args = array(
+			'number'      => self::DEFAULT_LIMIT,
+			'paged'       => $page,
+			'orderby'     => $query_orderby,
+			'order'       => 'display_name' === $query_orderby ? 'ASC' : 'DESC',
+			'fields'      => 'all',
+			// No SQL_CALC_FOUND_ROWS: directory_total() sizes the pager, cached.
+			'count_total' => false,
+		);
+
+		// Search resolves to user IDs so the server render matches REST exactly
+		// (name/login/email + searchable field mirrors). A term that matches
+		// nobody forces zero results.
+		$search_ids = null;
+		if ( '' !== $search ) {
+			$search_ids = $this->matching_user_ids( $search );
+			if ( empty( $search_ids ) ) {
+				$search_ids = array( 0 );
+			}
+		}
+
+		// Following / Connections only mean something when logged in. Approved
+		// follows only, matching list_members()'s following JOIN.
+		if ( $viewer_id > 0 && 'all' !== $relation ) {
+			$relation_ids = 'following' === $relation
+				? buddynext_service( 'follows' )->following( $viewer_id )
+				: buddynext_service( 'connections' )->connections( $viewer_id, 500, 0 );
+			$relation_ids = array_map( 'intval', (array) $relation_ids );
+
+			$query_args['include'] = empty( $relation_ids ) ? array( 0 ) : $relation_ids;
+		}
+
+		// Search intersects any relation constraint (most restrictive wins).
+		if ( null !== $search_ids ) {
+			if ( isset( $query_args['include'] ) ) {
+				$both                  = array_values( array_intersect( $query_args['include'], $search_ids ) );
+				$query_args['include'] = empty( $both ) ? array( 0 ) : $both;
+			} else {
+				$query_args['include'] = $search_ids;
+			}
+		}
+
+		$filters = array(
+			'member_type' => $member_type,
+			'online_only' => $online_only,
+		);
+		// The total counts the same population the grid renders, or the header
+		// says "227 members" over 7 Following cards.
+		if ( isset( $query_args['include'] ) ) {
+			$filters['include'] = $query_args['include'];
+		}
+
+		return array(
+			'page'           => $page,
+			'per_page'       => self::DEFAULT_LIMIT,
+			'search'         => $search,
+			'orderby'        => $orderby,
+			'relation'       => $relation,
+			'online_only'    => $online_only,
+			'member_type'    => $member_type,
+			'filters_active' => '' !== $search || 'all' !== $relation || $online_only || '' !== $member_type,
+			'query_args'     => $query_args,
+			'filters'        => $filters,
+		);
 	}
 
 	/**

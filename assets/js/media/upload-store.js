@@ -72,6 +72,9 @@ function syncStaged( ctx ) {
 		thumbLoading: ( s.kind === 'image' || s.kind === 'video' ) && ! s.preview,
 		isQueued:     s.status === 'queued',
 		isUploading:  s.status === 'uploading',
+		// A queued file in a running batch says it is next, like the composer.
+		percentText:  s.status === 'uploading' ? ( s.percent || 0 ) + '%' : ( s.status === 'queued' && ctx.uploading ? ( ctx.t.waiting || 'Waiting' ) : '' ),
+		showPercent:  s.status === 'uploading' || ( s.status === 'queued' && !! ctx.uploading ),
 		isDone:       s.status === 'done',
 		isError:      s.status === 'error',
 	} ) );
@@ -191,6 +194,7 @@ const mediaStore = store( 'buddynext/media', {
 
 			ctx.uploading = true;
 			ctx.errorMsg = '';
+			syncStaged( ctx ); // Queued tiles now read "Waiting".
 			let okCount = 0;
 			let dupCount = 0;
 
@@ -199,10 +203,18 @@ const mediaStore = store( 'buddynext/media', {
 					continue;
 				}
 				item.status = 'uploading';
+				item.percent = 0;
 				syncStaged( ctx );
 
 				const out = await uploadMedia( item.file, {
 					nonce:     ctx.restNonce,
+					// Percent sent; re-sync only when the whole number changes.
+					onProgress: ( percent ) => {
+						if ( percent !== item.percent ) {
+							item.percent = percent;
+							syncStaged( ctx );
+						}
+					},
 					privacy:   ctx.privacy || 'public',
 					// Send the captured frame so a posterless video keeps its real poster in the feed.
 					thumbnail: 'video' === item.kind ? item.preview : '',
@@ -377,7 +389,9 @@ function enhanceOwnerTiles() {
 		del.type = 'button';
 		del.className = 'bn-media-cell__delete';
 		del.setAttribute( 'data-bn-media-delete', id );
+		// Same word as its confirm ("Remove this media?"), shown on hover too.
 		del.setAttribute( 'aria-label', t( 'remove', 'Remove' ) );
+		del.title = t( 'remove', 'Remove' );
 		del.textContent = '×';
 		cell.appendChild( del );
 	} );

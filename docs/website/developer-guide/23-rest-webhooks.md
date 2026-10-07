@@ -89,11 +89,14 @@ A failed test ping returns the same shape with `"success": false` and a 502 stat
 
 ## Inbound: the access endpoint
 
-`POST /webhook/access` lets a trusted external service (for example a billing system) change a BuddyNext user's access. Every request must carry an `X-BuddyNext-Signature` header of the form `sha256=<hmac>`, where the HMAC is computed over the raw request body using the shared secret stored in the `buddynext_webhook_secret` option (set on the admin settings page). The handler compares signatures with `hash_equals`.
+`POST /webhook/access` lets a trusted external service (for example a billing system) change a BuddyNext user's access. Every request must carry two headers: `X-BuddyNext-Timestamp` (Unix seconds) and `X-BuddyNext-Signature` of the form `sha256=<hmac>`, where the HMAC is computed over the string `{timestamp}.{raw body}` using the shared secret stored in the `buddynext_webhook_secret` option (set on the admin settings page). The handler compares signatures with `hash_equals`. A timestamp more than 300 seconds from server time is refused, and a signature that has already been processed is refused, so a captured request cannot be replayed.
 
 Outcomes:
 
 - No secret configured: 503 `webhook_not_configured`.
+- No `X-BuddyNext-Timestamp` header: 401 `timestamp_required`. Body-only signatures are refused by default; a site still migrating senders can accept them by setting the `buddynext_webhook_strict_signatures` option to `0` or returning false from the `buddynext_require_signed_timestamp` filter (each such call is logged as deprecated).
+- Timestamp outside the window: 401 `stale_request`.
+- Signature already used: 409 `replayed_request`.
 - Signature mismatch: 401 `invalid_signature`.
 - Body is not valid JSON: 400 `invalid_payload`.
 - User cannot be resolved: 404 `user_not_found`.
@@ -114,9 +117,11 @@ The target user is resolved from `user_id` or `user_email` in the body. Every ca
 
 ```bash
 BODY='{"action":"grant_ability","user_email":"member@example.com","ability":"post-in-feed","expires_at":"2026-12-31","source":"stripe"}'
-SIG="sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
+TS=$(date +%s)
+SIG="sha256=$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')"
 
 curl -X POST 'https://example.com/wp-json/buddynext/v1/webhook/access' \
+  -H "X-BuddyNext-Timestamp: $TS" \
   -H "X-BuddyNext-Signature: $SIG" \
   -H 'Content-Type: application/json' \
   -d "$BODY"
@@ -133,15 +138,15 @@ Success response (200):
 - The generated outbound `secret` is shown only in the `POST /webhooks` response. Store it on creation; it is not returned again by `GET /webhooks`.
 - The outbound CRUD routes only exist when the `webhooks` opt-in feature is enabled. If the routes 404, confirm the feature is turned on in Settings before debugging auth.
 - Free is capped at 1 outbound endpoint. To raise the cap in Pro or a custom build, return a higher integer from `buddynext_outbound_webhook_limit`.
-- The inbound `/webhook/access` endpoint signs over the raw request body. Compute the HMAC on the exact bytes you send - any re-serialization (whitespace, key reordering) changes the signature and produces a 401.
+- The inbound `/webhook/access` endpoint signs over `{timestamp}.{raw body}`. Compute the HMAC on the exact bytes you send - any re-serialization (whitespace, key reordering) changes the signature and produces a 401.
 - The two surfaces use different secrets: outbound deliveries are signed with the per-endpoint secret returned at registration; inbound requests are verified against the single `buddynext_webhook_secret` option.
 
 ## If your system runs inside this WordPress install
 
-The `/webhook/access` endpoint is the door for a system that cannot run PHP in your process — a hosted CRM, a separate site, a payment platform calling in over HTTP.
+The `/webhook/access` endpoint is the door for a system that cannot run PHP in your process - a hosted CRM, a separate site, a payment platform calling in over HTTP.
 
 A WordPress plugin on the same install should not use it. It would be signing an HTTP request to itself, and it would still have to declare its source, answer for its own name, supply a management URL and survive being deactivated. All of that is already written.
 
-Extend `AbstractGrantBridge` instead — see [Membership Grant Bridges](53-membership-grant-bridges.md). It fires the same grant contract this endpoint fires, so the two doors land in exactly one place and cannot behave differently.
+Extend `AbstractGrantBridge` instead - see [Membership Grant Bridges](53-membership-grant-bridges.md). It fires the same grant contract this endpoint fires, so the two doors land in exactly one place and cannot behave differently.
 
 One thing to know if you fire `buddynext_ability_granted` directly rather than through either door: the `$source` argument is honoured **only for a source declared** through `buddynextpro_integration_subscription_sources`. An undeclared source is silently recorded as `manual`, which tells the member their membership was comped and points their Cancel and Manage controls at the wrong system. The grant itself works, so nothing fails and nobody notices.

@@ -26,7 +26,7 @@ If you mark a type as self-selectable, members can choose it themselves. The typ
 
 ## Setting it up (for owners)
 
-Member types are managed under **Members > Member Types** in the admin. From there you create types, edit them, and assign them to members.
+Member types are managed under **BuddyNext > Members > Directory > Member Types** in the admin. From there you create types, edit them, and assign them to members.
 
 ### Creating and editing a type
 
@@ -35,16 +35,16 @@ Use the Add Member Type form (the same form edits an existing type). The fields 
 | Setting | What it does | Default |
 |---|---|---|
 | Name | The display name of the type, shown on the badge and the directory filter (for example, "Mentor") | Empty |
-| Colour | The badge background color for this type | A default blue |
+| Color | The badge background color for this type | A default blue |
 | Description | An optional note describing the type, for your own reference | Empty |
 | Web address | The short, readable identifier used in links (lowercase letters, numbers, hyphens). Auto-filled from the name if left blank | Auto from name |
-| Text colour | The badge text color, drawn on top of the badge background. | White |
+| Text color | The badge text color, drawn on top of the badge background. | White |
 | Sort order | Controls the order types appear in; lower numbers appear first | 0 |
 | Icon | An optional small icon for the type, shown alongside the badge | Empty |
 | Show as directory filter tab | When on, this type appears in the member directory's type filter | On |
 | Allow members to self-assign | When on, members can pick this type for themselves on their profile edit page | Off |
 
-Web address, Text colour, Sort order, and Icon live under the Advanced section of the form.
+Web address, Text color, Sort order, and Icon live under the Advanced section of the form.
 
 ### Assigning a type to a member
 

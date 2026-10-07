@@ -73,12 +73,8 @@ do_action( 'buddynext_part_notifications_filter_bar_before', $args );
 			continue;
 		}
 		$is_active = ( $filter_key === $bn_active );
-		$tab_url   = add_query_arg(
-			array(
-				'filter' => $filter_key,
-				'paged'  => false,
-			)
-		);
+		// Page 1 of the chosen tab: page 2 of a shorter tab is past its end (404).
+		$tab_url = \BuddyNext\Core\PageRouter::first_page( add_query_arg( 'filter', $filter_key ) );
 		?>
 		<?php
 		// Per-tab context lets the store's derived getters resolve this tab's

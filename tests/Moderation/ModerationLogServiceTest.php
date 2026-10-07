@@ -151,4 +151,21 @@ class ModerationLogServiceTest extends \WP_UnitTestCase {
 			'Omitting actor_id must return more than the actor-0 filter.'
 		);
 	}
+
+	/**
+	 * Every action the code writes has a human label and a specific icon, so no
+	 * list (wp-admin log, space Moderation tab, community admin Recent actions)
+	 * shows a raw slug or a blank description.
+	 *
+	 * @return void
+	 */
+	public function test_written_actions_have_labels_and_icons(): void {
+		$written = array( 'dismiss_report', 'space_ban', 'space_unban', 'suspend_user', 'resolve_appeal', 'suspend', 'ai_remove_content', 'warn', 'issue_strike', 'unsuspend_user', 'ai_escalate', 'remove_content' );
+		$labels  = \BuddyNext\Moderation\ModerationLogService::action_labels();
+		foreach ( $written as $slug ) {
+			$this->assertArrayHasKey( $slug, $labels, $slug );
+			$this->assertNotSame( 'shield', \BuddyNext\Moderation\ModerationLogService::action_icon( $slug ), "{$slug} has its own icon." );
+		}
+		$this->assertSame( 'Partner thing', \BuddyNext\Moderation\ModerationLogService::action_label( 'partner_thing' ), 'Unknown slugs are humanised, never raw.' );
+	}
 }

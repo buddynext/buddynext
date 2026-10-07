@@ -106,7 +106,7 @@ final class NavMenuMetabox {
 						type="submit"
 						<?php disabled( $nav_menu_selected_id, 0 ); ?>
 						class="button submit-add-to-menu right"
-						value="<?php esc_attr_e( 'Add to Menu', 'buddynext' ); ?>"
+						value="<?php esc_attr_e( 'Add to menu', 'buddynext' ); ?>"
 						name="add-buddynext-nav-menu-item"
 						id="submit-buddynext-nav-menu"
 					/>

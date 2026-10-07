@@ -1,6 +1,6 @@
 # Account Settings
 
-Your account settings are where you control how you sign in and who you have shut out of your experience. This is the security and access side of your profile: your password, your email address, your active sign-in sessions, two-factor authentication, and the people you have blocked, muted, or restricted.
+Your account settings are where you control how you sign in and who you have shut out of your experience. This is the security and access side of your profile: your handle, your password, your email address, your active sign-in sessions, two-factor authentication, connected sign-in accounts, and the people you have blocked, muted, or restricted. Open **Settings** from your account menu: its tabs are Account, Notifications, Privacy and Appearance.
 
 ![The Edit Profile screen - change cover photo and avatar, display name, headline, bio and profile fields, with a live preview](../images/profile-edit.webp)
 
@@ -14,6 +14,10 @@ Profile details (name, bio, avatar) and audience controls (who can see your prof
 
 A community account holds your conversations, connections, and identity. Strong access controls mean that even if a password leaks, you can lock things back down in seconds: rotate the password, end every other session, and turn on two-factor. The block and mute tools let you curate who can reach you without leaving the community.
 
+
+## Change your handle
+
+Your handle is your profile address and your @mention name. On the **Account** tab, type a new handle and choose **Update handle**. If the handle is already in use you are told it is **Taken**. Your old handle keeps working, and nobody else can take it.
 
 ## Change your password
 
@@ -44,7 +48,7 @@ Your email address is how the community reaches you and how you recover access, 
 If you have signed in on a shared, public, or lost device - or you just want a clean slate - you can end every active session at once.
 
 1. Open your account settings.
-2. Choose Sign out of all devices (sign out everywhere).
+2. Under **Active sessions**, choose **Sign out everywhere**.
 3. Confirm.
 
 Every other browser and device that was signed in is immediately logged out and must sign in again. This is the fastest way to lock down your account if you suspect someone else has access.
@@ -59,9 +63,17 @@ For the full walkthrough (setting up an authenticator app, confirming your first
 
 > **Note:** Save your backup codes somewhere safe when you turn two-factor on. They are how you get back in if you lose access to your authenticator app.
 
+## Connected accounts
+
+If your community offers social login, the **Account** tab lists each provider under **Connected accounts**, with **Connect** and **Unlink** buttons. A provider that is your only way to sign in cannot be unlinked until you set a password.
+
+## Account status and profile setup
+
+The **Account** tab also has an **Account status** card (**View account status**) where you review your standing, any moderation actions and appeal a decision, a **Notification email schedule** card that opens your notification preferences, and a **Profile setup** card (**Run setup again** or **Finish setting up**) that reopens the welcome flow for profile, interests, spaces and people to follow.
+
 ## View and manage blocked and muted people
 
-On the **Privacy** tab of your settings (alongside the Account tab) you can review everyone you have blocked, muted, or restricted, and undo any of them.
+On the **Privacy** tab of your settings (alongside the Account tab), under **Blocked, restricted & muted**, you can review everyone you have blocked, muted, or restricted, and undo any of them.
 
 - **Blocked** people cannot see your content or contact you, and you do not see theirs.
 - **Muted** people stay connected to you, but their content is hidden from your view.

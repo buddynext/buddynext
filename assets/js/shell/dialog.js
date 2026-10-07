@@ -121,6 +121,7 @@ function buildModalFrame( opts ) {
 	cancelBtn.type = 'button';
 	cancelBtn.className = 'bn-btn';
 	cancelBtn.setAttribute( 'data-variant', 'ghost' );
+	cancelBtn.setAttribute( 'data-bn-confirm-cancel', '' ); // Stable hook for journeys and add-ons.
 	cancelBtn.textContent = cancelLabel;
 	foot.appendChild( cancelBtn );
 
@@ -128,6 +129,7 @@ function buildModalFrame( opts ) {
 	confirmBtn.type = 'button';
 	confirmBtn.className = 'bn-btn';
 	confirmBtn.setAttribute( 'data-variant', tone === 'danger' ? 'danger' : 'primary' );
+	confirmBtn.setAttribute( 'data-bn-confirm-ok', '' ); // Stable hook for journeys and add-ons.
 	confirmBtn.textContent = confirmLabel;
 	foot.appendChild( confirmBtn );
 
@@ -587,6 +589,167 @@ export function bnReportDialog( opts ) {
 }
 
 /**
+ * Suspend dialog: a reason the member will see, an optional note (required for
+ * "other"), a length, and whether to hide their posts.
+ *
+ * Mirrors the wp-admin suspend modal field for field, and the server composes the
+ * member-facing text from reason_code + note (ModerationService::compose_suspension_reason()),
+ * so where a member was suspended from never changes what they read.
+ *
+ * Resolves to `{ reason_code, note, duration_days, hide_posts }`, or `null` on cancel.
+ *
+ * @param {Object} opts
+ * @param {Array<[string,string]>} opts.reasons     [code, label] pairs (server list).
+ * @param {boolean} [opts.allowIndefinite]          Offer "Indefinite" (admins only).
+ * @param {number}  [opts.noteMax]                  Note length cap.
+ * @param {Object}  [opts.labels]                   Translated labels (see keys below).
+ * @return {Promise<Object|null>}
+ */
+export function bnSuspendDialog( opts ) {
+	const o = opts || {};
+	const L = Object.assign( {
+		reason: 'Reason (shown to the member)',
+		pick: 'Choose a reason',
+		note: 'Note (optional, required for Other)',
+		length: 'Suspension length',
+		indefinite: 'Indefinite (until lifted)',
+		oneDay: '1 day',
+		days: '%d days',
+		hide: 'Hide their posts while suspended',
+		needReason: 'Choose a reason. The member will see it.',
+		needNote: 'Add a note to explain the reason when you choose Other.',
+	}, o.labels || {} );
+	const cfg = Object.assign( {
+		title: si( 'suspendTitle', 'Suspend this member?' ),
+		body: '',
+		confirmLabel: si( 'suspend', 'Suspend' ),
+		cancelLabel: si( 'cancel', 'Cancel' ),
+		tone: 'danger',
+	}, o );
+
+	const wrap = document.createElement( 'div' );
+	wrap.className = 'bn-suspend-dialog';
+
+	function field( labelText, control ) {
+		const row = document.createElement( 'div' );
+		row.className = 'bn-suspend-dialog__field';
+		const label = document.createElement( 'label' );
+		label.className = 'bn-suspend-dialog__label';
+		label.textContent = labelText;
+		const id = 'bn-sd-' + Math.random().toString( 36 ).slice( 2 );
+		control.id = id;
+		label.htmlFor = id;
+		row.appendChild( label );
+		row.appendChild( control );
+		wrap.appendChild( row );
+	}
+
+	const reason = document.createElement( 'select' );
+	reason.className = 'bn-input';
+	[ [ '', L.pick ] ].concat( Array.isArray( o.reasons ) ? o.reasons : [] ).forEach( function ( pair ) {
+		const opt = document.createElement( 'option' );
+		opt.value = pair[ 0 ];
+		opt.textContent = pair[ 1 ];
+		reason.appendChild( opt );
+	} );
+	field( L.reason, reason );
+
+	const note = document.createElement( 'textarea' );
+	note.className = 'bn-textarea';
+	note.rows = 3;
+	note.maxLength = o.noteMax || 300;
+	field( L.note, note );
+
+	const length = document.createElement( 'select' );
+	length.className = 'bn-input';
+	const lengths = [ [ '1', L.oneDay ], [ '7', L.days.replace( '%d', '7' ) ], [ '30', L.days.replace( '%d', '30' ) ], [ '90', L.days.replace( '%d', '90' ) ] ];
+	if ( o.allowIndefinite ) {
+		lengths.push( [ '0', L.indefinite ] );
+	}
+	lengths.forEach( function ( pair ) {
+		const opt = document.createElement( 'option' );
+		opt.value = pair[ 0 ];
+		opt.textContent = pair[ 1 ];
+		length.appendChild( opt );
+	} );
+	length.value = '7';
+	field( L.length, length );
+
+	const hideRow = document.createElement( 'label' );
+	hideRow.className = 'bn-suspend-dialog__check';
+	const hide = document.createElement( 'input' );
+	hide.type = 'checkbox';
+	hide.checked = true;
+	hideRow.appendChild( hide );
+	hideRow.appendChild( document.createTextNode( ' ' + L.hide ) );
+	wrap.appendChild( hideRow );
+
+	const error = document.createElement( 'p' );
+	error.className = 'bn-suspend-dialog__error';
+	error.setAttribute( 'role', 'alert' );
+	error.hidden = true;
+	wrap.appendChild( error );
+
+	// A fixed field clears the error at once, rather than waiting for the next submit.
+	function clearError() {
+		error.hidden = true;
+		reason.removeAttribute( 'aria-invalid' );
+		note.removeAttribute( 'aria-invalid' );
+	}
+	reason.addEventListener( 'change', clearError );
+	note.addEventListener( 'input', clearError );
+
+	cfg.extraNode = wrap;
+
+	return new Promise( function ( resolve ) {
+		const trigger = document.activeElement;
+		const frame = buildModalFrame( cfg );
+		const releaseTrap = trapFocus( frame.panel );
+
+		function close( result ) {
+			window.removeEventListener( 'keydown', onEscape, true );
+			releaseTrap();
+			frame.backdrop.remove();
+			if ( trigger && typeof trigger.focus === 'function' ) {
+				trigger.focus();
+			}
+			resolve( result );
+		}
+		function onEscape( ev ) {
+			if ( ev.key === 'Escape' ) { ev.preventDefault(); close( null ); }
+		}
+		function fail( msg, focusEl ) {
+			error.textContent = msg;
+			error.hidden = false;
+			focusEl.setAttribute( 'aria-invalid', 'true' );
+			focusEl.focus();
+		}
+
+		frame.confirmBtn.addEventListener( 'click', function () {
+			reason.removeAttribute( 'aria-invalid' );
+			note.removeAttribute( 'aria-invalid' );
+			if ( '' === reason.value ) { fail( L.needReason, reason ); return; }
+			if ( 'other' === reason.value && '' === note.value.trim() ) { fail( L.needNote, note ); return; }
+			close( {
+				reason_code: reason.value,
+				note: note.value.trim(),
+				duration_days: parseInt( length.value, 10 ) || 0,
+				hide_posts: hide.checked,
+			} );
+		} );
+		frame.cancelBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.closeBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.backdrop.addEventListener( 'click', function ( ev ) {
+			if ( ev.target === frame.backdrop ) { close( null ); }
+		} );
+		window.addEventListener( 'keydown', onEscape, true );
+
+		document.body.appendChild( frame.backdrop );
+		window.requestAnimationFrame( function () { reason.focus(); } );
+	} );
+}
+
+/**
  * Connection-note dialog — LinkedIn-style "Add a note" before sending a
  * connection request. Promise-based, mirrors bnPrompt() but adds a 280-char
  * cap matching ConnectionService::send_request() and a live character counter.
@@ -609,7 +772,7 @@ export function bnConnectNoteDialog( opts ) {
 		body:         si( 'connectBody', 'Add a personal message to your connection request, or send it without one.' ),
 		confirmLabel: si( 'connectSubmit', 'Send request' ),
 		cancelLabel:  si( 'cancel', 'Cancel' ),
-		placeholder:  si( 'connectPlaceholder', 'e.g. We met at the design meetup — I’d love to stay connected.' ),
+		placeholder:  si( 'connectPlaceholder', 'For example: We met at the design meetup. I’d love to stay connected.' ),
 		tone:         'default',
 	}, opts || {} );
 
@@ -716,8 +879,8 @@ export function bnResolveConnectNote( opts ) {
 const MAX_TOASTS = 3;
 
 /**
- * Identity of a toast: two toasts are "the same" when they say the same thing in the
- * same tone. Used to collapse repeats rather than stack them.
+ * Identity of a toast: two toasts are "the same" when they say the same thing (title and
+ * body) in the same tone. Used to collapse repeats rather than stack them.
  *
  * @param {string} message Toast text.
  * @param {string} tone    Toast tone.
@@ -848,7 +1011,9 @@ function paintToast( toast, o, dismiss ) {
 		link.addEventListener( 'click', function ( e ) {
 			e.stopPropagation();
 		} );
-		toast.appendChild( link );
+		// Under the text on a two-line toast: beside it, the unwrappable link took the
+		// width and squeezed a sentence into a column of single words.
+		( o.body ? text : toast ).appendChild( link );
 	}
 
 	if ( o.persist ) {
@@ -878,8 +1043,98 @@ function paintToast( toast, o, dismiss ) {
  * @return {{el: HTMLElement, update: Function, dismiss: Function}} Handle.
  */
 export function bnToast( message, opts ) {
-	let o = toastOptions( message, opts );
+	return showToast( toastOptions( message, opts ) );
+}
 
+/**
+ * Viewports that show one toast at a time. Three stacked toasts covered about a quarter
+ * of a phone screen, over the form the member was filling in.
+ *
+ * @type {string}
+ */
+const ONE_AT_A_TIME = '(max-width: 640px)';
+
+/**
+ * Toasts waiting their turn on a phone, oldest first: { key, o, real, handle }.
+ *
+ * @type {Array<Object>}
+ */
+const waitingToasts = [];
+
+/**
+ * Queue a toast behind the one on screen (phones). Nothing is dropped: it shows when the
+ * current one closes. The returned handle forwards to the real toast once it shows; until
+ * then update() edits the queued options and dismiss() takes it out of the line.
+ *
+ * @param {Object}      o         Options from toastOptions().
+ * @param {string}      key       Toast identity.
+ * @param {HTMLElement} container The stack.
+ * @return {Object} Handle { el, waiting, update, dismiss }.
+ */
+function waitTurn( o, key, container ) {
+	const same = waitingToasts.find( ( e ) => e.key === key );
+	if ( same ) {
+		if ( o.key ) {
+			same.o = o;
+		}
+		return same.handle;
+	}
+
+	const entry = { key, o, real: null };
+	entry.handle = {
+		el: null,
+		get waiting() {
+			return ! entry.real && waitingToasts.includes( entry );
+		},
+		update( next ) {
+			if ( entry.real ) {
+				entry.real.update( next );
+				return;
+			}
+			entry.o = Object.assign( {}, entry.o, next.title !== undefined ? next : toastOptions( next ) );
+		},
+		dismiss( immediate ) {
+			if ( entry.real ) {
+				entry.real.dismiss( immediate );
+				return;
+			}
+			const at = waitingToasts.indexOf( entry );
+			if ( -1 !== at ) {
+				waitingToasts.splice( at, 1 );
+			}
+		},
+	};
+	waitingToasts.push( entry );
+
+	// The toast on screen must not hold the line: one that would stay open until closed
+	// (it carries a link) now times out like the rest.
+	const showing = container.lastElementChild;
+	if ( showing && showing._bnYield ) {
+		showing._bnYield();
+	}
+	return entry.handle;
+}
+
+/**
+ * Show the next waiting toast, if any.
+ *
+ * @return {void}
+ */
+function nextToast() {
+	const entry = waitingToasts.shift();
+	if ( entry ) {
+		entry.real       = showToast( entry.o );
+		entry.handle.el  = entry.real.el;
+	}
+}
+
+/**
+ * Paint one toast from normalised options (see bnToast()).
+ *
+ * @param {Object} o Options from toastOptions().
+ * @return {Object} Handle { el, dismiss, update }.
+ */
+function showToast( o ) {
 	let container = document.querySelector( '.bn-toast-container' );
 	if ( ! container ) {
 		container = document.createElement( 'div' );
@@ -890,28 +1145,28 @@ export function bnToast( message, opts ) {
 		document.body.appendChild( container );
 	}
 
-	// The same thing said again (a rate limit the server keeps refusing) collapses onto the
-	// toast already showing and counts the repeats, instead of stacking a copy per attempt
-	// that a screen reader would read out once each. A caller-supplied key means "update
-	// this toast": same handling, but the content is repainted rather than counted.
-	const key      = o.key || toastKey( o.title, o.status );
+	// The same thing said again (a refused Save pressed four times, a rate limit the
+	// server keeps refusing) collapses onto the toast already showing and restarts its
+	// timer, instead of stacking a copy per attempt that a screen reader would read out
+	// once each. No repeat counter: "x4" on a validation message was a count of the
+	// member's own button presses (owner decision 2026-10-06). A caller-supplied key
+	// means "update this toast": the content is repainted.
+	// Title AND body: "+10 Points / Log in for the first time" and "+10 Points / Daily
+	// login bonus" are two different things said, not one said twice.
+	const key      = o.key || toastKey( o.body ? `${ o.title }\n${ o.body }` : o.title, o.status );
 	const existing = container.querySelector( `.bn-toast[data-bn-toast-key="${ key }"]` );
 	if ( existing && existing._bnHandle ) {
 		if ( o.key ) {
 			existing._bnHandle.update( o );
 		} else {
-			const count = ( parseInt( existing.getAttribute( 'data-bn-toast-count' ), 10 ) || 1 ) + 1;
-			existing.setAttribute( 'data-bn-toast-count', String( count ) );
-			let badge = existing.querySelector( '.bn-toast__count' );
-			if ( ! badge ) {
-				badge = document.createElement( 'span' );
-				badge.className = 'bn-toast__count';
-				existing.appendChild( badge );
-			}
-			badge.textContent = `×${ count }`;
 			existing._bnResetTimer();
 		}
 		return existing._bnHandle;
+	}
+
+	// Phones: one at a time, in order.
+	if ( container.children.length && window.matchMedia( ONE_AT_A_TIME ).matches ) {
+		return waitTurn( o, key, container );
 	}
 
 	// Distinct messages can still pile up (a page failing several ways at once), so drop
@@ -922,7 +1177,6 @@ export function bnToast( message, opts ) {
 
 	const toast = document.createElement( 'div' );
 	toast.setAttribute( 'data-bn-toast-key', key );
-	toast.setAttribute( 'data-bn-toast-count', '1' );
 
 	let removeTimer;
 	const dismiss = function ( immediate ) {
@@ -935,6 +1189,7 @@ export function bnToast( message, opts ) {
 				} catch ( e ) { /* Not a popover, or already closed. */ }
 				container.remove();
 			}
+			nextToast();
 		};
 		if ( true === immediate ) {
 			gone();
@@ -959,6 +1214,12 @@ export function bnToast( message, opts ) {
 	toast._bnResetTimer = function () {
 		toast.classList.remove( 'bn-toast--leaving' );
 		startTimer();
+	};
+	toast._bnYield = function () {
+		if ( o.persist ) {
+			o = Object.assign( {}, o, { persist: false } );
+			startTimer();
+		}
 	};
 
 	toast._bnHandle = {

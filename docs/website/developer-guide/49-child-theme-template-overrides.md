@@ -1,6 +1,6 @@
 # Overriding templates in a child theme
 
-How to override a BuddyNext template from your theme. BuddyNext resolves every template through a three-plan loader that checks your child theme and parent theme before its own defaults, so you can copy any template into your theme and edit it there. This page covers the resolution order, the copy workflow, the variable gotcha that trips people up, the wrap-hook alternative that needs no copy, and the template tree you can override.
+How to override a BuddyNext template from your theme. BuddyNext resolves every template through a loader that checks your child theme and parent theme before its own defaults, so you can copy any template into your theme and edit it there. This page covers the resolution order, the copy workflow, the variable gotcha that trips people up, the wrap-hook alternative that needs no copy, and the template tree you can override.
 
 ![A space home view assembled from overridable templates and parts](../images/spaces-directory.webp)
 
@@ -11,6 +11,7 @@ Every BuddyNext template is loaded by `BuddyNext\Core\TemplateLoader` (`includes
 1. `{active-child-theme}/buddynext/{relative}`
 2. `{parent-theme}/buddynext/{relative}`
 3. `{plugin}/templates/{relative}`
+4. Each directory an add-on registers on the `buddynext_template_locations` filter (searched last, for templates BuddyNext itself does not ship, such as Pro membership surfaces; your theme can still override those at `buddynext/{relative}`)
 
 So to override `templates/parts/member-card.php`, you create `{your-theme}/buddynext/parts/member-card.php`. The subpath under `buddynext/` mirrors the subpath under the plugin's `templates/` directory exactly - keep `parts/`, `partials/`, `feed/`, `spaces/`, and so on.
 
@@ -73,14 +74,15 @@ The overridable tree under `templates/` - mirror any path under `{your-theme}/bu
 ```
 templates/
   community-admin.php            community admin panel (self-chroming)
+  hub-loader.php                 shared hub entry template
   auth/                          login, signup, verify, parts/
   blocks/                        Gutenberg block render templates
   directory/                     member directory
   feed/                          home, explore, parts/
   gamification/                  leaderboard
   hashtags/                      hashtag feed
-  messages/                      DM list, thread, requests
-  moderation/                    moderation queue
+  messages/                      DM list, native hub, thread, requests
+  moderation/                    member account-status page
   notifications/                 notifications index
   onboarding/                    setup wizard
   profile/                       view, edit, connections

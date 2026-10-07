@@ -47,6 +47,14 @@ use WP_User;
 class PageRouter {
 
 	/**
+	 * BuddyNext's own profile tabs that are a single page (no /page/N/ of their
+	 * own). Articles is the one that pages; it is handled separately.
+	 *
+	 * @var string[]
+	 */
+	private const PROFILE_SINGLE_PAGE_TABS = array( 'posts', 'about', 'replies', 'media', 'files', 'likes', 'network', 'connections', 'followers', 'following', 'scheduled', 'pending', 'edit' );
+
+	/**
 	 * The hub render deferred to core's template stage: [ hub, template, context ].
 	 *
 	 * Populated by dispatch_hub_template() once every gate has passed. Consumed by
@@ -96,7 +104,7 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
-		add_filter( 'redirect_canonical', array( $this, 'keep_hub_paged_query' ), 10, 2 );
+		add_filter( 'redirect_canonical', array( $this, 'keep_paged_query_without_page_route' ), 10, 2 );
 
 		// Make a mapped hub page answer is_page()/is_singular() BEFORE
 		// template_redirect runs, so any code that keys on conditional tags at that
@@ -113,9 +121,163 @@ class PageRouter {
 
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
+		// The theme's search results page links to the community results.
+		add_action( 'loop_start', array( $this, 'community_search_note' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_community_search_note_style' ) );
+		add_filter( 'render_block_core/query-no-results', array( $this, 'prepend_community_search_note' ) );
+		add_filter( 'render_block_core/query', array( $this, 'prepend_community_search_note_to_query' ), 10, 2 );
+		add_action( 'get_template_part', array( $this, 'community_search_note_on_no_results' ), 10, 2 );
+
 		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
 		// "Edit Page" resolves to wp-admin/edit.php. Drop that node on hub routes.
 		add_action( 'admin_bar_menu', array( $this, 'remove_hub_edit_node' ), 999 );
+	}
+
+	/**
+	 * Whether the community results note was printed on this page.
+	 *
+	 * @var bool
+	 */
+	private static bool $search_note_printed = false;
+
+	/**
+	 * The "community results" link for the theme's own search results page.
+	 *
+	 * Members, spaces and posts live in BuddyNext's tables, so a core search
+	 * cannot list them; this points the searcher at the community search for the
+	 * same terms. Only on an unscoped front-end search (a WooCommerce product or
+	 * other post-type search is about that catalogue), and only once per page.
+	 *
+	 * @return string The note markup, or '' when it does not apply.
+	 */
+	private function community_search_note_html(): string {
+		$term = (string) get_search_query( false );
+		// 'any' (set by themes/plugins on a plain search) is still unscoped.
+		$post_type = get_query_var( 'post_type', '' );
+		$scoped    = ! in_array( $post_type, array( '', 'any', array() ), true );
+		if ( self::$search_note_printed || ! is_search() || is_admin() || '' === trim( $term ) || $scoped ) {
+			return '';
+		}
+		self::$search_note_printed = true;
+		return sprintf(
+			'<div class="bn-community-search-note" role="note"><span>%1$s</span> <a href="%2$s">%3$s</a></div>',
+			esc_html__( 'Looking for people, spaces or community posts?', 'buddynext' ),
+			esc_url( self::search_url( $term ) ),
+			/* translators: %s: the search terms. */
+			sprintf( esc_html__( 'See community results for &#8220;%s&#8221;', 'buddynext' ), esc_html( $term ) )
+		);
+	}
+
+	/**
+	 * Style the community results note on the theme's search page.
+	 *
+	 * The note sits inside the theme's markup, so it takes the theme's font and
+	 * colours and draws its frame from currentColor: right on any theme, light or
+	 * dark, without BuddyNext's token sheet on a non-BuddyNext page.
+	 *
+	 * @return void
+	 */
+	public function enqueue_community_search_note_style(): void {
+		if ( ! is_search() ) {
+			return;
+		}
+		wp_register_style( 'buddynext-search-note', false, array(), BUDDYNEXT_VERSION );
+		wp_enqueue_style( 'buddynext-search-note' );
+		wp_add_inline_style(
+			'buddynext-search-note',
+			'.bn-community-search-note{box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:baseline;gap:.25em .5em;margin:0 0 1.5em;padding:.75em 1em;'
+			. 'border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:8px;'
+			. 'background:color-mix(in srgb,currentColor 4%,transparent);font-size:.9375em;line-height:1.5}'
+			. '.bn-community-search-note a{font-weight:600;text-decoration:underline;text-underline-offset:.2em}'
+		);
+	}
+
+	/**
+	 * Print the community results link at the top of the theme's results loop.
+	 *
+	 * @param \WP_Query $query The loop's query.
+	 * @return void
+	 */
+	public function community_search_note( $query ): void {
+		// A block theme renders its whole template to a string before printing
+		// it, so an echo here would land above the header; the query block
+		// carries the note there instead (prepend_community_search_note_to_query()).
+		if ( wp_is_block_theme() ) {
+			return;
+		}
+		if ( $query instanceof \WP_Query && $query->is_main_query() ) {
+			echo $this->community_search_note_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in community_search_note_html().
+		}
+	}
+
+	/**
+	 * Print the community results link above a classic theme's "nothing found" part.
+	 *
+	 * With zero hits the loop never starts, so loop_start cannot carry the link;
+	 * classic themes load a no-results part instead (`content-none` in Reign and
+	 * the Twenty* line, `content/error` in BuddyX). A member searching a person's
+	 * name lands here most often, so this is the case that matters.
+	 *
+	 * @param string      $slug Template part slug.
+	 * @param string|null $name Template part name.
+	 * @return void
+	 */
+	public function community_search_note_on_no_results( $slug, $name = null ): void {
+		global $wp_query;
+		if ( ! $wp_query instanceof \WP_Query || $wp_query->post_count > 0 ) {
+			return;
+		}
+		if ( ! preg_match( '/(^|[-\/])(none|error|no-results)$/', (string) $slug . ( $name ? '-' . $name : '' ) ) ) {
+			return;
+		}
+		echo $this->community_search_note_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in community_search_note_html().
+	}
+
+	/**
+	 * Add the community results link inside a block theme's search results.
+	 *
+	 * Only the query block that inherits the main (search) query; any other
+	 * query block on the page is left alone.
+	 *
+	 * @param string               $content Rendered block content.
+	 * @param array<string, mixed> $block   Parsed block.
+	 * @return string
+	 */
+	public function prepend_community_search_note_to_query( $content, $block = array() ): string {
+		if ( empty( $block['attrs']['query']['inherit'] ) ) {
+			return (string) $content;
+		}
+		// The query wrapper is usually full width; core's constrained layout
+		// gives the note the theme's own content width and side padding.
+		return $this->prepend_community_search_note( $content, 'has-global-padding is-layout-constrained' );
+	}
+
+	/**
+	 * Add the community results link to a block theme's "no results" block.
+	 *
+	 * @param string $content Rendered block content.
+	 * @param string $layout  Optional wrapper classes (core layout) for the note.
+	 * @return string
+	 */
+	public function prepend_community_search_note( $content, string $layout = '' ): string {
+		$content = (string) $content;
+		// The no-results block runs this filter with empty content when there
+		// ARE results; the note belongs to the query block then, not here.
+		if ( '' === trim( $content ) ) {
+			return $content;
+		}
+		$note = $this->community_search_note_html();
+		if ( '' === $note ) {
+			return $content;
+		}
+		if ( '' !== $layout ) {
+			$note = '<div class="' . esc_attr( $layout ) . '">' . $note . '</div>';
+		}
+		// Inside the block's wrapper, so the note shares its content edges.
+		$open = strpos( $content, '>' );
+		return ( 0 === strpos( ltrim( $content ), '<div' ) && false !== $open )
+			? substr_replace( $content, $note, $open + 1, 0 )
+			: $note . $content;
 	}
 
 	/**
@@ -157,7 +319,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-09-26-retire-moderation-hub';
+	private const ROUTER_VERSION = '2026-10-02-hub-page-n-feed';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -188,25 +350,66 @@ class PageRouter {
 	}
 
 	/**
-	 * Keep a hub's `?paged=N` pager links as they are.
+	 * Let core's ?paged=N -> /page/N/ redirect happen only where a route answers it.
 	 *
-	 * Every hub pager (templates/parts/pagination.php, the members store) builds
-	 * `?paged=N`. With pretty permalinks core's redirect_canonical() 301s that to
-	 * `/{hub}/page/N/`, a URL no hub rewrite rule answers, so page 2 and beyond
-	 * landed on a 404. Cancel only that rewrite; every other canonical redirect
-	 * (trailing slash, host, scheme) still runs.
+	 * Core's redirect_canonical() rewrites `?paged=N` into `/…/page/N/` on every URL.
+	 * BuddyNext hubs answer that address only where a `/page/N/` rewrite rule
+	 * exists (the directories, profile tabs, notifications, space tabs); anywhere
+	 * else the redirect lands on a 404 or on the wrong view. So the redirect goes
+	 * ahead only when the target matches one of BuddyNext's own page rules - the
+	 * same first-match test WordPress applies - and otherwise `?paged=N` stays as
+	 * it was. A hub that gains a page rule gets the pretty address automatically.
 	 *
 	 * @param string|false $redirect_url  Canonical URL core wants to send the visitor to.
 	 * @param string       $requested_url URL that was requested.
 	 * @return string|false
 	 */
-	public function keep_hub_paged_query( $redirect_url, $requested_url ) {
+	public function keep_paged_query_without_page_route( $redirect_url, $requested_url ) {
 		if ( ! is_string( $redirect_url ) || '' === (string) get_query_var( 'bn_hub', '' ) ) {
 			return $redirect_url;
 		}
-		$wants_pretty = (bool) preg_match( '#/page/\d+/?$#', (string) wp_parse_url( $redirect_url, PHP_URL_PATH ) );
-		$asked_query  = false !== strpos( (string) wp_parse_url( (string) $requested_url, PHP_URL_QUERY ), 'paged=' );
-		return ( $wants_pretty && $asked_query ) ? false : $redirect_url;
+
+		// Already a BuddyNext /page/N/ address: it is canonical as it is. Core
+		// otherwise "corrects" some of them - it treats the space Feed tab's
+		// `/feed/` segment as the RSS endpoint and drops it, landing page 2 of a
+		// space search on the space's landing tab.
+		if ( self::is_page_route( (string) wp_parse_url( (string) $requested_url, PHP_URL_PATH ) ) ) {
+			return false;
+		}
+
+		$target = (string) wp_parse_url( $redirect_url, PHP_URL_PATH );
+		if ( ! preg_match( '#/page/\d+/?$#', $target ) || false === strpos( (string) wp_parse_url( (string) $requested_url, PHP_URL_QUERY ), 'paged=' ) ) {
+			return $redirect_url;
+		}
+
+		return self::is_page_route( $target ) ? $redirect_url : false;
+	}
+
+	/**
+	 * Does this URL path resolve to one of BuddyNext's /page/N/ rewrite rules?
+	 *
+	 * Resolves the path against the live rule set with the same first-match
+	 * rule WP::parse_request() uses, so it answers for any hub that registers a
+	 * page rule, including ones added later or by an addon.
+	 *
+	 * @param string $path URL path (with or without the home path prefix).
+	 * @return bool
+	 */
+	private static function is_page_route( string $path ): bool {
+		if ( ! preg_match( '#/page/\d+/?$#', $path ) ) {
+			return false;
+		}
+		$home = rtrim( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ), '/' );
+		if ( '' !== $home && 0 === strpos( $path, $home ) ) {
+			$path = (string) substr( $path, strlen( $home ) );
+		}
+		$path = ltrim( $path, '/' );
+		foreach ( (array) $GLOBALS['wp_rewrite']->wp_rewrite_rules() as $regex => $query ) {
+			if ( preg_match( '#' . $regex . '#', $path ) || preg_match( '#' . $regex . '#', urldecode( $path ) ) ) {
+				return false !== strpos( (string) $query, 'bn_hub=' ) && false !== strpos( (string) $query, 'paged=' );
+			}
+		}
+		return false;
 	}
 
 	// ── Template dispatcher ───────────────────────────────────────────────────
@@ -369,14 +572,36 @@ class PageRouter {
 			exit;
 		}
 
-		// Theme search box (core ?s=) finds no community content: members, spaces
-		// and activity live in custom tables, invisible to a core wp_posts query,
-		// so a visitor's search returns an empty theme results page. Route the core
-		// search to BuddyNext's own search, which does cover community content.
-		// Filterable so an owner who prefers the theme's native search can opt out.
+		// Paged lists were ?bn_page=N before 1.2.4 (the spaces directory and a
+		// member's Articles tab). Old links and bookmarks get a 301 to the /page/N/
+		// address with their other query args kept: one rule for the legacy
+		// param, so no list reads it silently while another redirects it.
+		if ( isset( $_GET['bn_page'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			&& ( ( 'spaces' === (string) get_query_var( 'bn_hub', '' ) && '' === (string) get_query_var( 'bn_space_slug', '' ) )
+				|| ( 'people' === (string) get_query_var( 'bn_hub', '' ) && 'articles' === (string) get_query_var( 'bn_profile_action', '' ) ) )
+		) {
+			$page = absint( $_GET['bn_page'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			wp_safe_redirect( self::page_url( remove_query_arg( 'bn_page' ), $page ), 301 );
+			exit;
+		}
+
+		// Core search (?s=) belongs to WordPress and the theme: WooCommerce product
+		// search, CPT directories and the blog all run through it, and BuddyNext's
+		// own search cannot see wp_posts. So it is left alone; the theme's results
+		// page carries a link to the community results instead (see
+		// community_search_note()). An owner who wants the whole site search to be
+		// the community search can opt back in.
 		if ( is_search() && is_main_query()
 			&& '' === (string) get_query_var( 'bn_hub', '' )
-			&& apply_filters( 'buddynext_route_core_search', true )
+			/**
+			 * Filters whether the core ?s= search redirects to BuddyNext's search.
+			 *
+			 * @since 1.2.1
+			 * @since 1.2.4 Defaults to false: core search stays with WordPress.
+			 *
+			 * @param bool $route True to send every front-end ?s= search to /activity/search/.
+			 */
+			&& apply_filters( 'buddynext_route_core_search', false )
 		) {
 			wp_safe_redirect( self::search_url( get_search_query() ) );
 			exit;
@@ -403,7 +628,19 @@ class PageRouter {
 		// the page they wanted. This closes the routing gap where BuddyNext's own
 		// pages bypassed membership plugins: they are simply unreachable when logged
 		// out. The matching REST data gate lives in PrivateCommunity::gate_rest().
-		if ( 'auth' !== $hub
+		/**
+		 * Filters whether a hub stays reachable by guests on a private community.
+		 *
+		 * A guest must be able to reach a few hubs to join at all: the auth hub, and
+		 * an add-on's sales page (Pro's membership pricing). Default: only auth.
+		 *
+		 * @since 1.2.4
+		 *
+		 * @param bool   $public Whether guests may open this hub.
+		 * @param string $hub    Hub key (bn_hub).
+		 */
+		$bn_public_hub = (bool) apply_filters( 'buddynext_private_community_public_hub', 'auth' === $hub, $hub );
+		if ( ! $bn_public_hub
 			&& PrivateCommunity::is_enabled()
 			&& ! PrivateCommunity::can_access()
 		) {
@@ -845,6 +1082,24 @@ class PageRouter {
 			return;
 		}
 
+		// ── Past-the-end gate ─────────────────────────────────────────────
+		// /members/page/999/ answered 200 with an empty grid: a soft 404 for
+		// crawlers, and old /page/N/ links indexed from the 1.2.2 redirects reach
+		// it. WordPress answers 404 for a page past the end of an archive
+		// (/blog/page/999/), so the directories do too. Decided here for the same
+		// before-output reason as the gates above.
+		// The status is 404 (crawlers drop the dead URL), but a person who followed
+		// an old link gets BuddyNext's own page in the community layout with a way
+		// back to page 1 of that list, not the theme's generic 404.
+		$bn_past_last_page = $this->is_past_last_page( $hub, $context );
+		if ( $bn_past_last_page ) {
+			status_header( 404 );
+			nocache_headers();
+			add_filter( 'wp_robots', 'wp_robots_no_robots' );
+			remove_action( 'wp_head', 'rel_canonical' );
+			$template = 'parts/past-last-page.php';
+		}
+
 		// ── Virtual page setup ────────────────────────────────────────────
 		// No backing WordPress pages exist. Tell WP this is a real page so
 		// it sends 200, generates correct <title>, and themes render their
@@ -946,7 +1201,8 @@ class PageRouter {
 		$wp_query->post_count        = 1;
 		$wp_query->found_posts       = 1;
 
-		status_header( 200 );
+		// A page past the end of its list keeps the 404 set above.
+		status_header( $bn_past_last_page ? 404 : 200 );
 
 		// Set the document <title> via the standard wp_title parts filter.
 		$hub_titles = array(
@@ -1205,13 +1461,19 @@ class PageRouter {
 		 * keeps its title on the default install (no SEO plugin, and the right
 		 * default) and stops fighting the owner on sites that have one.
 		 */
+		if ( $bn_past_last_page ) {
+			$hub_title = __( 'Page not found', 'buddynext' );
+		}
 		$title_frozen = (string) apply_filters( 'buddynext_document_title', $hub_title, $hub );
 		if ( '' !== $title_frozen && ! self::seo_plugin_active() ) {
 			self::$title_claimed = true;
 			add_filter(
 				'document_title_parts',
-				static function ( array $parts ) use ( $title_frozen ): array {
+				static function ( array $parts ) use ( $title_frozen, $bn_past_last_page ): array {
 					$parts['title'] = $title_frozen;
+					if ( $bn_past_last_page ) {
+						unset( $parts['page'] ); // Not "Page not found - Page 50".
+					}
 					// As the static front page, WordPress titles the root "Site - Tagline";
 					// a hub there reads "Hub - Site" like every other community page
 					// (card 10343760220). The community name, if set, replaces the site
@@ -1242,6 +1504,12 @@ class PageRouter {
 				$classes[] = 'bn-page';
 				$classes[] = 'bn-hub-' . $hub_snapshot;
 				$classes[] = 'no-sidebar';
+				// Boxed layout (Appearance > Layout). Not on sign-up and onboarding,
+				// which keep their own full-viewport shell.
+				if ( ! in_array( $hub_snapshot, array( 'auth', 'onboarding' ), true )
+					&& \BuddyNext\Theme\Appearance::container_width() > 0 ) {
+					$classes[] = 'bn-width-boxed';
+				}
 				return $classes;
 			}
 		);
@@ -1278,7 +1546,10 @@ class PageRouter {
 		// the only surface that emitted anything, so a shared space or profile
 		// rendered as a bare imageless link everywhere (Basecamp 10181599620).
 		// Runs before wp_head for the same reason the post meta above does.
-		SurfaceMeta::register( $hub, $context );
+		if ( ! $bn_past_last_page ) {
+			// No canonical or social card for a page that does not exist.
+			SurfaceMeta::register( $hub, $context );
+		}
 
 		// Community description (Settings → General) as the page meta description
 		// on every BN hub — the help text promises it appears "in meta tags".
@@ -1359,7 +1630,95 @@ class PageRouter {
 		$router->pending_render = null;
 		self::$rendering        = null;
 
+		// Icons on a hub page are drawn once, in a sprite printed at the end of it.
+		IconService::open_sprite();
+
 		$router->render_shell_with_theme_chrome( $hub, $template, $context );
+	}
+
+	/**
+	 * Whether this request is a directory page past the last one.
+	 *
+	 * Page 1 is never past the end (an empty directory is an empty state, not a
+	 * 404). Any later page with no rows on it is, which is the rule core applies
+	 * to archives. Each hub asks its own service, through the same request
+	 * method its template renders from, so the two cannot disagree. The totals
+	 * are the cached ones the templates already read.
+	 *
+	 * @param string               $hub     Active bn_hub.
+	 * @param array<string, mixed> $context Hub context.
+	 * @return bool
+	 */
+	private function is_past_last_page( string $hub, array $context ): bool {
+		$page = absint( get_query_var( 'paged', 0 ) );
+		if ( $page <= 1 ) {
+			return false;
+		}
+
+		$viewer = get_current_user_id();
+
+		// A member's profile. Only the Articles tab pages (/members/{slug}/articles/page/N/);
+		// every other BuddyNext tab, and the profile itself, is one page, so any page N
+		// there is a page that does not exist. A tab another plugin adds may page on
+		// its own terms, so it is left alone unless it answers the filter below.
+		if ( 'people' === $hub && '' !== (string) get_query_var( 'bn_user_slug', '' ) ) {
+			$action  = (string) get_query_var( 'bn_profile_action', '' );
+			$user_id = (int) ( $context['user_id'] ?? 0 );
+			if ( 'articles' === $action ) {
+				return $user_id > 0
+					&& ( new \BuddyNext\Bridges\MemberBlogBridge() )->article_total( $user_id, $viewer ) <= ( $page - 1 ) * \BuddyNext\Bridges\MemberBlogBridge::articles_per_page();
+			}
+			if ( '' === $action || in_array( $action, self::PROFILE_SINGLE_PAGE_TABS, true ) ) {
+				return true;
+			}
+
+			/**
+			 * Whether page N of a profile tab another plugin added is past its last page.
+			 *
+			 * Return true to answer 404 (with BuddyNext's "page doesn't exist" view),
+			 * false to render the tab; null (the default) leaves it to the tab.
+			 *
+			 * @since 1.2.4
+			 *
+			 * @param bool|null $past    Default null.
+			 * @param string    $action  Tab slug (bn_profile_action).
+			 * @param int       $user_id Profile owner.
+			 * @param int       $page    Requested page.
+			 */
+			return true === apply_filters( 'buddynext_profile_tab_past_last_page', null, $action, $user_id, $page );
+		}
+
+		// The members directory.
+		if ( 'people' === $hub && '' === (string) get_query_var( 'bn_user_slug', '' ) ) {
+			$directory = buddynext_service( 'member_directory' );
+			$request   = $directory->ssr_request( $viewer, wp_unslash( $_GET ), $page ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only directory filters.
+			return $directory->directory_total( $viewer, $request['filters'] ) <= ( $page - 1 ) * $request['per_page'];
+		}
+
+		// The spaces directory. /spaces/{slug}/feed/page/N/ is the in-space search.
+		if ( 'spaces' === $hub && '' === (string) ( $context['space_slug'] ?? '' ) ) {
+			$spaces  = new \BuddyNext\Spaces\SpaceService();
+			$request = $spaces->directory_request( $viewer, current_user_can( 'manage_options' ), \BuddyNext\Spaces\SpaceService::directory_request_input(), $page );
+			if ( 'sections' === $request['mode'] ) {
+				return true; // My spaces sections are one page; "View all" pages each group.
+			}
+			if ( 'search' === $request['mode'] ) {
+				return array() === $spaces->search( $request['search'], $request['query_args'] );
+			}
+			return (int) $spaces->list_spaces_with_total( $request['query_args'] )['total'] <= ( $page - 1 ) * $request['per_page'];
+		}
+
+		if ( 'notifications' === $hub && $viewer > 0 ) {
+			$inbox = ( new \BuddyNext\Notifications\NotificationService() )->inbox_page(
+				$viewer,
+				isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all', // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$page,
+				false
+			);
+			return $inbox['total'] <= ( $page - 1 ) * $inbox['per_page'];
+		}
+
+		return false;
 	}
 
 	/**
@@ -1824,6 +2183,11 @@ class PageRouter {
 				'blockStopContact'       => __( 'Stop them from following you or sending you messages.', 'buddynext' ),
 				'blockRemoveLinks'       => __( 'Remove any existing connection or follow between you.', 'buddynext' ),
 				'blockHelp'              => __( 'You can unblock from your settings at any time.', 'buddynext' ),
+				'follow'                 => __( 'Follow', 'buddynext' ),
+				'following'              => __( 'Following', 'buddynext' ),
+				'genericError'           => __( 'Something went wrong. Try again.', 'buddynext' ),
+				/* translators: %d: page number of a document preview. */
+				'pageNumber'             => __( 'Page %d', 'buddynext' ),
 				'block'                  => __( 'Block', 'buddynext' ),
 				// Toast: the close control on a toast that stays, and the default link label.
 				'dismiss'                => __( 'Dismiss', 'buddynext' ),
@@ -1852,7 +2216,7 @@ class PageRouter {
 				'connectTitle'           => __( 'Add a note', 'buddynext' ),
 				'connectBody'            => __( 'Add a personal message to your connection request, or send it without one.', 'buddynext' ),
 				'connectSubmit'          => __( 'Send request', 'buddynext' ),
-				'connectPlaceholder'     => __( 'e.g. We met at the design meetup: I’d love to stay connected.', 'buddynext' ),
+				'connectPlaceholder'     => __( 'For example: We met at the design meetup: I’d love to stay connected.', 'buddynext' ),
 				// Generic fallback toast (relation-remove.js).
 				'updateFailed'           => __( 'Could not update. Try again.', 'buddynext' ),
 			),
@@ -2145,6 +2509,10 @@ class PageRouter {
 				}
 				// The space Files tab is a server-rendered document-drive browser
 				// (no store) — it needs only its stylesheet, keyed on the action.
+				// Space Leaderboard tab renders the shared leaderboard template.
+				if ( 'leaderboard' === $space_action_v || 'leaderboard' === $bn_space_tab ) {
+					$assets->enqueue( 'gamification' );
+				}
 				if ( 'files' === $space_action_v || 'files' === $bn_space_tab ) {
 					$assets->enqueue( 'space-files' );
 					// The Files-tab uploader (drag/click a document straight into this
@@ -2714,6 +3082,21 @@ class PageRouter {
 	public static function register_people_rules(): void {
 		$p = self::hub_slug( 'buddynext_slug_people', 'members' );
 
+		// WordPress-style pagination, the same /page/N/ shape every archive uses:
+		// /members/page/N/ and any paginated profile tab /members/{slug}/{tab}/page/N/.
+		// Registered first so "page" is never read as a username (as core does
+		// for /author/page/N/). core's redirect_canonical() sends ?paged=N here.
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/page/([0-9]+)/?$',
+			'index.php?bn_hub=people&paged=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/([^/]+)/page/([0-9]+)/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=$matches[2]&paged=$matches[3]',
+			'top'
+		);
+
 		// Generic profile sub-route: ANY tab slug becomes a pretty URL
 		// (/members/{slug}/{tab}/). Replaces the per-action rules so core tabs
 		// (edit, connections, followers, following, media, badges, replies,
@@ -2794,6 +3177,23 @@ class PageRouter {
 	public static function register_spaces_rules(): void {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
 
+		// WordPress-style directory pagination: /spaces/page/N/. First, so "page"
+		// is not read as a space slug.
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/page/([0-9]+)/?$',
+			'index.php?bn_hub=spaces&paged=$matches[1]',
+			'top'
+		);
+		// Pages of the in-space search on the Feed tab: /spaces/{slug}/feed/page/N/.
+		// Only the Feed tab numbers its pages (Members pages by cursor), so only it
+		// gets a page rule - and with it core's ?paged redirect (see
+		// keep_paged_query_without_page_route()).
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/feed/page/([0-9]+)/?$',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=feed&paged=$matches[2]',
+			'top'
+		);
+
 		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
 		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
 		// No dedicated /spaces/mine/ rule any more. It matched BEFORE the generic
@@ -2865,6 +3265,13 @@ class PageRouter {
 	 */
 	public static function register_notifications_rules(): void {
 		$n = self::hub_slug( 'buddynext_slug_notifications', 'notifications' );
+
+		// WordPress-style pages of the inbox: /notifications/page/N/.
+		add_rewrite_rule(
+			'^' . preg_quote( $n, '/' ) . '/page/([0-9]+)/?$',
+			'index.php?bn_hub=notifications&paged=$matches[1]',
+			'top'
+		);
 
 		// /notifications/preferences/ — the legacy alias. It resolves to the SETTINGS
 		// hub now, like /settings/notifications/, so the old URL keeps working while
@@ -3488,6 +3895,60 @@ class PageRouter {
 	}
 
 	/**
+	 * The same address on page 1: drops a /page/N/ segment (and ?paged=N), keeps
+	 * every filter in the query string.
+	 *
+	 * For links that change WHAT a list shows (a filter tab, a toggle). Built
+	 * from the current URL, they kept /page/2/, so the new list opened on its
+	 * page 2, which is past the end of a shorter list and now answers 404.
+	 *
+	 * @param string $url Address to reset; '' means the current request.
+	 * @return string
+	 */
+	public static function first_page( string $url = '' ): string {
+		if ( '' === $url ) {
+			// Absolute, on the site's own host (never the Host header), with the
+			// request's query string so every filter survives.
+			$query = (string) wp_parse_url( (string) add_query_arg( array() ), PHP_URL_QUERY );
+			$url   = self::current_url() . ( '' !== $query ? '?' . $query : '' );
+		}
+		$url = (string) preg_replace( '~/page/\d+/?(?=[?#]|$)~', '/', remove_query_arg( 'paged', $url ) );
+		return $url;
+	}
+
+	/**
+	 * The address of page N of a list: the one builder for /page/N/ links.
+	 *
+	 * Starts from first_page() (any /page/N/ segment and ?paged dropped, every
+	 * filter kept), then adds /page/N/ to the path for N > 1, ahead of the query
+	 * string and any #fragment. Page 1 is the bare address, never /page/1/.
+	 *
+	 * Lists used to build this four ways (core's get_pagenum_link(), closures,
+	 * hand-joined 'page/' . $n), and a fix to one never reached the others. Not
+	 * get_pagenum_link(): on BuddyNext's virtual hub pages the router resets the
+	 * paged query for themes, so core cannot be relied on to know the page.
+	 *
+	 * @param string $url  Any address of the list; '' means the current request.
+	 * @param int    $page Page number; values below 2 give page 1.
+	 * @return string
+	 */
+	public static function page_url( string $url, int $page ): string {
+		$url = self::first_page( $url );
+		if ( $page < 2 ) {
+			return $url;
+		}
+
+		$tail = '';
+		$cut  = strcspn( $url, '?#' );
+		if ( $cut < strlen( $url ) ) {
+			$tail = substr( $url, $cut );
+			$url  = substr( $url, 0, $cut );
+		}
+
+		return trailingslashit( $url ) . user_trailingslashit( 'page/' . $page, 'paged' ) . $tail;
+	}
+
+	/**
 	 * Return the Notifications hub base URL.
 	 *
 	 * @return string
@@ -3507,6 +3968,36 @@ class PageRouter {
 	 */
 	public static function notification_prefs_url(): string {
 		return trailingslashit( home_url( '/settings/notifications' ) );
+	}
+
+	/**
+	 * The Settings hub's sections: slug => tab label, add-on sections included.
+	 *
+	 * The one list behind the web tab strip (parts/settings-nav.php) and the app
+	 * config. Each slug resolves through settings_url().
+	 *
+	 * @param string $active Active section slug ('' when none, e.g. the app).
+	 * @return array<string,string>
+	 */
+	public static function settings_tabs( string $active = '' ): array {
+		$tabs = array(
+			'account'       => __( 'Account', 'buddynext' ),
+			'notifications' => __( 'Notifications', 'buddynext' ),
+			'privacy'       => __( 'Privacy', 'buddynext' ),
+			'appearance'    => __( 'Appearance', 'buddynext' ),
+		);
+
+		/**
+		 * Filter the Settings hub tab strip so addons can register their own sections.
+		 *
+		 * Each entry is `section-slug => Tab label`. The slug must resolve through
+		 * PageRouter::settings_url() (a bare slug maps to /settings/{slug}/) and the
+		 * addon is responsible for routing that URL + providing its section template.
+		 *
+		 * @param array<string,string> $tabs   Section slug => tab label.
+		 * @param string               $active Active section slug.
+		 */
+		return (array) apply_filters( 'buddynext_settings_tabs', $tabs, $active );
 	}
 
 	/**
@@ -3549,6 +4040,38 @@ class PageRouter {
 	public static function current_url(): string {
 		global $wp;
 		return home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
+	}
+
+	/**
+	 * A "Log in" link that brings the visitor back afterwards.
+	 *
+	 * Without redirect_to the login page can only guess the return page from the
+	 * Referer header, which a browser may strip and which never counts from the
+	 * signup page, so a "Sign in" there lost the visitor's destination.
+	 *
+	 * @param string|null $destination Where to land after login. null = the page being
+	 *                            viewed (front-end only); '' = no redirect_to, so
+	 *                            login uses its own default.
+	 * @return string
+	 */
+	public static function login_url( ?string $destination = null ): string {
+		if ( null === $destination ) {
+			if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() ) {
+				$destination = '';
+			} elseif ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
+				// On login/signup the page being viewed is the auth screen itself: pass
+				// on where the visitor was going instead, or nothing.
+				$destination = isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only redirect target, validated.
+			} else {
+				$destination = self::current_url();
+			}
+		}
+		$auth = self::auth_url();
+		if ( '' === $auth ) {
+			return wp_login_url( $destination );
+		}
+
+		return '' === $destination ? $auth : add_query_arg( 'redirect_to', rawurlencode( $destination ), $auth );
 	}
 
 	/**

@@ -74,4 +74,26 @@ class AnnouncementServiceTest extends \WP_UnitTestCase {
 	public function test_end_announcement_false_for_missing(): void {
 		$this->assertFalse( $this->service->end_announcement( 999999 ) );
 	}
+
+	/**
+	 * Ending keeps the announcement on record and stops it reading as live.
+	 *
+	 * Ending from the post card used to clear is_announcement, so the post
+	 * vanished from Engagement > Announcements; ending from that screen kept the
+	 * flag, so the card still showed the banner and End button.
+	 *
+	 * @return void
+	 */
+	public function test_ended_announcement_is_on_record_but_not_live(): void {
+		$this->assertSame( 1, (int) $this->service->hydrate( (array) $this->service->get_announcement( $this->post_id ) )['is_announcement'], 'Live before it ends.' );
+
+		$this->assertTrue( buddynext_service( 'feed' )->end_announcement_now( $this->post_id ) );
+
+		$listed = wp_list_pluck( buddynext_service( 'feed' )->list_all_announcements(), 'id' );
+		$this->assertContains( (string) $this->post_id, array_map( 'strval', $listed ), 'Still on the Announcements screen.' );
+
+		global $wpdb;
+		$row = (array) $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $this->post_id ), ARRAY_A ); // phpcs:ignore
+		$this->assertSame( 0, $this->service->hydrate( $row )['is_announcement'], 'Its card no longer reads as a live announcement.' );
+	}
 }

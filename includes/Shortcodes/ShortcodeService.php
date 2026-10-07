@@ -374,14 +374,12 @@ class ShortcodeService {
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
 	/**
-	 * Return a login-required message with a link to the WP login page.
+	 * Return a login-required message whose link returns the visitor to this page.
 	 *
 	 * @return string Escaped HTML.
 	 */
 	private function login_required_html(): string {
-		$auth      = PageRouter::auth_url();
-		$here      = PageRouter::current_url();
-		$login_url = '' !== $auth ? add_query_arg( 'redirect_to', rawurlencode( $here ), $auth ) : wp_login_url( $here );
+		$login_url = PageRouter::login_url();
 		return $this->wrap_embedded(
 			sprintf(
 				'<p class="bn-login-required">%s <a href="%s">%s</a></p>',

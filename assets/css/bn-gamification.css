@@ -192,11 +192,14 @@
 
 /* ── Leaderboard list ───────────────────────────────────────────────────── */
 
-.bn-lb-list {
+.bn-lb-shell .bn-lb-list {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
-	margin-bottom: var(--bn-s5);
+	/* The host theme's `ol` indent (Reign 1.5em, BuddyX 45px) must not push the
+	   rows off the edge the filters, pager and "Your position" share. */
+	margin-block: 0 var(--bn-s5);
+	margin-inline: 0;
 	/* Semantic <ol> for a11y, but the per-row rank pill is the visible rank —
 	   suppress the native list markers so the number never shows twice. */
 	list-style: none;
@@ -205,6 +208,40 @@
 
 /* Your-position pin — the viewer's own row when they rank below the visible
    page, set off from the top-N list with a labelled divider. */
+/* Pager under the board (members, wb-gamification 1.6.5+): status line on the
+   start edge, Top + Next on the end edge; stacks on phones. */
+.bn-lb-pager {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-block: var(--bn-s4);
+}
+
+.bn-lb-pager__status {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-lb-pager__actions {
+	display: flex;
+	gap: var(--bn-s2);
+}
+
+@media (max-width: 480px) {
+	.bn-lb-pager {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.bn-lb-pager__actions .bn-btn {
+		flex: 1 1 0;
+		justify-content: center;
+	}
+}
+
 .bn-lb-yourpos {
 	margin-top: var(--bn-s5);
 	padding-top: var(--bn-s4);

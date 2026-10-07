@@ -94,10 +94,60 @@ The composer partial exposes wrapper hooks for adding tools and modals to the po
 | `buddynext_comment_descendant_cap` | filter | One page of a comment thread is loaded, bounding how many descendant rows come with it | `int $cap, string $object_type, int $object_id` |
 | `buddynext_explore_all_deck` | filter | The blended Explore first-page deck is assembled, so an add-on can inject its own cards among the posts | `array $items, array $post_cards` |
 | `buddynext_explore_excluded_post_types` | filter | Explore's deck and its pulse count are queried. Post types listed here are left off. Default `array( 'document' )`: a document post stays in its space feed, the space Files tab and the author's profile. Return `array()` to show documents on Explore. Reshares are always left off and cannot be re-added (1.2.2) | `string[] $types` |
-| `buddynext_post_link_meta_resolved` | action | A queued link preview finished resolving and was stored on the post. The post was already visible without it, so anything that renders the preview should refresh here | `int $post_id` |
+| `buddynext_post_link_meta_resolved` | action | A queued link preview finished resolving and was stored on the post. The post was already visible without it, so anything that renders the preview should refresh here | `int $post_id, array $meta` (`$meta` has `title`, `description`, `thumbnail`) |
 | `buddynext_scheduled_post_published` | action | A scheduled post is published ahead of its schedule | `int $post_id` |
 
 > **Note:** Every feed template partial (`post-actions`, `post-body`, `post-byline`, `post-comment-form`, and so on) also exposes the standard `buddynext_part_<name>_before`/`_after` actions and `buddynext_part_<name>_args`/`_classes` filters. They follow the same convention as the composer hooks and are the safe seams for theme overlays. See Hooks: Overview for the template-part naming contract.
+
+## More feed and content seams
+
+Narrower hooks around announcements, members-only posts, the feed templates, and avatar and cover storage. Same table shape as above.
+
+### Posts, announcements, and members-only content
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_can_create_announcement` | filter | A user tries to create an announcement. Default: a site admin, or a moderator of the target space. | `bool $can_announce, int $user_id, int $space_id` (`$space_id` is `0` for a site-wide announcement) |
+| `buddynext_announcement_published` | action | An announcement goes live, after the cached home feeds have been flushed so it shows on screens now. | `int $post_id, int $user_id, int $space_id` (`0` = site-wide) |
+| `buddynext_post_publicly_shareable` | filter | BuddyNext decides whether a post may be shared outside the community (the share modal and public link). | `bool $shareable, array $post` |
+| `buddynext_members_only_has_access` | filter | A members-only post is rendered for a viewer who is not its author. Default: any logged-in viewer has access. Return `false` to lock it for plan-limited members. | `bool $has_access, int $viewer_id, array $post_ctx` (`id`, `user_id`, `space_id`, `members_only`) |
+| `buddynext_members_only_cta` | filter | The locked card for a members-only post builds its call to action. Default: a "Log in to view" link for guests, nothing for logged-in members. | `array $cta, int $viewer_id, array $post_ctx` (`$cta` has `label` and `url`) |
+| `buddynext_members_only_teaser_fraction` | filter | The teaser shown on a locked members-only post is cut. The default comes from the teaser-percent setting and is capped at `0.95` so something is always withheld. | `float $fraction` |
+| `buddynext_render_post_body_{type}` | filter | A post card renders the body of a post whose type is `{type}` (for example `media`, `document`, `badge`). Return the pre-escaped card HTML for that type; an empty string falls through to the default body. | `string $html, array $args` (`$args` has the post, id, link meta, and content) |
+| `buddynext_scheduled_publish_failed` | action | A scheduled post is abandoned after repeated publish failures and returned to draft. | `int $post_id, int $attempts` |
+| `buddynext_site_tracking_publish` | filter | A published WordPress post is about to post an activity card (site tracking). Runs last, so it has the final say per post. | `bool $publish, WP_Post $post, int $author_id` |
+| `buddynext_sync_blog_comments` | filter | Comments on a published WordPress post and on its feed card are mirrored. Return `false` to stop the mirroring. | `bool $enabled` (default `true`) |
+| `buddynext_post_preview_char_limit` | filter | A post card decides how many characters show before "Show more" (default `300`). | `int $limit, string $context` (feed context the card renders in) |
+| `buddynext_post_preview_line_limit` | filter | A post card decides how many line breaks show before "Show more" (default `6`). | `int $limit, string $context` |
+| `buddynext_bookmark_list_cap` | filter | The "all my saved post ids" list is read (used by the native app). Caps the size of the returned set. | `int $cap, int $user_id` |
+| `buddynext_reaction_choices` | filter | The Engagement settings build the list of reactions the owner can switch on: the built-in six plus any an extension adds. `buddynext_reaction_types` then receives the owner's pick. | `string[] $types` |
+| `buddynext_feed_viewer_state_primed` | action | Core viewer state has been primed for a page of feed items, so an add-on can batch-load its own per-author data in one query. | `array $items, int $viewer_id` |
+
+### Feed templates
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_feed_home_before` / `buddynext_feed_home_after` | action | Before and after the home feed's inner content. | `int $current_user_id` |
+| `buddynext_feed_explore_before` / `buddynext_feed_explore_after` | action | Before and after the Explore feed's inner content. | `int $current_user_id` |
+| `buddynext_explore_grid_cards` | action | After the Explore grid cards on first paint. Pro appends its own cards here. | `string $explore_filter, int $current_user_id` |
+| `buddynext_can_view_explore` | filter | The Explore deck is about to be built for a viewer. Return `false` to withhold it (Pro does this for a plan without the Explore entitlement). | `bool $can, int $current_user_id` |
+| `buddynext_explore_locked_title` | filter | The title of the empty state shown when `buddynext_can_view_explore` returned `false`. | `string $title, int $current_user_id` |
+| `buddynext_explore_locked_body` | filter | The body text of that same empty state. | `string $body, int $current_user_id` |
+| `buddynext_bookmarks_before` / `buddynext_bookmarks_after` | action | Before and after the bookmarks hub renders. | `int $current_user_id` |
+| `buddynext_single_post_thread` | action | After the single-post card, so a bridge can render an alternative thread UI. | `int $post_id, array $post` |
+| `buddynext_feed_client_pagination` | filter | A feed, Explore, or bookmarks template decides whether "Load more" swaps in place through the client router. Return `false` to fall back to a plain link. | `bool $enabled` (default `true`) |
+| `buddynext_feed_new_count_interval` | filter | The home feed sets how often the "N new posts" pill polls, in seconds (default `60`). | `int $seconds` |
+| `buddynext_share_networks` | filter | The share modal builds the list of networks for sharing a public post. Return an empty array to offer only "Copy link". | `array $networks` (key => `icon`, `label`, `url` template with `{url}` and `{text}`) |
+
+### Avatar and cover storage
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_image_stored` | action | An avatar or cover and all its variations have been written to disk. A CDN or offload integration pushes the files from here. | `string $kind, string $owner, int $id, array $written` (`$kind` is `avatar` or `cover`, `$owner` is `user` or `space`, `$written` maps variation to absolute path) |
+| `buddynext_image_deleted` | action | Just before an owner's image folder is removed, so a CDN integration can purge its remote copies. | `string $kind, string $owner, int $id, string $dir` |
+| `buddynext_stored_image_url` | filter | The public URL of a stored avatar or cover is resolved. Rewrite it onto a CDN host here. | `string $url, string $kind, string $owner, int $id` |
+| `buddynext_announce_space_album_upload` | filter | Photos are added to a space album. Return `false` to stop the upload posting an activity card to that space. | `bool $announce, int $space_id, int $album_id` |
+| `buddynext_media_max_bytes` | filter | The composer and Media tab compute the upload ceiling they offer (the lower of the MediaVerse limit and the server limit). | `int $max_bytes, int $user_id` |
 
 ## Examples
 

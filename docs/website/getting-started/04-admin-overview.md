@@ -2,9 +2,9 @@
 
 The BuddyNext admin hub is the single place you manage your whole community from. Instead of scattering settings across dozens of unrelated screens, BuddyNext groups every control into labeled sections that follow how you actually run a community: set it up, manage your platform, look after members and spaces, drive engagement, handle notifications, and moderate. This page is your map - find any setting by the job it does.
 
-![BuddyNext admin Community Overview dashboard — member, post and engagement stat cards, an activity timeline, a community-health score, top spaces by activity, recent moderation activity, and quick actions.](../images/admin-overview.webp)
+![BuddyNext admin Community Overview dashboard - member, post and engagement stat cards, an activity timeline, a community-health score, top spaces by activity, recent moderation activity, and quick actions.](../images/admin-overview.webp)
 
-![The Settings → General tab — community name, identity and baseline options](../images/admin-general.webp)
+![The Settings → General tab - community name, identity and baseline options](../images/admin-general.webp)
 
 ![The Settings → Navigation tab for the front-end community menu](../images/admin-navigation.webp)
 
@@ -23,20 +23,32 @@ Tabs marked **(Pro)** require BuddyNext Pro. Everything else is in the free plug
 
 | Section | Tabs | What you configure |
 |---------|------|--------------------|
-| **Settings** | General; Appearance; Navigation; Pages & URLs; White-Label **(Pro)** | Core community name and identity, theme appearance and brand color, the front-end navigation menu, and the URL for each community hub. |
+| **Settings** | General; Appearance; Navigation; Pages & URLs; White-label **(Pro)** | Core community name and identity, theme appearance and brand color, the front-end navigation menu, and the URL for each community hub. |
 | **Get Started** | Home; License **(Pro)** | Find your way around a new install, work through setup, and enter your Pro license key so the plugin receives automatic updates. |
-| **Platform** | Features; Add-ons; Integration Settings; Tools; Plugin isolation; Webhooks | Turn whole features on or off, install and connect companion plugins, control how each integration surfaces, run maintenance tools, choose which other plugins load on community pages, and send outbound webhooks to other systems. |
-| **Members** | Directory; Labels **(Pro)**; Registration; Roles; Privacy | Manage the member directory, apply member labels, set how people register and verify, define roles and capabilities, and set default privacy. |
-| **Spaces** | Directory; Spaces settings | Manage the spaces directory and configure how spaces, categories, and membership work. |
-| **Engagement** | Insights; Announcements; Social; Reactions | View engagement insights, post site-wide announcements, configure social and social-login behavior, and choose which reactions members can use. |
-| **Notifications** | Notifications; Email; Templates; Email Log | Set notification defaults and channels, configure sending email identity, edit the email templates members receive, and review a log of every message sent. |
-| **Realtime & Push (Pro)** | Realtime; Push; Push Preferences | Configure real-time updates, web and mobile push delivery, and the default push preferences for members. |
-| **Campaigns (Pro)** | Broadcasts; Drip; Scheduled Posts; AI Feed | Send broadcast emails, build automated drip sequences, schedule posts, and configure AI feed ranking. |
-| **Moderation** | Controls; Pending; Reports; Suspensions; Appeals | Set moderation policy, review pending content, work the report queue, manage suspensions, and handle member appeals. |
-| **Moderation Tools** | Rules **(Pro)**; AI Moderation **(Pro)**; Bulk **(Pro)**; Moderation Log | Build automatic moderation rules (including banned-word rules), enable AI-assisted moderation, run bulk moderation actions, and read the log of who moderated what. The Moderation Log is free; the other three are Pro. |
-| **Monetization (Pro)** | Plans; Subscriptions; Coupons; Paywall; Payment Gateways | Define paid membership plans, manage subscriptions, issue discount coupons, configure the paywall prompt, and connect payment gateways (Stripe, PayPal, points). |
+| **Platform** | Features; Add-ons; Tools; Webhooks; Plugin isolation | Turn whole features on or off, install and connect companion plugins, run maintenance tools, send outbound webhooks to other systems, and choose which other plugins load on community pages. |
+| **Integration Settings** | One screen | Control how each companion plugin surfaces inside BuddyNext. This is its own section in the menu, next to Platform. |
+| **Members** | Directory; Labels **(Pro)**; Registration & Login; Roles & Capabilities; Privacy & Data | Manage the member directory (with its Profile Fields, Avatar & cover, Member Types and Invites sub-tabs), apply member labels, set how people register, sign in and verify, define roles and capabilities, and set privacy defaults and data tools. |
+| **Spaces** | Directory; Settings | Manage the spaces directory (with its Categories sub-tab) and set who can create spaces and how new ones start. |
+| **Engagement** | Insights; Announcements; Activity; Social; Reactions **(Pro)** | View engagement insights, post site-wide announcements, manage posts, set activity feed defaults and connection behavior, and (Pro) choose a custom set of reactions. |
+| **Notifications** | Notifications; Email; Email Templates; Email Log | Set notification defaults and channels, configure sending email identity, edit the email templates members receive, and review a log of every message sent. |
+| **Realtime & Push (Pro)** | Realtime; Push; Push prefs | Configure real-time updates, web and mobile push delivery, and the default push preferences for members. |
+| **Campaigns (Pro)** | Broadcasts; Drip Sequences; Scheduled Posts; AI Feed | Send broadcast emails, build automated drip sequences, schedule posts, and configure AI feed ranking. |
+| **Moderation** | Controls; Pending; Reports; Suspensions; Appeals; Rules **(Pro)**; AI Moderation **(Pro)**; Bulk Moderation **(Pro)**; Moderation Log | Set moderation policy, review pending content, work the report queue, manage suspensions, handle member appeals, and read the log of who moderated what. Pro adds automatic rules, AI-assisted moderation and bulk actions to the same section. |
+| **Monetization (Pro)** | Plans; Subscriptions; Payment Gateways; Coupons; Paywall | Define paid membership plans, manage subscriptions, issue discount coupons, configure the paywall prompt, and connect payment gateways (Stripe, PayPal, points). |
 
-> **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Get Started, Settings, Platform, Members, Spaces, Engagement, Notifications, Moderation and Moderation Tools, with the Pro-only tabs inside them hidden. Free also shows an **Upgrade** section, which is an upsell rather than a place to configure anything.
+> **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Get Started, Members, Spaces, Engagement, Notifications, Moderation, Platform, Integration Settings and Settings, with the Pro-only tabs inside them hidden. Free also shows an **Upgrade** section with a **Free vs Pro** comparison, which is an upsell rather than a place to configure anything.
+
+## Turning features on and off: Platform > Features
+
+Every capability has exactly one on/off switch, and it lives in **BuddyNext > Platform > Features**. There is no second switch hidden in a settings tab.
+
+| Kind | What it means | Examples |
+|------|---------------|----------|
+| Core | Always on, shown locked. | Activity feed, Member profiles, Spaces, Follows, connections, blocks, Notifications, Login + registration, Search index, Moderation |
+| On by default | You can switch it off. | Hashtags, Reactions, Comments, Sidebar widgets, Member onboarding flow, Email verification, Site announcements, Bookmarks, Polls, Re-shares, Installable app (PWA), Scheduled posts |
+| Off by default | You switch it on when you need it. | Outbound webhooks (Free); Realtime, Push notifications, AI suite and AI moderation (Pro) |
+
+Two entries behave differently. **Direct messages** shows the state of the switch in WPMediaVerse (Settings, Social, Messages) and links you there, because WPMediaVerse runs messaging. **Scheduled posts** is a Free entry: switching it off hides the schedule button in the composer, while posts already scheduled still publish. With BuddyNext Pro active, the Pro capabilities (such as White-label branding, Member labels, Email broadcasts, Drip sequences, Moderation rules, Bulk moderation, Custom reactions and Analytics) appear in the same list.
 
 ## Refined in 1.0.4
 
@@ -111,4 +123,4 @@ Each section has its own deep-dive in this documentation:
 - For who can join and how members are managed, see the [Members documentation](../members/01-member-profiles.md).
 - For communities, categories, and membership rules, see the [Spaces documentation](../spaces/01-spaces-overview.md).
 - For reactions, notifications, email, and moderation, see the [Activity Feed](../community/01-activity-feed.md), [Notifications](../messaging-notifications/02-notifications.md), and [Moderation Queue](../moderation/02-moderation-queue.md) pages.
-- For Pro sections (Realtime & Push, Campaigns, Moderation Tools, Monetization), see the [BuddyNext Pro documentation](../pro/01-membership-plans.md). (Insights is a free feature - see [Community Insights](06-community-insights.md).)
+- For Pro sections (Realtime & Push, Campaigns, Monetization) and the Pro moderation tabs, see the [BuddyNext Pro documentation](../pro/01-membership-plans.md). (Insights is a free feature - see [Community Insights](06-community-insights.md).)

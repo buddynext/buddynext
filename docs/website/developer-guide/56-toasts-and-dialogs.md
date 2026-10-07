@@ -37,16 +37,18 @@ handle.dismiss();
 handle.el;                                  // the element, for a celebration effect
 ```
 
+- Other accepted options: `tone` (alias of `type`), `timeout` in milliseconds, `icon`, `action: { href, label }` (the long form of `href` plus `linkLabel`) and `message` (alias of `title`). The short form also takes `window.bnToast( 'Saved', { tone: 'success', timeout: 4000 } )`.
+- A toast leaves after 3 seconds, or 7 seconds for an error, unless it persists.
 - Status is shown by the icon disc only. `warn`, `warning` and `danger` fold onto `info` and `error`; there is no coloured fill and no fifth look.
 - A toast that carries a link stays until dismissed. Any toast pauses while the pointer or keyboard focus is on it.
-- The same message repeated collapses onto the first and counts the repeats. Three toasts show at once.
+- The same message repeated collapses onto the first and counts the repeats. Three toasts show at once on a desktop screen; at 640px and below they show one at a time, in order.
 - Errors announce assertively; everything else is polite.
 - The host is a manual popover, so a toast raised while a native `<dialog>` is open is painted above it.
 - Calls made before the script runs are queued and replayed, so a classic script can call `window.bnToast` at any time.
 
 ## Dialogs
 
-`bnConfirm( { title, body, tone, confirmLabel, cancelLabel } )` resolves `true` or `false`. `bnPrompt( { title, body, placeholder, validate } )` resolves the text or `null`. Both use the compact 420px panel; forms use the default 480px. Never call `window.confirm()` or `window.prompt()` on a member-facing surface.
+`bnConfirm( { title, body, tone, confirmLabel, cancelLabel } )` resolves `true` or `false`; `tone` is `danger` (the default) or `default`. `bnPrompt( { title, body, placeholder, defaultValue, confirmLabel, cancelLabel, inputType, autocomplete, validate } )` resolves the text, or `null` on cancel; `inputType` defaults to a textarea (pass `password` for a single-line secret) and `validate( value )` returns an error string, or `''` when valid, which keeps the dialog open. `bnReportDialog( { title, body, confirmLabel, reasons } )` resolves `{ reason, notes }` or `null`, and `bnBlockConfirm( displayName )` is the shared block-member confirmation. Confirm and prompt use the compact 420px panel; forms use the default 480px. Never call `window.confirm()` or `window.prompt()` on a member-facing surface.
 
 ## Tokens
 

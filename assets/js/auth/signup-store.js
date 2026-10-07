@@ -150,6 +150,12 @@ function showFieldErrors( form, fields ) {
 		el.removeAttribute( 'aria-invalid' );
 	} );
 
+	// Nothing to place: the refusal is not about a field (rate limit, closed
+	// sign-ups), and the server still sends `fields: []`. Reporting that as
+	// "all placed" cleared the banner, so the visitor clicked a button that did
+	// nothing and was never told why.
+	if ( ! fields || ! Object.keys( fields ).length ) { return false; }
+
 	let allPlaced = true;
 	let first = null;
 
@@ -345,7 +351,9 @@ const signupStore = store( 'buddynext/auth-signup', {
 				c.error = t( 'fillUsername', 'Please choose a username.' );
 				return;
 			}
-			if ( ! c.termsAgreed ) {
+			// Only when the form asked: with no readable terms page there is no
+			// checkbox, and the server does not require consent either.
+			if ( c.termsRequired && ! c.termsAgreed ) {
 				c.error = t( 'agreeTerms', 'Please agree to the Terms of Service and Privacy Policy to continue.' );
 				return;
 			}

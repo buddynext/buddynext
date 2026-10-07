@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Profile;
 
+use BuddyNext\Bridges\MemberBlogBridge;
 use BuddyNext\Contracts\ListenerInterface;
 
 defined( 'ABSPATH' ) || exit;
@@ -22,6 +23,10 @@ defined( 'ABSPATH' ) || exit;
  * get_author_posts_url(), which lands on `author_link`; filtering it once means no
  * theme carries a copy of this rule. The /author/ route is left alone, only the link a
  * visitor is handed changes.
+ *
+ * Only while the profile can do the archive's job: Member Blog active and the Articles
+ * tab on (MemberBlogBridge::articles_tab_available()). Without it the profile lists no
+ * posts, so a byline keeps the WordPress author archive, which does.
  *
  * Stays out of everything that is not a front-end page: admin, ajax, cron, REST, feeds
  * and the users sitemap keep the WordPress URL. A viewer who may not see the profile
@@ -59,7 +64,9 @@ class AuthorLinkListener implements ListenerInterface {
 		if ( $author_id <= 0 || is_admin() || wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || is_feed() || '' !== (string) get_query_var( 'sitemap' ) ) {
 			return $link;
 		}
-		if ( ! buddynext_integration_enabled( 'blog', 'nav' ) ) {
+		// Only while the profile can list this author's posts (the Articles tab);
+		// otherwise the WordPress author archive is the page that does that job.
+		if ( ! MemberBlogBridge::articles_tab_available() ) {
 			return $link;
 		}
 

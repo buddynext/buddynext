@@ -305,4 +305,18 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 
 		wp_set_current_user( 0 );
 	}
+
+	/**
+	 * Reactions are bell-only: never emailed, never in a digest (card 10374880408).
+	 *
+	 * @return void
+	 */
+	public function test_reactions_are_bell_only(): void {
+		$catalogue = new \BuddyNext\Notifications\NotificationPrefCatalogue();
+		foreach ( array( 'bn.post_reacted', 'bn.comment_reacted' ) as $type ) {
+			$this->assertFalse( $catalogue->can_email( $type ), $type . ' must not be emailed.' );
+			$this->assertSame( 'off', $catalogue->all()[ $type ]['default_email_freq'] );
+			$this->assertTrue( $catalogue->all()[ $type ]['default_on_site'], $type . ' still shows in the bell.' );
+		}
+	}
 }

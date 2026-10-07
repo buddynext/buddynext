@@ -2307,6 +2307,20 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	flex-wrap: wrap;
 }
 
+/* Photos on the edit form: the composer's own tiles (.bn-composer__media-preview /
+   __media-thumb / __media-remove) plus an "Add photo or video" button below them. */
+.bn-post-card__edit-media {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s2);
+	margin-block: var(--bn-s2);
+}
+
+.bn-post-card__edit-media .bn-composer__media-preview:empty {
+	display: none;
+}
+
 /* Reschedule control — only rendered while the post is still `scheduled`.
    Mirrors .bn-composer__schedule-input so the edit form and the composer offer the
    same control; theme-mapped tokens, not raw hex. */
@@ -3329,6 +3343,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
  * keyframes from bn-base.css.
  */
 .bn-composer__media-thumb.is-uploading img { opacity: 0.5; }
+/* No play badge until the video has landed: under the spinner it read as clutter. */
+.bn-composer__media-thumb--video.is-uploading::after { display: none; }
 .bn-composer__media-spinner {
 	position: absolute;
 	inset: 0;
@@ -3342,6 +3358,22 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 @media (prefers-reduced-motion: reduce) {
 	.bn-composer__media-spinner { animation: none; }
+}
+/* Percent sent, under the spinner: a large video takes a while. */
+.bn-composer__media-progress {
+	position: absolute;
+	inset-inline: 0;
+	bottom: 4px;
+	margin-inline: auto;
+	width: fit-content;
+	padding: 0 6px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	line-height: 1.4;
+	font-variant-numeric: tabular-nums;
 }
 .bn-composer__media-remove {
 	position: absolute;
@@ -3701,6 +3733,16 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	font-size: var(--bn-text-sm);
 }
 .bn-composer__error[hidden] { display: none; }
+/* "Wait for the upload to finish": information, not an error, so neutral. */
+.bn-composer__notice {
+	margin: 0 0 var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-sunken);
+	border-radius: var(--bn-r-sm);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+.bn-composer__notice[hidden] { display: none; }
 /* flex-basis floor (matching .bn-composer__blocked-text) so the message keeps a
    readable minimum width and the retry link wraps to its own line instead of
    the text shrinking to a one-word column. Plain `flex: 1` only shrinks. */
@@ -3884,6 +3926,24 @@ a.bn-composer__error-retry[hidden] { display: none; }
 .bn-share-modal__repost { flex: 1; justify-content: center; }
 /* Ghost variant rests at a muted ink; lift the Copy-link label to full ink for AA contrast. */
 .bn-share-modal__copy { color: var(--bn-ink); }
+/* Share to: outside networks for a public post. Brand marks render in ink so the row reads as one set. */
+.bn-share-modal__repost-block[hidden],
+.bn-share-modal__out[hidden],
+.bn-share-modal__net[hidden] { display: none; }
+.bn-share-modal__out { display: flex; flex-direction: column; gap: var(--bn-s2); margin-block-end: var(--bn-s3); }
+.bn-share-modal__out-label { font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-ink-2); }
+.bn-share-modal__nets { display: flex; flex-wrap: wrap; gap: var(--bn-s2); }
+.bn-share-modal__net {
+	display: inline-flex; align-items: center; gap: var(--bn-s1);
+	min-height: 36px; padding-block: var(--bn-s1); padding-inline: var(--bn-s3);
+	border: 1px solid var(--bn-line); border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-surface); color: var(--bn-ink);
+	font: inherit; font-size: var(--bn-text-sm); text-decoration: none; cursor: pointer;
+}
+.bn-share-modal__net:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.bn-share-modal__net:focus-visible { outline: 2px solid var(--bn-accent); outline-offset: 2px; }
+.bn-share-modal__net svg { width: 16px; height: 16px; flex: none; }
+.bn-share-modal__net svg path { fill: currentColor; }
 .bn-share-modal__error { margin: var(--bn-s2) 0 0; color: var(--bn-danger); font-size: var(--bn-text-sm); }
 .bn-share-modal__error[hidden] { display: none; }
 

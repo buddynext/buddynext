@@ -162,6 +162,23 @@ abstract class BaseRestController {
 	}
 
 	/**
+	 * Require a logged-in member who may engage with content: react, share,
+	 * bookmark, vote in a poll.
+	 *
+	 * The post card hides those controls from a member without
+	 * buddynext-feed/interact; this is the same rule on the server, so an owner
+	 * who raises it on Roles & Capabilities gets a read-only community in the
+	 * app and the API too, not only in the page.
+	 *
+	 * @return true|WP_Error
+	 */
+	public function require_interact(): bool|WP_Error {
+		$auth = $this->require_auth();
+
+		return true === $auth ? $this->require_cap( 'buddynext-feed/interact' ) : $auth;
+	}
+
+	/**
 	 * Require a user who can manage the community.
 	 *
 	 * @return true|WP_Error
@@ -387,7 +404,9 @@ abstract class BaseRestController {
 	 * @return WP_Error|null Error to return, or null when the write may proceed.
 	 */
 	protected function engagement_target_error( string $object_type, int $object_id ): ?WP_Error {
-		if ( ! $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
+		// An id of 0 names no post. It is not "hidden", so it used to pass and a
+		// bookmark or share of nothing was stored.
+		if ( $object_id > 0 && ! $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
 			return null;
 		}
 

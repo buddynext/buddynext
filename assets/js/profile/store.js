@@ -1183,16 +1183,17 @@ const profileStore = store( 'buddynext/profile', {
 			// Add Entry can still build a row after the member empties a group.
 			snapshotRepeaterSeeds();
 			// Honour a #avatar / #cover deep-link (the view-hero "Edit avatar" /
-			// "Edit cover" links land here) by opening the matching file picker, so
-			// the anchor isn't a dead scroll-to-nothing. A short defer lets the
-			// Interactivity store finish binding the inputs first.
+			// "Edit cover" links land here) by bringing the matching "Change"
+			// button into view and focusing it. Opening the file picker itself is
+			// not possible here: browsers ignore a file-input click() that no
+			// member click started, which is why the old auto-click did nothing.
 			var bnHash = ( window.location.hash || '' ).toLowerCase();
 			if ( '#avatar' === bnHash || '#cover' === bnHash ) {
-				var bnPickerId = '#avatar' === bnHash ? 'bn-ep-avatar-file' : 'bn-ep-cover-file';
-				setTimeout( function () {
-					var el = document.getElementById( bnPickerId );
-					if ( el ) { el.click(); }
-				}, 200 );
+				var bnBtn = document.querySelector( '#avatar' === bnHash ? '.bn-ep-avatar-btn' : '.bn-ep-cover-btn' );
+				if ( bnBtn ) {
+					bnBtn.scrollIntoView( { block: 'center' } );
+					bnBtn.focus( { preventScroll: true, focusVisible: true } );
+				}
 			}
 		},
 	},
@@ -1774,7 +1775,7 @@ const profileStore = store( 'buddynext/profile', {
 				// Mark dirty so Save enables and the beforeunload guard arms.
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
-				bnToast( t( 'avatarReady', 'Avatar ready — click Save changes to keep it' ), { tone: 'info' } );
+				bnToast( t( 'avatarReady', 'Avatar ready: click Save changes to keep it' ), { tone: 'info' } );
 			} catch ( err ) {
 				bnToast( t( 'couldNotPrepareImage', 'Could not prepare image. Try again.' ), { tone: 'danger' } );
 			} finally {
@@ -1839,7 +1840,7 @@ const profileStore = store( 'buddynext/profile', {
 					ctx.coverUrl = '';
 					setCoverPreview( '' ); // revert to the empty cover state
 					toggleCoverRemove( false );
-					bnToast( t( 'coverRemoved', 'Cover photo removed' ), { tone: 'success' } );
+					bnToast( t( 'coverRemoved', 'Cover removed.' ), { tone: 'success' } );
 				} else {
 					bnToast( t( 'coverRemoveFailed', 'Could not remove your cover. Try again.' ), { tone: 'danger' } );
 				}
@@ -1886,7 +1887,7 @@ const profileStore = store( 'buddynext/profile', {
 				// Mark dirty so Save enables and the beforeunload guard arms.
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
-				bnToast( t( 'coverReady', 'Cover ready — click Save changes to keep it' ), { tone: 'info' } );
+				bnToast( t( 'coverReady', 'Cover ready: click Save changes to keep it' ), { tone: 'info' } );
 			} catch ( err ) {
 				bnToast( t( 'couldNotPrepareImage', 'Could not prepare image. Try again.' ), { tone: 'danger' } );
 			} finally {
@@ -2048,7 +2049,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( res.ok ) {
 					ctx.connectionReceived = false;
 					ctx.showConnect        = true;
-					bnToast( t( 'requestDeclined', 'Request declined' ), { tone: 'info' } );
+					bnToast( t( 'requestDeclined', 'Request declined.' ), { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},

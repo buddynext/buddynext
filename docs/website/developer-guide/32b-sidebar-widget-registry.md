@@ -24,6 +24,7 @@ A descriptor is an associative array appended to the `buddynext_sidebar_widgets`
 | `condition` | callable | no | Gate `function( string $surface ): bool`; the widget is skipped when it returns false. |
 | `default` | bool | no | `false` makes the widget opt-in (off unless a filter re-enables it); omit for always-on. |
 | `priority` | int | no | Ascending sort order within the surface; defaults to `50`. |
+| `mobile` | bool | no | `false` marks a desktop-only widget: it is wrapped in `.bn-sidebar-desktop-only` so the stylesheet can hide it below 1025px, where the column reflows under the content and a widget with its own mobile surface would otherwise render twice. Omit for the default. |
 | `chrome` | bool | no | `false` means the render callback supplies its own card wrapper and the body is echoed raw; omit to get the standard card. |
 | `classes` | string\|string[] | no | Extra CSS classes merged onto the standard card (chromed widgets only). |
 | `title` | string | no | Card heading (chromed widgets only). |

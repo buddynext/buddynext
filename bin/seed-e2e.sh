@@ -49,6 +49,16 @@ if ! "${WP[@]}" user get "$OTHER" --field=ID >/dev/null 2>&1; then
 		|| log "could not create ${OTHER}"
 fi
 
+#    On a site that requires email verification a member created here is held as
+#    unverified and every write journey answers 403 email_unverified. The fixture
+#    member is ours, so mark it verified through the service (never fatal).
+"${WP[@]}" eval '
+$u = get_user_by( "login", "'"$OTHER"'" );
+if ( $u && function_exists( "buddynext_service" ) ) {
+	buddynext_service( "verification" )->mark_verified( (int) $u->ID );
+}
+' >/dev/null 2>&1 || log "could not verify ${OTHER}"
+
 # 3. Best-effort un-gating: register one member-type so the member-type journeys run
 #    instead of softSkipping. Never fatal — a failure here only leaves those few
 #    specs skipping (a known harness gap), it must not fail the whole seed. The
@@ -79,7 +89,7 @@ if ( ! function_exists( "buddynext_service" ) || get_option( "bn_e2e_trending_se
 }
 try {
 	$posts = new \BuddyNext\Feed\PostService();
-	$hash  = new \BuddyNext\Hashtags\HashtagListener();
+	$hash  = new \BuddyNext\Hashtags\HashtagListener( buddynext_service( "hashtags" ) );
 	foreach ( array( "Welcome to the community #welcome #community", "Great to have everyone here #community" ) as $body ) {
 		$pid = $posts->create( 1, array( "content" => $body, "privacy" => "public" ) );
 		if ( ! is_wp_error( $pid ) ) {

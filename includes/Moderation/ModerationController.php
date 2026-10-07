@@ -124,6 +124,11 @@ class ModerationController extends BaseRestController {
 				'callback'            => array( $this, 'get_queue' ),
 				'permission_callback' => array( $this, 'require_queue_access' ),
 				'args'                => array(
+					'space_id'    => array(
+						'type'              => 'integer',
+						'description'       => 'One space\'s open reports (a space moderator: a space they moderate).',
+						'sanitize_callback' => 'absint',
+					),
 					'per_page'    => array(
 						'type'              => 'integer',
 						'default'           => 20,
@@ -224,26 +229,41 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_moderation_log' ),
-				'permission_callback' => array( $this, 'require_moderator' ),
+				// Site moderators read the whole log; a space owner/moderator reads
+				// their own space's (space_id required, checked in the handler) -
+				// the space Moderation tab's Activity log and its counts.
+				'permission_callback' => array( $this, 'require_log_access' ),
 				'args'                => array(
-					'user_id'  => array(
+					'space_id'   => array(
 						'type'              => 'integer',
 						'required'          => false,
 						'sanitize_callback' => 'absint',
 					),
-					'action'   => array(
+					'since_days' => array(
+						'type'              => 'integer',
+						'required'          => false,
+						'minimum'           => 1,
+						'maximum'           => 366,
+						'sanitize_callback' => 'absint',
+					),
+					'user_id'    => array(
+						'type'              => 'integer',
+						'required'          => false,
+						'sanitize_callback' => 'absint',
+					),
+					'action'     => array(
 						'type'              => 'string',
 						'required'          => false,
 						'sanitize_callback' => 'sanitize_key',
 					),
-					'per_page' => array(
+					'per_page'   => array(
 						'type'              => 'integer',
 						'default'           => 20,
 						'minimum'           => 1,
 						'maximum'           => 100,
 						'sanitize_callback' => 'absint',
 					),
-					'page'     => array(
+					'page'       => array(
 						'type'              => 'integer',
 						'default'           => 1,
 						'minimum'           => 1,
@@ -363,6 +383,20 @@ class ModerationController extends BaseRestController {
 						'required'          => false,
 						'type'              => 'string',
 						'default'           => '',
+						'description'       => 'Free-text reason shown to the member. Required unless reason_code is sent.',
+						'sanitize_callback' => 'sanitize_textarea_field',
+					),
+					'reason_code'   => array(
+						'required'          => false,
+						'type'              => 'string',
+						'description'       => 'A code from GET /moderation/suspension-reasons. Takes precedence over reason.',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'note'          => array(
+						'required'          => false,
+						'type'              => 'string',
+						'default'           => '',
+						'description'       => 'Optional note added to reason_code (required for "other"), max 300 characters.',
 						'sanitize_callback' => 'sanitize_textarea_field',
 					),
 					'duration_days' => array(
@@ -376,6 +410,17 @@ class ModerationController extends BaseRestController {
 						'default'  => false,
 					),
 				),
+			)
+		);
+
+		// The reasons a moderator chooses from when suspending (same list as the web dialogs).
+		register_rest_route(
+			'buddynext/v1',
+			'/moderation/suspension-reasons',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'suspension_reasons' ),
+				'permission_callback' => array( $this, 'require_moderator' ),
 			)
 		);
 
@@ -873,15 +918,25 @@ class ModerationController extends BaseRestController {
 	 * GET /moderation/log — read the moderation audit trail (admin only).
 	 *
 	 * Returns a paginated, newest-first slice of bn_mod_log with optional
-	 * user_id and action filters. The log is append-only; this is read access
-	 * to the trail the spec promised but never exposed over REST.
+	 * space_id, since_days, user_id and action filters. The log is append-only;
+	 * this is read access to the trail the spec promised but never exposed over
+	 * REST. Site moderators read everything; a space owner/moderator only a
+	 * space they moderate, as on that space's Moderation tab.
 	 *
 	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function get_moderation_log( WP_REST_Request $request ): WP_REST_Response {
+	public function get_moderation_log( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'space_id' );
+		if ( ! $this->moderates_site() && ! $this->moderates_space( $space_id ) ) {
+			return new WP_Error( 'bn_forbidden', __( 'You can only view the log of a space you moderate.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$days   = (int) $request->get_param( 'since_days' );
 		$result = ( new ModerationLogService() )->get_log(
 			array(
+				'space_id' => $space_id,
+				'since'    => $days > 0 ? '-' . $days . ' days' : '',
 				'user_id'  => (int) $request->get_param( 'user_id' ),
 				'action'   => (string) ( $request->get_param( 'action' ) ?? '' ),
 				'per_page' => (int) $request->get_param( 'per_page' ),
@@ -1053,14 +1108,17 @@ class ModerationController extends BaseRestController {
 	 * moderate. If a space moderator manages no spaces the result is always empty.
 	 *
 	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function get_queue( WP_REST_Request $request ): WP_REST_Response {
+	public function get_queue( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$service = new ModerationService();
 
+		// enrich: offender name + strike count on user reports, as the space
+		// Moderation tab shows them (batched in the service).
 		$args = array(
 			'per_page' => absint( $request->get_param( 'per_page' ) ),
 			'page'     => absint( $request->get_param( 'page' ) ),
+			'enrich'   => true,
 		);
 
 		$object_type_param = $request->get_param( 'object_type' );
@@ -1074,8 +1132,14 @@ class ModerationController extends BaseRestController {
 		}
 
 		// Space-only moderators see reports for their own spaces; site-wide
-		// moderators (and admins) see everything.
-		if ( ! $this->moderates_site() ) {
+		// moderators (and admins) see everything. space_id narrows to one space.
+		$space_id = absint( $request->get_param( 'space_id' ) );
+		if ( $space_id > 0 ) {
+			if ( ! $this->moderates_site() && ! $this->moderates_space( $space_id ) ) {
+				return new WP_Error( 'bn_forbidden', __( 'You can only view the reports of a space you moderate.', 'buddynext' ), array( 'status' => 403 ) );
+			}
+			$args['space_ids'] = array( $space_id );
+		} elseif ( ! $this->moderates_site() ) {
 			$args['space_ids'] = $service->get_moderated_space_ids( get_current_user_id() );
 		}
 
@@ -1181,8 +1245,7 @@ class ModerationController extends BaseRestController {
 		}
 		$post     = ( new \BuddyNext\Feed\PostService() )->get( $post_id );
 		$space_id = (int) ( $post['space_id'] ?? 0 );
-		$allowed  = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
-		if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
+		if ( ! $this->moderates_space( $space_id ) ) {
 			return new WP_Error( 'bn_forbidden', __( 'You cannot moderate this post.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
@@ -1207,8 +1270,7 @@ class ModerationController extends BaseRestController {
 		}
 		$report   = ( new ModerationService() )->get_report( $report_id );
 		$space_id = (int) ( $report['space_id'] ?? 0 );
-		$allowed  = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
-		if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
+		if ( ! $this->moderates_space( $space_id ) ) {
 			return new WP_Error( 'bn_forbidden', __( 'You cannot moderate this report.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
@@ -1249,6 +1311,14 @@ class ModerationController extends BaseRestController {
 		$reason   = (string) ( $request->get_param( 'reason' ) ?? '' );
 		$opts     = array();
 
+		$code = (string) ( $request->get_param( 'reason_code' ) ?? '' );
+		if ( '' !== $code ) {
+			$reason = ModerationService::compose_suspension_reason( $code, (string) $request->get_param( 'note' ) );
+			if ( is_wp_error( $reason ) ) {
+				return $reason;
+			}
+		}
+
 		$duration = $request->get_param( 'duration_days' );
 		if ( null !== $duration ) {
 			$opts['duration_days'] = absint( $duration );
@@ -1261,13 +1331,39 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->suspend_user( $user_id, $actor_id, $reason, $opts );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$data = $result->get_error_data();
+			if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+				$result->add_data( array( 'status' => 403 ) );
+			}
 			return $result;
 		}
 
 		// Audit row is written inside suspend_user() (card 10264294456).
 
 		return new WP_REST_Response( array( 'suspension_id' => $result ), 201 );
+	}
+
+	/**
+	 * GET /moderation/suspension-reasons: the reasons a moderator chooses from.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function suspension_reasons(): WP_REST_Response {
+		$items = array();
+		foreach ( ModerationService::suspension_reasons() as $code => $label ) {
+			$items[] = array(
+				'code'          => (string) $code,
+				'label'         => (string) $label,
+				'note_required' => 'other' === $code,
+			);
+		}
+		return new WP_REST_Response(
+			array(
+				'items'    => $items,
+				'note_max' => ModerationService::SUSPENSION_NOTE_MAX,
+			),
+			200
+		);
 	}
 
 	/**
@@ -1391,6 +1487,28 @@ class ModerationController extends BaseRestController {
 	 */
 	private function moderates_site(): bool {
 		return $this->holds_moderation_authority( get_current_user_id() );
+	}
+
+	/**
+	 * Whether the current user owns or moderates this one space.
+	 *
+	 * @param int $space_id Space ID (0 = none named).
+	 * @return bool
+	 */
+	private function moderates_space( int $space_id ): bool {
+		return $space_id > 0 && in_array( $space_id, array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) ), true );
+	}
+
+	/**
+	 * Permission callback for the moderation log.
+	 *
+	 * Everyone who held it before (any moderation ability, require_moderator())
+	 * plus space owners/moderators, whom the handler limits to their own space.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function require_log_access(): bool|WP_Error {
+		return $this->holds_moderation_authority( get_current_user_id() ) ? true : $this->require_queue_access();
 	}
 
 	/**
@@ -1667,10 +1785,21 @@ class ModerationController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function get_my_standing(): WP_REST_Response {
-		return new WP_REST_Response(
-			( new ModerationService() )->get_standing( get_current_user_id() ),
-			200
+		$service  = new ModerationService();
+		$user_id  = get_current_user_id();
+		$standing = $service->get_standing( $user_id );
+
+		// The account-status page's warnings list: the note and when. Who issued
+		// it stays private, as on the web page.
+		$standing['warnings'] = array_map(
+			static fn( array $row ): array => array(
+				'note'       => (string) ( $row['note'] ?? '' ),
+				'created_at' => (string) ( $row['created_at'] ?? '' ),
+			),
+			$service->get_warnings( $user_id )
 		);
+
+		return new WP_REST_Response( $standing, 200 );
 	}
 
 	/**

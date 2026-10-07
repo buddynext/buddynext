@@ -193,7 +193,13 @@ if ( 'space' === $bn_kind ) {
 // POST CARDS (post-media / post-quote / post-forum / post-text)
 // ─────────────────────────────────────────────────────────────────────────────
 $bn_post = isset( $bn_card['post'] ) && is_array( $bn_card['post'] ) ? $bn_card['post'] : array();
-$bn_pid  = (int) ( $bn_post['id'] ?? 0 );
+// Members-only paywall, applied before anything reads the post: a viewer without
+// access gets PostService::members_only_view() (teaser, no media, no link URL or
+// preview), so no later branch can show what sits behind the wall.
+if ( ! empty( $bn_post['members_only'] ) ) {
+	$bn_post = buddynext_service( 'post_service' )->members_only_view( $bn_post, $bn_viewer );
+}
+$bn_pid = (int) ( $bn_post['id'] ?? 0 );
 if ( $bn_pid <= 0 ) {
 	return;
 }
@@ -230,6 +236,16 @@ $bn_excerpt = '' !== $bn_link_desc ? $bn_link_desc : ( '' !== $bn_link_title ? '
 $bn_kicker = '';
 if ( ! empty( $bn_card['hashtag'] ) ) {
 	$bn_kicker = '#' . ltrim( (string) $bn_card['hashtag'], '#' );
+}
+
+// Locked for this viewer (redacted above by members_only_view, as the post card
+// and the REST feed are): headline from the teaser, a members-only kicker. The
+// card still links to the post, whose page carries the full join/log-in prompt.
+if ( ! empty( $bn_post['is_locked'] ) ) {
+	$bn_headline = '' !== $bn_plain ? $bn_plain : __( 'This post is for members.', 'buddynext' );
+	$bn_excerpt  = '';
+	$bn_kicker   = __( 'Members only', 'buddynext' )
+		. ( ! empty( $bn_post['members_only_cta']['label'] ) ? ' · ' . (string) $bn_post['members_only_cta']['label'] : '' );
 }
 
 /**
@@ -418,7 +434,7 @@ if ( 'post-media' === $bn_kind ) :
 		$bn_desc = MediaUrlResolver::descriptor( (int) $bn_mids[0] );
 		if ( $bn_desc ) {
 			$bn_mtype = (string) ( $bn_desc['type'] ?? 'image' );
-			$bn_alt   = (string) $bn_desc['title'];
+			$bn_alt   = (string) ( '' !== (string) ( $bn_desc['alt'] ?? '' ) ? $bn_desc['alt'] : $bn_desc['title'] );
 			// A poster/thumbnail is the only valid <img> src. For an image the file
 			// URL is itself an image, so it is a fine fallback; for video/audio the
 			// file URL is NOT an image — putting it in <img> is the broken-tile bug,

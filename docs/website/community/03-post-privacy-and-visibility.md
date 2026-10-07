@@ -28,7 +28,7 @@ A member picks one of these audiences when posting. Public, Followers, Connectio
 
 When a member does not pick a level, the post takes the community's default audience, which the owner sets (see Setting it up). Inside a space, the default audience is the space's members.
 
-A Members-only post stays publicly listed, but a logged-out visitor sees only its opening portion followed by a prompt to sign in or join, never the whole post. The owner sets how much shows in that teaser with the members-only teaser control (25 percent by default). Members only is an audience level, not plan-gating: it separates logged-in members from the public, whereas the Pro Content Protection feature restricts a post to a paid plan.
+A Members-only post stays publicly listed, but a logged-out visitor sees only its opening portion followed by a prompt to sign in or join, never the whole post. The owner sets how much shows in that teaser with the **Members-only teaser length (%)** control under **BuddyNext > Engagement > Social > Activity Feed** (25 percent by default). Members only is an audience level, not plan-gating: it separates logged-in members from the public, whereas the Pro Content Protection feature restricts a post to a paid plan.
 
 ## How visibility is enforced (for members)
 
@@ -48,7 +48,7 @@ The checks that apply at read time:
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Default post visibility | The audience a post gets when the member does not choose one. Set it to a more private level for a closed community, or leave it public for an open one. Posts made inside a space always default to that space's members. | Public |
+| Default post visibility | The audience a post gets when the member does not choose one. The choices are Public, Followers only, Connections only and Only me. Set it to a more private level for a closed community, or leave it public for an open one. Found under **BuddyNext > Engagement > Social > Activity Feed**. Posts made inside a space always default to that space's members. | Public |
 
 > **Tip:** If your community is members-only, consider setting the default post privacy to a non-public level so a member who forgets to pick an audience does not accidentally broadcast to the public Explore feed. Pair this with turning off the public Explore feed (see Activity Feed).
 

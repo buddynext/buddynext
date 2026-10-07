@@ -24,6 +24,8 @@ if ( $bn_pf_spaces ) :
 <div class="bn-widget">
 	<div class="bn-widget-title"><?php esc_html_e( 'Member of', 'buddynext' ); ?></div>
 	<?php
+	// "in {parent}" for sub-spaces: one query for the list, hidden parents left out.
+	$bn_pf_parents = buddynext_service( 'spaces' )->parent_labels( array_column( $bn_pf_spaces, 'parent_id' ), get_current_user_id() );
 	foreach ( $bn_pf_spaces as $space ) :
 		$bn_space_slug = isset( $space->slug ) ? (string) $space->slug : '';
 		$bn_space_url  = '' !== $bn_space_slug
@@ -47,7 +49,16 @@ if ( $bn_pf_spaces ) :
 					);
 					$bn_prs_role        = (string) $space->role;
 					$bn_prs_role_label  = $bn_prs_role_labels[ $bn_prs_role ] ?? ucfirst( $bn_prs_role );
+					$bn_pf_parent       = $bn_pf_parents[ (int) ( $space->parent_id ?? 0 ) ] ?? null;
 					?>
+					<?php if ( null !== $bn_pf_parent ) : ?>
+						<div class="bn-space-parent">
+							<?php
+							/* translators: %s: name of the space this sub-space belongs to. */
+							echo esc_html( sprintf( _x( 'in %s', 'sub-space parent label', 'buddynext' ), $bn_pf_parent['name'] ) );
+							?>
+						</div>
+					<?php endif; ?>
 					<div class="bn-space-role"><?php echo esc_html( $bn_prs_role_label ); ?></div>
 			</div>
 		</a>

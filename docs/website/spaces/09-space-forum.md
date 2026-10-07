@@ -16,10 +16,10 @@ The two surfaces complement each other rather than compete. New discussions can 
 
 ## How it works (for members)
 
-When a space has the forum available, members see a **Discussions** tab in the space navigation alongside the feed and other space tabs.
+When a space owner has turned the discussion on for that space, members see a **Discussions** tab in the space navigation alongside the feed and other space tabs.
 
 - **Open the forum.** Select the Discussions tab in a space. The space forum opens with BuddyNext's navigation wrapped around it, so it looks and moves like the rest of the community rather than a separate plugin.
-- **First open provisions the forum.** A space's forum is created the first time someone opens its Discussions tab. There are no empty forums sitting around - the board exists once a member actually goes looking for it.
+- **One forum per space, created when the owner switches it on.** The space's discussion is created the first time the owner turns it on, so there are no empty forums sitting around on spaces that do not want one.
 - **Start a discussion.** Create a new discussion with a title and body. Unlike a feed post, it carries a subject line and lives as its own thread.
 - **Reply in a thread.** Replies are shown in order under the discussion, so a conversation reads top to bottom instead of branching.
 - **Mention people.** Typing an @-mention in a discussion notifies that member through BuddyNext's normal notifications, the same as a mention anywhere else in the community.
@@ -37,14 +37,24 @@ The forum is delivered by the Jetonomy companion plugin. There is almost nothing
 ### Install the Jetonomy companion
 
 1. In the BuddyNext admin, open **Platform > Add-ons**.
-2. Find Jetonomy in the companion list and install it with one click. BuddyNext handles the download and activation for you - there is no manual upload or plugin search.
-3. Once Jetonomy is active, the **Discussions** tab appears on spaces (and on member profiles) automatically. No per-space switch is required - each space's forum is created on demand the first time its Discussions tab is opened.
+2. Find Jetonomy in the companion list and click **Install free**. BuddyNext handles the download for you - there is no manual upload or plugin search. Click **Activate** if it only installed.
+3. Once Jetonomy is active, the Discussions tab can be added to any space, and a member's own discussions show on their profile.
+
+### Turn on the discussion for a space
+
+The tab is a per-space choice made by the space owner.
+
+1. Open the space, then **Settings > Integrations**.
+2. Under **Discussion**, switch on **Enable discussion**. A discussion is created for the space automatically. If the space already has a discussion in Jetonomy, you can search for it and link it instead.
+3. Save. The **Discussions** tab now shows in the space.
+
+Switching it off hides the tab but keeps the discussion and everything in it, so switching it back on restores the same discussion. Only the space owner can change this.
 
 > **Note:** Until Jetonomy is active, the forum does not exist. BuddyNext registers none of its forum navigation or behavior, and pages render exactly as they did before. The integration adds zero overhead on sites that do not use it.
 
 ### Feed sync setting
 
-One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Settings** tab in the BuddyNext admin (Platform > Integration Settings), as the Jetonomy row's "Post to the activity feed" toggle.
+One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Settings** tab in the BuddyNext admin (BuddyNext > Integration Settings), as the Jetonomy row's "Post to the activity feed" toggle. Each space also has its own **Share activity to the main feed** switch under Settings > Integrations, which is on by default.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -59,7 +69,8 @@ Privacy is enforced regardless of the setting: only public spaces, public (non-p
 
 - **Requires the Jetonomy companion.** The Space Forum is the BuddyNext side of the Jetonomy integration. Without Jetonomy active there is no forum, no Discussions tab, and no forum search results. For how BuddyNext and Jetonomy connect, see Jetonomy Integration.
 - **Inert when not installed.** With Jetonomy inactive, the forum integration registers nothing - no navigation, no settings effect, no errors. It is genuinely optional.
-- **Forums are created on demand.** A space has no forum until a member opens its Discussions tab for the first time. This avoids a wall of empty boards across every space.
+- **Two site-wide switches also apply.** On **Integration Settings**, the Jetonomy row has **Show in navigation**, **Post to the activity feed** and **Include in search**. Switching off navigation hides the Discussions tab everywhere.
+- **Forums are created when the owner turns them on.** A space has no forum until its owner switches on **Enable discussion**. This avoids a wall of empty boards across every space.
 - **The forum keeps its own layout.** Inside the Discussions tab, BuddyNext's navigation is rendered around the forum and the companion's own navigation is hidden, so there is one consistent navigation. The forum keeps its own content column.
 - **Deleting a discussion cleans up after itself.** Removing a discussion in the forum also removes it from BuddyNext search and from any activity-feed card it produced.
 - **Search and profile counts read live data.** A member's profile Discussions count and the community search results reflect their current published discussions.

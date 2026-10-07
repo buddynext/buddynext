@@ -202,7 +202,7 @@ class MemberTypesManager {
 		<?php else : ?>
 			<div class="bn-settings-section">
 				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Defined Types', 'buddynext' ); ?></span>
+					<span class="bn-ss-title"><?php esc_html_e( 'Defined types', 'buddynext' ); ?></span>
 					<span class="bn-ss-count"><?php echo esc_html( (string) count( $types ) ); ?></span>
 				</div>
 				<div class="bn-ss-body">
@@ -310,7 +310,7 @@ class MemberTypesManager {
 			'parts/taxonomy-editor.php',
 			array(
 				'entity'   => 'member-type',
-				'title'    => $edit_type ? __( 'Edit Member Type', 'buddynext' ) : __( 'Add Member Type', 'buddynext' ),
+				'title'    => $edit_type ? __( 'Edit member type', 'buddynext' ) : __( 'Add member type', 'buddynext' ),
 				'action'   => 'bn_save_member_type',
 				'nonce'    => 'bn_save_member_type',
 				'edit'     => $edit_type,
@@ -357,7 +357,7 @@ class MemberTypesManager {
 		?>
 		<div class="bn-settings-section bn-member-type-section">
 			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Member Type', 'buddynext' ); ?></span>
+				<span class="bn-ss-title"><?php esc_html_e( 'Member type', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
 				<div class="bn-field-row bn-member-type-field">

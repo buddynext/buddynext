@@ -282,7 +282,13 @@ class SetupWizard {
 		 * every step counts as visited, which is what makes the wizard re-openable
 		 * for review rather than a one-shot.
 		 */
-		$requested = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( (string) $_GET['step'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only navigation between steps the owner has already completed; nothing is written here.
+		// The step being viewed (?step=) or submitted (the form's hidden step field).
+		// Without the POST half, a step re-opened from the tracker and saved ran the
+		// stored step's handler instead, and the owner's change was dropped. Both are
+		// held to the same rule below: only a step already reached.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing -- GET is read-only navigation; the POST is nonce-checked in handle_step_submit() before this runs.
+		$requested = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( (string) $_GET['step'] ) ) : ( isset( $_POST['step'] ) ? sanitize_key( wp_unslash( (string) $_POST['step'] ) ) : '' );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing
 		if ( '' !== $requested ) {
 			$requested_key = ctype_digit( $requested )
 				? ( $keys[ max( 1, (int) $requested ) - 1 ] ?? '' )
@@ -500,7 +506,20 @@ class SetupWizard {
 	}
 
 	/**
-	 * Save step: Registration (mode + email verification).
+	 * The posted registration mode, limited to the modes the site understands.
+	 *
+	 * @return string One of buddynext_reg_modes(), 'open' for anything else.
+	 */
+	private static function reg_mode_from_post(): string {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
+		$mode = sanitize_key( wp_unslash( $_POST['reg_mode'] ?? 'open' ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		// Only a mode the site understands; the same list the Settings field offers.
+		return in_array( $mode, buddynext_reg_modes(), true ) ? $mode : 'open';
+	}
+
+	/**
+	 * Save the registration step.
 	 *
 	 * @return void
 	 */
@@ -508,7 +527,7 @@ class SetupWizard {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
 		$this->save_settings(
 			array(
-				'reg_mode'          => sanitize_key( wp_unslash( $_POST['reg_mode'] ?? 'open' ) ),
+				'reg_mode'          => self::reg_mode_from_post(),
 				'email_verify'      => isset( $_POST['email_verify'] ),
 				'private_community' => isset( $_POST['private_community'] ),
 			)
@@ -691,6 +710,7 @@ class SetupWizard {
 					<form id="bn-wizard-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-wizard__form">
 						<?php wp_nonce_field( 'buddynext_wizard_step' ); ?>
 						<input type="hidden" name="action" value="buddynext_wizard_step">
+						<input type="hidden" name="step" value="<?php echo esc_attr( $this->current_step_key() ); ?>">
 
 						<?php
 						// Draw the current step's body from the registry.
@@ -844,20 +864,25 @@ class SetupWizard {
 		);
 
 		$modes = array(
-			'open'    => array(
+			'open'     => array(
 				'label' => __( 'Open registration', 'buddynext' ),
 				'desc'  => __( 'Anyone can sign up directly. Best for public communities.', 'buddynext' ),
 				'icon'  => 'globe',
 			),
-			'invite'  => array(
+			'invite'   => array(
 				'label' => __( 'Invite only', 'buddynext' ),
 				'desc'  => __( 'New members need an invite link to join. Best for private circles.', 'buddynext' ),
 				'icon'  => 'mail',
 			),
-			'approve' => array(
+			'approval' => array(
 				'label' => __( 'Admin approval', 'buddynext' ),
 				'desc'  => __( 'Anyone can apply, but admins review each request. Best when curation matters.', 'buddynext' ),
 				'icon'  => 'shield',
+			),
+			'closed'   => array(
+				'label' => __( 'Closed', 'buddynext' ),
+				'desc'  => __( 'Nobody can create an account. Members are added by an admin.', 'buddynext' ),
+				'icon'  => 'lock',
 			),
 		);
 		?>
@@ -1417,13 +1442,27 @@ class SetupWizard {
 					</p>
 				<?php else : ?>
 					<p class="bn-wizard__sample-note"><?php esc_html_e( 'New community feeling empty? Add sample members, spaces, and posts to visualise the layout. You can remove it cleanly later from Tools.', 'buddynext' ); ?></p>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-						<input type="hidden" name="action" value="bn_demo_seed">
-						<?php wp_nonce_field( 'bn_demo_seed' ); ?>
-						<button type="submit" class="bn-wizard__btn-secondary">
-							<?php esc_html_e( 'Add sample content', 'buddynext' ); ?>
-						</button>
-					</form>
+					<?php
+					// This step renders inside the wizard's own form, and a form cannot
+					// nest: the browser dropped this one's start tag and its fields joined
+					// the wizard form, so "Go to dashboard" ran the sample-content seed
+					// (a fresh site got 13 demo members). The form is printed after the
+					// page and this button points at it.
+					add_action(
+						'admin_footer',
+						static function (): void {
+							?>
+							<form id="bn-wizard-sample" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" hidden>
+								<input type="hidden" name="action" value="bn_demo_seed">
+								<?php wp_nonce_field( 'bn_demo_seed' ); ?>
+							</form>
+							<?php
+						}
+					);
+					?>
+					<button type="submit" form="bn-wizard-sample" class="bn-wizard__btn-secondary">
+						<?php esc_html_e( 'Add sample content', 'buddynext' ); ?>
+					</button>
 				<?php endif; ?>
 			</div>
 

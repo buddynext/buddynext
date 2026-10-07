@@ -31,7 +31,7 @@ includes/
     Installer.php    dbDelta() schema for the bn_* tables
     PageRouter.php   hub routing + shell composition inside theme chrome
     PermissionService.php  buddynext_can( $user_id, 'ability-slug', $context )
-  Bridges/         Layer 1 - adapters to BuddyX, Jetonomy, WPMediaVerse, Gamification
+  Bridges/         Layer 1 - adapters to BuddyX, Jetonomy, WPMediaVerse, Gamification, Member Blog
   Auth/  SocialGraph/  Feed/  Profile/  Spaces/  Search/  Notifications/
   Reactions/  Comments/  Hashtags/  Moderation/  Outbound/  Messages/  ...
                    Layer 2 - one folder per feature, each with up to four canonical files:
@@ -42,7 +42,7 @@ includes/
   REST/            Router + BaseRestController (shared auth/admin guards)
   Admin/           wp-admin pages, settings, the AdminHub menu
   Theme/           TokenService (injects --bn-* tokens), Appearance, template loader
-  Demo/  Cert/     WP-CLI command classes (6 commands total - see 38-wp-cli.md)
+  Demo/  Cert/     WP-CLI command classes (9 commands, 2 of them dev-tree only - see 38-wp-cli.md)
 
 templates/         theme-overridable PHP - hubs, parts/, shell/ (override via {theme}/buddynext/)
 assets/            css/bn-{feature}.css (token-only) + js/{feature}/store.js (Interactivity API)
@@ -56,7 +56,7 @@ The rules that hold this together: Core never imports from a feature, a Service 
 
 ## WP-CLI commands
 
-BuddyNext registers six `wp buddynext` command namespaces at boot (only when `WP_CLI` is defined), all wired in `includes/Core/Plugin.php`: `demo`, `cert`, `repair-space-owners`, `repair-discussion-visibility`, `handles`, and `qa-fixtures` (the last is dev-tree only and absent from a packaged install). The two you reach for daily are covered below; see the WP-CLI Commands page for the full reference.
+BuddyNext registers nine `wp buddynext` commands at boot (only when `WP_CLI` is defined), all wired in `includes/Core/Plugin.php`: `demo`, `cert`, `repair-space-owners`, `repair-discussion-visibility`, `reconcile-media-privacy`, `handles`, `bridge-status`, `qa-fixtures` and `qa-reset` (the last two are dev-tree only and absent from a packaged install). The two you reach for daily are covered below; see the WP-CLI Commands page for the full reference.
 
 ### `wp buddynext demo` - demo seeder
 
@@ -107,10 +107,12 @@ What each gate enforces:
 | Gate | What it checks | How it runs |
 |---|---|---|
 | PHP lint | Every changed PHP file parses | `php -l` |
-| WPCS | WordPress Coding Standards clean | `vendor/bin/phpcs --standard=phpcs.xml` |
+| WPCS | WordPress Coding Standards clean | `vendor/bin/phpcs` (ruleset auto-discovered) |
 | PHPStan | Static analysis at level 5 against `includes/` | `vendor/bin/phpstan analyse` |
 | UX audit | Token + primitive compliance (no raw hex/px, no inline `<style>`/`<script>`, no native `alert()`/`confirm()`) | `bin/ux-audit.sh` |
 | REST boundary | All frontend data flows through REST, never `admin-ajax` | `bin/check-rest-boundary.sh` |
+
+`bin/check.sh` also runs the repository's other contract checks (hook docs, route URLs, schema authority, block styles and more); `bin/check.sh --help` lists the options.
 
 Set the pre-commit hook once per clone so the staged gate runs automatically:
 

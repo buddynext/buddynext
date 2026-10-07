@@ -44,7 +44,7 @@ Restrict is the in-between option, modeled on the "limit this person" pattern fr
 
 ### Managing your blocked and muted lists
 
-Everything you have blocked, muted, or restricted is listed in one place in your profile settings, so you never have to revisit the other person's profile to undo an action. Open your own profile settings to find the list, then remove anyone from it to unblock, unmute, or unrestrict them. This is also where the block confirmation dialog points you when it says you can reverse a block later.
+Everything you have blocked, muted, or restricted is listed in one place in your profile settings, so you never have to revisit the other person's profile to undo an action. Open **Settings > Privacy** and find **Blocked, restricted & muted**, then remove anyone from it to unblock, unmute, or unrestrict them. This is also where the block confirmation dialog points you when it says you can reverse a block later.
 
 
 ## Setting it up (for owners)

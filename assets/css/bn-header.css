@@ -197,6 +197,197 @@
 	color: var(--bn-ink, #0f172a);
 }
 
+/* ── Notification bell preview panel ──────────────────────────────────────
+   The avatar dropdown's surface (Menu recipe: --bn-r-md, --bn-shadow-md,
+   --bn-z-menu), opened by assets/js/header/user-menu.js. Phones never open it:
+   there the bell is a link to the notifications page. */
+.bn-block-notification-bell .bn-notif-panel {
+	position: absolute;
+	top: calc(100% + var(--bn-s2, 0.5rem));
+	inset-inline-end: 0;
+	z-index: var(--bn-z-menu);
+	display: flex;
+	flex-direction: column;
+	width: min(360px, calc(100vw - 2rem));
+	max-height: min(480px, 70vh);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-md);
+	color: var(--bn-ink);
+	text-align: start;
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(-4px);
+	transition: opacity var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		transform var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		visibility var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
+}
+
+.bn-block-notification-bell.is-open .bn-notif-panel {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+}
+
+.bn-block-notification-bell .bn-notif-panel__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-block-end: 1px solid var(--bn-line);
+}
+
+.bn-block-notification-bell .bn-notif-panel__title {
+	color: var(--bn-ink);
+	font-weight: 600;
+	font-size: var(--bn-text-md, 1rem);
+}
+
+.bn-block-notification-bell .bn-notif-panel__mark {
+	margin: 0;
+	padding: var(--bn-s1) var(--bn-s2);
+	line-height: 1.4;
+	text-transform: none;
+	border: 0;
+	border-radius: var(--bn-r-sm);
+	background: transparent;
+	color: var(--bn-accent);
+	font: inherit;
+	font-size: var(--bn-text-sm, 0.875rem);
+	cursor: pointer;
+}
+
+.bn-block-notification-bell .bn-notif-panel__mark:hover,
+.bn-block-notification-bell .bn-notif-panel__mark:focus-visible {
+	background: var(--bn-sunken);
+}
+
+.bn-block-notification-bell .bn-notif-panel__list {
+	flex: 1 1 auto;
+	margin: 0;
+	padding: var(--bn-s1) 0;
+	overflow-y: auto;
+	list-style: none;
+}
+
+.bn-block-notification-bell .bn-notif-panel__list > li {
+	display: block;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* The panel sits inside the host header (BuddyX: .main-navigation, whose
+   `a { display:block; width:100%; padding; color; font-size; text-align }`
+   out-ranks a one-class rule). It owns every property that carries meaning. */
+.bn-block-notification-bell .bn-notif-panel__item {
+	position: relative;
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	width: auto;
+	margin: 0;
+	padding: var(--bn-s2) var(--bn-s4);
+	background: transparent;
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm, 0.875rem);
+	font-weight: 400;
+	line-height: 1.4;
+	letter-spacing: normal;
+	text-align: start;
+	text-transform: none;
+	text-decoration: none;
+}
+
+.bn-block-notification-bell .bn-notif-panel__item:hover,
+.bn-block-notification-bell .bn-notif-panel__item:focus-visible {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+
+/* Unread: the same accent dot the notifications page uses, at the row end. */
+.bn-block-notification-bell .bn-notif-panel__item.is-unread::after {
+	content: "";
+	flex: 0 0 auto;
+	width: 8px;
+	height: 8px;
+	margin-block-start: var(--bn-s2);
+	margin-inline-start: auto;
+	border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-accent);
+}
+
+.bn-block-notification-bell .bn-notif-panel__avatar {
+	flex: 0 0 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm, 0.875rem);
+	font-weight: 600;
+	object-fit: cover;
+}
+
+.bn-block-notification-bell .bn-notif-panel__body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-block-notification-bell .bn-notif-panel__msg {
+	font-size: var(--bn-text-sm, 0.875rem);
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.bn-block-notification-bell .bn-notif-panel__time {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs, 0.75rem);
+}
+
+.bn-block-notification-bell .bn-notif-panel__status {
+	padding: var(--bn-s4);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm, 0.875rem);
+	text-align: center;
+}
+
+.bn-block-notification-bell .bn-notif-panel__all {
+	display: block;
+	width: auto;
+	margin: 0;
+	padding: var(--bn-s3) var(--bn-s4);
+	background: transparent;
+	line-height: 1.4;
+	letter-spacing: normal;
+	text-transform: none;
+	border-block-start: 1px solid var(--bn-line);
+	color: var(--bn-accent);
+	font-size: var(--bn-text-sm, 0.875rem);
+	font-weight: 600;
+	text-align: center;
+	text-decoration: none;
+}
+
+.bn-block-notification-bell .bn-notif-panel__all:hover,
+.bn-block-notification-bell .bn-notif-panel__all:focus-visible {
+	background: var(--bn-sunken);
+	color: var(--bn-accent);
+}
+
+@media (max-width: 640px) {
+	.bn-block-notification-bell .bn-notif-panel {
+		display: none;
+	}
+}
+
 /* ── The dropdown (CSS-only reveal) ─────────────────────────────────────── */
 .bn-header-user__dropdown {
 	position: absolute;

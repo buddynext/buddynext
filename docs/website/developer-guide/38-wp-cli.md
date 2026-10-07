@@ -15,13 +15,18 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
     \WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );
     \WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
     \WP_CLI::add_command( 'buddynext repair-discussion-visibility', \BuddyNext\Bridges\DiscussionVisibilityRepairCommand::class );
+    \WP_CLI::add_command( 'buddynext reconcile-media-privacy', \BuddyNext\Bridges\MediaPrivacyRepairCommand::class );
     \WP_CLI::add_command( 'buddynext handles', new \BuddyNext\Profile\HandleCommand() );
+    \WP_CLI::add_command( 'buddynext bridge-status', new \BuddyNext\Integrations\BridgeStatusCommand() );
 
     // Registered only when dev/QaFixturesCommand.php is present.
     $bn_qa_fixtures = BUDDYNEXT_DIR . 'dev/QaFixturesCommand.php';
     if ( is_readable( $bn_qa_fixtures ) ) {
         require_once $bn_qa_fixtures;
         \WP_CLI::add_command( 'buddynext qa-fixtures', new \BuddyNext\Dev\QaFixturesCommand() );
+
+        // qa-reset is guarded the same way, by dev/QaResetCommand.php.
+        \WP_CLI::add_command( 'buddynext qa-reset', new \BuddyNext\Dev\QaResetCommand() );
     }
 }
 ```
@@ -39,6 +44,7 @@ Populates, inspects, or removes a realistic demo community. Useful for screensho
 | Subcommand | What it does |
 |---|---|
 | `seed` | Populates the demo community: members, spaces, posts, the social graph between them, and profile fields. Refuses to run if demo data is already installed - run `cleanup` first. |
+| `scale` | Builds a micro community of synthetic members with a realistic social graph, for repeatable large-dataset testing. Idempotent per member, so re-running tops up to the requested count. Flags: `--members=<count>` (default `500`), `--fresh` (wipe all existing demo data first). |
 | `status` | Prints what is currently installed: counts of members, spaces, posts, and profile fields. Prints "No demo data installed." when the dataset is absent. |
 | `cleanup` | Removes everything the seeder created (posts, spaces, members, profile fields) and reports the counts removed. |
 
@@ -65,6 +71,9 @@ wp buddynext demo status
 
 # Remove everything the seeder created
 wp buddynext demo cleanup
+
+# Build 500 synthetic members with a social graph, wiping existing demo data first
+wp buddynext demo scale --members=500 --fresh
 ```
 
 Sample `seed` output:
@@ -212,7 +221,7 @@ Finds and repairs member handles (`user_nicename`) that fall outside the mention
 | Subcommand | What it does |
 |---|---|
 | `check` | List members whose handle cannot be mentioned, with the nicename the repair would write. |
-| `repair` | Normalise unmentionable handles to what WordPress itself would have written. Dry-run by default (rewrites profile URLs); pass `--yes` to apply. |
+| `repair` | Normalise unmentionable handles to what WordPress itself would have written. Dry-run by default (rewrites profile URLs); pass `--yes` to apply, or `--dry-run` to force a dry run. |
 | `reconcile` | Fix members with two divergent identities (handle vs. nicename). `--prefer=<handle\|nicename>` (default `handle`) picks which one survives. Dry-run by default; pass `--yes` to apply. |
 
 ```bash
@@ -245,6 +254,16 @@ See the Integration Bridges page for the registry shape and per-bridge floors th
 ## wp buddynext qa-reset
 
 **Development trees only** - lives in `dev/`, absent from a packaged install, same guard as `qa-fixtures` below. Removes what the Playwright e2e harnesses left behind on a shared site. Unlike `qa-fixtures cleanup` (which deletes exactly the ids it wrote from its own manifest), the e2e specs create data the way a member does - through the UI and REST - and leave no manifest, so this command matches by content pattern instead. Every pattern is anchored (`^`) so a member's own content is never caught, it reports and changes nothing unless `--yes` is passed, and an account that can administer the site is never deleted under any pattern - it is reported as needing a person instead.
+
+| Flag | What it does |
+|---|---|
+| `--yes` | Apply the reset. Without it the command only reports. |
+| `--dry-run` | Report only. Implied when `--yes` is absent; accepted so a dry run reads clearly in a script. |
+
+```bash
+wp buddynext qa-reset
+wp buddynext qa-reset --yes
+```
 
 ## wp buddynext qa-fixtures
 
@@ -282,10 +301,10 @@ wp buddynext qa-fixtures cleanup
 
 - `demo` and `cert` declare `@when after_wp_load`, so WordPress is fully loaded before they run - they have access to services, settings, and the REST router.
 - `cert` writes a ledger as a side effect of every run, so CI and the MCP can read the last result without re-running the gate.
-- `demo` and `cert` are Free commands. Pro registers four WP-CLI commands of its own, all in the Pro `Plugin::init()`:
+- The commands above are Free commands. Pro registers four WP-CLI commands of its own, all in the Pro `Plugin::init()`:
   - `wp buddynext-pro cert` (`\BuddyNextPro\Cert\CertCommand`) - the same functional-certification harness scoped to Pro's gated features. Takes the same optional `contract` / `boot` positional and `--porcelain` flag. Free's `cert` oracle covers gated features in Free.
-  - `wp buddynext-pro repair-orphan-subscriptions` - one-off sweep for subscription rows left behind by members deleted before `UserCleanupListener::purge_non_financial_subscriptions()` shipped (that listener stops new orphans accumulating but only fires during a live deletion). Reuses the listener's own "has no money behind it" predicate rather than restating it. Dry-run by default; pass `--yes` to apply.
-  - `wp buddynext-pro repair-entitlements` - re-syncs tier-ability grants with the subscriptions that justify them, for drift `SubscriptionService`'s live re-issue-on-write cannot retroactively fix: an auto-renewing subscription whose grant still carries its first period's expiry, an admin extension/comp that kept the pre-extension date, or a refunded/revoked subscription that kept its grant because the expiry cron only sweeps active/cancelled/past-due rows. Dry-run by default; pass `--yes` to apply.
+  - `wp buddynext-pro repair-orphan-subscriptions` - one-off sweep for subscription rows left behind by members deleted before `UserCleanupListener::purge_non_financial_subscriptions()` shipped (that listener stops new orphans accumulating but only fires during a live deletion). Reuses the listener's own "has no money behind it" predicate rather than restating it. Dry-run by default; pass `--execute` to apply.
+  - `wp buddynext-pro repair-entitlements` - re-syncs tier-ability grants with the subscriptions that justify them, for drift `SubscriptionService`'s live re-issue-on-write cannot retroactively fix: an auto-renewing subscription whose grant still carries its first period's expiry, an admin extension/comp that kept the pre-extension date, or a refunded/revoked subscription that kept its grant because the expiry cron only sweeps active/cancelled/past-due rows. Dry-run by default; pass `--execute` to apply.
   - `wp buddynext-pro reconcile-memberships` - re-derives every bridge-granted membership from its partner's current state rather than trusting missed events. See the Membership Grant Bridges page for the full contract and flags (`--source=`, `--user=`, `--execute`).
 
 See also the Cron and Async Jobs page for the scheduled-job surface these tools run alongside.

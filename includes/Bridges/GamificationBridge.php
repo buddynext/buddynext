@@ -25,6 +25,28 @@ use BuddyNext\Feed\IntegrationActivity;
 class GamificationBridge {
 
 	/**
+	 * Profile tab each WB Gamification notification type opens.
+	 *
+	 * @var array<string,string>
+	 */
+	private const NOTIFICATION_TABS = array(
+		'wb_gamification.badge_awarded'       => 'achievements',
+		'wb_gamification.level_up'            => 'achievements',
+		'wb_gamification.challenge_completed' => 'achievements',
+		'wb_gamification.credential_expired'  => 'achievements',
+		'wb_gamification.streak_milestone'    => 'achievements',
+		'wb_gamification.kudos_received'      => 'kudos',
+		'wb_gamification.personal_record'     => 'points',
+	);
+
+	/**
+	 * Per-request memo of the site's name for points.
+	 *
+	 * @var string|null
+	 */
+	private static ?string $points_label_memo = null;
+
+	/**
 	 * The site's name for points ("Points" unless the owner renamed the default
 	 * point type, e.g. "Coins"), so every BuddyNext surface says what the
 	 * gamification plugin says (card 10343975769).
@@ -32,15 +54,14 @@ class GamificationBridge {
 	 * @return string
 	 */
 	public static function points_label(): string {
-		static $label = null;
-		if ( null === $label ) {
+		if ( null === self::$points_label_memo ) {
 			// WB Gamification's public helper (1.6.5+), never its internal classes.
-			$label = function_exists( 'wb_gam_get_point_type_label' ) ? trim( wb_gam_get_point_type_label() ) : '';
-			if ( '' === $label ) {
-				$label = __( 'Points', 'buddynext' );
+			self::$points_label_memo = function_exists( 'wb_gam_get_point_type_label' ) ? trim( wb_gam_get_point_type_label() ) : '';
+			if ( '' === self::$points_label_memo ) {
+				self::$points_label_memo = __( 'Points', 'buddynext' );
 			}
 		}
-		return $label;
+		return self::$points_label_memo;
 	}
 
 	/**
@@ -97,6 +118,9 @@ class GamificationBridge {
 		// A deleted badge definition takes every holder's shared-badge card with it.
 		add_action( 'wb_gam_badge_deleted', array( $this, 'on_badge_deleted' ), 10, 2 );
 
+		// Space leaderboards: BuddyNext tells the engine who belongs to a space board.
+		add_filter( 'wb_gam_leaderboard_scope_user_ids', array( $this, 'space_scope_user_ids' ), 10, 3 );
+
 		// WB Gamification sends its bell rows through the notification contract with a
 		// link to the member's profile front page. Where a row opens inside the
 		// community is BuddyNext's profile tabs, so the row is pointed at the right one.
@@ -117,6 +141,12 @@ class GamificationBridge {
 		// even when a site is still on an older wb-gamification build. Daily/weekly
 		// cap notices are informative (a real limit that resets) and are left alone.
 		add_filter( 'wb_gam_toast_data', array( $this, 'suppress_cooldown_toast' ), 10, 2 );
+
+		// Hold earned-points toasts on the sign-up, verify and onboarding screens:
+		// the welcome toast landed over the form a new member was filling in. It is
+		// shown, not lost, on the first community page (wb-gamification 1.6.6+;
+		// older versions ignore the filter).
+		add_filter( 'wb_gam_hold_toasts', array( $this, 'hold_toasts_on_entry_screens' ) );
 
 		// wb-gamification is the canonical source for streaks. Without this, a member
 		// sees TWO different streaks with the same label: the sidebar greeting reads
@@ -220,20 +250,11 @@ class GamificationBridge {
 	 */
 	public function filter_notification_url( $url, string $type, int $actor_id, int $object_id, array $data ): string {
 		unset( $actor_id, $object_id, $data );
-		static $tabs = array(
-			'wb_gamification.badge_awarded'       => 'achievements',
-			'wb_gamification.level_up'            => 'achievements',
-			'wb_gamification.challenge_completed' => 'achievements',
-			'wb_gamification.credential_expired'  => 'achievements',
-			'wb_gamification.streak_milestone'    => 'achievements',
-			'wb_gamification.kudos_received'      => 'kudos',
-			'wb_gamification.personal_record'     => 'points',
-		);
-		$viewer      = get_current_user_id();
-		if ( ! isset( $tabs[ $type ] ) || $viewer <= 0 ) {
+		$viewer = get_current_user_id();
+		if ( ! isset( self::NOTIFICATION_TABS[ $type ] ) || $viewer <= 0 ) {
 			return (string) $url;
 		}
-		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . $tabs[ $type ] . '/';
+		return trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $viewer ) ) . self::NOTIFICATION_TABS[ $type ] . '/';
 	}
 
 	/**
@@ -247,6 +268,83 @@ class GamificationBridge {
 			return '';
 		}
 		return (string) get_permalink( $page_id );
+	}
+
+	/**
+	 * Scope type BuddyNext answers for wb-gamification: a board limited to one space's members.
+	 */
+	public const SPACE_SCOPE = 'bn_space';
+
+	/**
+	 * Whether this site can show space leaderboards at all.
+	 *
+	 * Needs wb-gamification's scoped, paged board (LeaderboardEngine::get_leaderboard_page(),
+	 * 1.6.5+) and the owner's site-wide Gamification switch.
+	 *
+	 * @return bool
+	 */
+	public static function space_leaderboards_available(): bool {
+		return is_callable( array( 'WBGam\\Engine\\LeaderboardEngine', 'get_leaderboard_page' ) )
+			&& buddynext_integration_enabled( 'gamification', 'nav' );
+	}
+
+	/**
+	 * Whether a space shows its Leaderboard tab (the space owner's switch, default off).
+	 *
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	public static function space_leaderboard_on( int $space_id ): bool {
+		return $space_id > 0
+			&& self::space_leaderboards_available()
+			&& (bool) buddynext_get_space_field( $space_id, 'gamification_leaderboard_tab' );
+	}
+
+	/**
+	 * Resolve a space leaderboard scope to the members who may appear on it.
+	 *
+	 * Hooked on wb-gamification's `wb_gam_leaderboard_scope_user_ids`. Ranking stays
+	 * on site-wide points (owner decision 2026-10-02); the space only limits WHO is
+	 * listed. An empty list means an empty board - the engine never widens an empty
+	 * scope to the whole site - so this returns nothing when the space has the tab
+	 * off, or when the viewer may not see the space's member list. That also closes
+	 * the public /wb-gamification/v1/leaderboard route as a way to list a private or
+	 * secret space's members (same gate as the roster: SpaceVisibility::can_view_roster()).
+	 *
+	 * ponytail: the engine filters by `user_id IN (...)`; fine for spaces in the
+	 * thousands, a JOIN-based scope in the engine is the upgrade for far larger ones.
+	 *
+	 * @param mixed  $user_ids   Ids resolved so far.
+	 * @param string $scope_type Scope type.
+	 * @param int    $scope_id   Scope id (space id for ours).
+	 * @return mixed
+	 */
+	public function space_scope_user_ids( $user_ids, $scope_type, $scope_id ) {
+		if ( self::SPACE_SCOPE !== (string) $scope_type ) {
+			return $user_ids;
+		}
+
+		$space_id = (int) $scope_id;
+		if ( ! self::space_leaderboard_on( $space_id ) ) {
+			return array();
+		}
+
+		$space = buddynext_service( 'spaces' )->get( $space_id );
+		if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_roster( $space, get_current_user_id() ) ) {
+			return array();
+		}
+
+		$members = buddynext_service( 'space_members' );
+		$ids     = array();
+		$offset  = 0;
+		do {
+			$page    = (array) $members->get_member_ids( $space_id, 0, 1000, $offset );
+			$fetched = count( $page );
+			$ids     = array_merge( $ids, array_map( 'intval', $page ) );
+			$offset += 1000;
+		} while ( 1000 === $fetched );
+
+		return $ids;
 	}
 
 	/**
@@ -376,6 +474,17 @@ class GamificationBridge {
 		// Fall back to BN's own figure if the engine has no row for this member yet,
 		// rather than showing a hard 0 to someone who has been posting all week.
 		return isset( $data['current_streak'] ) ? (int) $data['current_streak'] : $streak;
+	}
+
+	/**
+	 * Hold gamification toasts on BuddyNext's sign-up, verify and onboarding
+	 * screens (the auth and onboarding hubs).
+	 *
+	 * @param bool $hold Whether another host already holds toasts here.
+	 * @return bool
+	 */
+	public function hold_toasts_on_entry_screens( $hold ): bool {
+		return (bool) $hold || in_array( (string) get_query_var( 'bn_hub', '' ), array( 'auth', 'onboarding' ), true );
 	}
 
 	/**

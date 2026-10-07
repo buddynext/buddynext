@@ -97,6 +97,31 @@ class PrivacyService {
 	}
 
 	/**
+	 * A member's privacy settings as stored, with their defaults.
+	 *
+	 * The one read behind Settings > Privacy and GET /me/profile, keyed by the
+	 * same names PUT /me/profile accepts, so a client reads and writes one shape.
+	 *
+	 * @param int $user_id User ID.
+	 * @return array<string,string|bool>
+	 */
+	public function member_settings( int $user_id ): array {
+		$mention = (string) get_user_meta( $user_id, 'bn_privacy_mention', true );
+
+		return array(
+			'bn_privacy_profile_visibility' => $this->get_preference( $user_id, 'profile_visibility' ),
+			'bn_privacy_who_can_follow'     => $this->get_preference( $user_id, 'who_can_follow' ),
+			'bn_privacy_who_can_connect'    => $this->get_preference( $user_id, 'who_can_connect' ),
+			'bn_privacy_mention'            => '' === $mention ? 'everyone' : $mention,
+			'bn_account_private'            => (bool) get_user_meta( $user_id, 'bn_account_private', true ),
+			'bn_privacy_show_in_directory'  => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_show_in_directory', true ),
+			'bn_privacy_search_indexable'   => '0' !== (string) get_user_meta( $user_id, 'bn_privacy_search_indexable', true ),
+			// The canonical Pro-shared key (Pro reads it for who-viewed-your-profile).
+			'bn_pro_hide_profile_views'     => '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true ),
+		);
+	}
+
+	/**
 	 * Persist a privacy preference value for a user.
 	 *
 	 * @param int    $user_id User ID.
@@ -311,6 +336,13 @@ class PrivacyService {
 	}
 
 	/**
+	 * Per-request memo: the bn_blocks table was found (a missing table is never memoised).
+	 *
+	 * @var bool
+	 */
+	private static bool $blocks_table_exists = false;
+
+	/**
 	 * Build a single bn_blocks exclusion SQL fragment for a query surface.
 	 *
 	 * ONE source of truth for the relationship-exclusion rules that feed, search
@@ -351,16 +383,17 @@ class PrivacyService {
 		$table = $wpdb->prefix . 'bn_blocks';
 
 		// Degrade gracefully if the block table is not installed yet (fresh
-		// install / isolation harness) rather than emitting a SQL error. Table
-		// existence cannot change within a request, and this runs on every feed
-		// query, so memoise the SHOW TABLES probe.
-		static $table_exists = null;
-		if ( null === $table_exists ) {
+		// install / isolation harness) rather than emitting a SQL error. This runs
+		// on every feed query, so a FOUND table is memoised. A missing one is not:
+		// the installer can create it later in the same request (activation, then a
+		// seeder), and a memoised "missing" would switch block filtering off for
+		// everything that request renders afterwards.
+		if ( ! self::$blocks_table_exists ) {
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-			$table_exists = ( null !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) );
+			self::$blocks_table_exists = ( null !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) );
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		}
-		if ( ! $table_exists ) {
+		if ( ! self::$blocks_table_exists ) {
 			return array( '', array() );
 		}
 

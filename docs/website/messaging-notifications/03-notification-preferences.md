@@ -14,7 +14,7 @@ For the owner, this is the difference between healthy engagement and a stream of
 
 ## How it works (for members)
 
-A member manages their preferences from their notification settings, where every notification type BuddyNext supports is listed and grouped into sections: Social graph, Feed activity, Spaces, Messages, Moderation, and Growth and digests.
+A member manages their preferences from their notification settings, where every notification type BuddyNext supports is listed and grouped into sections: Follows and connections, Feed activity, Spaces, Messages, Moderation, and Growth and digests. Moderators and administrators also see rows for new reports and submitted appeals.
 
 
 ### Per-type on or off
@@ -28,9 +28,9 @@ Notifications can reach a member through more than one channel, and each is cont
 | Channel | What it delivers | Default |
 |---|---|---|
 | On-site | The in-app notification on the bell and Notifications page | On |
-| Email | A transactional email for the event, at the member's chosen frequency | On |
+| Email | A transactional email for the event, at the member's chosen frequency (the switch reads "Send transactional and digest emails") | On |
 | Push (Pro) | A web push alert to the browser, even when the tab is closed | On when Pro push is active |
-| Sound | A short sound when a new notification arrives while the member is on the site | Off |
+| Sound ("Play a sound") | A short sound when a new notification arrives while the member has the tab open | Off |
 | Newsletters and announcements (Pro) | Broadcast emails sent to the whole community | On |
 
 The Push channel only appears when the Pro push module is installed and active. See Push Notifications.
@@ -48,11 +48,11 @@ For each type that can send email, the member picks how often email arrives:
 | Weekly | Roll the event into one weekly digest email |
 | Off | Never email for this type (on-site still works if it is on) |
 
-Choosing Daily or Weekly batches that type into a single digest instead of one email per event, which is the usual choice for high-volume types like reactions. Email delivery is handled by the email system - see Email System for how digests are built and sent, and for the unsubscribe links that set a type to Off without the member having to log in.
+Choosing Daily or Weekly batches that type into a single digest instead of one email per event, which is the usual choice for high-volume types like shares and new posts in your spaces. Email delivery is handled by the email system - see Email System for how digests are built and sent, and for the unsubscribe links that set a type to Off without the member having to log in.
 
 ### Per-space preferences
 
-For spaces a member belongs to, the level of new-post notifications can be set per space, so one active space can be quieted without affecting the others.
+For spaces a member belongs to, the level of new-post notifications can be set per space under **Spaces you are in**: **All activity**, **Mentions only**, or **None**. One active space can be quieted without affecting the others.
 
 ## Setting it up (for owners)
 
@@ -67,7 +67,7 @@ The owner controls the starting on-site default for the most common notification
 | @mention in post or comment | Whether members are notified by default when they are mentioned | On |
 | New space member | Whether space owners are notified by default when someone joins their space | On |
 
-Every type that is not in the table above ships with its own sensible default built in. As a guide, social, feed, space, message, and moderation notifications default to on-site on, while the email frequency varies by type - immediate for high-signal events like mentions, comments, connection requests, and direct messages; daily or weekly for higher-volume events like reactions, shares, and new space members; and off for low-value confirmations. Members can override any of these.
+Every type that is not in the table above ships with its own sensible default built in. As a guide, social, feed, space, message, and moderation notifications default to on-site on, while the email frequency varies by type - immediate for high-signal events like mentions, comments, connection requests, and direct messages; daily or weekly for higher-volume events like shares, new posts in a space and new space members; and off for low-value confirmations. Members can override any of these.
 
 > **Note:** These owner settings govern the on-site default only. Whether the matching email goes out, and how often, is the member's choice through the email-frequency selector described above.
 
@@ -78,7 +78,8 @@ Every type that is not in the table above ships with its own sensible default bu
 - A type set to email Off still shows on-site if the on-site channel is on; the two channels are independent.
 - The Sound channel is off by default and only plays while the member is actively on the site.
 - A notification type whose underlying feature is not active (for example, direct messages when messaging is disabled) does not appear in the preferences list, so there are no dead toggles.
-- A few types show only an on-site toggle, with no email-frequency selector next to it. These are the types mirrored from a companion plugin - badges, level-ups, media reactions and mentions - which BuddyNext never emails on the partner's behalf. See Notifications.
+- A few types show only an on-site toggle and the words "In-app only", with no email-frequency selector next to it. These include reactions to your posts and comments, which are bell-only by design, and the types mirrored from a companion plugin - badges, level-ups, media reactions - which BuddyNext never emails on the partner's behalf. See Notifications.
+- **Reset every type to defaults** returns every type to its platform default and every space to All activity. It only stages the change; the member presses **Save changes** to keep it.
 
 ## Free vs Pro
 

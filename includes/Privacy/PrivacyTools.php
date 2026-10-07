@@ -705,7 +705,7 @@ class PrivacyTools implements ListenerInterface {
 				'item_id'     => 'buddynext-following-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
-						'name'  => __( 'Following user', 'buddynext' ),
+						'name'  => __( 'Following member', 'buddynext' ),
 						'value' => $this->user_label( (int) $row['following_id'] ),
 					),
 					array(

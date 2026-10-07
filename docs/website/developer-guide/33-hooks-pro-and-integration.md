@@ -61,6 +61,7 @@ The table lists every hook Pro fires. Names are exact.
 | `buddynext_presence_stamped` | action | A member's presence timestamp is refreshed. Pro's WebSocket layer listens here to broadcast presence | `int $user_id` | (none) |
 | `buddynext_pwa_shell_assets` | filter | The URLs precached as the offline shell. Keep the list small - every entry is downloaded on install, for every member | `string[] $shell` | (none) |
 | `buddynext_pwa_worker_imports` | filter | Extra scripts the service worker loads with `importScripts()`, so a companion adds its offline logic to BuddyNext's worker instead of registering a second one. Same-origin URLs only (cross-origin entries are dropped); each import is wrapped so one broken script cannot stop the worker installing (1.2.1) | `string[] $imports` | (none) |
+| `buddynext_pwa_asset_paths` | filter | The service worker decides which static files it caches. Only BuddyNext's own plugin directories by default; theme, other plugins and uploads stay with the browser's HTTP cache. A family plugin that ships offline assets via `buddynext_pwa_worker_imports` adds its directory here. Since 1.2.4. | `string[] $own_urls` (directory URLs, absolute or root-relative) |
 | `buddynext_head_meta` | filter | A surface descriptor before BuddyNext renders its head meta. Return an empty array to suppress BuddyNext's head output for that surface entirely | `array $descriptor` | (none) |
 
 > **Note:** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe `WebhookController` and with three (the extra `$source`) by Free's `AccessWebhookController`. Always register your callback for the lowest arg count you need (`add_action( 'buddynext_ability_granted', $cb, 10, 2 )`) so it works regardless of which producer fires.
@@ -218,6 +219,105 @@ add_filter( 'buddynext_pwa_manifest', function ( array $manifest ): array {
     return $manifest;
 } );
 ```
+
+## More Pro-emitted hooks
+
+Pro hooks that fire but were missing from the table above. Same columns. `consumed_by` lists first-party listeners found by `add_action()` / `add_filter()` calls with a literal hook name.
+
+### Membership, subscriptions, and payments
+
+| Hook | Type | Fired when | Parameters | consumed_by |
+|---|---|---|---|---|
+| `buddynextpro_purchase_completed` | action | A purchase completes at a gateway (Stripe, PayPal, Points, or the Test gateway). Fulfilment listens here to grant access and write the subscription. | `int $user_id, int $plan_id, string $gateway, array $extra` | `buddynext-pro` |
+| `buddynextpro_subscription_activated` | action | A subscription has been activated and the invoice recorded. | `int $user_id, int $plan_id, string $gateway` | (none) |
+| `buddynextpro_subscription_renewed` | action | A provider billing event renews a subscription. The fulfilment listener records the renewal invoice. | `int $sub_id, int $user_id, string $expires_at, array $context` | `buddynext-pro` |
+| `buddynext_pro_subscription_cancelled` | action | A subscription is cancelled but keeps access until the period ends. | `int $sub_id, int $user_id, int $tier_id, string $expires_at` | `buddynext-pro` |
+| `buddynext_pro_subscription_resumed` | action | A cancelled subscription is set to renew again. Undo whatever you did on the cancellation, such as a win-back email sequence. | `int $sub_id, int $user_id, int $tier_id, string $expires_at` | (none) |
+| `buddynext_pro_subscription_past_due` | action | A subscription enters the past-due grace window. | `int $sub_id, int $user_id, int $tier_id, string $grace_until` | `buddynext-pro` |
+| `buddynext_pro_subscription_extended` | action | An admin extends a subscription manually. | `int $sub_id, int $user_id, int $tier_id, int $days, string $new_expires` | (none) |
+| `buddynext_pro_subscription_comped` | action | An owner extends a cancelled subscription, giving access that is never charged again. | `int $sub_id, int $user_id, int $tier_id` | (none) |
+| `buddynextpro_plan_changed` | action | A member moves from one plan to another. | `int $user_id, int $from_tier_id, int $to_tier_id, array $quote` | `buddynext-pro` |
+| `buddynextpro_invoice_refunded` | action | An invoice is refunded in full at the provider and marked locally. The matching plan has already ended. | `int $invoice_id, int $user_id, int $plan_id, float $amount, string $reason` | `buddynext-pro` |
+| `buddynextpro_refund_recorded` | action | A provider-reported refund has been recorded. | `int $invoice_id, float $refunded, bool $is_full, string $reason` | (none) |
+| `buddynextpro_gateway_cancel_failed` | action | A subscription could not be cancelled at its provider, so the member is still being billed. Alert the owner or retry. | `int $user_id, int $sub_id, string $gateway, string $external_id` | (none) |
+| `buddynextpro_renewal_amount_mismatch` | action | A renewal charge is too small for its tier and is refused. Usually a provider subscription attached to the wrong plan. | `int $tier_id, float $paid, float $price, array $context` | (none) |
+| `buddynextpro_renewal_amount_floor` | filter | The fraction of the tier price a renewal must reach (default `0.5`). | `float $floor, int $tier_id, array $context` | (none) |
+| `buddynextpro_past_due_grace_days` | filter | The past-due grace period, in days. | `int $days, int $sub_id` | (none) |
+| `buddynextpro_expiry_sweep_batch` | filter | Subscriptions processed per expiry sweep (default `500`). | `int $batch` | (none) |
+| `buddynextpro_non_billing_subscription_sources` | filter | Subscription sources that carry no provider reference (default `manual`, `points`). Add a source that grants without charging. | `string[] $sources` | (none) |
+| `buddynextpro_paypal_manage_url` | filter | The PayPal automatic-payments management link. | `string $url, int $user_id` | (none) |
+| `bn_membership_onetime_is_lifetime` | filter | A one-time purchase is fulfilled. Return `true` to grant perpetual access instead of a term. | `bool $lifetime, array $tier, array $extra` | (none) |
+| `buddynextpro_default_plan` | filter | The default plan for members with no paid subscription is resolved. Return a tier row, or `null` for no default plan. The result is re-validated. | `array\|null $plan` | (none) |
+| `buddynextpro_paid_access_exempt` | filter | A member opens a paying-members-only community without a plan. Return `true` to exempt them. | `bool $exempt, int $user_id` | (none) |
+| `buddynextpro_entitlement_resolve` | filter | An entitlement value is resolved for a user. | `mixed $value, int $user_id, string $key` | (none) |
+| `buddynextpro_register_entitlements` | action | After all built-in entitlement keys are registered. Register your own with `EntitlementRegistry::register()`. | none | (none) |
+| `buddynextpro_register_payment_gateways` | action | The gateway registry is built. Register a gateway with `GatewayRegistry::register()`. | none | `buddynext-pro` |
+| `buddynextpro_tier_saved` | action | A plan is created or edited, so an integration can save its own plan-form fields. | `int $tier_id` | `buddynext-pro` |
+| `buddynextpro_plan_form_sections` | action | The plan add/edit form renders extra sections. | `array $tier` (empty when adding) | `buddynext-pro` |
+| `buddynextpro_payments_tab_sections` | action | After the Payments settings form, so a section that posts to its own endpoint is not nested inside the form. | none | `buddynext-pro` |
+| `buddynextpro_content_is_protected` | filter | A WordPress post or page is checked for members-only gating. Return `true` to gate it. | `bool $is_protected, int $post_id` | (none) |
+| `buddynextpro_content_can_view` | filter | A viewer is checked against protected content. | `bool $can_view, int $user_id` | (none) |
+| `buddynextpro_content_locked_html` | filter | The locked-content card HTML is built. | `string $html, int $post_id` | (none) |
+| `buddynextpro_paywall_context` | filter | The paywall context is resolved before render. | `array $context, int $space_id, string $tier_slug` | (none) |
+| `buddynextpro_pricing_in_shell` | filter | The pricing page decides whether to render inside the BuddyNext shell (default `true`). | `bool $in_shell, int $page_id` | (none) |
+| `buddynextpro_format_price` | filter | An amount is formatted for display. | `string $formatted, float $amount, string $currency, array $tier` | (none) |
+| `buddynextpro_supported_currencies` | filter | The supported currency list (code => label). | `array $codes` | (none) |
+| `buddynextpro_zero_decimal_currencies` | filter | The currencies billed in whole units. | `string[] $codes` | (none) |
+| `buddynextpro_three_decimal_currencies` | filter | The currencies billed in thousandths. | `string[] $codes` | (none) |
+| `buddynextpro_woo_granting_statuses` | filter | The WooCommerce order statuses that grant a mapped plan (default `processing` and `completed`). | `string[] $statuses` | (none) |
+| `buddynextpro_stripe_checkout_session_params` | filter | The Stripe Checkout Session parameters before the API call. | `array $params, array $args, int $user_id, int $plan_id` | (none) |
+| `buddynextpro_stripe_create_checkout_session` | filter | Short-circuit the live Stripe call (for tests). Return an array with `redirect_url` and `session_id` to bypass it. | `mixed $result, array $params, int $user_id, int $plan_id` | (none) |
+| `buddynextpro_stripe_construct_event` | filter | Short-circuit Stripe signature validation (for tests). Return an event array or `WP_Error` to be honoured. | `mixed $event, string $payload, string $signature, string $secret` | (none) |
+| `buddynextpro_space_owner_stats_enabled` | filter | A space owner's "Last 30 days" analytics row is about to show. | `bool $enabled, int $space_id, int $viewer_id` | (none) |
+| `buddynext_pro_learnomy_source_released` | action | A Learnomy source was deleted and its community was released. | `int $space_id, string $type, int $source_id` | (none) |
+| `buddynext_pro_learnomy_backfill_chunk_size` | filter | Roster rows joined per Learnomy backfill run (floored at 1). | `int $size, string $type, int $source_id` | (none) |
+
+### Email, analytics, AI, push, and platform
+
+| Hook | Type | Fired when | Parameters | consumed_by |
+|---|---|---|---|---|
+| `buddynext_pro_broadcast_deleted` | action | A broadcast campaign and its recipients are deleted. | `int $campaign_id` | (none) |
+| `buddynextpro_broadcast_dispatch_failed` | action | A broadcast dispatch resolved to nobody and was not sent. | `int $campaign_id, string $reason` | (none) |
+| `buddynextpro_broadcast_batch_size` | filter | Recipients processed per broadcast run. | `int $batch_size` | (none) |
+| `buddynextpro_drip_batch_size` | filter | Active drip enrollments scanned per tick (default `100`). | `int $limit` | (none) |
+| `buddynext_drip_triggers` | filter | The drip auto-enrollment triggers (slug => `label`, `hook`). | `array $defaults` | (none) |
+| `buddynextpro_segment_batch_size` | filter | Rows fetched per `WP_User_Query` page when a segment is resolved. | `int $batch` | (none) |
+| `buddynextpro_analytics_rate_limit` | filter | Analytics events allowed per user per minute. `0` or a negative number disables throttling. | `int $limit, int $actor_id, string $event_type` | (none) |
+| `buddynextpro_data_retention_purged` | action | After a retention prune of the analytics tables. | `array $deleted, int $retention` (rows removed per table, window in days) | (none) |
+| `buddynextpro_admin_funnel_events` | filter | The ordered event keys that drive the funnel view. | `string[] $events` | (none) |
+| `buddynextpro_funnel_event_query` | filter | The SQL count statement for a funnel event. | `string $sql, string $event, string $start, string $end` | (none) |
+| `buddynextpro_funnel_event_actors` | filter | The SELECT of distinct actor ids for a funnel event, so a step can intersect the running cohort. Return `''` for the count-only path. | `string $sql, string $event, string $start, string $end` | (none) |
+| `buddynextpro_profile_views_url` | filter | The "See all viewers" link in the profile views widget. Empty hides it. | `string $url` | (none) |
+| `buddynextpro_ai_generate_text_pre` | filter | Before the core AI client is called. A non-null return skips it. | `string\|null $pre, string $prompt` | (none) |
+| `buddynextpro_ai_client_error` | action | An AI text generation call failed. | `WP_Error\|Throwable $error, string $prompt` | (none) |
+| `buddynextpro_ai_mod_actor` | filter | The user id automated AI moderation is attributed to. The id must hold `manage_options` or it is ignored. | `int $actor_id` | (none) |
+| `buddynextpro_ai_mod_watched_tones` | filter | The classifier tones that trigger an automatic flag. | `string[] $tones` | (none) |
+| `buddynextpro_default_mod_rules` | filter | The built-in default moderation rules. | `array $defaults` | (none) |
+| `buddynextpro_embedding_async` | filter | Whether embedding writes are deferred to Action Scheduler (default `true`). | `bool $async` | (none) |
+| `buddynextpro_push_async` | filter | Whether push delivery is deferred to Action Scheduler (default `true`). | `bool $async` | (none) |
+| `buddynextpro_known_push_pref_types` | filter | The notification types Pro tracks push preferences for. | `string[] $types` | (none) |
+| `buddynextpro_expo_access_token` | filter | The Expo push access token (default from the stored option). | `string $token` | (none) |
+| `buddynextpro_realtime_config` | filter | The realtime configuration sent to the browser. | `array $config, int $user_id` | (none) |
+| `buddynextpro_realtime_should_enqueue` | filter | Whether the realtime client is enqueued on this page. | `bool $enqueue, bool $on_hub` | `buddynext-pro` |
+| `buddynextpro_advanced_field_surfaces` | filter | Stylesheet handles whose presence means an advanced profile field may be on the page. | `string[] $handles` | (none) |
+| `buddynextpro_leaflet_css` / `buddynextpro_leaflet_js` | filter | The Leaflet asset URLs used by the map field. Point them at a self-hosted copy. | `string $url` | (none) |
+| `buddynext_suite_panels_ttl` | filter | The cache lifetime of a member's suite panels, in seconds. | `int $ttl, int $member_id` | (none) |
+| `buddynextpro_user_data_purged` | action | After Pro has purged a deleted user's per-user rows, so extensions can clean their own Pro tables. | `int $user_id` | (none) |
+
+`buddynext_suite_panels_changed` is not fired by Pro. It is a listener-only seam: an integration that changes panel data outside a post type calls `do_action( 'buddynext_suite_panels_changed', $member_id )` to drop that member's cached panels, which Pro rebuilds on the next profile view.
+
+## More Free integration seams
+
+Hooks BuddyNext (Free) fires that sit at the boundary with apps, webhooks, and companion plugins.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_webhook_auto_disabled` | action | An outbound webhook endpoint is auto-disabled after repeated delivery failures. | `int $webhook_id, string $url` |
+| `buddynext_webhook_log_retention_days` | filter | The cron prune reads how long the outbound-webhook delivery log is kept (default `30`; `0` disables pruning). | `int $days` |
+| `buddynext_require_signed_timestamp` | filter | The access webhook decides whether a request must carry a signed timestamp. Strict by default; a site with legacy senders can opt out per request. | `bool $strict, WP_REST_Request $request` |
+| `buddynext_feature_{slug}` | filter | A feature's final on/off state is resolved. `{slug}` is the feature slug, for example `buddynext_feature_sidebar`. | `bool $enabled, array $feature` (state from the option and tier default, and the catalogue entry) |
+| `buddynext_min_app_version` | filter | The app config reports the lowest app version this site serves (default `''`, no floor). | `string $version` |
+| `buddynext_app_strings_version` | filter | The cache-bust version for the app's translated strings (default the newest translation file's mtime). | `int $version` |
 
 ## Example: provision access on `buddynext_ability_granted`
 

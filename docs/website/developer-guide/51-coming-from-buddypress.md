@@ -2,6 +2,8 @@
 
 A translation guide for developers who already know BuddyPress or BuddyBoss. BuddyNext solves the same problems - profiles, an activity stream, groups, connections, private messaging - but it is a standalone plugin with its own architecture, its own permission model, and a REST-first contract. Nothing from the `bp_*` / `BP_*` namespace exists at runtime. This page maps the concepts you know to the BuddyNext equivalents so you can port a customization without re-learning the whole codebase. Where a deep-dive page already covers a topic (the Nav API, child-theme overrides, roles and capabilities), this page summarizes and points you there.
 
+> **BuddyPress and BuddyBoss are a migration source, not a companion.** Running BuddyPress or BuddyBoss alongside BuddyNext is not supported. To move an existing community across, use the separate `buddynext-importer` plugin: it reads members, profile fields, groups and activity from BuddyPress or BuddyBoss and writes them through BuddyNext's own service layer. Install it, run the migration, then deactivate BuddyPress or BuddyBoss.
+
 ## The one-paragraph mental model
 
 There is no BuddyPress to detect, depend on, or extend. BuddyNext boots itself at `plugins_loaded:15` through `BuddyNext\Core\Plugin::init()` and fires `buddynext_loaded` when it is ready. Services live in a DI container reached through `buddynext_service( 'key' )`. Permissions flow through one function, `buddynext_can()`. The frontend is 100% REST under `buddynext/v1` - there is no `admin-ajax.php` surface. Navigation, templates, and capabilities are all registered declaratively through hooks and filters, the same seams BuddyNext Pro itself uses.
@@ -100,13 +102,13 @@ Order is deterministic: items sort by `priority` then registration order, with o
 
 ## 3. Template overrides
 
-BuddyPress ships templates under `bp-templates/`, resolved through `bp_get_template_part()` and the template stack so a theme can override any file from its own `buddypress/` directory. BuddyNext keeps the same theme-override idea with a three-plan loader (`BuddyNext\Core\TemplateLoader`) and the `buddynext_get_template()` helper.
+BuddyPress ships templates under `bp-templates/`, resolved through `bp_get_template_part()` and the template stack so a theme can override any file from its own `buddypress/` directory. BuddyNext keeps the same theme-override idea with its own loader (`BuddyNext\Core\TemplateLoader`) and the `buddynext_get_template()` helper.
 
 | BuddyPress / BuddyBoss | BuddyNext |
 |---|---|
 | `bp_get_template_part( 'members/single/home' )` | `buddynext_get_template( 'feed/home.php', $vars )` |
 | `{theme}/buddypress/{relative}.php` override | `{child-theme}/buddynext/{relative}.php` override |
-| `bp_locate_template()` stack | `TemplateLoader::locate()` three-plan resolution |
+| `bp_locate_template()` stack | `TemplateLoader::locate()` resolution |
 | `bp_before_member_body` etc. template hooks | `buddynext_before_template` / `buddynext_after_template` (fired around every template) |
 
 The resolution order is:
@@ -115,6 +117,7 @@ The resolution order is:
 1. {active-child-theme}/buddynext/{relative}.php
 2. {parent-theme}/buddynext/{relative}.php
 3. {plugin}/templates/{relative}.php   (the default)
+4. Add-on directories registered on `buddynext_template_locations`
 ```
 
 So to override the home feed, copy `templates/feed/home.php` from the plugin to `{your-child-theme}/buddynext/feed/home.php` and edit the copy. Templates receive their data as pre-extracted variables (the loader imports only valid identifier keys) and must never run `$wpdb` queries - data comes from a service. For the full override workflow, the variable contract, and which templates are safe to override, see the Child Theme Template Overrides page.
@@ -150,11 +153,11 @@ buddynext_can( int $user_id, string $capability, array $context = array() ): boo
 | `bp_current_user_can( 'bp_moderate' )` | `buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' )` |
 | Group role check (`groups_is_user_admin()`) | `buddynext_can( $uid, 'buddynext-spaces/manage-settings', array( 'space_id' => $id ) )` |
 | `add_role()` / mapped WP caps | Community role in user meta (`bn_community_role`) + per-space role in `bn_space_members` |
-| Member types as roles | A community role is one of `member`, `moderator`, `admin`, `owner` (a hierarchy); member types (section 6) are a separate labeling system |
+| Member types as roles | A community role is one of `member`, `moderator`, `admin` (a hierarchy; `owner` is a per-space role); member types (section 6) are a separate labeling system |
 
 Never call `current_user_can()` against a BuddyNext capability or read `bn_community_role` directly - route it through `buddynext_can()` so all four resolution layers (WP admin, role map, explicit grant, the `buddynext_user_can` filter) and the space-ban short-circuit apply.
 
-The free catalog holds 22 capabilities registered through the WordPress Abilities API (WP 6.9+), plus two space-scoped ones resolved by dedicated per-space methods:
+The role map holds 24 capabilities. Of these, 22 are registered through the WordPress Abilities API (WP 6.9+); `buddynext-feed/interact` and `buddynext-moderation/dismiss` are enforced but not registered there. Three further space-scoped ones are resolved by dedicated per-space methods:
 
 ```text
 buddynext-profile/edit-own        buddynext-spaces/create          buddynext-connections/follow
@@ -165,8 +168,10 @@ buddynext-feed/delete-own-post    buddynext-spaces/moderate        buddynext-mod
 buddynext-feed/delete-any-post    buddynext-spaces/manage-settings buddynext-moderation/suspend-user
 buddynext-feed/pin-post           buddynext-spaces/delete
 buddynext-feed/schedule-post      buddynext-comments/create
+buddynext-feed/interact           buddynext-moderation/dismiss
                                   (space-scoped, per-space methods)  buddynext-moderate-space
                                                                      buddynext-manage-space
+                                                                     buddynext-own-space
 ```
 
 To add a capability you filter `buddynext_abilities` (register the slug) and `buddynext_role_map` (give it a minimum role); to override one decision you filter `buddynext_user_can`. For the four-layer resolution model, the role hierarchy, explicit grants, and the filter seams, see the Roles and Capabilities page.
@@ -200,13 +205,13 @@ Watch the argument order: several BuddyNext space and engagement hooks lead with
 
 ## 7. Where DM, forums, and gamification live (the companion model)
 
-BuddyPress bundles messaging and leans on bbPress for forums and third-party plugins for points. BuddyNext keeps its core lean and delegates these to first-party companion plugins, each integrated through a Layer 1 bridge (`includes/Bridges/`). The bridge boots on the `buddynext_load_bridges` seam at `plugins_loaded:25`, gated on its feature toggle and self-guarded by `class_exists()`, so BuddyNext degrades gracefully when a companion is absent.
+BuddyPress bundles messaging and leans on bbPress for forums and third-party plugins for points. BuddyNext keeps its core lean and delegates these to first-party companion plugins, each integrated through a Layer 1 bridge (`includes/Bridges/`). The bridge boots on the `buddynext_load_bridges` seam at `plugins_loaded:25`, self-guarded by `class_exists()` and gated per surface by the owner's Integration Settings toggles, so BuddyNext degrades gracefully when a companion is absent.
 
 | Capability | Companion plugin | Where the engine lives |
 |---|---|---|
 | Direct messaging | WPMediaVerse | `WPMediaVerseBridge`. DM tables (`mvs_conversations`, `mvs_messages`, ...) and the DM REST engine belong to WPMediaVerse; BuddyNext is the UI layer only. There is no `buddynext/v1` DM namespace. |
 | Forums / discussions | Jetonomy | `JetonomyBridge`. Surfaces a `Discussions` tab on the profile and space surfaces (via `buddynext_register_nav`) and a left-rail item (via `buddynext_rail_items`); Jetonomy owns the `jt_*` data. |
-| Points, badges, levels | WB Gamification | `GamificationBridge`. Listens to WB Gamification award/level hooks and reflects them into BuddyNext (for example the profile `Achievements` tab). |
+| Points, badges, levels | WB Gamification | `GamificationBridge`. Reflects WB Gamification data into BuddyNext (the profile `Achievements`, `Points` and `Kudos` tabs and credential-badge feed cards); the engine awards points through its own BuddyNext manifest. |
 
 If you are porting a customization that touched BuddyPress messages, bbPress, or a points plugin, target the companion's own API for the data and use the relevant BuddyNext bridge hook for the integration touch-point. For how a bridge normalizes external data into BuddyNext and the full list of bridges (including the Pro-plan ones), see the Integration Bridges page; for how companions are installed, see The Companion Install Model.
 

@@ -20,7 +20,7 @@ It depends on the companion. WPMediaVerse (messaging), Jetonomy (forums), WB Gam
 
 ## Can I choose where an integration shows up, without turning it off entirely?
 
-Yes. **Platform > Integration Settings** gives each connected integration its own switches: show its tab in navigation, post its events to the activity feed, and include its content in community search - independently of each other. Turning a switch off only hides that surface; it never deletes anything from the companion plugin. See [Integrations Overview](../integrations/01-overview.md).
+Yes. **BuddyNext > Integration Settings** gives each connected integration its own switches: **Show in navigation**, **Post to the activity feed** and **Include in search** - independently of each other. Turning a switch off only hides that surface; it never deletes anything from the companion plugin. See [Integrations Overview](../integrations/01-overview.md).
 
 ## How does Learnomy's community federation work?
 

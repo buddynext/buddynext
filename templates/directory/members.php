@@ -53,36 +53,20 @@ use BuddyNext\Sidebar\Surface;
 Surface::set( 'members' );
 
 // ── Query parameters ──────────────────────────────────────────────────────
-$bn_current_page = max( 1, absint( get_query_var( 'paged', 1 ) ) );
-$bn_per_page     = 20;
-$search_term     = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );          // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );                // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$relation_raw    = sanitize_key( $_GET['relation'] ?? 'all' );                      // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_online_only  = ( '1' === sanitize_key( wp_unslash( $_GET['online'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-// Member type comes from ?type=, the one filter contract on this screen. The
-// pretty /members/{slug}/ form this used to read first never worked: that shape
-// is indistinguishable from /members/{username}/, the user-slug rewrite always
-// won, and the bn_member_type query var was never populated on any request.
-$type_slug_filter = sanitize_key( wp_unslash( $_GET['type'] ?? '' ) );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-$allowed_sort = array( 'registered', 'display_name', 'post_count' );
-$bn_orderby   = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
-
-// Map the UI sort to the SSR WP_User_Query orderby:
-// - "newest" (registered) → ID DESC. ID is registration order on an AUTO_INCREMENT
-// users table AND the PRIMARY KEY, so it's filesort-free and — crucially — matches
-// the REST list_members() newest sort (also ID DESC, post-A6d) exactly, so the SSR
-// first page and the live keyset pager never disagree at a page boundary.
-// - "alphabetical" (display_name) → display_name ASC.
-// - "most active" (post_count) → NEVER the WP wp_posts COUNT subquery; falls back to
-// ID DESC for the server paint and the JS re-sorts via REST bn_presence
-// ($bn_initial_sort below still hands the JS 'most_active').
-$bn_query_orderby = ( 'display_name' === $bn_orderby ) ? 'display_name' : 'ID';
-$bn_order         = ( 'display_name' === $bn_query_orderby ) ? 'ASC' : 'DESC';
-
-$allowed_relations = array( 'all', 'following', 'connections' );
-$bn_relation       = in_array( $relation_raw, $allowed_relations, true ) ? $relation_raw : 'all';
+// Parsed by the service, the same call PageRouter makes to answer 404 for a
+// page past the end, so the two can never disagree.
+$current_user_id      = get_current_user_id();
+$bn_directory_service = buddynext_service( 'member_directory' );
+$bn_request           = $bn_directory_service->ssr_request( $current_user_id, wp_unslash( $_GET ), max( 1, absint( get_query_var( 'paged', 1 ) ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only directory filters.
+$bn_current_page      = $bn_request['page'];
+$bn_per_page          = $bn_request['per_page'];
+$search_term          = $bn_request['search'];
+$bn_orderby           = $bn_request['orderby'];
+$bn_relation          = $bn_request['relation'];
+$bn_online_only       = $bn_request['online_only'];
+$type_slug_filter     = $bn_request['member_type'];
+$user_query_args      = $bn_request['query_args'];
+$bn_directory_filters = $bn_request['filters'];
 
 // Community name for the document title override.
 $bn_site_name = buddynext_site_name();
@@ -97,9 +81,6 @@ add_filter(
 	},
 	20
 );
-
-// ── Current user context ──────────────────────────────────────────────────
-$current_user_id = get_current_user_id();
 
 // ── Member types for the directory type filter and card badges ────────────
 // Use get_all_with_counts() so the type filter (the "All member types" select
@@ -121,8 +102,6 @@ unset( $all_types_raw, $t );
 // shadow-banned, directory-opted-out, bidirectional blocks, member-type, and
 // online-only — but as correlated subqueries injected via pre_user_query (below),
 // never as a materialised IN / NOT IN id list, so the query stays bounded at 50k.
-$bn_directory_service = buddynext_service( 'member_directory' );
-
 // Directory-accurate per-type counts for the "By type" facet. list_members()
 // filters a type via INNER JOIN wp_users + the discovery gate and excludes the
 // viewer, so the raw assignment-row counts on get_all_with_counts() (which count
@@ -135,74 +114,6 @@ if ( method_exists( $bn_directory_service, 'type_member_counts' ) ) {
 		$bn_dir_type['member_count'] = (int) ( $bn_type_counts[ (int) ( $bn_dir_type['id'] ?? 0 ) ] ?? 0 );
 	}
 	unset( $bn_dir_type );
-}
-
-$user_query_args = array(
-	'number'      => $bn_per_page,
-	'paged'       => $bn_current_page,
-	'orderby'     => $bn_query_orderby,
-	'order'       => $bn_order,
-	'fields'      => 'all',
-	// No SQL_CALC_FOUND_ROWS — it would scan the WHOLE filtered match set (50k) on
-	// every render just to size the pager. A bounded capped count (below) sizes it
-	// instead; people browse a few pages, not page 2500 (directory-behaviour principle).
-	'count_total' => false,
-);
-
-// Dynamic, privacy-aware search resolved to user IDs so the server render
-// matches the REST/live path exactly (name/login/email + every searchable
-// field mirror; private/tightened values have no mirror so never match).
-// Applied to `include` below (intersected with any relation constraint).
-if ( '' !== $search_term ) {
-	$bn_search_ids = $bn_directory_service->matching_user_ids( $search_term );
-	if ( empty( $bn_search_ids ) ) {
-		$bn_search_ids = array( 0 ); // Term set but nothing matched → force zero results.
-	}
-} else {
-	$bn_search_ids = null;
-}
-
-// Relation filter (Following / Connections) — only relevant when logged in.
-if ( $current_user_id > 0 && 'all' !== $bn_relation ) {
-	if ( 'following' === $bn_relation ) {
-		// Approved follows only — matches list_members()'s following JOIN
-		// (status = 'approved') so the relation tab + its pager total agree.
-		$relation_ids = buddynext_service( 'follows' )->following( $current_user_id );
-	} else {
-		// connections() returns a flat list of accepted peer user IDs.
-		$relation_ids = buddynext_service( 'connections' )->connections( $current_user_id, 500, 0 );
-	}
-	$relation_ids = array_map( 'intval', (array) $relation_ids );
-	if ( empty( $relation_ids ) ) {
-		// Force zero results when the relation set is empty.
-		$user_query_args['include'] = array( 0 );
-	} else {
-		$user_query_args['include'] = $relation_ids;
-	}
-}
-
-// Apply the resolved search IDs to `include`, intersecting with any relation
-// constraint already set above (most-restrictive wins).
-if ( null !== $bn_search_ids ) {
-	if ( isset( $user_query_args['include'] ) && is_array( $user_query_args['include'] ) ) {
-		$bn_intersect               = array_values( array_intersect( $user_query_args['include'], $bn_search_ids ) );
-		$user_query_args['include'] = empty( $bn_intersect ) ? array( 0 ) : $bn_intersect;
-	} else {
-		$user_query_args['include'] = $bn_search_ids;
-	}
-}
-
-$bn_directory_filters = array(
-	'member_type' => $type_slug_filter,
-	'online_only' => $bn_online_only,
-);
-
-// The relation tabs and the search term constrain the grid through `include`
-// (assembled above). Hand the SAME constraint to the total, or the header counts
-// a different population than the grid renders — /members/?relation=following
-// showed 7 cards under "227 members in the community".
-if ( isset( $user_query_args['include'] ) && is_array( $user_query_args['include'] ) ) {
-	$bn_directory_filters['include'] = $user_query_args['include'];
 }
 
 // Bounded directory total — the cached service owns this number now (A5). The template
@@ -424,39 +335,42 @@ if ( $current_user_id > 0 ) {
 	</div>
 
 	<?php
-	// Distinguish "you are the only member" from "filters matched nothing". On a
-	// fresh single-user site the viewer is excluded from the directory, so the
-	// grid is empty with NO active filters — show an invite-oriented message
-	// instead of "No members match your filters" (which contradicted the sidebar
-	// showing the admin). The Reset-filters button only makes sense with filters.
-	$bn_filters_active = ( '' !== $search_term )
-		|| ( 'all' !== $relation_raw )
-		|| $bn_online_only
-		|| ( '' !== $type_slug_filter );
-	$bn_only_member    = empty( $members ) && ! $bn_filters_active && $current_user_id > 0 && 0 === $total_users;
+	// Which empty message the server paint shows. "No members match your filters"
+	// stays the default because the live filters reveal this same block when a
+	// REST search comes back empty. It is replaced only when the page itself
+	// rendered empty with NO filter set: then blaming filters is false. A viewer
+	// alone in the community is invited to bring people in; anyone else is told
+	// nobody is listed yet. A page past the end never gets here, because
+	// PageRouter answers it 404.
+	$bn_unfiltered_empty = empty( $members ) && ! $bn_request['filters_active'];
+	$bn_only_member      = $bn_unfiltered_empty && $current_user_id > 0 && 0 === $total_users;
+	if ( $bn_only_member ) {
+		$bn_empty = array(
+			'icon'  => 'users',
+			'title' => __( "You're the only member so far", 'buddynext' ),
+			'body'  => __( 'Invite others to join and they will show up here.', 'buddynext' ),
+		);
+	} elseif ( $bn_unfiltered_empty ) {
+		$bn_empty = array(
+			'icon'  => 'users',
+			'title' => __( 'No members to show yet', 'buddynext' ),
+			'body'  => __( 'Members will show up here as people join.', 'buddynext' ),
+		);
+	} else {
+		$bn_empty = array(
+			'icon'  => 'users',
+			'title' => __( 'No members match your filters', 'buddynext' ),
+			'body'  => __( 'Try widening your filters or clearing the search term.', 'buddynext' ),
+		);
+	}
 	?>
 	<div
 		class="bn-md-empty"
 		data-wp-bind--hidden="!state.showEmpty"
 		<?php echo empty( $members ) ? '' : 'hidden'; ?>
 	>
-		<?php
-		buddynext_get_template(
-			'parts/empty-state.php',
-			$bn_only_member
-				? array(
-					'icon'  => 'users',
-					'title' => __( "You're the only member so far", 'buddynext' ),
-					'body'  => __( 'Invite others to join and they will show up here.', 'buddynext' ),
-				)
-				: array(
-					'icon'  => 'users',
-					'title' => __( 'No members match your filters', 'buddynext' ),
-					'body'  => __( 'Try widening your filters or clearing the search term.', 'buddynext' ),
-				)
-		);
-		?>
-		<?php if ( ! $bn_only_member ) : ?>
+		<?php buddynext_get_template( 'parts/empty-state.php', $bn_empty ); ?>
+		<?php if ( ! $bn_unfiltered_empty ) : ?>
 		<div class="bn-md-empty__actions">
 			<button
 				type="button"

@@ -16,10 +16,11 @@ For owners, the composer is where you set the tone and the guardrails. Rate limi
 
 ### Writing and publishing a post
 
-A member types into the composer and clicks Share. The post is created and appears in the feed. The composer supports several post types from one box:
+A member types into the composer and clicks **Post**. The post is created and appears in the feed. The composer supports several post types from one box:
 
 - **Text** - the default. Just type and share. @mentions in the text notify the people named.
-- **Photo and media** - attach images or media from the media tools. A member can only attach their own media.
+- **Photo and media** - attach photos, videos or audio from the **Add photo, video or audio** button. A member can only attach their own media.
+- **Document** - attach a file with the **Attach a document** button. It posts as a document card. Documents are stored by WPMediaVerse.
 - **Link** - paste a URL into the post. The community fetches the page's title, description, and thumbnail in the background and attaches a preview card. The preview may take a moment to appear after posting.
 - **Poll** - turn the post into a poll with 2 to 5 options, and an optional closing date. Other members vote, with one vote per member per poll.
 - **Schedule** - pick a future date and time. The post is held and published automatically when that time arrives; it stays out of the feed until then. The control is labelled with your site's timezone (for example "Publish at (Europe/Berlin)"), so the time you type is the time the post card will show.
@@ -27,12 +28,12 @@ A member types into the composer and clicks Share. The post is created and appea
 
 ### Choosing who sees a post
 
-Before sharing, a member picks an audience from the privacy menu in the composer: Public, Followers, Connections, or Only me. Site admins and space managers get a fifth option, Members only, which keeps the post publicly listed but shows logged-out visitors only a short teaser and a prompt to join. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.
+Before posting, a member picks an audience from the privacy menu in the composer: Public, Followers, Connections, or Only me. Site admins and space managers get a fifth option, Members only, which keeps the post publicly listed but shows logged-out visitors only a short teaser and a prompt to join. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.
 
 
 ### Editing and deleting your own posts
 
-A member can edit their own post to fix or update the text and change its audience, as long as the edit window is still open (see the settings below). Edited content is re-scanned by the same content checks that run on a new post, so an edit cannot slip banned words or a blocked link past moderation. A member can delete their own post at any time.
+A member can edit their own post to fix or update the text, change its audience, and add or remove photos and videos, as long as the edit window is still open (see the settings below). In the edit form, **Add photo or video** uploads more, and the **×** on a thumbnail takes it off the post; a text post that gains a photo becomes a photo post, and one that loses its last photo becomes a text post again. Taking a photo off a post does not delete it: it stays in the member's media library. Edited content is re-scanned by the same content checks that run on a new post, so an edit cannot slip banned words or a blocked link past moderation. A member can delete their own post at any time.
 
 ### Rescheduling a post you have queued
 
@@ -57,16 +58,16 @@ The composer's behavior is controlled from three admin tabs, shown in the **Wher
 
 | Setting | Where | What it does | Default |
 |---------|-------|--------------|---------|
-| Post edit window | Engagement > Social (Activity Feed) | How many minutes after posting a member can still edit their post. Untick the box for no limit. Administrators are never limited. | 60 |
+| Post edit window (minutes) | Engagement > Social (Activity Feed) | How many minutes after posting a member can still edit their post. Untick the box for no limit. Administrators are never limited. | 60 |
 | Enable link previews | Engagement > Social (Activity Feed) | Whether pasted links get an auto-fetched preview card. Turn off to stop the community from fetching external pages. | On |
 | Enable emoji picker | Engagement > Social (Activity Feed) | Whether the emoji picker is available in the composer. | On |
 | Polls | Platform > Features | Whether members can create poll posts. | On |
 | Post rate limit (per minute) | Moderation > Controls | Maximum posts one member may publish per minute, to stop flooding. Untick the box to disable. Administrators and moderators are exempt. | 10 |
 | Comment rate limit (per minute) | Moderation > Controls | Maximum comments one member may publish per minute. | 30 |
-| Duplicate post window | Moderation > Controls | If a member re-posts identical text within this many minutes, the duplicate is published but flagged into the moderation queue for review. Untick the box to disable. | 0 (off) |
+| Duplicate post window (minutes) | Moderation > Controls | If a member re-posts identical text within this many minutes, the duplicate is published but flagged into the moderation queue for review. Untick the box to disable. | 0 (off) |
 | New member review threshold | Moderation > Controls | New members whose total post count is below this number have their posts flagged into the moderation queue for review (the post still publishes). Untick the box to disable. | 0 (off) |
 
-> **Note:** BuddyNext uses reactive moderation, the same model as mainstream social platforms. The duplicate and new-member thresholds do not hold a post back; the post publishes and a report is filed so a moderator can review it after the fact. If you want posts held for approval before they appear, use pre-moderation in the Moderation settings instead.
+> **Note:** BuddyNext uses reactive moderation, the same model as mainstream social platforms. The duplicate and new-member thresholds do not hold a post back; the post publishes and a report is filed so a moderator can review it after the fact. BuddyNext has no admin setting for holding every post for approval; a developer can switch that on with a filter (see Content Safeguards).
 
 > **Tip:** Leave the duplicate and new-member thresholds at 0 for an established, trusted community. Turn them on when you start seeing spam from fresh sign-ups; the new-member threshold is the most effective single setting against drive-by spam.
 
@@ -76,7 +77,7 @@ The composer's behavior is controlled from three admin tabs, shown in the **Wher
 - **Scheduling is a capability you can withdraw.** "Schedule posts" is one of the role capabilities under BuddyNext > Members > Roles & Capabilities. It is granted to members by default; clear it for a role and that role gets no schedule control in the composer, and cannot reschedule an existing post either.
 - **Schedule times are site times.** Every schedule control reads and writes in the timezone set at WordPress **Settings > General**, and names that zone in its label. An author in a different timezone sees the same digits on the control and on the published post card, rather than two numbers for the same instant.
 - **Polls have 2 to 5 options.** The composer offers two required option fields and three optional ones; fewer than two is rejected with a clear message. Each member gets one vote per poll, and a vote can be switched or removed but not stacked. A poll can also carry an optional closing date, after which it stops accepting votes.
-- **Announcements are admin-only.** A post typed as an announcement can only be created by an administrator, and it pins to the top of the feed as the announcement banner described in Activity Feed. Announcements can carry an optional expiry.
+- **Announcements need permission.** The megaphone (**Post as announcement**) button shows only for administrators, and for space owners and moderators inside their own space. The post pins to the top of the feed as the announcement banner described in Activity Feed, with an optional **Auto-expire at** time.
 - **Suspended members cannot post.** A suspended account is blocked from creating posts, comments, and reactions until the suspension ends.
 - **Unverified members are prompted to verify.** If your community enforces email verification, a member who has not confirmed their address sees a prompt in the composer instead of the post going through, with a **Resend verification email** button right there. Once they verify, posting works normally. When email verification is not enforced, this never appears.
 - **Archived spaces are read-only.** Once a space is archived it stops accepting new posts.

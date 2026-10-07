@@ -42,3 +42,26 @@ export function onNavReady( init, { once = false } = {} ) {
 		document.addEventListener( 'buddynext:navigated', init );
 	}
 }
+
+/**
+ * The address of page `n` of the current list, in WordPress's /page/N/ shape.
+ *
+ * Mirrors core's get_pagenum_link() so links a store builds client-side match
+ * the server pager (parts/pagination.php): any existing /page/N/ segment and
+ * the legacy ?paged / ?bn_page args are dropped, page 1 is the bare list URL,
+ * and every other query arg (filters, sort, search) is kept.
+ *
+ * @param {string} href Current list URL.
+ * @param {number} n    Target page (1-based).
+ * @return {string} Path + query of the target page.
+ */
+export function bnPageUrl( href, n ) {
+	const u = new URL( href, window.location.origin );
+	u.searchParams.delete( 'paged' );
+	u.searchParams.delete( 'bn_page' );
+	u.pathname = u.pathname.replace( /\/page\/\d+\/?$/, '/' );
+	if ( n > 1 ) {
+		u.pathname = u.pathname.replace( /\/?$/, '/' ) + 'page/' + n + '/';
+	}
+	return u.pathname + u.search;
+}

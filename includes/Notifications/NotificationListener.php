@@ -316,6 +316,14 @@ class NotificationListener implements ListenerInterface {
 			return;
 		}
 
+		// One notification per person per post (or comment), for good. Removing a
+		// reaction withdraws nothing (what's done is done), so reacting again or
+		// switching emoji must not notify again either: toggling Like would otherwise
+		// ping the author on every round.
+		if ( $this->reaction_already_notified( $owner_id, $group_key, $user_id ) ) {
+			return;
+		}
+
 		buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $owner_id,
@@ -327,6 +335,48 @@ class NotificationListener implements ListenerInterface {
 				'data'         => $data,
 			)
 		);
+	}
+
+	/**
+	 * Whether this person already appears in the owner's reaction notifications for
+	 * this object (any of its rows, read or not).
+	 *
+	 * A row records its newest sender and its people (GroupedItems items).
+	 * ponytail: items are capped at 50 per row, so on a post past 50 reactors in one
+	 * row an early reactor who toggles can notify once more; acceptable, and bounded.
+	 *
+	 * @param int    $owner_id  Recipient.
+	 * @param string $group_key The object's reaction group key.
+	 * @param int    $user_id   Reactor.
+	 * @return bool
+	 */
+	private function reaction_already_notified( int $owner_id, string $group_key, int $user_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sender_id, data FROM {$wpdb->prefix}bn_notifications
+				 WHERE recipient_id = %d AND group_key = %s
+				 ORDER BY id DESC LIMIT 50",
+				$owner_id,
+				$group_key
+			),
+			ARRAY_A
+		);
+
+		foreach ( (array) $rows as $row ) {
+			if ( (int) $row['sender_id'] === $user_id ) {
+				return true;
+			}
+			$data  = json_decode( (string) $row['data'], true );
+			$items = is_array( $data['items'] ?? null ) ? $data['items'] : array();
+			if ( in_array( $user_id, array_map( 'intval', array_column( $items, 'a' ) ), true ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

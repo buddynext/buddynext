@@ -216,6 +216,12 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 					$bn_integration_values['mvs_documents_tab'] = isset( $_POST['mvs_documents_tab'] ) ? '1' : '0';
 				}
 
+				// Leaderboard (WB Gamification). Same guard: only written while the
+				// row renders, so saving with the plugin off keeps the owner's choice.
+				if ( \BuddyNext\Bridges\GamificationBridge::space_leaderboards_available() ) {
+					$bn_integration_values['gamification_leaderboard_tab'] = isset( $_POST['gamification_leaderboard_tab'] ) ? '1' : '0';
+				}
+
 				// Events (Eventonomy). Only write when the field is registered — i.e.
 				// the Eventonomy bridge (Pro) is active — so saving this tab with it
 				// absent does not zero the owner's choice, the same guard the toggles
@@ -256,39 +262,15 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				// setup only) link one the caller is allowed to.
 				// - later on/off : just flip the enabled flag; same discussion.
 				if ( class_exists( 'Jetonomy\\Jetonomy' ) && 'error' !== $save_notice ) {
-					$bn_disc_bridge  = new \BuddyNext\Bridges\JetonomyBridge();
-					$bn_disc_on      = isset( $_POST['bn_discussion_enabled'] );
-					$bn_disc_link_id = isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0;
-
-					if ( $bn_disc_on ) {
-						// Establish the dedicated discussion once, if it has none yet.
-						if ( ! $bn_disc_bridge->space_has_discussion( $space_id ) ) {
-							// Initial-setup link is role-aware: a SITE ADMIN may adopt any
-							// existing discussion; a space owner may only adopt one THEY
-							// authored. Re-validated here so a crafted POST cannot widen it.
-							$bn_disc_owner    = (int) ( $space->owner_id ?? 0 );
-							$bn_disc_is_admin = current_user_can( 'manage_options' );
-							$bn_disc_may_link = $bn_disc_link_id > 0 && (
-								$bn_disc_is_admin
-									? $bn_disc_bridge->discussion_exists( $bn_disc_link_id )
-									: $bn_disc_bridge->discussion_owned_by( $bn_disc_link_id, $bn_disc_owner )
-							);
-							if ( $bn_disc_may_link ) {
-								update_space_meta( $space_id, 'jetonomy_forum_id', $bn_disc_link_id );
-							} elseif ( $bn_disc_bridge->provision_space_forum( $space_id ) <= 0 ) {
-								// Provisioning failed. Leaving the toggle on would give
-								// every member a Discussion tab with no discussion behind
-								// it — so refuse to enable, and say why.
-								$save_notice           = 'error';
-								$bn_save_error_message = __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' );
-							}
-						}
-
-						if ( 'error' !== $save_notice ) {
-							$bn_disc_bridge->set_discussion_enabled( $space_id, true );
-						}
-					} else {
-						$bn_disc_bridge->set_discussion_enabled( $space_id, false );
+					$bn_disc_result = ( new \BuddyNext\Bridges\JetonomyBridge() )->apply_discussion_choice(
+						$space_id,
+						isset( $_POST['bn_discussion_enabled'] ),
+						isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0,
+						get_current_user_id()
+					);
+					if ( is_wp_error( $bn_disc_result ) ) {
+						$save_notice           = 'error';
+						$bn_save_error_message = __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' );
 					}
 				}
 			}
@@ -509,6 +491,7 @@ $require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_j
 $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
 $mvs_documents_tab     = (bool) buddynext_get_space_field( $space_id, 'mvs_documents_tab' );
+$bn_leaderboard_tab    = (bool) buddynext_get_space_field( $space_id, 'gamification_leaderboard_tab' );
 $album_creators        = (string) buddynext_get_space_field( $space_id, 'album_creators' );
 $events_tab            = (bool) buddynext_get_space_field( $space_id, 'events_tab' );
 $event_creators        = (string) buddynext_get_space_field( $space_id, 'event_creators' );
@@ -759,15 +742,12 @@ foreach ( $builtin_tabs as $bn_t ) {
 	// hero and the reposition modal use.
 	$bn_settings_cover_style = '';
 	if ( ! empty( $space->cover_image_url ) ) {
-		$bn_settings_focal       = (array) get_space_meta( (int) ( $space->id ?? 0 ), 'buddynext_cover_focal', true );
-		$bn_settings_fx          = isset( $bn_settings_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['x'] ) ) : 50.0;
-		$bn_settings_fy          = isset( $bn_settings_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_settings_focal['y'] ) ) : 50.0;
-		$bn_settings_zoom        = isset( $bn_settings_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_settings_focal['zoom'] ) ) : 1.0;
+		$bn_settings_focal       = \BuddyNext\Spaces\SpaceService::cover_focal( (int) ( $space->id ?? 0 ) );
 		$bn_settings_cover_style = sprintf(
 			'object-fit:cover;object-position:%s%% %s%%;transform:scale(%s);transform-origin:center;',
-			esc_attr( (string) $bn_settings_fx ),
-			esc_attr( (string) $bn_settings_fy ),
-			esc_attr( (string) $bn_settings_zoom )
+			esc_attr( (string) $bn_settings_focal['x'] ),
+			esc_attr( (string) $bn_settings_focal['y'] ),
+			esc_attr( (string) $bn_settings_focal['zoom'] )
 		);
 	}
 	?>
@@ -904,6 +884,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
 					'mvs_documents_tab'     => $mvs_documents_tab,
+					'leaderboard_tab'       => $bn_leaderboard_tab,
 					'album_creators'        => $album_creators,
 					'events_tab'            => $events_tab,
 					'event_creators'        => $event_creators,

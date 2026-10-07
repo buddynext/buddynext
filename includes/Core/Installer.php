@@ -103,7 +103,6 @@ class Installer {
 	public const SCHEMA_FAILURE_OPTION = 'buddynext_schema_failure';
 
 	public const OWNED_TABLES = array(
-		'bn_activity_log',
 		'bn_appeals',
 		'bn_blocks',
 		'bn_bookmarks',
@@ -156,11 +155,14 @@ class Installer {
 	 * dropping it from the code alone only stops NEW installs from getting it.
 	 *
 	 * bn_feed_items — dead fan-out table, removed from the schema in 85b20825.
+	 * bn_activity_log — never written; the community admin's Recent actions now
+	 *                   reads the moderation log (bn_mod_log).
 	 *
 	 * @var string[]
 	 */
 	public const LEGACY_TABLES = array(
 		'bn_feed_items',
+		'bn_activity_log',
 	);
 
 	/**
@@ -447,8 +449,19 @@ class Installer {
 	 *  64: seed the bn.media_commented email template (BuddyNext now sends the
 	 *      media-comment notification itself, card 10344509261). run() seeds it on
 	 *      upgrade; no data touched.
+	 *  65: recount hashtag post_count. Deleting a post never lowered its tags'
+	 *      counts (card 10369496615), so a tag whose posts were all deleted kept
+	 *      "Posts 15" over an empty page. The upgrade's hashtag re-sync now ends with
+	 *      a chained recount of every tag showing a count (HashtagListener::
+	 *      recount_batch, 200 per batch). Counts only; no table change.
 	 */
-	private const SCHEMA_VERSION = 64;
+	private const SCHEMA_VERSION = 65;
+
+	/**
+	 * Bump when a default in email_default_history() changes, so the upgrade moves
+	 * unedited copies to the new wording.
+	 */
+	private const EMAIL_DEFAULTS_VERSION = 1;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -631,7 +644,11 @@ class Installer {
 				'color' => 'red',
 			),
 			'description' => $detail,
-			'actions'     => '',
+			'actions'     => sprintf(
+				'<a href="%s">%s</a>',
+				esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'tools' ) ),
+				esc_html__( 'Check and repair the database', 'buddynext' )
+			),
 			'test'        => 'buddynext_schema',
 		);
 	}
@@ -874,16 +891,24 @@ class Installer {
 	/**
 	 * Expected column count per owned table, parsed from the CREATE TABLE schema.
 	 *
-	 * The schema() DDL is the single source of truth, so deriving the count from it
-	 * (rather than a hand-maintained list) means a new column is covered the moment
-	 * it is declared. A column line has a SQL type as its second token; index/key
-	 * lines start with PRIMARY/UNIQUE/KEY/INDEX/CONSTRAINT/FOREIGN and are skipped.
-	 * Undercounting is harmless (never a false "not intact"); the type list is kept
-	 * complete so it never overcounts.
-	 *
 	 * @return array<string,int> Prefixed table name => declared column count.
 	 */
 	private static function expected_column_counts(): array {
+		return array_map( 'count', self::expected_columns() );
+	}
+
+	/**
+	 * Declared column names per owned table, parsed from the CREATE TABLE schema.
+	 *
+	 * The schema() DDL is the single source of truth, so a new column is covered
+	 * the moment it is declared. A column line has a SQL type as its second token;
+	 * index/key lines start with PRIMARY/UNIQUE/KEY/INDEX/CONSTRAINT/FOREIGN and are
+	 * skipped. Undercounting is harmless (never a false "not intact"); the type
+	 * list is kept complete so it never overcounts.
+	 *
+	 * @return array<string,array<int,string>> Prefixed table name => column names.
+	 */
+	private static function expected_columns(): array {
 		global $wpdb;
 
 		$types = 'TINYINT|SMALLINT|MEDIUMINT|INT|BIGINT|DECIMAL|NUMERIC|FLOAT|DOUBLE|BIT'
@@ -895,22 +920,62 @@ class Installer {
 			if ( ! preg_match( '/CREATE\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s*\(/i', (string) $bn_stmt, $bn_m ) ) {
 				continue;
 			}
-			$bn_count = 0;
+			$bn_cols = array();
 			foreach ( preg_split( '/\r?\n/', (string) $bn_stmt ) as $bn_line ) {
 				$bn_line = trim( (string) $bn_line );
 				if ( '' === $bn_line || preg_match( '/^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY|INDEX|CONSTRAINT|FOREIGN\s+KEY|CREATE\s+TABLE|\))/i', $bn_line ) ) {
 					continue;
 				}
-				if ( preg_match( '/^`?[A-Za-z_][A-Za-z0-9_]*`?\s+(' . $types . ')\b/i', $bn_line ) ) {
-					++$bn_count;
+				if ( preg_match( '/^`?([A-Za-z_][A-Za-z0-9_]*)`?\s+(' . $types . ')\b/i', $bn_line, $bn_c ) ) {
+					$bn_cols[] = $bn_c[1];
 				}
 			}
-			if ( $bn_count > 0 ) {
-				$out[ $bn_m[1] ] = $bn_count;
+			if ( array() !== $bn_cols ) {
+				$out[ $bn_m[1] ] = $bn_cols;
 			}
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Which declared columns are not in the database, per existing table.
+	 *
+	 * For Tools > Repair: a column can go missing after an interrupted update, a
+	 * host restore of an old backup or a migrated site, and every query that names
+	 * it then fails. Missing TABLES are reported by missing_tables(), not here.
+	 *
+	 * @return array<string,array<int,string>> Unprefixed table name => missing column names.
+	 */
+	public static function missing_columns(): array {
+		global $wpdb;
+
+		$expected = self::expected_columns();
+		if ( array() === $expected ) {
+			return array();
+		}
+
+		// One prepared query over every BuddyNext table, read the expected ones below.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- live schema probe, must not be cached.
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name LIKE %s', $wpdb->esc_like( $wpdb->prefix . 'bn_' ) . '%' ) );
+
+		$have = array();
+		foreach ( $rows as $row ) {
+			$have[ (string) $row->t ][ strtolower( (string) $row->c ) ] = true;
+		}
+
+		$missing = array();
+		foreach ( $expected as $table => $cols ) {
+			if ( ! isset( $have[ $table ] ) ) {
+				continue; // The whole table is missing; missing_tables() reports it.
+			}
+			foreach ( $cols as $col ) {
+				if ( ! isset( $have[ $table ][ strtolower( $col ) ] ) ) {
+					$missing[ substr( $table, strlen( $wpdb->prefix ) ) ][] = $col;
+				}
+			}
+		}
+		return $missing;
 	}
 
 	/**
@@ -957,6 +1022,15 @@ class Installer {
 	 * @return void
 	 */
 	public static function maybe_upgrade(): void {
+		// Move unedited email templates to their current default wording (see
+		// email_default_history()). Marker-gated, ahead of the schema early return,
+		// because a wording change bumps no schema. One synchronous, idempotent
+		// update; Tools > Repair "Restore default emails" runs the same call.
+		if ( (int) get_option( 'buddynext_email_defaults', 0 ) < self::EMAIL_DEFAULTS_VERSION ) {
+			\BuddyNext\Notifications\EmailDefaults::refresh_unedited();
+			update_option( 'buddynext_email_defaults', self::EMAIL_DEFAULTS_VERSION, false );
+		}
+
 		// Captured before run() below stamps buddynext_schema_version to the current
 		// value - a couple of the option-cleanup steps key on how far behind the
 		// site actually was, and would otherwise read the just-written new number.
@@ -3138,13 +3212,15 @@ class Installer {
 	}
 
 	/**
-	 * Seed the default email-template rows (INSERT IGNORE - existing rows kept).
+	 * The default email-template rows: the seed list plus a row for every type the
+	 * Email Templates screen defines but the list does not.
 	 *
-	 * @param string $p Table prefix.
+	 * One list for the seeder and for email_default_history(), so the wording a fresh
+	 * site gets and the wording an upgrade moves unedited copies to cannot drift.
+	 *
+	 * @return array<int, array{type: string, subject: string, preview_text: string, body_html: string}>
 	 */
-	private static function seed_email_templates( string $p ): void {
-		global $wpdb;
-
+	public static function email_template_seeds(): array {
 		$templates = array(
 			array(
 				'type'         => 'email_verify',
@@ -3162,7 +3238,7 @@ class Installer {
 				'type'         => 'welcome',
 				'subject'      => 'Welcome to {{site_name}}',
 				'preview_text' => 'Your community account is ready',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}} Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{site_url}}">start exploring</a>.</p>',
 			),
 			array(
 				'type'         => 'bn.new_follower',
@@ -3240,7 +3316,7 @@ class Installer {
 				'type'         => 'bn.member_suspended',
 				'subject'      => 'Your {{site_name}} account has been suspended',
 				'preview_text' => 'Your account has been suspended',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. While it is suspended you cannot post or interact with the community.</p><p><strong>Reason:</strong> {{reason}}<br><strong>Suspended until:</strong> {{expires_at}}</p><p>If you think this was a mistake, you can appeal from your account page.</p><p><a href="{{action_url}}">See your account status</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.appeal_resolved',
@@ -3332,6 +3408,61 @@ class Installer {
 				}
 			}
 		}
+
+		return $templates;
+	}
+
+	/**
+	 * Previous default wording of Free's email templates, for EmailDefaults: a site
+	 * that never edited one of these emails is moved to the current seed; an edited
+	 * one is left alone. Add an entry whenever a seeded default changes.
+	 *
+	 * @return array<string, array<string, mixed>> Template type => current + previous defaults.
+	 */
+	public static function email_default_history(): array {
+		$current = array();
+		foreach ( self::email_template_seeds() as $row ) {
+			$current[ (string) $row['type'] ] = $row;
+		}
+
+		$previous = array(
+			// 1.2.4: the welcome body ran the site name into the next sentence
+			// ("Welcome to X Your account...") and used an em-dash.
+			'welcome'             => array(
+				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}} Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>' ),
+			),
+			// 1.2.4: the suspension email names the reason and the end date (card 10240365173).
+			'bn.member_suspended' => array(
+				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>' ),
+			),
+		);
+
+		$history = array();
+		foreach ( $previous as $type => $versions ) {
+			if ( ! isset( $current[ $type ] ) ) {
+				continue;
+			}
+			$history[ $type ] = array(
+				'current'  => array(
+					'subject'      => (string) $current[ $type ]['subject'],
+					'preview_text' => (string) $current[ $type ]['preview_text'],
+					'body_html'    => (string) $current[ $type ]['body_html'],
+				),
+				'previous' => $versions,
+			);
+		}
+		return $history;
+	}
+
+	/**
+	 * Seed the default email-template rows (INSERT IGNORE - existing rows kept).
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function seed_email_templates( string $p ): void {
+		global $wpdb;
+
+		$templates = self::email_template_seeds();
 
 		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -4481,20 +4612,6 @@ class Installer {
 				KEY user_id (user_id),
 				KEY created_at (created_at),
 				KEY signature (signature)
-			) {$cs};",
-
-			// ── Activity Log ───────────────────────────────────────────────────
-
-			"CREATE TABLE {$p}bn_activity_log (
-				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id BIGINT(20) UNSIGNED NOT NULL,
-				action VARCHAR(64) NOT NULL,
-				object_type VARCHAR(32) DEFAULT NULL,
-				object_id BIGINT(20) UNSIGNED DEFAULT NULL,
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (id),
-				KEY         user_action (user_id, action, created_at),
-				KEY         created_at (created_at)
 			) {$cs};",
 
 			// ── Moderation ─────────────────────────────────────────────────────

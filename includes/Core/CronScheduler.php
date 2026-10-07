@@ -13,7 +13,6 @@
  *   buddynext_weekly_digest        — weekly (first run at activation time, then every 7 days)
  *   buddynext_cleanup_tokens       — daily
  *   buddynext_cleanup_notifications— weekly (prune 90-day-old read rows)
- *   buddynext_cleanup_activity_log — weekly (honours data-retention window)
  *   buddynext_recount_stats        — daily (counters maintained incrementally on write;
  *                                    daily run is a reconcile pass only)
  *
@@ -67,7 +66,13 @@ class CronScheduler {
 	public const JOB_CLEANUP_NOTIFICATIONS = 'buddynext_cleanup_notifications';
 
 	/**
-	 * Weekly activity-log pruning job hook (honours the data-retention window).
+	 * RETIRED — no longer registered or scheduled.
+	 *
+	 * The bn_activity_log table was never written and is retired (Installer::LEGACY_TABLES).
+	 * Kept only so clear_events() and the upgrade migration can unschedule it where
+	 * it is still armed. See JOB_CLEANUP_NOTIFICATIONS above.
+	 *
+	 * @var string
 	 */
 	public const JOB_CLEANUP_ACTIVITY_LOG = 'buddynext_cleanup_activity_log';
 
@@ -107,12 +112,6 @@ class CronScheduler {
 	 */
 	public const GROUP = 'buddynext';
 
-	/**
-	 * Transient that limits schedule_events() to one Action Scheduler check per
-	 * hour instead of once per request. See schedule_events().
-	 */
-	public const SCHEDULE_GUARD = 'bn_cron_scheduled';
-
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -142,7 +141,6 @@ class CronScheduler {
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
 		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
-		add_action( self::JOB_CLEANUP_ACTIVITY_LOG, array( $handlers, 'handle_cleanup_activity_log' ) );
 		add_action( self::JOB_CLEANUP_REPORTS, array( $handlers, 'handle_cleanup_reports' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 	}
@@ -168,6 +166,25 @@ class CronScheduler {
 	}
 
 	/**
+	 * Is this a request where recurring schedules should be checked and armed?
+	 *
+	 * Checking a schedule is a database lookup per job (as_next_scheduled_action),
+	 * and doing it on every page, REST call, image and heartbeat made it the
+	 * largest part of every request's query floor. A recurring job only needs to
+	 * be checked where it is cheap and still reliable: the cron runner (which runs
+	 * on any live site and re-arms a lost job within one tick), wp-admin page
+	 * loads and WP-CLI. Never front-end, REST or AJAX. Every ensure_*() in Free
+	 * and Pro asks this first.
+	 *
+	 * @return bool
+	 */
+	public static function is_scheduling_request(): bool {
+		return wp_doing_cron()
+			|| ( is_admin() && ! wp_doing_ajax() )
+			|| ( defined( 'WP_CLI' ) && WP_CLI );
+	}
+
+	/**
 	 * Ensure every recurring event is scheduled.
 	 *
 	 * Called on wp_loaded — safe to call on every request because
@@ -176,21 +193,13 @@ class CronScheduler {
 	 * @return void
 	 */
 	public function schedule_events(): void {
-		// maybe_schedule() does an as_next_scheduled_action() lookup per job — six
-		// DB reads. Running them on every wp_loaded (including non-BN admin and
-		// front-end pages) is pure overhead once the jobs are armed, so a short
-		// transient limits the whole check to once an hour. If a job is ever
-		// unscheduled it re-arms within the hour, which is fine for recurring
-		// housekeeping. ponytail: transient guard, re-checks hourly.
-		if ( get_transient( self::SCHEDULE_GUARD ) ) {
+		if ( ! self::is_scheduling_request() ) {
 			return;
 		}
-		set_transient( self::SCHEDULE_GUARD, 1, HOUR_IN_SECONDS );
 
 		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
-		$this->maybe_schedule( self::JOB_CLEANUP_ACTIVITY_LOG, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_REPORTS, 'weekly' );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
@@ -274,7 +283,7 @@ class CronScheduler {
 		// it simply fires into nothing, forever, staying in the cron array (and in
 		// Action Scheduler's tables) as permanent litter that every future debugger has
 		// to explain. Clear both explicitly, on both schedulers.
-		foreach ( array( self::JOB_CLEANUP_NOTIFICATIONS, self::JOB_CLEANUP_EMAIL_LOG ) as $bn_retired ) {
+		foreach ( array( self::JOB_CLEANUP_NOTIFICATIONS, self::JOB_CLEANUP_EMAIL_LOG, self::JOB_CLEANUP_ACTIVITY_LOG ) as $bn_retired ) {
 			if ( function_exists( 'as_unschedule_all_actions' ) ) {
 				as_unschedule_all_actions( $bn_retired, array(), self::GROUP );
 			}

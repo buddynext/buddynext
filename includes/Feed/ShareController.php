@@ -36,7 +36,7 @@ class ShareController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'share' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					'permission_callback' => array( $this, 'require_interact' ),
 				),
 				array(
 					'methods'             => 'DELETE',

@@ -82,4 +82,31 @@ class HashtagFeedEnrichmentTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'viewer_state', $item );
 		$this->assertArrayHasKey( 'media', $item );
 	}
+
+	/**
+	 * The Following tab: sort=following returns only posts by people the viewer
+	 * follows, as the web hashtag page does; latest returns everyone's.
+	 *
+	 * @return void
+	 */
+	public function test_sort_following_matches_the_web_tab(): void {
+		$stranger = self::factory()->user->create();
+		$mine     = (int) ( new PostService() )->create( $this->author, array( 'content' => 'Followed #sorttab' ) );
+		$theirs   = (int) ( new PostService() )->create( $stranger, array( 'content' => 'Not followed #sorttab' ) );
+		// The extract/sync listener is not wired in the unit bootstrap (see above).
+		$tags = new \BuddyNext\Hashtags\HashtagService();
+		$tags->sync( 'post', $mine, array( 'sorttab' ) );
+		$tags->sync( 'post', $theirs, array( 'sorttab' ) );
+		buddynext_service( 'follows' )->follow( $this->viewer, $this->author );
+		wp_set_current_user( $this->viewer );
+
+		$ids = static function ( string $sort ): array {
+			$request = new WP_REST_Request( 'GET', '/buddynext/v1/hashtags/sorttab/feed' );
+			$request->set_param( 'sort', $sort );
+			return array_map( 'intval', wp_list_pluck( self::$server->dispatch( $request )->get_data()['items'], 'id' ) );
+		};
+
+		$this->assertSame( array( $mine ), $ids( 'following' ) );
+		$this->assertCount( 2, $ids( 'latest' ) );
+	}
 }

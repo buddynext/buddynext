@@ -43,12 +43,13 @@ The composer accepts more than text. A member can attach media to a message so t
 
 ## Setting it up (for owners)
 
-Both messaging controls live in **WPMediaVerse > Settings > Social**, because WPMediaVerse runs messaging: the Messages switch and "who can message you". BuddyNext shows each one and links there: **Platform > Features** shows whether Messages is on, and **Settings > General > Direct Messaging** shows the site's "who can message you" level.
+The messaging controls live in **MediaVerse > Settings > Messages** (the Social tab), because WPMediaVerse runs messaging. BuddyNext shows them and links there: **BuddyNext > Platform > Features** shows whether Messages is on, and **BuddyNext > Settings > General > Direct Messaging** ("Who can message members") shows the site's level with a **Change in WPMediaVerse** button.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Messages (in WPMediaVerse) | Turns private messaging on or off for the whole community, on the web, in the app and over the API. When off, every messaging entry point (the inbox, the profile, directory and space "Message" buttons, the header icon, the Messages nav item and the Messages notification filter) is hidden, and "sent you a message" notifications are left out of the bell until it is on again. Conversations are kept. Visiting the Messages page shows members "Messages are turned off on this community", and shows administrators a link to the switch. | On |
-| Who can message you (in WPMediaVerse) | The most open level any member can have: Everyone, People who follow you, People you follow back, or No one. Each member picks this level or a stricter one under **Settings > Privacy > Who can message me**, which saves straight to WPMediaVerse. | Everyone |
+| Messages ("Turn on private messages", in WPMediaVerse) | Turns private messaging on or off for the whole community, on the web, in the app and over the API. When off, every messaging entry point (the inbox, the profile, directory and space "Message" buttons, the header icon, the Messages nav item and the Messages notification filter) is hidden, and "sent you a message" notifications are left out of the bell until it is on again. Conversations are kept. Visiting the Messages page shows members "Messages are turned off on this community", and shows administrators a link to the switch. | On |
+| Who can send messages (in WPMediaVerse) | The most open level any member can have: Everyone, Followers only (others go to Requests), People the member follows back, or Nobody. Members see these as Everyone, People who follow you, People you follow back and No one. Each member picks this level or a stricter one under **Settings > Privacy > Who can message me**, which saves straight to WPMediaVerse. | Everyone |
+| Minimum Account Age in days (in WPMediaVerse) | Accounts younger than this cannot send messages. 0 turns it off. | 0 |
 
 > **Tip:** the site level is a ceiling. If you set it to "People you follow back", members can choose that or "No one", and nobody can open their inbox wider than you allow.
 
@@ -64,8 +65,8 @@ Both messaging controls live in **WPMediaVerse > Settings > Social**, because WP
 
 - Messaging needs the WPMediaVerse companion plugin. BuddyNext is the interface and the privacy layer; WPMediaVerse is the engine that stores and delivers the messages. If WPMediaVerse is not active, the messaging settings are unavailable and members will not see messaging entry points. For how to install and connect it, see the WPMediaVerse integration page.
 - **Messages go through the same content safeguards as posts.** A message containing a site-wide banned word or a blocked link domain is rejected outright, the same as a post - the sender sees why. (Because a message is not posted into a space, a space's own banned-word list is not checked.) See Content Safeguards.
-- Blocking prevents messaging. If a member has blocked someone, that person cannot send them a message - the block is checked on every send. The sender is told why the send was refused, so a block, a "No one" choice and a "People you follow back" choice each produce an accurate notice rather than a generic error.
-- "Who can message me" is enforced on send by WPMediaVerse, using the same follows members see in BuddyNext. A member set to "No one" cannot be reached by direct message at all. Site administrators can always reach members past a block.
+- Blocking prevents messaging in both directions. If either member has blocked the other, neither can send a message - the block is checked on every send. The sender is told why the send was refused, so a block, a "No one" choice and a "People you follow back" choice each produce an accurate notice rather than a generic error.
+- "Who can message me" is enforced on send by WPMediaVerse, using the same follows members see in BuddyNext. A member set to "No one" cannot be reached by direct message at all.
 - The empty state is normal. A brand-new account with no conversations sees an empty inbox until someone messages them or they start a conversation.
 
 ## Free vs Pro

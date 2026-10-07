@@ -165,4 +165,67 @@ class MemberSearchParityTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array(), $this->search->match_member_ids( 'zzzznope', 500, $user_id ) );
 	}
+
+	/**
+	 * Members that tie on every sort key still page without repeats.
+	 *
+	 * Bulk-imported members share updated_at; without a unique last sort key
+	 * MySQL may order the tied rows differently for each LIMIT/OFFSET, so page 2
+	 * repeated members from page 1 and skipped others.
+	 *
+	 * @return void
+	 */
+	public function test_tied_members_page_without_repeats(): void {
+		global $wpdb;
+		$ids = array();
+		for ( $i = 0; $i < 60; $i++ ) {
+			$ids[] = self::factory()->user->create();
+			$this->index_member( end( $ids ), 'Lisbon' );
+		}
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_search_index SET updated_at = '2026-01-01 00:00:00' WHERE object_type = 'user'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		$seen = array();
+		for ( $page = 1; $page <= 3; $page++ ) {
+			$items = (array) ( $this->search->search( 'Li', 'user', 20, $page, $ids[0] )['items'] ?? array() );
+			foreach ( $items as $item ) {
+				$seen[] = (int) ( is_array( $item ) ? ( $item['object_id'] ?? $item['id'] ?? 0 ) : ( $item->object_id ?? $item->id ?? 0 ) );
+			}
+		}
+
+		$this->assertCount( 60, $seen );
+		$this->assertSame( count( $seen ), count( array_unique( $seen ) ), 'A member appeared on two pages.' );
+		$this->assertEqualsCanonicalizing( $ids, $seen );
+	}
+
+	/**
+	 * Every paged search query ends its ORDER BY on the unique row id.
+	 *
+	 * The repeat above depends on how MySQL orders tied rows under LIMIT, which a
+	 * small test table does not reliably reproduce (the live directory did, at
+	 * 120 tied members). So this pins the cause directly: a paged query whose last
+	 * sort key is not unique can repeat and skip rows between pages.
+	 *
+	 * @return void
+	 */
+	public function test_paged_search_queries_end_on_a_unique_sort_key(): void {
+		$user_id = self::factory()->user->create();
+		$this->index_member( $user_id, 'Lisbon harbour' );
+
+		$paged = array();
+		$spy   = static function ( $sql ) use ( &$paged ) {
+			if ( false !== stripos( (string) $sql, 'bn_search_index' ) && preg_match( '/LIMIT\s+\d+\s+OFFSET/i', (string) $sql ) ) {
+				$paged[] = (string) $sql;
+			}
+			return $sql;
+		};
+		add_filter( 'query', $spy );
+		$this->search->search( 'Li', 'user', 20, 2, $user_id );
+		$this->search->search( 'Lisbon', 'user', 20, 2, $user_id );
+		remove_filter( 'query', $spy );
+
+		$this->assertNotEmpty( $paged, 'No paged search query was captured.' );
+		foreach ( $paged as $sql ) {
+			$this->assertMatchesRegularExpression( '/ORDER BY .*si\.id (ASC|DESC)\s+LIMIT/is', $sql );
+		}
+	}
 }

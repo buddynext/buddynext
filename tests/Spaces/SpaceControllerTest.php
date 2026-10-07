@@ -284,6 +284,77 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 
 	/* ── Surface 1 (directory) ─────────────────────────────────────── */
 
+	/**
+	 * The roster takes the web members tab's search and role filters, leaves
+	 * suspended members out as the web does, and counts the filtered set.
+	 *
+	 * @return void
+	 */
+	public function test_get_space_members_search_role_and_suspended(): void {
+		$owner    = self::factory()->user->create( array( 'display_name' => 'Owner Person' ) );
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Roster', 'slug' => 'roster-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		$members  = buddynext_service( 'space_members' );
+		$marla    = self::factory()->user->create( array( 'display_name' => 'Marla Stone' ) );
+		$benny    = self::factory()->user->create( array( 'display_name' => 'Benny Fields' ) );
+		$gone     = self::factory()->user->create( array( 'display_name' => 'Marlon Gone' ) );
+		foreach ( array( $marla, $benny, $gone ) as $uid ) {
+			$members->join( $space_id, $uid );
+		}
+		( new \BuddyNext\Moderation\ModerationService() )->suspend( $gone, 'test', 7, true ); // A suspension that hides their content (the roster rule).
+
+		$get = static function ( array $query ) use ( $space_id ): \WP_REST_Response {
+			$request = new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $space_id . '/members' );
+			$request->set_query_params( $query );
+			return rest_do_request( $request );
+		};
+		wp_set_current_user( $owner );
+
+		$all = $get( array() );
+		$this->assertSame( '3', (string) $all->get_headers()['X-WP-Total'], 'Owner + two active members; the hidden-by-suspension one is left out, as on the web.' );
+
+		$search = $get( array( 'search' => 'marl' ) );
+		$this->assertSame( array( $marla ), array_map( 'intval', wp_list_pluck( $search->get_data(), 'user_id' ) ) );
+		$this->assertSame( '1', (string) $search->get_headers()['X-WP-Total'] );
+
+		$owners = $get( array( 'role' => 'owner' ) );
+		$this->assertSame( array( $owner ), array_map( 'intval', wp_list_pluck( $owners->get_data(), 'user_id' ) ) );
+
+		$this->assertSame( 400, $get( array( 'role' => 'banana' ) )->get_status() );
+	}
+
+	/**
+	 * Roster rows carry the web card's extras: cover, add-on member fields via
+	 * buddynext_rest_member_item, and joined_via_link for space managers only.
+	 *
+	 * @return void
+	 */
+	public function test_roster_rows_carry_card_fields(): void {
+		$owner    = self::factory()->user->create();
+		$member   = self::factory()->user->create();
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Cards', 'slug' => 'cards-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		buddynext_service( 'space_members' )->join( $space_id, $member );
+		$addon = static function ( array $item, int $uid ): array {
+			$item['addon_field'] = 'for-' . $uid;
+			return $item;
+		};
+		add_filter( 'buddynext_rest_member_item', $addon, 10, 2 );
+		$rows = static fn(): array => rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/spaces/' . $space_id . '/members' ) )->get_data();
+
+		wp_set_current_user( $owner );
+		foreach ( $rows() as $row ) {
+			$this->assertArrayHasKey( 'cover_url', $row );
+			$this->assertSame( 'for-' . $row['user_id'], $row['addon_field'], 'Add-ons (Pro labels) reach the roster.' );
+			$this->assertArrayHasKey( 'joined_via_link', $row, 'The owner sees how members joined.' );
+		}
+
+		wp_set_current_user( $member );
+		foreach ( $rows() as $row ) {
+			$this->assertArrayNotHasKey( 'joined_via_link', $row, 'A member does not.' );
+		}
+
+		remove_filter( 'buddynext_rest_member_item', $addon, 10 );
+	}
+
 	public function test_create_space_invalid_type_returns_422(): void {
 		wp_set_current_user( $this->owner_id );
 

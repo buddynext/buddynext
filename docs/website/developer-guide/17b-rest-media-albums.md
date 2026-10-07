@@ -15,14 +15,14 @@ The **media lightbox** is the one exception, and it is deliberate: it is a brows
 | Namespace | `buddynext/v1` |
 | Registered by | `MediaController` (`includes/Media/MediaController.php`) |
 | Auth | `X-WP-Nonce` header (cookie session) or Application Password (external) |
-| Permission callback | `require_auth` on every route - all media routes require a logged-in caller |
+| Permission callback | `require_auth` on every route except the three public reads (`GET /users/{id}/albums`, `GET /albums/{id}`, `GET /spaces/{id}/albums`), which use `__return_true` and enforce visibility in the handler |
 | Self routes | `/me/media`, `/me/albums/*` - operate on the authenticated caller; ownership enforced in the callback |
 | Target reads | `/users/{id}/media`, `/users/{id}/albums` - per-viewer privacy filtered |
 | Album detail | `/albums/{id}` - readable by the owner or any viewer the album privacy allows |
 | Error body | `{ "code": "...", "message": "...", "data": { "status": N } }` |
 | `per_page` max | Clamped to 60 on every paginated read (default 24) |
 
-> **Note:** Although every route uses the `require_auth` permission callback, that only guarantees a logged-in caller. Per-row visibility and per-album ownership are enforced inside the callbacks through the engine privacy seam (`Galleries`) and the album owner gate (`require_album_owner`). A caller who is logged in still only sees and mutates what they are allowed to.
+> **Note:** `require_auth` only guarantees a logged-in caller. Per-row visibility and per-album ownership are enforced inside the callbacks through the engine privacy seam (`Galleries`) and the album owner gate (`require_album_owner`). A caller who is logged in still only sees and mutates what they are allowed to.
 
 ## Routes
 
@@ -38,9 +38,9 @@ The **media lightbox** is the one exception, and it is deliberate: it is a brows
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/users/{id}/albums` | require_auth | List a user's albums, privacy-filtered for the viewer |
+| GET | `/users/{id}/albums` | public, gated in handler | List a user's albums, privacy-filtered for the viewer |
 | POST | `/me/albums` | require_auth | Create an album owned by the caller |
-| GET | `/albums/{id}` | require_auth | Album detail plus a page of its media |
+| GET | `/albums/{id}` | public, gated in handler | Album detail plus a page of its media |
 | POST | `/me/albums/{id}/items` | require_auth | Add media to an album (owner only) |
 | DELETE | `/me/albums/{id}/items/{media_id}` | require_auth | Remove one media item from an album (owner only) |
 | PUT | `/me/albums/{id}` | require_auth | Update title, description, privacy, or cover (owner only) |
@@ -57,6 +57,7 @@ Mirrors the member-level media/album routes, but the owner is a space rather tha
 |---|---|---|---|
 | GET | `/spaces/{id}/media` | public | Media-bearing posts in the space, paginated (`page`, `per_page` up to 100) - each post may carry several attachments |
 | GET | `/spaces/{id}/albums` | public, gated in handler | List a space's albums. Anonymous-readable like the sibling `/spaces/{id}/media` route - a fully open space's albums must read the same for a logged-out visitor as for a member, so the route uses `__return_true` and enforces visibility inside the handler rather than 401-ing every guest. |
+| POST | `/spaces/{id}/albums` | require_auth (space-album gate in handler) | Create an album owned by the space. Body: `title` (required, `422 bn_album_title_required` when empty), `description`. The caller must be able to see the space (`404` otherwise) and create albums in it (`403` otherwise). Returns `201` with the album summary. |
 | POST | `/spaces/{id}/media/{media_id}/unlink` | require_auth (moderator gate in handler) | Unlink one media item from the space's drive; the item itself is not deleted |
 | GET | `/media/{media_id}/space-context` | require_auth | Lightweight lookup the media lightbox calls on open: is this item on a space drive, and may the viewer moderate that space? Used to decide whether to draw the "Unlink from space" menu item at all, rather than showing it everywhere and 403-ing on click |
 | GET | `/me/media/{media_id}/usage` | require_auth | Where a media item the caller owns is currently used (profile, cover, post attachment, album, space drive) |

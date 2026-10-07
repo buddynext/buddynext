@@ -271,7 +271,7 @@ class ApprovalManager {
 			</div>
 		<?php endif; ?>
 
-			<h3><?php esc_html_e( 'Pending Approvals', 'buddynext' ); ?></h3>
+			<h3><?php esc_html_e( 'Pending approvals', 'buddynext' ); ?></h3>
 			<p class="description">
 				<?php esc_html_e( 'Accounts awaiting approval cannot sign in until approved. Shown only while registration mode is set to “Approval”.', 'buddynext' ); ?>
 			</p>

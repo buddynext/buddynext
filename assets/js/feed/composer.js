@@ -26,7 +26,21 @@ import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 // Module-level media state — shared between native event handler and store actions.
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
-const _mediaState = { ids: [], previews: [] };
+// `uploading` counts files still on their way up, so Post can wait for them
+// instead of posting without them.
+const _mediaState = { ids: [], previews: [], uploading: 0 };
+
+// Mirror the in-flight count into the composer context (reactive) and drop the
+// "wait for the upload" notice once nothing is left uploading.
+function syncUploading( ctx ) {
+	if ( ! ctx ) {
+		return;
+	}
+	ctx.mediaUploading = _mediaState.uploading;
+	if ( _mediaState.uploading <= 0 && ! ctx.documentUploading ) {
+		ctx.waitNotice = false;
+	}
+}
 
 // A human byte size for the document size-limit message. Integer units are
 // enough here (the ceiling is always a round MB), so no decimals to localise.
@@ -633,9 +647,6 @@ store( 'buddynext/post-composer', {
 		get mediaPreviews() {
 			try { return getContext().mediaPreviews || []; } catch ( _e ) { return []; }
 		},
-		get mediaUploading() {
-			try { return !! getContext().mediaUploading; } catch ( _e ) { return false; }
-		},
 		get hasDocument() {
 			try { return ( getContext().documentId || 0 ) > 0; } catch ( _e ) { return false; }
 		},
@@ -660,6 +671,15 @@ store( 'buddynext/post-composer', {
 		},
 		get errorMessage() {
 			try { return getContext().errorMessage || ''; } catch ( _e ) { return ''; }
+		},
+		get waitNoticeText() {
+			try {
+				const ctx = getContext();
+				if ( ! ctx.waitNotice ) { return ''; }
+				return ( ctx.mediaUploading || 0 ) > 0
+					? t( 'mediaStillUploading', 'Wait for the upload to finish, then post.' )
+					: t( 'documentStillUploading', 'Wait for the document to finish uploading.' );
+			} catch ( _e ) { return ''; }
 		},
 		get retryHidden() {
 			// Hide the Retry button when there's no error, OR when the error is
@@ -745,6 +765,9 @@ store( 'buddynext/post-composer', {
 		 * Separated from openPhoto() to avoid file picker firing on page load.
 		 */
 		pickMedia() {
+			// Captured now, in the action's scope: the native change handler below
+			// runs outside it, where getContext() is not available.
+			const composerCtx = getContext();
 			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
 			const fileInput  = document.querySelector( '.bn-composer__file-input' );
 			if ( ! fileInput || ! composerEl ) {
@@ -776,7 +799,9 @@ store( 'buddynext/post-composer', {
 						return;
 					}
 
-					const remaining = MAX_MEDIA - _mediaState.ids.length;
+					// Files still uploading count toward the limit too, or picking again
+					// mid-upload could attach more than MAX_MEDIA.
+					const remaining = MAX_MEDIA - _mediaState.ids.length - _mediaState.uploading;
 					if ( remaining <= 0 ) {
 						bnToast( fmt( t( 'maxImagesPerPost', 'You can attach at most %d images per post.' ), MAX_MEDIA ), { tone: 'info' } );
 						return;
@@ -797,6 +822,15 @@ store( 'buddynext/post-composer', {
 					}
 
 					const uploadCount = Math.min( files.length, remaining );
+
+					// Two passes. First every chosen file gets its tile at once ("Waiting"),
+					// then they upload one at a time. Building and uploading each file in
+					// turn showed only the first tile while it uploaded, so three videos
+					// looked like one. The whole batch counts as in flight from here, so Post
+					// waits for the last file (it used to slip through between files).
+					_mediaState.uploading += uploadCount;
+					syncUploading( composerCtx );
+					const jobs = [];
 					for ( let i = 0; i < uploadCount; i++ ) {
 						const file = files[ i ];
 
@@ -817,6 +851,8 @@ store( 'buddynext/post-composer', {
 						} );
 						if ( invalid ) {
 							bnToast( invalid, { tone: 'danger' } );
+							_mediaState.uploading--;
+							syncUploading( composerCtx );
 							continue;
 						}
 
@@ -866,19 +902,45 @@ store( 'buddynext/post-composer', {
 							const spinner = document.createElement( 'span' );
 							spinner.className = 'bn-composer__media-spinner';
 							spinner.setAttribute( 'aria-hidden', 'true' );
+							spinner.hidden = true; // Shown when this file's upload starts.
 							thumbRemove = document.createElement( 'button' );
 							thumbRemove.className = 'bn-composer__media-remove';
 							thumbRemove.type = 'button';
 							thumbRemove.textContent = '×';
 							// No removing until the upload lands and has a real media id.
 							thumbRemove.hidden = true;
+							// How much of the file has been sent. A large video takes a
+							// while; a bare spinner made members think nothing was happening.
+							const progress = document.createElement( 'span' );
+							progress.className = 'bn-composer__media-progress';
+							progress.setAttribute( 'role', 'progressbar' );
+							progress.setAttribute( 'aria-label', fmt( t( 'uploadingFile', 'Uploading %s' ), file.name || '' ) );
+							progress.setAttribute( 'aria-valuemin', '0' );
+							progress.setAttribute( 'aria-valuemax', '100' );
+							progress.setAttribute( 'aria-valuenow', '0' );
+							progress.textContent = t( 'uploadWaiting', 'Waiting' );
 							// The poster/icon is already appended above; add the overlays.
-							thumb.append( spinner, thumbRemove );
+							thumb.append( spinner, progress, thumbRemove );
 							previewArea.appendChild( thumb );
 						}
+						jobs.push( { file, kind, thumbUrl, thumb, thumbRemove, thumbImg } );
+					}
 
-						const out = await uploadMedia( file, {
+					for ( const { file, kind, thumbUrl, thumb, thumbRemove, thumbImg } of jobs ) {
+						const progressEl = thumb ? thumb.querySelector( '.bn-composer__media-progress' ) : null;
+						if ( progressEl ) { progressEl.textContent = '0%'; }
+						const spinnerEl = thumb ? thumb.querySelector( '.bn-composer__media-spinner' ) : null;
+						if ( spinnerEl ) { spinnerEl.hidden = false; }
+						let out;
+						try {
+						out = await uploadMedia( file, {
 							nonce,
+							onProgress: ( percent ) => {
+								if ( progressEl ) {
+									progressEl.textContent = percent + '%';
+									progressEl.setAttribute( 'aria-valuenow', String( percent ) );
+								}
+							},
 							// Stage every composer upload PRIVATE, whatever the privacy
 							// picker currently says. The file lands before the member has
 							// finished choosing an audience — and may never be posted at
@@ -901,6 +963,10 @@ store( 'buddynext/post-composer', {
 							// here is a ReferenceError that aborts the whole upload.
 							spaceId: parseInt( ctxData.spaceId, 10 ) || 0,
 						} );
+						} finally {
+							_mediaState.uploading--;
+							syncUploading( composerCtx );
+						}
 
 						if ( out.ok ) {
 							const mediaId = out.mediaId;
@@ -916,6 +982,7 @@ store( 'buddynext/post-composer', {
 								thumb.dataset.mediaId = mediaId;
 								const spin = thumb.querySelector( '.bn-composer__media-spinner' );
 								if ( spin ) { spin.remove(); }
+								if ( progressEl ) { progressEl.remove(); }
 								// If we showed a kind icon (no client frame - audio, or a
 								// video whose frame we could not grab) but the engine
 								// produced a real poster, upgrade the tile to that image.
@@ -1058,6 +1125,7 @@ store( 'buddynext/post-composer', {
 					} finally {
 						ctx.documentUploading = false;
 						docInput.value        = '';
+						syncUploading( ctx );
 					}
 				} ) );
 			}
@@ -1166,6 +1234,15 @@ store( 'buddynext/post-composer', {
 			if ( ctx.submitting ) {
 				return;
 			}
+			// A photo, video or document still on its way up has no id yet, so
+			// posting now would publish without it (or call the post empty). Say so
+			// as a neutral notice, not an error; it clears itself when the last
+			// upload lands (see clearWaitNotice()).
+			if ( _mediaState.uploading > 0 || ctx.documentUploading ) {
+				ctx.errorMessage = '';
+				ctx.waitNotice   = true;
+				return;
+			}
 			// Allow media-only posts, but an empty composer (no text AND no attached
 			// media) must not silently no-op — surface a validation message so the
 			// member gets feedback, mirroring the poll-options check below. For a
@@ -1174,12 +1251,6 @@ store( 'buddynext/post-composer', {
 				ctx.errorMessage   = 'poll' === ctx.composerType
 					? t( 'pollNeedsQuestion', 'Add a question for your poll.' )
 					: t( 'composerEmpty', 'Write something to share.' );
-				ctx.errorRetryable = false;
-				return;
-			}
-			// Don't post while a document is still uploading — the id isn't ready.
-			if ( ctx.documentUploading ) {
-				ctx.errorMessage   = t( 'documentStillUploading', 'Wait for the document to finish uploading.' );
 				ctx.errorRetryable = false;
 				return;
 			}

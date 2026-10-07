@@ -8,9 +8,9 @@ BuddyNext is a community platform for WordPress. It gives your site its own acti
 
 ## What is the difference between BuddyNext Free and Pro?
 
-Free covers the social core: profiles, the activity feed, spaces with all three privacy types, following and connections, direct messaging (with WPMediaVerse installed), comments and reactions, notifications, and the full moderation toolkit (reporting, the moderation queue, warnings/strikes/suspensions, appeals).
+Free covers the social core: profiles, the activity feed, spaces with all three privacy types (Open, Private and Secret), following and connections, direct messaging (with WPMediaVerse installed), comments and reactions, scheduled posts, notifications, and the full moderation toolkit (reporting, the moderation queue, warnings/strikes/suspensions, appeals).
 
-Pro adds the business layer on top: paid membership plans, gated spaces and content protection, Stripe and other payment gateways, scheduled posts, advanced profile field types and conditional logic, advanced search, analytics, broadcast email and drip sequences, auto-moderation and AI-assisted moderation, push notifications, real-time WebSocket delivery, white-labeling, and the deeper companion-plugin integrations (Learnomy, Eventonomy, Listora, Career Board). See [Membership Plans](../pro/01-membership-plans.md) for how Pro's monetization layer is structured.
+Pro adds the business layer on top: paid membership plans, gated spaces and content protection, Stripe and other payment gateways, the scheduled-posts queue, advanced profile field types and conditional logic, advanced search, analytics, broadcast email and drip sequences, auto-moderation and AI-assisted moderation, push notifications, real-time WebSocket delivery, white-labeling, and the deeper companion-plugin integrations (Learnomy, Eventonomy, Listora, Career Board). See [Membership Plans](../pro/01-membership-plans.md) for how Pro's monetization layer is structured.
 
 ## Which themes does BuddyNext work with?
 
@@ -34,7 +34,7 @@ No. The [Setup Wizard](../getting-started/03-admin-setup-wizard.md) walks you th
 
 ## Does BuddyNext Pro unlock features that are hidden in Free, or is it a separate install?
 
-Pro is a separate plugin installed alongside Free (through the built-in one-click installer under **Platform > Add-ons**), not a key that unlocks hidden code in Free. Once Pro is active, its features and admin sections appear automatically. The Pro license key gates updates only - it never locks or unlocks features once Pro is installed and active. See [Installing BuddyNext](../getting-started/02-installation.md).
+Pro is a separate plugin installed alongside Free (upload its zip under **Plugins > Add New**, then activate it), not a key that unlocks hidden code in Free. Once Pro is active, its features and admin sections appear automatically. The Pro license key gates updates only - it never locks or unlocks features once Pro is installed and active. See [Installing BuddyNext](../getting-started/02-installation.md).
 
 ## What are the optional companion plugins, and do I need them?
 

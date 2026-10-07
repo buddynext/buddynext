@@ -16,7 +16,7 @@ Use a gated space when you want:
 
 - A members-only area - a mastermind, a paid course cohort, a VIP lounge - that only subscribers of a specific plan can enter.
 - A reason to upgrade that members can see. The paywall on a locked space is the most direct nudge you have: a member who wants in is one click from your pricing page.
-- One purchase that unlocks several premium spaces at once, by selling a plan that carries the Gated Space Access perk.
+- One purchase that unlocks several premium spaces at once, by selling a plan that carries the **All gated spaces** perk.
 
 For the member, a gated space is a clear boundary: this is part of what your membership includes. For you, it is access control that looks after itself - once a space requires a plan, every join attempt is checked automatically, on the website and in any connected app, with no per-member work.
 
@@ -30,10 +30,10 @@ This works both ways: one plan can unlock several spaces, and one space can be o
 
 When a space is gated:
 
-- A member on any of the plans that open it (or on a plan that grants the Gated Space Access perk) can join normally.
+- A member on any of the plans that open it (or on a plan that grants the All gated spaces perk) can join normally.
 - A member without any of them is blocked, and the join is never recorded.
 
-The Gated Space Access perk is the all-access pass. A plan that grants it lets its subscribers into any gated space, whatever specific plans each space asks for. Use it when you want one plan to unlock everything, instead of listing spaces on the plan.
+The All gated spaces perk is the all-access pass. A plan that grants it lets its subscribers into any gated space, whatever specific plans each space asks for. Use it when you want one plan to unlock everything, instead of listing spaces on the plan.
 
 ### What a blocked member sees
 
@@ -56,7 +56,7 @@ Once a space is linked to the plans you want, everything else - the join check, 
 
 One limitation to know about:
 
-- Gated spaces are not visually badged. A space does not show a lock icon or "members only" label in space directories or listings. The gate is enforced when someone tries to join, and the paywall appears when a blocked member opens the space, but there is no badge marking the space as gated from the outside.
+- Gated spaces are not visually badged. A space set to Secret cannot show the upgrade prompt to people who cannot see it, and the picker marks it as such. A space does not show a lock icon or "members only" label in space directories or listings. The gate is enforced when someone tries to join, and the paywall appears when a blocked member opens the space, but there is no badge marking the space as gated from the outside.
 
 ### Step 2: Configure the paywall prompt
 
@@ -68,13 +68,14 @@ These apply to every gated space unless a space overrides them.
 
 | Setting | What it does | Default |
 |---|---|---|
-| CTA URL | Where the upgrade button points (for example your pricing page). Leave blank to hide the button. | (empty) |
-| Button Label | The text on the upgrade button. | Become a Member |
+| CTA URL | Where the upgrade button points: your own pricing page, a WooCommerce product, or any checkout URL. Leave blank to use the membership pricing page, or no button at all when nothing is on sale. | (empty) |
+| Button label | The text on the upgrade button. | Become a Member |
 | Description | The copy shown under the paywall heading. | (empty) |
+| Show annual savings badge | Shows members how much they save by paying annually, on the pricing page. | On |
 
 #### Per-space overrides
 
-Below the global defaults, the Paywall tab lists every gated space with the plan it requires and its own CTA URL, Button Label, and Description fields. Fill any of these to override the global default for that one space; leave them blank to inherit the global values. This lets you point each premium space at a different upgrade page or word its prompt differently while keeping one shared default for the rest.
+Below the global defaults, the Paywall tab lists every gated space with the plans that open it and its own CTA URL, Button label, and Description fields. Fill any of these to override the global default for that one space; leave them blank to inherit the global values. This lets you point each premium space at a different upgrade page or word its prompt differently while keeping one shared default for the rest.
 
 
 > **Tip:** Set a sensible CTA URL and description in the global defaults first - usually a link to your pricing page. Then add a per-space override only where a particular space needs its own wording or destination.
@@ -82,7 +83,7 @@ Below the global defaults, the Paywall tab lists every gated space with the plan
 ## Good to know
 
 - The gate works everywhere. Once a space is gated, the join check runs on the website and in any connected app alike. A blocked member is never added, even from an app.
-- Access can come from a plan or the all-access perk. A member gets in if they are on the plan the space requires, or if their active plan grants the Gated Space Access perk.
+- Access can come from a plan or the all-access perk. A member gets in if they are on the plan the space requires, or if their active plan grants the All gated spaces perk.
 - Losing the subscription re-locks the space. When a subscription expires or is revoked, access is removed and the member can no longer enter the gated space.
 - The paywall handles half-finished setups gracefully. When no gateway price is linked to the required plan, the button uses your CTA URL. When neither a price nor a URL is set, the prompt shows a friendly "not configured" notice rather than failing - so a partial setup never breaks the page.
 - No badge yet. Because gated spaces are not marked in directories, tell members which spaces are premium in your space description or pricing copy until a visible badge ships.

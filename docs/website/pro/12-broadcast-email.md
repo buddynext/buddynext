@@ -23,14 +23,14 @@ From a member's side, a broadcast is an email they receive, plus the ability to 
 
 ### Unsubscribing from a broadcast
 
-Every broadcast carries a one-click unsubscribe link unique to that member. Clicking it records their choice and stops future broadcasts from reaching them - no login or form required.
+Every broadcast carries a one-click unsubscribe link unique to that member (campaign footer text: "Unsubscribe from this campaign"). Clicking it records their choice and stops future broadcasts from reaching them - no login or form required.
 
 ### Managing email preferences
 
 Members can also stop **every** broadcast at once, rather than unsubscribing campaign by campaign. There are two ways to the same switch:
 
 - **From any broadcast email.** The footer carries two links: unsubscribe from this campaign, and unsubscribe from all broadcast email. Neither needs a login.
-- **From their account.** **Settings > Notifications**, in the Channels card, has a **Newsletters and announcements** switch. Turning it off stops all broadcast email.
+- **From their account.** **Settings > Notifications**, in the Channels card, has a **Newsletters and announcements** switch. Turning it off stops all broadcast email. The same choice also appears as **Unsubscribe from all broadcast emails (newsletters, announcements)** on the member's WordPress profile screen.
 
 When a member has opted out, they are skipped when a campaign is dispatched, so they are never emailed against their preference. This also applies to drip sequences - a member who has opted out of all broadcast email stops receiving drip steps too.
 
@@ -40,18 +40,18 @@ When a member has opted out, they are skipped when a campaign is dispatched, so 
 
 ## Setting it up (for owners)
 
-Broadcasts live under the BuddyNext admin menu on the Broadcast Campaigns page. All campaign actions require administrator access (manage options).
+Broadcasts live in the BuddyNext admin under **Campaigns > Broadcasts** (the Campaigns section also holds Drip sequences). Broadcast email also has its own switch in the Features catalogue, **Email broadcasts**, which is on by default. All campaign actions require administrator access (manage options).
 
 
 ### Creating a campaign
 
-Open the Broadcast Campaigns page and fill in the New Campaign form:
+Open **Campaigns > Broadcasts**. The page lists your campaigns (Name, Subject, Status, Created, Actions) and has a **New campaign** form below:
 
-1. **Campaign Name** - an internal name so you can find the campaign in your list. Members never see it.
-2. **Compose** - the subject line and the message body. The composer accepts HTML for headings, links, and formatting, and supports merge tags such as `{{first_name}}` and `{{site_name}}`.
+1. **Campaign name** - an internal name so you can find the campaign in your list. Members never see it.
+2. **Compose** - the subject line and the message body. The composer accepts HTML for headings, links, and formatting. Merge tags you can use are `{{first_name}}`, `{{user_name}}`, `{{user_email}}`, `{{site_name}}`, `{{site_url}}`, `{{login_url}}`, `{{unsubscribe_url}}` and `{{current_year}}`.
 3. **Segment** - who should receive it (see the segment table below).
 4. **Schedule** (optional) - a date and time to send automatically, interpreted in your site's timezone. Leave it blank to keep the campaign as a draft you send manually.
-5. Use **Create Campaign** to save it. With no schedule the campaign starts as a draft; with a schedule set it is queued to send at that time.
+5. Use **Create campaign** to save it. With no schedule the campaign starts as a draft; with a schedule set it is queued to send at that time.
 
 ### Choosing a recipient segment
 
@@ -59,24 +59,27 @@ A segment decides which members a campaign goes to. Pick one of these:
 
 | Segment | Who it reaches |
 |---|---|
-| All users | Every registered member. |
-| By space | Members of one or more spaces you choose. |
-| By tag | Members carrying a tag you choose. Enter several tags and a member matches if they carry **any** of them, not all of them. |
+| All members | Every registered member. |
+| By space membership | Members of one or more spaces you pick (anyone who belongs to any of them). |
 | By activity level | Members active within a number of days you set. |
-| By join date | Members who joined within a date range you set. |
-| By member label | Members carrying a Pro member label you choose (for example, Verified or Staff). |
+| By join date | Members who registered in a date range (Joined after, Joined before; either bound is optional). |
+| By member label | Members carrying any of the Pro member labels you pick (for example, Verified or Staff). |
 
 ### Sending a test
 
-Before dispatching, use Send Test on the campaign. It emails a copy to your own admin address, with the subject prefixed so you can tell it apart, so you can confirm the formatting and links look right before any member receives it.
+Before dispatching, use **Send test** on the campaign. It emails a copy to your own admin address, with the subject prefixed so you can tell it apart, so you can confirm the formatting and links look right before any member receives it.
 
 ### Dispatching
 
-When the campaign is ready, use Send Now. This queues a recipient for every member in the segment and begins sending in batches in the background, so a large send does not block your admin screen or time out. The campaign moves to a sending state and then to sent as the batches complete. You can also set a send time when creating or editing the campaign; a background task promotes scheduled campaigns and dispatches them once their time arrives.
+When the campaign is ready, use **Send now**. This queues a recipient for every member in the segment and begins sending in batches in the background, so a large send does not block your admin screen or time out. The campaign moves to a sending state and then to sent as the batches complete. You can also set a send time when creating the campaign; a background task promotes scheduled campaigns and dispatches them once their time arrives.
+
+### Cancelling or deleting
+
+A scheduled or sending campaign has a **Cancel** button. It clears the queued recipients and resets the campaign to a draft. **Delete** removes a campaign and its recipient records for good, after a confirmation.
 
 ### Viewing recipients
 
-Each campaign has a Recipients view that breaks delivery down by status - how many recipients are queued, sent, unsubscribed, or bounced - so you can confirm a send went through and see how many opted out. It shows per-status counts rather than a per-member list.
+Each campaign has a **Recipients** view that breaks delivery down by status (Queued, Sent, Unsubscribed, Bounced) so you can confirm a send went through and see how many opted out. It shows per-status counts rather than a per-member list.
 
 ### Settings
 
@@ -85,7 +88,7 @@ Each campaign has a Recipients view that breaks delivery down by status - how ma
 | Campaign Name | Internal label for the campaign. | Empty (you set it per campaign) |
 | Email Subject | Subject line members see. | Empty (you set it per campaign) |
 | Email Body | The HTML message body. | Empty (you set it per campaign) |
-| Segment | Which members receive the campaign. | All users |
+| Segment | Which members receive the campaign. | All members |
 | Member all-broadcasts opt-out | Set by each member; excludes them from all broadcasts. | Off (member receives broadcasts) |
 
 ## Good to know

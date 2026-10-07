@@ -7,10 +7,11 @@ This page documents the moderation REST surface in BuddyNext free: member report
 ## Overview / Contract
 
 - Base namespace: `buddynext/v1`. Full base URL: `/wp-json/buddynext/v1`.
-- Three permission plans gate these routes:
+- Four permission plans gate these routes:
   - **Auth** (`require_auth`) - any logged-in user. Used for filing reports and appeals.
-  - **Queue** (`require_queue_access`) - site admins (`manage_options`) plus space owners/moderators (scoped to their spaces). Used for reading and actioning the queue.
-  - **Admin** (`require_admin`) - site admins only. Used for trust actions and report dispositions.
+  - **Queue** (`require_queue_access`) - site admins and site-wide moderators holding the review-queue ability, plus space owners/moderators (scoped to their spaces). Used for reading and actioning the queue.
+  - **Moderator** (`require_moderator`) - anyone holding a moderation ability: a site admin, a community moderator, or a member granted one. Used for the trust actions, listing reports, and setting a post's content warning.
+  - **Admin** (`require_admin`) - site admins only (`manage_options`). Used for the appeals list and decisions.
 - Unauthenticated calls to gated routes return `401 rest_forbidden`; authenticated-but-unprivileged calls return `403`.
 - Path ids (`{id}` for a report, user, or appeal; `{sid}` for a strike) are positive integers validated server-side.
 - Several surfaces share a path with both a GET (read) and a CREATE/EDIT (write) method; WordPress merges these registrations on the same route.
@@ -24,8 +25,8 @@ A report is filed by a member against an object (post, reply, user, etc.). Admin
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | POST | `/reports` | Auth | File a report. Body: `object_type`, `object_id`, `reason`, optional `notes`, `space_id`. |
-| GET | `/reports` | Admin | List reports for a given `object_type` + `object_id`. |
-| GET | `/reports/queue` | Queue | Paginated moderation queue (pending + escalated). Space mods see only their spaces. |
+| GET | `/reports` | Moderator | List reports for a given `object_type` + `object_id` (both required). |
+| GET | `/reports/queue` | Queue | Paginated moderation queue (pending + escalated). Query: `space_id`, `object_type`, `reason`, `page`, `per_page` (default 20). Space mods see only their spaces. |
 | POST | `/reports/{id}/dismiss` | Auth + report scope | Dismiss the report (no action warranted). |
 | PUT | `/reports/{id}/escalate` | Auth + report scope | Escalate the report to site-admin review. |
 | PUT | `/reports/{id}/resolve` | Auth + report scope | Resolve the report (handled). |
@@ -49,7 +50,8 @@ These sit alongside the report queue and share the same queue-access plan.
 | GET | `/moderation/pending` | Queue | Posts awaiting pre-moderation approval (paginated). |
 | POST | `/posts/{id}/approve` | Queue | Approve a pending post. |
 | POST | `/posts/{id}/reject` | Queue | Reject a pending post (optional reason). |
-| GET | `/moderation/log` | Admin | Moderation action log (paginated, filterable). |
+| GET | `/moderation/log` | Moderator or queue | Moderation action log (paginated, filterable). Query: `space_id`, `user_id`, `action`, `since_days`, `page`, `per_page` (default 20). Moderators see the whole log; a space owner/moderator passes through the queue gate and is scoped to their spaces. |
+| GET | `/moderation/suspension-reasons` | Moderator | The reason list the suspend dialogs use: `{ items: [ { code, label, note_required } ], note_max }`. |
 
 ## Appeal routes
 
@@ -57,33 +59,33 @@ A member appeals a moderation action against them. Admins approve or deny.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| POST | `/appeals` | Auth | File an appeal. |
+| POST | `/appeals` | Auth | File an appeal. Body: `message`, optional `suspension_id`. |
 | GET | `/appeals` | Admin | List appeals. |
 | PUT | `/appeals/{id}/approve` | Admin | Approve the appeal (reverse the action). |
 | PUT | `/appeals/{id}/deny` | Admin | Deny the appeal. |
-| POST | `/appeals/{id}/resolve` | Admin | Mark the appeal resolved. |
-| POST | `/me/appeals` | Auth | File an appeal as the current user. |
+| POST | `/appeals/{id}/resolve` | Admin | Mark the appeal resolved. Body: `decision` (`approved` or `denied`, required), `reviewer_note`. |
+| POST | `/me/appeals` | Auth | File an appeal as the current user. Body: `message` (required). |
 | GET | `/me/appeals` | Auth | The current user's own appeals. |
 | GET | `/me/standing` | Auth | The current user's own trust/moderation standing (active warnings, strikes, suspension, shadow-ban state) - the self-service read behind the account "Standing" panel. |
 
 ## User trust routes
 
-Per-user trust actions. All are site-admin only **except `POST /users/{id}/warn`**, which a space owner or moderator may also call in the context of a space they moderate (see the note above). Reads (warnings, suspension state, shadow-ban state, strikes) share paths with their write counterparts.
+Per-user trust actions. All require the Moderator plan (a site admin, a community moderator, or a member granted the ability) **except `POST /users/{id}/warn`**, which a space owner or moderator may also call in the context of a space they moderate (see the note above). Reads (warnings, suspension state, shadow-ban state, strikes) share paths with their write counterparts.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/users/{id}/warnings` | Admin | List warnings issued to the user. |
-| POST | `/users/{id}/warn` | Auth + space scope | Issue a warning to the user. Site admins may warn anyone; a space owner/moderator only within a space they moderate (pass `space_id`). |
-| GET | `/users/{id}/strikes` | Admin | List the user's strikes. |
-| POST | `/users/{id}/strikes` | Admin | Add a strike to the user. |
-| POST | `/users/{id}/strikes/{sid}/reverse` | Admin | Reverse a specific strike. |
-| GET | `/users/{id}/shadow-ban` | Admin | Read the user's shadow-ban state. |
-| POST | `/users/{id}/shadow-ban` | Admin | Shadow-ban the user. |
-| DELETE | `/users/{id}/shadow-ban` | Admin | Lift the shadow-ban. |
-| GET | `/users/{id}/suspension` | Admin | Read the user's current suspension state. |
-| GET | `/users/{id}/suspensions` | Admin | List the user's suspension history. |
-| POST | `/users/{id}/suspend` | Admin | Suspend the user. Body: optional `reason`, `duration_days`, `hide_posts`. |
-| DELETE | `/users/{id}/suspend` | Admin | Lift the suspension. |
+| GET | `/users/{id}/warnings` | Moderator | List warnings issued to the user. |
+| POST | `/users/{id}/warn` | Auth + space scope | Issue a warning to the user. Body: `message` (required), `space_id`. Site admins may warn anyone; a space owner/moderator only within a space they moderate (pass `space_id`). |
+| GET | `/users/{id}/strikes` | Moderator | List the user's strikes. |
+| POST | `/users/{id}/strikes` | Moderator | Add a strike to the user. |
+| POST | `/users/{id}/strikes/{sid}/reverse` | Moderator | Reverse a specific strike. |
+| GET | `/users/{id}/shadow-ban` | Moderator | Read the user's shadow-ban state. |
+| POST | `/users/{id}/shadow-ban` | Moderator | Shadow-ban the user. |
+| DELETE | `/users/{id}/shadow-ban` | Moderator | Lift the shadow-ban. |
+| GET | `/users/{id}/suspension` | Moderator | Read the user's current suspension state. |
+| GET | `/users/{id}/suspensions` | Moderator | List the user's suspension history. |
+| POST | `/users/{id}/suspend` | Moderator | Suspend the user. Body: optional `reason`, `duration_days`, `hide_posts`. |
+| DELETE | `/users/{id}/suspend` | Moderator | Lift the suspension. |
 | GET | `/users/{id}/account-type` | Auth | The user's account type (public/private). |
 
 > **Note:** Strikes and shadow-ban use a single path for read and write (GET/POST, plus DELETE for shadow-ban). Suspend likewise pairs POST (suspend) and DELETE (lift) on `/users/{id}/suspend`, with separate GET reads on `/suspension` (current) and `/suspensions` (history).
@@ -110,12 +112,12 @@ Per-space bans. Gated by `require_space_owner_or_admin` - site admins plus the o
 
 ## Content warnings
 
-A per-post content-warning flag. Reading it is public (so any viewer's client can show the interstitial); setting or clearing it is site-admin only.
+A per-post content-warning flag. Reading it is public (so any viewer's client can show the interstitial); setting or clearing it needs the Moderator plan.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET | `/posts/{id}/content-warning` | Public | Read the post's content-warning state. |
-| PUT | `/posts/{id}/content-warning` | Admin | Set or clear the warning. Body: `content_warning` (boolean, required), optional `content_warning_type`. |
+| PUT | `/posts/{id}/content-warning` | Moderator | Set or clear the warning. Body: `content_warning` (boolean, required), optional `content_warning_type`. |
 
 ## Examples
 
@@ -145,13 +147,16 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/users/42/suspend" \
   -H "Content-Type: application/json" \
   --cookie "<admin auth cookies>" \
   -d '{
-        "reason": "Repeated harassment after warnings.",
+        "reason_code": "harassment",
+        "note": "Repeated harassment after warnings.",
         "duration_days": 7,
         "hide_posts": true
       }'
 ```
 
-All body fields are optional: omit `duration_days` for an indefinite suspension, set `hide_posts` to `true` to hide the user's content for the duration. Lift the suspension with `DELETE /users/42/suspend`.
+A reason is required (since 1.2.4): send `reason_code` from `GET /moderation/suspension-reasons` (with an optional `note`, required for `other`, max 300 characters), or a free-text `reason`. The member is shown the composed reason. A suspension with no reason returns `400 reason_required`. Omit `duration_days` for an indefinite suspension (administrators only), and set `hide_posts` to `true` to hide the user's content for the duration. Lift the suspension with `DELETE /users/42/suspend`.
+
+`GET /moderation/suspension-reasons` (moderators) returns `{ items: [{ code, label, note_required }], note_max }`, the same list the web dialogs use.
 
 ## Notes / gotchas
 

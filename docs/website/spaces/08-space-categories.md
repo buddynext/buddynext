@@ -33,7 +33,7 @@ Categories are managed in the admin under BuddyNext > Spaces > Directory, in the
 | Text color | The badge text color, paired with the background for contrast. | White |
 | Icon | An optional inline icon shown with the category. | None |
 | Sort order | A number that sets where the category appears in the list; lower numbers come first. | 0 |
-| Show in directory | Whether the category appears as a filter option for members in the directory. | On |
+| Show in the spaces directory | Whether the category appears as a filter option for members in the directory. | On |
 
 
 ### Setting a default category

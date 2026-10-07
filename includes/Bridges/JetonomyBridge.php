@@ -779,7 +779,10 @@ class JetonomyBridge {
 		// authored), not the global forum landing page. Only shown when logged in —
 		// there is no "my discussions" for a guest.
 		$uid = get_current_user_id();
-		if ( $uid <= 0 ) {
+		// Hidden under Integration Settings > Show in navigation: the profile tab
+		// this links to is gated on the same flag, so the rail must follow it (the
+		// Leaderboard, Media and Events rail items already do).
+		if ( $uid <= 0 || ! buddynext_integration_enabled( 'jetonomy', 'nav' ) ) {
 			return $items;
 		}
 
@@ -876,6 +879,49 @@ class JetonomyBridge {
 	 */
 	public function set_discussion_enabled( int $space_id, bool $enabled ): void {
 		update_space_meta( absint( $space_id ), 'discussion_enabled', $enabled ? '1' : '0' );
+	}
+
+	/**
+	 * Apply the owner's Discussion on/off choice for a space.
+	 *
+	 * The one path behind Space settings > Integrations and
+	 * POST /spaces/{id}/discussion:
+	 * - first enable: create the dedicated discussion, or (initial setup only)
+	 *   link one the actor may adopt: a site admin any existing discussion, a
+	 *   space owner only one they authored (re-validated, a crafted request
+	 *   cannot widen it);
+	 * - later on/off: only the enabled flag flips; the discussion and its
+	 *   content are never discarded or duplicated.
+	 *
+	 * @param int  $space_id BuddyNext space ID.
+	 * @param bool $enabled  Desired state.
+	 * @param int  $link_id  Existing discussion to link on first enable, or 0.
+	 * @param int  $actor_id Who is making the change.
+	 * @return true|\WP_Error Error when the discussion could not be created.
+	 */
+	public function apply_discussion_choice( int $space_id, bool $enabled, int $link_id, int $actor_id ) {
+		if ( ! $enabled ) {
+			$this->set_discussion_enabled( $space_id, false );
+			return true;
+		}
+
+		if ( ! $this->space_has_discussion( $space_id ) ) {
+			$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			$may_link = $link_id > 0 && (
+				user_can( $actor_id, 'manage_options' )
+					? $this->discussion_exists( $link_id )
+					: $this->discussion_owned_by( $link_id, (int) ( $space['owner_id'] ?? 0 ) )
+			);
+			if ( $may_link ) {
+				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
+			} elseif ( $this->provision_space_forum( $space_id ) <= 0 ) {
+				// Leaving it on would give members a Discussion tab with nothing behind it.
+				return new \WP_Error( 'bn_discussion_not_created', __( 'The discussion could not be created, so it was not enabled.', 'buddynext' ), array( 'status' => 500 ) );
+			}
+		}
+
+		$this->set_discussion_enabled( $space_id, true );
+		return true;
 	}
 
 	/**
@@ -1756,6 +1802,36 @@ class JetonomyBridge {
 			)
 		);
 
+		// The owner's Discussion on/off control (Space settings > Integrations):
+		// read the status, or turn it on (optionally linking an existing one) / off.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>\d+)/discussion',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'rest_discussion_status' ),
+					'permission_callback' => array( $this, 'rest_discussion_manage_permission' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'rest_set_discussion' ),
+					'permission_callback' => array( $this, 'rest_discussion_manage_permission' ),
+					'args'                => array(
+						'enabled' => array(
+							'required' => true,
+							'type'     => 'boolean',
+						),
+						'link_id' => array(
+							'type'              => 'integer',
+							'default'           => 0,
+							'sanitize_callback' => 'absint',
+						),
+					),
+				),
+			)
+		);
+
 		// Typeahead for the "link an existing discussion" picker. Bounded search so
 		// it scales past a bounded <select> on sites with thousands of discussions.
 		// Same manage-space gate as provisioning; scope is role-derived server-side
@@ -1886,6 +1962,48 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Permission: the same space-settings capability the web settings page uses.
+	 *
+	 * @param \WP_REST_Request $request Request (id).
+	 * @return true|\WP_Error
+	 */
+	public function rest_discussion_manage_permission( \WP_REST_Request $request ) {
+		$visible = $this->rest_forum_access_permission( $request );
+		if ( true !== $visible ) {
+			return $visible;
+		}
+		if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => (int) $request['id'] ) ) ) {
+			return new \WP_Error( 'rest_forbidden', __( 'You cannot manage this space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		return true;
+	}
+
+	/**
+	 * GET /spaces/{id}/discussion - has_discussion, enabled, forum_id, name, url.
+	 *
+	 * @param \WP_REST_Request $request Request (id).
+	 * @return \WP_REST_Response
+	 */
+	public function rest_discussion_status( \WP_REST_Request $request ): \WP_REST_Response {
+		return new \WP_REST_Response( $this->space_discussion_status( (int) $request['id'] ), 200 );
+	}
+
+	/**
+	 * POST /spaces/{id}/discussion - apply the on/off choice, return the new status.
+	 *
+	 * @param \WP_REST_Request $request Request (id, enabled, link_id).
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function rest_set_discussion( \WP_REST_Request $request ) {
+		$space_id = (int) $request['id'];
+		$result   = $this->apply_discussion_choice( $space_id, (bool) $request['enabled'], (int) $request['link_id'], get_current_user_id() );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		return new \WP_REST_Response( $this->space_discussion_status( $space_id ), 200 );
+	}
+
+	/**
 	 * REST: provision (or fetch) a space's forum and return its URL — for the app.
 	 *
 	 * @param \WP_REST_Request $request Request.
@@ -1995,8 +2113,8 @@ class JetonomyBridge {
 				'version'        => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
 				// No hard floor evidenced for the model/action seams this bridge
 				// consumes, so none is declared (an invented floor would be worse
-				// than an honest null). Tested against the current release, 1.9.7.
-				'tested_version' => '1.9.7',
+				// than an honest null). Tested against 2.0.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
+				'tested_version' => '2.0.0',
 				'has_nav'        => true,
 				'has_feed'       => true,
 				'has_search'     => true,
@@ -2299,6 +2417,13 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Per-request memo: Jetonomy forum id => linked BuddyNext space id.
+	 *
+	 * @var array
+	 */
+	private static array $forum_space_memo = array();
+
+	/**
 	 * Resolve the BuddyNext space a Jetonomy forum is linked to — the inverse of
 	 * forum_id_for_space().
 	 *
@@ -2314,15 +2439,13 @@ class JetonomyBridge {
 	 * @return int BuddyNext space id, or 0 when the forum is not linked to a space.
 	 */
 	private function space_id_for_forum( int $forum_id ): int {
-		static $memo = array();
-
 		$forum_id = absint( $forum_id );
 		if ( $forum_id <= 0 ) {
 			return 0;
 		}
 
-		if ( isset( $memo[ $forum_id ] ) ) {
-			return $memo[ $forum_id ];
+		if ( isset( self::$forum_space_memo[ $forum_id ] ) ) {
+			return self::$forum_space_memo[ $forum_id ];
 		}
 
 		global $wpdb;
@@ -2341,7 +2464,14 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$memo[ $forum_id ] = $space_id;
+		// Remember only a real link. A forum read before its space is linked (space
+		// creation fires Jetonomy's hooks before the jetonomy_forum_id meta is written)
+		// would otherwise stay 0 for the rest of the request, and every discussion
+		// written after the link would carry no space, slipping past the space's own
+		// "share to the main feed" toggle.
+		if ( $space_id > 0 ) {
+			self::$forum_space_memo[ $forum_id ] = $space_id;
+		}
 
 		return $space_id;
 	}

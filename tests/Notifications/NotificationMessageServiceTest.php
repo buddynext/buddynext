@@ -91,7 +91,6 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 			'comment_reply'          => array( 'bn.comment_reply', 'replied to your comment' ),
 			'post_shared'            => array( 'bn.post_shared', 'shared your post' ),
 			'mention'                => array( 'bn.mention', 'mentioned you' ),
-			'bookmark_milestone'     => array( 'bn.bookmark_milestone', 'bookmarked' ),
 			'space_join'             => array( 'bn.space_join', 'joined' ),
 			'space_invite'           => array( 'bn.space_invite', 'invited you to' ),
 			'space_join_requested'   => array( 'bn.space_join_requested', 'requested to join' ),

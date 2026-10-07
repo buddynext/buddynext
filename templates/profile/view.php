@@ -237,7 +237,7 @@ if ( '' === $profile_slug ) {
 // --- Spaces, interests, completion, presence ------------------------------
 // Member's active spaces (id/name/slug/role) via the membership service, shared
 // with the right-sidebar widget so both surfaces agree.
-$member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id, 5 );
+$member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id, 5, get_current_user_id() );
 
 $skills     = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'skills' ) ) ) );
 $completion = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
@@ -455,16 +455,14 @@ $bn_pf_ctx = array(
 	</div>
 	<?php
 
-	// Share modal: any logged-in viewer can share posts shown in the profile
-	// feed, so the modal must be present here too (mirrors home.php and
-	// single-post.php). Without it the post Share button's bn-open-share-modal
-	// event has no element to bind to and the click does nothing.
-	if ( $current_user_id ) :
-		buddynext_get_template(
-			'partials/share-modal.php',
-			array( 'current_user_id' => $current_user_id )
-		);
-	endif;
+	// Share modal: any viewer can share posts shown in the profile feed (members
+	// repost; anyone can share a public post outside), so the modal must be present
+	// here too (mirrors home.php and single-post.php). Without it the post Share
+	// button's bn-open-share-modal event has no element to bind to.
+	buddynext_get_template(
+		'partials/share-modal.php',
+		array( 'current_user_id' => $current_user_id )
+	);
 	?>
 
 </div><!-- /.bn-pf-stack -->

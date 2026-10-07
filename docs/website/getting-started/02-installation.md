@@ -1,6 +1,6 @@
 # Installing BuddyNext
 
-This page walks you through installing the free BuddyNext plugin, adding BuddyNext Pro with the one-click installer, and choosing the optional companion plugins that extend specific features. The whole process takes a few minutes and ends at the setup wizard.
+This page walks you through installing the free BuddyNext plugin, adding BuddyNext Pro, and choosing the optional companion plugins that extend specific features. The whole process takes a few minutes and ends at the setup wizard.
 
 ![Platform - Features admin tab showing the feature on/off toggles and integration bridges available after installation](../images/admin-features.webp)
 
@@ -20,7 +20,7 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 | Database | MySQL 5.7+ or MariaDB 10.3+ (standard WordPress) |
 | Permalinks | Pretty permalinks enabled (any setting other than Plain) |
 
-> **Note:** BuddyNext uses pretty-permalink URLs for its community pages. If your site is set to Plain permalinks, switch to any other option under Settings > Permalinks before or right after activation.
+> **Note:** BuddyNext uses pretty-permalink URLs for its community pages and cannot run on Plain links (`?p=123`). If your site is set to Plain, BuddyNext shows a notice across wp-admin with a **Use Post name permalinks** button that switches it in one click, plus a link to Settings > Permalinks if you prefer another structure. The Setup Checklist lists the same step.
 
 > **Memory:** With BuddyNext, its Pro layer and the media/integration plugins all active, PHP's 128 MB default can run out mid-request. Set `memory_limit` to at least 512 MB in `php.ini` or `wp-config.php` (`define( 'WP_MEMORY_LIMIT', '512M' );`). **Tools > Site Health** shows a recommendation when your limit is below this.
 
@@ -30,7 +30,7 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 2. Click **Activate**.
 3. On activation, BuddyNext sets everything up for you automatically:
    - Prepares the storage it needs for the feed, spaces, members, messaging, notifications, and moderation.
-   - Creates the community pages (feed, members, spaces, messages, notifications, profile, search) with clean, readable links.
+   - Creates the community pages (Activity, Members, Spaces, Notifications and Login, plus Messages when WPMediaVerse is active) with clean, readable links. Profiles, search and onboarding live under these addresses and need no page of their own.
    - Makes sure every community link works immediately.
 4. The free plugin activates itself, so it is fully working the moment it is active. There is no key to enter for the free version.
 
@@ -38,19 +38,19 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 
 ## Steps: install BuddyNext Pro
 
-Pro is delivered through a built-in one-click installer, not a manual upload. You do not download a separate Pro zip or search the plugin directory.
+Pro is a separate plugin that you install on top of the free one. It is not in the Add-ons list.
 
-1. Buy a BuddyNext Pro license. You will receive a license key.
-2. In wp-admin, open **BuddyNext > Platform > Add-ons** (the companion hub).
-3. Find **BuddyNext Pro** and click **Install**. BuddyNext fetches and installs Pro for you in one click.
-4. Once installed, activate it.
+1. Buy a BuddyNext Pro license from wbcomdesigns.com. You will receive a license key and a download.
+2. Make sure the free BuddyNext plugin is active.
+3. In wp-admin, go to **Plugins > Add New > Upload Plugin**, choose the BuddyNext Pro zip, and click **Install Now**.
+4. Click **Activate**.
 5. Go to **BuddyNext > Get Started > License**, paste your Pro license key, and activate it. The License tab appears only once Pro is active.
 
 > **Note:** The license key gates **updates only**. It never unlocks or locks features. Pro is fully functional after activation, and the key simply lets your site receive Pro updates. Keep it active so you get security and feature updates.
 
 ## Optional companion plugins
 
-These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Add-ons** (the same catalog the setup wizard's Addons step offers).
+These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs with the **Install free** button under **BuddyNext > Platform > Add-ons** (the same catalog the setup wizard's Addons step offers). A plugin that is already installed shows **Activate** instead.
 
 | Companion | What it adds | Required for |
 |-----------|--------------|--------------|
@@ -63,7 +63,9 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 | **Eventonomy** | Events, RSVPs, and calendars | Events as feed cards and attended events on member profiles |
 | **WB Member Blog** | Front-end post publishing without wp-admin | The Articles tab on member profiles and article cards in the feed |
 
-> **Tip:** WPMediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started; the Pro features (group messaging, read receipts, real-time delivery) come bundled with BuddyNext Pro.
+> **Note:** Career Board, Listora, Learnomy and Eventonomy work on their own as plugins, but their community surfacing (feed cards, profile tabs, search) comes from bridges that ship in BuddyNext Pro. WPMediaVerse, Jetonomy, WB Gamification and WB Member Blog surface with BuddyNext Free.
+
+> **Tip:** WPMediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started. BuddyNext Pro does not bundle WPMediaVerse; it is a separate plugin with its own editions.
 
 ## Good to know
 
@@ -76,5 +78,5 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 
 Not sure which theme to use with BuddyNext - BuddyX, BuddyX Pro, or Reign? BuddyNext works with any theme, so this is a quick, no-wrong-answer decision: see [Choosing Your Theme](02a-choosing-a-theme.md).
 
-After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Reopen it any time at `wp-admin/admin.php?page=buddynext-setup` to revisit those choices.
+After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Reopen it any time at `wp-admin/admin.php?page=buddynext-setup` to revisit those choices. If you leave it unfinished, a **Run the setup wizard** link stays in the wp-admin notices.
 

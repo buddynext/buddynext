@@ -36,7 +36,7 @@ class PollController extends BaseRestController {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'vote' ),
-				'permission_callback' => array( $this, 'require_auth' ),
+				'permission_callback' => array( $this, 'require_interact' ),
 			)
 		);
 

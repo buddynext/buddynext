@@ -55,14 +55,22 @@ class GamificationAchievements {
 			'buddynext_integrations',
 			static function ( array $items ): array {
 				$items['gamification'] = array(
-					'label'          => __( 'Gamification', 'buddynext' ),
-					'version'        => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
+					'label'            => __( 'Gamification', 'buddynext' ),
+					'version'          => defined( 'WB_GAM_VERSION' ) ? WB_GAM_VERSION : null,
 					// Floor: 1.6.3 introduced the toast skip-reason behaviour the
-					// bridge relies on. Tested against the current release, 1.6.4.
-					'min_version'    => '1.6.3',
-					'tested_version' => '1.6.4',
-					'has_nav'        => true,
-					'has_feed'       => true,
+					// bridge relies on. Tested against 1.6.5: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
+					'min_version'      => '1.6.3',
+					'tested_version'   => '1.6.5',
+					// Kept on below these; each feature detects the API it needs
+					// (wb_gam_send_kudos, LeaderboardEngine::get_leaderboard_page,
+					// wb_gam_get_point_type_label) and the owner is told what to update.
+					'feature_versions' => array(
+						__( 'Kudos', 'buddynext' ) => '1.6.5',
+						__( 'Space leaderboards', 'buddynext' ) => '1.6.5',
+						__( 'Custom points name', 'buddynext' ) => '1.6.5',
+					),
+					'has_nav'          => true,
+					'has_feed'         => true,
 
 					/*
 					 * The engine's own REST namespace, so a client can reach what
@@ -78,7 +86,7 @@ class GamificationAchievements {
 					 * forbids, and would fork the engine's response shape on the
 					 * next engine release.
 					 */
-					'rest_namespace' => 'wb-gamification/v1',
+					'rest_namespace'   => 'wb-gamification/v1',
 				);
 				return $items;
 			}
@@ -639,6 +647,13 @@ class GamificationAchievements {
 	}
 
 	/**
+	 * Per-request memo: member id => all-time leaderboard rank.
+	 *
+	 * @var array
+	 */
+	private static array $rank_memo = array();
+
+	/**
 	 * The member's leaderboard rank (all-time), or 0 when unavailable.
 	 *
 	 * Rank has no `wb_gam_*` wrapper, so it reads the engine directly — guarded so
@@ -652,19 +667,18 @@ class GamificationAchievements {
 		// Request-scoped memo: the standing strip resolves rank once per render, but
 		// a page can render several member panels — avoid re-hitting the engine (and
 		// its cache lookup) for the same member within one request.
-		static $ranks = array();
-		if ( array_key_exists( $member_id, $ranks ) ) {
-			return $ranks[ $member_id ];
+		if ( array_key_exists( $member_id, self::$rank_memo ) ) {
+			return self::$rank_memo[ $member_id ];
 		}
 
 		if ( ! function_exists( 'wb_gam_get_user_rank' ) ) {
-			$ranks[ $member_id ] = 0;
+			self::$rank_memo[ $member_id ] = 0;
 			return 0;
 		}
-		$data                = wb_gam_get_user_rank( $member_id, 'all' );
-		$ranks[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
+		$data                          = wb_gam_get_user_rank( $member_id, 'all' );
+		self::$rank_memo[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
 
-		return $ranks[ $member_id ];
+		return self::$rank_memo[ $member_id ];
 	}
 
 	/**

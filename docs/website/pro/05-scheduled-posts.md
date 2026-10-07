@@ -1,6 +1,6 @@
 # Scheduled posts
 
-Scheduled posts let a member write something now and have it publish automatically at a future date and time. The post stays out of every feed until its moment arrives, then goes live on its own. Pro turns the post composer's schedule clock into a real managed queue: the post is parked, tracked, and published on time, with a place to review, publish early, or cancel anything that is waiting.
+Scheduled posts let a member write something now and have it publish automatically at a future date and time. The post stays out of every feed until its moment arrives, then goes live on its own. Scheduled posts are a **free BuddyNext feature**. Pro adds an admin queue where you can review, publish early, or cancel anything that is waiting, and lets you make scheduling a membership plan perk.
 
 ![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.webp)
 
@@ -12,7 +12,7 @@ People rarely have time to write at the exact moment something should go out. A 
 
 For an owner, scheduling is what makes a community feel consistently active without anyone having to be online around the clock. Content can be planned ahead, queued, and trusted to appear on time, so the feed keeps a steady rhythm instead of going quiet for days and then flooding. It also gives the people who run your spaces a way to coordinate launches, events, and recurring updates the way they would on any mainstream platform.
 
-In free BuddyNext, the composer already shows a "Schedule for later" clock and can hold a post until its time. Pro builds the management layer on top: a queue you can see and act on, owner-validated scheduling and cancelling, and an admin page that lists everything waiting across the whole community.
+In free BuddyNext, the composer shows a "Schedule for later" clock, holds the post until its time, and publishes it on its own. Pro adds the management layer on top: an admin page that lists everything waiting across the whole community, owner-checked schedule and cancel endpoints, and the plan perk.
 
 ## How it works (for members)
 
@@ -29,10 +29,10 @@ At the scheduled time, the post publishes on its own and behaves like any post m
 
 ### Change the time, or cancel
 
-A member can see their own queued posts, move them to a different time, or cancel any that are still waiting.
+A member sees their own queued posts in the **Scheduled** tab on their own profile (only they can see it). From there they can move a post to a different time.
 
 - **Reschedule.** Edit a post that is still waiting and the edit form offers a date and time control, prefilled with the slot it currently holds. Pick a new one and save. The post keeps its place in the queue at the new time. You can only move a post that has not published yet; once it is live, it is a normal post and the control is gone.
-- **Cancel.** Cancelling a scheduled post does not delete it. It reverts the post to a draft and clears its scheduled time, so the content is preserved and can be scheduled again or edited later.
+- **Cancel.** Cancelling a scheduled post does not delete it. It reverts the post to a draft and clears its scheduled time, so the content is preserved and can be scheduled again or edited later. There is no Cancel button on the member screens yet: the author's cancel is the Pro schedule endpoint (`DELETE /buddynext-pro/v1/posts/{id}/schedule`), and an owner or admin can cancel from the admin queue.
 
 Only the author of a scheduled post can reschedule or cancel it.
 
@@ -42,18 +42,18 @@ Only the author of a scheduled post can reschedule or cancel it.
 
 ### The scheduled posts queue
 
-Pro adds a **Scheduled Posts** admin page (under the BuddyNext menu, in the Campaigns section) that lists every post waiting to publish across the community, ordered by the soonest scheduled time first. For each post you see its ID, author, type, an excerpt, and the scheduled time shown in your site's timezone.
+Pro adds a **Scheduled Posts** admin page (BuddyNext > Campaigns > Scheduled Posts) that lists every post waiting to publish across the community, ordered by the soonest scheduled time first. For each post you see its ID, author, type, an excerpt, and the scheduled time shown in your site's timezone.
 
 
 The queue gives owners three actions.
 
 | Action | What it does |
 | --- | --- |
-| Publish Now | Publishes that single post immediately, ahead of its scheduled time. It goes live and triggers the normal new-post signals. |
+| Publish now | Publishes that single post immediately, ahead of its scheduled time. It goes live and triggers the normal new-post signals. |
 | Cancel | Reverts that post to a draft and removes it from the queue. The content is kept, not deleted. |
-| Publish Overdue Posts Now | Publishes every post whose scheduled time has already passed, in one click. Useful if you want to flush anything that is due right away rather than wait for the next automatic run. |
+| Publish overdue posts now | Publishes every post whose scheduled time has already passed, in one click. Useful if you want to flush anything that is due right away rather than wait for the next automatic run. |
 
-There are no settings to configure for scheduling - the queue and its actions are available as soon as Pro is active. The schedule clock in the composer is part of free BuddyNext and is on for members by default.
+The only switch is **Scheduled posts** in the Features catalogue (BuddyNext > Platform > Features), which is on by default. Turn it off and the composer's clock is hidden, new posts can no longer be scheduled, and the Pro queue page and routes are removed. Posts already scheduled still publish. There is nothing else to configure.
 
 The queue is **paginated at 50 posts a page**, with a prev/next pager and the full count in the heading, so the screen stays usable on a community with thousands of posts waiting.
 
@@ -61,7 +61,7 @@ The queue is **paginated at 50 posts a page**, with a prev/next pager and the fu
 
 ### How posts publish on time
 
-The community checks for due posts automatically and publishes any whose scheduled time has arrived, then fires the normal new-post notifications for each one. This runs in the background on its own, so a correctly scheduled post goes live on time without anyone touching the admin page. The "Publish Overdue Posts Now" button is there for the moments you want to publish what is due immediately rather than wait for the next automatic check.
+The community checks for due posts automatically and publishes any whose scheduled time has arrived, then fires the normal new-post notifications for each one. This runs in the background on its own, so a correctly scheduled post goes live on time without anyone touching the admin page. The "Publish overdue posts now" button is there for the moments you want to publish what is due immediately rather than wait for the next automatic check.
 
 ## Good to know
 
@@ -74,13 +74,13 @@ The community checks for due posts automatically and publishes any whose schedul
 
 ## Free vs Pro
 
-The schedule clock in the post composer is part of free BuddyNext: a member can set a future publish time and free BuddyNext will hold the post and publish it when its time arrives.
+Free BuddyNext includes the composer's schedule clock, the owner-only **Scheduled** profile tab, rescheduling from the post's edit form, and automatic publishing when the time arrives.
 
-Pro adds the management layer around that clock:
+Pro adds:
 
-- Owner-validated scheduling, rescheduling, and cancelling, with clear errors for a past date, a non-owner cancel, or a post that is not actually scheduled.
-- A member-facing list of their own scheduled posts, with reschedule and cancel.
-- The admin **Scheduled Posts** queue listing every waiting post community-wide, paginated, with Publish Now, Cancel, and Publish Overdue Posts Now.
+- The admin **Scheduled Posts** queue listing every waiting post community-wide, paginated, with Publish now, Cancel, and Publish overdue posts now.
+- Owner-checked schedule, reschedule, and cancel endpoints, with clear errors for a past date, a non-owner request, or a post that is already published.
+- The plan perk described above.
 
 ## Related
 

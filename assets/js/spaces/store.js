@@ -1,7 +1,7 @@
 /* BuddyNext — Spaces Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
-import { onNavReady } from '@buddynext/nav-init';
+import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { bnConfirm, bnReloadWithToast } from '@buddynext/shell-dialog';
@@ -240,7 +240,7 @@ async function renderParentResults( picker, q ) {
 			status.textContent = t( 'parentNoMatch', 'No top-level spaces you manage match that name.' );
 			status.hidden = false;
 		} else if ( items.length >= PARENT_PAGE ) {
-			status.textContent = t( 'parentMoreExist', 'Showing the first matches — keep typing to narrow the list.' );
+			status.textContent = t( 'parentMoreExist', 'Showing the first matches: keep typing to narrow the list.' );
 			status.hidden = false;
 		} else {
 			status.textContent = '';
@@ -870,7 +870,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					// Reflect a pending state instead of falsely erroring.
 					swapButtonState( btn, 'pending' );
 					if ( window.bnToast ) {
-						window.bnToast( ( data && data.message ) || t( 'joinRequested', 'Request sent — you’ll be notified when it’s approved.' ), 'success' );
+						window.bnToast( ( data && data.message ) || t( 'joinRequested', 'Request sent: you’ll be notified when it’s approved.' ), 'success' );
 					}
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
@@ -1124,9 +1124,14 @@ var storeInstance = store( 'buddynext/spaces', {
 				var data = res.data || {};
 
 				if ( res.ok && data.left ) {
-					// Re-offer the correct entry route: a plain "Join" only for an
-					// open (direct-join) space, "Request to join" for private/secret.
-					swapButtonState( btn, spaceNeedsRequest( btn ) ? 'request' : 'join' );
+					// Re-offer the correct entry route: "Join" for a direct-join space,
+					// "Request to join" for a request space, nothing for invite-only.
+					var leftScope = btn && btn.closest( '[data-join-method]' );
+					if ( leftScope && 'invite' === leftScope.dataset.joinMethod ) {
+						btn.remove();
+					} else {
+						swapButtonState( btn, spaceNeedsRequest( btn ) ? 'request' : 'join' );
+					}
 
 					bumpMemberCount( spaceCardFor( btn ), -1 );
 				} else if ( btn ) {
@@ -1284,7 +1289,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( ! spaceId ) { return; }
 
 			var submitBtn = composer.querySelector( '.bn-composer__submit' );
-			if ( submitBtn ) { submitBtn.disabled = true; submitBtn.textContent = t( 'posting', 'Posting\u2026' ); }
+			if ( submitBtn ) { submitBtn.disabled = true; submitBtn.textContent = t( 'posting', 'Posting…' ); }
 
 			try {
 				var res  = await restFetch( '/posts', {
@@ -1417,7 +1422,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				var reportItem = document.createElement( 'button' );
 				reportItem.type        = 'button';
-				reportItem.textContent = t( 'reportPost', 'Report post' );
+				reportItem.textContent = t( 'reportPost', 'Report this post' );
 				reportItem.className   = 'bn-post-card__menu-item';
 				reportItem.addEventListener( 'click', function () {
 					dropdown.classList.remove( 'bn-post-card__menu-dropdown--open' );
@@ -1480,7 +1485,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 
 				if ( res.ok ) {
-					btn.textContent = t( 'shared', 'Shared!' );
+					btn.textContent = t( 'shared', 'Shared' );
 					setTimeout( function () {
 						btn.textContent = origText;
 						btn.disabled    = false;
@@ -2356,6 +2361,21 @@ function buildSpaceCard( row ) {
 	nameLink.appendChild( h2 );
 	body.appendChild( nameLink );
 
+	// "in {parent}" for a sub-space (REST row.parent, hidden parents already left
+	// out server-side), matching space-directory-card.php.
+	if ( row.parent && row.parent.name ) {
+		var parentLine = document.createElement( 'p' );
+		parentLine.className = 'bn-sd-card__parent';
+		var parentLink = document.createElement( 'a' );
+		parentLink.href = row.parent.url || '#';
+		parentLink.textContent = row.parent.name;
+		var parentParts = t( 'labelInParent', 'in %s' ).split( '%s' );
+		parentLine.appendChild( document.createTextNode( parentParts[ 0 ] || '' ) );
+		parentLine.appendChild( parentLink );
+		parentLine.appendChild( document.createTextNode( parentParts[ 1 ] || '' ) );
+		body.appendChild( parentLine );
+	}
+
 	// Category line (icon cloned from a live SSR card if one exists).
 	if ( row.category_name ) {
 		var cat = document.createElement( 'div' );
@@ -2437,6 +2457,10 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.spaceId      = String( spaceId );
 		ctaEl.setAttribute( 'aria-label', t( 'ariaRequestPendingClickToCancel', 'Request pending - click to cancel' ) );
 		ctaEl.textContent = t( 'labelRequested', 'Requested' );
+	} else if ( 'invite' === joinMethod ) {
+		// Invite-only (hidden) space: members get in by invitation, so no join
+		// action - same rule as the server card (space-directory-card.php).
+		ctaEl = null;
 	} else if ( 'direct' === joinMethod ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
@@ -2460,8 +2484,10 @@ function buildSpaceCard( row ) {
 	// data-wp-on--click directive is inert (the Interactivity API only binds
 	// directives present in the server-rendered HTML). Mark the CTA so the
 	// delegated click handler in the wiring section dispatches it instead.
-	ctaEl.setAttribute( 'data-bn-dyn', '1' );
-	foot.appendChild( ctaEl );
+	if ( ctaEl ) {
+		ctaEl.setAttribute( 'data-bn-dyn', '1' );
+		foot.appendChild( ctaEl );
+	}
 	body.appendChild( foot );
 
 	article.appendChild( body );
@@ -2506,7 +2532,7 @@ function applySpacesFilter() {
 
 /* Rebuild the directory pager for the reactive (filtered) result set. The reactive
  * view always lands on page 1; pages 2+ are SSR <a> links carrying the current
- * filters + bn_page=N, so they reload server-side via the indexed OFFSET (no reactive
+ * filters at /spaces/page/N/, so they reload server-side via the indexed OFFSET (no reactive
  * deep-offset fetches). Markup mirrors parts/pagination.php (.bn-pagination/.bn-page-btn). */
 function rebuildReactivePager( totalPages ) {
 	var container = document.querySelector( '[data-bn-sd-pager]' );
@@ -2515,12 +2541,8 @@ function rebuildReactivePager( totalPages ) {
 	totalPages = parseInt( totalPages, 10 ) || 1;
 	if ( totalPages < 2 ) { return; }
 
-	var base = new URL( window.location.href );
-	base.searchParams.delete( 'bn_page' );
 	function href( n ) {
-		var u = new URL( base.href );
-		if ( n > 1 ) { u.searchParams.set( 'bn_page', String( n ) ); }
-		return u.pathname + u.search;
+		return bnPageUrl( window.location.href, n );
 	}
 	function item( label, n, isCurrent, isDots ) {
 		var el;
@@ -2672,10 +2694,10 @@ async function executeSpacesFilter() {
 			if ( state.categorySlug ) { url.searchParams.set( 'bn_cat', state.categorySlug ); }
 			else { url.searchParams.delete( 'bn_cat' ); }
 			url.searchParams.delete( 'bn_type' );
-			url.searchParams.delete( 'bn_page' );
 			if ( state.sort && 'popular' !== state.sort ) { url.searchParams.set( 'bn_sort', state.sort ); }
 			else { url.searchParams.delete( 'bn_sort' ); }
-			window.history.replaceState( {}, '', url.toString() );
+			// A filter change lands on page 1.
+			window.history.replaceState( {}, '', bnPageUrl( url.toString(), 1 ) );
 		} catch ( _e ) {}
 
 		// Rebuild the pager AFTER the URL is updated so its SSR page-links carry the

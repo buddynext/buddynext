@@ -228,4 +228,60 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 		$count_data = $count_res->get_data();
 		$this->assertSame( 0, $count_data['count'] );
 	}
+
+	/**
+	 * by_tab: the notifications page's per-tab unread badges.
+	 *
+	 * @return void
+	 */
+	public function test_unread_count_by_tab(): void {
+		wp_set_current_user( $this->user_id );
+		foreach ( array( 'bn.new_follower', 'bn.connection_accepted', 'bn.mention' ) as $type ) {
+			$this->notif_service->create(
+				array(
+					'recipient_id' => $this->user_id,
+					'sender_id'    => $this->sender_id,
+					'type'         => $type,
+				)
+			);
+		}
+
+		$tabs = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications/unread-count' ) )->get_data()['by_tab'];
+
+		$this->assertSame( 3, $tabs['unread'] );
+		$this->assertSame( 2, $tabs['follow'], 'Follows tab: a follow and a connection.' );
+		$this->assertSame( 1, $tabs['mention'] );
+		$this->assertSame( 0, $tabs['message'] );
+		$this->assertSame( array_merge( array( 'unread' ), array_keys( \BuddyNext\Notifications\NotificationService::TAB_TYPES ) ), array_keys( $tabs ) );
+	}
+
+	/**
+	 * GET /me/notifications/this-week returns the sidebar card's numbers (or a
+	 * clean 404 when the Sidebar feature, and so the card, is off). Never a fatal.
+	 *
+	 * @return void
+	 */
+	public function test_this_week_matches_the_sidebar_card(): void {
+		wp_set_current_user( $this->user_id );
+		$this->notif_service->create(
+			array(
+				'recipient_id' => $this->user_id,
+				'sender_id'    => $this->sender_id,
+				'type'         => 'bn.new_follower',
+			)
+		);
+
+		$response = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications/this-week' ) );
+		$widgets  = buddynext_service( 'sidebar_widgets' );
+		if ( $widgets instanceof \BuddyNext\Sidebar\WidgetService ) {
+			$this->assertSame( 200, $response->get_status() );
+			$this->assertSame( $widgets->weekly_stats( $this->user_id ), $response->get_data() );
+			$this->assertSame( 1, $response->get_data()['notifications'] );
+		} else {
+			$this->assertSame( 404, $response->get_status() );
+		}
+
+		wp_set_current_user( 0 );
+		$this->assertSame( 401, rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications/this-week' ) )->get_status() );
+	}
 }

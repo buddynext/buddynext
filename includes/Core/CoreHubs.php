@@ -56,7 +56,7 @@ final class CoreHubs {
 	public static function register( HubRegistry $reg ): void {
 		$reg->register( new HubDescriptor( 'feed', 'buddynext_slug_activity', 'activity', 'buddynext_page_activity', __( 'Activity', 'buddynext' ), '[buddynext_activity]', admin_label: __( 'Activity feed', 'buddynext' ), admin_desc: __( 'The main community feed: your community home.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_feed_rules' ), resolve_template: array( PageRouter::class, 'resolve_feed_template' ) ) );
 		$reg->register( new HubDescriptor( 'people', 'buddynext_slug_people', 'members', 'buddynext_page_people', __( 'Members', 'buddynext' ), '[buddynext_people]', admin_label: __( 'Members directory', 'buddynext' ), admin_desc: __( 'Member directory and individual profile URLs.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_people_rules' ), resolve_template: array( PageRouter::class, 'resolve_people_template' ) ) );
-		$reg->register( new HubDescriptor( 'spaces', 'buddynext_slug_spaces', 'spaces', 'buddynext_page_spaces', __( 'Spaces', 'buddynext' ), '[buddynext_spaces]', admin_label: __( 'Spaces', 'buddynext' ), admin_desc: __( 'Group/community spaces directory.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_spaces_rules' ), resolve_template: array( PageRouter::class, 'resolve_spaces_template' ), feature: 'spaces' ) );
+		$reg->register( new HubDescriptor( 'spaces', 'buddynext_slug_spaces', 'spaces', 'buddynext_page_spaces', __( 'Spaces', 'buddynext' ), '[buddynext_spaces]', admin_label: __( 'Spaces', 'buddynext' ), admin_desc: __( 'The spaces directory, where members find and join spaces.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_spaces_rules' ), resolve_template: array( PageRouter::class, 'resolve_spaces_template' ), feature: 'spaces' ) );
 		$reg->register( new HubDescriptor( 'messages', 'buddynext_slug_messages', 'messages', 'buddynext_page_messages', __( 'Messages', 'buddynext' ), '[buddynext_messages]', admin_label: __( 'Messages', 'buddynext' ), admin_desc: __( 'Direct messages (requires WPMediaVerse).', 'buddynext' ), register_rules: array( PageRouter::class, 'register_messages_rules' ), resolve_template: array( PageRouter::class, 'resolve_messages_template' ) ) );
 		$reg->register( new HubDescriptor( 'notifications', 'buddynext_slug_notifications', 'notifications', 'buddynext_page_notifications', __( 'Notifications', 'buddynext' ), '[buddynext_notifications]', admin_label: __( 'Notifications', 'buddynext' ), admin_desc: __( 'Activity notifications.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_notifications_rules' ), resolve_template: array( PageRouter::class, 'resolve_notifications_template' ) ) );
 		$reg->register( new HubDescriptor( 'auth', 'buddynext_slug_auth', 'login', 'buddynext_page_auth', __( 'Login', 'buddynext' ), '[buddynext_auth]', admin_label: __( 'Login / Register', 'buddynext' ), admin_desc: __( 'Login, registration, and password-reset forms.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_auth_rules' ), resolve_template: array( PageRouter::class, 'resolve_auth_template' ) ) );
@@ -111,6 +111,13 @@ final class CoreHubs {
 	 * @return void
 	 */
 	private static function persist_hub_slugs( HubRegistry $reg ): void {
+		// A slug option exists only once an owner customises that URL, so on most
+		// sites each hub's read was its own query, on every request. One query for
+		// all of them (add-on hubs included); missing ones are remembered too.
+		wp_prime_option_caches(
+			array_map( static fn( $descriptor ) => $descriptor->slug_option, $reg->all() )
+		);
+
 		$slugs = array();
 		foreach ( $reg->all() as $descriptor ) {
 			$slug = trim( (string) get_option( $descriptor->slug_option, $descriptor->default_slug ) );

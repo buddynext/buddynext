@@ -37,15 +37,25 @@ WB Gamification can award points for community activity like these, and you set 
 | Profile completed | 25 |
 | Reaction received on your content | 2 |
 | Comment created | 3 |
+| Space created | 10 |
+| Onboarding completed | 20 |
+| First follow | 5 |
+| Post shared | 5 |
+| Poll vote | 1 |
+| Post bookmarked | 1 |
+| Direct message sent | 1 |
+| Connection requested | 1 |
 
-These are starting values. The actual points for each action are set in WB Gamification, and you can change any of them.
+These are starting values. The actual points for each action, and any daily cap or cooldown, are set in WB Gamification, and you can change any of them. Content another plugin already rewarded (for example a photo upload or a forum reply copied onto a feed card) never pays twice.
 
 Where members see their rewards:
 
-- **Achievements tab on their profile.** Once a member has earned a badge or any points, an Achievements tab appears on their profile. It shows their earned badges as a grid (credential badges first) and a standing strip with points, level, and streak. The tab stays hidden for brand-new members who have not earned anything yet, so nobody sees an empty tab.
+- **Achievements tab on their profile.** Once a member has earned a badge or any points, an Achievements tab appears on their profile. It shows their badges as a grid (credential badges first) and a standing strip with points, level, and streak. The tab stays hidden for brand-new members who have not earned anything yet, so nobody sees an empty tab.
+- **Points and Kudos tabs.** The Achievements tab holds up to three sub-tabs. **Points** (named with your site's own word for points) is a private history and earning guide that only the member sees on their own profile. **Kudos** is peer recognition: members give and receive kudos, and it shows on every profile while the Kudos module is on in WB Gamification. After you give kudos the tab shows "You gave X kudos" instead of the form, and the form is not offered once you hit the daily ceiling.
 - **Badge share pages.** Each badge links to its public share page so members can show off a credential outside the community.
-- **The activity feed.** When a member earns a credential badge, BuddyNext posts a feed activity announcing it, so the whole community sees the achievement. Everyday participation badges do not post to the feed, so the feed never fills up with badge spam.
-- **The leaderboard.** A **Leaderboard** link appears in the BuddyNext left navigation rail, taking members to the community leaderboard page where they can see how they rank.
+- **The activity feed.** Badges are private until the member presses **Share**. When a member shares a credential badge, BuddyNext posts an "earned the badge" feed activity, so the whole community sees the achievement; unsharing withdraws the card and sharing again brings back the same one. Everyday participation badges do not post to the feed, so the feed never fills up with badge spam.
+- **The bell.** WB Gamification's notifications (badge earned, level up, challenge completed, expired credential, streak milestone, kudos received, personal record) appear in the BuddyNext bell and open the right profile tab. Members can switch each type in their notification settings under **Achievements**.
+- **The leaderboard.** A **Leaderboard** link appears in the BuddyNext left navigation rail, taking members to the community leaderboard page where they can see how they rank. Member privacy applies: a member's points, badges, rank and kudos are hidden from people who cannot see their profile, including on the leaderboard.
 
 > **Note:** Points, badges, and levels are owned by WB Gamification. BuddyNext reads and displays them but never changes them.
 
@@ -56,13 +66,25 @@ Where members see their rewards:
 
 That is the whole connection. Once both plugins are active and the actions have points, members start earning the moment they participate.
 
-This integration has no settings of its own in BuddyNext. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. You can hide the Leaderboard link (and the Achievements feed activity) from the **Platform > Integration Settings** tab if you would rather not surface them.
+This integration has no settings of its own beyond the two switches below. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. On the **Gamification** card of **Integration Settings**:
+
+| Setting | What it does | Default |
+|---|---|---|
+| Show in navigation | Shows the Leaderboard link, the Achievements, Points and Kudos profile tabs and space leaderboards. Turning it off also stops Gamification notifications reaching the bell. | On |
+| Post to the activity feed | Whether a shared credential badge posts a feed activity. | On |
+
+BuddyNext shows the site's own name for points (for example "Points" or "Coins") everywhere, as set in WB Gamification. If WB Gamification hands its leaderboard to Jetonomy, BuddyNext hides its own Leaderboard link and the leaderboard address goes to Jetonomy's board, so members see one ranking.
+
+### A leaderboard for a space
+
+A space can have its own **Leaderboard** tab, ranking only that space's members. It is off by default; the space owner turns it on under **Manage space -> Integrations -> Leaderboard tab**. Members are ranked by the points they have earned across the whole community, so a space board never disagrees with the site leaderboard; the space only decides who appears on it. A space board is visible to whoever can see the space's member list, so a private space's board is for its members only.
 
 ## Good to know
 
 - **Inert when WB Gamification is not active.** Without the companion plugin, the integration does nothing - no Achievements tab, no leaderboard link, no badge feed activity. BuddyNext checks for WB Gamification before wiring anything in, so there is no error or empty surface on a site that does not run it.
 - **The Achievements tab is data-gated.** It only appears for members who have earned a badge or any points. New members never see an empty Achievements tab.
-- **Credential badges post to the feed; participation badges do not.** This keeps real milestones visible without flooding the feed with routine awards.
+- **Shared credential badges post to the feed; participation badges do not.** The member chooses to share. This keeps real milestones visible without flooding the feed with routine awards.
+- **Newer WB Gamification, newer features.** Kudos, ranks, shared badges and space leaderboards need WB Gamification 1.6.5 or later. On an older version those features stay hidden instead of causing errors.
 - **You control every value.** All point amounts, badge definitions, and levels live in WB Gamification. BuddyNext supplies the list of community actions; you decide what each is worth.
 
 ## Free vs Pro

@@ -210,6 +210,7 @@ $bn_ctx = wp_json_encode(
 		'confirmOpen'         => false,
 		'attachmentVisible'   => false,
 		'attachmentUploading' => false,
+		'attachmentPercent'   => 0,
 		'mediaPickerOpen'     => false,
 		'attachmentId'        => 0,
 		'attachmentName'      => '',

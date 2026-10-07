@@ -59,7 +59,7 @@ class BlockService {
 		if ( $blocker_id === $blocked_id ) {
 			return new WP_Error(
 				'cannot_block_self',
-				__( 'A user cannot block themselves.', 'buddynext' )
+				__( 'You cannot block yourself.', 'buddynext' )
 			);
 		}
 
@@ -86,7 +86,7 @@ class BlockService {
 		// A failed write must surface as an error, not a false success — otherwise
 		// we would bust the cache and fire buddynext_block while no row was stored.
 		if ( false === $result ) {
-			return new WP_Error( 'block_failed', __( 'Could not block this user. Try again.', 'buddynext' ) );
+			return new WP_Error( 'block_failed', __( 'Could not block this member. Try again.', 'buddynext' ) );
 		}
 
 		// Capture the insert's affected-row count NOW: the unfollow / connection
@@ -179,7 +179,7 @@ class BlockService {
 		if ( $muter_id === $muted_id ) {
 			return new WP_Error(
 				'cannot_mute_self',
-				__( 'A user cannot mute themselves.', 'buddynext' )
+				__( 'You cannot mute yourself.', 'buddynext' )
 			);
 		}
 
@@ -198,7 +198,7 @@ class BlockService {
 
 		// Surface a failed write instead of reporting a false success.
 		if ( false === $result ) {
-			return new WP_Error( 'mute_failed', __( 'Could not mute this user. Try again.', 'buddynext' ) );
+			return new WP_Error( 'mute_failed', __( 'Could not mute this member. Try again.', 'buddynext' ) );
 		}
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
@@ -272,7 +272,7 @@ class BlockService {
 		if ( $actor_id === $target_id ) {
 			return new WP_Error(
 				'cannot_restrict_self',
-				__( 'A user cannot restrict themselves.', 'buddynext' )
+				__( 'You cannot restrict yourself.', 'buddynext' )
 			);
 		}
 
@@ -291,7 +291,7 @@ class BlockService {
 
 		// Surface a failed write instead of reporting a false success.
 		if ( false === $result ) {
-			return new WP_Error( 'restrict_failed', __( 'Could not restrict this user. Try again.', 'buddynext' ) );
+			return new WP_Error( 'restrict_failed', __( 'Could not restrict this member. Try again.', 'buddynext' ) );
 		}
 
 		$this->invalidate_block_cache( $actor_id, $target_id );

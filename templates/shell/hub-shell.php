@@ -142,6 +142,7 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 		<?php if ( $show_right_sidebar ) : ?>
 			<?php buddynext_get_template( 'shell/right-sidebar.php', array( 'hub' => $hub ) ); ?>
 		<?php endif; ?>
+		<?php \BuddyNext\Core\IconService::print_region_sprite(); // Shapes travel with the client-nav region. ?>
 		</div>
 
 	</div>

@@ -52,27 +52,24 @@ $bn_post_id     = absint( $bn_post['id'] );
 $bn_post_type   = $bn_post['type'] ?? 'text';
 $bn_space_id    = absint( $bn_post['space_id'] ?? 0 );
 $post_author_id = absint( $bn_post['user_id'] ?? 0 );
-$post_content   = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
 
-// Members-only paywall (SSR). Uses the SAME gate as the REST/app feed
-// (PostService::members_only_gate), so the web card and the app card hide
-// exactly the same body. When locked, the body becomes the teaser and a lock
+// Members-only paywall (SSR). Uses the SAME redaction as the REST/app feed
+// (PostService::members_only_view), so the web card and the app card hide
+// exactly the same fields. When locked, the body becomes the teaser and a lock
 // notice + CTA render below it (see the $bn_members_locked block).
-$bn_members_locked = false;
-$bn_members_cta    = array();
+// PostService::members_only_view() redacts the WHOLE post (teaser for the
+// body, no media, no link URL or preview) before any later branch reads it.
 if ( ! empty( $bn_post['members_only'] ) ) {
-	$bn_mo_gate = buddynext_service( 'post_service' )->members_only_gate( $bn_post, $current_user_id );
-	if ( $bn_mo_gate['locked'] ) {
-		$bn_members_locked = true;
-		$bn_members_cta    = $bn_mo_gate['cta'];
-		$post_content      = $bn_mo_gate['teaser'];
-	}
+	$bn_post = buddynext_service( 'post_service' )->members_only_view( $bn_post, $current_user_id );
 }
-$post_privacy = $bn_post['privacy'] ?? 'public';
-$post_privacy = in_array( $post_privacy, PostService::valid_privacy_values(), true )
+$bn_members_locked = ! empty( $bn_post['is_locked'] );
+$bn_members_cta    = $bn_members_locked ? (array) ( $bn_post['members_only_cta'] ?? array() ) : array();
+$post_content      = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
+$post_privacy      = $bn_post['privacy'] ?? 'public';
+$post_privacy      = in_array( $post_privacy, PostService::valid_privacy_values(), true )
 	? $post_privacy
 	: 'public';
-$is_pinned    = ! empty( $bn_post['is_pinned'] );
+$is_pinned         = ! empty( $bn_post['is_pinned'] );
 // The "Pinned" badge is surface-relative: a post is pinned to a member's PROFILE
 // strip, never to the global home/explore/single/bookmarks feed — and no longer
 // to a space (spaces surface important content through Announcements, not pins).
@@ -242,15 +239,8 @@ $is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_option
 // 'scheduled' behind a variable named $is_pending and this template mirroring the
 // same mistake, so a post held for moderation lost its Edit control while it waited.
 $bn_is_unpublished  = \BuddyNext\Feed\PostService::is_pre_publication( (string) ( $bn_post['status'] ?? 'published' ) );
-$within_edit_window = true;
-if ( ! $is_admin && ! $bn_is_unpublished ) {
-	$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
-	if ( $edit_window > 0 && '' !== (string) $created_at ) {
-		$created_ts         = (int) strtotime( (string) $created_at . ' UTC' );
-		$within_edit_window = $created_ts > 0 && ( time() - $created_ts ) <= $edit_window * MINUTE_IN_SECONDS;
-	}
-}
-$can_edit = ( ( $is_own_post && $within_edit_window ) || $is_admin )
+$within_edit_window = \BuddyNext\Feed\PostService::within_edit_window( (string) $created_at, (string) ( $bn_post['status'] ?? 'published' ), $current_user_id );
+$can_edit           = ( ( $is_own_post && $within_edit_window ) || $is_admin )
 	&& \BuddyNext\Feed\PostService::has_editable_text( (string) $bn_post_type, (string) ( $bn_post['content'] ?? '' ) );
 // Mirror the server (PostController::delete_post): deleting your own post is
 // always allowed; deleting anyone else's requires buddynext-feed/delete-any-post.
@@ -288,7 +278,15 @@ $can_pin = $is_own_post && 'profile' === $context && 0 === $bn_space_id;
 $bn_can_interact = ( $current_user_id > 0
 	&& ( ! function_exists( 'buddynext_can' ) || buddynext_can( $current_user_id, 'buddynext-feed/interact' ) ) );
 
-$can_report = ( $current_user_id > 0 && ! $is_own_post && $bn_can_interact );
+// Commenting and reporting each have their own ability on Roles & Capabilities
+// (and their own server gate), so each control follows its own: an owner who
+// raises "React, share, bookmark and vote" has not thereby switched off comments
+// or reports. Both abilities deny a suspended member, like every write.
+$bn_holds = static function ( string $ability ) use ( $current_user_id ): bool {
+	return $current_user_id > 0 && ( ! function_exists( 'buddynext_can' ) || buddynext_can( $current_user_id, $ability ) );
+};
+
+$can_report = ( ! $is_own_post && $bn_holds( 'buddynext-moderation/report' ) );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).
 // When the owner disables it the React button + emoji picker and the engagement
@@ -306,13 +304,16 @@ $can_react            = ( $current_user_id > 0 && $bn_reactions_enabled && $bn_c
 $bn_comments_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'comments' );
-$can_comment         = ( $current_user_id > 0 && $bn_comments_enabled && $bn_can_interact );
+$can_comment         = ( $bn_comments_enabled && $bn_holds( 'buddynext-comments/create' ) );
 
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not
 // just no-op — both default ON when the option is unset.
 $can_share    = ( $current_user_id > 0 && buddynext_feature_enabled( 'shares' ) && $bn_can_interact );
 $can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks' ) && $bn_can_interact );
+// Sharing the link outside the community is open to anyone, guests included,
+// when the post is public to anyone with the link (PostService::is_publicly_shareable()).
+$can_share_out = buddynext_service( 'post_service' )->is_publicly_shareable( (array) $bn_post );
 
 // A post that is not published yet has nothing to engage with. React, Comment,
 // Share and Save render on the author's own Scheduled and Pending tabs, and none
@@ -326,10 +327,11 @@ $can_bookmark = ( $current_user_id > 0 && buddynext_feature_enabled( 'bookmarks'
 // write endpoint calls it, so hiding these controls now agrees with what the REST
 // routes actually do rather than being cosmetic.
 if ( $bn_is_unpublished ) {
-	$can_react    = false;
-	$can_comment  = false;
-	$can_share    = false;
-	$can_bookmark = false;
+	$can_react     = false;
+	$can_comment   = false;
+	$can_share     = false;
+	$can_share_out = false;
+	$can_bookmark  = false;
 }
 
 // ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
@@ -567,6 +569,8 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 				'currentUserId'     => $current_user_id,
 				'postType'          => $bn_post_type,
 				'showContent'       => ! $has_cw,
+				// A long text post previews its first lines; See more expands it here.
+				'bodyExpanded'      => false,
 				// Raw pin state (drives the pin/unpin action + options menu label);
 				// showPinBadge gates whether the "Pinned" label is shown on this
 				// surface. The badge is visible only when both are true — so pinning
@@ -586,6 +590,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 				'reactDefaultLabel' => __( 'React', 'buddynext' ),
 				'reactNonce'        => $react_nonce,
 				'shareNonce'        => $share_nonce,
+				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $current_user_id ),
 				'bookmarkNonce'     => $bookmark_nonce,
 				'reportNonce'       => $report_nonce,
 				'dismissNonce'      => $dismiss_nonce,
@@ -676,7 +681,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			$bn_cover_desc = \BuddyNext\Media\MediaUrlResolver::descriptor( $bn_first_mid );
 			if ( $bn_cover_desc ) {
 				$bn_cover_url = (string) ( '' !== $bn_cover_desc['thumb'] ? $bn_cover_desc['thumb'] : $bn_cover_desc['url'] );
-				$bn_cover_alt = (string) $bn_cover_desc['title'];
+				$bn_cover_alt = (string) ( '' !== (string) ( $bn_cover_desc['alt'] ?? '' ) ? $bn_cover_desc['alt'] : $bn_cover_desc['title'] );
 			}
 		}
 		if ( '' === $bn_cover_url && ! empty( $link_meta['thumbnail'] ) ) {
@@ -868,6 +873,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			'can_react'     => $can_react,
 			'can_comment'   => $can_comment,
 			'can_share'     => $can_share,
+			'can_share_out' => $can_share_out,
 			'can_bookmark'  => $can_bookmark,
 			'comment_count' => $comment_count,
 			'share_count'   => $share_count,
@@ -903,8 +909,8 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 		);
 
 		// Gate the composer on $can_comment, not merely "logged in": that flag
-		// already folds in the comments feature toggle AND the suspension write
-		// gate ($bn_can_interact), so a suspended member sees the comment thread
+		// already folds in the comments feature toggle AND the comment ability
+		// (which a suspension denies), so a suspended member sees the comment thread
 		// (a read) on the auto-expanded permalink but no composer to write into it.
 		// Without this the Comment BUTTON hid while the permalink still surfaced the
 		// composer that 403s on submit.

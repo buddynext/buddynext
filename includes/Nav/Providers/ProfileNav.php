@@ -23,6 +23,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Nav\Providers;
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Feed\FeedWindow;
 use BuddyNext\Media\Galleries;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Nav\NavContext;
@@ -60,15 +61,18 @@ final class ProfileNav {
 	}
 
 	/**
-	 * Clean-URL builder for a profile tab — /members/{slug}/{tab}/ (posts = base).
+	 * Clean-URL builder for a profile tab — /members/{slug}/{tab}/.
+	 *
+	 * Every tab, Posts included, has its own address; the bare profile URL is
+	 * the profile's landing view (Posts today).
 	 *
 	 * @param int    $uid Profile user ID.
-	 * @param string $tab Tab slug ('' = the posts/base URL).
+	 * @param string $tab Tab slug ('' = the base URL).
 	 * @return string
 	 */
 	private function tab_url( int $uid, string $tab ): string {
 		$base = trailingslashit( PageRouter::profile_url( $uid ) );
-		return '' === $tab || 'posts' === $tab ? $base : $base . $tab . '/';
+		return '' === $tab ? $base : $base . $tab . '/';
 	}
 
 	/**
@@ -296,24 +300,62 @@ final class ProfileNav {
 	}
 
 	/**
+	 * Items per page on the profile's post-card tabs (Posts, Likes, Scheduled,
+	 * Pending) - the home feed's page size.
+	 */
+	private const POSTS_PAGE = 15;
+
+	/**
+	 * Replies per page; reply rows are compact, so a page holds more.
+	 */
+	private const REPLIES_PAGE = 20;
+
+	/**
+	 * Links below a profile list: Load more, then a fresh page past the ceiling.
+	 *
+	 * @param NavContext           $c           Context.
+	 * @param string               $tab         Tab id, for the tab's own URL.
+	 * @param array<string, mixed> $window      FeedWindow::read() result.
+	 * @param string|null          $next_cursor Cursor after the last item shown.
+	 * @return array{more_url: string, next_url: string}
+	 */
+	private function pager( NavContext $c, string $tab, array $window, ?string $next_cursor ): array {
+		return FeedWindow::links( $this->tab_url( $c->subject_id, $tab ), $window, $next_cursor );
+	}
+
+	/**
+	 * The window's cursor as a service argument (null on the first page).
+	 *
+	 * @param array<string, mixed> $window FeedWindow::read() result.
+	 * @return string|null
+	 */
+	private static function window_cursor( array $window ): ?string {
+		return '' !== (string) $window['cursor'] ? (string) $window['cursor'] : null;
+	}
+
+	/**
 	 * Posts panel — the viewer-gated profile feed (canonically hydrated), with the
 	 * owner composer. Only the active panel runs this, so the feed query is paid
-	 * only on the Posts tab.
+	 * only on the Posts tab. Pages like the home feed: Load more grows the page,
+	 * then "Older posts" continues from the cursor.
 	 *
 	 * @param NavContext $c Context.
 	 * @return void
 	 */
 	private function render_posts( NavContext $c ): void {
 		$feed_service = buddynext_service( 'feed' );
-		$feed         = $feed_service->profile_feed( $c->subject_id, $c->viewer_id, null, 10 );
+		$window       = FeedWindow::read( self::POSTS_PAGE );
+		$cursor       = self::window_cursor( $window );
+		$feed         = $feed_service->profile_feed( $c->subject_id, $c->viewer_id, $cursor, $window['shown'] );
 		$posts        = is_array( $feed ) && isset( $feed['items'] ) ? (array) $feed['items'] : array();
 
 		// The owner's own pinned posts (space_id NULL) are excluded from the
 		// chronological profile_feed query and float to the top of the Posts tab as
 		// their own cards, so a pin shows in exactly one place and never doubles up
 		// on load-more. Skipped when the account is private to the viewer (the feed
-		// wrapper already denied activity, so pins must not leak either).
-		if ( empty( $feed['private'] ) ) {
+		// wrapper already denied activity, so pins must not leak either), and on a
+		// continuation page, which starts below them.
+		if ( empty( $feed['private'] ) && null === $cursor ) {
 			$bn_pins = array_values(
 				array_filter(
 					(array) $feed_service->profile_pinned_posts( $c->subject_id, $c->viewer_id, 10 ),
@@ -335,6 +377,7 @@ final class ProfileNav {
 				'kind'         => 'posts',
 				'subject_id'   => $c->subject_id,
 				'posts'        => $posts,
+				'pager'        => $this->pager( $c, 'posts', $window, $feed['next_cursor'] ?? null ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => $c->is_self(),
 				'display_name' => $this->display_name( $c->subject_id ),
@@ -353,12 +396,15 @@ final class ProfileNav {
 		if ( ! $c->is_self() ) {
 			return;
 		}
+		$window = FeedWindow::read( self::POSTS_PAGE );
+		$page   = buddynext_service( 'post_service' )->user_scheduled_posts( $c->subject_id, $window['shown'], self::window_cursor( $window ) );
 		buddynext_get_template(
 			'parts/profile/posts-panel.php',
 			array(
 				'kind'         => 'scheduled',
 				'subject_id'   => $c->subject_id,
-				'posts'        => (array) buddynext_service( 'post_service' )->user_scheduled_posts( $c->subject_id, 20 ),
+				'posts'        => $page['items'],
+				'pager'        => $this->pager( $c, 'scheduled', $window, $page['next_cursor'] ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => true,
 				'display_name' => $this->display_name( $c->subject_id ),
@@ -381,12 +427,15 @@ final class ProfileNav {
 		if ( ! $c->is_self() ) {
 			return;
 		}
+		$window = FeedWindow::read( self::POSTS_PAGE );
+		$page   = buddynext_service( 'post_service' )->user_pending_posts( $c->subject_id, $window['shown'], self::window_cursor( $window ) );
 		buddynext_get_template(
 			'parts/profile/posts-panel.php',
 			array(
 				'kind'         => 'pending',
 				'subject_id'   => $c->subject_id,
-				'posts'        => (array) buddynext_service( 'post_service' )->user_pending_posts( $c->subject_id, 20 ),
+				'posts'        => $page['items'],
+				'pager'        => $this->pager( $c, 'pending', $window, $page['next_cursor'] ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => true,
 				'display_name' => $this->display_name( $c->subject_id ),
@@ -401,11 +450,16 @@ final class ProfileNav {
 	 * @return void
 	 */
 	private function render_replies( NavContext $c ): void {
-		$replies = array_map(
-			static fn( array $r ): object => (object) $r,
-			(array) buddynext_service( 'post_service' )->user_replies( $c->subject_id, 20, $c->viewer_id )
+		$window  = FeedWindow::read( self::REPLIES_PAGE );
+		$page    = buddynext_service( 'post_service' )->user_replies( $c->subject_id, $window['shown'], $c->viewer_id, self::window_cursor( $window ) );
+		$replies = array_map( static fn( array $r ): object => (object) $r, $page['items'] );
+		buddynext_get_template(
+			'parts/profile/replies-panel.php',
+			array(
+				'replies' => $replies,
+				'pager'   => $this->pager( $c, 'replies', $window, $page['next_cursor'] ),
+			)
 		);
-		buddynext_get_template( 'parts/profile/replies-panel.php', array( 'replies' => $replies ) );
 	}
 
 	/**
@@ -415,12 +469,15 @@ final class ProfileNav {
 	 * @return void
 	 */
 	private function render_likes( NavContext $c ): void {
+		$window = FeedWindow::read( self::POSTS_PAGE );
+		$page   = buddynext_service( 'post_service' )->user_liked_posts( $c->subject_id, $window['shown'], $c->viewer_id, self::window_cursor( $window ) );
 		buddynext_get_template(
 			'parts/profile/posts-panel.php',
 			array(
 				'kind'         => 'likes',
 				'subject_id'   => $c->subject_id,
-				'posts'        => (array) buddynext_service( 'post_service' )->user_liked_posts( $c->subject_id, 20, $c->viewer_id ),
+				'posts'        => $page['items'],
+				'pager'        => $this->pager( $c, 'likes', $window, $page['next_cursor'] ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => $c->is_self(),
 				'display_name' => $this->display_name( $c->subject_id ),

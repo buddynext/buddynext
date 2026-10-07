@@ -46,7 +46,7 @@ The one owner-facing control that touches following is the notification default 
 
 | Setting | What it does | Default |
 |---|---|---|
-| Notify on new follower | Sets whether members are notified by default when someone follows them. Members can still change their own preference. | On |
+| New follower (BuddyNext > Notifications > Notifications, Default notification preferences) | Sets whether members are notified by default when someone follows them. Members can still change their own preference. | On |
 
 > **Tip:** Leave new-follower notifications on. The notification is a small but real reason members come back, and it is the moment they discover who is paying attention to their posts.
 

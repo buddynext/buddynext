@@ -143,6 +143,35 @@ class ConnectionControllerTest extends \WP_UnitTestCase {
 
 	// ── Error cases ────────────────────────────────────────────────────────
 
+	/**
+	 * The last page of the requests inbox says there is no more, also when it is
+	 * full (Basecamp 10375399976: 2 requests, per_page 1, page 2 said has_more).
+	 *
+	 * @return void
+	 */
+	public function test_connection_requests_last_full_page_has_no_more(): void {
+		$other = self::factory()->user->create();
+		foreach ( array( $this->alice, $other ) as $sender ) {
+			buddynext_service( 'connections' )->send_request( $sender, $this->bob );
+		}
+		wp_set_current_user( $this->bob );
+
+		$page = function ( int $n ): array {
+			$request = new WP_REST_Request( 'GET', '/buddynext/v1/me/connection-requests' );
+			$request->set_param( 'per_page', 1 );
+			$request->set_param( 'page', $n );
+			return (array) rest_do_request( $request )->get_data();
+		};
+
+		$one = $page( 1 );
+		$two = $page( 2 );
+		$this->assertCount( 1, $one['ids'] );
+		$this->assertTrue( $one['has_more'] );
+		$this->assertCount( 1, $two['ids'] );
+		$this->assertFalse( $two['has_more'], 'A full last page is still the last page.' );
+		$this->assertNotSame( $one['ids'], $two['ids'] );
+	}
+
 	public function test_cannot_connect_self_returns_400(): void {
 		wp_set_current_user( $this->alice );
 

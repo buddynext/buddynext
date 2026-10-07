@@ -89,10 +89,11 @@ class ConnectionController extends BaseRestController {
 						'default'           => 20,
 						'sanitize_callback' => 'absint',
 					),
-					'page'     => array(
-						'type'              => 'integer',
-						'default'           => 1,
-						'sanitize_callback' => 'absint',
+					'cursor'   => array(
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
 					),
 				),
 			)
@@ -111,11 +112,10 @@ class ConnectionController extends BaseRestController {
 						'default'           => 20,
 						'sanitize_callback' => 'absint',
 					),
-					'cursor'   => array(
-						'type'              => 'string',
-						'default'           => '',
-						'sanitize_callback' => 'sanitize_text_field',
-						'description'       => 'Opaque keyset cursor from a prior response next_cursor. Omit for the first page.',
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
 					),
 				),
 			)
@@ -271,7 +271,7 @@ class ConnectionController extends BaseRestController {
 		if ( ! get_userdata( $target_id ) ) {
 			return new WP_Error(
 				'buddynext_user_not_found',
-				__( 'User not found.', 'buddynext' ),
+				__( 'Member not found.', 'buddynext' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -279,7 +279,7 @@ class ConnectionController extends BaseRestController {
 		if ( buddynext_service( 'blocks' )->is_blocking_either( $current_id, $target_id ) ) {
 			return new WP_Error(
 				'buddynext_blocked',
-				__( 'You cannot connect with this user.', 'buddynext' ),
+				__( 'You cannot connect with this member.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -408,12 +408,17 @@ class ConnectionController extends BaseRestController {
 		$per_page   = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
 		$page       = max( 1, (int) $request->get_param( 'page' ) );
 
-		$pending = buddynext_service( 'connections' )->pending_received( $current_id, $per_page, ( $page - 1 ) * $per_page );
+		// One row more than the page, so "is there another page" is known without a
+		// count query. A full last page used to say has_more and cost the app an
+		// empty extra call.
+		$pending  = buddynext_service( 'connections' )->pending_received( $current_id, $per_page + 1, ( $page - 1 ) * $per_page );
+		$has_more = count( $pending ) > $per_page;
+		$pending  = array_slice( $pending, 0, $per_page );
 
 		$body = array(
 			'page'     => $page,
 			'per_page' => $per_page,
-			'has_more' => count( $pending ) === $per_page,
+			'has_more' => $has_more,
 			// The note the requester attached, keyed by requester id. Shipped
 			// alongside both response shapes (ids and expanded items) because it
 			// belongs to the REQUEST, not to the member — a client reviewing this
@@ -430,13 +435,9 @@ class ConnectionController extends BaseRestController {
 			$body['ids'] = $pending;
 		}
 
-		$response = new WP_REST_Response( $body, 200 );
-		// This inbox still pages by offset, but `page` is deprecated in favour of
-		// the cursor convention the sibling follow/connection lists moved to, so an
-		// old client that keeps sending it fails loud with the same Deprecation +
-		// Warning signal the siblings emit rather than silently (card 10284805802).
-		$this->flag_deprecated_page_param( $request, $response );
-
-		return $response;
+		// This inbox pages by `page`, which is what the route declares. It used to
+		// stamp `page` as deprecated in favour of a cursor this route does not
+		// return, sending a client to an argument that does not exist.
+		return new WP_REST_Response( $body, 200 );
 	}
 }

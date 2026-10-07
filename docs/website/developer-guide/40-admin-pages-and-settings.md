@@ -1,6 +1,6 @@
 # Admin Pages and Settings
 
-The BuddyNext admin surface and the contracts that shape it: the registered wp-admin pages (a single Hub menu with one sub-menu per populated section in free, 18 legacy pages in Pro), the `AdminHub` section + tab-placement system that arranges every screen into a capped information architecture, the `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` filters for adding or relocating tabs from a mu-plugin, and the options-wiring model (per-tab settings groups derived from field descriptors). This page is for developers adding an admin screen, moving an existing tab, or wiring a new setting.
+The BuddyNext admin surface and the contracts that shape it: the registered wp-admin pages (a single Hub menu with one registered page per populated section in free, 19 legacy pages in Pro), the `AdminHub` section + tab-placement system that arranges every screen into a capped information architecture, the `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` filters for adding or relocating tabs from a mu-plugin, and the options-wiring model (per-tab settings groups derived from field descriptors). This page is for developers adding an admin screen, moving an existing tab, or wiring a new setting.
 
 ![The Platform Features admin tab, a live BuddyNext screen arranged by the AdminHub section and tab-placement system](../images/admin-features.webp)
 
@@ -16,30 +16,39 @@ The admin is built on three layers:
 2. **Tabs** - the individual screens, contributed by feature classes through `AdminHub::register_tab()`. Each tab declares an *origin* `section:slug`.
 3. **Placement** - a canonical map (`AdminHub::TAB_PLACEMENT`) that moves each tab to its *final* section and sidebar position, filterable via `bn_admin_hub_tab_placement`. This lets a feature keep registering against its own domain while the hub arranges the final layout in one place.
 
-A section appears in the sidebar **only when at least one visible tab is registered into it**. Empty sections are hidden. No section holds more than five tabs by design, so no screen overwhelms the owner.
+A section appears in the sidebar **only when at least one visible tab is registered into it**. Empty sections are hidden.
 
 ## Registered admin pages
 
 ### Free
 
-`AdminHub::build_menu()` (hooked on `admin_menu` priority 9) registers a single top-level menu and then one sub-menu per **populated** section - all on `manage_options`. Individual feature classes do not register their own pages; they contribute *tabs* (see the section / tab API below) and the Hub builds the menu. The section slugs come from `AdminHub::default_sections()`:
+`AdminHub::build_menu()` (hooked on `admin_menu` priority 9) registers a single top-level menu (`add_menu_page`, slug `buddynext`) and then one page per **populated** section - all on `manage_options`. Individual feature classes do not register their own pages; they contribute *tabs* (see the section / tab API below) and the Hub builds the menu. The section slugs come from `AdminHub::default_sections()`:
 
-| Page slug | Type | Title | Section key |
-|-----------|------|-------|-------------|
-| `buddynext` | menu + first submenu | BuddyNext / Settings | `settings` (top) |
-| `buddynext-platform` | submenu | Platform | `platform` |
-| `buddynext-members` | submenu | Members | `members` |
-| `buddynext-spaces` | submenu | Spaces | `spaces` |
-| `buddynext-engagement` | submenu | Engagement | `engagement` |
-| `buddynext-notifications` | submenu | Notifications | `notifications` |
-| `buddynext-moderation` | submenu | Moderation | `moderation` |
-| `buddynext-upgrade` | submenu | Upgrade | `upgrade` (free-only "Free vs Pro" tab) |
+| Page slug | Title | Section key |
+|-----------|-------|-------------|
+| `buddynext` | Get Started (also the top-level menu) | `get-started` (top) |
+| `buddynext-members` | Members | `members` |
+| `buddynext-spaces` | Spaces | `spaces` |
+| `buddynext-engagement` | Engagement | `engagement` |
+| `buddynext-notifications` | Notifications | `notifications` |
+| `buddynext-moderation` | Moderation | `moderation` |
+| `buddynext-monetization` | Monetization | `monetization` (Pro tabs) |
+| `buddynext-campaigns` | Campaigns | `campaigns` (Pro tabs) |
+| `buddynext-realtime` | Realtime & Push | `realtime` (Pro tabs) |
+| `buddynext-platform` | Platform | `platform` |
+| `buddynext-integration-settings` | Integration Settings | `integration-settings` |
+| `buddynext-settings` | Settings | `settings` |
+| `buddynext-upgrade` | Upgrade | `upgrade` (free-only "Free vs Pro" tab) |
 
-`default_sections()` declares 12 sections (Settings, Platform, Members, Spaces, Engagement, Notifications, Realtime & Push, Campaigns, Moderation, Moderation Tools, Monetization, Upgrade), and only sections with at least one registered tab render. The four that register no tabs in free (Realtime & Push, Campaigns, Moderation Tools, Monetization) stay hidden until Pro is active. Integrations is not its own section - it is a tab (origin `settings:integrations`) placed into the Platform section by the placement map.
+`default_sections()` declares these 13 sections, and only sections with at least one registered tab are registered. The three that register no tabs in free (Monetization, Campaigns, Realtime & Push) stay hidden until Pro is active.
 
-### Pro (18 pages)
+Only four sections keep a link in the wp-admin sidebar by default: `get-started`, `members`, `moderation` and `settings`. Every other section is registered as an unlinked page (null parent), so `admin.php?page=buddynext-spaces` and the other slugs still load and reach the same tabs through the Hub's own rail. Which sections keep a sidebar link is filterable with `buddynext_admin_menu_sections` (receives the list of section keys). While Pro is active a direct "License" link is also added, and an "Add-ons" quick link points at the Add-ons tab.
 
-Pro registers 18 admin pages, each a `submenu` under the `buddynext` parent, all on `manage_options`. Their sidebar entries come from the AdminHub placement map; the registered page slugs are kept so legacy/bookmarked URLs still resolve, and they render inside the Hub chrome:
+Other registered pages: `buddynext-setup` is the hidden setup wizard, and `buddynext-automod` is a retired slug that redirects to the Moderation section. Integrations is not its own section - it is a tab (origin `settings:integrations`, labelled "Add-ons") placed into the Platform section by the placement map.
+
+### Pro (19 pages)
+
+Pro registers 19 admin pages, each a `submenu` under the `buddynext` parent, all on `manage_options`. Their sidebar entries come from the AdminHub placement map; the registered page slugs are kept so legacy/bookmarked URLs still resolve, and they render inside the Hub chrome:
 
 | Page slug | Title |
 |-----------|-------|
@@ -50,6 +59,7 @@ Pro registers 18 admin pages, each a `submenu` under the `buddynext` parent, all
 | `bnpro-membership-tiers` | Membership Plans |
 | `bnpro-subscriptions` | Subscriptions |
 | `bnpro-paywall-settings` | Paywall Settings |
+| `bnpro-coupons` | Coupons |
 | `buddynextpro-mod-rules` | Moderation Rules |
 | `buddynextpro-bulk-mod` | Bulk Moderation |
 | `buddynextpro-push` | Push |
@@ -68,11 +78,11 @@ Pro tabs register against their domain origin section (for example `monetization
 
 ### Sections
 
-`AdminHub::default_sections()` is keyed by a short section key, each entry carrying its `?page=` slug, label, and Lucide icon. One section is marked `top` (Settings) - its slug is shared with the top-level menu, so clicking "BuddyNext" lands on it.
+`AdminHub::default_sections()` is keyed by a short section key, each entry carrying its `?page=` slug, label, and Lucide icon. One section is marked `top` (`get-started`) - its slug is shared with the top-level menu, so clicking "BuddyNext" lands on it.
 
 ```php
 // AdminHub::sections() = default_sections() merged with the bn_admin_hub_sections filter.
-'settings' => array( 'slug' => 'buddynext', 'label' => 'Settings', 'top' => true ),
+'get-started' => array( 'slug' => 'buddynext', 'label' => 'Get Started', 'top' => true ),
 'members'  => array( 'slug' => 'buddynext-members', 'label' => 'Members' ),
 // ...
 ```
@@ -124,7 +134,7 @@ Three options carry custom array sanitizers and are registered with explicit sta
 
 ### Two Settings tabs do not use `SettingsDriver` at all
 
-`includes/Admin/NavManager.php` registers two tabs in the Settings section (both in the **Advanced** group, both `layout => 'wide'`) that save through `admin_post` handlers rather than the Settings API. Their options therefore appear in **no** tab group above, and the per-tab save-scope rule does not apply to them.
+`includes/Admin/NavManager.php` registers two tabs in the Settings section (Navigation uses the **Advanced** group and `layout => 'wide'`; Pages & URLs sits at position 35) that save through `admin_post` handlers rather than the Settings API. Their options therefore appear in **no** tab group above, and the per-tab save-scope rule does not apply to them.
 
 | Tab | Save action | What it writes |
 |---|---|---|
@@ -287,19 +297,19 @@ Core consumers to copy from: `includes/Admin/Spaces.php`, `includes/Admin/Member
 
 - **`manage_options` everywhere.** Every page registrar and the Hub renderer gate on `manage_options`. A tab's own `cap` can tighten this further but the section page itself always requires `manage_options`.
 - **Register tabs before `admin_menu` priority 9.** `AdminHub::build_menu()` runs at that priority; tabs registered later will not appear in their section's sub-menu.
-- **Empty sections are hidden, not removed.** A section with no registered tab is skipped during menu build. Pro-only sections (Campaigns, Realtime & Push, Auto-Moderation, Monetization) stay hidden in free for this reason.
+- **Empty sections are hidden, not removed.** A section with no registered tab is skipped during menu build. Pro-only sections (Campaigns, Realtime & Push, Monetization) stay hidden in free for this reason.
 - **Origin section vs final section.** Always register against your tab's domain origin and let the placement map decide the final location. Resolve URLs and active-state through `AdminHub::tab_url()` / `is_tab_active()`, which apply the same placement, so a relocated tab keeps its assets and links.
 - **Per-tab save scope.** Because options are grouped per tab, saving one tab never overwrites another tab's options. Add new settings as `Field` descriptors in the relevant `Settings::fields_*()` method; `SettingsDriver` registers them under `buddynext_{tab}` and runs their sanitizer on save.
 
 ## Provider secrets are encrypted at rest (Pro)
 
-Provider credentials — the FCM service-account JSON, the Soketi secret, the Stripe and PayPal secret keys, the AI embedding key — are **encrypted before they are written to the options table**. A plain database export (or a plugin that dumps options) no longer reveals them.
+Provider credentials - the FCM service-account JSON, the Soketi secret, the Stripe and PayPal secret keys, the Expo and FCM tokens, the AI embedding key - are **encrypted before they are written to the options table**. A plain database export (or a plugin that dumps options) no longer reveals them.
 
 How it works, and its honest limit:
 
 - Encryption is transparent at the option layer: an `option_{key}` filter decrypts on read and a `pre_update_option_{key}` filter encrypts on write, so every `get_option()` / `update_option()` caller keeps working unchanged. The stored value is prefixed `bnpsec:v1:` and uses AES-256-GCM.
-- The key is derived from your site's wp-config **salts** — so it lives outside the database. That defeats the realistic threat, a leaked DB backup, but **not** a full server compromise where `wp-config.php` is readable too. This is defense-in-depth, not a vault.
-- **Salt rotation.** Because the default key comes from the salts, regenerating them makes the stored secrets undecryptable. The plugin fails **closed** — a decrypt miss returns empty, so the feature reads as "needs setup" rather than breaking with a corrupt credential — and you re-enter the key. To make secrets survive salt rotation, define a stable `BUDDYNEXT_SECRETS_KEY` in `wp-config.php`; it is used as the encryption key instead of the salts.
+- The key is derived from your site's wp-config **salts** - so it lives outside the database. That defeats the realistic threat, a leaked DB backup, but **not** a full server compromise where `wp-config.php` is readable too. This is defense-in-depth, not a vault.
+- **Salt rotation.** Because the default key comes from the salts, regenerating them makes the stored secrets undecryptable. The plugin fails **closed** - a decrypt miss returns empty, so the feature reads as "needs setup" rather than breaking with a corrupt credential - and you re-enter the key. To make secrets survive salt rotation, define a stable `BUDDYNEXT_SECRETS_KEY` in `wp-config.php`; it is used as the encryption key instead of the salts.
 - Admin fields for secrets render **blank with a "Saved" badge**, never re-emitting the stored value into the page HTML. Leaving a field blank keeps the saved secret; entering a new value replaces it. To clear a secret entirely, use the feature's own remove/disconnect control.
 
 Existing plaintext secrets are migrated to the encrypted form once, automatically, on upgrade.

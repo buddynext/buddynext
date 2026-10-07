@@ -25,7 +25,7 @@ The directory itself - submitting a listing, browsing the directory, editing or 
 
 - **A new listing appears in the feed.** When a member publishes a directory listing, BuddyNext posts a feed activity announcing it and linking out to the listing's Listora page. Members can see new listings as they scroll the feed.
 - **Listings are searchable in the community.** Each published listing is added to community search, so a member searching for a business, service, or place finds it alongside people and spaces.
-- **A member's listings show on their profile.** BuddyNext adds a Listings panel to the member's profile Portfolio, so anyone viewing the profile sees what that member has listed, linking out to each listing's Listora page.
+- **A member's listings show on their profile.** BuddyNext adds a Listings panel to the member's profile **Portfolio** tab, so anyone viewing the profile sees what that member has listed (title, category or location, a Verified flag and the rating), linking out to each listing's Listora page. On their own profile the member also gets a **Manage Business** button that opens the Listora dashboard.
 - **Listings come down automatically.** When a listing leaves public view - it is unpublished, set to draft or pending, or deleted - its community surfacing is removed too, so the feed and search only show listings that are actually live.
 
 > **Note:** Submitting, editing, and managing listings happen on Listora's screens. BuddyNext does not replace those - it surfaces the results in the community.
@@ -40,11 +40,11 @@ As soon as both plugins are active, the integration is on and published listings
 
 ### Display settings
 
-Listora gets a card on the **Platform > Integration Settings** tab, with the same switches every integration has:
+Listora gets a card on the **Integration Settings** screen, with the same switches every integration has:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether Listora's tab appears in member navigation. | On |
+| Show in navigation | Whether the Listings panel appears on the profile Portfolio tab, and whether spaces can show a Businesses tab. | On |
 | Post to the activity feed | Whether a published listing posts a feed activity. | On |
 | Include in search | Whether published listings are found in community search. Switching it off also removes the listings already in the search index. | On |
 
@@ -54,15 +54,15 @@ The directory's own behavior - who can list, the categories, the listing fields 
 
 Beyond surfacing new listings in the feed and search, Listora can run a curated business directory inside a space. A space owner turns it on for their space, members submit a listing they own, and the space team approves it before it appears. It is the same idea as the Media, Files and Events tabs: an optional, per-space surface the owner opts into.
 
-**Turning it on (space owner).** In a space's Settings > Integrations, switch on the Businesses tab (off by default). A Businesses tab then appears in that space. Nothing else is required; there is no separate provisioning step.
+**Turning it on (space owner).** Under **Manage space > Integrations**, switch on **Businesses tab** (off by default). A Businesses tab then appears in that space. A second setting, **Only organisers can submit businesses**, restricts who may submit (default: any member). Nothing else is required; there is no separate provisioning step.
 
-**Submitting (member).** On the Businesses tab, a member picks one of their own published listings and submits it to the space. It waits for the team's approval and the member is told it is pending. To keep the review queue usable, a member can have only a limited number of submissions awaiting review in one space at a time (five by default), so no one can flood it.
+**Submitting (member).** A member has to be a member of the space first. On the Businesses tab, **Add your business** lets them pick one of their own published listings and submit it to the space. It waits for the team's approval and the member is told it is pending. To keep the review queue usable, a member can have only a limited number of submissions awaiting review in one space at a time (five by default), so no one can flood it.
 
 **Approving (space team).** The space owner, a space moderator, or a site admin sees a review queue on the tab and approves or rejects each submission. Nothing appears in the showcase until the team approves it.
 
 **The showcase.** Approved businesses appear as compact cards - name, one category and location line, a verified badge, rating, owner and image - each linking out to the full listing on Listora for the complete detail. The showcase never reproduces the whole listing in the space; it is a directory that sends people to the source. The space team can remove a card at any time.
 
-**Visibility follows the space.** The Businesses tab respects the space's own privacy. An open space's directory is visible to anyone who can see the space; a private or secret space's directory is visible only to its members. The site-wide Listora **Show in navigation** switch (Platform > Integration Settings) is the master control: with it off, no space shows a Businesses tab.
+**Visibility follows the space.** The Businesses tab respects the space's own privacy. An open space's directory is visible to anyone who can see the space; a private or secret space's directory is visible only to its members. The site-wide Listora **Show in navigation** switch (Integration Settings) is the master control: with it off, no space shows a Businesses tab.
 
 **Requirements.** Needs BuddyNext Pro and WB Listora 1.8.0 or newer (the release that added the space-listings storage and its REST endpoints). Without them the Businesses tab simply does not appear, and the rest of the Listora integration - feed, search, the profile Listings panel - is unaffected. Listora still owns the listings themselves; this feature only decides which of them a space showcases.
 

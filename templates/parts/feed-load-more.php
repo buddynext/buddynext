@@ -24,13 +24,40 @@
  *
  * @package BuddyNext
  *
- * @var string $more_url Absolute URL of the grown page (without a fragment).
+ * PAST THE CEILING. Growing re-renders the whole list, so it stops at six pages
+ * (BuddyNext\Feed\FeedWindow). From there `next_url` continues on a fresh page from the
+ * cursor. It is a plain link on purpose: the Load-more control grows `shown`, which is
+ * clamped at the ceiling, so it would re-render the same items and read as broken.
+ * With neither URL the list is finished and, when `show_end` is set, says so.
+ *
+ * BuddyNext\Feed\FeedWindow::links() computes both URLs.
+ *
+ * @var string $more_url   Absolute URL of the grown page (without a fragment); '' when not growing.
+ * @var string $next_url   Fresh page from the cursor, past the ceiling; '' otherwise.
+ * @var string $next_label Label for the next_url link. Default "Older posts".
+ * @var bool   $show_end   Render "You've reached the end." when there is nothing more. Default false.
  */
 
 defined( 'ABSPATH' ) || exit;
 
-$bn_lm_url = isset( $more_url ) ? (string) $more_url : '';
+$bn_lm_url   = isset( $more_url ) ? (string) $more_url : '';
+$bn_lm_next  = isset( $next_url ) ? (string) $next_url : '';
+$bn_lm_label = isset( $next_label ) && '' !== (string) $next_label ? (string) $next_label : __( 'Older posts', 'buddynext' );
+
 if ( '' === $bn_lm_url ) {
+	if ( '' !== $bn_lm_next ) :
+		?>
+		<div class="bn-load-more bn-load-more--next-page">
+			<a class="bn-btn bn-load-more__btn" data-variant="secondary" rel="next" href="<?php echo esc_url( $bn_lm_next ); ?>"><?php echo esc_html( $bn_lm_label ); ?></a>
+		</div>
+		<?php
+	elseif ( ! empty( $show_end ) ) :
+		?>
+		<div class="bn-feed-end" role="status">
+			<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
+		</div>
+		<?php
+	endif;
 	return;
 }
 

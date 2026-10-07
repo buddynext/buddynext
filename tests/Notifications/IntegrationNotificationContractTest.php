@@ -97,6 +97,40 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Forums', $composed['label'] );
 	}
 
+	/**
+	 * A type declared with 'email' => true (or opted in by the filter) emails;
+	 * an undeclared-email type stays bell-only.
+	 *
+	 * @return void
+	 */
+	public function test_email_opt_in_composes_an_email_from_the_plugins_words(): void {
+		$sent = array();
+		$grab = static function ( $id, $recipient, $data ) use ( &$sent ) {
+			$sent[] = $data;
+		};
+		add_action( 'buddynext_notification_created', $grab, 1, 3 );
+
+		$this->fire( array( 'object_id' => 1201, 'group_key' => '' ) );
+		$this->assertArrayNotHasKey( 'subject', end( $sent ), 'Bell-only by default.' );
+		$catalogue = apply_filters( 'buddynext_notification_prefs_catalogue', array() );
+		$this->assertFalse( $catalogue['jetonomy.reply_to_post']['can_email'] );
+
+		$opt_in = static fn( $emails, $source, $slug ) => 'jetonomy' === $source && 'reply_to_post' === $slug ? true : $emails;
+		add_filter( 'buddynext_notification_type_email', $opt_in, 10, 3 );
+		$this->fire( array( 'object_id' => 1202, 'group_key' => '' ) );
+		remove_filter( 'buddynext_notification_type_email', $opt_in, 10 );
+		remove_action( 'buddynext_notification_created', $grab, 1 );
+
+		$last = end( $sent );
+		$this->assertSame( 'Aisha replied to "Welcome thread".', $last['subject'] );
+		$this->assertStringContainsString( 'https://example.org/t/welcome/#reply-88', $last['body_html'], 'body_html is the key EmailSender::send_now reads.' );
+		add_filter( 'buddynext_notification_type_email', $opt_in, 10, 3 );
+		$catalogue = apply_filters( 'buddynext_notification_prefs_catalogue', array() );
+		remove_filter( 'buddynext_notification_type_email', $opt_in, 10 );
+		$this->assertTrue( $catalogue['jetonomy.reply_to_post']['can_email'] );
+		$this->assertSame( 'immediate', $catalogue['jetonomy.reply_to_post']['default_email_freq'], 'On by default once a type emails.' );
+	}
+
 	public function test_hook_without_payload_writes_nothing(): void {
 		do_action( 'jetonomy_notification_created', 991, $this->recipient, 'reply_to_post', 'post', 1153, 'legacy', 'https://example.org/legacy' );
 		$this->assertCount( 0, $this->rows() );
@@ -145,6 +179,44 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 
 		do_action( 'jetonomy_community_notification_removed', 'post', 1153 );
 		$this->assertCount( 0, $this->rows() );
+	}
+
+	/**
+	 * A member reading the object in the plugin marks THEIR bell row read, and
+	 * nobody else's (Basecamp 10375330894: a Jetonomy DM stayed unread in the
+	 * bell after the member read the conversation).
+	 *
+	 * @return void
+	 */
+	public function test_read_marks_only_that_members_row(): void {
+		global $wpdb;
+		$other = self::factory()->user->create();
+		$this->fire();
+		$this->fire( array( 'recipient_id' => $other ) );
+		$unread = static function ( int $user ) use ( $wpdb ): int {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'jetonomy.reply_to_post' AND is_read = 0", $user ) );
+		};
+		$service = buddynext_service( 'notifications' );
+		$this->assertSame( 1, $unread( $this->recipient ) );
+		$this->assertSame( 1, $unread( $other ) );
+		$badge = $service->unread_count( $this->recipient );
+		$bell  = $service->unseen_count( $this->recipient );
+		$other_bell = $service->unseen_count( $other );
+
+		do_action( 'jetonomy_community_notification_read', 'post', 1153, $this->recipient );
+
+		$this->assertSame( 0, $unread( $this->recipient ), 'the reader' );
+		$this->assertSame( 1, $unread( $other ), 'another recipient of the same object' );
+		$this->assertSame( $badge - 1, $service->unread_count( $this->recipient ), 'the badge follows' );
+		// The number on the bell is "new since last opened AND still unread": read at
+		// its source, it leaves the bell at once; the other recipient's bell is untouched.
+		$this->assertSame( $bell - 1, $service->unseen_count( $this->recipient ), 'the bell number drops' );
+		$this->assertSame( $other_bell, $service->unseen_count( $other ) );
+
+		// A read for an object with no row, or another object, changes nothing.
+		do_action( 'jetonomy_community_notification_read', 'post', 999999, $other );
+		$this->assertSame( 1, $unread( $other ) );
 	}
 
 	public function test_declared_types_get_a_section(): void {

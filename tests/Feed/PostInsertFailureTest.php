@@ -23,6 +23,7 @@ namespace BuddyNext\Tests\Feed;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Feed\PostService;
+use BuddyNext\Tests\Support\RemovesCommittedRows;
 
 /**
  * create() must report a failed insert.
@@ -30,6 +31,8 @@ use BuddyNext\Feed\PostService;
  * @covers \BuddyNext\Feed\PostService::create
  */
 class PostInsertFailureTest extends \WP_UnitTestCase {
+
+	use RemovesCommittedRows;
 
 	/**
 	 * Service under test.
@@ -52,6 +55,7 @@ class PostInsertFailureTest extends \WP_UnitTestCase {
 	 */
 	protected function setUp(): void {
 		parent::setUp();
+		$this->note_committed_rows(); // The real DDL in the tests commits; undo what it keeps.
 
 		$this->service = new PostService();
 		$this->user_id = (int) $this->factory->user->create();
@@ -82,6 +86,7 @@ class PostInsertFailureTest extends \WP_UnitTestCase {
 
 		Installer::flush_schema_check();
 		parent::tearDown();
+		$this->remove_committed_rows();
 	}
 
 	/**

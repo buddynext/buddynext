@@ -33,6 +33,23 @@ class MediaClient {
 	}
 
 	/**
+	 * May this member upload media?
+	 *
+	 * The owner decides in MediaVerse ("Who can upload media", stored as the
+	 * upload_mvs_media capability per role); administrators always can. Every
+	 * BuddyNext upload surface (composer, Media tab, albums) and POST /me/media
+	 * ask this, so a member is never offered an upload the site does not allow.
+	 *
+	 * @param int $user_id Member (0 = logged out).
+	 * @return bool
+	 */
+	public static function can_upload( int $user_id ): bool {
+		return $user_id > 0
+			&& self::available()
+			&& ( user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'upload_mvs_media' ) ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- MediaVerse's own capability.
+	}
+
+	/**
 	 * Resolve a container service by key, guarded.
 	 *
 	 * @param string $key Container key.
@@ -131,6 +148,32 @@ class MediaClient {
 	 */
 	public static function privacy() {
 		return self::service( 'privacy' );
+	}
+
+	/**
+	 * A media item's alt text, as WPMediaVerse decides it.
+	 *
+	 * The engine owns the rule (its AI description, then the title, then the
+	 * mvs_media_alt_text filter), so BuddyNext's tiles and lightbox say what the
+	 * engine's own grids say instead of always using the upload's title. Empty
+	 * when the engine, or a version without alt_text() (before 2.6.1), is absent;
+	 * the caller falls back to the title.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param int $media_id Media id.
+	 * @return string Plain (unescaped) alt text, or ''.
+	 */
+	public static function alt_text( int $media_id ): string {
+		$helpers = self::service( 'template_helpers' );
+		if ( ! is_object( $helpers ) || ! method_exists( $helpers, 'alt_text' ) ) {
+			return '';
+		}
+		try {
+			return trim( (string) $helpers->alt_text( $media_id ) );
+		} catch ( \Throwable $e ) {
+			return '';
+		}
 	}
 
 	/**

@@ -75,6 +75,9 @@ class ModerationListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function schedule_queue_check(): void {
+		if ( ! \BuddyNext\Core\CronScheduler::is_scheduling_request() ) {
+			return;
+		}
 		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
 			if ( false === as_next_scheduled_action( 'buddynext_daily_queue_check', array(), 'buddynext' ) ) {
 				if ( wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
@@ -108,9 +111,9 @@ class ModerationListener implements ListenerInterface {
 		// meaningfully stronger than the plain suspend tier (indefinite but
 		// content-visible) — so the "Strikes before permanent ban" setting does
 		// something distinct.
-		$warn_threshold      = (int) get_option( 'buddynext_strike_warn_threshold', 2 );
-		$suspend_threshold   = (int) get_option( 'buddynext_strike_suspend_threshold', 5 );
-		$perma_ban_threshold = (int) get_option( 'buddynext_strike_perma_ban_threshold', 0 );
+		$warn_threshold      = (int) get_option( 'buddynext_strike_warn_threshold', \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_warn_threshold' ) );
+		$suspend_threshold   = (int) get_option( 'buddynext_strike_suspend_threshold', \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_suspend_threshold' ) );
+		$perma_ban_threshold = (int) get_option( 'buddynext_strike_perma_ban_threshold', \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_perma_ban_threshold' ) );
 		$active_strikes      = buddynext_service( 'moderation' )->get_active_strike_count( $user_id );
 
 		// A single strike notice (+ one email). When the member has reached the
@@ -233,7 +236,13 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
-		$expires_label = $expires_at ?? __( 'permanent', 'buddynext' );
+		// Member-facing values for {{reason}} / {{expires_at}}: a real reason or a plain
+		// fallback, and a site-formatted date (the hook passes UTC) or "until lifted".
+		$bn_reason     = \BuddyNext\Moderation\ModerationService::member_facing_reason( $reason );
+		$reason        = '' !== $bn_reason ? $bn_reason : __( 'No reason was recorded. Contact the site team if you think this is a mistake.', 'buddynext' );
+		$expires_label = null !== $expires_at && '' !== $expires_at
+			? wp_date( (string) get_option( 'date_format' ), (int) strtotime( $expires_at . ' UTC' ) )
+			: __( 'until the suspension is lifted', 'buddynext' );
 
 		// reason + expires_at are passed as top-level scalars so EmailSender::
 		// render() exposes them as {{reason}} / {{expires_at}} tokens for any

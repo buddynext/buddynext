@@ -353,7 +353,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					<?php esc_html_e( 'Allow BuddyNext to collect anonymous usage data.', 'buddynext' ); ?>
 				</label>
 				<p>
-					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save preference', 'buddynext' ); ?></button>
+					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 				</p>
 			</form>
 		</div>
@@ -745,7 +745,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'privacy',
-				__( 'Private Community', 'buddynext' ),
+				__( 'Private community', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -760,7 +760,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'privacy',
-				__( 'Search Engine Indexing', 'buddynext' ),
+				__( 'Search engine indexing', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -780,7 +780,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'privacy',
-				__( 'Cookie Consent', 'buddynext' ),
+				__( 'Cookie consent', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -822,7 +822,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'privacy',
-				__( 'Data Retention', 'buddynext' ),
+				__( 'Data retention', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -842,7 +842,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							//
 							// An owner cannot consent to a deletion they were never told about,
 							// and they cannot rely on a promise the code does not keep.
-							'hint'         => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted.', 'buddynext' ),
+							'hint'         => __( 'Automatically delete records older than this: closed moderation reports and (with Pro) analytics events. Open reports and the moderation log are never deleted.', 'buddynext' ),
 						)
 					),
 					// NOTE: a second control for buddynext_log_retention_days used to sit
@@ -923,14 +923,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'general',
-				__( 'Community Identity', 'buddynext' ),
+				__( 'Community identity', 'buddynext' ),
 				array(
 					new Field(
 						array(
 							'key'            => 'buddynext_site_name',
 							'resettable'     => false,
 							'type'           => 'text',
-							'label'          => __( 'Community Name', 'buddynext' ),
+							'label'          => __( 'Community name', 'buddynext' ),
 							'hint'           => __( 'Displayed in the site header, emails, and browser title.', 'buddynext' ),
 							'value_callback' => static fn() => (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) ),
 						)
@@ -940,7 +940,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'        => 'buddynext_description',
 							'resettable' => false,
 							'type'       => 'textarea',
-							'label'      => __( 'Community Description', 'buddynext' ),
+							'label'      => __( 'Community description', 'buddynext' ),
 							'hint'       => __( 'Short description shown on the community landing page and in meta tags.', 'buddynext' ),
 						)
 					),
@@ -1227,7 +1227,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		?>
 		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
 			<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
-			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
+			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments, including your custom reactions. If you untick them all, every reaction stays on: to switch reactions off, use Platform → Features.', 'buddynext' ); ?></span>
 			<?php if ( ! $bn_reactions_on ) : ?>
 				<p class="bn-field-note bn-reaction-field__off-note">
 					<?php esc_html_e( 'Reactions are turned off under Platform → Features. Enable the Reactions feature there to choose which emoji members can use.', 'buddynext' ); ?>
@@ -1308,7 +1308,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'toggle_label' => __( 'Cap sub-spaces per space', 'buddynext' ),
 							'label'        => __( 'Max sub-spaces per space', 'buddynext' ),
 							'min'          => 0,
-							'hint'         => __( 'Maximum number of sub-spaces a space owner can create inside their space.', 'buddynext' ),
+							'hint'         => __( 'Maximum number of sub-spaces a space owner can create inside their space. Applies only while Allow sub-spaces is on.', 'buddynext' ),
 						)
 					),
 				)
@@ -1384,7 +1384,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'moderation',
-				__( 'Auto-Moderation Thresholds', 'buddynext' ),
+				__( 'Auto-moderation thresholds', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1402,7 +1402,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							// purpose — their consumer has no 0-guard, so 0 there would
 							// mean "act on the first strike", not "off".
 							'min'     => 0,
-							'hint'    => __( 'Content is hidden automatically once it reaches this number of reports. Reviewable in the moderation queue. Set to 0 to turn automatic hiding off.', 'buddynext' ),
+							'hint'    => __( 'Content is hidden automatically once it reaches this number of reports, and waits in the moderation queue. Reports from accounts younger than 7 days do not count, and an automatic flag (a new member\'s post, a duplicate, a rule) counts as one. Set to 0 to turn automatic hiding off.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1424,14 +1424,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'moderation',
-				__( 'Strike System', 'buddynext' ),
+				__( 'Strike system', 'buddynext' ),
 				array(
 					new Field(
 						array(
 							'key'     => 'buddynext_strike_warn_threshold',
 							'type'    => 'number',
 							'label'   => __( 'Strikes before warning', 'buddynext' ),
-							'default' => 2,
+							'default' => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_warn_threshold' ),
 							'min'     => 1,
 							'hint'    => __( 'A warning email is sent to the member after this many active strikes.', 'buddynext' ),
 						)
@@ -1441,7 +1441,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'     => 'buddynext_strike_suspend_threshold',
 							'type'    => 'number',
 							'label'   => __( 'Strikes before suspension', 'buddynext' ),
-							'default' => 5,
+							'default' => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_suspend_threshold' ),
 							'min'     => 1,
 							'hint'    => __( 'The member is automatically suspended after this many active strikes.', 'buddynext' ),
 						)
@@ -1452,7 +1452,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'         => 'optional_limit',
 							'toggle_label' => __( 'Permanently ban after enough strikes', 'buddynext' ),
 							'label'        => __( 'Strikes before permanent ban', 'buddynext' ),
-							'default'      => 0,
+							'default'      => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_perma_ban_threshold' ),
 							'min'          => 0,
 							'hint'         => __( 'The member is permanently banned after this many lifetime strikes.', 'buddynext' ),
 						)
@@ -1461,7 +1461,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'moderation',
-				__( 'Content Safeguards', 'buddynext' ),
+				__( 'Content safeguards', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1487,7 +1487,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'resettable' => false,
 							'type'       => 'textarea',
 							'label'      => __( 'Blocked link domains', 'buddynext' ),
-							'hint'       => __( 'One domain per line (e.g. spam.example.com). Posts linking to these domains are rejected.', 'buddynext' ),
+							'hint'       => __( 'One domain per line (for example spam.example.com). Posts linking to these domains are rejected.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1558,7 +1558,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'notifications',
-				__( 'Default Notification Preferences', 'buddynext' ),
+				__( 'Default notification preferences', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1566,7 +1566,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'New follower', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Notify users by default when someone follows them.', 'buddynext' ),
+							'hint'    => __( 'Notify members by default when someone follows them.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1575,7 +1575,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Connection request', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Notify users by default when they receive a connection request.', 'buddynext' ),
+							'hint'    => __( 'Notify members by default when they receive a connection request.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1584,7 +1584,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Reaction on post', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Notify users by default when someone reacts to their post.', 'buddynext' ),
+							'hint'    => __( 'Notify members by default when someone reacts to their post.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1593,7 +1593,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Comment on post', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Notify users by default when someone comments on their post.', 'buddynext' ),
+							'hint'    => __( 'Notify members by default when someone comments on their post.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1602,7 +1602,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( '@mention in post or comment', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Notify users by default when they are mentioned.', 'buddynext' ),
+							'hint'    => __( 'Notify members by default when they are mentioned.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1618,7 +1618,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'notifications',
-				__( 'Email Digest', 'buddynext' ),
+				__( 'Email digest', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1666,7 +1666,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'notifications',
-				__( 'Admin Alerts', 'buddynext' ),
+				__( 'Admin alerts', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1693,7 +1693,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'email',
-				__( 'Sender Identity', 'buddynext' ),
+				__( 'Sender identity', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1730,7 +1730,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'email',
-				__( 'Email Footer', 'buddynext' ),
+				__( 'Email footer', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1753,12 +1753,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return array<string, string>
 	 */
 	private static function reg_mode_choices(): array {
-		return array(
+		$labels = array(
 			'open'     => __( 'Open: anyone can register', 'buddynext' ),
 			'invite'   => __( 'Invite Only: requires an invitation', 'buddynext' ),
 			'approval' => __( 'Admin Approval: admin reviews each request', 'buddynext' ),
 			'closed'   => __( 'Closed: nobody can create an account', 'buddynext' ),
 		);
+		// Keyed by the one list of modes, so a mode cannot exist here and not there.
+		return array_intersect_key( $labels, array_flip( buddynext_reg_modes() ) );
 	}
 
 	/**
@@ -1803,7 +1805,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'registration',
-				__( 'Registration Settings', 'buddynext' ),
+				__( 'Registration settings', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1811,7 +1813,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default_callback' => 'buddynext_default_reg_mode',
 							'type'             => 'select',
 							'choices'          => self::reg_mode_choices(),
-							'label'            => __( 'Registration Mode', 'buddynext' ),
+							'label'            => __( 'Registration mode', 'buddynext' ),
 							'hint'             => __( 'Controls who can create a new account on your community.', 'buddynext' ),
 						)
 					),
@@ -1930,7 +1932,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'registration',
-				__( 'Legal Pages', 'buddynext' ),
+				__( 'Legal pages', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -1992,7 +1994,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			),
 			new Section(
 				'registration',
-				__( 'Access Restrictions', 'buddynext' ),
+				__( 'Access restrictions', 'buddynext' ),
 				array(
 					new Field(
 						array(
@@ -2020,36 +2022,39 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_login_redirect',
-							'default' => '',
-							'type'    => 'url',
-							'label'   => __( 'After login', 'buddynext' ),
-							'hint'    => __( 'Where members go after logging in. Blank = activity feed.', 'buddynext' ),
+							'key'      => 'buddynext_login_redirect',
+							'default'  => '',
+							'type'     => 'url',
+							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
+							'label'    => __( 'After login', 'buddynext' ),
+							'hint'     => __( 'Where members go after logging in: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_logout_redirect',
-							'default' => '',
-							'type'    => 'url',
-							'label'   => __( 'After logout', 'buddynext' ),
-							'hint'    => __( 'Where members go after logging out. Blank = the login page.', 'buddynext' ),
+							'key'      => 'buddynext_logout_redirect',
+							'default'  => '',
+							'type'     => 'url',
+							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
+							'label'    => __( 'After logout', 'buddynext' ),
+							'hint'     => __( 'Where members go after logging out: a page on your site, for example /welcome/, or a full address. Leave empty for the login page.', 'buddynext' ),
 						)
 					),
 					new Field(
 						array(
-							'key'     => 'buddynext_onboarding_redirect',
-							'default' => '',
-							'type'    => 'url',
-							'label'   => __( 'After onboarding', 'buddynext' ),
-							'hint'    => __( 'Where new members go after onboarding. Blank = their profile.', 'buddynext' ),
+							'key'      => 'buddynext_onboarding_redirect',
+							'default'  => '',
+							'type'     => 'url',
+							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
+							'label'    => __( 'After onboarding', 'buddynext' ),
+							'hint'     => __( 'Where new members go after onboarding: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed.', 'buddynext' ),
 						)
 					),
 				)
 			),
 			new Section(
 				'registration',
-				__( 'Social Login', 'buddynext' ),
+				__( 'Social login', 'buddynext' ),
 				array(
 					// Index-only pointer: the social-login provider cards are bespoke,
 					// and buddynext_social_login is registered explicitly as an array
@@ -2058,7 +2063,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						array(
 							'key'   => 'buddynext_social_login',
 							'type'  => 'readonly',
-							'label' => __( 'Social Login', 'buddynext' ),
+							'label' => __( 'Social login', 'buddynext' ),
 							'hint'  => __( 'Sign in with Google, Facebook, and more.', 'buddynext' ),
 						)
 					),
@@ -2079,14 +2084,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'webhooks',
-				__( 'Webhook Secret', 'buddynext' ),
+				__( 'Webhook secret', 'buddynext' ),
 				array(
 					new Field(
 						array(
 							'key'        => self::OPTION_WEBHOOK_SECRET,
 							'resettable' => false,
 							'type'       => 'secret',
-							'label'      => __( 'Shared Secret', 'buddynext' ),
+							'label'      => __( 'Shared secret', 'buddynext' ),
 							'hint'       => __( 'Verifies inbound access requests only. Outgoing webhooks are signed with the per-endpoint secret set under Outbound endpoints.', 'buddynext' ),
 						)
 					),
@@ -2681,7 +2686,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return void
 	 */
 	private function render_tab_registration(): void {
-		$this->open_section( __( 'Registration Settings', 'buddynext' ) );
+		$this->open_section( __( 'Registration settings', 'buddynext' ) );
 
 		// AdminHub clears admin_notices on every BuddyNext screen so third-party
 		// setup nags do not crowd the settings UI. That is deliberate and stays —
@@ -2696,7 +2701,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		$this->render_select_row(
 			'buddynext_reg_mode',
-			__( 'Registration Mode', 'buddynext' ),
+			__( 'Registration mode', 'buddynext' ),
 			(string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
 			self::reg_mode_choices(),
 			__( 'Controls who can create a new account on your community.', 'buddynext' )
@@ -2756,7 +2761,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			$this->render_select_row(
 				'buddynext_verify_enforcement',
 				__( 'How strictly to enforce verification', 'buddynext' ),
-				\BuddyNext\Auth\VerificationListener::enforcement(),
+				// The stored choice, not enforcement(): that answers 'off' while
+				// verification is switched off, which matched no option, so the
+				// select showed Restricted and saving the page overwrote Full.
+				(string) get_option( 'buddynext_verify_enforcement', 'restricted' ),
 				self::verify_enforcement_choices(),
 				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
@@ -2804,7 +2812,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'buddynext_auth_panel_quote',
 			__( 'Featured quote', 'buddynext' ),
 			buddynext_auth_panel_value( 'buddynext_auth_panel_quote' ),
-			__( 'A short quote shown prominently on the panel (e.g. a welcome line or member testimonial).', 'buddynext' ),
+			__( 'A short quote shown prominently on the panel (for example a welcome line or member testimonial).', 'buddynext' ),
 			3
 		);
 
@@ -2826,7 +2834,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		$this->close_section();
 
-		$this->open_section( __( 'Legal Pages', 'buddynext' ) );
+		$this->open_section( __( 'Legal pages', 'buddynext' ) );
 
 		// Terms picker so the owner links the sign-up consent to a real page on
 		// their site — no slug guessing, no code. Build the option list from the
@@ -2915,13 +2923,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		$this->close_section();
 
-		$this->open_section( __( 'Access Restrictions', 'buddynext' ) );
+		$this->open_section( __( 'Access restrictions', 'buddynext' ) );
 
 		$this->render_textarea_row(
 			'buddynext_allowed_domains',
 			__( 'Allowed email domains', 'buddynext' ),
 			(string) get_option( 'buddynext_allowed_domains', '' ),
-			__( 'One domain per line (e.g. mycompany.com). When set, only addresses from these domains can register. Leave blank to allow all domains.', 'buddynext' ),
+			__( 'One domain per line (for example mycompany.com). When set, only addresses from these domains can register. Leave blank to allow all domains.', 'buddynext' ),
 			4,
 			400
 		);
@@ -2972,7 +2980,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			\BuddyNext\Core\RedirectSettings::OPT_LOGIN,
 			__( 'After login', 'buddynext' ),
 			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGIN, '' ),
-			__( 'Where members go after logging in. Leave blank for the activity feed (default). A link a member was sent to (e.g. a gated page) always takes priority.', 'buddynext' )
+			__( 'Where members go after logging in. Leave blank for the activity feed (default). A link a member was sent to (for example a gated page) always takes priority.', 'buddynext' )
 		);
 
 		$this->render_text_row(
@@ -2988,13 +2996,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			\BuddyNext\Core\RedirectSettings::OPT_ONBOARDING,
 			__( 'After onboarding', 'buddynext' ),
 			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, '' ),
-			__( 'Where new members go after finishing onboarding. Leave blank for their profile (default).', 'buddynext' )
+			__( 'Where new members go after finishing onboarding. Leave blank for the activity feed (default).', 'buddynext' )
 		);
 
 		$this->close_section();
 
 		// ── Social login (OAuth2) ──────────────────────────────────────────
-		$this->open_section( __( 'Social Login', 'buddynext' ) );
+		$this->open_section( __( 'Social login', 'buddynext' ) );
 		$social = (array) get_option( 'buddynext_social_login', array() );
 		?>
 		<p class="bn-field-hint bn-social-intro">
@@ -3015,7 +3023,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						'type'  => 'text',
 					),
 					'client_secret' => array(
-						'label'  => __( 'Client Secret', 'buddynext' ),
+						'label'  => __( 'Client secret', 'buddynext' ),
 						'type'   => 'password',
 						'secret' => true,
 					),
@@ -3173,9 +3181,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		echo '<p class="bn-field-hint">';
 		printf(
-			/* translators: %s: link to the Features tab. */
-			esc_html__( 'Install companions here; enable them under %s.', 'buddynext' ),
-			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'features' ) ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+			/* translators: %s: link to the Integration Settings screen. */
+			esc_html__( 'Install companions here; choose where each one appears under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 		);
 		echo '</p>';
 		?>
@@ -3385,7 +3393,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$has_secret     = '' !== $webhook_secret;
 		?>
 		<div class="bn-field" data-bn-secret-group>
-			<label for="bn-webhook-secret"><?php esc_html_e( 'Shared Secret', 'buddynext' ); ?></label>
+			<label for="bn-webhook-secret"><?php esc_html_e( 'Shared secret', 'buddynext' ); ?></label>
 			<div class="bn-input-group">
 				<input type="password"
 						id="bn-webhook-secret"
@@ -3498,7 +3506,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						(int) $webhook_limit
 					);
 				} else {
-					esc_html_e( 'Each request is signed with the shared secret above. The host receives a JSON payload with `event`, `payload`, `timestamp`, and a verifying `X-BuddyNext-Signature` header.', 'buddynext' );
+					esc_html_e( 'Each endpoint has its own signing secret. The host receives JSON with `event`, `timestamp` and `data`, and an `X-BuddyNext-Signature` header to verify it.', 'buddynext' );
 				}
 				?>
 			</p>
@@ -3675,6 +3683,32 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					<?php esc_html_e( 'Register endpoint', 'buddynext' ); ?>
 				</button>
 				<span class="bn-field-hint" role="status" data-bn-webhook-status aria-live="polite"></span>
+			</div>
+
+			<?php
+			// Each endpoint gets its own signing secret when it is registered. It is
+			// stored and never sent back, so this is the one moment the owner can
+			// copy it: the page used to reload at once and the secret was lost,
+			// leaving no way to verify a signature. Filled in by settings.js.
+			?>
+			<div class="bn-field bn-a-gap-top" data-bn-webhook-secret-panel hidden>
+				<label for="bn-webhook-new-secret"><?php esc_html_e( 'Signing secret for the new endpoint', 'buddynext' ); ?></label>
+				<div class="bn-input-group">
+					<input type="text"
+						id="bn-webhook-new-secret"
+						class="bn-input bn-text-input large-text code"
+						readonly
+						autocomplete="off"
+						spellcheck="false">
+					<button type="button"
+						class="bn-btn"
+						data-variant="secondary"
+						data-bn-copy="bn-webhook-new-secret"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+				</div>
+				<span class="bn-field-hint"><?php esc_html_e( 'Copy it now and save it in the receiving service. It verifies the X-BuddyNext-Signature header on every request and is not shown again.', 'buddynext' ); ?></span>
+				<div class="bn-row-actions bn-a-gap-top">
+					<button type="button" class="bn-btn" data-variant="primary" data-bn-webhook-secret-done><?php esc_html_e( 'Done, I have copied it', 'buddynext' ); ?></button>
+				</div>
 			</div>
 		</div>
 		<?php

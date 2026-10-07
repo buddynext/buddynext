@@ -35,8 +35,8 @@ class InviteErasureAndRetentionTest extends WP_UnitTestCase {
 		Installer::run();
 		global $wpdb;
 		$this->table = $wpdb->prefix . 'bn_invites';
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-		$wpdb->query( "TRUNCATE TABLE {$this->table}" );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "DELETE FROM {$this->table}" );
 	}
 
 	private function seed( string $email, string $status, string $expires_at, string $created_at ): void {

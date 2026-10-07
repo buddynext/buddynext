@@ -23,7 +23,7 @@ A member never sees keys or settings. Their flow is:
 1. They reach a paywall - on a gated space or a locked post - and choose to upgrade.
 2. They are taken to Stripe Checkout, the hosted payment page, where they enter card details.
 3. On success, Stripe sends BuddyNext a confirmation and access opens right away. The member lands back on your site.
-4. Later, a returning subscriber can open the billing portal to update their card, change plan, cancel, or view past invoices.
+4. Later, a returning subscriber opens **Settings > Membership**. **Update payment method** there takes them to Stripe's billing portal. They switch plans, cancel, and download invoices on that same Settings > Membership screen.
 
 Renewals happen on their own. Each time Stripe charges the card successfully, the member's access is extended to the new period end. If a charge fails, the member is marked past due until the card is fixed; if they cancel, access is removed at the gate.
 
@@ -42,11 +42,13 @@ Open BuddyNext settings and go to the Monetization section, Payment Gateways tab
 
 | Setting | What it does | Default |
 |---|---|---|
+| Enable Stripe | The on/off toggle for the gateway. When off, Stripe is not offered at checkout even if the keys are saved. | On |
 | Publishable key | Your Stripe publishable key. Stripe gives you a test version while you are setting up and a live version once you are ready. This one is safe to be public; it is used to load the card form. | Empty |
 | Secret key | Your Stripe secret key. Like the publishable key, it comes in a test and a live version. BuddyNext keeps it masked on screen. Whether you are in test or live mode is detected automatically from this key. | Empty |
 | Webhook signing secret | A short secret Stripe gives you when you create the webhook in Step 2. It lets BuddyNext confirm that incoming updates genuinely came from Stripe. Kept masked on screen. | Empty |
+| Webhook endpoint URL | Read-only. The address you paste into Stripe in Step 2. | Your site's `/wp-json/buddynext-pro/v1/stripe/membership-webhook` |
 
-> **Note:** Stripe's mode is read automatically from your secret key prefix - an `sk_live_` key is live, an `sk_test_` key is test. There is no separate mode switch to set: the mode simply follows the keys you save. If you enable the gateway while it still holds test keys, the Payment Gateways tab warns you, so you never think you are taking real payments when you are not.
+> **Note:** Stripe's mode is read automatically from your secret key prefix - an `sk_live_` key is live, an `sk_test_` key is test. There is no separate mode switch to set: the mode simply follows the keys you save. If you enable the gateway while it still holds test keys, an admin notice warns you, so you never think you are taking real payments when you are not.
 
 ### The gateway status badge
 
@@ -59,13 +61,20 @@ The Payment Gateways tab shows a status badge for each gateway. It is not just c
 | Needs setup | Required fields are still empty. |
 | Off | The gateway is switched off. |
 
-If it says **Connected** but you have not finished the webhook step, the badge tells you that too. Trust the badge over the fact that the fields look full - a typo in a secret key looks exactly like a correct one.
+If the secret key works but the webhook signing secret is still empty, the badge reads **Not working** and the message says "Connected, but no webhook signing secret is set". Payments work in that state, but renewals, cancellations, and failed payments are not picked up. Trust the badge over the fact that the fields look full - a typo in a secret key looks exactly like a correct one. The result is checked again about every 15 minutes.
 
 ### Step 2: Add the webhook in Stripe
 
-A webhook is how Stripe tells your site when a payment succeeds, renews, or fails, so access stays in sync. The Payment Gateways tab shows a webhook address for you to copy. In your Stripe dashboard, under Developers then Webhooks, add a new endpoint and paste in that address.
+A webhook is how Stripe tells your site when a payment succeeds, renews, or fails, so access stays in sync. The Payment Gateways tab shows a webhook address for you to copy. It ends in `/wp-json/buddynext-pro/v1/stripe/membership-webhook`. In your Stripe dashboard, under Developers then Webhooks, add a new endpoint and paste in that address.
 
-When Stripe asks which events to send, choose the subscription and invoice events. After Stripe creates the endpoint, it shows you a signing secret - copy that back into the Webhook signing secret field on the Stripe tab and save.
+When Stripe asks which events to send, add all of these (the same list the Stripe tab shows):
+
+- `checkout.session.completed` and `checkout.session.async_payment_succeeded` - a purchase finished.
+- `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted` - subscriptions started, changed or cancelled, including ones you manage in Stripe.
+- `invoice.paid` and `invoice.payment_failed` - renewals and failed payments.
+- `charge.refunded`, `charge.refund.updated` and `charge.dispute.created` - refunds you issue in Stripe and chargebacks, which end the member's access.
+
+ After Stripe creates the endpoint, it shows you a signing secret - copy that back into the Webhook signing secret field on the Stripe tab and save.
 
 > **Warning:** Set the webhook up before you go live. The webhook is how Stripe tells your site about renewals, cancellations, and failed payments - without it, those never reach your members and subscriptions drift out of sync with what Stripe thinks. BuddyNext does have a safety net for the moment of purchase (when a buyer returns from Stripe, the site checks the payment directly rather than waiting for a webhook that may never arrive, so a first purchase is not lost), but that net only covers that one moment. It is not a substitute for the webhook.
 
@@ -89,7 +98,7 @@ BuddyNext links each Stripe customer to the matching member on your site. The fi
 
 ### Refunds, whole or partial (1.1.5)
 
-Refund an order from the Orders view of the Subscriptions tab. Leave the amount blank to refund everything still outstanding, or type a smaller figure to refund part of it.
+Refund an order from the Orders view of the Subscriptions tab. Only you, the owner, issue refunds; members cannot refund themselves. Leave the amount blank to refund everything still outstanding, or type a smaller figure to refund part of it.
 
 The distinction decides what happens to access:
 
@@ -106,11 +115,13 @@ A gateway that cannot start a trial now **declines the sale** rather than chargi
 
 ### Hosted checkout
 
-When a member buys a plan, BuddyNext creates a Stripe Checkout session and sends them to Stripe's hosted payment page. The session carries the plan and member identity so the webhook can grant the right access on completion. Any BuddyNext coupon or tax is applied to the price before checkout, so Stripe is charged the final amount - discounts are handled by BuddyNext, not by a Stripe coupon. After paying, the member is returned to the My Membership page with a confirmation; if they cancel at Stripe, they land back on the pricing page. Both pages are provisioned automatically when Monetization is enabled (see Membership Plans).
+When a member buys a plan, BuddyNext creates a Stripe Checkout session and sends them to Stripe's hosted payment page. The session carries the plan and member identity so the webhook can grant the right access on completion. Any BuddyNext coupon or tax is applied to the price before checkout, so Stripe is charged the final amount - discounts are handled by BuddyNext, not by a Stripe coupon. After paying, the member is returned to Settings > Membership with a confirmation; if they cancel at Stripe, they land back on the pricing page. The pricing page is created automatically when Monetization is enabled (see Membership Plans).
 
 ### Customer billing portal
 
-Returning subscribers can open the Stripe billing portal from your site. The portal is Stripe's own self-service page where members update their card, switch plan, cancel, and view invoices. BuddyNext generates a fresh, single-use portal link each time it is requested.
+Returning subscribers open the Stripe billing portal with the **Update payment method** button on Settings > Membership. The portal is Stripe's own self-service page; what it lets a member do depends on your portal settings in the Stripe dashboard. BuddyNext generates a fresh, single-use portal link each time it is requested. A member who has never paid through Stripe has no card on file, so the portal is not offered.
+
+Members cancel from their own Settings > Membership screen with **Cancel membership**. Billing stops at once and access runs to the end of the period already paid. A cancellation made in the Stripe portal reaches your site through the webhook.
 
 ## Good to know
 

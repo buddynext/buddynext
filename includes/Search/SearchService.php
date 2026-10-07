@@ -62,6 +62,27 @@ class SearchService {
 	private const FUZZY_MAX_INDEX_ROWS = 50000;
 
 	/**
+	 * Per-request memo behind viewer_space_ids(): viewer id => space ids.
+	 *
+	 * @var array<int, int[]>
+	 */
+	private static array $viewer_space_memo = array();
+
+	/**
+	 * Per-request memo behind space_visibility_ceiling(): space id => ceiling.
+	 *
+	 * @var array<int, string>
+	 */
+	private static array $ceilings = array();
+
+	/**
+	 * Per-request memo of the server's FULLTEXT minimum token size.
+	 *
+	 * @var int|null
+	 */
+	private static ?int $ft_min_token = null;
+
+	/**
 	 * Upsert an object into the search index.
 	 *
 	 * @param string $object_type Type identifier (e.g. 'post', 'user', 'space').
@@ -173,10 +194,8 @@ class SearchService {
 	 * @return int[] Space ids, membership plus verified entitlements.
 	 */
 	private static function viewer_space_ids( int $viewer_id ): array {
-		$memo = &self::viewer_space_memo();
-
-		if ( isset( $memo[ $viewer_id ] ) ) {
-			return $memo[ $viewer_id ];
+		if ( isset( self::$viewer_space_memo[ $viewer_id ] ) ) {
+			return self::$viewer_space_memo[ $viewer_id ];
 		}
 
 		$member_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'space_members' ) : null;
@@ -234,26 +253,9 @@ class SearchService {
 			}
 		}
 
-		$memo[ $viewer_id ] = array_values( array_unique( $membership ) );
+		self::$viewer_space_memo[ $viewer_id ] = array_values( array_unique( $membership ) );
 
-		return $memo[ $viewer_id ];
-	}
-
-	/**
-	 * The per-request memo behind viewer_space_ids().
-	 *
-	 * Returned by reference for the same reason as {@see self::ceiling_cache()} -
-	 * so the resolver and the flush below cannot end up talking to two different
-	 * static arrays.
-	 *
-	 * @since 1.1.6
-	 *
-	 * @return array<int, int[]>
-	 */
-	private static function &viewer_space_memo(): array {
-		static $memo = array();
-
-		return $memo;
+		return self::$viewer_space_memo[ $viewer_id ];
 	}
 
 	/**
@@ -274,15 +276,13 @@ class SearchService {
 	 * @return void
 	 */
 	public static function flush_viewer_space_memo( int $viewer_id = 0 ): void {
-		$memo = &self::viewer_space_memo();
-
 		if ( $viewer_id > 0 ) {
-			unset( $memo[ $viewer_id ] );
+			unset( self::$viewer_space_memo[ $viewer_id ] );
 
 			return;
 		}
 
-		$memo = array();
+		self::$viewer_space_memo = array();
 	}
 
 	/**
@@ -318,18 +318,17 @@ class SearchService {
 	 * @return string 'public' or 'private'.
 	 */
 	private static function space_visibility_ceiling( int $space_id ): string {
-		$ceilings = &self::ceiling_cache();
-
-		if ( isset( $ceilings[ $space_id ] ) ) {
-			return $ceilings[ $space_id ];
+		if ( isset( self::$ceilings[ $space_id ] ) ) {
+			return self::$ceilings[ $space_id ];
 		}
 
 		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
 
 		if ( null === $space ) {
-			$ceilings[ $space_id ] = 'private';
-
-			return $ceilings[ $space_id ];
+			// Fail closed, but do not remember it: the space may be created later in
+			// this same request (an import, the demo seeder), and a memoised 'private'
+			// would then hide every public post written into it from guest search.
+			return 'private';
 		}
 
 		$members_only = \BuddyNext\Spaces\SpaceTypeRegistry::instance()
@@ -337,23 +336,9 @@ class SearchService {
 
 		$gated = '' !== (string) ( $space['required_ability'] ?? '' );
 
-		$ceilings[ $space_id ] = ( $members_only || $gated ) ? 'private' : 'public';
+		self::$ceilings[ $space_id ] = ( $members_only || $gated ) ? 'private' : 'public';
 
-		return $ceilings[ $space_id ];
-	}
-
-	/**
-	 * The per-request memo behind space_visibility_ceiling().
-	 *
-	 * Held in one place and returned by reference so the resolver and the flush
-	 * below cannot end up talking to two different static arrays.
-	 *
-	 * @return array<int, string>
-	 */
-	private static function &ceiling_cache(): array {
-		static $ceilings = array();
-
-		return $ceilings;
+		return self::$ceilings[ $space_id ];
 	}
 
 	/**
@@ -373,14 +358,12 @@ class SearchService {
 	 * @return void
 	 */
 	public static function flush_space_ceiling( ?int $space_id = null ): void {
-		$ceilings = &self::ceiling_cache();
-
 		if ( null === $space_id ) {
-			$ceilings = array();
+			self::$ceilings = array();
 			return;
 		}
 
-		unset( $ceilings[ $space_id ] );
+		unset( self::$ceilings[ $space_id ] );
 	}
 
 	/**
@@ -1134,8 +1117,8 @@ class SearchService {
 			// fragment (same safe-to-embed pattern as $search_condition) sorts an
 			// exact title/content match first (0), then a prefix match (1), then the
 			// rest (2) — so searching a member's name puts that member at the top.
-			$boost_like   = $wpdb->esc_like( $safe_query );
-			$name_boost   = $wpdb->prepare(
+			$boost_like = $wpdb->esc_like( $safe_query );
+			$name_boost = $wpdb->prepare(
 				'(CASE WHEN si.title = %s OR si.content = %s THEN 0'
 				. ' WHEN si.title LIKE %s OR si.content LIKE %s THEN 1 ELSE 2 END)',
 				$safe_query,
@@ -1143,9 +1126,11 @@ class SearchService {
 				$boost_like . '%',
 				$boost_like . '%'
 			);
+			// si.id last: rows that tie on every other key (bulk-imported members
+			// share updated_at) need a fixed order, or OFFSET pages repeat rows.
 			$order_clause = $sort_recent
-				? 'si.updated_at DESC'
-				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC';
+				? 'si.updated_at DESC, si.id DESC'
+				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC, si.id DESC';
 
 			// SCALE-CONTRACT §3: bound the COUNT so it never scans past the
 			// 1000-row ceiling. Totals beyond it render as "1000+" in the UI.
@@ -1275,7 +1260,7 @@ class SearchService {
 					   {$advanced_where}
 					   {$date_where}
 					   {$space_where}
-					 ORDER BY si.updated_at DESC
+					 ORDER BY si.updated_at DESC, si.id DESC
 					 LIMIT %d OFFSET %d",
 					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
@@ -1746,15 +1731,14 @@ class SearchService {
 	 * @return int Minimum token length (at least 1).
 	 */
 	private function fulltext_min_token(): int {
-		static $min = null;
-		if ( null !== $min ) {
-			return $min;
+		if ( null !== self::$ft_min_token ) {
+			return self::$ft_min_token;
 		}
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$value = $wpdb->get_var( 'SELECT @@innodb_ft_min_token_size' );
-		$min   = ( null !== $value ) ? max( 1, (int) $value ) : 3;
-		return $min;
+		$value              = $wpdb->get_var( 'SELECT @@innodb_ft_min_token_size' );
+		self::$ft_min_token = ( null !== $value ) ? max( 1, (int) $value ) : 3;
+		return self::$ft_min_token;
 	}
 
 	/**

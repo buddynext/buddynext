@@ -152,22 +152,6 @@ class Members extends AdminPageBase {
 		update_user_meta( $user->ID, 'bn_last_login', time() );
 	}
 
-	/**
-	 * Add the Members submenu under the BuddyNext top-level menu.
-	 *
-	 * @return void
-	 */
-	public function add_submenu(): void {
-		add_submenu_page(
-			'buddynext',
-			__( 'Members', 'buddynext' ),
-			__( 'Members', 'buddynext' ),
-			'manage_options',
-			'buddynext-members',
-			array( $this, 'render_page' )
-		);
-	}
-
 	// ── Query ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -434,12 +418,16 @@ class Members extends AdminPageBase {
 	 * @param int    $user_id       WordPress user ID.
 	 * @param string $reason        Optional reason recorded with the suspension.
 	 * @param int    $duration_days Suspension length in days; 0 = indefinite (admin only).
-	 * @return void
+	 * @param bool   $hide_posts    Hide the member's posts while suspended.
+	 * @return int|\WP_Error Suspension id, or why it was refused (e.g. no reason given).
 	 */
-	public function suspend_member( int $user_id, string $reason = '', int $duration_days = 0 ): void {
+	public function suspend_member( int $user_id, string $reason, int $duration_days = 0, bool $hide_posts = false ): int|\WP_Error {
 		$opts = $duration_days > 0 ? array( 'duration_days' => $duration_days ) : array();
+		if ( $hide_posts ) {
+			$opts['hide_posts'] = true;
+		}
 
-		( new \BuddyNext\Moderation\ModerationService() )->suspend_user(
+		$result = ( new \BuddyNext\Moderation\ModerationService() )->suspend_user(
 			$user_id,
 			get_current_user_id(),
 			$reason,
@@ -447,6 +435,56 @@ class Members extends AdminPageBase {
 		);
 
 		delete_transient( self::STATS_CACHE );
+
+		return $result;
+	}
+
+	/**
+	 * Read a suspension from the posted confirm modal: reason, note, length, hide posts.
+	 *
+	 * One reader for every admin suspend form (Members row and bulk, the moderation
+	 * queue), so they all compose the member-facing reason the same way the REST
+	 * route and the front-end dialog do (ModerationService::compose_suspension_reason()).
+	 * Callers verify the nonce first.
+	 *
+	 * @return array{reason: string, duration_days: int, hide_posts: bool}|\WP_Error
+	 */
+	public static function suspension_from_request(): array|\WP_Error {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- every caller runs check_admin_referer() first.
+		$code     = isset( $_POST['reason_code'] ) ? sanitize_key( wp_unslash( $_POST['reason_code'] ) ) : '';
+		$note     = isset( $_POST['note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['note'] ) ) : '';
+		$duration = absint( wp_unslash( $_POST['duration_days'] ?? 0 ) );
+		$hide     = ! empty( $_POST['hide_posts'] );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$reason = \BuddyNext\Moderation\ModerationService::compose_suspension_reason( $code, $note );
+		if ( is_wp_error( $reason ) ) {
+			return $reason;
+		}
+
+		return array(
+			'reason'        => $reason,
+			'duration_days' => $duration,
+			'hide_posts'    => $hide,
+		);
+	}
+
+	/**
+	 * Member-facing notice text for a refused suspension.
+	 *
+	 * @param string $code WP_Error code from suspension_from_request() or suspend_user().
+	 * @return string
+	 */
+	public static function suspend_error_message( string $code ): string {
+		switch ( $code ) {
+			case 'reason_required':
+			case 'invalid_reason':
+				return __( 'The member was not suspended: choose a reason, and add a note when you pick Other.', 'buddynext' );
+			case 'forbidden':
+				return __( 'The member was not suspended: you do not have permission for this suspension.', 'buddynext' );
+			default:
+				return __( 'The member was not suspended. Please try again.', 'buddynext' );
+		}
 	}
 
 	/**
@@ -564,20 +602,25 @@ class Members extends AdminPageBase {
 
 		check_admin_referer( 'bn_suspend_member' );
 
-		$user_id  = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
-		$reason   = isset( $_POST['reason'] ) ? sanitize_textarea_field( wp_unslash( $_POST['reason'] ) ) : '';
-		$duration = absint( wp_unslash( $_POST['duration_days'] ?? 0 ) );
-		if ( $user_id > 0 ) {
-			$this->suspend_member( $user_id, $reason, $duration );
-		}
+		$user_id = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
+		$request = self::suspension_from_request();
+		$result  = is_wp_error( $request ) || $user_id <= 0
+			? $request
+			: $this->suspend_member( $user_id, $request['reason'], $request['duration_days'], $request['hide_posts'] );
 
 		wp_safe_redirect(
 			add_query_arg(
-				array(
-					'page'    => 'buddynext-members',
-					'action'  => 'suspended',
-					'user_id' => $user_id,
-				),
+				is_wp_error( $result )
+					? array(
+						'page'     => 'buddynext-members',
+						'action'   => 'suspend_failed',
+						'bn_error' => $result->get_error_code(),
+					)
+					: array(
+						'page'    => 'buddynext-members',
+						'action'  => 'suspended',
+						'user_id' => $user_id,
+					),
 				admin_url( 'admin.php' )
 			)
 		);
@@ -643,7 +686,7 @@ class Members extends AdminPageBase {
 		?>
 		<div class="bn-settings-section bn-community-role-section">
 			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Community Role', 'buddynext' ); ?></span>
+				<span class="bn-ss-title"><?php esc_html_e( 'Community role', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
 				<div class="bn-field-row">
@@ -770,6 +813,8 @@ class Members extends AdminPageBase {
 
 		$current = get_current_user_id();
 		$done    = 0;
+		// One reason for the whole batch, from the same modal a single suspend uses.
+		$bn_bulk_suspend = 'suspend' === $bulk_action ? self::suspension_from_request() : array();
 		if ( '' !== $bulk_action && ! empty( $ids ) ) {
 			foreach ( $ids as $uid ) {
 				// Never let a bulk action hit yourself or another administrator.
@@ -777,8 +822,12 @@ class Members extends AdminPageBase {
 					continue;
 				}
 				if ( 'suspend' === $bulk_action ) {
-					$this->suspend_member( $uid, '' );
-					++$done;
+					if ( is_wp_error( $bn_bulk_suspend ) ) {
+						break;
+					}
+					if ( ! is_wp_error( $this->suspend_member( $uid, $bn_bulk_suspend['reason'], $bn_bulk_suspend['duration_days'], $bn_bulk_suspend['hide_posts'] ) ) ) {
+						++$done;
+					}
 				} elseif ( 'unsuspend' === $bulk_action ) {
 					$this->unsuspend_member( $uid );
 					++$done;
@@ -788,11 +837,17 @@ class Members extends AdminPageBase {
 
 		wp_safe_redirect(
 			add_query_arg(
-				array(
-					'page'        => 'buddynext-members',
-					'bulk_action' => $bulk_action,
-					'bulk_done'   => $done,
-				),
+				is_wp_error( $bn_bulk_suspend )
+					? array(
+						'page'     => 'buddynext-members',
+						'action'   => 'suspend_failed',
+						'bn_error' => $bn_bulk_suspend->get_error_code(),
+					)
+					: array(
+						'page'        => 'buddynext-members',
+						'bulk_action' => $bulk_action,
+						'bulk_done'   => $done,
+					),
 				admin_url( 'admin.php' )
 			)
 		);
@@ -1257,7 +1312,7 @@ class Members extends AdminPageBase {
 		$bn_tabs = array(
 			'members'         => __( 'Members', 'buddynext' ),
 			'profile-fields'  => __( 'Profile Fields', 'buddynext' ),
-			'avatar-settings' => __( 'Avatar & Cover', 'buddynext' ),
+			'avatar-settings' => __( 'Avatar & cover', 'buddynext' ),
 			'member-types'    => __( 'Member Types', 'buddynext' ),
 			'invites'         => __( 'Invites', 'buddynext' ),
 		);
@@ -1505,6 +1560,10 @@ class Members extends AdminPageBase {
 			AdminPageBase::render_notice( __( 'Member suspended.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'action' ) );
 		} elseif ( 'unsuspended' === $action ) {
 			AdminPageBase::render_notice( __( 'Member unsuspended.', 'buddynext' ), 'success', false, array( 'data-bn-clear-param' => 'action' ) );
+		} elseif ( 'suspend_failed' === $action ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice flag.
+			$bn_err = sanitize_key( wp_unslash( $_GET['bn_error'] ?? '' ) );
+			AdminPageBase::render_notice( self::suspend_error_message( $bn_err ), 'error', false, array( 'data-bn-clear-param' => 'action bn_error' ) );
 		}
 
 		// Bulk-action result. handle_bulk() redirects with bulk_action + bulk_done;
@@ -1548,7 +1607,7 @@ class Members extends AdminPageBase {
 		?>
 		<div class="bn-stat-grid">
 			<div class="bn-stat">
-				<div class="bn-stat__label"><?php esc_html_e( 'Total Members', 'buddynext' ); ?></div>
+				<div class="bn-stat__label"><?php esc_html_e( 'Total members', 'buddynext' ); ?></div>
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $stats['total'] ) ); ?></div>
 			</div>
 			<div class="bn-stat">
@@ -1556,7 +1615,7 @@ class Members extends AdminPageBase {
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $active_count ) ); ?></div>
 			</div>
 			<div class="bn-stat">
-				<div class="bn-stat__label"><?php esc_html_e( 'New This Week', 'buddynext' ); ?></div>
+				<div class="bn-stat__label"><?php esc_html_e( 'New this week', 'buddynext' ); ?></div>
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $stats['new_week'] ) ); ?></div>
 			</div>
 			<div class="bn-stat">
@@ -1606,7 +1665,7 @@ class Members extends AdminPageBase {
 						value="<?php echo esc_attr( $search ); ?>">
 					<label for="bn-members-role" class="screen-reader-text"><?php esc_html_e( 'Filter by role', 'buddynext' ); ?></label>
 					<select id="bn-members-role" name="role" class="bn-select">
-						<option value=""><?php esc_html_e( 'All Roles', 'buddynext' ); ?></option>
+						<option value=""><?php esc_html_e( 'All roles', 'buddynext' ); ?></option>
 						<?php foreach ( wp_roles()->get_names() as $rk => $rl ) : ?>
 							<option value="<?php echo esc_attr( $rk ); ?>" <?php selected( $role_filter, $rk ); ?>>
 								<?php echo esc_html( translate_user_role( $rl ) ); ?>
@@ -1625,7 +1684,11 @@ class Members extends AdminPageBase {
 					// inside the existing per-row action forms (invalid HTML) — which
 					// also lets this form live in the toolbar, outside the scroll wrap.
 					?>
-					<form id="bn-members-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
+					<form id="bn-members-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar"
+						data-bn-confirm-suspend="1"
+						data-bn-confirm-title="<?php esc_attr_e( 'Suspend the selected members?', 'buddynext' ); ?>"
+						data-bn-confirm-body="<?php esc_attr_e( 'Each selected member is suspended with the reason below, and sees it on their account page and in the suspension email. Administrators and your own account are skipped.', 'buddynext' ); ?>"
+						data-bn-confirm-label="<?php esc_attr_e( 'Suspend members', 'buddynext' ); ?>">
 						<input type="hidden" name="action" value="bn_bulk_members">
 						<?php wp_nonce_field( 'bn_bulk_members' ); ?>
 						<label for="bn-members-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
@@ -1683,7 +1746,7 @@ class Members extends AdminPageBase {
 									?>
 												"
 										class="bn-th-sort<?php echo $bn_la_active ? ' is-active' : ''; ?>">
-										<?php esc_html_e( 'Last Active', 'buddynext' ); ?>
+										<?php esc_html_e( 'Last active', 'buddynext' ); ?>
 									</a>
 								</th>
 								<th scope="col" data-align="end"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
@@ -1756,7 +1819,7 @@ class Members extends AdminPageBase {
 									<?php if ( $member['suspended'] ) : ?>
 										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
 									<?php elseif ( ! empty( $member['pending_approval'] ) ) : ?>
-										<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Pending Approval', 'buddynext' ); ?></span>
+										<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Pending approval', 'buddynext' ); ?></span>
 									<?php else : ?>
 										<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 									<?php endif; ?>
@@ -1766,7 +1829,7 @@ class Members extends AdminPageBase {
 										<?php echo esc_html( gmdate( 'M j, Y', strtotime( $member['registered'] ) ) ); ?>
 									</time>
 								</td>
-								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last Active', 'buddynext' ); ?>">
+								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">
 									<?php if ( $member['last_active'] > 0 ) : ?>
 										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_active'] ) ); ?>">
 											<?php echo esc_html( MemberDisplay::human_time_diff_short( $member['last_active'] ) ); ?>
@@ -1817,10 +1880,9 @@ class Members extends AdminPageBase {
 													<form method="post"
 														action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 														data-bn-confirm="1"
-														data-bn-confirm-reason="1"
-														data-bn-confirm-duration="1"
+														data-bn-confirm-suspend="1"
 														data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
-														data-bn-confirm-body="<?php /* translators: %s: member display name. */ echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) ); ?>"
+														data-bn-confirm-body="<?php /* translators: %s: member display name. */ echo esc_attr( sprintf( __( 'Suspend %s? They lose posting access and see the reason you choose on their account page and in the suspension email.', 'buddynext' ), $member['display'] ) ); ?>"
 														data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
 														<input type="hidden" name="action" value="bn_suspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
@@ -1906,19 +1968,45 @@ class Members extends AdminPageBase {
 				<div class="bn-modal__body" data-bn-confirm-body>
 					<?php esc_html_e( 'Are you sure?', 'buddynext' ); ?>
 				</div>
-				<div class="bn-field bn-modal__reason" data-bn-confirm-reason-wrap hidden>
-					<label class="bn-label" for="bn-members-confirm-reason"><?php esc_html_e( 'Reason (optional, shown in the moderation log)', 'buddynext' ); ?></label>
-					<textarea id="bn-members-confirm-reason" class="bn-textarea" rows="3" data-bn-confirm-reason-field></textarea>
-				</div>
-				<div class="bn-field bn-modal__duration" data-bn-confirm-duration-wrap hidden>
-					<label class="bn-label" for="bn-members-confirm-duration"><?php esc_html_e( 'Suspension length', 'buddynext' ); ?></label>
-					<select id="bn-members-confirm-duration" class="bn-input" data-bn-confirm-duration-field>
-						<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
-						<option value="1"><?php esc_html_e( '1 day', 'buddynext' ); ?></option>
-						<option value="7"><?php esc_html_e( '7 days', 'buddynext' ); ?></option>
-						<option value="30"><?php esc_html_e( '30 days', 'buddynext' ); ?></option>
-						<option value="90"><?php esc_html_e( '90 days', 'buddynext' ); ?></option>
-					</select>
+				<?php
+				/*
+				 * Suspension fields: shown for a form carrying data-bn-confirm-suspend.
+				 * The reason list is ModerationService::suspension_reasons(), the same
+				 * one the front-end dialog and the app use; the member reads the chosen
+				 * reason (plus the note) on their account page and in the email.
+				 */
+				?>
+				<div class="bn-modal__suspend" data-bn-confirm-suspend-wrap hidden>
+					<div class="bn-field">
+						<label class="bn-label" for="bn-members-confirm-reason"><?php esc_html_e( 'Reason (shown to the member)', 'buddynext' ); ?></label>
+						<select id="bn-members-confirm-reason" class="bn-input" data-bn-confirm-reason-field>
+							<option value=""><?php esc_html_e( 'Choose a reason', 'buddynext' ); ?></option>
+							<?php foreach ( \BuddyNext\Moderation\ModerationService::suspension_reasons() as $bn_code => $bn_label ) : ?>
+								<option value="<?php echo esc_attr( (string) $bn_code ); ?>"><?php echo esc_html( (string) $bn_label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+					<div class="bn-field">
+						<label class="bn-label" for="bn-members-confirm-note"><?php esc_html_e( 'Note (optional, required for Other)', 'buddynext' ); ?></label>
+						<textarea id="bn-members-confirm-note" class="bn-textarea" rows="3" maxlength="<?php echo (int) \BuddyNext\Moderation\ModerationService::SUSPENSION_NOTE_MAX; ?>" data-bn-confirm-note-field></textarea>
+					</div>
+					<div class="bn-field">
+						<label class="bn-label" for="bn-members-confirm-duration"><?php esc_html_e( 'Suspension length', 'buddynext' ); ?></label>
+						<select id="bn-members-confirm-duration" class="bn-input" data-bn-confirm-duration-field>
+							<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
+							<option value="1"><?php esc_html_e( '1 day', 'buddynext' ); ?></option>
+							<option value="7"><?php esc_html_e( '7 days', 'buddynext' ); ?></option>
+							<option value="30"><?php esc_html_e( '30 days', 'buddynext' ); ?></option>
+							<option value="90"><?php esc_html_e( '90 days', 'buddynext' ); ?></option>
+						</select>
+					</div>
+					<div class="bn-field">
+						<label class="bn-check-inline">
+							<input type="checkbox" data-bn-confirm-hide-field>
+							<?php esc_html_e( 'Hide their posts while suspended', 'buddynext' ); ?>
+						</label>
+					</div>
+					<p class="bn-modal__suspend-error" role="alert" data-bn-confirm-suspend-error hidden></p>
 				</div>
 				<?php
 				/*

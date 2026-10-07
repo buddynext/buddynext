@@ -77,6 +77,15 @@ $bn_reactions_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'reactions' );
 
+// A signed-in member who may not react (suspended, or the owner raised "React,
+// share, bookmark and vote" on Roles & Capabilities) gets no React control on a
+// comment either: the post card already hides its own, and the toggle route
+// refuses the click. Same flag, so the comment builder needs no second rule.
+$bn_viewer_id = (int) $args['viewer_id'];
+if ( $bn_reactions_enabled && $bn_viewer_id > 0 && function_exists( 'buddynext_can' ) && ! buddynext_can( $bn_viewer_id, 'buddynext-feed/interact' ) ) {
+	$bn_reactions_enabled = false;
+}
+
 // The comment reaction picker is data-driven, exactly like the post-card picker
 // (parts/post-actions.php): the owner-enabled reaction subset plus any Pro custom
 // slugs, each with its translated label and display meta. Hardcoding the six

@@ -82,6 +82,8 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 		<img class="bn-dm-composer__attachment-thumb" data-wp-bind--src="context.attachmentPreview" alt="">
 		<span class="bn-dm-composer__attachment-spinner" aria-hidden="true" data-wp-bind--hidden="!context.attachmentUploading"></span>
 		<span class="bn-dm-composer__attachment-name" data-wp-text="context.attachmentName"></span>
+		<?php // Percent sent while uploading: a large video takes a while. ?>
+		<span class="bn-dm-composer__attachment-percent" aria-hidden="true" data-wp-bind--hidden="!context.attachmentUploading" data-wp-text="state.attachmentPercentText"></span>
 		<button
 			type="button"
 			class="bn-btn"

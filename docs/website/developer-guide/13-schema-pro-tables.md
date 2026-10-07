@@ -35,9 +35,11 @@ Tier definitions. The base table is created by `schema_core()`; the pricing/bill
 | `currency` | CHAR(3) | Default `USD` (added via ALTER) |
 | `billing_type` | ENUM('recurring','one_time') | Default `recurring` (added via ALTER) |
 | `billing_interval` | ENUM('month','year','once') | Default `month` (added via ALTER) |
+| `annual_price` | DECIMAL(10,2) | Default 0. Yearly price when the plan also offers an annual option; `price` stays the monthly leg (added via ALTER) |
+| `annual_enabled` | TINYINT(1) | Default 0. Whether the annual option is offered (added via ALTER) |
 | `trial_days` | INT | Default 0 (added via ALTER) |
 | `is_free` | TINYINT(1) | Default 0 (added via ALTER) |
-| `status` | ENUM('active','inactive','archived') | Default `inactive` (added/widened via ALTER) |
+| `status` | ENUM('active','unlisted','inactive','archived') | Default `inactive` (added/widened via ALTER) |
 | `entitlements` | LONGTEXT | JSON entitlement payload, nullable (added via ALTER) |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 
@@ -54,18 +56,20 @@ Per-user subscription rows linked to a tier and a gateway. The unique `external_
 | `tier_id` | BIGINT(20) UNSIGNED | References `bn_membership_tiers.id` |
 | `status` | ENUM('active','expired','cancelled','past_due','trialing') | Default `active` |
 | `source` | VARCHAR(32) | Default `manual`. Gateway/source slug (e.g. `manual`, `stripe`, `paypal`) - a free-text column, not an enum. |
+| `billing_interval` | VARCHAR(10) | Default `month`. The interval this subscription was bought on. |
 | `started_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `expires_at` | DATETIME | Nullable; indexed (`expires`) |
 | `external_id` | VARCHAR(255) | Gateway subscription ID, nullable; unique |
 | `reminder_sent_days` | SMALLINT UNSIGNED | Added 1.1.5. The smallest reminder offset already sent for this subscription, nullable. Makes the renewal-reminder sweep idempotent without a join table. |
+| `ended_reason` | VARCHAR(20) | Why a terminal subscription ended: `refund`, `dispute`, `admin`, or NULL for a natural lapse. `status` stays `expired` for every terminal row. |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `updated_at` | DATETIME | `ON UPDATE CURRENT_TIMESTAMP` |
 
-Keys: `PRIMARY (id)`, `UNIQUE external_id (external_id)`, `KEY user_status (user_id, status)`, `KEY tier_status (tier_id, status)`, `KEY expires (expires_at)`.
+Keys: `PRIMARY (id)`, `UNIQUE external_id (external_id)`, `KEY user_status (user_id, status)`, `KEY tier_status (tier_id, status)`, `KEY expires (expires_at)`, `KEY status_started (status, started_at)`.
 
 ### `bn_plan_gateway_map`
 
-One row per `(plan, gateway, mode)` triple. Caches the provider's price ID so repeat checkouts skip the lazy-provision round-trip.
+One row per `(plan, gateway, mode, plan_interval)` combination. Caches the provider's price ID so repeat checkouts skip the lazy-provision round-trip.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -73,11 +77,12 @@ One row per `(plan, gateway, mode)` triple. Caches the provider's price ID so re
 | `plan_id` | BIGINT UNSIGNED | References a tier |
 | `gateway` | VARCHAR(40) | Gateway slug (e.g. `stripe`) |
 | `mode` | VARCHAR(20) | `live` or `test` |
+| `plan_interval` | VARCHAR(10) | Default `month`. Billing interval the provider price was created for. |
 | `provider_price_id` | VARCHAR(191) | Gateway price ID, nullable |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `updated_at` | DATETIME | `ON UPDATE CURRENT_TIMESTAMP` |
 
-Keys: `PRIMARY (id)`, `UNIQUE plan_gateway_mode (plan_id, gateway, mode)`.
+Keys: `PRIMARY (id)`, `UNIQUE plan_gateway_mode_interval (plan_id, gateway, mode, plan_interval)`.
 
 ### `bn_invoices`
 
@@ -242,12 +247,10 @@ Per-recipient delivery and engagement tracking. The unique `(campaign_id, user_i
 | `id` | BIGINT(20) UNSIGNED | Primary key, auto-increment |
 | `campaign_id` | BIGINT(20) UNSIGNED | References `bn_email_campaigns.id` |
 | `user_id` | BIGINT(20) UNSIGNED | Recipient |
-| `status` | ENUM('queued','sent','opened','clicked','bounced','unsubscribed') | Default `queued` |
+| `status` | ENUM('queued','sent','bounced','unsubscribed') | Default `queued` |
 | `sent_at` | DATETIME | Nullable |
-| `opened_at` | DATETIME | Nullable |
-| `clicked_at` | DATETIME | Nullable |
 
-Keys: `PRIMARY (id)`, `UNIQUE campaign_user (campaign_id, user_id)`, `KEY campaign_status (campaign_id, status)`, `KEY user_campaigns (user_id)`.
+Keys: `PRIMARY (id)`, `UNIQUE campaign_user (campaign_id, user_id)`, `KEY campaign_status (campaign_id, status)`, `KEY user_campaigns (user_id)`, `KEY status_campaign (status, campaign_id, id)`.
 
 ### `bn_drip_sequences`
 
@@ -257,7 +260,7 @@ Drip sequence definitions. `steps` is a JSON array of step objects (`delay_days`
 |--------|------|-------|
 | `id` | BIGINT(20) UNSIGNED | Primary key, auto-increment |
 | `name` | VARCHAR(255) | Sequence name |
-| `trigger` | ENUM('user_register','onboarding_completed','manual') | Default `manual` |
+| `trigger` | VARCHAR(64) | Default `manual`. Built-in values are `user_register`, `onboarding_completed` and `manual`; the `buddynext_drip_triggers` filter can register more, so it is not an enum. |
 | `enabled` | TINYINT(1) | Default 1; indexed (`enabled`) |
 | `steps` | LONGTEXT | JSON step array, nullable |
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
@@ -280,7 +283,7 @@ Per-user enrollment in a drip sequence, with the current step pointer. Unique `(
 | `last_step_at` | DATETIME | Nullable |
 | `completed_at` | DATETIME | Nullable |
 
-Keys: `PRIMARY (id)`, `UNIQUE sequence_user (sequence_id, user_id)`, `KEY sequence_status (sequence_id, status)`, `KEY user_enrollments (user_id)`.
+Keys: `PRIMARY (id)`, `UNIQUE sequence_user (sequence_id, user_id)`, `KEY sequence_status (sequence_id, status)`, `KEY user_enrollments (user_id)`, `KEY status_enrolled (status, enrolled_at)`.
 
 ## Moderation
 

@@ -47,6 +47,7 @@ $args = array(
 	'can_react'     => ! empty( $can_react ),
 	'can_comment'   => ! empty( $can_comment ),
 	'can_share'     => ! empty( $can_share ),
+	'can_share_out' => ! empty( $can_share_out ),
 	'can_bookmark'  => ! empty( $can_bookmark ),
 	'comment_count' => isset( $comment_count ) ? absint( $comment_count ) : 0,
 	'share_count'   => isset( $share_count ) ? absint( $share_count ) : 0,
@@ -77,6 +78,7 @@ if (
 	empty( $args['can_react'] )
 	&& empty( $args['can_comment'] )
 	&& empty( $args['can_share'] )
+	&& empty( $args['can_share_out'] )
 	&& empty( $args['can_bookmark'] )
 ) {
 	return;
@@ -275,11 +277,11 @@ do_action( 'buddynext_part_post_actions_before', $args );
 	?>
 
 	<?php
-	// Share is available on every post, including reshares — sharing a reshare
-	// amplifies the original (ShareService flattens the chain). Gated on the
-	// site-owner re-shares toggle (BuddyNext → Social): when disabled the control
-	// is removed entirely so it cannot be invoked.
-	if ( ! empty( $args['can_share'] ) ) :
+	// Share opens one dialog with two independent parts: Repost (members, gated on
+	// the site-owner re-shares toggle; sharing a reshare amplifies the original)
+	// and Share to (any viewer, only when the post is public to anyone with the
+	// link). The control shows when either part applies.
+	if ( ! empty( $args['can_share'] ) || ! empty( $args['can_share_out'] ) ) :
 		?>
 	<button
 		type="button"
@@ -289,6 +291,8 @@ do_action( 'buddynext_part_post_actions_before', $args );
 		data-wp-on--click="actions.openShare"
 		data-post-id="<?php echo absint( $bn_actions_post_id ); ?>"
 		data-post-permalink="<?php echo esc_url( PageRouter::post_url( $bn_actions_post_id ) ); ?>"
+		data-can-repost="<?php echo empty( $args['can_share'] ) ? '0' : '1'; ?>"
+		data-shareable="<?php echo empty( $args['can_share_out'] ) ? '0' : '1'; ?>"
 	>
 		<?php buddynext_icon( 'share' ); ?>
 		<span class="bn-post-card__action-label"><?php esc_html_e( 'Share', 'buddynext' ); ?></span>

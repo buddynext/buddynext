@@ -21,6 +21,7 @@ import '@buddynext/feed-post-card';
  * 10312822451). A single module-level observer, re-armed by loadMore() after
  * every swap, keeps it going; when the last page renders no control, the
  * re-arm finds nothing and auto-advance stops cleanly. */
+const LOAD_MORE_SELECTOR = '#bn-load-more .bn-load-more__btn';
 let bnLoadMoreObserver = null;
 let bnLoadMoreFiring   = false;
 
@@ -33,7 +34,11 @@ function bnArmLoadMore() {
 	if ( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) {
 		return;
 	}
-	const el = document.querySelector( '.bn-load-more__btn' );
+	// Only the growing "Load more" (#bn-load-more). Past the six-page ceiling the
+	// control is a plain "Older posts" link with the same button class; it starts a
+	// fresh page, so it must wait for a click. Auto-clicking it reloaded the feed
+	// under a member who was just scrolling and threw away the posts they had read.
+	const el = document.querySelector( LOAD_MORE_SELECTOR );
 	if ( bnLoadMoreObserver ) {
 		bnLoadMoreObserver.disconnect();
 	}
@@ -46,7 +51,7 @@ function bnArmLoadMore() {
 			if ( bnLoadMoreFiring || ! entries.some( ( e ) => e.isIntersecting ) ) {
 				return;
 			}
-			const cur = document.querySelector( '.bn-load-more__btn' );
+			const cur = document.querySelector( LOAD_MORE_SELECTOR );
 			if ( ! cur || ! cur.isConnected ) {
 				bnLoadMoreObserver.disconnect();
 				return;
@@ -116,6 +121,12 @@ function bnArmLoadMore() {
 		var doc   = new DOMParser().parseFromString( htmlString, 'text/html' );
 		var nodes = Array.prototype.slice.call( doc.body.childNodes );
 		for ( var i = 0; i < nodes.length; i++ ) {
+			// A post already on screen (placed at the top by the new-posts pill)
+			// is not drawn a second time when its page arrives.
+			var postId = nodes[ i ].dataset ? nodes[ i ].dataset.postId : '';
+			if ( postId && listEl.querySelector( '[data-post-id="' + String( postId ).replace( /[^0-9]/g, '' ) + '"]' ) ) {
+				continue;
+			}
 			listEl.appendChild( nodes[ i ] );
 		}
 	}
@@ -340,6 +351,12 @@ const feedStore = store( 'buddynext/feed', {
 				// the browser can adjust once more after layout.
 				window.scrollTo( 0, scrollY );
 				window.requestAnimationFrame( () => window.scrollTo( 0, scrollY ) );
+
+				// A post the new-posts pill placed at the top is not part of the page the
+				// server just rendered, so the swap keeps it AND draws it again at its
+				// ranked position. One card per post: the first one stays.
+				bnDropRepeatedCards();
+				window.requestAnimationFrame( bnDropRepeatedCards );
 
 				// Same signal a shell navigation emits, so anything that re-initialises on
 				// navigation (nav chevrons, shell offsets) also runs after a feed swap.
@@ -979,6 +996,9 @@ const bnPill = {
 	pill:      null,
 	pendingIds: new Set(),
 	watermark: 0,
+	// The watermark the page rendered with. `watermark` moves on with every
+	// poll; the posts to show on a click are the ones above THIS id.
+	baseWatermark: 0,
 	filter:    'for-you',
 	restUrl:   '',
 	restNonce: '',
@@ -1000,9 +1020,7 @@ function bnPillRender() {
 		pill.className = 'bn-feed-new-pill';
 		pill.setAttribute( 'role', 'status' );
 		pill.setAttribute( 'aria-live', 'polite' );
-		pill.addEventListener( 'click', () => {
-			window.location.reload();
-		} );
+		pill.addEventListener( 'click', bnPillShowNew );
 		bnPill.feed.parentElement.insertBefore( pill, bnPill.feed );
 		bnPill.pill = pill;
 	}
@@ -1016,11 +1034,81 @@ function bnPillRender() {
 	const capped = n > BN_PILL_CAP;
 
 	if ( capped ) {
-		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts — refresh to view' ), BN_PILL_CAP );
+		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts: refresh to view' ), BN_PILL_CAP );
 	} else if ( n === 1 ) {
-		bnPill.pill.textContent = t( 'oneNewPost', '1 new post — refresh to view' );
+		bnPill.pill.textContent = t( 'oneNewPost', '1 new post: refresh to view' );
 	} else {
-		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts — refresh to view' ), n );
+		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts: refresh to view' ), n );
+	}
+}
+
+/**
+ * Keep one card per post in the feed list: the first.
+ *
+ * @return {void}
+ */
+function bnDropRepeatedCards() {
+	const list = document.querySelector( '.bn-feed-list' );
+	if ( ! list ) { return; }
+	const seen = new Set();
+	list.querySelectorAll( ':scope > [data-post-id]' ).forEach( ( card ) => {
+		const id = card.dataset.postId;
+		if ( seen.has( id ) ) {
+			card.remove();
+		} else {
+			seen.add( id );
+		}
+	} );
+}
+
+// Most posts one click places in the list. Mirrors FeedService::NEW_ITEMS_LIMIT.
+const BN_PILL_INLINE_MAX = 20;
+
+/*
+   Clicking the pill puts the posts it counted at the top of the list.
+
+   It used to reload the page. On For you a reload re-ranks: a post from someone
+   the member is not connected to sits below every connection's post, often off
+   page one, so the pill said "1 new post", the member clicked, and nothing new
+   was there. The server returns exactly the posts the count was made from.
+   A long backlog, or any failure, still reloads.
+ */
+async function bnPillShowNew() {
+	const feed = bnPill.feed;
+	if ( ! feed || ! bnPill.restUrl || bnPill.baseWatermark <= 0 || bnPill.pendingIds.size > BN_PILL_INLINE_MAX ) {
+		window.location.reload();
+		return;
+	}
+	if ( bnPill.pill ) { bnPill.pill.disabled = true; }
+	try {
+		const url = bnPill.restUrl + '/feed/home/page?after_id=' + encodeURIComponent( bnPill.baseWatermark ) +
+			'&filter=' + encodeURIComponent( bnPill.filter );
+		const res = await restFetch( url, { nonce: bnPill.restNonce || '', toastOnError: false } );
+		if ( ! res.ok || ! res.data || typeof res.data.html !== 'string' ) {
+			window.location.reload();
+			return;
+		}
+		// Inert parse, then move the nodes: the same path infinite scroll uses.
+		const doc   = new DOMParser().parseFromString( res.data.html, 'text/html' );
+		const nodes = Array.prototype.slice.call( doc.body.children );
+		// Above the first post card: an announcement or notice keeps its place.
+		const anchor = feed.querySelector( ':scope > [data-post-id]' ) || feed.firstElementChild;
+		let first    = null;
+		nodes.forEach( ( node ) => {
+			const postId = String( node.dataset.postId || '' ).replace( /[^0-9]/g, '' );
+			if ( postId && feed.querySelector( '[data-post-id="' + postId + '"]' ) ) { return; }
+			feed.insertBefore( node, anchor );
+			if ( ! first ) { first = node; }
+		} );
+		bnPill.baseWatermark = Math.max( bnPill.baseWatermark, bnPill.watermark );
+		bnPill.pendingIds    = new Set();
+		bnPillRender();
+		if ( first ) {
+			// To the top of the page: the new cards start right under the composer.
+			window.scrollTo( { top: 0, behavior: window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ? 'auto' : 'smooth' } );
+		}
+	} catch ( _e ) {
+		window.location.reload();
 	}
 }
 
@@ -1133,6 +1221,7 @@ function initRealtimeNewPostsPill() {
 			if ( cardId > bnPill.watermark ) { bnPill.watermark = cardId; }
 		} );
 	}
+	bnPill.baseWatermark = bnPill.watermark;
 
 	// Resolve the new-posts indicator config from the feed shell. The server
 	// encodes the poll cadence in ms: -1 = indicator off, 0 = no background poll
@@ -1242,7 +1331,7 @@ function initRealtimeCommentIndicator() {
 		}
 		const n = parseInt( pill.dataset.count, 10 ) + 1;
 		pill.dataset.count = String( n );
-		pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment — show' ) : fmt( t( 'manyNewComments', '%d new comments — show' ), n );
+		pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment: show' ) : fmt( t( 'manyNewComments', '%d new comments: show' ), n );
 	} );
 }
 

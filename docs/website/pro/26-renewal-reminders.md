@@ -14,10 +14,10 @@ There is also a legal dimension. EU and California auto-renewal rules require ad
 
 | Email | Sent when | What it says |
 |---|---|---|
-| **Membership renewing** | The subscription will auto-renew | Your plan renews on this date, and this is what you will be charged |
-| **Membership ending** | The subscription will lapse rather than renew | Your access ends on this date, and here is how to keep it |
+| **Membership renewing soon** | The subscription will auto-renew | Your plan renews on this date, and this is what you will be charged |
+| **Membership ending soon** | The subscription will lapse rather than renew | Your access ends on this date, and you can buy it again after that |
 
-Both are ordinary BuddyNext email templates, so you can edit the wording under Settings > Notifications > Email Templates like any other message.
+Both are ordinary BuddyNext email templates, so you can edit the wording under Settings > Email Templates like any other message.
 
 A membership gets the **ending** message rather than the renewing one whenever it is not going to charge again: the member has already cancelled, the plan is a one-time purchase rather than a subscription, or the membership is billed by another system rather than by this site. That last case matters - a membership granted through WooCommerce or Paid Memberships Pro has no renewal here to warn about, so promising one would be wrong.
 
@@ -25,12 +25,14 @@ Members on a **past-due** subscription are deliberately left out. They have alre
 
 ## Setting it up (for owners)
 
-The controls live on the **Subscriptions** tab under Monetization, in the Renewal reminders card.
+The controls live on the **Subscriptions** tab under Monetization, in the Renewal reminders card, below the subscriber list.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Renewal reminders | Turns the whole feature on or off | See below |
-| Days before | Which days to send on, as a comma-separated list | `30,7,1` |
+| Send reminders | "Email members before their membership renews or ends". Turns the whole feature on or off. | See below |
+| Days before | Which days to send on, as a comma-separated list of 1 to 365 | `30,7,1` |
+
+The card also shows a read-only **Next check** line with the date of the next daily run.
 
 "Days before" fires one reminder per entry, so the default sends at thirty days, seven days, and the day before. Each subscription remembers which offsets it has already been sent, so a member never receives the same reminder twice, and shortening the list later does not re-send anything.
 

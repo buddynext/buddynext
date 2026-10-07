@@ -760,6 +760,7 @@ const messagesStore = store( 'buddynext/messages', {
 	state: {
 		// ── Compose modal (DM ↔ group) ────────────────────────────────────────
 		get composeIsGroup() { return getContext().composeMode === 'group'; },
+		get attachmentPercentText() { return ( getContext().attachmentPercent || 0 ) + '%'; },
 		get composeIsDm() { return getContext().composeMode !== 'group'; },
 		get composeTitle() {
 			return getContext().composeMode === 'group'
@@ -871,7 +872,7 @@ const messagesStore = store( 'buddynext/messages', {
 							dMsg = t( 'sendDeniedMutualFollow', 'This person only accepts messages from people they follow back.' );
 							break;
 						case 'rate_limited':
-							dMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
+							dMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly: please wait a moment.' );
 							break;
 						default:
 							dMsg = t( 'sendFailed', 'Could not send. Try again.' );
@@ -971,7 +972,7 @@ const messagesStore = store( 'buddynext/messages', {
 						denyMsg = t( 'sendDeniedMutualFollow', 'This person only accepts messages from people they follow back.' );
 						break;
 					case 'rate_limited':
-						denyMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
+						denyMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly: please wait a moment.' );
 						break;
 					case 'content_too_long':
 						denyMsg = t( 'sendDeniedTooLong', 'That message is too long to send.' );
@@ -1244,10 +1245,10 @@ const messagesStore = store( 'buddynext/messages', {
 						window.location.href = ctx.messagesUrl;
 					}
 				} else {
-					bnToast( fmt( t( 'blockFailed', 'Could not block %s. Try again.' ), name ), { tone: 'danger' } );
+					bnToast( fmt( t( 'blockFailed', 'Could not block. Try again.' ), name ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( fmt( t( 'blockFailed', 'Could not block %s. Try again.' ), name ), { tone: 'danger' } );
+				bnToast( fmt( t( 'blockFailed', 'Could not block. Try again.' ), name ), { tone: 'danger' } );
 			} finally {
 				ctx.infoBusy = false;
 			}
@@ -1591,6 +1592,7 @@ const messagesStore = store( 'buddynext/messages', {
 			// the attachment. Cleared on both terminal paths below (and by
 			// clearAttachment on the early failure return).
 			ctx.attachmentUploading = true;
+			ctx.attachmentPercent   = 0;
 
 			const fd = new FormData();
 			fd.append( 'file', file );
@@ -1614,6 +1616,9 @@ const messagesStore = store( 'buddynext/messages', {
 					method: 'POST',
 					body: fd,
 					toastOnError: false,
+					onUploadProgress: ( loaded, total ) => {
+						ctx.attachmentPercent = total ? Math.min( 100, Math.round( ( loaded / total ) * 100 ) ) : 0;
+					},
 				} );
 				if ( ! res.ok ) {
 					failAttachment( res.data && res.data.message );

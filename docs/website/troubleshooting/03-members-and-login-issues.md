@@ -8,7 +8,7 @@ Problems around email verification, two-factor authentication, profile handles, 
 
 **Likely causes and fixes:**
 
-- **The site can't send mail reliably.** Before turning on email verification, confirm the site can actually send email - test it from **Notifications > Email Templates**. A site that can't send mail locks every new member out at signup with no way in, since Full-strictness verification blocks them entirely.
+- **The site can't send mail reliably.** Before turning on email verification, confirm the site can actually send email - test it from **BuddyNext > Notifications > Email Templates**, which can send a test email. A site that can't send mail locks every new member out at signup with no way in, since Full-strictness verification blocks them entirely.
 - **The email landed in spam.** Ask the member to check spam or promotions folders first, then use the **Resend** button on their verification screen for a fresh link.
 - **The link expired.** A confirmation link is valid only for a limited time. An expired link tells the member so and offers **Resend**, which issues a fresh link and invalidates the old one - always use the newest email.
 - **The member is stuck with no way to tell you.** If your setup is **Restricted** (the default), they can still browse and reach you while unverified. If it's set to **Full**, they cannot use the community at all until verified, and can't message you to say so - if this keeps happening, consider switching to Restricted, or verify them by hand as an admin (see below).
@@ -17,7 +17,7 @@ See [Email Verification](../accounts-access/04-email-verification.md).
 
 ## I need to manually confirm a member's email because the message never arrived
 
-**Fix:** Open the member in **BuddyNext > Members**, and next to View Profile you'll see a **Mark email verified** button (only shown when email verification is on and the member isn't verified yet). Clicking it runs the same verification the member would trigger themselves - but be aware it bypasses proof of ownership, asserting the address belongs to that member on your say-so. Use it when you have another reason to trust the address, not as a way to clear a backlog.
+**Fix:** Open the member in **BuddyNext > Members > Directory** (edit the member), and next to View Profile you'll see a **Mark email verified** button (only shown when email verification is on and the member isn't verified yet). Clicking it runs the same verification the member would trigger themselves - but be aware it bypasses proof of ownership, asserting the address belongs to that member on your say-so. Use it when you have another reason to trust the address, not as a way to clear a backlog.
 
 See [Email Verification](../accounts-access/04-email-verification.md).
 
@@ -33,9 +33,9 @@ See [Two-Factor Authentication](../accounts-access/05-two-factor-authentication.
 
 **Symptom:** Members report being stuck on an account-setup screen they can't get past.
 
-**Likely cause:** **Require two-factor authentication** (Members > Registration & Login) was set to **Everyone** (or a role that includes them), and they had not set up 2FA yet.
+**Likely cause:** **Require two-factor authentication** (**BuddyNext > Members > Registration & Login**, in Spam & Abuse Protection) was set to **Everyone**, or to **Administrators** or **Administrators and editors** for a role that includes them, and they had not set up 2FA yet.
 
-**Fix:** This is working as designed - a member in a required role who hasn't set up 2FA is held on **Settings > Account** until they finish setup; their account itself is not locked, just held at that screen. If this wasn't intended for regular members, change the setting back to **Administrators** or **Nobody**, and give members advance notice before requiring it again - an unannounced mandatory setup screen reads as the site being broken rather than being careful.
+**Fix:** This is working as designed - a member in a required role who hasn't set up 2FA is held on **Settings > Account** until they finish setup; their account itself is not locked, just held at that screen. If this wasn't intended for regular members, change the setting back to **Administrators** or **Nobody: members can still switch it on themselves**, and give members advance notice before requiring it again - an unannounced mandatory setup screen reads as the site being broken rather than being careful.
 
 See [Two-Factor Authentication](../accounts-access/05-two-factor-authentication.md).
 
@@ -55,12 +55,12 @@ See [Member Profiles](../members/01-member-profiles.md).
 
 **Symptom:** A member with no uploaded avatar sees an unexpected image, or an admin-removed avatar doesn't reset properly.
 
-**Likely cause:** The site's **Default avatar style** setting (Members > Avatar and Cover) controls what shows for members with no uploaded avatar - Initials, a Default image, or Gravatar - and that's what's rendering, not a bug.
+**Likely cause:** The site's **Default avatar style** setting (**BuddyNext > Members > Directory > Avatar & cover**) controls what shows for members with no uploaded avatar - Initials, a Default image, or Gravatar - and that's what's rendering, not a bug.
 
 **Fix:**
-1. Check **BuddyNext > Members > Avatar and Cover** to see which default style is active.
+1. Check **BuddyNext > Members > Directory > Avatar & cover** to see which default style is active.
 2. If the style is **Default image** and no image is set (or the wrong one is), upload or replace it there.
-3. A member's own uploaded avatar always overrides the default - if they've uploaded one and still see the fallback, ask them to re-upload; an admin can also remove and let them re-upload from **BuddyNext > Members** (Edit Member).
+3. A member's own uploaded avatar always overrides the default - if they've uploaded one and still see the fallback, ask them to re-upload; an admin can also remove it and let them re-upload from **BuddyNext > Members > Directory** (Edit Member).
 
 See [Member Profiles](../members/01-member-profiles.md).
 

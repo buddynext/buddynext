@@ -6,7 +6,7 @@ A digest is a single email that batches up a member's unread notifications and s
 
 ## Why use it
 
-A busy community generates a lot of activity: follows, comments, reactions, mentions, space invites. If every one of those sends an immediate email, an active member's inbox fills up fast, and the usual reaction is to mute everything or unsubscribe. Once a member turns email off entirely, you have lost the channel that brings them back.
+A busy community generates a lot of activity: follows, comments, mentions, space invites. If every one of those sends an immediate email, an active member's inbox fills up fast, and the usual reaction is to mute everything or unsubscribe. Once a member turns email off entirely, you have lost the channel that brings them back.
 
 Digests fix that. They let a member stay subscribed while cutting the volume from many emails a day down to one. The member still hears about everything that happened, but on their terms, in one place. For the owner, that means fewer unsubscribes, fewer spam complaints, and a re-engagement email that members actually open because it is not noise.
 
@@ -30,13 +30,13 @@ A member who has turned community email off entirely can turn it back on from th
 
 ## Setting it up (for owners)
 
-You control the site-wide digest behavior under BuddyNext > Notifications. The two digest emails themselves (their subject, preview, and body) are editable under BuddyNext > Notifications > Email Templates, the same way as every other email - see Transactional Email System.
+You control the site-wide digest switch under **BuddyNext > Notifications > Notifications**, in the **Email digest** section. The two digest emails themselves (their subject, preview, and body) are editable under BuddyNext > Notifications > Email Templates, the same way as every other email - see Transactional Email System.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Digest frequency | Site-wide digest switch. `Disabled` turns off all digest emails. `Daily` and `Weekly` leave digests on, and each member's own per-type choice decides whether they get the daily or weekly digest. | Weekly |
+| Digest emails | Site-wide digest switch. **Enabled** leaves digests on, and each member's own per-type choice decides whether they get the daily or weekly digest. **Disabled: no digest emails** turns off every digest. | Enabled |
 
-> **Note:** The site-wide "Digest frequency" setting is a master switch, not a forced schedule. Setting it to Disabled stops every digest run for the whole site. When it is left on, the actual daily-or-weekly decision is made by each member in their own preferences.
+> **Note:** The site-wide "Digest emails" setting is a master switch, not a forced schedule. Setting it to Disabled stops every digest run for the whole site, and members who had chosen Daily or Weekly are told in their preferences that they now get no email for those types until they pick Immediate or Off. When it is left on, the actual daily-or-weekly decision is made by each member in their own preferences.
 
 The Daily Digest and Weekly Digest templates can be enabled, disabled, and rewritten in the Email Templates editor. If you disable a digest template, that digest stops sending even when the site-wide switch is on.
 
@@ -59,7 +59,8 @@ Because the work runs in the background on a schedule, it does not slow down the
 - **Already-read items are skipped.** The digest only includes notifications the member has not already seen in-app.
 - **Digests respect Off.** A type set to Off is never emailed at all - not immediately and not in a digest.
 - **No double-sends.** Each member gets at most one daily digest per day and one weekly digest per week, regardless of how often the background job runs.
-- **Companion-plugin notifications never appear in a digest.** Badges, level-ups, and media reactions and mentions are display-only - the partner plugin that generated them owns its own email - so they are excluded from the daily and weekly rollup the same way they are excluded from immediate email. See Notifications.
+- **Reactions never appear in a digest.** Reactions to a member's posts and comments are bell-only: they show in the notification list and never in an email or a digest.
+- **Companion-plugin notifications never appear in a digest.** Badges, level-ups, and media reactions are display-only - the partner plugin that generated them owns its own email - so they are excluded from the daily and weekly rollup the same way they are excluded from immediate email. See Notifications.
 
 ## Free vs Pro
 

@@ -34,9 +34,9 @@ class RolesTab extends AdminPageBase {
 	private const OPTION = 'bn_role_map_overrides';
 
 	/**
-	 * Editable capabilities, grouped, with friendly labels. Space-scoped and
-	 * always-public capabilities are intentionally omitted (they are resolved
-	 * contextually, not by the global role map).
+	 * Editable capabilities, grouped, with friendly labels. Lists exactly
+	 * PermissionService::owner_facing_abilities(): the permission map decides
+	 * what is editable, this adds the wording (RolesTabTest holds the two equal).
 	 *
 	 * @var array<string,array<string,string>>
 	 */
@@ -45,6 +45,7 @@ class RolesTab extends AdminPageBase {
 			__( 'Posts & activity', 'buddynext' ) => array(
 				'buddynext-feed/create-post'     => __( 'Create posts', 'buddynext' ),
 				'buddynext-comments/create'      => __( 'Comment on posts', 'buddynext' ),
+				'buddynext-feed/interact'        => __( 'React, share, bookmark and vote', 'buddynext' ),
 				'buddynext-feed/schedule-post'   => __( 'Schedule posts', 'buddynext' ),
 				'buddynext-feed/pin-post'        => __( 'Pin posts', 'buddynext' ),
 				'buddynext-feed/delete-any-post' => __( "Delete anyone's post", 'buddynext' ),
@@ -69,6 +70,7 @@ class RolesTab extends AdminPageBase {
 			__( 'Moderation', 'buddynext' )       => array(
 				'buddynext-moderation/report'       => __( 'Report content', 'buddynext' ),
 				'buddynext-moderation/review-queue' => __( 'Review the report queue', 'buddynext' ),
+				'buddynext-moderation/dismiss'      => __( 'Resolve reports', 'buddynext' ),
 				'buddynext-moderation/issue-strike' => __( 'Issue strikes', 'buddynext' ),
 				'buddynext-moderation/suspend-user' => __( 'Suspend members', 'buddynext' ),
 			),
@@ -192,7 +194,7 @@ class RolesTab extends AdminPageBase {
 				</div>
 			</div>
 
-			<?php $this->render_save_bar( __( 'Save permissions', 'buddynext' ) ); ?>
+			<?php $this->render_save_bar( __( 'Save changes', 'buddynext' ) ); ?>
 		</form>
 		<?php
 		// Restore defaults: the same form and confirm as every settings tab, listing

@@ -41,7 +41,10 @@ if ( null === $bn_dc_space ) {
 $bn_dc_membership = isset( $membership ) && is_array( $membership ) ? $membership : null;
 $bn_dc_uid        = isset( $current_user_id ) ? (int) $current_user_id : 0;
 $bn_dc_cat_by_id  = isset( $cat_by_id ) && is_array( $cat_by_id ) ? $cat_by_id : array();
-$bn_dc_subspaces  = isset( $subspace_count ) ? (int) $subspace_count : 0;
+// SpaceService::parent_labels() for the list; a caller showing a parent's own
+// sub-spaces leaves it out, since "in {this space}" would say nothing.
+$bn_dc_parent    = ( isset( $parent_by_id ) && is_array( $parent_by_id ) ) ? ( $parent_by_id[ (int) ( $space['parent_id'] ?? 0 ) ] ?? null ) : null;
+$bn_dc_subspaces = isset( $subspace_count ) ? (int) $subspace_count : 0;
 // Non-empty only when the directory is sorted by "Active" (see directory.php).
 $bn_dc_active = isset( $active_label ) ? (string) $active_label : '';
 
@@ -140,6 +143,21 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 			><?php echo esc_html( $space_name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></h2>
 		</a>
 
+		<?php if ( null !== $bn_dc_parent ) : ?>
+			<p class="bn-sd-card__parent">
+				<?php
+				echo wp_kses(
+					sprintf(
+						/* translators: %s: name of the space this sub-space belongs to (a link). */
+						_x( 'in %s', 'sub-space parent label', 'buddynext' ),
+						'<a href="' . esc_url( $bn_dc_parent['url'] ) . '">' . esc_html( $bn_dc_parent['name'] ) . '</a>'
+					),
+					array( 'a' => array( 'href' => true ) )
+				);
+				?>
+			</p>
+		<?php endif; ?>
+
 		<?php if ( '' !== $bn_card_cat_name ) : ?>
 			<?php
 			// The category name, and only the name. This used to be prefixed with a
@@ -236,7 +254,14 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 				// it reads as available until the member spends a click on it.
 				?>
 
-			<?php elseif ( 'direct' === SpaceTypeRegistry::instance()->join_method( $space_type ) ) : ?>
+			<?php elseif ( 'invite' === $bn_dc_join_method ) : ?>
+				<?php
+				// Invite-only (hidden) spaces take no join requests: members get in by
+				// invitation. A site admin can see them in the directory; offering
+				// "Request to join" there asked the space for something it never grants.
+				?>
+
+			<?php elseif ( 'direct' === $bn_dc_join_method ) : ?>
 				<button
 					class="bn-btn"
 					data-variant="primary"

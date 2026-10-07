@@ -872,6 +872,22 @@ class HashtagService {
 	}
 
 	/**
+	 * Recompute post_count for these hashtags, then refresh trending.
+	 *
+	 * For callers that remove post links in bulk (PostService's delete cascade),
+	 * so a tag's count follows its posts.
+	 *
+	 * @param int[] $hashtag_ids Hashtag ids.
+	 * @return void
+	 */
+	public function recount( array $hashtag_ids ): void {
+		foreach ( array_unique( array_map( 'intval', $hashtag_ids ) ) as $hashtag_id ) {
+			$this->recount_hashtag( $hashtag_id );
+		}
+		$this->bust_trending_cache();
+	}
+
+	/**
 	 * Recompute one tag's stored post_count from the listable predicate.
 	 *
 	 * Both sync() recomputes used to carry a hand-written copy of the WHERE
@@ -913,7 +929,13 @@ class HashtagService {
 				$hashtag_id
 			)
 		);
+		// The row get_by_slug() caches carries post_count; drop it so the tag page
+		// shows the new count, not the cached one.
+		$slug = (string) $wpdb->get_var( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}bn_hashtags WHERE id = %d", $hashtag_id ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( '' !== $slug ) {
+			wp_cache_delete( "hashtag_{$slug}", self::CACHE_GROUP );
+		}
 	}
 
 	/**

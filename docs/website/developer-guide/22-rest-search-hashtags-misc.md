@@ -18,8 +18,8 @@ Served by `SearchController`. `/search` is the unified search across content typ
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/search` | Public | Unified search. Params: `q` (required), `type` (optional), `per_page` (default 20), `page` (default 1), plus the Pro member filters (`tier_slug`, `space_id`, `member_label`, `joined_after`, `active_within_days`). |
-| GET | `/search/members` | Public | Member search/directory (cursor-paginated). Params: `cursor`, `per_page` (default 20, max 50), `search`, `location`, `skills`, `space_id`, `connection_status`, `online_only`, `sort` (`newest`, `alphabetical`, `most_active`, `online`). |
+| GET | `/search` | Public | Unified search. Params: `q` (required), `type` (optional), `per_page` (default 20), `page` (default 1), plus `expand` and the Pro member filters (`tier_slug`, `space_id`, `member_label`, `joined_after`, `active_within_days`). |
+| GET | `/search/members` | Public | Member search/directory (cursor-paginated). Params: `cursor`, `per_page` (default 20, max 50), `search` (alias `q`), `location`, `skills`, `space_id`, `connection_status`, `online_only`, `sort` (`newest`, `alphabetical`, `most_active`, `online`). |
 | GET | `/search/suggest` | Public | Grouped as-you-type suggestions. Params: `q` (required), `per_group` (default 5, max 10). A blank/too-short `q` returns an empty `groups` list rather than an error. |
 
 The `type` parameter on `/search` narrows results to one object type (for example members, spaces, or posts); omit it to return grouped results keyed by type. The Pro-only member filters are registered on `/search` so app and REST clients can pass them and so the schema documents them - Free forwards them through the `buddynext_search_query_args` filter seam, and they are simply ignored when Pro is not active.
@@ -30,10 +30,10 @@ Served by `HashtagController`. The `{slug}` path segment matches `[^/]+` (any no
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/hashtags/trending` | Public (feature on) | Trending hashtags. Optional `limit` (default 10, max 50). |
+| GET | `/hashtags/trending` | Public (feature on) | Trending hashtags. Optional `limit` (default 10, max 50) and `hours` (look-back window, default 24, max 720). |
 | GET | `/hashtags/autocomplete` | Public (feature on) | Autocomplete suggestions for a partial tag. Params: `q` (required), `limit` (default 10, max 20). |
 | GET | `/hashtags/{slug}` | Public (feature on) | Hashtag detail (counts, follow state). |
-| GET | `/hashtags/{slug}/feed` | Public (feature on) | Cursor-paginated feed of posts carrying the tag. Params: `per_page` (default 20, max 50), `cursor`. |
+| GET | `/hashtags/{slug}/feed` | Public (feature on) | Cursor-paginated feed of posts carrying the tag. Params: `per_page` (default 20, max 50), `cursor`, `sort` (`latest`, `top`, `following`; default `latest`). |
 | GET | `/hashtags/{slug}/related` | Public (feature on) | Hashtags frequently used alongside this one. Optional `limit` (default 6, max 20). |
 | GET | `/hashtags/{slug}/contributors` | Public (feature on) | Top contributors to the tag plus a total count. Optional `limit` (default 5, max 20). |
 | POST | `/hashtags/{slug}/follow` | Auth (feature on) | Follow the hashtag. Returns `{"following": true, "follower_count": N}`. |
@@ -59,9 +59,12 @@ Standalone routes that do not belong to a domain controller.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/link-preview` | Auth | Resolve link-preview metadata (title, description, thumbnail) for a URL while composing a post. Served by `PostController`. |
+| GET | `/link-preview` | Auth | Resolve link-preview metadata (title, description, thumbnail) for `?url=` (required) while composing a post. Served by `PostController`. |
+| GET | `/pwa/manifest` | Public | The web app manifest, served as `application/manifest+json` (cached for an hour). |
+| GET | `/pwa/sw` | Public | The service-worker script, served as raw JavaScript with `Service-Worker-Allowed: /`, not JSON. |
+| GET | `/pwa/offline` | Public | The offline fallback page, served as raw HTML. |
 | POST | `/invites/import-csv` | manage_options | Upload a CSV and bulk-create invites. Served by `InviteController`. |
-| POST | `/companions/install` | install_plugins | Install and activate a catalog companion plugin in one step. Served by `CompanionController`. |
+| POST | `/companions/install` | install_plugins | Install and activate a catalog companion plugin in one step. Body: `slug` (required). Served by `CompanionController`. |
 | GET | `/admin/slug-check` | manage_options | Probe whether a proposed page slug is available. Params: `slug`, `context`. Served by `SlugCheckController`. |
 
 Capability detail:
@@ -126,5 +129,5 @@ curl -X POST https://example.com/wp-json/buddynext/v1/hashtags/photography/follo
 
 - **Hashtag routes 403 when the feature is off**, not 404. Check the Hashtags toggle before assuming a route is missing; the error code is `hashtags_disabled`.
 - **Pro search filters are documented but inert in Free.** `tier_slug`, `member_label`, `joined_after`, and `active_within_days` on `/search` are accepted and ignored unless buddynext-pro is active and merges them through the `buddynext_search_query_args` seam.
-- **`/link-preview` lives on the Feed controller**, not a dedicated search/preview controller; it requires authentication because it is part of the post composer.
+- **`/link-preview` lives on the Post controller**, not a dedicated search/preview controller; it requires authentication because it is part of the post composer.
 - **The admin singletons are owner tooling.** `/invites/import-csv`, `/companions/install`, and `/admin/slug-check` are administrator-only and are not part of the member-facing surface.

@@ -55,7 +55,7 @@ A short list of members with their headlines ("Product designer", "UX writer", "
 
 ![Onboarding step 5: choose notification channels](../images/onboarding-5-notifications.webp)
 
-Three channel toggles with sensible defaults: **Email** (daily summary) and **In-app** (bell badge) are on, **Sound** is off. The member can fine-tune exactly which events reach each channel later, from Settings - this step just sets the broad strokes.
+Channel toggles with sensible defaults: **Email** (daily summary) and **In-app** (bell badge) are on, **Sound** is off. A **Push** toggle also appears when push notifications are available on the site. The member can fine-tune exactly which events reach each channel later, from Settings - this step just sets the broad strokes.
 
 ### Step 6 - Pick your membership
 
@@ -67,11 +67,13 @@ The final step is an optional upgrade offer - the Pro plan, its benefits, and it
 
 ## Stage 3 - The member home
 
-Finishing the wizard drops the new member on **their own profile**, set up to nudge the next action rather than a blank page.
+Finishing the wizard drops the new member on the **activity feed**, already filled with posts from the spaces they joined and the people they followed. If they came in through a space invite link, they land in that space instead, and an owner can pick a different page in **Members > Registration & Login > After onboarding**.
+
+Their own profile is set up to nudge the next action rather than sit blank.
 
 ![The new member's profile with a Profile Strength completion checklist](../images/member-profile-strength.webp)
 
-The right rail shows a **Profile Strength** ring with a checklist - Add Basic Info, Social Links, Work Experience, Skills, a profile photo, a cover image - with **Interests already ticked off** from the wizard. Alongside it sit **People to follow** and **Trending topics**, and the composer ("What's on your mind?") is right there. The member has a clear, low-pressure list of what to do next and everything they need to make their first post.
+On the profile, the right rail shows a **Profile Strength** ring with a checklist - Add Basic Info, Social Links, Work Experience, Skills, a profile photo, a cover image - with **Interests already ticked off** from the wizard. Alongside it sit **People to follow** and **Trending topics**, and the composer ("What's on your mind?") is right there. The member has a clear, low-pressure list of what to do next and everything they need to make their first post.
 
 ---
 

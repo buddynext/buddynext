@@ -181,7 +181,7 @@ class Galleries {
 
 		$out = array();
 		foreach ( (array) $query->posts as $album_id ) {
-			$out[] = self::album_summary( (int) $album_id );
+			$out[] = self::album_summary( (int) $album_id, $viewer_id );
 		}
 
 		return $out;
@@ -334,7 +334,7 @@ class Galleries {
 		foreach ( (array) $query->posts as $album_id ) {
 			$album_id = (int) $album_id;
 			if ( self::can_view_album( $album_id, $viewer_id ) ) {
-				$out[] = self::album_summary( $album_id );
+				$out[] = self::album_summary( $album_id, $viewer_id );
 			}
 		}
 
@@ -362,20 +362,37 @@ class Galleries {
 			// Fail closed for non-owners; owners always see their own.
 			return $viewer_id > 0 && (int) get_post_field( 'post_author', $album_id ) === $viewer_id;
 		}
-		return (bool) $privacy->can_view( $album_id, $viewer_id );
+		// Say this ID is an album ('cpt'). In the default 'auto' mode WPMediaVerse
+		// lets a MEDIA row win when a photo's id equals the album's post id, so the
+		// album was judged by an unrelated photo's privacy and owner (a private
+		// album shown, or an owner refused their own). WPMediaVerse added the
+		// explicit mode for exactly this; older versions without it keep 'auto'.
+		$cpt = get_class( $privacy ) . '::SPACE_CPT';
+		return defined( $cpt )
+			? (bool) $privacy->can_view( $album_id, $viewer_id, constant( $cpt ) )
+			: (bool) $privacy->can_view( $album_id, $viewer_id );
 	}
 
 	/**
 	 * Lightweight album summary for cards / list responses.
 	 *
-	 * @param int $album_id Album id.
+	 * @param int      $album_id  Album id.
+	 * @param int|null $viewer_id Who is looking; null for the owner's own screens
+	 *                            (create/edit). Hides a cover the viewer may not see.
 	 * @return array<string,mixed> { id, title, description, privacy, media_count, cover_url, owner }.
 	 */
-	public static function album_summary( int $album_id ): array {
+	public static function album_summary( int $album_id, ?int $viewer_id = null ): array {
 		$albums = MediaClient::albums();
 		$repo   = MediaClient::repo();
 
-		$privacy  = ( $repo && method_exists( $repo, 'get' ) ) ? (string) $repo->get( $album_id, 'privacy' ) : '';
+		// Read where WPMediaVerse keeps it (album post meta, via AlbumService). The
+		// media repository is keyed by media id, so reading it with an album id
+		// reported a value the album never had (card 10369186079).
+		if ( $albums && method_exists( $albums, 'get_privacy' ) ) {
+			$privacy = (string) $albums->get_privacy( $album_id );
+		} else {
+			$privacy = ( $repo && method_exists( $repo, 'get' ) ) ? (string) $repo->get( $album_id, 'privacy' ) : '';
+		}
 		$space_id = self::album_space( $album_id );
 
 		// A space album reports 'space', never a per-album value. Its audience is
@@ -391,16 +408,78 @@ class Galleries {
 		// payload for a client that wants specifics.
 		$reported = $space_id > 0 ? 'space' : ( '' !== $privacy ? $privacy : 'public' );
 
+		$owner_id    = (int) get_post_field( 'post_author', $album_id );
+		$media_count = ( $albums && method_exists( $albums, 'get_item_count' ) ) ? (int) $albums->get_item_count( $album_id ) : 0;
+		$cover_url   = ( $albums && method_exists( $albums, 'get_cover_url' ) ) ? (string) $albums->get_cover_url( $album_id, 'large' ) : '';
+
+		// Seen by someone else: show the cover only when the viewer may see the
+		// cover photo (a cover URL IS the photo). Since WPMediaVerse 2.6.0 a photo
+		// in an album shows with the album's privacy, so this only bites on an
+		// older engine, where a photo kept stricter privacy inside a public album.
+		// No cover means the card's placeholder.
+		if ( null !== $viewer_id && '' !== $cover_url && ! self::can_see_private( $owner_id, $viewer_id ) ) {
+			// Fail closed: a cover whose photo cannot be identified (an engine
+			// without get_resolved_cover_media_id()) cannot be checked, so it is
+			// not shown either.
+			$cover_id = self::album_cover_media_id( $album_id );
+			if ( $cover_id <= 0 || ! self::media_visible( $cover_id, $viewer_id ) ) {
+				$cover_url = '';
+			}
+		}
+
 		return array(
 			'id'          => $album_id,
 			'space_id'    => $space_id,
 			'title'       => (string) get_the_title( $album_id ),
 			'description' => self::album_description( $album_id ),
 			'privacy'     => $reported,
-			'owner'       => (int) get_post_field( 'post_author', $album_id ),
-			'media_count' => ( $albums && method_exists( $albums, 'get_item_count' ) ) ? (int) $albums->get_item_count( $album_id ) : 0,
-			'cover_url'   => ( $albums && method_exists( $albums, 'get_cover_url' ) ) ? (string) $albums->get_cover_url( $album_id, 'large' ) : '',
+			'owner'       => $owner_id,
+			'media_count' => $media_count,
+			'cover_url'   => $cover_url,
 		);
+	}
+
+	/**
+	 * Whether the viewer may see one media item, asked through the engine's
+	 * privacy seam as a MEDIA id (an album post can share the number). Fails
+	 * closed when the seam is missing.
+	 *
+	 * @param int $media_id  Media id.
+	 * @param int $viewer_id Viewer user id (0 = logged out).
+	 * @return bool
+	 */
+	private static function media_visible( int $media_id, int $viewer_id ): bool {
+		$privacy = MediaClient::privacy();
+		if ( ! $privacy || ! method_exists( $privacy, 'can_view' ) ) {
+			return false;
+		}
+		$mode = get_class( $privacy ) . '::SPACE_MEDIA';
+		return defined( $mode )
+			? (bool) $privacy->can_view( $media_id, $viewer_id, constant( $mode ) )
+			: (bool) $privacy->can_view( $media_id, $viewer_id );
+	}
+
+	/**
+	 * The media id an album's cover shows: the pinned cover when it is still in
+	 * the album, else WPMediaVerse's resolved cover (the first image). Mirrors
+	 * AlbumService::get_cover_url(). 0 when there is none or the engine is older.
+	 *
+	 * @param int $album_id Album id.
+	 * @return int
+	 */
+	private static function album_cover_media_id( int $album_id ): int {
+		$albums = MediaClient::albums();
+		if ( ! $albums ) {
+			return 0;
+		}
+
+		$key    = get_class( $albums ) . '::COVER_META_KEY';
+		$pinned = defined( $key ) ? (int) get_post_meta( $album_id, constant( $key ), true ) : 0;
+		if ( $pinned > 0 && method_exists( $albums, 'get_items' ) && in_array( $pinned, array_map( 'intval', array_column( (array) $albums->get_items( $album_id ), 'media_id' ) ), true ) ) {
+			return $pinned;
+		}
+
+		return method_exists( $albums, 'get_resolved_cover_media_id' ) ? (int) $albums->get_resolved_cover_media_id( $album_id ) : 0;
 	}
 
 	/**
@@ -435,26 +514,37 @@ class Galleries {
 	}
 
 	/**
-	 * Ordered media ids in an album (a page of them).
+	 * Media ids in an album, in album order, that the viewer may see.
 	 *
-	 * @param int $album_id Album id.
-	 * @param int $limit    Max ids.
-	 * @param int $offset   Offset.
-	 * @return int[] Ordered media ids.
+	 * The album's privacy says who may open the album. Since WPMediaVerse 2.6.0
+	 * its photos show with that privacy too, but an older engine let a photo keep
+	 * stricter privacy inside a public album, and listing every item then handed
+	 * that photo (tile and URL) to anyone allowed into the album, guests
+	 * included. Each item is asked through the engine's own seam, so the answer
+	 * is right on every version; the owner and a media moderator see everything.
+	 *
+	 * @param int $album_id  Album id.
+	 * @param int $viewer_id Viewer user id (0 = logged out).
+	 * @param int $limit     Max ids.
+	 * @param int $offset    Offset into the visible items.
+	 * @return int[]
 	 */
-	public static function album_media_ids( int $album_id, int $limit = 24, int $offset = 0 ): array {
+	public static function album_media_ids( int $album_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
 		$albums = MediaClient::albums();
 		if ( ! $albums || ! method_exists( $albums, 'get_items' ) ) {
 			return array();
 		}
-		$items = (array) $albums->get_items( $album_id );
-		$ids   = array();
-		foreach ( $items as $item ) {
+
+		$check = ! self::can_see_private( (int) get_post_field( 'post_author', $album_id ), $viewer_id );
+
+		$ids = array();
+		foreach ( (array) $albums->get_items( $album_id ) as $item ) {
 			$id = isset( $item['media_id'] ) ? (int) $item['media_id'] : 0;
-			if ( $id > 0 ) {
+			if ( $id > 0 && ( ! $check || self::media_visible( $id, $viewer_id ) ) ) {
 				$ids[] = $id;
 			}
 		}
+
 		return array_slice( $ids, max( 0, $offset ), max( 1, $limit ) );
 	}
 

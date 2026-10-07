@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.3
+Stable tag: 1.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -58,6 +58,69 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.4 - October 2026 =
+
+Paid membership rebuilt around one plan card and one checkout, a wider app API, faster pages and a long list of fixes. Lockstep with BuddyNext Pro 1.2.4 - install and test both together.
+
+* New      - Members can add and remove photos on a post they already published.
+* New      - The header bell opens a preview of recent notifications on desktop and tablet.
+* New      - Public posts on a public site can be shared to social networks by members and guests.
+* New      - The leaderboard can be browsed in full, page by page, and each space has its own Leaderboard tab.
+* New      - Removed files can be restored from the Trash, not only folders.
+* New      - Appearance > Layout sets community pages to full width, the theme's width or a custom width.
+* New      - Tools can check and repair the database tables and restore the default email wording.
+* New      - Email Log can be searched by recipient.
+* New      - A new webhook endpoint shows its signing secret once, with a Copy button.
+* New      - The app API covers the Explore deck, featured spaces, space header, tabs, team and roster, profile tabs, onboarding steps, notification badges, privacy settings, standing and sign-in accounts.
+* Improve  - Uploads show how much of each file has been sent, several videos can be uploaded together, and Post waits until media is ready.
+* Improve  - Logging in returns visitors to the page they came from, from every Log in link and from wp-login.php.
+* Improve  - Finishing onboarding lands a new member on the activity feed.
+* Improve  - Lists use WordPress's /page/N/ addresses, a page past the end answers Page not found with a way back, and profile tabs are paged.
+* Improve  - See more expands a long post in place on the feed.
+* Improve  - A member is notified once per person per post for reactions, and reactions are bell-only.
+* Improve  - The bell number counts what is new since the bell was last opened and still unread.
+* Improve  - Clicking the New posts pill puts the posts it counted at the top of the feed instead of reloading the page.
+* Improve  - Toasts show one at a time on phones, never repeat a counter, and sit above the Save bar.
+* Improve  - The Roles screen lists every ability an owner can grant, including reacting, sharing, bookmarking and voting.
+* Improve  - New sites suspend a member at 5 strikes and never ban automatically; saved values on existing sites are kept.
+* Improve  - Every suspension carries a reason the member is told.
+* Improve  - The free licence is activated in the background, stops when the store refuses, and tells the owner why with a Retry button.
+* Improve  - A sub-space names its parent on its page and in the Spaces sidebar.
+* Improve  - On Plain permalinks the owner is told BuddyNext needs pretty links, with a one-click fix.
+* Improve  - Site search stays with WordPress; ?s= is no longer redirected to community search.
+* Improve  - Feed pages, the Members directory and every request run fewer database queries.
+* Improve  - Admin screens use one save wording, sentence case and "members" throughout.
+* Fix      - Nobody could register on a new site because consent was required with no checkbox shown.
+* Fix      - Signup refusals that were not about a single field are shown to the visitor.
+* Fix      - Registration redirects saved in settings are followed, including an off-site address.
+* Fix      - Choosing Admin approval in the setup wizard holds new members for approval.
+* Fix      - Setup wizard: Go to dashboard no longer adds sample content.
+* Fix      - Every declared transactional email is delivered, not only verification and welcome.
+* Fix      - Deleting posts lowers their hashtags' counts, and old counts are repaired once.
+* Fix      - Guests see a member's public albums instead of No albums yet.
+* Fix      - Invite-only spaces no longer offer a join request, and My Spaces filters by category.
+* Fix      - Approving a join request runs the same checks as joining.
+* Fix      - A missing post answers 404 on edit, delete, pin and unpin.
+* Fix      - Photo alt text comes from WPMediaVerse, not the upload title.
+* Fix      - Deleting a comment in the media lightbox removes its copy on the post.
+* Fix      - The app's own files are cached correctly when their paths contain spaces, and a version update is never answered with the old copy.
+* Fix      - Hiding Jetonomy from navigation also hides the Discussions link in the rail.
+* Fix      - A reaction clicked in the photo lightbox right after it opens is saved on the post and stays highlighted.
+* Fix      - The cookie notice button uses the site's accent colour on theme pages.
+* Fix      - Deleting a post from its own page returns to the activity feed instead of leaving an empty page.
+* Fix      - Opening the bell also clears the notification number on the side rail and the phone navigation.
+* Fix      - Phone layouts of the directories line up, and the Members toolbar no longer leaves a lone view switch at tablet width.
+* Security - Members-only posts no longer appear on Explore, in link previews or with their link preview over the API.
+* Security - Posts in private and secret spaces stay out of Explore and profiles, and every route of a secret space answers a stranger like a missing space.
+* Security - Profiles no longer reveal the secret spaces a member belongs to.
+* Security - Albums list only the photos the viewer may see and never show a hidden cover.
+* Security - React, share, bookmark and poll vote follow the member's ability on the server, not only in the page.
+* Security - Unlisted membership plans stay out of the public API.
+* Dev      - New filters buddynext_rest_space_item, buddynext_member_hold and buddynext_reaction_choices, and partner notifications can opt into BuddyNext email.
+* Dev      - Integration cards can be rewritten in place (IntegrationActivity::rewrite), and bridges name the features that need a newer partner version.
+* Dev      - The REST API reference is regenerated for 1.2.4.
+* Compat   - Aligned with BuddyNext Pro 1.2.4 and WB Gamification 1.6.6. Install the updates together.
 
 = 1.2.3 - October 2026 =
 

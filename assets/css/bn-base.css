@@ -66,6 +66,9 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
+	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
+	   white label needs (see the @supports block below). */
+	--bn-accent-solid: var(--bn-accent-solid-auto, var(--bn-accent-600));
 
 	/* Surfaces (three-layer system) */
 	--bn-canvas:   oklch(99% 0.002 var(--bn-hue));
@@ -81,7 +84,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	/* Text (AAA contrast) */
 	--bn-ink:    oklch(20% 0.01 var(--bn-hue));
 	--bn-ink-2:  oklch(40% 0.01 var(--bn-hue));
-	--bn-ink-3:  oklch(58% 0.008 var(--bn-hue));
+	--bn-ink-3:  oklch(52% 0.008 var(--bn-hue)); /* AA (4.5:1) on canvas, sunken surfaces and WP's #f0f0f0 */
 	--bn-ink-4:  oklch(72% 0.005 var(--bn-hue));
 
 	/* Semantic */
@@ -182,6 +185,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-z-lightbox: 100000;
 	--bn-z-modal:    100100;   /* above the lightbox — a modal is the top surface */
 	--bn-z-toast:    100200;   /* above the modal — confirms what a modal just did */
+	--bn-save-bar-h: 64px;     /* the sticky Save bar; toasts clear it */
 
 	/* Shadows */
 	--bn-shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.04);
@@ -440,6 +444,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
+	--bn-accent-solid: var(--bn-accent);
 
 	--bn-success-bg: oklch(25% 0.05 145);
 	--bn-warn-bg:    oklch(25% 0.05 75);
@@ -487,6 +492,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
+		--bn-accent-solid: var(--bn-accent);
 	}
 }
 
@@ -507,18 +513,23 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
  * ────────────────────────────────────────────────────────────────────── */
 
 /*
- * Label colour on a filled accent, derived from the accent actually in use:
- * white or black, whichever contrasts more. The switch is the accent's WCAG
- * relative luminance (Y = 0.2126R + 0.7152G + 0.0722B in linear sRGB) at 0.179,
- * where white and black give the same contrast ratio. It must be luminance,
- * not OKLCH lightness: the two disagree on saturated hues, and an L-based
- * switch put white on teal, emerald, cyan and sky accents at under 4:1 where
- * black passes. One rule for BN's own palette, the Appearance picker and every
- * host theme that remaps --bn-accent (Reign, BuddyX). Declared on every element
- * that can set --bn-accent so it is computed from that element's accent.
- * sign() makes it a hard switch: a scaled clamp produced a grey for accents
- * right at the crossover (pink-600). Browsers without relative colour or
- * sign() keep the literal fallbacks in the light and dark blocks above.
+ * The filled accent and its label, derived from the accent actually in use.
+ *
+ * Brand buttons carry white labels. A mid-tone accent (this blue, purple, red,
+ * green) can sit just short of 4.5:1 behind white; the old rule then switched
+ * the label to black, which passed the number but read as broken. Now the fill
+ * is deepened instead, just far enough: --bn-accent-solid scales the accent in
+ * linear sRGB so its WCAG luminance is at most 0.15 (white then reads at 5.25:1,
+ * and the same colour as link text still passes on WordPress's grey #f0f0f0). Scaling linear RGB lowers luminance without changing the hue, so
+ * the fill is the same colour, deeper. Only a genuinely light accent (luminance
+ * 0.45 and up: yellow, lime, pastels) keeps its own fill with a dark label.
+ *
+ * Luminance, not OKLCH lightness: the two disagree on saturated hues (teal, cyan,
+ * emerald). One rule for BN's palette, the Appearance picker and every host theme
+ * that remaps --bn-accent (Reign, BuddyX); declared on every element that can set
+ * --bn-accent so it follows that element's accent. Dark mode keeps its own rule
+ * below: its accent is light by design, with a dark label on it.
+ * Browsers without relative colour or sign() keep the literal fallbacks above.
  */
 @supports (color: color(from red srgb-linear r g b)) and (width: calc(1px * sign(1))) {
 	:root,
@@ -526,9 +537,41 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	[data-theme],
 	[data-bx-mode] {
 		--bn-accent-fg-auto: color(from var(--bn-accent) srgb-linear
+			clamp(0, sign(0.45 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+			clamp(0, sign(0.45 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+			clamp(0, sign(0.45 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+		--bn-accent-solid-auto: color(from var(--bn-accent) srgb-linear
+			calc(r * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))))
+			calc(g * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b))))
+			calc(b * (clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1) + (1 - clamp(0, sign((0.2126 * r + 0.7152 * g + 0.0722 * b) - 0.45), 1)) * min(1, 0.15 / max(0.0001, 0.2126 * r + 0.7152 * g + 0.0722 * b)))));
+		/* The tokens components read, re-declared here so they are computed on
+		   THIS element. Declared on :root alone they were inherited already
+		   computed, so an element that remaps --bn-accent without a light/dark
+		   value (the cookie notice, data-bn-theme="inherit") kept :root's fill:
+		   a blue button on a red-accent site. */
+		--bn-accent-fg: var(--bn-accent-fg-auto);
+		--bn-accent-solid: var(--bn-accent-solid-auto);
+	}
+
+	/* Dark mode: the accent is light by design; whichever label contrasts more. */
+	[data-bn-theme="dark"],
+	[data-theme="dark"],
+	[data-bx-mode="dark"] {
+		--bn-accent-fg-auto: color(from var(--bn-accent) srgb-linear
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
 			clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+		--bn-accent-solid: var(--bn-accent);
+	}
+
+	@media (prefers-color-scheme: dark) {
+		[data-bn-theme="auto"] {
+			--bn-accent-fg-auto: color(from var(--bn-accent) srgb-linear
+				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1)
+				clamp(0, sign(0.179 - (0.2126 * r + 0.7152 * g + 0.0722 * b)), 1));
+			--bn-accent-solid: var(--bn-accent);
+		}
 	}
 }
 
@@ -547,6 +590,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
 		--bn-accent-fg:  #ffffff;
+		--bn-accent-solid: #4754ad;
 
 		--bn-canvas:  #fbfbfd;
 		--bn-surface: #ffffff;
@@ -559,7 +603,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 		--bn-ink:   #1f2030;
 		--bn-ink-2: #4d4f60;
-		--bn-ink-3: #7a7c8c;
+		--bn-ink-3: #666877;
 		--bn-ink-4: #aaabb8;
 
 		--bn-success:    #2fa66f;
@@ -612,6 +656,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
 		--bn-accent-fg:  #15161f;
+		--bn-accent-solid: #8d96e0;
 
 		--bn-success-bg: #1a3a2a;
 		--bn-warn-bg:    #3a2e1a;
@@ -819,10 +864,23 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
  * it. The bug class here was five surfaces each solving the same problem
  * differently, and three of them getting it wrong.
  */
+/* A screen with the sticky Save bar (.bn-ep-save-bar: profile edit, notification
+   preferences) pins that bar to the bottom, and the toast used to land on top of
+   it: at 390px it covered "Unsaved changes" and most of the Save button, and took
+   the tap, so after a refused save the member could not press Save again until
+   the toast left. The toast sits above the bar on every width. */
+body:has(.bn-ep-save-bar) .bn-toast-container {
+	bottom: calc(var(--bn-save-bar-h) + var(--bn-s4));
+}
+
 @media (max-width: 768px) {
 	body:has(.bn-mobile-nav) .bn-toast-container,
 	body:has(.bn-mobile-nav) .bn-unsub-notice {
 		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-s4));
+	}
+
+	body:has(.bn-mobile-nav):has(.bn-ep-save-bar) .bn-toast-container {
+		bottom: calc(var(--bn-mobile-nav-h, 60px) + var(--bn-save-bar-h) + var(--bn-s4));
 	}
 
 	body:has(.bn-mobile-nav) .bn-cookie-consent {
@@ -878,7 +936,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	display: grid;
 	place-items: center;
 	border-radius: var(--bn-r-full);
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 }
 .bn-toast__icon svg { width: 16px; height: 16px; }
@@ -943,21 +1001,17 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	white-space: nowrap;
 }
 .bn-toast__action { align-self: center; }
+/* On a two-line toast the action sits under the text, aligned with it. */
+.bn-toast__text > .bn-toast__action {
+	align-self: flex-start;
+	margin-inline-start: 0;
+}
 .bn-toast__action:hover,
 .bn-toast__action:focus-visible {
 	color: inherit;
 	text-decoration: none;
 }
 
-/* Repeat counter. An action the server keeps refusing used to emit one toast PER
-   attempt and they piled up until they filled the screen (and a screen reader read
-   the same sentence out once per copy — every toast is an assertive alert). The
-   repeat is now collapsed onto the existing toast and counted here. */
-.bn-toast__count {
-	margin-inline-start: var(--bn-s2);
-	opacity: 0.7;
-	font-variant-numeric: tabular-nums;
-}
 @keyframes bn-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bn-toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
 
@@ -1134,7 +1188,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 
 .bn-page-btn.current,
 .bn-page-btn[aria-current="page"] {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	border-color: var(--bn-accent);
 	color: var(--bn-accent-fg);
 }
@@ -1697,7 +1751,8 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	border-block-start: 1px solid var(--bn-line);
 	box-shadow: var(--bn-shadow-sm);
 	padding-inline: var(--bn-s5);
-	min-height: 64px;
+	/* One number for the bar and for whatever must clear it (the toast). */
+	min-height: var(--bn-save-bar-h);
 	display: flex;
 	align-items: center;
 	z-index: 180;
@@ -2424,7 +2479,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	color: var(--bn-ink-3);
 }
 .bn-greeting-streak__cell.is-active {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 }
 .bn-greeting-streak__cell.is-today {
@@ -2819,10 +2874,10 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 .bn-btn[data-variant="primary"] {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 }
-.bn-btn[data-variant="primary"]:hover { background: var(--bn-accent-700); }
+.bn-btn[data-variant="primary"]:hover { background: color-mix(in oklch, var(--bn-accent-solid) 82%, black); }
 
 .bn-btn[data-variant="secondary"] {
 	background: var(--bn-surface);
@@ -2876,6 +2931,12 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	font-size: var(--bn-text-sm);
 	transition: border-color var(--bn-dur) var(--bn-ease),
 				box-shadow var(--bn-dur) var(--bn-ease);
+}
+/* Safari on macOS draws a search field with its own rounded native style and
+   ignores our border and radius until the native appearance is dropped. */
+.bn-input[type="search"] {
+	-webkit-appearance: none;
+	appearance: none;
 }
 .bn-textarea {
 	padding: var(--bn-s3);
@@ -3553,6 +3614,45 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	line-height: 1.5;
 }
 
+/* Suspend dialog (bnSuspendDialog): reason, note, length, hide posts. */
+.bn-suspend-dialog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	margin-block-start: var(--bn-s3);
+}
+.bn-suspend-dialog__field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+.bn-suspend-dialog__label {
+	font-weight: var(--bn-fw-semibold);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+}
+.bn-suspend-dialog .bn-input,
+.bn-suspend-dialog .bn-textarea {
+	width: 100%;
+	box-sizing: border-box;
+}
+.bn-suspend-dialog .bn-textarea {
+	resize: vertical;
+}
+.bn-suspend-dialog__check {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-height: 40px;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+.bn-suspend-dialog__error {
+	margin: 0;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+
 /* ── Notice (front end) ────────────────────────────────────────────────────
  * One inline status box for member-facing surfaces: an archived space, a kudos
  * result. Info by default; --success / --error tones; an optional
@@ -3681,7 +3781,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	no JS; progressive enhancement - browsers without scroll() timelines just
 	keep the plain hidden-scrollbar strip. */
 @supports (animation-timeline: scroll()) {
-	.bn-tabs {
+	.bn-tabs,
+	.bn-explore-filters {
 		animation: bn-tabs-edge-fade linear both;
 		animation-timeline: scroll(self inline);
 	}
@@ -3700,6 +3801,26 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		100% {
 			-webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--bn-s8), #000 100%);
 			mask-image: linear-gradient(to right, transparent 0, #000 var(--bn-s8), #000 100%);
+		}
+	}
+	/* RTL: the strip starts at the right edge and the scroll timeline runs from
+		there, so the same three states fade the mirrored edges. */
+	[dir="rtl"] .bn-tabs,
+	[dir="rtl"] .bn-explore-filters {
+		animation-name: bn-tabs-edge-fade-rtl;
+	}
+	@keyframes bn-tabs-edge-fade-rtl {
+		0% {
+			-webkit-mask-image: linear-gradient(to left, #000 0, #000 calc(100% - var(--bn-s8)), transparent 100%);
+			mask-image: linear-gradient(to left, #000 0, #000 calc(100% - var(--bn-s8)), transparent 100%);
+		}
+		1%, 99% {
+			-webkit-mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 calc(100% - var(--bn-s8)), transparent 100%);
+			mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 calc(100% - var(--bn-s8)), transparent 100%);
+		}
+		100% {
+			-webkit-mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 100%);
+			mask-image: linear-gradient(to left, transparent 0, #000 var(--bn-s8), #000 100%);
 		}
 	}
 }
@@ -4632,7 +4753,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
    was never highlighted. */
 .bn-stepper__item.is-active .bn-stepper__dot,
 .bn-stepper__item[data-state="active"] .bn-stepper__dot {
-	background: var(--bn-accent);
+	background: var(--bn-accent-solid);
 	color: var(--bn-accent-fg);
 	border-color: transparent;
 }

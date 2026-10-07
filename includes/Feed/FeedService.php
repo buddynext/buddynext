@@ -111,6 +111,12 @@ class FeedService {
 	private const NEW_COUNT_CAP = 99;
 
 	/**
+	 * Most posts one pill click loads in place. More than this and the page
+	 * reloads instead of rendering a long batch of cards on a click.
+	 */
+	public const NEW_ITEMS_LIMIT = 20;
+
+	/**
 	 * TTL (seconds) for the home-tab count memo. The four per-tab COUNT(*) are
 	 * heavy on a large bn_posts, so collapse the repeat loads (nav re-render,
 	 * poll, multiple tabs) onto one set of counts. A nav badge tolerates this much
@@ -919,6 +925,13 @@ class FeedService {
 	}
 
 	/**
+	 * Per-request memo of the space ids opted out of the home feed.
+	 *
+	 * @var array|null
+	 */
+	private static ?array $excluded_space_ids = null;
+
+	/**
 	 * Space IDs whose owner disabled "Push space posts to activity feed".
 	 *
 	 * Reads the per-space push_to_feed field (default 1 = push) from bn_space_meta
@@ -929,15 +942,14 @@ class FeedService {
 	 * @return int[] Space IDs to exclude from the home feed.
 	 */
 	private function feed_excluded_space_ids(): array {
-		static $ids = null;
-		if ( null !== $ids ) {
-			return $ids;
+		if ( null !== self::$excluded_space_ids ) {
+			return self::$excluded_space_ids;
 		}
 
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$ids = array_map(
+		self::$excluded_space_ids = array_map(
 			'intval',
 			(array) $wpdb->get_col(
 				"SELECT bn_space_id FROM {$wpdb->bn_spacemeta}
@@ -945,7 +957,7 @@ class FeedService {
 			)
 		);
 
-		return $ids;
+		return self::$excluded_space_ids;
 	}
 
 	/**
@@ -1028,6 +1040,71 @@ class FeedService {
 		wp_cache_set( $cache_key, $counts, self::CACHE_GROUP, self::HOME_COUNTS_TTL );
 
 		return $counts;
+	}
+
+	/**
+	 * The posts the new-posts pill counted, newest first.
+	 *
+	 * Same scope as {@see self::home_feed_new_count()}: published, due, in the
+	 * viewer's source blend, newer than $after_id and not the viewer's own. The
+	 * pill said "N new posts"; this is those N, so a click can put them on
+	 * screen. Reloading instead re-ran the For you ranking, which places a
+	 * non-connection's post below every connection's and often off page one:
+	 * the member clicked and saw nothing new.
+	 *
+	 * Bounded by $limit; a caller with more to show than that reloads.
+	 *
+	 * @since 1.2.4
+	 *
+	 * @param int    $user_id  Viewing user ID.
+	 * @param int    $after_id Highest post id the client had when the page rendered.
+	 * @param string $filter   Filter slug: for-you | following | spaces | network.
+	 * @param int    $limit    Maximum rows (1 to NEW_ITEMS_LIMIT).
+	 * @return array<int,array<string,mixed>> Post rows.
+	 */
+	public function home_feed_new_items( int $user_id, int $after_id, string $filter = 'for-you', int $limit = self::NEW_ITEMS_LIMIT ): array {
+		global $wpdb;
+
+		if ( $user_id <= 0 || $after_id <= 0 ) {
+			return array();
+		}
+		if ( ! in_array( $filter, self::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
+		$limit = max( 1, min( self::NEW_ITEMS_LIMIT, $limit ) );
+
+		$excluded_where = $this->excluded_users_where();
+
+		[ $hidden_where, $hidden_params ] = $this->viewer_hidden_where( $user_id );
+		[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT *
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'published'
+				   AND type <> 'announcement'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND id > %d
+				   AND user_id <> %d
+				   AND ({$source_where})
+				   {$excluded_where}
+				   {$hidden_where}
+				 ORDER BY id DESC
+				 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...array_merge( array( $after_id, $user_id ), $source_params, $hidden_params, array( $limit ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+		foreach ( $rows as $row ) {
+			/** This action is documented in includes/Feed/FeedService.php */
+			do_action( 'buddynext_post_impression', (int) $row['id'], $user_id, 'home_feed' );
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -1441,6 +1518,10 @@ class FeedService {
 	 * Returns raw rows (newest first) so the admin can compute active / scheduled /
 	 * expired without hydrating the full post payload.
 	 *
+	 * Matched on type alone: before 1.2.4, ending an announcement from its card
+	 * cleared is_announcement, so those rows would otherwise never show here.
+	 * type leads the link_lookup index.
+	 *
 	 * @param int $limit Max rows (1-500).
 	 * @return array<int,array<string,mixed>>
 	 */
@@ -1453,7 +1534,7 @@ class FeedService {
 			$wpdb->prepare(
 				"SELECT id, user_id, space_id, content, status, created_at, site_pin_expires_at, scheduled_at
 				 FROM {$wpdb->prefix}bn_posts
-				 WHERE is_announcement = 1 AND type = 'announcement'
+				 WHERE type = 'announcement'
 				 ORDER BY created_at DESC
 				 LIMIT %d",
 				$limit
@@ -1479,23 +1560,9 @@ class FeedService {
 		if ( $post_id <= 0 ) {
 			return false;
 		}
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
-				'updated_at'          => current_time( 'mysql', true ),
-			),
-			array(
-				'id'              => $post_id,
-				'is_announcement' => 1,
-			),
-			array( '%s', '%s' ),
-			array( '%d', '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// One writer for the row (PostService); this adds what ending means for the
+		// whole community: the featured pointer and every cached home feed.
+		$updated = $this->post_service->end_announcement( $post_id );
 
 		if ( (int) get_option( 'buddynext_featured_announcement', 0 ) === $post_id ) {
 			delete_option( 'buddynext_featured_announcement' );
@@ -1507,18 +1574,11 @@ class FeedService {
 		// has ended it, which is the one moment they most need it gone (they usually end
 		// an announcement because it is wrong or no longer true). Busted here, at the
 		// write, so both callers — the admin screen and the REST route — are covered.
+		// PostService::end_announcement() already drops the post's cached row and the
+		// cached announcement candidate lists.
 		$this->flush_all_home_caches();
-		self::flush_announcement_ids();
 
-		// And the post's own cached row. This method writes bn_posts DIRECTLY, so the
-		// copy PostService is holding still says the announcement has no expiry — and
-		// every reader that goes through PostService::get() (which is now how the
-		// announcement surfaces re-check whether one is still live) would keep being told
-		// it is. The sibling end path in PostService busts this; this one never did,
-		// because until now nothing read the announcement through that cache.
-		PostService::flush_cache( $post_id );
-
-		return false !== $updated;
+		return $updated;
 	}
 
 	/**
@@ -2441,6 +2501,32 @@ class FeedService {
 	}
 
 	/**
+	 * Load every media item a page of posts shows in two queries.
+	 *
+	 * Each card's photo, video or audio URL reads several MediaVerse fields
+	 * (sizes, paths, privacy), one query per field per item when nothing is
+	 * loaded: 80+ queries on one feed page. MediaVerse's prefetch() reads the
+	 * index rows and all meta for the whole page at once, and every later read
+	 * is a request-cache hit.
+	 *
+	 * @param array<int,array<string,mixed>> $items Hydrated posts (each may carry media_ids).
+	 * @return void
+	 */
+	public function prime_media( array $items ): void {
+		$ids = array();
+		foreach ( $items as $item ) {
+			foreach ( (array) ( is_array( $item ) ? ( $item['media_ids'] ?? array() ) : array() ) as $mid ) {
+				$ids[] = (int) $mid;
+			}
+		}
+		$ids  = array_values( array_unique( array_filter( $ids ) ) );
+		$repo = $ids ? \BuddyNext\Media\MediaClient::repo() : null;
+		if ( $repo && method_exists( $repo, 'prefetch' ) ) {
+			$repo->prefetch( $ids );
+		}
+	}
+
+	/**
 	 * Warm every per-viewer cache the post-card reads, in one query per service for
 	 * a whole page of feed items instead of ~3 per card.
 	 *
@@ -2456,6 +2542,10 @@ class FeedService {
 	 * @return void
 	 */
 	public function prime_viewer_state( array $items, int $viewer ): void {
+		// Media is the same for every viewer, guests included, so it is primed
+		// before the viewer check below.
+		$this->prime_media( $items );
+
 		if ( $viewer <= 0 || empty( $items ) ) {
 			return;
 		}
@@ -2483,6 +2573,17 @@ class FeedService {
 
 		if ( ! empty( $author_ids ) ) {
 			cache_users( array_values( array_unique( $author_ids ) ) );
+
+			// Each card's byline asks follow / pending / blocked / connection degree
+			// about its author. Answer the whole page here, one query each, so the
+			// per-card calls are cache hits instead of five queries per author.
+			$peers = array_values( array_diff( array_unique( $author_ids ), array( $viewer ) ) );
+			if ( $peers ) {
+				buddynext_service( 'follows' )->following_map( $viewer, $peers );
+				buddynext_service( 'follows' )->pending_map( $viewer, $peers );
+				buddynext_service( 'blocks' )->blocking_either_map( $viewer, $peers );
+				buddynext_service( 'connections' )->degrees_for( $viewer, $peers );
+			}
 		}
 
 		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );

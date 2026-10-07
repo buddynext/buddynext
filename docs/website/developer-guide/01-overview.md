@@ -52,14 +52,14 @@ Counted from the source of both plugins. Figures move with each release; confirm
 
 | Metric | Free | Pro |
 |---|---|---|
-| PHP files | 357 | 132 |
-| Total PHP lines | 127,409 | - |
-| JS files | 41 | - |
-| CSS files | 29 | - |
-| REST endpoints | 168 (`buddynext/v1`) | 48 (`buddynext-pro/v1`) |
-| Database tables | 41 | 22 |
-| Unique hooks fired | 633 (619 `buddynext_*`) | 34 |
-| Cron events | 6 | 4 |
+| PHP files under `includes/` | 283 | 192 |
+| PHP lines under `includes/` | 182,449 | 92,188 |
+| JS files (`assets/`, unminified) | 64 | 27 |
+| CSS files (`assets/`, unminified) | 31 | 11 |
+| REST routes (distinct paths) | 229 (`buddynext/v1`) | 77 (`buddynext-pro/v1`) |
+| Database tables | 41 | 18 |
+| Hook names fired (literal `buddynext_` / `bn_` names) | 855 | 103 |
+| Recurring jobs | 8 | 5 (plus two self-rescheduling email ticks) |
 
 > **Note:** These figures are a manifest snapshot and can lag the code between refreshes; they are regenerated at release. For the current block count see the Blocks Reference, and for the current version string see `readme.txt`. When a count here disagrees with the source, trust the source.
 
@@ -67,7 +67,7 @@ Counted from the source of both plugins. Figures move with each release; confirm
 
 This developer guide covers the contracts you build against:
 
-- **Getting started** - local requirements, where code lives, the two WP-CLI commands, and how to run the quality gates. (See Getting Started for Developers.)
+- **Getting started** - local requirements, where code lives, the WP-CLI commands, and how to run the quality gates. (See Getting Started for Developers.)
 - **REST API** - the request/response envelope, auth, pagination, and the per-feature route tables for both namespaces.
 - **Hooks and filters** - the action and filter reference, organized by feature, with example extension snippets.
 - **Database schema** - per-table column references, indexes, and the scale rules (denormalized counters, cursor columns) that shaped them.
