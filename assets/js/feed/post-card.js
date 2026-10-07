@@ -1957,7 +1957,16 @@ store( 'buddynext/post-card', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					document.querySelector( '[data-post-id="' + ctx.postId + '"]' )?.remove();
+					const card   = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
+					const single = card ? card.closest( '.bn-single-post' ) : null;
+					const back   = single ? single.querySelector( '.bn-single-post__breadcrumb a[href]' ) : null;
+					// On the post's own page there is nothing left to show: go back to
+					// the feed the breadcrumb names, instead of leaving an empty page.
+					if ( back ) {
+						window.location.href = back.href;
+						return;
+					}
+					card?.remove();
 				} else {
 					// The card stays put on failure, which reads as "nothing
 					// happened" — say why. Prefer the server's own reason (e.g. a

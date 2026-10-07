@@ -352,6 +352,12 @@ const feedStore = store( 'buddynext/feed', {
 				window.scrollTo( 0, scrollY );
 				window.requestAnimationFrame( () => window.scrollTo( 0, scrollY ) );
 
+				// A post the new-posts pill placed at the top is not part of the page the
+				// server just rendered, so the swap keeps it AND draws it again at its
+				// ranked position. One card per post: the first one stays.
+				bnDropRepeatedCards();
+				window.requestAnimationFrame( bnDropRepeatedCards );
+
 				// Same signal a shell navigation emits, so anything that re-initialises on
 				// navigation (nav chevrons, shell offsets) also runs after a feed swap.
 				document.dispatchEvent(
@@ -1034,6 +1040,25 @@ function bnPillRender() {
 	} else {
 		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts: refresh to view' ), n );
 	}
+}
+
+/**
+ * Keep one card per post in the feed list: the first.
+ *
+ * @return {void}
+ */
+function bnDropRepeatedCards() {
+	const list = document.querySelector( '.bn-feed-list' );
+	if ( ! list ) { return; }
+	const seen = new Set();
+	list.querySelectorAll( ':scope > [data-post-id]' ).forEach( ( card ) => {
+		const id = card.dataset.postId;
+		if ( seen.has( id ) ) {
+			card.remove();
+		} else {
+			seen.add( id );
+		}
+	} );
 }
 
 // Most posts one click places in the list. Mirrors FeedService::NEW_ITEMS_LIMIT.

@@ -238,6 +238,22 @@
 					if ( res.ok && badge ) {
 						badge.remove();
 					}
+					// The same number is printed on the rail and the phone nav; one
+					// that stayed until reload disagreed with the bell beside it.
+					var bell = root.querySelector( '.bn-notification-bell-link' );
+					if ( res.ok && bell ) {
+						// A second bell (the phone header) carries the same number.
+						document.querySelectorAll( '.bn-notification-bell-link .bn-notification-badge' ).forEach( function ( twin ) {
+							twin.remove();
+						} );
+						// Matched by the bell's own address, so a renamed page still works.
+						document.querySelectorAll( '.bn-rail__badge, .bn-mobile-nav__badge' ).forEach( function ( other ) {
+							var link = other.closest( 'a[href]' );
+							if ( link && link.pathname === bell.pathname ) {
+								other.hidden = true;
+							}
+						} );
+					}
 				} );
 			} )
 			.catch( function () {

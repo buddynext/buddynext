@@ -108,6 +108,8 @@ Paid membership rebuilt around one plan card and one checkout, a wider app API, 
 * Fix      - Hiding Jetonomy from navigation also hides the Discussions link in the rail.
 * Fix      - A reaction clicked in the photo lightbox right after it opens is saved on the post and stays highlighted.
 * Fix      - The cookie notice button uses the site's accent colour on theme pages.
+* Fix      - Deleting a post from its own page returns to the activity feed instead of leaving an empty page.
+* Fix      - Opening the bell also clears the notification number on the side rail and the phone navigation.
 * Fix      - Phone layouts of the directories line up, and the Members toolbar no longer leaves a lone view switch at tablet width.
 * Security - Members-only posts no longer appear on Explore, in link previews or with their link preview over the API.
 * Security - Posts in private and secret spaces stay out of Explore and profiles, and every route of a secret space answers a stranger like a missing space.
