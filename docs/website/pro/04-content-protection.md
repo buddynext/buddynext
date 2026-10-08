@@ -2,6 +2,8 @@
 
 Content Protection locks individual community posts, and sections inside any page, behind membership. Non-members see a short teaser and a friendly locked card inviting them to join; members with the right plan see the full content.
 
+![A gated space as a member without the plan sees it: the space header, then "This space is available to members only" with the plan it needs and a Become a Member button](../images/space-gated.webp)
+
 ![The Paywall tab configuring the upgrade prompt shown on protected content](../images/admin-paywall.webp)
 
 > **Before you start:** Content Protection comes with BuddyNext Pro and uses the same memberships as your spaces, so set up at least one membership plan first (see Membership Plans).

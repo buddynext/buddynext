@@ -2,7 +2,7 @@
 
 Search lets anyone find members, posts, spaces, and hashtags from one query. Type a word and BuddyNext returns grouped, viewer-aware results across the whole community.
 
-![BuddyNext search results - one query grouped into members, posts, spaces and hashtags with result counts per type, plus date and sort refinements.](../images/search.webp)
+![Search results for one query, grouped into members, posts, spaces, hashtags and media with a count on each tab, plus date and sort filters](../images/search.webp)
 
 ## Why use it
 
