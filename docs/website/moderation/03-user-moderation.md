@@ -6,8 +6,6 @@ User moderation is the set of actions a moderator or admin takes against a membe
 
 ![The Moderation > Suspensions tab listing suspended members and controls](../images/admin-suspensions.webp)
 
-![The Moderation Log recording every moderation action with actor, target, and time](../images/admin-mod-log.webp)
-
 Where reporting deals with a single piece of content, user moderation deals with the person behind it. The actions escalate in severity, so a first-time slip and a repeat offender are handled differently.
 
 ## Why use it
@@ -57,7 +55,6 @@ Strike thresholds and the report auto-hide limit live under **BuddyNext > Modera
 | Strikes before permanent ban | The member is permanently banned (a permanent, content-hidden suspension) at this many lifetime strikes. Untick the box to disable automatic permanent bans. | 0 (off) |
 | Auto-hide after N reports | Content is hidden automatically once it reaches this many reports, then waits in the moderation queue for review. Set to 0 to turn automatic hiding off. | 5 |
 | Queue alert threshold | Sends a daily email to admins when the moderation queue exceeds this many unreviewed items. Untick the box to disable. | 20 |
-
 
 ## Good to know
 

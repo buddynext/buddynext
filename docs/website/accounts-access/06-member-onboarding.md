@@ -2,8 +2,6 @@
 
 BuddyNext greets every new member with a short welcome wizard the moment they finish signing up. In a few clicks the member fills out their profile, joins a space, follows a few people, and picks how they want to be notified. By the time they reach the feed they already have something to read and people to talk to.
 
-![The BuddyNext new-member onboarding wizard with live profile preview](../images/onboarding.webp)
-
 ![Members - Registration & Login admin tab where the new-member onboarding wizard is configured](../images/admin-registration.webp)
 
 ## What it is
@@ -24,7 +22,6 @@ The member can move forward and back through the steps, or skip the wizard entir
 A new member who lands on an empty feed with no connections usually leaves and does not come back. The wizard exists to prevent exactly that. A member who completes a profile, joins at least one space, and follows a few people is far more likely to return, post, and stay engaged. Those three actions turn a blank account into a live, connected member in under a minute.
 
 The whole flow works out of the box with no setup on your side. You do not configure anything for each new person - the wizard runs on its own, and members who do not finish get a gentle reminder later (see Reminder emails below).
-
 
 ## For members: how to complete onboarding
 
@@ -109,7 +106,6 @@ Some members start onboarding and do not finish. BuddyNext automatically follows
 Both emails are scheduled the moment a member registers. As soon as the member completes onboarding, both pending reminders are cancelled, so anyone who finishes never receives them. If a reminder does come due, BuddyNext re-checks first and skips the send for any member who has already finished. This re-engages the people who drifted off without pestering the ones who completed the flow.
 
 > **Note:** The reminder email is titled "Finish setting up your {site name} profile" and links the member straight back into the wizard. You can edit its subject, preview text, and body from your email template settings, where it is listed as the Onboarding Nudge template.
-
 
 ## Good to know
 

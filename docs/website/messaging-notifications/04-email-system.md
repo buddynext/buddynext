@@ -52,7 +52,6 @@ For each template you can edit three fields and one switch:
 
 Templates use merge tokens like `{{site_name}}`, `{{user_name}}`, `{{first_name}}`, `{{action_url}}`, and `{{unsubscribe_url}}`, which resolve to real values when the email is sent. Each template lists the tokens it supports. You can restore any template to its shipped default at any time.
 
-
 ### Sending a test
 
 From the template editor you can send a test email. The test sends the current subject and body (with sample values filled in for the tokens) to your admin address, or to any address you enter. The test goes out through the same sender identity and the same branded wrapper a real send uses, so what you receive is exactly what a member would receive.
@@ -85,8 +84,6 @@ Every BuddyNext email - notifications, digests, account emails, invites, and the
 Because every email uses the same shell, your whole outbound mail looks consistent without any per-email design work.
 
 ## The Email Log (1.0.4)
-
-![The Email Log listing every message the community has sent](../images/admin-email-log.webp)
 
 **BuddyNext > Notifications > Email Log** lists every email the community has sent, newest first. It is read-only and exists to answer one question fast: *"did that email actually go out?"*
 

@@ -4,8 +4,6 @@ The Setup Wizard is the first thing BuddyNext shows you after the plugin is acti
 
 ![BuddyNext admin dashboard overview shown after completing the Setup Wizard](../images/admin-overview.webp)
 
-![The member-facing onboarding experience the Setup Wizard configures](../images/onboarding.webp)
-
 ## What it is
 
 The wizard is a seven-step guided setup that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** link stays in the wp-admin notice area; you can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
@@ -18,7 +16,6 @@ You stay in control of the pace:
 - **Save & exit** leaves the wizard and returns you to the dashboard. You can come back any time.
 
 > **Note:** Nothing on this wizard is permanent. Every step names the admin section where you can change that setting later, and re-running the wizard never creates duplicate pages, categories, or profile groups.
-
 
 ## Why use it
 
