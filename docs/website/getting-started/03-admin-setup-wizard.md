@@ -2,7 +2,7 @@
 
 The Setup Wizard is the first thing BuddyNext shows you after the plugin is active, and it is the fastest way to a working community. In a few minutes it walks you through the handful of decisions that turn a fresh install into a real place to invite people: what to call it, how people join, what profiles look like, how spaces are organized, and which pages members visit. Every choice comes with a sensible default, so you can click straight through and still end up with a complete, usable community - then fine-tune later if you want to.
 
-![BuddyNext admin dashboard overview shown after completing the Setup Wizard](../images/admin-overview.webp)
+![Step 1 of the Setup Wizard: community name and brand colour, with the seven-step progress bar](../images/setup-wizard-branding.webp)
 
 ## What it is
 
@@ -35,6 +35,8 @@ A community has a lot of moving parts - registration rules, profile fields, noti
 
 ### Registration modes (Step 2)
 
+![Step 2 of the Setup Wizard: registration mode, email verification and private community](../images/setup-wizard-registration.webp)
+
 This is your main lever for who can join. Pick one:
 
 | Mode | Who gets in | Best for |
@@ -48,6 +50,8 @@ The same step has a **Require email verification** switch. With it on, members m
 Step 2 also has a separate **Private community** switch, distinct from the registration mode above: registration controls who can *join*, this controls who can *view*. Turned on, every BuddyNext page and its REST data require login, and logged-out visitors are sent to the login page - only login, register, and password-reset stay public. It defaults off (public), and lives afterward under **Members > Privacy & Data**.
 
 > **Note:** The wizard starts on whichever mode matches WordPress's own "Anyone can register" setting (Open when it is on). If you choose Invite only or Admin approval and want to be sure walk-in signups are fully closed, also turn off WordPress core registration under **Settings - General** in wp-admin.
+
+![Step 3 of the Setup Wizard: the profile field groups your community starts with](../images/setup-wizard-profile-fields.webp)
 
 ### What finishing does
 
