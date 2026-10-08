@@ -4,8 +4,6 @@ Pro adds four richer profile field types on top of the free profile builder: an 
 
 To show any field (of any type) only when another answer matches, use [Conditional Logic for Profile Fields](27-conditional-profile-fields.md).
 
-![A member profile populated with the richer Pro field types](../images/member-profile.webp)
-
 ![The profile field builder where the advanced Pro field types appear in the field-type dropdown](../images/admin-features.webp)
 
 > **Before you start:** These field types come with BuddyNext Pro. With Pro active, they appear in the same profile field builder you already use, so there is nothing extra to switch on. This page covers the Pro field types only. For the base field builder, member-facing profile editing, and the field types that ship free, see Profile Fields.

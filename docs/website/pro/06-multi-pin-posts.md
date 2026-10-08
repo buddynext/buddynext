@@ -2,8 +2,6 @@
 
 Pinning keeps a post at the top of a member's profile so it is the first thing visitors see. Free BuddyNext lets a member pin one post to their profile. Pro raises that limit to up to 10 pinned posts per profile, so a member can keep several important posts at the top at once.
 
-![Several pinned posts held at the top of a member's profile feed](../images/community-activity-feed.webp)
-
 ## Why use it
 
 One pinned post is rarely enough. A member who uses their profile well usually has more than a single thing worth keeping in front of visitors: their best work, an introduction, a current project, a link that matters. With a limit of one, they are forced to choose which single post matters most and let the rest scroll away. Raising the cap to 10 lets them keep a small, curated set of highlights at the top instead.

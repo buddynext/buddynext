@@ -2,7 +2,7 @@
 
 The About tab is the part of a member's profile that lays out everything they have told the community about themselves. It takes the custom profile fields you set up as an owner - and the ones members fill in - and presents them as clean, readable sections: work history, education, interests, social links, and any group you invent yourself.
 
-![A BuddyNext member profile showing the field detail sections - work experience, education, interests and links laid out in tidy cards below the profile header.](../images/member-profile.webp)
+![About tab on a member profile with basic info, social links, work experience and education](../images/profile-about.webp)
 
 ## Why use it
 

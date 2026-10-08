@@ -2,8 +2,6 @@
 
 The Space Forum is an optional Discussions tab inside a space that holds threaded, structured discussions and Q&A. It sits alongside the space activity feed and is powered by the Jetonomy companion plugin. When Jetonomy is not installed, the forum is inert and nothing changes for members.
 
-![Single space home with the Discussions tab listing threaded forum discussions](../images/space-home.webp)
-
 ## Why use it
 
 A space activity feed is built for the moment. Posts scroll by, replies fan out under each one, and a question asked on Tuesday is hard to find by Friday. That is the right shape for chatter and updates, but it is the wrong shape for a question that deserves a clear answer or a topic the community will return to for months.

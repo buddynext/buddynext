@@ -2,8 +2,6 @@
 
 Every post carries a privacy level that decides who can see it. Members choose the level when they post, and the community enforces it everywhere the post could appear: the feed, the Explore view, search, and the post's own permalink. This page explains each level and how it is enforced.
 
-![A BuddyNext activity feed where each post shows the audience the author chose when sharing it](../images/community-activity-feed.webp)
-
 ![The site owner sets the default post audience with the Default post visibility control, under the Social tab's Activity Feed section](../images/admin-social.webp)
 
 ## Why use it

@@ -2,7 +2,7 @@
 
 BuddyNext gives members real control over their personal information and gives site owners the tools to run a community that respects that control. Members can download a copy of their data or delete their account at any time. Owners decide whether a cookie consent banner appears, how long inactive data is kept, whether search engines may index the community, and whether the self-service export and deletion tools are available.
 
-![Member privacy and data controls on a BuddyNext profile](../images/member-profile.webp)
+![Privacy settings: who can see your profile, follow you, send requests, message you and mention you](../images/settings-privacy.webp)
 
 ![Members - Privacy & Data admin tab for consent, retention, export, and deletion settings](../images/admin-privacy.webp)
 

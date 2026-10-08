@@ -2,8 +2,6 @@
 
 The Portfolio tab is a single profile tab that gathers a member's activity from your other Wbcom apps into one place. Jobs and a resume from Career Board, listings from WB Listora, courses and certificates from Learnomy - they all appear inside one "Portfolio" tab on the member's BuddyNext profile, each as its own sub-tab, rather than each app adding a tab of its own.
 
-![A member profile showing the Portfolio tab with panels from the connected Wbcom apps](../images/member-profile.webp)
-
 > **Before you start:** The Portfolio tab comes with BuddyNext Pro. It fills itself from whichever companion apps you run - Career Board, WB Listora, Learnomy - so you need Pro active and at least one of those integrations enabled for the tab to have anything to show. There is nothing to build; the tab assembles itself.
 
 ## Why use it

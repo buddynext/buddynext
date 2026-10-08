@@ -2,7 +2,7 @@
 
 A poll is a post that asks members a question and lets them choose from a short list of answers, then shows live results as votes come in. Members create a poll right inside the post composer, vote with one tap, and watch the percentages update in place.
 
-![A BuddyNext activity feed with a poll post showing its question, options, and live vote results](../images/community-activity-feed.webp)
+![A poll post with its question, options and live vote results](../images/post-poll.webp)
 
 ![A poll card showing the question, options as result bars with percentages, and the total vote count](../images/poll-card.webp)
 

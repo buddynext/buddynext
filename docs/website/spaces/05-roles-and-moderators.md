@@ -2,8 +2,6 @@
 
 Every space has three roles - owner, moderator, and member - that decide who can manage the space, who can moderate it, and who can simply take part. Space permissions then layer on top to decide who is allowed to post. Together they let one owner run a large space without doing everything alone.
 
-![Single space home where owners promote members to moderators and set posting permissions](../images/space-home.webp)
-
 ![Spaces - Settings admin tab for space roles and posting permissions](../images/admin-spaces-settings.webp)
 
 ## Why use it

@@ -2,8 +2,6 @@
 
 Scheduled posts let a member write something now and have it publish automatically at a future date and time. The post stays out of every feed until its moment arrives, then goes live on its own. Scheduled posts are a **free BuddyNext feature**. Pro adds an admin queue where you can review, publish early, or cancel anything that is waiting, and lets you make scheduling a membership plan perk.
 
-![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.webp)
-
 ![The Campaigns > Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.webp)
 
 ## Why use it

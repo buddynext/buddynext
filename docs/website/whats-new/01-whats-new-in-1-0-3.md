@@ -2,7 +2,7 @@
 
 BuddyNext 1.0.3 brings the most-requested member feature - a real photo and video gallery on every profile - together with a deep round of performance work that keeps large communities fast. BuddyNext Pro 1.0.3 ships in lockstep, building on the new payments and membership additions that landed just before it. This page is a plain-language tour of what changed and why it matters.
 
-![The community activity feed, where member photos and videos now appear the moment they are uploaded](../images/community-activity-feed.webp)
+![A photo post in the activity feed with reactions and comments](../images/post-photo.webp)
 
 > **Note:** BuddyNext free and BuddyNext Pro are released together. If you run both, update them at the same time so they stay in step.
 
