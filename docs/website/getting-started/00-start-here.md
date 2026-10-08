@@ -2,6 +2,8 @@
 
 BuddyNext is large on purpose. The free plugin is a complete community platform, and BuddyNext Pro adds a whole application layer on top - memberships, payments, email campaigns, AI, real-time, analytics. That is a lot of surface, and it is easy to feel unsure where to begin.
 
+Watch: [Build an online community you own: feed, courses, events and forums](https://youtu.be/7h-XKKzUc8Q) and [Run a community from one dashboard](https://youtu.be/MW-0RvU3XFk) (about 4 minutes each)
+
 This page is the map. If you read one page first, read this one. It shows you the whole landscape at a glance, the handful of things to set up in your first hour, and an "I want to..." index that points straight to the exact guide for whatever you are trying to do. Everything here links into the deeper pages - come back to this map whenever you are not sure where something lives.
 
 ## Start by who you are

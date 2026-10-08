@@ -2,8 +2,6 @@
 
 A content warning is a moderator-applied tag on a post that blurs it behind a label - NSFW, Spoilers, Violence, or Strong Language - until a viewer chooses to reveal it. It is a targeted cover for a specific post a moderator has already looked at, not a filter members set for themselves.
 
-![A feed post hidden behind a content-warning overlay: a warning icon, the NSFW label, and a Show anyway button, with the post body blurred underneath](../images/content-warning-overlay.webp)
-
 ## Why use it
 
 Some content is fine to keep on the platform but is not something every viewer wants to see appear in their feed without warning - a graphic image in a news discussion, a spoiler for a show that just aired, a post that quotes offensive language for context. Removing it is the wrong call when the post itself does not break any rule. Leaving it fully exposed is also the wrong call for anyone scrolling past who did not choose to see it.

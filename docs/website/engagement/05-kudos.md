@@ -2,8 +2,6 @@
 
 Kudos is a small, direct way for one member to recognize another - a short note of thanks or praise, sent from one profile to another. Every member can give kudos, every member can receive it, and every kudos a member has received is visible on their profile.
 
-![The Kudos tab on a member profile: a give-kudos form with a short message field and a Send kudos button, above the received-kudos feed listing who sent kudos and their notes](../images/kudos-tab.webp)
-
 Kudos is part of gamification, provided by the WB Gamification companion plugin. It shares the Achievements area of the profile with the Achievements and Points tabs described in Gamification: points, badges, and levels.
 
 ## Why use it
