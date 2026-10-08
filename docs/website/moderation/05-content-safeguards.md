@@ -4,8 +4,6 @@ Content safeguards are the automatic, always-on rules that check every post befo
 
 ![BuddyNext admin Moderation Controls tab for configuring automatic content safeguard rules](../images/admin-mod-controls.webp)
 
-![The BuddyNext moderation queue holding posts flagged by content safeguards](../images/moderation-queue.webp)
-
 Unlike the report queue, where a human reacts after something is posted, safeguards act at the moment of posting. You configure them once in the admin settings, and they apply to every member, every post, every day.
 
 ## Why use it

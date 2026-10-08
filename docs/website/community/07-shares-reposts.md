@@ -2,7 +2,7 @@
 
 A reshare (or repost) takes a post that someone else published and puts it back into the feed under your name, so your own followers see it. You can reshare a post as-is, or add your own note before it goes out.
 
-![A BuddyNext activity feed where post cards carry a share action for reposting and quoting](../images/community-activity-feed.webp)
+![A reposted post: the member's own note above the original post, quoted inside the card](../images/post-share.webp)
 
 ![The Share dialog - a preview of the post being reposted with an optional comment, plus Repost and Copy link](../images/share-dialog.webp)
 

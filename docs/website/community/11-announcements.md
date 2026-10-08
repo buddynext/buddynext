@@ -2,7 +2,7 @@
 
 An announcement is an admin post that pins to the top of every member's home feed until each member dismisses it. Space owners and moderators can also announce inside their own space. It is the one message you can be confident reaches everyone, regardless of who they follow.
 
-![A BuddyNext home feed with an admin announcement pinned above the regular activity](../images/community-activity-feed.webp)
+![An admin announcement with its Announcement label, reactions and comments](../images/post-announcement.webp)
 
 ![Engagement - Announcements admin tab, where each announcement is created, featured to the top of the feed, or ended](../images/admin-announcements.webp)
 

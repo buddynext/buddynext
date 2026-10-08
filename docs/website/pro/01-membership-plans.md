@@ -8,8 +8,6 @@ Membership plans are the plans, free or paid, that you offer your community. Eac
 
 ![The Monetization → Subscriptions admin tab listing active member subscriptions](../images/admin-subscriptions.webp)
 
-![A space home members unlock by subscribing to a paid membership plan](../images/space-home.webp)
-
 > **Before you start:** Membership plans come with BuddyNext Pro. You need BuddyNext Pro active, and to take real payments you also need a payment gateway connected (see Requirements below). Even without a gateway you can still create plans and grant access by hand, which is handy while you set things up.
 
 ## Why use it

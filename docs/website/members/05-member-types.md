@@ -4,8 +4,6 @@ Member types are the categories you define for the people in your community - St
 
 ![The Member Types manager](../images/admin-member-types.webp)
 
-![Member directory with the member-type filter dropdown and colored type badges on member cards](../images/member-directory.webp)
-
 ## Why use it
 
 People in a community are not interchangeable. A coaching site has coaches and clients; a school has students, teachers, and staff; an alumni network has graduates by year. Member types let you label those groups once, then use that label everywhere it matters: as a badge on profiles and member cards so people can tell at a glance who they are talking to, and as a filter in the directory so anyone can show only the group they are looking for.

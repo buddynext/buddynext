@@ -2,7 +2,7 @@
 
 Gamification rewards members with points, badges, and levels for taking part in your community. Members earn points for everyday actions like posting, reacting, connecting, and joining spaces, and that score builds into badges, levels, and a place on the leaderboard.
 
-![A BuddyNext member profile showing earned points, badges, and level](../images/member-profile.webp)
+![Achievements tab on a member profile with points, rank, level, streak and badges](../images/profile-achievements.webp)
 
 ![The BuddyNext admin Engagement Insights tab where owners track community engagement](../images/admin-insights.webp)
 

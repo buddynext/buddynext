@@ -2,8 +2,6 @@
 
 Every space has one of three privacy types - Open, Private, or Secret. The type decides who can see the space, how a member joins, and whether non-members can read its content. Owners pick a type when they create a space and can change it later.
 
-![Single space home showing the join control that reflects the space privacy type](../images/space-home.webp)
-
 ![Spaces - Settings admin tab with the default visibility and privacy type for new spaces](../images/admin-spaces-settings.webp)
 
 ## Why it matters

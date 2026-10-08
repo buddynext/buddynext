@@ -2,7 +2,7 @@
 
 The leaderboard ranks your community's members by the points they have earned, so the most active people rise to the top. It shows a ranked list of top members with their points and badges, plus the viewer's own rank, level (and how far to the next), and streak.
 
-![The BuddyNext community activity feed where the leaderboard spotlights top members](../images/community-activity-feed.webp)
+![The community leaderboard with each member's rank, points and level](../images/leaderboard.webp)
 
 ![The BuddyNext admin Engagement Insights tab showing community engagement and rankings](../images/admin-insights.webp)
 

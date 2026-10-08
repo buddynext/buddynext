@@ -2,8 +2,6 @@
 
 Content Protection locks individual community posts, and sections inside any page, behind membership. Non-members see a short teaser and a friendly locked card inviting them to join; members with the right plan see the full content.
 
-![Members reading protected posts in the community feed once their plan unlocks them](../images/community-activity-feed.webp)
-
 ![The Paywall tab configuring the upgrade prompt shown on protected content](../images/admin-paywall.webp)
 
 > **Before you start:** Content Protection comes with BuddyNext Pro and uses the same memberships as your spaces, so set up at least one membership plan first (see Membership Plans).
