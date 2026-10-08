@@ -2,8 +2,6 @@
 
 Registration is how people create an account and join your community. BuddyNext gives you a branded sign-up form that lives on your own site, so newcomers never land on the plain WordPress sign-up screen. The form matches your community's look, collects the profile details you care about, and drops each new member straight into the experience you set up. It is the welcome mat for your community, and a good first impression keeps more people around.
 
-![New member completing the BuddyNext sign-up and onboarding flow](../images/onboarding.webp)
-
 ![Members - Registration & Login admin tab showing registration mode, the login panel, spam protection, and social-login fields](../images/admin-registration.webp)
 
 ## Why use it
@@ -13,7 +11,6 @@ Registration is how people create an account and join your community. BuddyNext 
 - **Collects the right details up front.** Show selected profile fields right on the sign-up form, so members arrive with a filled-in profile instead of an empty one.
 - **Keeps spam out without a captcha service.** Built-in protections quietly screen out bots and fake sign-ups, with no third-party captcha to set up or pay for.
 - **Fits how you run the community.** Open sign-up, invite-only, and admin-approval modes are all supported, plus optional email verification - so you can be as open or as selective as you like.
-
 
 ## How it works for members
 
@@ -99,7 +96,6 @@ BuddyNext does not add its own role picker for sign-up. New members are created 
 ### Choose which profile fields appear at registration
 
 You decide which profile fields show on the sign-up form. Go to **BuddyNext > Members > Directory > Profile Fields**, edit a field, and turn on **Ask for this on the registration form**. Mark a field **Required** if a member must fill it in to sign up. Required registration fields are validated inline alongside the core fields, and their answers are saved to the new member's profile automatically.
-
 
 ### Manage invitations and approvals
 

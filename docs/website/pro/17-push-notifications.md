@@ -6,8 +6,6 @@ Push Notifications (Pro) delivers your community's notifications to a member's b
 
 ![Community notifications that can be delivered as push banners](../images/notifications.webp)
 
-![Push notifications reaching a member on a mobile device](../images/mobile.webp)
-
 ![The Push admin tab where you connect Firebase and configure web and mobile push](../images/admin-push.webp)
 
 ## Why use it

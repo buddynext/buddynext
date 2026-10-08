@@ -2,8 +2,6 @@
 
 Interests let each member say what they care about, and BuddyNext uses those picks to personalize what that member sees - the people suggested to them, the spaces recommended to them, and the order of their For You feed. Interests come from your own space categories, so the list always matches what your community is actually about.
 
-![The onboarding step where a new member picks their interests](../images/onboarding-interests.webp)
-
 ## Why use it
 
 The hardest moment in any community is a member's first session: an empty feed, strangers in the sidebar, and no reason to come back. Interests fix the cold start. A member who ticks "Photography" and "Trail Running" during signup immediately sees photographers to follow, running spaces to join, and posts from both ranked higher in their feed - before they have followed a single person.
