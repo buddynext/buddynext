@@ -39,6 +39,21 @@ class NavRegistryTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Empty the registry again after each test.
+	 *
+	 * The registry is a singleton, so what a test registers outlives it. One test
+	 * here registers the same id twice on purpose; left behind, the next test in
+	 * any other class that resolves the nav tripped the duplicate-item notice and
+	 * failed, depending on the random run order (card 10384520178).
+	 *
+	 * @return void
+	 */
+	public function tear_down(): void {
+		$this->reg->reset();
+		parent::tear_down();
+	}
+
+	/**
 	 * Ordered item ids for a layer.
 	 *
 	 * @param \BuddyNext\Nav\ResolvedNav $resolved Resolved nav.
