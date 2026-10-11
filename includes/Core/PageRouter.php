@@ -4316,7 +4316,15 @@ class PageRouter {
 
 		// 3. user_nicename fallback.
 		$by_nicename = get_user_by( 'slug', $slug );
-		return $by_nicename instanceof WP_User ? $by_nicename : null;
+		if ( $by_nicename instanceof WP_User ) {
+			return $by_nicename;
+		}
+
+		// 4. A handle this member used before. Nobody else can take it
+		// (is_slug_available()), and mentions already resolve it (Handle::resolve()),
+		// so the old profile address keeps reaching the same person, as the Handle
+		// field promises.
+		return \BuddyNext\Profile\Handle::previous_owner( $slug );
 	}
 
 	/**

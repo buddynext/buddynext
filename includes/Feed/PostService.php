@@ -2413,7 +2413,12 @@ class PostService {
 			// Owners delete their own posts; site admins and space moderators
 			// may remove another member's post as a moderation action. Any
 			// other error (e.g. a missing post) is returned unchanged.
-			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+			// "Delete anyone's post" (Roles screen, moderators by default) is what
+			// the Delete button and the REST route test, so the service honours it
+			// here, for deletion only: it does not let anyone edit or hide a post.
+			$may_delete = $this->can_moderate_post( $post_id, $user_id )
+				|| ( function_exists( 'buddynext_can' ) && buddynext_can( $user_id, 'buddynext-feed/delete-any-post' ) );
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $may_delete ) {
 				return $ownership;
 			}
 		}
@@ -4548,10 +4553,11 @@ class PostService {
 	/**
 	 * Whether a user may moderate (remove) a post they do not own.
 	 *
-	 * Site admins can remove any post, and so can anyone the owner has granted
-	 * "Delete anyone's post" on the Roles screen (moderators by default). A space
-	 * owner or moderator can remove posts inside the space they moderate
-	 * (resolved through PermissionService, which also honours moderator scoping).
+	 * Site admins can remove any post; a space owner or moderator can remove
+	 * posts inside the space they moderate (resolved through PermissionService,
+	 * which also honours moderator scoping). Also gates editing and hiding, so
+	 * the "Delete anyone's post" capability is NOT read here: delete() adds it
+	 * for deletion alone.
 	 *
 	 * @param int $post_id Post ID.
 	 * @param int $user_id Acting user ID.
@@ -4563,13 +4569,6 @@ class PostService {
 		}
 
 		if ( user_can( $user_id, 'manage_options' ) ) {
-			return true;
-		}
-
-		// The capability the Delete button and the REST route already test. Only
-		// the service ignored it, so a moderator was shown Delete and then told
-		// "You are not the owner of this post" (card 10393175240).
-		if ( function_exists( 'buddynext_can' ) && buddynext_can( $user_id, 'buddynext-feed/delete-any-post' ) ) {
 			return true;
 		}
 

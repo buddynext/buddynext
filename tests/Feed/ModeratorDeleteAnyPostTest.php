@@ -79,4 +79,19 @@ class ModeratorDeleteAnyPostTest extends \WP_UnitTestCase {
 		$this->assertWPError( $result );
 		$this->assertSame( 'not_post_owner', $result->get_error_code() );
 	}
+
+	/**
+	 * The delete capability deletes; it does not edit or hide someone's post.
+	 *
+	 * @return void
+	 */
+	public function test_delete_capability_does_not_edit_or_hide(): void {
+		$moderator = self::factory()->user->create();
+		buddynext_service( 'roles' )->set_role( $moderator, 'moderator' );
+		$post_id = $this->feed_post();
+
+		$this->assertWPError( $this->posts->update( $post_id, $moderator, array( 'content' => 'Rewritten by a moderator' ) ) );
+		$this->assertWPError( $this->posts->set_hidden( $post_id, true, $moderator ) );
+		$this->assertSame( 'A post on the main feed', (string) $this->posts->get( $post_id )['content'] );
+	}
 }

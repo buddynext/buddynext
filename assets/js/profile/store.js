@@ -1629,15 +1629,18 @@ const profileStore = store( 'buddynext/profile', {
 			var input = document.getElementById( 'bn-ep-slug' );
 			if ( ! input ) { return; }
 
-			var raw  = input.value.trim().toLowerCase();
-			var slug = raw.replace( /[^a-z0-9-]/g, '-' )
-			              .replace( /-{2,}/g, '-' )
-			              .replace( /^-|-$/g, '' );
-			input.value = slug;
+			// The server's alphabet (Handle::CHARSET, lowercased): letters, digits,
+			// hyphen and underscore. A space becomes a hyphen; anything else is
+			// dropped. Leading and trailing hyphens are left alone here, or a hyphen
+			// could never be typed: the server trims them on save.
+			var slug = input.value.toLowerCase()
+			                .replace( /\s+/g, '-' )
+			                .replace( /[^a-z0-9_-]/g, '' );
 
-			// Mirror the normalised value into context so the @handle preview shows
-			// what the member will actually be called, not what they typed.
+			// The box is bound to this draft (data-wp-bind--value), so the box and
+			// the @handle preview always show the same thing.
 			ctx.slugDraft = slug;
+			if ( input.value !== slug ) { input.value = slug; }
 
 			if ( slug === '' ) {
 				ctx.slugAvailable = null;
@@ -1687,6 +1690,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( res.ok && res.data ) {
 					ctx.profileUrl  = res.data.url;
 					ctx.profileSlug = res.data.slug;
+					ctx.slugDraft   = res.data.slug;
 					ctx.slugSaved   = true;
 					setTimeout( function () { ctx.slugSaved = false; }, 3000 );
 				}
