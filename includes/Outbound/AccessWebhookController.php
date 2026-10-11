@@ -97,6 +97,8 @@ class AccessWebhookController {
 		 * @param string[] $actions Accepted action slugs.
 		 */
 		$allowed = (array) apply_filters( 'buddynext_access_webhook_actions', self::default_actions() );
+
+		$this->role_changes_allowed = in_array( 'set_role', $allowed, true );
 		if ( in_array( $action, self::ACTIONS, true ) && ! in_array( $action, $allowed, true ) ) {
 			return new WP_Error(
 				'action_not_allowed',
@@ -190,6 +192,14 @@ class AccessWebhookController {
 
 		return $response instanceof WP_Error ? $response : new WP_REST_Response( $response, 200 );
 	}
+
+	/**
+	 * Whether this request may change roles, after the owner's switch and the
+	 * developer filter. Staff-only abilities follow it too.
+	 *
+	 * @var bool
+	 */
+	private bool $role_changes_allowed = false;
 
 	/**
 	 * Option that lets a signed request change a member's community role.
@@ -307,7 +317,14 @@ class AccessWebhookController {
 			// waits until this request has either kept the account or removed it.
 			if ( ! is_wp_error( $user_id ) ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', 'bn_access_webhook_' . (int) $user_id ) );
+				$held = 1 === (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', 'bn_access_webhook_' . (int) $user_id ) );
+				if ( ! $held ) {
+					// Without the hold this request could not safely take the account
+					// away again later, so it does not keep one it cannot guard.
+					require_once ABSPATH . 'wp-admin/includes/user.php';
+					wp_delete_user( (int) $user_id );
+					$user_id = new WP_Error( 'busy', __( 'Another request for this member is still being processed. Try again.', 'buddynext' ), array( 'status' => 409 ) );
+				}
 			}
 		} finally {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -515,6 +532,16 @@ class AccessWebhookController {
 				'missing_ability',
 				__( '"ability" is required.', 'buddynext' ),
 				array( 'status' => 400 )
+			);
+		}
+
+		// A moderator or admin power granted as an ability is a role change by
+		// another name, so it follows the same switch.
+		if ( ! $this->role_changes_allowed && PermissionService::is_staff_ability( $ability ) ) {
+			return new WP_Error(
+				'action_not_allowed',
+				__( 'That ability belongs to moderators or admins. Role changes from outside are switched off on this site. An administrator can allow them under Platform, Webhooks.', 'buddynext' ),
+				array( 'status' => 403 )
 			);
 		}
 

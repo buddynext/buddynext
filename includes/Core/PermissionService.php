@@ -519,6 +519,29 @@ class PermissionService {
 	}
 
 	/**
+	 * Whether an ability is one the role map keeps for moderators or admins.
+	 *
+	 * Granting such an ability by hand gives the member that staff power without
+	 * the role, so a door that may not change roles must not hand these out
+	 * either. Compared on the stored form (ability_meta_key), because that is
+	 * what a grant writes: "buddynext-profile/edit-any" and
+	 * "buddynext_profile_edit_any" are the same grant.
+	 *
+	 * @param string $ability Ability or capability slug.
+	 * @return bool
+	 */
+	public static function is_staff_ability( string $ability ): bool {
+		$key = strtolower( self::ability_meta_key( $ability ) );
+		foreach ( self::ROLE_MAP as $capability => $role ) {
+			if ( in_array( $role, array( 'moderator', 'admin' ), true ) && strtolower( self::ability_meta_key( $capability ) ) === $key ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Build the user_meta key for an ability grant.
 	 *
 	 * Ability slugs may contain '/' and '-' (e.g. "buddynext-feed/create-post"); we

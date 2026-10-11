@@ -547,6 +547,13 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 		$this->assertSame( '', (string) get_user_meta( $this->user_id, 'bn_community_role', true ), 'Nothing changed.' );
 		$this->assertSame( 200, $this->call( array( 'user_id' => $this->user_id, 'action' => 'grant_ability', 'ability' => 'early_access' ) )->get_status(), 'Other actions are untouched.' );
 
+		// A staff power granted as an ability is the same thing by another name,
+		// however the slug is spelled.
+		foreach ( array( 'buddynext-profile/edit-any', 'buddynext_profile_edit_any', 'BuddyNext-Profile/Edit-Any' ) as $staff ) {
+			$this->assertSame( 403, $this->call( array( 'user_id' => $this->user_id, 'action' => 'grant_ability', 'ability' => $staff ) )->get_status(), $staff );
+		}
+		$this->assertSame( '', (string) get_user_meta( $this->user_id, PermissionService::ability_meta_key( 'buddynext-profile/edit-any' ), true ) );
+
 		// A site whose log shows a role change from before the update.
 		\BuddyNext\Outbound\WebhookLog::write( 'set_role', $this->user_id, array( 'role' => 'moderator' ) );
 		delete_transient( 'buddynext_webhook_set_role_used' );
@@ -557,6 +564,7 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 		$this->assertFalse( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention(), 'Once chosen, no more notice.' );
 		$this->assertSame( 200, $this->call( $role )->get_status() );
 		$this->assertSame( 'moderator', get_user_meta( $this->user_id, 'bn_community_role', true ) );
+		$this->assertSame( 200, $this->call( array( 'user_id' => $this->user_id, 'action' => 'grant_ability', 'ability' => 'buddynext-profile/edit-any' ) )->get_status(), 'Allowed with the switch on.' );
 
 		// The owner says no: still chosen, still refused. Saving "off" on a site
 		// where it was never on stores no value, and must still count as an answer.

@@ -122,7 +122,7 @@ const signature = crypto.createHmac('sha256', secret).update(timestamp + '.' + b
 - Body is not valid JSON: 400 `invalid_payload`.
 - `user_id` and `user_email` both sent and not the same member: 400 `identity_conflict`.
 - User cannot be resolved: 404 `user_not_found` (unless the request may create the member, see below).
-- Action switched off, by the owner (`set_role` is off unless allowed) or through `buddynext_access_webhook_actions`: 403 `action_not_allowed`. The filter receives the owner's list and has the last word.
+- Action switched off, by the owner (`set_role` is off unless allowed) or through `buddynext_access_webhook_actions`: 403 `action_not_allowed`. The filter receives the owner's list and has the last word. While role changes are off, `grant_ability` also refuses an ability the role map keeps for moderators or admins (for example `buddynext-profile/edit-any`), with the same 403: a staff power granted by hand is a role change by another name. Plans (`tier:<slug>`) and your own custom abilities are not affected.
 - Another request for the same member is still running: 409 `busy`. Requests for one member are processed one at a time, so parallel or retried grants cannot create two plans.
 - Unknown `action`: 400 `unknown_action`.
 - `expires_at` unreadable or in the past: 422 `invalid_expires_at`.
