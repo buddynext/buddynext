@@ -653,6 +653,43 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Linking an existing forum copies its members into the space once; a banned
+	 * member is left out, and a job for a space that was unlinked does nothing.
+	 *
+	 * @return void
+	 */
+	public function test_forum_members_are_copied_into_the_linked_space(): void {
+		$owner    = self::factory()->user->create();
+		$members  = self::factory()->user->create_many( 3 );
+		$banned   = self::factory()->user->create();
+		$spaces   = new \BuddyNext\Spaces\SpaceMemberService();
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Linked',
+				'slug' => 'linked-' . wp_rand( 1000, 9999 ),
+				'type' => 'open',
+			)
+		);
+		$spaces->ban_from_space( $space_id, $banned, $owner );
+
+		\Jetonomy\Models\SpaceMember::$rows = array_map( static fn( int $id ): object => (object) array( 'user_id' => $id ), array_merge( $members, array( $banned, 999999 ) ) );
+		$bridge                              = new JetonomyBridge();
+
+		// Not linked to forum 7: nothing is copied.
+		$bridge->copy_forum_members( $space_id, 7, 0 );
+		$this->assertFalse( $spaces->is_member( $space_id, $members[0] ) );
+
+		update_space_meta( $space_id, 'jetonomy_forum_id', 7 );
+		$bridge->copy_forum_members( $space_id, 7, 0 );
+
+		foreach ( $members as $member ) {
+			$this->assertTrue( $spaces->is_member( $space_id, $member ) );
+		}
+		$this->assertFalse( $spaces->is_member( $space_id, $banned ), 'A banned member stays out.' );
+	}
+
+	/**
 	 * Resolve the bridge's space-surface Discussions tab via the unified Nav
 	 * registry and return its resolved URL (or null when the tab is absent).
 	 *
@@ -741,4 +778,30 @@ if ( ! class_exists( __NAMESPACE__ . '\\Post' ) ) {
 	 * exists before it reads jt_posts; it never calls it.
 	 */
 	class Post {}
+}
+
+if ( ! class_exists( __NAMESPACE__ . '\\SpaceMember' ) ) {
+	/**
+	 * Test stub for Jetonomy's SpaceMember model: a fixed member list.
+	 */
+	class SpaceMember {
+		/**
+		 * Rows list_by_space() answers with.
+		 *
+		 * @var array<int,object>
+		 */
+		public static array $rows = array();
+
+		/**
+		 * A page of the forum's members.
+		 *
+		 * @param int $space_id Forum id.
+		 * @param int $limit    Page size.
+		 * @param int $offset   Offset.
+		 * @return array<int,object>
+		 */
+		public static function list_by_space( int $space_id, int $limit = 0, int $offset = 0 ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+			return array_slice( self::$rows, $offset, $limit > 0 ? $limit : null );
+		}
+	}
 }

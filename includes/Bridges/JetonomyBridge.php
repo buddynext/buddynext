@@ -177,6 +177,8 @@ class JetonomyBridge {
 		// alone would let the leak back in the first time an owner locks a
 		// space down.
 		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+		// One-time copy of an existing forum's members into the space it was linked to.
+		add_action( self::COPY_MEMBERS_HOOK, array( $this, 'copy_forum_members' ), 10, 3 );
 
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 
@@ -1034,6 +1036,85 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Background job: copy a linked forum's members into its space.
+	 *
+	 * @var string
+	 */
+	public const COPY_MEMBERS_HOOK = 'buddynext_jetonomy_copy_forum_members';
+
+	/**
+	 * Forum members copied per background run.
+	 *
+	 * @var int
+	 */
+	private const COPY_MEMBERS_BATCH = 200;
+
+	/**
+	 * Queue one batch of the forum-to-space member copy.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $forum_id Linked Jetonomy forum.
+	 * @param int $offset   Forum members already handled.
+	 * @return void
+	 */
+	private static function queue_member_copy( int $space_id, int $forum_id, int $offset ): void {
+		$args = array( $space_id, $forum_id, $offset );
+
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::COPY_MEMBERS_HOOK, $args, 'buddynext' );
+			return;
+		}
+		if ( ! wp_next_scheduled( self::COPY_MEMBERS_HOOK, $args ) ) {
+			wp_schedule_single_event( time() + 1, self::COPY_MEMBERS_HOOK, $args );
+		}
+	}
+
+	/**
+	 * Copy one batch of a linked forum's members into the space, then queue the next.
+	 *
+	 * Runs once per link, started when an owner links an existing forum. Each
+	 * person joins through the space's normal join, so a banned member, an archived
+	 * space and a paid-plan gate are all respected: whoever may not join is simply
+	 * left out. The owner is not sent one "joined" notification per person.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $forum_id Jetonomy forum the members come from.
+	 * @param int $offset   Forum members already handled.
+	 * @return void
+	 */
+	public function copy_forum_members( int $space_id, int $forum_id, int $offset = 0 ): void {
+		// Unlinked (or linked to something else) since the job was queued: stop.
+		if ( $space_id <= 0 || $forum_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' )
+			|| (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) !== $forum_id ) {
+			return;
+		}
+
+		$rows = (array) \Jetonomy\Models\SpaceMember::list_by_space( $forum_id, self::COPY_MEMBERS_BATCH, max( 0, $offset ) );
+		if ( empty( $rows ) ) {
+			return;
+		}
+
+		$quiet = static function ( $send, $data ) use ( $space_id ) {
+			return ( 'bn.space_join' === ( $data['type'] ?? '' ) && (int) ( $data['object_id'] ?? 0 ) === $space_id ) ? false : $send;
+		};
+		add_filter( 'buddynext_notification_should_send', $quiet, 10, 2 );
+
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		foreach ( $rows as $row ) {
+			$user_id = (int) ( $row->user_id ?? 0 );
+			if ( $user_id > 0 && false !== get_userdata( $user_id ) ) {
+				$members->join( $space_id, $user_id ); // A refusal (banned, gated) leaves them out.
+			}
+		}
+
+		remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
+
+		if ( count( $rows ) >= self::COPY_MEMBERS_BATCH ) {
+			self::queue_member_copy( $space_id, $forum_id, $offset + self::COPY_MEMBERS_BATCH );
+		}
+	}
+
+	/**
 	 * Turn a space's dedicated Discussion on or off. Only flips the enabled flag —
 	 * the permanent jetonomy_forum_id link and all discussion content are never
 	 * touched, so re-enabling restores the exact same discussion.
@@ -1079,6 +1160,10 @@ class JetonomyBridge {
 			);
 			if ( $may_link ) {
 				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
+				// An existing forum comes with its people (an imported wpForo or
+				// bbPress forum can have thousands): bring them into the space, once,
+				// in the background. Membership is not mirrored after this.
+				self::queue_member_copy( $space_id, $link_id, 0 );
 			} elseif ( $this->provision_space_forum( $space_id ) <= 0 ) {
 				// Leaving it on would give members a Discussion tab with nothing behind it.
 				return new \WP_Error( 'bn_discussion_not_created', __( 'The discussion could not be created, so it was not enabled.', 'buddynext' ), array( 'status' => 500 ) );
