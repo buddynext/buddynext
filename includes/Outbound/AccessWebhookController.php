@@ -694,12 +694,14 @@ class AccessWebhookController {
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				"SELECT id FROM {$wpdb->prefix}bn_webhook_log
-				 WHERE signature = %s AND created_at > %s
+				 WHERE signature = %s AND created_at >= %s
 				 LIMIT 1",
 				$signature,
 				// Twice the tolerance: a request stamped five minutes ahead (a sender's
 				// fast clock) stays acceptable for ten, so the look back must cover ten.
-				gmdate( 'Y-m-d H:i:s', time() - 2 * self::TIMESTAMP_TOLERANCE )
+				// Both ends of the tolerance are inclusive, hence >= and the spare
+				// second: a row written at the very edge must still be found.
+				gmdate( 'Y-m-d H:i:s', time() - 2 * self::TIMESTAMP_TOLERANCE - 1 )
 			)
 		);
 
