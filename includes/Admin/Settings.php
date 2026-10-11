@@ -2141,6 +2141,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint'    => __( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
 						)
 					),
+					new Field(
+						array(
+							'key'     => \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS,
+							'default' => false,
+							'type'    => 'toggle',
+							'label'   => __( 'Create an account for a new buyer', 'buddynext' ),
+							'hint'    => __( 'Off by default. When on, a signed request that gives a plan, an ability or credits to an email address with no account creates the member (as a new member, never an administrator) and emails them a link to set their password. Use it when you take payment in another tool and connect it with Make or Zapier. Accounts are only created from requests signed with your secret.', 'buddynext' ),
+						)
+					),
 				)
 			),
 		);
@@ -3486,6 +3495,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Require replay-proof webhook signatures', 'buddynext' ),
 			__( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
 			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES, true )
+		);
+
+		$this->render_toggle_row(
+			\BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS,
+			__( 'Create an account for a new buyer', 'buddynext' ),
+			__( 'Off by default. When on, a signed request that gives a plan, an ability or credits to an email address with no account creates the member (as a new member, never an administrator) and emails them a link to set their password. Use it when you take payment in another tool and connect it with Make or Zapier. Accounts are only created from requests signed with your secret.', 'buddynext' ),
+			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS, false )
 		);
 
 		$this->close_section();

@@ -83,12 +83,6 @@ class AccessWebhookController {
 			);
 		}
 
-		$user = $this->resolve_user( $body );
-
-		if ( $user instanceof WP_Error ) {
-			return $user;
-		}
-
 		$action = sanitize_key( $body['action'] ?? '' );
 
 		/**
@@ -110,6 +104,19 @@ class AccessWebhookController {
 				sprintf( __( 'The action "%s" is switched off on this site.', 'buddynext' ), $action ),
 				array( 'status' => 403 )
 			);
+		}
+
+		$user    = $this->resolve_user( $body );
+		$created = false;
+
+		// A buyer with no account yet: when the owner allows it, the member is
+		// created from the paid email and then given what the request asks for.
+		if ( $user instanceof WP_Error && 'user_not_found' === $user->get_error_code() && $this->may_create_member( $action, $body ) ) {
+			$user = $this->create_member( $body, $created );
+		}
+
+		if ( $user instanceof WP_Error ) {
+			return $user;
 		}
 
 		// One request at a time per member. A tool that retries, or runs branches in
@@ -145,7 +152,95 @@ class AccessWebhookController {
 			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
 		}
 
+		if ( $created ) {
+			if ( $response instanceof WP_Error ) {
+				// The account existed only to receive this grant. Nothing was
+				// granted, so nothing is left behind and no email goes out.
+				require_once ABSPATH . 'wp-admin/includes/user.php';
+				wp_delete_user( $user->ID );
+			} else {
+				\BuddyNext\Auth\AuthController::send_set_password_email( $user );
+				$response['member_created'] = true;
+				$response['user_id']        = $user->ID;
+			}
+		}
+
 		return $response instanceof WP_Error ? $response : new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * Option that lets a signed grant create the member when the email is new.
+	 */
+	public const OPT_CREATE_MEMBERS = 'buddynext_webhook_create_members';
+
+	/**
+	 * Whether this request may create the member it names.
+	 *
+	 * Only when the owner switched it on, only for a request that gives
+	 * something (a plan, an ability, credits), only by email, and only on the
+	 * timestamped signature: a body-only signature can be replayed for ever and
+	 * must not be able to mint accounts.
+	 *
+	 * @param string $action Requested action.
+	 * @param array  $body   Request body.
+	 * @return bool
+	 */
+	private function may_create_member( string $action, array $body ): bool {
+		return (bool) get_option( self::OPT_CREATE_MEMBERS, false )
+			&& in_array( $action, array( 'grant_ability', 'add_credits' ), true )
+			&& '' !== $this->accepted_signature
+			&& empty( $body['user_id'] )
+			&& is_string( $body['user_email'] ?? null )
+			&& (bool) is_email( sanitize_email( $body['user_email'] ) );
+	}
+
+	/**
+	 * Create the member a request names by email.
+	 *
+	 * One at a time per address, so a tool that sends the same purchase twice at
+	 * once gets one account.
+	 *
+	 * @param array $body    Request body (user_email, optional name).
+	 * @param bool  $created Set to true only when THIS request made the account.
+	 *                       A copy that found the account already made by another
+	 *                       must never be the one to remove it.
+	 * @return WP_User|WP_Error
+	 */
+	private function create_member( array $body, bool &$created ): WP_User|WP_Error {
+		global $wpdb;
+
+		$created = false;
+
+		$email = sanitize_email( (string) $body['user_email'] );
+		$lock  = 'bn_access_webhook_new_' . md5( strtolower( $email ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( 1 !== (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) ) ) {
+			return new WP_Error( 'busy', __( 'Another request for this member is still being processed. Try again.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		try {
+			$existing = get_user_by( 'email', $email );
+			if ( $existing instanceof WP_User ) {
+				return $existing; // The other copy of this request got here first.
+			}
+
+			$user_id = ( new \BuddyNext\Auth\RegistrationService() )->create_provisioned( $email, is_string( $body['name'] ?? null ) ? $body['name'] : '' );
+		} finally {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		}
+
+		if ( is_wp_error( $user_id ) ) {
+			return $user_id;
+		}
+
+		$user = get_userdata( $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return new WP_Error( 'user_not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		$created = true;
+
+		return $user;
 	}
 
 	/**

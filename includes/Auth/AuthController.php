@@ -1912,6 +1912,19 @@ class AuthController {
 			$site_name
 		);
 
+		$defaults['subject'] = $subject;
+		$defaults['message'] = \BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject );
+		$defaults['headers'] = self::account_email_headers();
+
+		return $defaults;
+	}
+
+	/**
+	 * Headers for an account email: HTML, the site's From identity and Reply-To.
+	 *
+	 * @return string[]
+	 */
+	private static function account_email_headers(): array {
 		$headers      = array( 'Content-Type: text/html; charset=UTF-8' );
 		$from_name    = \BuddyNext\Notifications\EmailSender::from_name();
 		$from_address = \BuddyNext\Notifications\EmailSender::from_address();
@@ -1925,11 +1938,47 @@ class AuthController {
 			$headers[] = 'Reply-To: ' . $reply_to;
 		}
 
-		$defaults['subject'] = $subject;
-		$defaults['message'] = \BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject );
-		$defaults['headers'] = $headers;
+		return $headers;
+	}
 
-		return $defaults;
+	/**
+	 * Email a member whose account was made for them a link to set their password.
+	 *
+	 * For an account created from outside (a purchase in another tool): the
+	 * member has never seen the site and has no password. Same branded shell and
+	 * the same /{auth}/reset/ screen as a password reset, worded as a welcome.
+	 *
+	 * @param \WP_User $user The new member.
+	 * @return bool Whether the email was handed to the mailer.
+	 */
+	public static function send_set_password_email( \WP_User $user ): bool {
+		$key = get_password_reset_key( $user );
+		if ( is_wp_error( $key ) ) {
+			return false;
+		}
+
+		$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+		$url       = add_query_arg(
+			array(
+				'key'   => rawurlencode( $key ),
+				'login' => rawurlencode( $user->user_login ),
+			),
+			\BuddyNext\Core\PageRouter::reset_url()
+		);
+		$subject   = sprintf(
+			/* translators: %s: site name. */
+			__( 'Your %s account is ready', 'buddynext' ),
+			$site_name
+		);
+		$body = sprintf(
+			/* translators: 1: site name, 2: email address, 3: set-password URL. */
+			__( '<p>Welcome. An account has been created for you on %1$s with the email address <strong>%2$s</strong>.</p><p>Choose a password to sign in for the first time.</p><p><a href="%3$s">Set your password</a></p><p>If the button does not work, copy this link into your browser:<br>%3$s</p>', 'buddynext' ),
+			esc_html( $site_name ),
+			esc_html( $user->user_email ),
+			esc_url( $url )
+		);
+
+		return (bool) wp_mail( $user->user_email, $subject, \BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject ), self::account_email_headers() );
 	}
 
 	/**

@@ -121,7 +121,7 @@ const signature = crypto.createHmac('sha256', secret).update(timestamp + '.' + b
 - Signature mismatch: 401 `invalid_signature`.
 - Body is not valid JSON: 400 `invalid_payload`.
 - `user_id` and `user_email` both sent and not the same member: 400 `identity_conflict`.
-- User cannot be resolved: 404 `user_not_found`.
+- User cannot be resolved: 404 `user_not_found` (unless the request may create the member, see below).
 - Action switched off through `buddynext_access_webhook_actions`: 403 `action_not_allowed`.
 - Another request for the same member is still running: 409 `busy`. Requests for one member are processed one at a time, so parallel or retried grants cannot create two plans.
 - Unknown `action`: 400 `unknown_action`.
@@ -130,6 +130,21 @@ const signature = crypto.createHmac('sha256', secret).update(timestamp + '.' + b
 - With BuddyNext Pro, `tier:<slug>` for a plan that does not exist: 422 `unknown_plan`. Nothing is written.
 
 The target user is resolved from `user_id` or `user_email` in the body. Every call that passes the signature check, success or error, is written to `bn_webhook_log` for auditing with the member's email masked. The log follows the site's log retention setting and is included in the member's personal data export and erasure.
+
+### A buyer with no account yet
+
+Off by default. Switch on **Create an account for a new buyer** on the Webhooks screen (option `buddynext_webhook_create_members`) when payment is taken in another tool and the buyer may never have signed up.
+
+With it on, a request that names an email address with no account creates the member first and then runs the action:
+
+- Only `grant_ability` (including `tier:<slug>` with Pro) and `add_credits` create a member. `revoke_ability`, `set_role`, `set_credits` and `deduct_credits` still answer 404.
+- Only by `user_email`. A `user_id` that does not exist answers 404. An optional `name` becomes the display name.
+- Only on the timestamped signature. A body-only signature (strict signatures switched off) never creates anyone.
+- The member gets the site's default role for new members, never a higher one, and an email with a link to set their password on the community's own screen. No other email is sent.
+- The answer carries `"member_created": true` and the new `user_id`.
+- If the action fails (an unknown plan, a bad date), no account is left behind and no email goes out.
+- Blocked email domains are still refused. The registration mode, the terms tick-box and required profile fields are not asked: nobody is filling in a form. The member completes their profile in onboarding at first sign-in.
+- Two copies of the same purchase arriving together create one member.
 
 ### Actions
 

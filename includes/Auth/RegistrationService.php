@@ -200,6 +200,76 @@ class RegistrationService {
 	}
 
 	/**
+	 * Create a member the owner's own system vouches for, from an email alone.
+	 *
+	 * A different door from create(): nobody is filling in a form. The request
+	 * comes signed with the site secret (the access webhook, after a payment
+	 * taken elsewhere), so the registration mode, the terms tick-box and the
+	 * required profile fields are not asked: the person is not here to answer
+	 * them. They get a password they do not know and set their own from the
+	 * email the caller sends.
+	 *
+	 * What still applies: the address must be a real one and not on a blocked
+	 * domain, the role is the site's default for new members and never higher,
+	 * and any space invite waiting for that address is honoured.
+	 *
+	 * The address counts as confirmed: the only way into the account is the
+	 * set-password link sent to it.
+	 *
+	 * Sends nothing itself: the caller emails the set-password link.
+	 *
+	 * @param string $email Email address.
+	 * @param string $name  Display name, when the caller knows it.
+	 * @return int|WP_Error New user id.
+	 */
+	public function create_provisioned( string $email, string $name = '' ): int|WP_Error {
+		$email = sanitize_email( $email );
+		if ( '' === $email || ! is_email( $email ) ) {
+			return new WP_Error( 'invalid_email', __( 'That is not a valid email address.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+		if ( email_exists( $email ) ) {
+			return new WP_Error( 'email_exists', __( 'A member with that email address already exists.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		$allowed = ( new RegistrationGuard() )->check_domain( $email );
+		if ( is_wp_error( $allowed ) ) {
+			return $allowed;
+		}
+
+		$userdata = array(
+			'user_login' => wp_slash( self::unique_login( $email ) ),
+			'user_pass'  => wp_generate_password( 32, true, true ),
+			'user_email' => wp_slash( $email ),
+			'role'       => (string) get_option( 'default_role', 'subscriber' ),
+			// Written before `user_register` fires, so the listeners see a
+			// confirmed address and send no "verify your email" on top of the
+			// set-password one.
+			'meta_input' => array( 'buddynext_email_verified' => 1 ),
+		);
+		$name     = trim( sanitize_text_field( $name ) );
+		if ( '' !== $name ) {
+			$userdata['display_name'] = wp_slash( $name );
+		}
+
+		// No email goes out while the account is being made. The caller sends the
+		// one that matters (set your password) once whatever it came to give has
+		// been given; if that fails the account is removed again, and a welcome
+		// email for an account that no longer exists helps nobody.
+		add_filter( 'pre_wp_mail', '__return_true', PHP_INT_MIN );
+		$user_id = wp_insert_user( $userdata );
+		remove_filter( 'pre_wp_mail', '__return_true', PHP_INT_MIN );
+		if ( is_wp_error( $user_id ) ) {
+			return $user_id;
+		}
+		$user_id = (int) $user_id;
+
+		AuthController::mark_password_generated( $user_id );
+		$this->redeem_pending_space_invites( $user_id );
+
+		return $user_id;
+	}
+
+	/**
 	 * Record that this member accepted the terms, and which terms they accepted.
 	 *
 	 * Consent was ENFORCED and never WRITTEN DOWN. RegistrationPolicy refuses to register

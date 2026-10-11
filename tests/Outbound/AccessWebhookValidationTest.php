@@ -445,4 +445,77 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'm***@example.com', $payload );
 		$this->assertStringNotContainsString( 'member@example.com', $payload );
 	}
+
+	/**
+	 * A buyer with no account: created only when the owner switched it on, only
+	 * for a signed request that gives something, and never left behind when the
+	 * grant itself fails.
+	 *
+	 * @return void
+	 */
+	public function test_new_buyer_account_is_created_only_when_allowed(): void {
+		$mails = array();
+		add_filter(
+			'pre_wp_mail',
+			static function ( $short, array $atts ) use ( &$mails ) {
+				if ( null !== $short ) {
+					return $short; // Already held back; a real mailer sends nothing.
+				}
+				$mails[] = (string) $atts['subject'];
+				return true;
+			},
+			10,
+			2
+		);
+		$grant = array(
+			'user_email' => 'buyer@example.org',
+			'name'       => 'Nadia Buyer',
+			'action'     => 'grant_ability',
+			'ability'    => 'early_access',
+		);
+
+		// Switched off (the default): as before, and nobody is created.
+		$response = $this->call( $grant );
+		$this->assertSame( 404, $response->get_status() );
+		$this->assertFalse( get_user_by( 'email', 'buyer@example.org' ) );
+
+		update_option( \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS, 1 );
+
+		// Things that must never create anyone, even switched on.
+		$this->assertSame( 404, $this->call( array( 'user_email' => 'buyer@example.org', 'action' => 'revoke_ability', 'ability' => 'early_access' ) )->get_status(), 'A revoke gives nothing.' );
+		$this->assertSame( 404, $this->call( array( 'user_email' => 'buyer@example.org', 'action' => 'set_role', 'role' => 'administrator' ) )->get_status(), 'A role change gives nothing.' );
+		$this->assertSame( 404, $this->call( array( 'user_id' => 99999999, 'action' => 'grant_ability', 'ability' => 'early_access' ) )->get_status(), 'An id names nobody to create.' );
+		$this->assertSame( 404, $this->call( array( 'user_email' => 'not-an-email', 'action' => 'grant_ability', 'ability' => 'early_access' ) )->get_status(), 'Not an address.' );
+		$this->assertSame( 0, count( get_users( array( 'search' => '*buyer*', 'search_columns' => array( 'user_email' ) ) ) ) );
+
+		// A grant that fails leaves no account and sends no email.
+		$failed = $this->call( $grant + array( 'expires_at' => 'last tuesday-ish' ) );
+		$this->assertGreaterThanOrEqual( 400, $failed->get_status() );
+		$this->assertFalse( get_user_by( 'email', 'buyer@example.org' ), 'No account without the grant.' );
+		$this->assertSame( array(), $mails );
+
+		// The real thing.
+		$response = $this->call( $grant );
+		$data     = $response->get_data();
+		$user     = get_user_by( 'email', 'buyer@example.org' );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertInstanceOf( \WP_User::class, $user );
+		$this->assertTrue( $data['member_created'] );
+		$this->assertSame( $user->ID, $data['user_id'] );
+		$this->assertSame( array( get_option( 'default_role', 'subscriber' ) ), array_values( $user->roles ), 'A new member, never more.' );
+		$this->assertSame( 'Nadia Buyer', $user->display_name );
+		$this->assertNotEmpty( get_user_meta( $user->ID, 'buddynext_email_verified', true ) );
+		$this->assertCount( 1, $mails, 'One email: the set-password one.' );
+
+		// The same purchase again gives to the same member and creates no one.
+		$again = $this->call( $grant );
+		$this->assertSame( 200, $again->get_status() );
+		$this->assertArrayNotHasKey( 'member_created', $again->get_data() );
+		$this->assertCount( 1, get_users( array( 'search' => 'buyer@example.org', 'search_columns' => array( 'user_email' ) ) ) );
+		$this->assertCount( 1, $mails );
+
+		delete_option( \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS );
+		remove_all_filters( 'pre_wp_mail' );
+	}
 }
