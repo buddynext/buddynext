@@ -68,7 +68,7 @@ class AccessWebhookController {
 		if ( ! $signature_check ) {
 			return new WP_Error(
 				'invalid_signature',
-				__( 'Invalid webhook signature.', 'buddynext' ),
+				__( 'Invalid webhook signature. Sign "{timestamp}.{raw body}" with HMAC-SHA256 and the site secret, and send the hex digest in X-BuddyNext-Signature.', 'buddynext' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -85,34 +85,151 @@ class AccessWebhookController {
 
 		$user = $this->resolve_user( $body );
 
-		if ( ! $user ) {
-			return new WP_Error(
-				'user_not_found',
-				__( 'Member not found.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
+		if ( $user instanceof WP_Error ) {
+			return $user;
 		}
 
 		$action = sanitize_key( $body['action'] ?? '' );
 
-		// This request logs itself, below, with the whole signed body — richer than
+		/**
+		 * Filters the actions the access webhook accepts.
+		 *
+		 * One secret authorises every action, so a site that only sells plans can
+		 * drop the ones it never wants a third-party tool to perform, set_role for
+		 * example.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param string[] $actions Accepted action slugs.
+		 */
+		$allowed = (array) apply_filters( 'buddynext_access_webhook_actions', self::ACTIONS );
+		if ( in_array( $action, self::ACTIONS, true ) && ! in_array( $action, $allowed, true ) ) {
+			return new WP_Error(
+				'action_not_allowed',
+				/* translators: %s: action name */
+				sprintf( __( 'The action "%s" is switched off on this site.', 'buddynext' ), $action ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// One request at a time per member. A tool that retries, or runs branches in
+		// parallel, sends the same grant several times at once; without this each
+		// copy read "no plan yet" and wrote its own, and a retried credit was added
+		// twice before the first could be remembered.
+		global $wpdb;
+		$lock = 'bn_access_webhook_' . $user->ID;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( 1 !== (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) ) ) {
+			return new WP_Error(
+				'busy',
+				__( 'Another request for this member is still being processed. Try again.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
+
+		try {
+			$response = $this->run( $action, $user->ID, $body );
+		} finally {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		}
+
+		return $response instanceof WP_Error ? $response : new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * The actions this endpoint knows.
+	 */
+	private const ACTIONS = array( 'set_role', 'grant_ability', 'revoke_ability', 'add_credits', 'set_credits', 'deduct_credits' );
+
+	/**
+	 * How long an idempotency key is remembered.
+	 */
+	private const IDEMPOTENCY_TTL = DAY_IN_SECONDS;
+
+	/**
+	 * Run one action for one member and build the answer.
+	 *
+	 * Called with the member's lock held. A request that carries an
+	 * `idempotency_key` already used in the last day gets the first answer back
+	 * and changes nothing, so a tool's retry cannot credit or grant twice.
+	 *
+	 * @param string $action  Action slug.
+	 * @param int    $user_id Member the request is about.
+	 * @param array  $body    Decoded request body.
+	 * @return array<string,mixed>|WP_Error Response body, or the refusal.
+	 */
+	private function run( string $action, int $user_id, array $body ): array|WP_Error {
+		$key       = is_scalar( $body['idempotency_key'] ?? null ) ? trim( (string) $body['idempotency_key'] ) : '';
+		$transient = '' !== $key ? 'bn_awh_' . md5( $user_id . '|' . $action . '|' . $key ) : '';
+
+		if ( '' !== $transient ) {
+			$earlier = get_transient( $transient );
+			if ( is_array( $earlier ) ) {
+				$earlier['replayed'] = true;
+
+				return $earlier;
+			}
+		}
+
+		/**
+		 * Lets an extension refuse an action before anything is written.
+		 *
+		 * Pro uses it to answer 422 for a plan that does not exist, so the caller
+		 * is not told a grant worked when no plan was given.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param WP_Error|null $refusal Null to carry on.
+		 * @param string        $action  Action slug.
+		 * @param int           $user_id Member the request is about.
+		 * @param array         $body    Decoded request body.
+		 */
+		$refusal = apply_filters( 'buddynext_access_webhook_pre_action', null, $action, $user_id, $body );
+
+		// This request logs itself, below, with the signed body — richer than
 		// anything the action can carry. WebhookLogListener watches the same grant
 		// action for callers that have no request to log from, so it is told to
 		// stand down for the duration of this one. Without that, every HTTP grant
 		// would be recorded twice: once here and once by the listener.
 		WebhookLog::begin_request_scope();
-		$result = $this->dispatch( $action, $user->ID, $body );
+		$result = $refusal instanceof WP_Error ? $refusal : $this->dispatch( $action, $user_id, $body );
 		WebhookLog::end_request_scope();
 
-		$status = ( $result instanceof WP_Error ) ? 'error' : 'success';
-
-		$this->log( $action, $user->ID, $body, $status );
+		$this->log( $action, $user_id, $body, $result instanceof WP_Error ? 'error' : 'success' );
 
 		if ( $result instanceof WP_Error ) {
 			return $result;
 		}
 
-		return new WP_REST_Response( array( 'success' => true ), 200 );
+		$response = array_merge(
+			array(
+				'success' => true,
+				'action'  => $action,
+				'user_id' => $user_id,
+			),
+			$result
+		);
+
+		/**
+		 * Filters what the access webhook answers after a successful action.
+		 *
+		 * Pro adds the plan and the subscription the grant or revoke ended up on.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param array<string,mixed> $response Response body.
+		 * @param string              $action   Action slug.
+		 * @param int                 $user_id  Member the request was about.
+		 * @param array               $body     Decoded request body.
+		 */
+		$response = (array) apply_filters( 'buddynext_access_webhook_response', $response, $action, $user_id, $body );
+
+		if ( '' !== $transient ) {
+			set_transient( $transient, $response, self::IDEMPOTENCY_TTL );
+		}
+
+		return $response;
 	}
 
 	/**
@@ -121,16 +238,14 @@ class AccessWebhookController {
 	 * @param string $action  Action slug.
 	 * @param int    $user_id Resolved user ID.
 	 * @param array  $body    Decoded request body.
-	 * @return true|WP_Error
+	 * @return array<string,mixed>|WP_Error What changed, for the response.
 	 */
-	private function dispatch( string $action, int $user_id, array $body ): bool|WP_Error {
+	private function dispatch( string $action, int $user_id, array $body ): array|WP_Error {
 		return match ( $action ) {
 			'set_role'       => $this->action_set_role( $user_id, $body ),
 			'grant_ability'  => $this->action_grant_ability( $user_id, $body ),
 			'revoke_ability' => $this->action_revoke_ability( $user_id, $body ),
-			'add_credits'    => $this->action_add_credits( $user_id, $body ),
-			'set_credits'    => $this->action_set_credits( $user_id, $body ),
-			'deduct_credits' => $this->action_deduct_credits( $user_id, $body ),
+			'add_credits', 'set_credits', 'deduct_credits' => $this->action_credits( $action, $user_id, $body ),
 			default          => new WP_Error(
 				'unknown_action',
 				/* translators: %s: action name */
@@ -145,9 +260,9 @@ class AccessWebhookController {
 	 *
 	 * @param int   $user_id User ID.
 	 * @param array $body    Request body.
-	 * @return true|WP_Error
+	 * @return array<string,mixed>|WP_Error
 	 */
-	private function action_set_role( int $user_id, array $body ): bool|WP_Error {
+	private function action_set_role( int $user_id, array $body ): array|WP_Error {
 		$role = sanitize_key( $body['role'] ?? '' );
 
 		if ( ! in_array( $role, array( 'admin', 'moderator', 'member' ), true ) ) {
@@ -168,7 +283,7 @@ class AccessWebhookController {
 		 */
 		do_action( 'buddynext_role_changed', $user_id, $role );
 
-		return true;
+		return array( 'role' => $role );
 	}
 
 	/**
@@ -176,12 +291,11 @@ class AccessWebhookController {
 	 *
 	 * @param int   $user_id User ID.
 	 * @param array $body    Request body.
-	 * @return true|WP_Error
+	 * @return array<string,mixed>|WP_Error
 	 */
-	private function action_grant_ability( int $user_id, array $body ): bool|WP_Error {
-		$ability    = sanitize_text_field( $body['ability'] ?? '' );
-		$expires_at = ! empty( $body['expires_at'] ) ? sanitize_text_field( $body['expires_at'] ) : null;
-		$source     = sanitize_key( $body['source'] ?? '' );
+	private function action_grant_ability( int $user_id, array $body ): array|WP_Error {
+		$ability = sanitize_text_field( $body['ability'] ?? '' );
+		$source  = sanitize_key( $body['source'] ?? '' );
 
 		if ( ! $ability ) {
 			return new WP_Error(
@@ -191,8 +305,10 @@ class AccessWebhookController {
 			);
 		}
 
-		// 0 = no expiry; otherwise unix timestamp.
-		$expires_ts = ( null === $expires_at || '' === $expires_at ) ? 0 : (int) strtotime( $expires_at );
+		$expires_ts = $this->grant_expiry( $ability, $user_id, $body );
+		if ( $expires_ts instanceof WP_Error ) {
+			return $expires_ts;
+		}
 
 		update_user_meta( $user_id, PermissionService::ability_meta_key( $ability ), $expires_ts );
 
@@ -205,7 +321,73 @@ class AccessWebhookController {
 		 */
 		do_action( 'buddynext_ability_granted', $user_id, $ability, $source );
 
-		return true;
+		return array(
+			'ability'    => $ability,
+			'expires_at' => $expires_ts > 0 ? gmdate( 'Y-m-d\TH:i:s\Z', $expires_ts ) : null,
+		);
+	}
+
+	/**
+	 * When a grant ends, as a unix timestamp; 0 for one that never ends.
+	 *
+	 * `expires_at` is an ISO 8601 date or unix seconds (milliseconds are accepted
+	 * and divided). A date with no time means the end of that day, UTC, so the
+	 * member keeps the last day they paid for. A value that cannot be read, or
+	 * that is already in the past, is refused: it used to become "never expires",
+	 * the most generous reading of a mistake.
+	 *
+	 * With no `expires_at`, the grant never ends unless an extension supplies a
+	 * default (Pro gives a plan its own month or year). `"lifetime": true` says
+	 * never-ending out loud and skips that default.
+	 *
+	 * @param string $ability Ability slug.
+	 * @param int    $user_id Member the grant is for.
+	 * @param array  $body    Request body.
+	 * @return int|WP_Error
+	 */
+	private function grant_expiry( string $ability, int $user_id, array $body ): int|WP_Error {
+		$raw = $body['expires_at'] ?? null;
+
+		if ( null === $raw || '' === $raw ) {
+			if ( ! empty( $body['lifetime'] ) && 'false' !== $body['lifetime'] ) {
+				return 0;
+			}
+
+			/**
+			 * Filters when a grant with no `expires_at` ends.
+			 *
+			 * @since 1.2.5
+			 *
+			 * @param int    $expires_ts Unix timestamp; 0 for never.
+			 * @param string $ability    Ability slug.
+			 * @param int    $user_id    Member the grant is for.
+			 * @param array  $body       Request body.
+			 */
+			return max( 0, (int) apply_filters( 'buddynext_access_webhook_default_expiry', 0, $ability, $user_id, $body ) );
+		}
+
+		$raw = is_scalar( $raw ) ? trim( (string) $raw ) : '';
+		if ( 1 === preg_match( '/^\d{10}$/', $raw ) ) {
+			$ts = (int) $raw;
+		} elseif ( 1 === preg_match( '/^\d{13}$/', $raw ) ) {
+			$ts = (int) floor( (int) $raw / 1000 );
+		} elseif ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $raw ) ) {
+			$ts = (int) strtotime( $raw . 'T23:59:59Z' );
+		} elseif ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}[T ]/', $raw ) ) {
+			$ts = (int) strtotime( $raw );
+		} else {
+			$ts = 0;
+		}
+
+		if ( $ts <= time() ) {
+			return new WP_Error(
+				'invalid_expires_at',
+				__( '"expires_at" must be a future date: ISO 8601 (2027-01-31T00:00:00Z) or unix seconds. Leave it out and send "lifetime": true for a grant that never ends.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		return $ts;
 	}
 
 	/**
@@ -213,9 +395,9 @@ class AccessWebhookController {
 	 *
 	 * @param int   $user_id User ID.
 	 * @param array $body    Request body.
-	 * @return true|WP_Error
+	 * @return array<string,mixed>|WP_Error
 	 */
-	private function action_revoke_ability( int $user_id, array $body ): bool|WP_Error {
+	private function action_revoke_ability( int $user_id, array $body ): array|WP_Error {
 		$ability = sanitize_text_field( $body['ability'] ?? '' );
 
 		if ( ! $ability ) {
@@ -236,61 +418,74 @@ class AccessWebhookController {
 		 */
 		do_action( 'buddynext_ability_revoked', $user_id, $ability );
 
-		return true;
+		return array( 'ability' => $ability );
 	}
 
 	/**
-	 * Add to a user's credit balance.
+	 * Add to, replace or deduct from a member's credit balance.
 	 *
-	 * @param int   $user_id User ID.
-	 * @param array $body    Request body.
-	 * @return true
-	 */
-	private function action_add_credits( int $user_id, array $body ): bool {
-		( new RoleService() )->add_credits( $user_id, abs( (int) ( $body['amount'] ?? 0 ) ) );
-		return true;
-	}
-
-	/**
-	 * Replace a user's credit balance.
+	 * `amount` is required and must be a whole number, zero or more. A missing
+	 * amount used to count as 0 (set_credits wiped the balance), a negative one
+	 * had its sign dropped (a deduction became a top-up) and a decimal was cut
+	 * short, all answered with success.
 	 *
-	 * @param int   $user_id User ID.
-	 * @param array $body    Request body.
-	 * @return true
+	 * @param string $action  add_credits, set_credits or deduct_credits.
+	 * @param int    $user_id User ID.
+	 * @param array  $body    Request body.
+	 * @return array<string,mixed>|WP_Error
 	 */
-	private function action_set_credits( int $user_id, array $body ): bool {
-		( new RoleService() )->set_credits( $user_id, max( 0, (int) ( $body['amount'] ?? 0 ) ) );
-		return true;
+	private function action_credits( string $action, int $user_id, array $body ): array|WP_Error {
+		$amount = $body['amount'] ?? null;
+		$amount = is_int( $amount ) ? (string) $amount : ( is_string( $amount ) ? trim( $amount ) : '' );
+
+		if ( 1 !== preg_match( '/^\d{1,15}$/', $amount ) ) {
+			return new WP_Error(
+				'invalid_amount',
+				__( '"amount" is required and must be a whole number, zero or more.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$roles = new RoleService();
+		if ( 'add_credits' === $action ) {
+			$roles->add_credits( $user_id, (int) $amount );
+		} elseif ( 'set_credits' === $action ) {
+			$roles->set_credits( $user_id, (int) $amount );
+		} else {
+			$roles->deduct_credits( $user_id, (int) $amount );
+		}
+
+		return array( 'balance' => $roles->get_credits( $user_id ) );
 	}
 
 	/**
-	 * Deduct from a user's credit balance (floors at 0).
+	 * Resolve the member a request is about, from user_id or user_email.
 	 *
-	 * @param int   $user_id User ID.
-	 * @param array $body    Request body.
-	 * @return true
-	 */
-	private function action_deduct_credits( int $user_id, array $body ): bool {
-		( new RoleService() )->deduct_credits( $user_id, abs( (int) ( $body['amount'] ?? 0 ) ) );
-		return true;
-	}
-
-	/**
-	 * Resolve a user from user_id or user_email in the request body.
+	 * When both are sent they must name the same member. A scenario that maps the
+	 * wrong field used to act on whoever user_id pointed at and report success.
 	 *
 	 * @param array $body Request body.
-	 * @return WP_User|false
+	 * @return WP_User|WP_Error
 	 */
-	private function resolve_user( array $body ): WP_User|false {
-		if ( ! empty( $body['user_id'] ) ) {
-			return get_userdata( (int) $body['user_id'] );
+	private function resolve_user( array $body ): WP_User|WP_Error {
+		$by_id    = ! empty( $body['user_id'] ) ? get_userdata( (int) $body['user_id'] ) : null;
+		$by_email = ! empty( $body['user_email'] ) ? get_user_by( 'email', sanitize_email( (string) $body['user_email'] ) ) : null;
+
+		if ( ! empty( $body['user_id'] ) && ! empty( $body['user_email'] ) && ( ! $by_id || ! $by_email || $by_id->ID !== $by_email->ID ) ) {
+			return new WP_Error(
+				'identity_conflict',
+				__( '"user_id" and "user_email" do not name the same member. Send one of them, or both for the same member.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
 		}
 
-		if ( ! empty( $body['user_email'] ) ) {
-			return get_user_by( 'email', sanitize_email( $body['user_email'] ) );
-		}
+		$user = $by_id ? $by_id : $by_email;
 
-		return false;
+		return $user instanceof WP_User ? $user : new WP_Error(
+			'user_not_found',
+			__( 'Member not found.', 'buddynext' ),
+			array( 'status' => 404 )
+		);
 	}
 
 	/**
@@ -363,6 +558,12 @@ class AccessWebhookController {
 		$timestamp = (string) ( $request->get_header( 'X-BuddyNext-Timestamp' ) ?? '' );
 		$body      = (string) $request->get_body();
 
+		// The digest may arrive as `sha256=<hex>` or bare hex, in either case: every
+		// one of those is how some hosted automation tool prints an HMAC. It is
+		// normalised here and still compared in constant time.
+		$header = strtolower( trim( $header ) );
+		$header = 'sha256=' . ( str_starts_with( $header, 'sha256=' ) ? substr( $header, 7 ) : $header );
+
 		if ( '' !== $timestamp ) {
 			$expected = 'sha256=' . hash_hmac( 'sha256', $timestamp . '.' . $body, $secret );
 
@@ -372,11 +573,12 @@ class AccessWebhookController {
 
 			// Signature checked first, deliberately: a stale-timestamp message for
 			// an unsigned request would tell an attacker their guess was otherwise
-			// well-formed.
-			if ( abs( time() - (int) $timestamp ) > self::TIMESTAMP_TOLERANCE ) {
+			// well-formed. A 13-digit value is milliseconds (JavaScript Date.now()).
+			$sent_at = 13 === strlen( $timestamp ) ? (int) floor( (int) $timestamp / 1000 ) : (int) $timestamp;
+			if ( abs( time() - $sent_at ) > self::TIMESTAMP_TOLERANCE ) {
 				return new WP_Error(
 					'stale_request',
-					__( 'Request timestamp is outside the accepted window.', 'buddynext' ),
+					__( 'Request timestamp is outside the accepted window. Send the current unix time in X-BuddyNext-Timestamp and sign the same value; the request must arrive within five minutes.', 'buddynext' ),
 					array( 'status' => 401 )
 				);
 			}
@@ -407,7 +609,7 @@ class AccessWebhookController {
 		if ( $strict ) {
 			return new WP_Error(
 				'timestamp_required',
-				__( 'This site requires a signed request timestamp.', 'buddynext' ),
+				__( 'This site requires a signed request: send the unix time in X-BuddyNext-Timestamp and, in X-BuddyNext-Signature, the HMAC-SHA256 hex of "{timestamp}.{raw body}" made with the site secret. A plain token or bearer header is not accepted.', 'buddynext' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -495,6 +697,12 @@ class AccessWebhookController {
 	 * @param string $status  'success' or 'error'.
 	 */
 	private function log( string $action, int $user_id, array $body, string $status ): void {
+		// The row already names the member by id, so the address is not kept in
+		// full: only enough of it to recognise a mapping mistake.
+		if ( isset( $body['user_email'] ) && is_string( $body['user_email'] ) ) {
+			$body['user_email'] = preg_replace( '/^(.).*(@.*)$/', '$1***$2', $body['user_email'] );
+		}
+
 		WebhookLog::write( $action, $user_id, $body, $status, $this->accepted_signature );
 	}
 }
