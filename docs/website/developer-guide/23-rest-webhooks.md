@@ -122,7 +122,7 @@ const signature = crypto.createHmac('sha256', secret).update(timestamp + '.' + b
 - Body is not valid JSON: 400 `invalid_payload`.
 - `user_id` and `user_email` both sent and not the same member: 400 `identity_conflict`.
 - User cannot be resolved: 404 `user_not_found` (unless the request may create the member, see below).
-- Action switched off through `buddynext_access_webhook_actions`: 403 `action_not_allowed`.
+- Action switched off, by the owner (`set_role` is off unless allowed) or through `buddynext_access_webhook_actions`: 403 `action_not_allowed`. The filter receives the owner's list and has the last word.
 - Another request for the same member is still running: 409 `busy`. Requests for one member are processed one at a time, so parallel or retried grants cannot create two plans.
 - Unknown `action`: 400 `unknown_action`.
 - `expires_at` unreadable or in the past: 422 `invalid_expires_at`.
@@ -150,7 +150,7 @@ With it on, a request that names an email address with no account creates the me
 
 | `action` | Effect |
 |---|---|
-| `set_role` | Set the community role (`admin`, `moderator`, or `member`); fires `buddynext_role_changed` |
+| `set_role` | Set the community role (`admin`, `moderator`, or `member`); fires `buddynext_role_changed`. **Off by default from 1.2.5**: answers 403 `action_not_allowed` until the owner switches on **Allow role changes from outside** on the Webhooks screen (option `buddynext_webhook_allow_set_role`). |
 | `grant_ability` | Grant a BuddyNext ability; fires `buddynext_ability_granted`. See the expiry rules below |
 | `revoke_ability` | Remove a granted ability; fires `buddynext_ability_revoked` |
 | `add_credits` | Add `amount` to the user's credit balance |

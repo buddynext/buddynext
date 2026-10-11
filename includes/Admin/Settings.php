@@ -62,6 +62,43 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
+	 * Tell an owner whose site changed roles from outside that it is now off.
+	 *
+	 * From 1.2.5 the access webhook no longer changes roles unless the owner
+	 * allows it. A site that relied on it would otherwise find out from a failed
+	 * automation. Shown on BuddyNext screens until the owner saves the Webhooks
+	 * settings, either way.
+	 *
+	 * @return void
+	 */
+	public function maybe_render_role_switch_notice(): void {
+		$screen = get_current_screen();
+		if ( ! current_user_can( 'manage_options' ) || ! $screen || false === strpos( (string) $screen->id, 'buddynext' ) ) {
+			return;
+		}
+		if ( ! \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention() ) {
+			return;
+		}
+
+		$url = add_query_arg(
+			array(
+				'page' => 'buddynext-platform',
+				'tab'  => 'webhooks',
+			),
+			admin_url( 'admin.php' )
+		);
+		?>
+		<div class="notice notice-warning">
+			<p>
+				<strong><?php esc_html_e( 'Role changes from outside services are now off.', 'buddynext' ); ?></strong>
+				<?php esc_html_e( 'A connected service has changed member roles on this site before. For safety this now needs your permission. Plans, abilities and credits are not affected.', 'buddynext' ); ?>
+				<a href="<?php echo esc_url( $url ); ?>"><?php esc_html_e( 'Review the Webhooks settings', 'buddynext' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Hook the admin menu and settings registration into WordPress.
 	 *
 	 * @return void
@@ -72,6 +109,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		SettingsRegistry::register( $this );
 
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_notices', array( $this, 'maybe_render_role_switch_notice' ) );
+		// Saving the Webhooks settings is the owner's answer, on or off. WordPress
+		// stores nothing when a switch is left at its default, so the answer is
+		// recorded here, where every save of that switch passes.
+		add_filter(
+			'pre_update_option_' . \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE,
+			static function ( $value ) {
+				update_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ROLE_REVIEWED, 1, false );
+
+				return $value;
+			}
+		);
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
 		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
@@ -2143,6 +2192,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
+							'key'     => \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE,
+							'default' => false,
+							'type'    => 'toggle',
+							'label'   => __( 'Allow role changes from outside', 'buddynext' ),
+							'hint'    => __( 'Off by default. When on, a signed request can set a member to community admin, moderator or member. Leave it off unless a service you run needs it: your shared secret authorises every action, and this is the most powerful one. Plans, abilities and credits work either way.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
 							'key'     => \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS,
 							'default' => false,
 							'type'    => 'toggle',
@@ -3495,6 +3553,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Require replay-proof webhook signatures', 'buddynext' ),
 			__( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
 			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES, true )
+		);
+
+		$this->render_toggle_row(
+			\BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE,
+			__( 'Allow role changes from outside', 'buddynext' ),
+			__( 'Off by default. When on, a signed request can set a member to community admin, moderator or member. Leave it off unless a service you run needs it: your shared secret authorises every action, and this is the most powerful one. Plans, abilities and credits work either way.', 'buddynext' ),
+			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE, false )
 		);
 
 		$this->render_toggle_row(

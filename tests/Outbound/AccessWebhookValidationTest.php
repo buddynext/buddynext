@@ -55,6 +55,8 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		update_option( 'buddynext_webhook_secret', $this->secret );
+		// Most cases here predate the role switch and exercise set_role itself.
+		update_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE, 1 );
 		$this->user_id = self::factory()->user->create( array( 'user_email' => 'member@example.com' ) );
 		( new Router() )->register();
 	}
@@ -517,5 +519,58 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 
 		delete_option( \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS );
 		remove_all_filters( 'pre_wp_mail' );
+	}
+
+	/**
+	 * Role changes from outside are off until the owner allows them. Everything
+	 * else keeps working, a developer's filter still has the last word, and a
+	 * site that used them before is told.
+	 *
+	 * @return void
+	 */
+	public function test_role_changes_are_off_until_the_owner_allows_them(): void {
+		$opt  = \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE;
+		$role = array(
+			'user_id' => $this->user_id,
+			'action'  => 'set_role',
+			'role'    => 'moderator',
+		);
+		( new \BuddyNext\Admin\Settings() )->register();
+		delete_option( $opt );
+		delete_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ROLE_REVIEWED );
+		delete_transient( 'buddynext_webhook_set_role_used' );
+		$this->assertFalse( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention(), 'A site that never used it is not nagged.' );
+
+		$refused = $this->call( $role );
+		$this->assertSame( 403, $refused->get_status() );
+		$this->assertSame( 'action_not_allowed', $refused->get_data()['code'] );
+		$this->assertSame( '', (string) get_user_meta( $this->user_id, 'bn_community_role', true ), 'Nothing changed.' );
+		$this->assertSame( 200, $this->call( array( 'user_id' => $this->user_id, 'action' => 'grant_ability', 'ability' => 'early_access' ) )->get_status(), 'Other actions are untouched.' );
+
+		// A site whose log shows a role change from before the update.
+		\BuddyNext\Outbound\WebhookLog::write( 'set_role', $this->user_id, array( 'role' => 'moderator' ) );
+		delete_transient( 'buddynext_webhook_set_role_used' );
+		$this->assertTrue( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention() );
+
+		// The owner allows it.
+		update_option( $opt, 1 );
+		$this->assertFalse( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention(), 'Once chosen, no more notice.' );
+		$this->assertSame( 200, $this->call( $role )->get_status() );
+		$this->assertSame( 'moderator', get_user_meta( $this->user_id, 'bn_community_role', true ) );
+
+		// The owner says no: still chosen, still refused. Saving "off" on a site
+		// where it was never on stores no value, and must still count as an answer.
+		delete_option( $opt );
+		delete_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ROLE_REVIEWED );
+		$this->assertTrue( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention() );
+		update_option( $opt, false );
+		$this->assertFalse( \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention() );
+		$this->assertSame( 403, $this->call( array( 'role' => 'member' ) + $role )->get_status() );
+
+		// A developer's filter has the last word.
+		add_filter( 'buddynext_access_webhook_actions', static fn( array $actions ): array => array_merge( $actions, array( 'set_role' ) ) );
+		$this->assertSame( 200, $this->call( array( 'role' => 'member' ) + $role )->get_status() );
+		remove_all_filters( 'buddynext_access_webhook_actions' );
+		delete_option( $opt );
 	}
 }

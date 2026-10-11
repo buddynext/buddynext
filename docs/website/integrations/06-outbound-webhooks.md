@@ -102,6 +102,8 @@ Select **Remove** on the destination's row and confirm. Removing a destination s
 
 The top of the Webhooks screen also has an **Inbound access webhook (always active)** section. It is the reverse direction: an outside service, such as a payment or membership system, can call your site to set a member's community role, grant or revoke an ability, or change a credit balance. It uses its own **Shared secret** (with Show, Copy and Generate or Rotate buttons), which is not the same as any destination's signing secret. Left blank, the inbound endpoint refuses every request. **Require replay-proof webhook signatures** is on by default and only accepts timestamped signatures; turn it off only while you migrate a service that cannot send one. This section works whether or not the Outbound webhooks feature is on. Developers will find the request format in the Developer Guide.
 
+**Updating from an earlier version?** Role changes from an outside service are now off until you allow them. If a service of yours changes member roles, switch on **Allow role changes from outside** in this section. Plans, abilities and credits are not affected.
+
 **Selling through another checkout?** Switch on **Create an account for a new buyer** in the same section. When someone pays who has never signed up, BuddyNext creates their account from the email they paid with, gives them what they bought, and emails them a link to set their password. It is off by default, the new member is always an ordinary member, and accounts are only created from requests signed with your shared secret.
 
 ## Settings and usage
@@ -116,6 +118,7 @@ The top of the Webhooks screen also has an **Inbound access webhook (always acti
 | Retry attempts | How many times a failed delivery is retried before it is given up. | 3, with a growing wait between tries |
 | Auto-switch-off threshold | Failures in a row before a destination is switched off. | 3 |
 | Create an account for a new buyer | Lets a signed request for an email address with no account create the member, then emails them a set-password link. | Off |
+| Allow role changes from outside | Lets a signed request set a member to community admin, moderator or member. Off unless you need it: it is the most powerful thing the connection can do. | Off |
 
 ## Free vs Pro
 

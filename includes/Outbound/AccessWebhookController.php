@@ -96,12 +96,14 @@ class AccessWebhookController {
 		 *
 		 * @param string[] $actions Accepted action slugs.
 		 */
-		$allowed = (array) apply_filters( 'buddynext_access_webhook_actions', self::ACTIONS );
+		$allowed = (array) apply_filters( 'buddynext_access_webhook_actions', self::default_actions() );
 		if ( in_array( $action, self::ACTIONS, true ) && ! in_array( $action, $allowed, true ) ) {
 			return new WP_Error(
 				'action_not_allowed',
-				/* translators: %s: action name */
-				sprintf( __( 'The action "%s" is switched off on this site.', 'buddynext' ), $action ),
+				'set_role' === $action
+					? __( 'Role changes from outside are switched off on this site. An administrator can allow them under Platform, Webhooks.', 'buddynext' )
+					/* translators: %s: action name */
+					: sprintf( __( 'The action "%s" is switched off on this site.', 'buddynext' ), $action ),
 				array( 'status' => 403 )
 			);
 		}
@@ -134,6 +136,23 @@ class AccessWebhookController {
 			);
 		}
 
+		// The member can have been removed while this request waited: the request
+		// that created the account for a new buyer takes it away again when its own
+		// grant fails. Answer "try again" so the tool's retry starts clean.
+		if ( ! $created ) {
+			clean_user_cache( $user->ID );
+			if ( ! get_userdata( $user->ID ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+
+				return new WP_Error(
+					'busy',
+					__( 'Another request for this member is still being processed. Try again.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
+			}
+		}
+
 		try {
 			// Asked again now that the lock is held. verify_signature() looked for
 			// this signature before the lock, and the signature is only recorded
@@ -153,6 +172,8 @@ class AccessWebhookController {
 		}
 
 		if ( $created ) {
+			// Still inside the hold create_member() took on the new member, so no
+			// other request has been able to give this account anything yet.
 			if ( $response instanceof WP_Error ) {
 				// The account existed only to receive this grant. Nothing was
 				// granted, so nothing is left behind and no email goes out.
@@ -163,9 +184,63 @@ class AccessWebhookController {
 				$response['member_created'] = true;
 				$response['user_id']        = $user->ID;
 			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
 		}
 
 		return $response instanceof WP_Error ? $response : new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * Option that lets a signed request change a member's community role.
+	 */
+	public const OPT_ALLOW_SET_ROLE = 'buddynext_webhook_allow_set_role';
+
+	/**
+	 * Set once the owner has saved the Webhooks settings with the role switch on
+	 * the screen, whichever way they left it.
+	 */
+	public const OPT_ROLE_REVIEWED = 'buddynext_webhook_role_reviewed';
+
+	/**
+	 * The actions this site accepts before any filter.
+	 *
+	 * Everything except set_role, which the owner switches on. One secret
+	 * authorises every action, and changing roles is the most a leaked secret or
+	 * a misused automation account could do, so it is not on unless asked for.
+	 *
+	 * @return string[]
+	 */
+	public static function default_actions(): array {
+		return (bool) get_option( self::OPT_ALLOW_SET_ROLE, false )
+			? self::ACTIONS
+			: array_values( array_diff( self::ACTIONS, array( 'set_role' ) ) );
+	}
+
+	/**
+	 * Whether to tell the owner that role changes from outside are now off.
+	 *
+	 * Only on a site that has used them (its webhook log holds a set_role row)
+	 * and whose owner has not yet saved the Webhooks screen since (either way).
+	 *
+	 * @return bool
+	 */
+	public static function role_switch_needs_attention(): bool {
+		global $wpdb;
+
+		$used = get_transient( 'buddynext_webhook_set_role_used' );
+		if ( false === $used ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$used = $wpdb->get_var( "SELECT 1 FROM {$wpdb->prefix}bn_webhook_log WHERE action = 'set_role' LIMIT 1" ) ? 'yes' : 'no';
+			set_transient( 'buddynext_webhook_set_role_used', $used, DAY_IN_SECONDS );
+		}
+		if ( 'yes' !== $used ) {
+			return false;
+		}
+
+		// Chosen = the owner has saved the Webhooks settings since (either way).
+		// The switch's own value cannot say: off and never-set read the same.
+		return ! get_option( self::OPT_ROLE_REVIEWED );
 	}
 
 	/**
@@ -225,6 +300,15 @@ class AccessWebhookController {
 			}
 
 			$user_id = ( new \BuddyNext\Auth\RegistrationService() )->create_provisioned( $email, is_string( $body['name'] ?? null ) ? $body['name'] : '' );
+
+			// Hold the new member before letting go of the address. handle() takes
+			// the same lock again (a session may hold one lock twice) and gives this
+			// hold back at the very end, so another purchase for the same buyer
+			// waits until this request has either kept the account or removed it.
+			if ( ! is_wp_error( $user_id ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', 'bn_access_webhook_' . (int) $user_id ) );
+			}
 		} finally {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
