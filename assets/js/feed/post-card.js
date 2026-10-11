@@ -252,6 +252,25 @@ function siteDate( date ) {
 let bnMountedCards = [];
 
 /**
+ * Show a reaction change on one mounted card, when it is the card for that post.
+ *
+ * @param {{ctx: Object, el: Element|null}} card   Mounted card.
+ * @param {number}                          postId Post whose reaction changed.
+ * @param {Object}                          d      Event detail ({ type, body }).
+ * @return {void}
+ */
+function mirrorReaction( card, postId, d ) {
+	if ( Number( card.ctx.postId ) !== postId ) return;
+	const type   = d.type || null;
+	const option = type && card.el ? card.el.querySelector( '[data-reaction-type="' + CSS.escape( type ) + '"]' ) : null;
+	card.ctx.reactionType  = type;
+	card.ctx.reactionLabel = type
+		? ( option?.getAttribute( 'title' ) || option?.getAttribute( 'aria-label' ) || type )
+		: ( card.ctx.reactDefaultLabel || 'React' );
+	updateReactionSummary( card.el, d.body || {} );
+}
+
+/**
  * A post's reaction changed outside its card: mirror it on the card.
  *
  * detail = { postId, type, body }, where type is the viewer's reaction slug (or
@@ -263,16 +282,7 @@ document.addEventListener( 'bn:post-reaction', ( event ) => {
 	if ( ! postId ) return;
 
 	bnMountedCards = bnMountedCards.filter( ( card ) => ! card.el || card.el.isConnected );
-	bnMountedCards.forEach( ( card ) => {
-		if ( Number( card.ctx.postId ) !== postId ) return;
-		const type   = d.type || null;
-		const option = type && card.el ? card.el.querySelector( '[data-reaction-type="' + CSS.escape( type ) + '"]' ) : null;
-		card.ctx.reactionType  = type;
-		card.ctx.reactionLabel = type
-			? ( option?.getAttribute( 'title' ) || option?.getAttribute( 'aria-label' ) || type )
-			: ( card.ctx.reactDefaultLabel || 'React' );
-		updateReactionSummary( card.el, d.body || {} );
-	} );
+	bnMountedCards.forEach( ( card ) => mirrorReaction( card, postId, d ) );
 } );
 
 /**
