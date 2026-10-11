@@ -116,7 +116,7 @@ do_action( 'buddynext_part_sidebar_this_week_stats_before', $args );
 
 		<div class="bn-stat">
 			<div class="bn-stat__value">
-				<?php echo esc_html( $bn_format( $bn_notifs_7d ) ); ?>
+				<span data-bn-week-notifs="<?php echo esc_attr( (string) $bn_notifs_7d ); ?>"><?php echo esc_html( $bn_format( $bn_notifs_7d ) ); ?></span>
 				<?php if ( '' !== $bn_wow_delta_label ) : ?>
 					<span class="bn-stat__delta" data-trend="<?php echo esc_attr( $bn_wow_trend ); ?>">
 						<?php echo esc_html( $bn_wow_delta_label ); ?>

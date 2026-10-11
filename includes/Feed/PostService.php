@@ -3079,9 +3079,16 @@ class PostService {
 	/**
 	 * Merge fields into the link_meta of every card stamped with a partner id.
 	 *
-	 * One UPDATE (JSON_MERGE_PATCH), so an event with two thousand attendee cards
-	 * costs one write, not two thousand. Each card's cached row is dropped and its
-	 * space's feed is told it changed, as the other *_link_meta_* writers do.
+	 * One UPDATE (JSON_MERGE_PATCH) per thousand cards, so an event with two
+	 * thousand attendee cards costs two writes, not two thousand. Each card's
+	 * cached row is dropped and its space's feed is told it changed, as the other
+	 * *_link_meta_* writers do.
+	 *
+	 * ponytail: the cards are found the way every *_link_meta_* method finds them,
+	 * by reading the cards of this type (link_lookup index) and matching the id
+	 * inside link_meta. That is a read of every card of the type on each call. If
+	 * a site's partner cards grow large enough for that to show, give the partner
+	 * id its own indexed column for all of those methods together.
 	 *
 	 * @since 1.2.5
 	 *
@@ -3115,15 +3122,21 @@ class PostService {
 			return 0;
 		}
 
-		$in = implode( ',', $ids );
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
-		$changed = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET link_meta = JSON_MERGE_PATCH( link_meta, %s ), updated_at = UTC_TIMESTAMP() WHERE id IN ({$in})",
-				(string) wp_json_encode( $fields )
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// Written a thousand cards at a time, so the id list of a very popular
+		// event never grows into one statement larger than the server accepts.
+		$changed = 0;
+		$patch   = (string) wp_json_encode( $fields );
+		foreach ( array_chunk( $ids, 1000 ) as $chunk ) {
+			$in = implode( ',', $chunk );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+			$changed += (int) $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET link_meta = JSON_MERGE_PATCH( link_meta, %s ), updated_at = UTC_TIMESTAMP() WHERE id IN ({$in})",
+					$patch
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
 
 		$spaces = array();
 		foreach ( (array) $rows as $row ) {
@@ -3137,7 +3150,7 @@ class PostService {
 			do_action( 'buddynext_space_posts_changed', $sid );
 		}
 
-		return is_int( $changed ) ? $changed : 0;
+		return $changed;
 	}
 
 	/**

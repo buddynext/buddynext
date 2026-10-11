@@ -86,6 +86,56 @@ function filterKeyForType( type ) {
  * @param {string} [type] Raw notification type, to also move its type tab.
  */
 /**
+ * Keep each day group's "N unread" label equal to the unread rows under it.
+ *
+ * The label is printed by the server. Every way a row stops being unread or
+ * leaves the list (read, read all, delete, delete selected) changes the rows
+ * themselves, so the label is recounted from them instead of each action
+ * keeping its own tally.
+ */
+function syncGroupUnreadLabels() {
+	document.querySelectorAll( '.bn-notif-group' ).forEach( function ( group ) {
+		var head = group.querySelector( '.bn-notif-group__head' );
+		if ( ! head ) { return; }
+		var n     = group.querySelectorAll( '.bn-notif-row--unread' ).length;
+		var label = head.querySelector( '.bn-notif-group__meta' );
+		if ( n > 0 && ! label ) {
+			label = document.createElement( 'span' );
+			label.className = 'bn-notif-group__meta';
+			head.appendChild( label );
+		}
+		if ( ! label ) { return; }
+		var text = n > 0 ? fmt( t( 'unreadBadge', '%s unread' ), String( n ) ) : '';
+		if ( label.textContent.trim() !== text ) { label.textContent = text; }
+		label.hidden = n <= 0;
+		// A group whose last row was deleted has nothing left to head.
+		group.hidden = ! group.querySelector( '.bn-notif-row' );
+	} );
+}
+
+/**
+ * Take deleted rows off the "This week" notifications figure.
+ *
+ * That figure counts notifications received in the last seven days, so only a
+ * deleted row from that window lowers it.
+ *
+ * @param {Element[]} rows Rows that were deleted on the server.
+ */
+function takeFromWeekTile( rows ) {
+	var tile = document.querySelector( '[data-bn-week-notifs]' );
+	if ( ! tile ) { return; }
+	var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+	var gone    = rows.filter( function ( row ) {
+		var time = row.querySelector( 'time[datetime]' );
+		return time && Date.parse( time.getAttribute( 'datetime' ) ) >= weekAgo;
+	} ).length;
+	var left = Math.max( 0, ( parseInt( tile.getAttribute( 'data-bn-week-notifs' ), 10 ) || 0 ) - gone );
+	tile.setAttribute( 'data-bn-week-notifs', String( left ) );
+	// The server shortens large figures (1.2k); those wait for the next load.
+	if ( left < 1000 ) { tile.textContent = String( left ); }
+}
+
+/**
  * Total UNREAD notifications, as maintained for the filter-bar tabs.
  *
  * @param {Object} ctx Interactivity context.
@@ -409,15 +459,18 @@ const notificationsStore = store( 'buddynext/notifications', {
 			}
 
 			// Same bookkeeping as deleting one row: unread rows leave the counts.
+			var deletedRows = [];
 			ids.forEach( function ( id ) {
 				var row = document.querySelector( '.bn-notif-row[data-notif-id="' + id + '"]' );
 				if ( ! row ) { return; }
+				deletedRows.push( row );
 				if ( row.classList.contains( 'bn-notif-row--unread' ) ) {
 					if ( ctx.unreadCount > 0 ) { ctx.unreadCount = ctx.unreadCount - 1; }
 					adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 				}
 				row.remove();
 			} );
+			takeFromWeekTile( deletedRows );
 			ctx.selecting     = false;
 			ctx.selectedCount = 0;
 			document.querySelectorAll( '[data-bn-notif-select-all]' ).forEach( function ( box ) { box.checked = false; } );
@@ -480,6 +533,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 				toast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), 'error' );
 				return;
 			}
+			takeFromWeekTile( [ row ] );
 		},
 
 		// Accept a space invitation straight from its notification. POSTs to the
@@ -719,6 +773,26 @@ const notificationsStore = store( 'buddynext/notifications', {
 } );
 
 I18N = ( notificationsStore.state && notificationsStore.state.i18n ) || {};
+
+/**
+ * Recount the day group labels whenever the rows under them change.
+ */
+function watchNotifGroups() {
+	var groups = document.querySelectorAll( '.bn-notif-group' );
+	if ( ! groups.length || typeof MutationObserver === 'undefined' ) { return; }
+	var observer = new MutationObserver( syncGroupUnreadLabels );
+	groups.forEach( function ( group ) {
+		var list = group.querySelector( '.bn-notif-list' );
+		if ( list ) {
+			observer.observe( list, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
+		}
+	} );
+}
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', watchNotifGroups );
+} else {
+	watchNotifGroups();
+}
 
 /**
  * Background unread-count polling.

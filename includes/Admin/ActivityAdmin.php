@@ -500,7 +500,7 @@ class ActivityAdmin implements ListenerInterface {
 					// names.
 					$row    = $posts->get( $pid );
 					$status = is_array( $row ) ? (string) ( $row['status'] ?? '' ) : '';
-					if ( ! in_array( $status, array( 'published', 'under_review' ), true ) ) {
+					if ( ( 'hide' === $bulk_action ? 'published' : 'under_review' ) !== $status ) {
 						continue;
 					}
 					$result = $posts->set_hidden( $pid, 'hide' === $bulk_action, $actor_id );
