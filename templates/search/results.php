@@ -153,20 +153,23 @@ $adv_active_days = isset( $_GET['active_within_days'] ) ? min( 365, absint( wp_u
 $adv_options = (array) apply_filters(
 	'buddynext_search_filter_options',
 	array(
-		'tiers'  => array(),
-		'spaces' => array(),
-		'labels' => array(),
+		'tiers'     => array(),
+		'spaces'    => array(),
+		'labels'    => array(),
+		// Set true by whoever will apply the filters for this viewer (Pro, when
+		// the viewer has the perk). Free applies none of them itself.
+		'available' => false,
 	),
 	get_current_user_id()
 );
-$adv_tiers   = isset( $adv_options['tiers'] ) ? (array) $adv_options['tiers'] : array();
-$adv_spaces  = isset( $adv_options['spaces'] ) ? (array) $adv_options['spaces'] : array();
-$adv_labels  = isset( $adv_options['labels'] ) ? (array) $adv_options['labels'] : array();
-// The advanced filter card renders whenever a provider offers any option group
-// OR the active-within / joined-after generic controls are wanted. Those two
-// are query-only (no Pro table) so they always show; tier/space/label show
-// only when populated.
-$adv_has_provider = ! empty( $adv_tiers ) || ! empty( $adv_spaces ) || ! empty( $adv_labels );
+$adv_tiers  = isset( $adv_options['tiers'] ) ? (array) $adv_options['tiers'] : array();
+$adv_spaces = isset( $adv_options['spaces'] ) ? (array) $adv_options['spaces'] : array();
+$adv_labels = isset( $adv_options['labels'] ) ? (array) $adv_options['labels'] : array();
+// The card shows only when something will apply its filters for this viewer.
+// It used to show the Joined and Active fields to everyone, on the grounds that
+// they need no Pro table - but Free applies neither, so on a site without Pro
+// they were two fields that did nothing (card 10393057251).
+$adv_available = ! empty( $adv_options['available'] );
 
 // Only run queries when there is a search term. Members / posts / spaces are
 // fetched into the raw SearchService result sets below ($bn_res_*) and enriched
@@ -200,10 +203,11 @@ if ( '' !== $raw_query ) {
 	// joined-after / active-within) and the pluggable search driver apply on
 	// the web /search surface — they only run through SearchService::search().
 	//
-	// The five advanced keys + the date / sort selections travel to the seam
-	// via $_GET: Pro's AdvancedSearchFilters reads them from the request and
-	// SearchService reads `date` / `sort` from the same seam args. No params
-	// are passed here beyond the type so there is a single source of truth.
+	// Pro's AdvancedSearchFilters reads its five advanced keys from the request
+	// on that seam. The Date and Sort selections are put on the seam just below:
+	// SearchService reads `date` / `sort` from the seam args, and nothing supplied
+	// them for this page, so both controls changed the radios and nothing else
+	// (card 10393057251).
 	//
 	// Hashtags are not held in bn_search_index (they live in bn_hashtags) so they
 	// resolve through HashtagService::autocomplete(). Media now routes through the
@@ -232,6 +236,15 @@ if ( '' !== $raw_query ) {
 		$row->title   = (string) ( $item['title'] ?? '' );
 		return $row;
 	};
+
+	// Date + Sort for every search this page runs, removed again once they have
+	// run (after the extra-types loop below).
+	$bn_search_window = static function ( array $args ) use ( $date_filter, $sort_by ): array {
+		$args['date'] = $date_filter;
+		$args['sort'] = $sort_by;
+		return $args;
+	};
+	add_filter( 'buddynext_search_query_args', $bn_search_window, 5 );
 
 	// Every tab's count badge is rendered on every result page, so all type
 	// counts must be computed regardless of which tab is active — otherwise
@@ -263,18 +276,24 @@ if ( '' !== $raw_query ) {
 	// Hashtags: slug-prefix match via the canonical HashtagService. Skipped when
 	// the feature is off ($results_hashtags + total stay at their empty defaults).
 	if ( $bn_hashtags_on ) {
-		$bn_hashtag_service       = function_exists( 'buddynext_service' )
+		$bn_hashtag_service = function_exists( 'buddynext_service' )
 			? buddynext_service( 'hashtags' )
 			: new \BuddyNext\Hashtags\HashtagService();
-		$results_hashtags         = $bn_hashtag_service->autocomplete( ltrim( $raw_query, '#' ), 10 );
+		// A tag nobody can list a post for is not a result. Filtered here, not in
+		// autocomplete(), which the composer uses to offer tags while typing.
+		$results_hashtags         = array_values(
+			array_filter(
+				(array) $bn_hashtag_service->autocomplete( ltrim( $raw_query, '#' ), 10 ),
+				static fn( $bn_tag ): bool => (int) ( is_array( $bn_tag ) ? ( $bn_tag['post_count'] ?? 0 ) : ( $bn_tag->post_count ?? 0 ) ) > 0
+			)
+		);
 		$total_counts['hashtags'] = count( $results_hashtags );
 	}
 
 	// Media: posts that carry attachments, resolved through the same canonical
 	// SearchService as the other types via its `media` pseudo-type (the
 	// BOOLEAN-MODE + media_ids join + date window now live in the service). The
-	// `date` / `sort` selections travel to the seam via $_GET like every other
-	// type, so no params are passed here beyond the type.
+	// `date` / `sort` selections reach it through the seam, like every other type.
 	{
 		$bn_media_res          = $bn_search_service->search( $raw_query, 'media', 12, 1, $viewer_id );
 		$results_media         = array_map( $bn_to_row, (array) ( $bn_media_res['items'] ?? array() ) );
@@ -289,6 +308,8 @@ if ( '' !== $raw_query ) {
 		$bn_res_extra[ $bn_xt ] = $bn_search_service->search( $raw_query, $bn_xt, $bn_pp_x, $bn_pg_x, $viewer_id );
 		$total_counts[ $bn_xt ] = (int) ( $bn_res_extra[ $bn_xt ]['total'] ?? count( (array) ( $bn_res_extra[ $bn_xt ]['items'] ?? array() ) ) );
 	}
+
+	remove_filter( 'buddynext_search_query_args', $bn_search_window, 5 );
 
 	// Sum every per-type count (core + extras) for the "All" badge.
 	$total_counts['all'] = array_sum( array_diff_key( $total_counts, array( 'all' => 0 ) ) );
@@ -691,13 +712,10 @@ $bn_search_ctx = array(
 				// Plain GET form: submitting reloads /search with the chosen
 				// keys in the query string. SearchService reads them off the
 				// seam (Pro's AdvancedSearchFilters sources them from $_GET),
-				// so this needs no JS to work. The whole card hides when no
-				// provider populates option lists AND the generic date-based
-				// member controls are the only thing left — but joined_after /
-				// active_within_days are query-only and useful even without
-				// Pro tables, so the card shows whenever the members tab is in
-				// scope.
-				$adv_in_scope = in_array( $active_tab, array( 'all', 'members' ), true );
+				// so this needs no JS to work. The card is shown on the tabs that
+				// list members, and only when a provider will apply the filters
+				// for this viewer ($adv_available).
+				$adv_in_scope = $adv_available && in_array( $active_tab, array( 'all', 'members' ), true );
 				if ( $adv_in_scope ) :
 					?>
 					<form class="bn-card bn-search-aside__card bn-search-aside__adv"
@@ -790,12 +808,6 @@ $bn_search_ctx = array(
 								value="<?php echo $adv_active_days > 0 ? esc_attr( (string) $adv_active_days ) : ''; ?>">
 						</label>
 
-						<?php if ( ! $adv_has_provider ) : ?>
-							<p class="bn-search-aside__hint">
-								<?php esc_html_e( 'Plan, space and label filters appear when BuddyNext Pro is active.', 'buddynext' ); ?>
-							</p>
-						<?php endif; ?>
-
 						<div class="bn-search-aside__actions">
 							<button type="submit" class="bn-btn" data-variant="primary">
 								<span aria-hidden="true"><?php buddynext_icon( 'filter' ); ?></span>
@@ -877,7 +889,8 @@ $bn_search_ctx = array(
 					array_map( 'trim', explode( ' ', $raw_query ) ),
 					static fn( string $t ): bool => mb_strlen( $t ) > 3
 				);
-				if ( ! empty( $related ) ) :
+				// One word would only link back to the search already on screen.
+				if ( count( $related ) >= 2 ) :
 					?>
 					<div class="bn-card bn-search-aside__card" data-interactive>
 						<h3 class="bn-search-aside__title">

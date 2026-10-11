@@ -116,6 +116,22 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 						'type'              => 'integer',
 						'sanitize_callback' => 'absint',
 					),
+					'date'               => array(
+						'description'       => __( 'Only results updated within this window.', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'string',
+						'enum'              => array( 'any', 'week', 'month', 'year' ),
+						'default'           => 'any',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'sort'               => array(
+						'description'       => __( 'Order results by relevance or by most recent.', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'string',
+						'enum'              => array( 'relevant', 'recent' ),
+						'default'           => 'relevant',
+						'sanitize_callback' => 'sanitize_key',
+					),
 				),
 			)
 		);
@@ -408,6 +424,16 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 		$active_within_days = absint( $request->get_param( 'active_within_days' ) ?? 0 );
 		if ( $active_within_days > 0 ) {
 			$advanced['active_within_days'] = $active_within_days;
+		}
+
+		// Date window and sort order: read by SearchService from the same seam, so
+		// the app gets what the web search page's Date and Sort controls do.
+		$date = (string) ( $request->get_param( 'date' ) ?? 'any' );
+		if ( 'any' !== $date && '' !== $date ) {
+			$advanced['date'] = $date;
+		}
+		if ( 'recent' === (string) ( $request->get_param( 'sort' ) ?? '' ) ) {
+			$advanced['sort'] = 'recent';
 		}
 
 		return $advanced;

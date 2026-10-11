@@ -546,3 +546,61 @@
 	}
 }
 
+
+/* Saved searches (Pro) — the list in the search sidebar. Markup lives in
+   templates/search/results.php; the block had no rules at all, so it showed as
+   a bulleted list with a boxed bin under each wrapped name. */
+.bn-search-saved__save {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+}
+
+.bn-search-saved__save .bn-input {
+	flex: 1 1 10rem;
+	min-width: 0;
+}
+
+.bn-search-saved__msg,
+.bn-search-saved__empty {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-search-saved__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+/* display:flex above would override the hidden attribute the store toggles. */
+.bn-search-saved__list[hidden] {
+	display: none;
+}
+
+.bn-search-saved__item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	min-height: 40px;
+}
+
+.bn-search-saved__run {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	text-decoration: none;
+}
+
+.bn-search-saved__run:hover,
+.bn-search-saved__run:focus-visible {
+	color: var(--bn-accent);
+}

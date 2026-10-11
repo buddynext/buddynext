@@ -410,6 +410,30 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Switching discussion search back on re-indexes topics without posting them again.
+	 *
+	 * @return void
+	 */
+	public function test_search_reindex_indexes_topics_and_creates_no_cards(): void {
+		global $wpdb;
+		$this->seed_jt_space( 28, 'reindex' );
+		// Topics that exist in the forum and are in neither the index nor the feed,
+		// as after search was switched off and time passed.
+		foreach ( array( 280, 281 ) as $topic_id ) {
+			$this->seed_jt_post( $topic_id, $this->author_id, 'Reindex topic ' . $topic_id, 'Body', 'reindex-' . $topic_id );
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 28, 'status' => 'publish' ), array( 'id' => $topic_id ) );
+		}
+		$indexed = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id IN ( 280, 281 )" );
+		$this->assertSame( 0, $indexed(), 'Fixture: not indexed.' );
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'Fixture: no feed cards.' );
+
+		( new \BuddyNext\Search\SearchIndexListener() )->handle_integration_reindex( 'jetonomy', 0 );
+
+		$this->assertSame( 2, $indexed(), 'Both topics are back in search.' );
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'No old topic was posted to the feed as new.' );
+	}
+
+	/**
 	 * An anonymous or private reply is not mirrored as a signed feed comment.
 	 *
 	 * @return void

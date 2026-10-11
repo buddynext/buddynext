@@ -22,6 +22,16 @@ use BuddyNext\Spaces\SpaceFieldRegistry;
 class SearchIndexListener implements ListenerInterface {
 
 	/**
+	 * Background job that re-indexes one batch of an integration's content.
+	 */
+	public const INTEGRATION_REINDEX_HOOK = 'buddynext_integration_reindex';
+
+	/**
+	 * Items re-indexed per batch.
+	 */
+	private const INTEGRATION_REINDEX_BATCH = 200;
+
+	/**
 	 * Rows per keyset page when re-dispatching a member's own posts.
 	 */
 	private const REINDEX_BATCH = 200;
@@ -65,6 +75,101 @@ class SearchIndexListener implements ListenerInterface {
 
 		// Batch re-index handler (triggered by activation or manual schedule).
 		add_action( 'buddynext_reindex_all', array( $this, 'handle_reindex_all' ) );
+
+		// An integration's "Include in search" was switched back on: bring its
+		// existing content back into the index, in the background.
+		add_action( 'buddynext_integration_search_enabled', array( $this, 'schedule_integration_reindex' ), 10, 1 );
+		add_action( self::INTEGRATION_REINDEX_HOOK, array( $this, 'handle_integration_reindex' ), 10, 2 );
+	}
+
+	/**
+	 * Queue the first batch of an integration's search re-index.
+	 *
+	 * Switching an integration's search off removes its rows from the index.
+	 * Switching it back on used to restore nothing: each item only came back the
+	 * next time it was saved (card 10393225561).
+	 *
+	 * @param string $key Integration key (e.g. 'jetonomy').
+	 * @return void
+	 */
+	public function schedule_integration_reindex( string $key ): void {
+		self::queue_integration_reindex( $key, 0 );
+	}
+
+	/**
+	 * Queue one batch of an integration's re-index.
+	 *
+	 * @param string $key      Integration key.
+	 * @param int    $after_id Only items with a greater id are handled.
+	 * @return void
+	 */
+	private static function queue_integration_reindex( string $key, int $after_id ): void {
+		$args = array( $key, $after_id );
+
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::INTEGRATION_REINDEX_HOOK, $args, 'buddynext' );
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::INTEGRATION_REINDEX_HOOK, $args ) ) {
+			wp_schedule_single_event( time() + 1, self::INTEGRATION_REINDEX_HOOK, $args );
+		}
+	}
+
+	/**
+	 * Re-index one batch of an integration's content and queue the next.
+	 *
+	 * Free never learns which table or post type an integration owns. The bridge
+	 * answers two hooks: the ids of its next items, and "index this one". Each
+	 * item runs with new activity cards switched off, so re-indexing old content
+	 * does not post it to the feed again.
+	 *
+	 * @param string $key      Integration key.
+	 * @param int    $after_id Only items with a greater id are handled.
+	 * @return void
+	 */
+	public function handle_integration_reindex( string $key, int $after_id = 0 ): void {
+		if ( ! buddynext_integration_enabled( $key, 'search' ) ) {
+			return; // Switched off again before the job ran.
+		}
+
+		/**
+		 * The next items of an integration to re-index for search, in id order.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param int[]  $ids      Item ids. Default none.
+		 * @param string $key      Integration key.
+		 * @param int    $after_id Return only ids greater than this.
+		 * @param int    $limit    Most ids to return.
+		 */
+		$ids = array_map( 'intval', (array) apply_filters( 'buddynext_integration_reindex_ids', array(), $key, $after_id, self::INTEGRATION_REINDEX_BATCH ) );
+		$ids = array_values( array_filter( $ids, static fn( int $id ): bool => $id > $after_id ) );
+		if ( ! $ids ) {
+			return;
+		}
+
+		foreach ( $ids as $id ) {
+			\BuddyNext\Feed\IntegrationActivity::search_only(
+				static function () use ( $key, $id ): void {
+					/**
+					 * Index one of an integration's items for search.
+					 *
+					 * @since 1.2.5
+					 *
+					 * @param string $key Integration key.
+					 * @param int    $id  Item id, as returned on buddynext_integration_reindex_ids.
+					 */
+					do_action( 'buddynext_integration_reindex_item', $key, $id );
+				}
+			);
+		}
+
+		// A full batch means there may be more. The cursor only moves forward, so
+		// the chain ends on the first short batch.
+		if ( count( $ids ) >= self::INTEGRATION_REINDEX_BATCH ) {
+			self::queue_integration_reindex( $key, (int) max( $ids ) );
+		}
 	}
 
 	/**

@@ -48,6 +48,36 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * True while a bridge is re-indexing its content for search only.
+	 *
+	 * @var bool
+	 */
+	private static bool $search_only = false;
+
+	/**
+	 * Run a bridge's own sync with new activity cards switched off.
+	 *
+	 * A bridge has one sync per item, and it both indexes the item for search and
+	 * gives it a feed card when it has none. Re-indexing a whole integration
+	 * through that sync must not publish a card for every old item it meets: the
+	 * feed would fill with years of forum topics dated today. Existing cards are
+	 * still refreshed and restored as usual; only the creation of a new one is
+	 * skipped.
+	 *
+	 * @param callable $run The bridge sync to run.
+	 * @return mixed Whatever $run returns.
+	 */
+	public static function search_only( callable $run ) {
+		$before            = self::$search_only;
+		self::$search_only = true;
+		try {
+			return $run();
+		} finally {
+			self::$search_only = $before;
+		}
+	}
+
+	/**
 	 * How many bridge mirror writes are in flight (nesting-safe).
 	 *
 	 * @var int
@@ -120,6 +150,11 @@ class IntegrationActivity {
 	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0, array $meta = array() ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
+		}
+
+		// A search-only re-index never creates a card (see search_only()).
+		if ( self::$search_only ) {
+			return 0;
 		}
 
 		$type    = '' !== $type ? $type : 'link';

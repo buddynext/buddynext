@@ -113,13 +113,20 @@ const searchStore = store( 'buddynext/search', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					throw new Error( 'save_failed' );
+					// 404 means the route is absent: Pro is not active. Anything else
+					// is Pro answering (a plan refusal, the 50-search limit), and its
+					// own message is the true reason.
+					const reason = res.data && res.data.message;
+					ctx.savedMsg = ( 404 !== res.status && reason )
+						? reason
+						: t( 'searchSaveProRequired', 'Could not save. Saved searches require BuddyNext Pro.' );
+					return;
 				}
 				ctx.savedName = '';
 				ctx.savedMsg  = t( 'searchSaved', 'Search saved.' );
 				yield actions.loadSavedList();
 			} catch ( _e ) {
-				ctx.savedMsg = t( 'searchSaveProRequired', 'Could not save. Saved searches require BuddyNext Pro.' );
+				ctx.savedMsg = t( 'searchSaveFailed', 'Could not save this search. Try again.' );
 			}
 		},
 

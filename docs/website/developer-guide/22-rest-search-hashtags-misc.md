@@ -18,7 +18,7 @@ Served by `SearchController`. `/search` is the unified search across content typ
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/search` | Public | Unified search. Params: `q` (required), `type` (optional), `per_page` (default 20), `page` (default 1), plus `expand` and the Pro member filters (`tier_slug`, `space_id`, `member_label`, `joined_after`, `active_within_days`). |
+| GET | `/search` | Public | Unified search. Params: `q` (required), `type` (optional), `per_page` (default 20), `page` (default 1), `date` (`any`, `week`, `month`, `year`: only results from that window, by the post's own date for posts), `sort` (`relevant` or `recent`), plus `expand` and the Pro member filters (`tier_slug`, `space_id`, `member_label`, `joined_after`, `active_within_days`). |
 | GET | `/search/members` | Public | Member search/directory (cursor-paginated). Params: `cursor`, `per_page` (default 20, max 50), `search` (alias `q`), `location`, `skills`, `space_id`, `connection_status`, `online_only`, `sort` (`newest`, `alphabetical`, `most_active`, `online`). |
 | GET | `/search/suggest` | Public | Grouped as-you-type suggestions. Params: `q` (required), `per_group` (default 5, max 10). A blank/too-short `q` returns an empty `groups` list rather than an error. |
 

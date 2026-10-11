@@ -185,6 +185,9 @@ class JetonomyBridge {
 		// Integrations (default on). The nav/feed gating below reads those toggles.
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
 		add_action( 'buddynext_integration_search_disabled', array( $this, 'on_search_disabled' ) );
+		add_filter( 'buddynext_search_item_url', array( $this, 'search_item_url' ), 10, 3 );
+		add_filter( 'buddynext_integration_reindex_ids', array( $this, 'reindex_ids' ), 10, 4 );
+		add_action( 'buddynext_integration_reindex_item', array( $this, 'reindex_item' ), 10, 2 );
 
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
@@ -2313,6 +2316,60 @@ class JetonomyBridge {
 		}
 
 		( new SearchService() )->deindex_type( 'discussion' );
+	}
+
+	/**
+	 * The next published topics to re-index when discussion search is switched on.
+	 *
+	 * @param int[]  $ids      Ids so far.
+	 * @param string $key      Integration key.
+	 * @param int    $after_id Return only ids greater than this.
+	 * @param int    $limit    Most ids to return.
+	 * @return int[]
+	 */
+	public function reindex_ids( array $ids, string $key, int $after_id, int $limit ): array {
+		if ( 'jetonomy' !== $key ) {
+			return $ids;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_posts WHERE id > %d AND status = 'publish' ORDER BY id ASC LIMIT %d", $after_id, $limit ) ) );
+	}
+
+	/**
+	 * Re-index one topic. The caller has switched new feed cards off.
+	 *
+	 * @param string $key Integration key.
+	 * @param int    $id  jt_posts id.
+	 * @return void
+	 */
+	public function reindex_item( string $key, int $id ): void {
+		if ( 'jetonomy' === $key ) {
+			$this->sync_discussion( $id );
+		}
+	}
+
+	/**
+	 * Link a 'discussion' search result to its forum topic.
+	 *
+	 * @param string $url       URL so far ('' when nothing has answered).
+	 * @param string $type      Search object type.
+	 * @param int    $object_id jt_posts id.
+	 * @return string
+	 */
+	public function search_item_url( string $url, string $type, int $object_id ): string {
+		if ( 'discussion' !== $type || $object_id <= 0 ) {
+			return $url;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$forum_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $object_id ) );
+
+		// ponytail: a few lookups per result row, on a page of at most 12 rows.
+		// Batch them if discussion results are ever listed by the hundred.
+		return $forum_id > 0 ? $this->discussion_url( $object_id, $forum_id ) : $url;
 	}
 
 	/**
