@@ -39,6 +39,13 @@ class JetonomyBridge {
 	 */
 	private array $verified_cards = array();
 
+	/**
+	 * Whether this Jetonomy has the is_anonymous column (1.7.0+); null until asked.
+	 *
+	 * @var bool|null
+	 */
+	private ?bool $anonymous_supported = null;
+
 
 	/**
 	 * Object-cache group for the bridge's per-view count/list reads.
@@ -393,7 +400,7 @@ class JetonomyBridge {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT author_id, title, content_plain, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
+				"SELECT author_id, title, content_plain, is_private, status{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
 				$post_id
 			)
 		);
@@ -406,6 +413,14 @@ class JetonomyBridge {
 		$author_id = (int) $post->author_id;
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
+
+		// An anonymous topic is never handed on with its author: nothing outside
+		// Jetonomy learns who wrote it.
+		if ( ! empty( $post->is_anonymous ) ) {
+			$this->invalidate_member_caches( $author_id );
+			$this->invalidate_space_caches( $space_id );
+			return;
+		}
 
 		/**
 		 * Fires after a Jetonomy discussion is indexed in BuddyNext search.
@@ -451,7 +466,7 @@ class JetonomyBridge {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT space_id, author_id, title, content_plain, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
+				"SELECT space_id, author_id, title, content_plain, is_private, status{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
 				$post_id
 			)
 		);
@@ -467,11 +482,13 @@ class JetonomyBridge {
 		$author_id = (int) $post->author_id;
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
-		$is_public = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status );
+		$anonymous = ! empty( $post->is_anonymous );
+		$is_public = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status, $anonymous );
 
 		// Search index: drop, then re-index while published. A private topic keeps a
 		// 'private' row (space members can find it); the search gate reads the
-		// BuddyNext space the forum is linked to.
+		// BuddyNext space the forum is linked to. An anonymous topic gets no row at
+		// all - the row is stored under its author.
 		if ( buddynext_integration_enabled( 'jetonomy', 'search' ) ) {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->delete(
@@ -483,7 +500,7 @@ class JetonomyBridge {
 				array( '%s', '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			if ( 'publish' === (string) $post->status ) {
+			if ( 'publish' === (string) $post->status && ! $anonymous ) {
 				( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, $is_public ? 'public' : 'private', $this->space_id_for_forum( $space_id ) );
 			}
 		}
@@ -644,16 +661,16 @@ class JetonomyBridge {
 		global $wpdb;
 		$topic_id = (int) ( $meta['post_id'] ?? 0 );
 		$topic    = null;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( $topic_id > 0 ) {
-			$topic = $wpdb->get_row( $wpdb->prepare( "SELECT id, space_id, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d", $topic_id ) );
+			$topic = $wpdb->get_row( $wpdb->prepare( "SELECT id, space_id, is_private, status{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d", $topic_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
 		} else {
 			// No stamp: the topic slug is the URL's last segment; confirm the match
 			// by rebuilding the URL, since a slug is only unique within its forum.
 			$slug = basename( untrailingslashit( (string) wp_parse_url( $url, PHP_URL_PATH ) ) );
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT p.id, p.space_id, p.is_private, p.status, p.slug, s.slug AS space_slug FROM {$wpdb->prefix}jt_posts p JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE p.slug = %s",
+					"SELECT p.id, p.space_id, p.is_private, p.status{$this->anonymous_column( 'p' )}, p.slug, s.slug AS space_slug FROM {$wpdb->prefix}jt_posts p JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE p.slug = %s",
 					$slug
 				)
 			);
@@ -664,9 +681,9 @@ class JetonomyBridge {
 				}
 			}
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		if ( $topic && $this->is_public_discussion( (int) $topic->space_id, (int) $topic->is_private, (string) $topic->status ) ) {
+		if ( $topic && $this->is_public_discussion( (int) $topic->space_id, (int) $topic->is_private, (string) $topic->status, ! empty( $topic->is_anonymous ) ) ) {
 			if ( $topic_id <= 0 ) {
 				IntegrationActivity::refresh( $url, 'discussion', array( 'post_id' => (int) $topic->id ) );
 			}
@@ -680,19 +697,57 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * The is_anonymous column for a SELECT list, or '' where Jetonomy has none.
+	 *
+	 * Jetonomy added the column to jt_posts and jt_replies in 1.7.0. An older
+	 * install has no anonymous posting, so reading nothing there is correct and
+	 * keeps the bridge from failing on a column that does not exist.
+	 *
+	 * @param string $alias Table alias the query uses, without the dot.
+	 * @return string ", [alias.]is_anonymous" or ''.
+	 */
+	private function anonymous_column( string $alias = '' ): string {
+		if ( null === $this->anonymous_supported ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$this->anonymous_supported = (bool) $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}jt_posts LIKE 'is_anonymous'" );
+		}
+
+		if ( ! $this->anonymous_supported ) {
+			return '';
+		}
+
+		return ', ' . ( '' !== $alias ? $alias . '.' : '' ) . 'is_anonymous';
+	}
+
+	/**
+	 * WHERE fragment keeping anonymous rows out, or '' where Jetonomy has none.
+	 *
+	 * @param string $alias Table alias the query uses, without the dot.
+	 * @return string " AND alias.is_anonymous = 0" or ''.
+	 */
+	private function not_anonymous_where( string $alias ): string {
+		return '' === $this->anonymous_column() ? '' : " AND {$alias}.is_anonymous = 0";
+	}
+
+	/**
 	 * Whether a Jetonomy topic should surface as a PUBLIC BuddyNext activity.
 	 *
 	 * True only when the topic is published, not flagged private, and lives in a
 	 * space whose Jetonomy visibility is `public`. Private/secret spaces and
 	 * private topics return false so they never leak into the public feed/Explore.
+	 * An anonymous topic returns false too: a feed card, a search row and a profile
+	 * entry all carry the author, which is the one thing the member asked to keep
+	 * out (owner decision 2026-10-11, card 10393042950).
 	 *
 	 * @param int    $space_id         Jetonomy space ID.
 	 * @param int    $is_private_topic jt_posts.is_private (1 = private).
 	 * @param string $status           jt_posts.status (expects 'publish').
+	 * @param bool   $is_anonymous     jt_posts.is_anonymous.
 	 * @return bool
 	 */
-	private function is_public_discussion( int $space_id, int $is_private_topic, string $status ): bool {
-		if ( 0 !== $is_private_topic ) {
+	private function is_public_discussion( int $space_id, int $is_private_topic, string $status, bool $is_anonymous = false ): bool {
+		if ( 0 !== $is_private_topic || $is_anonymous ) {
 			return false;
 		}
 		if ( '' !== $status && 'publish' !== $status ) {
@@ -707,6 +762,26 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return 'public' === $visibility;
+	}
+
+	/**
+	 * Whether a topic, looked up by id, is one the feed mirrors: published, signed
+	 * and in a public forum.
+	 *
+	 * @param int $post_id jt_posts id.
+	 * @return bool
+	 */
+	private function is_mirrored_topic( int $post_id ): bool {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- a fixed column name or ''.
+		$topic = $wpdb->get_row(
+			$wpdb->prepare( "SELECT space_id, is_private, status{$this->anonymous_column()} FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $post_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return null !== $topic
+			&& $this->is_public_discussion( (int) $topic->space_id, (int) $topic->is_private, (string) $topic->status, ! empty( $topic->is_anonymous ) );
 	}
 
 	/**
@@ -1552,7 +1627,9 @@ class JetonomyBridge {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$reply = $wpdb->get_row(
-			$wpdb->prepare( "SELECT post_id, author_id, content_plain, status FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ),
+			// Every column: is_anonymous and is_private exist only on newer Jetonomy,
+			// and reading the row whole asks for neither by name.
+			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1560,6 +1637,12 @@ class JetonomyBridge {
 		// Comments are plain text; Jetonomy keeps a plain copy with paragraph breaks.
 		$content = null !== $reply ? trim( (string) $reply['content_plain'] ) : '';
 		if ( null === $reply || 'publish' !== (string) $reply['status'] || '' === $content ) {
+			return;
+		}
+
+		// A feed comment is public and signed. An anonymous reply must not be, and a
+		// private reply is for the topic author and moderators only.
+		if ( ! empty( $reply['is_anonymous'] ) || ! empty( $reply['is_private'] ) ) {
 			return;
 		}
 
@@ -2240,18 +2323,34 @@ class JetonomyBridge {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE author_id = %d AND status = 'publish'",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts p
+				 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+				 WHERE p.author_id = %d{$this->profile_listable_where()}",
 				$user_id
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
+	}
+
+	/**
+	 * Which of a member's topics their profile may list (aliases p = topic, s = forum).
+	 *
+	 * A profile is a public page, so it lists what the feed would mirror: published,
+	 * signed topics in a public forum. A topic in a private or hidden forum, a
+	 * private topic and an anonymous topic all stay off it, for every viewer. One
+	 * answer for everyone is what lets the list and the count be cached per member.
+	 *
+	 * @return string WHERE fragment with a leading AND.
+	 */
+	private function profile_listable_where(): string {
+		return " AND p.status = 'publish' AND p.is_private = 0 AND s.visibility = 'public'" . $this->not_anonymous_where( 'p' );
 	}
 
 	/**
@@ -2284,21 +2383,21 @@ class JetonomyBridge {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
 				        s.title AS space_name, s.slug AS space_slug
 				 FROM {$wpdb->prefix}jt_posts p
-				 LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
-				 WHERE p.author_id = %d AND p.status = 'publish'
+				 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+				 WHERE p.author_id = %d{$this->profile_listable_where()}
 				 ORDER BY p.created_at DESC
 				 LIMIT %d",
 				$user_id,
 				$limit
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( ! is_array( $rows ) ) {
 			return array();
@@ -2510,11 +2609,11 @@ class JetonomyBridge {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
-				        p.author_id, u.display_name AS author_name, u.user_login AS author_login
+				        p.author_id, u.display_name AS author_name, u.user_login AS author_login{$this->anonymous_column( 'p' )}
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
 				 WHERE p.space_id = %d AND p.status = 'publish'
@@ -2524,9 +2623,18 @@ class JetonomyBridge {
 				$limit
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$rows = is_array( $rows ) ? $rows : array();
+
+		// The forum lists an anonymous topic without its author; so does this tab.
+		foreach ( $rows as $row ) {
+			if ( ! empty( $row->is_anonymous ) ) {
+				$row->author_id    = 0;
+				$row->author_name  = __( 'Anonymous', 'buddynext' );
+				$row->author_login = '';
+			}
+		}
 
 		if ( $use_cache ) {
 			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
@@ -2678,6 +2786,12 @@ class JetonomyBridge {
 		$jt_posts = \Jetonomy\Models\Tag::list_by_tag( $hashtag_slug, 5 );
 
 		foreach ( $jt_posts as $jt_post ) {
+			// Jetonomy's tag list applies no visibility rule, and a hashtag page is
+			// public: keep only the topics the feed would mirror.
+			if ( ! $this->is_mirrored_topic( (int) $jt_post->id ) ) {
+				continue;
+			}
+
 			// Resolve the public discussion URL here (the bridge owns Jetonomy
 			// table access) so the hashtag template never queries jt_* itself.
 			$jt_url = $this->discussion_url( (int) $jt_post->id, (int) $jt_post->space_id );

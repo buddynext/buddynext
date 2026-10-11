@@ -39,6 +39,10 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				title TEXT NULL,
 				content_plain LONGTEXT NULL,
 				is_private TINYINT(1) NOT NULL DEFAULT 0,
+				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+				reply_count INT NOT NULL DEFAULT 0,
+				vote_score INT NOT NULL DEFAULT 0,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
@@ -59,6 +63,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				author_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 				content LONGTEXT NULL,
 				content_plain LONGTEXT NULL,
+				is_private TINYINT(1) NOT NULL DEFAULT 0,
+				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
@@ -275,6 +281,117 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, (int) $comment()->is_deleted );
 		$this->assertSame( 'A forum reply', (string) $comment()->content, 'the comment carries the plain text, never the reply HTML' );
 		$this->assertSame( 1, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d", 700 ) ), 'no second comment' );
+	}
+
+	/**
+	 * Feed card rows the bridge published for a topic author.
+	 *
+	 * @param int    $author_id Topic author.
+	 * @param string $status    Card status.
+	 * @return int
+	 */
+	private function discussion_cards( int $author_id, string $status = 'published' ): int {
+		global $wpdb;
+
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = %s", $author_id, $status ) );
+	}
+
+	/**
+	 * An anonymous topic gets no feed card and no search row.
+	 *
+	 * @return void
+	 */
+	public function test_anonymous_topic_is_not_mirrored(): void {
+		global $wpdb;
+		$this->seed_jt_space( 21, 'anon' );
+		$this->seed_jt_post( 210, $this->author_id, 'Anonymous question', 'Body', 'anon-question' );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 210 ) );
+
+		$this->publish_jt_post( 210, 21 );
+		do_action( 'jetonomy_after_create_post', 210, 21 );
+
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'No feed card under the author.' );
+		$this->assertSame(
+			0,
+			(int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = 210" ),
+			'No search row.'
+		);
+	}
+
+	/**
+	 * Editing a signed topic to anonymous withdraws its card and search row.
+	 *
+	 * @return void
+	 */
+	public function test_topic_edited_to_anonymous_is_withdrawn(): void {
+		global $wpdb;
+		$this->seed_jt_space( 22, 'edit-anon' );
+		$this->seed_jt_post( 220, $this->author_id, 'Signed topic', 'Body', 'signed-topic' );
+		$this->publish_jt_post( 220, 22 );
+		$this->assertSame( 1, $this->discussion_cards( $this->author_id ), 'A signed topic is mirrored.' );
+
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 220 ) );
+		do_action( 'jetonomy_post_updated', 220, 22 );
+
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'The card is withdrawn.' );
+		$this->assertSame(
+			0,
+			(int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = 220" ),
+			'The search row is dropped.'
+		);
+	}
+
+	/**
+	 * An anonymous or private reply is not mirrored as a signed feed comment.
+	 *
+	 * @return void
+	 */
+	public function test_anonymous_and_private_replies_are_not_mirrored(): void {
+		global $wpdb;
+		$this->seed_jt_space( 23, 'anon-replies' );
+		$this->seed_jt_post( 230, $this->author_id, 'Thread', 'Body', 'anon-reply-thread' );
+		$this->publish_jt_post( 230, 23 );
+		foreach ( array( 2301 => 'is_anonymous', 2302 => 'is_private' ) as $reply_id => $flag ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'jt_replies',
+				array(
+					'id'            => $reply_id,
+					'post_id'       => 230,
+					'author_id'     => $this->user_id,
+					'content_plain' => 'A reply',
+					$flag           => 1,
+				)
+			);
+			do_action( 'jetonomy_reply_publish_transition', $reply_id, 1, '' );
+		}
+
+		$this->assertSame(
+			0,
+			(int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id IN ( 2301, 2302 )" )
+		);
+	}
+
+	/**
+	 * The profile list and count leave out anonymous, private and private-forum topics.
+	 *
+	 * @return void
+	 */
+	public function test_profile_discussions_list_only_public_signed_topics(): void {
+		global $wpdb;
+		$this->seed_jt_space( 24, 'public-forum' );
+		$this->seed_jt_space( 25, 'private-forum' );
+		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => 25 ) );
+		foreach ( array( 240 => 24, 241 => 24, 242 => 24, 243 => 25 ) as $post_id => $forum_id ) {
+			$this->seed_jt_post( $post_id, $this->author_id, 'Topic ' . $post_id, 'Body', 'topic-' . $post_id );
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $forum_id ), array( 'id' => $post_id ) );
+		}
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 241 ) );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_private' => 1 ), array( 'id' => 242 ) );
+
+		$listed = array_map( static fn( $row ) => (int) $row->id, $this->bridge->user_discussions( $this->author_id, 10 ) );
+
+		$this->assertSame( array( 240 ), $listed );
+		$this->assertSame( 1, $this->bridge->discussion_count( $this->author_id ) );
 	}
 
 	/**
@@ -524,4 +641,12 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 			return (int) $wpdb->insert_id;
 		}
 	}
+}
+
+if ( ! class_exists( __NAMESPACE__ . '\\Post' ) ) {
+	/**
+	 * Test stub for Jetonomy's Post model. The bridge only checks that the class
+	 * exists before it reads jt_posts; it never calls it.
+	 */
+	class Post {}
 }
