@@ -2637,6 +2637,18 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	font-size: var(--bn-text-lg);
 }
 
+/* Two tiles share a narrow sidebar card (85px of text each at desktop widths),
+   so a long one-word label in tracked capitals (NOTIFICATIONS, or a longer
+   translation) ran over the tile's edge. Written as typed, without tracking,
+   the labels fit on one line; a word that still does not fit (a long
+   translation) breaks instead of overflowing. */
+.bn-this-week-stats__grid .bn-stat__label {
+	min-width: 0;
+	letter-spacing: 0;
+	text-transform: none;
+	overflow-wrap: anywhere;
+}
+
 /* Mobile — hub shell collapses, sidebar hidden */
 @media ( max-width: 640px ) {
 	.bn-hub-shell {

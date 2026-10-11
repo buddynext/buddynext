@@ -379,7 +379,7 @@ class ModerationService {
 		// enum + existence check, sharing the same front door as reactions and
 		// comments (buddynext_validate_object_target). 422 for a bogus type, 404
 		// for a target that is gone.
-		$allowed = (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'message', 'media' ) );
+		$allowed = self::reportable_types();
 		$valid   = buddynext_validate_object_target( $object_type, $object_id, $allowed );
 		if ( is_wp_error( $valid ) ) {
 			return $valid;
@@ -2042,6 +2042,20 @@ class ModerationService {
 		}
 
 		return $authors;
+	}
+
+	/**
+	 * The kinds of content a member can report.
+	 *
+	 * One list for the report form's check and for every screen that filters
+	 * reports by type, so a screen never offers a type nothing can be reported as.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @return string[]
+	 */
+	public static function reportable_types(): array {
+		return array_values( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'message', 'media' ) ) ) );
 	}
 
 	/**

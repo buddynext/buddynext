@@ -94,6 +94,8 @@ class ImageStorageService {
 			require_once ABSPATH . 'wp-admin/includes/image.php';
 		}
 
+		self::forget( $kind, $owner, $id ); // The folder is about to change.
+
 		$dir = $this->dir_for( $kind, $owner, $id );
 		if ( ! wp_mkdir_p( $dir ) ) {
 			return new WP_Error( 'bn_image_mkdir', __( 'Could not create the image directory.', 'buddynext' ) );
@@ -249,6 +251,52 @@ class ImageStorageService {
 		if ( ! isset( self::VARIATIONS[ $kind ][ $variation ] ) || $id <= 0 ) {
 			return '';
 		}
+
+		// One disk read per image per request. A feed or directory page asks for
+		// the same member's avatar many times, and each answer used to list the
+		// folder again. forget() drops the entry whenever the folder changes.
+		$memo_key = $kind . ':' . $owner . ':' . $id . ':' . $variation;
+		if ( ! isset( self::$url_memo[ $memo_key ] ) ) {
+			self::$url_memo[ $memo_key ] = $this->find_variation_url( $kind, $owner, $id, $variation );
+		}
+
+		return self::$url_memo[ $memo_key ];
+	}
+
+	/**
+	 * Addresses already resolved in this request, keyed kind:owner:id:variation.
+	 *
+	 * @var array<string,string>
+	 */
+	private static array $url_memo = array();
+
+	/**
+	 * Forget the resolved addresses of one owner's images (their folder changed).
+	 *
+	 * @param string $kind  'avatar' | 'cover'.
+	 * @param string $owner 'user' | 'space'.
+	 * @param int    $id    Owner id.
+	 * @return void
+	 */
+	private static function forget( string $kind, string $owner, int $id ): void {
+		$prefix = $kind . ':' . $owner . ':' . $id . ':';
+		foreach ( array_keys( self::$url_memo ) as $key ) {
+			if ( 0 === strpos( $key, $prefix ) ) {
+				unset( self::$url_memo[ $key ] );
+			}
+		}
+	}
+
+	/**
+	 * Read the folder for a variation's current address (see variation_url()).
+	 *
+	 * @param string $kind      'avatar' | 'cover'.
+	 * @param string $owner     'user' | 'space'.
+	 * @param int    $id        Owner id.
+	 * @param string $variation Variation name.
+	 * @return string Public URL, or '' when the variation file is absent.
+	 */
+	private function find_variation_url( string $kind, string $owner, int $id, string $variation ): string {
 		$dir = $this->dir_for( $kind, $owner, $id );
 
 		// The newest versioned file. The version is fixed-width hex, so the last
@@ -286,6 +334,7 @@ class ImageStorageService {
 		if ( ! isset( self::VARIATIONS[ $kind ] ) || $id <= 0 ) {
 			return;
 		}
+		self::forget( $kind, $owner, $id );
 		$dir = $this->dir_for( $kind, $owner, $id );
 
 		/**

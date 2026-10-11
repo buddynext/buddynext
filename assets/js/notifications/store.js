@@ -789,11 +789,36 @@ function bootstrapNotifPolling() {
 	function paintBadge( count ) {
 		var label = count > 99 ? '99+' : String( count );
 
-		// Mobile nav badge.
-		var badge = document.querySelector( '.bn-mobile-nav__badge' );
-		if ( badge ) {
-			badge.textContent = label;
-			badge.hidden = ! count || count <= 0;
+		// The same number on the phone nav and on the left rail. Matched by the
+		// notifications page's own address (as header/user-menu.js does), so a
+		// badge on another item is never touched; the phone nav's first badge is
+		// the fallback when the page has no bell to read the address from.
+		var bell      = document.querySelector( '.bn-notification-bell-link' );
+		var notifPath = bell ? bell.pathname : '';
+		var phone     = document.querySelectorAll( '.bn-mobile-nav__badge' );
+		Array.prototype.forEach.call( phone, function ( badge, index ) {
+			var link = badge.closest( 'a[href]' );
+			if ( notifPath ? ( link && link.pathname === notifPath ) : 0 === index ) {
+				badge.textContent = label;
+				badge.hidden = ! count || count <= 0;
+			}
+		} );
+		if ( notifPath ) {
+			// The rail prints its badge only when the count is above zero, so one is
+			// made here when a first notification arrives in an open page.
+			document.querySelectorAll( 'a.bn-rail__item[href]' ).forEach( function ( item ) {
+				if ( item.pathname !== notifPath ) { return; }
+				var railBadge = item.querySelector( '.bn-rail__badge' );
+				if ( count > 0 && ! railBadge ) {
+					railBadge = document.createElement( 'span' );
+					railBadge.className = 'bn-rail__badge';
+					item.appendChild( railBadge );
+				}
+				if ( railBadge ) {
+					railBadge.textContent = label;
+					railBadge.hidden = ! count || count <= 0;
+				}
+			} );
 		}
 		// Header pill (legacy bn-shell dropdown badge), if rendered by host theme.
 		var pill = document.querySelector( '.bn-nav-notif-wrap .bn-nav-pill' );

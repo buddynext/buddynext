@@ -145,7 +145,7 @@ do_action( 'buddynext_part_sidebar_this_week_stats_before', $args );
 
 		<div class="bn-stat">
 			<div class="bn-stat__value"><?php echo esc_html( $bn_format( $bn_engagement_in_7d ) ); ?></div>
-			<div class="bn-stat__label"><?php esc_html_e( 'reactions + comments', 'buddynext' ); ?></div>
+			<div class="bn-stat__label"><?php echo esc_html( buddynext_feature_enabled( 'reactions' ) ? __( 'reactions + comments', 'buddynext' ) : __( 'comments', 'buddynext' ) ); ?></div>
 		</div>
 
 	</div>

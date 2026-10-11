@@ -421,6 +421,11 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => false,
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
+				// A switch, not a schedule: which digest a notification joins is set on
+				// that notification's own row, so this row only turns this digest on or
+				// off. email_only makes the settings screen and the app show On / Off
+				// (no In-app toggle, no Immediate / Daily / Weekly that changed nothing).
+				'email_only'         => true,
 			),
 			'bn.weekly_digest'            => array(
 				'label'              => __( 'Weekly digest', 'buddynext' ),
@@ -429,6 +434,11 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => false,
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
+				// A switch, not a schedule: which digest a notification joins is set on
+				// that notification's own row, so this row only turns this digest on or
+				// off. email_only makes the settings screen and the app show On / Off
+				// (no In-app toggle, no Immediate / Daily / Weekly that changed nothing).
+				'email_only'         => true,
 			),
 			// Master email-digest switch. The digest email's one-click unsubscribe
 			// writes (user, 'digest', email_freq='off'); CronService::

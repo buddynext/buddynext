@@ -1175,7 +1175,9 @@ class NotificationService {
 
 	/**
 	 * The inbox tabs this site offers. No Messages tab while messaging is off
-	 * in WPMediaVerse.
+	 * in WPMediaVerse, and no Reactions tab while the owner has reactions off
+	 * (the tab, and its "No reactions yet" empty state, would promise something
+	 * the community does not have). Reaction rows from before stay under All.
 	 *
 	 * @return string[]
 	 */
@@ -1183,6 +1185,9 @@ class NotificationService {
 		$filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
 		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
 			$filters = array_values( array_diff( $filters, array( 'message' ) ) );
+		}
+		if ( function_exists( 'buddynext_feature_enabled' ) && ! buddynext_feature_enabled( 'reactions' ) ) {
+			$filters = array_values( array_diff( $filters, array( 'reaction' ) ) );
 		}
 		return $filters;
 	}

@@ -322,7 +322,9 @@ class WidgetService {
 				$engagement_in_7d = apply_filters( 'buddynext_user_weekly_engagement_received', null, $user_id );
 				if ( null === $engagement_in_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$reactions_in_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
+					// With reactions switched off the tile counts comments only (and
+					// says so), so the reactions query is skipped altogether.
+					$reactions_in_7d  = ! buddynext_feature_enabled( 'reactions' ) ? 0 : (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
 					$comments_in_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.object_type = 'post' AND p.user_id = %d AND c.user_id != %d AND c.is_deleted = 0 AND c.is_hidden = 0 AND c.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
 					$engagement_in_7d = $reactions_in_7d + $comments_in_7d;
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

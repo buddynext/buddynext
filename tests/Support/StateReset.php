@@ -75,6 +75,8 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
 		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
 		\BuddyNext\Core\PermissionService::class          => array( 'role_map_cache' => null ),
+		// Image addresses resolved from disk, remembered for one request.
+		\BuddyNext\Media\ImageStorageService::class      => array( 'url_memo' => array() ),
 		// Both report-reason memos: the slug list and its labels. Each applies a
 		// filter once per request, so a test that adds a reason must not inherit
 		// the previous test's answer.

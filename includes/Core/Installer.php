@@ -461,7 +461,7 @@ class Installer {
 	 *      (card 10384673862). 100 characters is the cap the space form has always
 	 *      enforced; the full column stays indexed, so A-Z sort stays filesort-free.
 	 */
-	private const SCHEMA_VERSION = 66;
+	private const SCHEMA_VERSION = 67;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -2503,6 +2503,10 @@ class Installer {
 		// first, or strict SQL mode refuses the column change dbDelta is about to make.
 		self::maybe_shorten_space_names( $wpdb->prefix );
 
+		// v67: two indexes the schema stopped declaring are still on sites that
+		// upgraded from before. dbDelta adds keys and never drops them.
+		self::maybe_drop_redundant_indexes( $wpdb->prefix );
+
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
 		//
@@ -2937,6 +2941,34 @@ class Installer {
 			$cols = implode( ', ', $columns );
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX `{$index}`, ADD KEY `{$index}` ({$cols})" );
+		}
+	}
+
+	/**
+	 * Drop two indexes that are the exact leftmost part of another index.
+	 *
+	 * `bn_follows.following` (following_id, status) is covered by `pending_inbox`
+	 * and `bn_reactions.object_reactions` by `object_recent`. Neither is in the
+	 * schema any more, so a fresh install never has them; an upgraded site kept
+	 * both and paid an extra index write on every follow and every reaction.
+	 * Each is dropped only when it exists and its covering index is in place,
+	 * so the step does nothing afterwards and never leaves a query uncovered.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_drop_redundant_indexes( string $p ): void {
+		global $wpdb;
+
+		$redundant = array(
+			array( $p . 'bn_follows', 'following', 'pending_inbox' ),
+			array( $p . 'bn_reactions', 'object_reactions', 'object_recent' ),
+		);
+		foreach ( $redundant as list( $table, $index, $covering ) ) {
+			if ( self::index_exists( $table, $index ) && self::index_exists( $table, $covering ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- fixed table and index names.
+				$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX `{$index}`" );
+			}
 		}
 	}
 
