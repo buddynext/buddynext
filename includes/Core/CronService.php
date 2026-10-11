@@ -519,9 +519,9 @@ class CronService {
 		// frequency IS this cadence. That one test keeps out three things:
 		// - a type switched Off (it used to be listed anyway);
 		// - a type on Immediate, which was emailed when it happened and would
-		//   otherwise be emailed a second time here;
+		// otherwise be emailed a second time here;
 		// - a type a partner plugin emails itself (badge and level-up belong to WB
-		//   Gamification), which is collect-only for email (card 10344441224).
+		// Gamification), which is collect-only for email (card 10344441224).
 		// A digest left with nothing is skipped by the callers.
 		$wanted = array();
 		foreach ( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all() as $type => $entry ) {
