@@ -1177,3 +1177,10 @@ a.bn-files__name:focus-visible {
 	font-weight: var(--bn-fw-semibold);
 	line-height: 1.6;
 }
+
+/* What Upload accepts, under the toolbar. */
+.bn-files__hint {
+	margin: var(--bn-s2, 8px) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}

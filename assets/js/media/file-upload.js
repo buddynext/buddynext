@@ -62,6 +62,8 @@ function bind( root ) {
 		status.hidden = ! msg;
 	}
 
+	let lastError = '';
+
 	async function uploadOne( file ) {
 		if ( maxSize > 0 && file.size > maxSize ) {
 			if ( typeof bnToast === 'function' ) {
@@ -88,7 +90,13 @@ function bind( root ) {
 				body:        fd,
 			} );
 			const data = await res.json().catch( () => ( {} ) );
-			return !! ( res.ok && data && data.id );
+			if ( res.ok && data && data.id ) {
+				return true;
+			}
+			// The server's own reason ("That file type cannot be stored as a
+			// document."), kept for the toast instead of a generic failure.
+			lastError = ( data && typeof data.message === 'string' ) ? data.message : '';
+			return false;
 		} catch ( e ) {
 			return false;
 		}
@@ -103,6 +111,7 @@ function bind( root ) {
 		setStatus( t.uploading || 'Uploading…' );
 
 		let ok = 0;
+		lastError = '';
 		for ( let i = 0; i < list.length; i++ ) {
 			// Sequential: the document endpoint is a heavy multipart write and the
 			// list reloads once at the end anyway, so a burst buys nothing.
@@ -118,7 +127,7 @@ function bind( root ) {
 		} else {
 			setStatus( '' );
 			if ( typeof bnToast === 'function' ) {
-				bnToast( t.fail || 'That file could not be uploaded.', { tone: 'error' } );
+				bnToast( lastError || t.fail || 'That file could not be uploaded.', { tone: 'error' } );
 			}
 		}
 	}

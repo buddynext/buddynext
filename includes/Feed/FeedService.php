@@ -655,13 +655,32 @@ class FeedService {
 				self::OWN_POST_FLOAT_MINUTES
 			);
 
+			/**
+			 * Filter how many days a post keeps its connections / interests priority
+			 * in the For you feed.
+			 *
+			 * Without a window one active connection filled the whole first page
+			 * with posts up to weeks old, above everything newer from everyone
+			 * else. Past the window a post ranks by date like any other. Return 0
+			 * for no window (the old behaviour).
+			 *
+			 * @since 1.2.5
+			 *
+			 * @param int $days    Days. Default 7.
+			 * @param int $user_id Viewer.
+			 */
+			$bn_days   = max( 0, (int) apply_filters( 'buddynext_for_you_priority_days', 7, $user_id ) );
+			$bn_recent = $bn_days > 0
+				? sprintf( ' AND created_at > DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )', $bn_days )
+				: '';
+
 			if ( ! empty( $bn_conn_ids ) ) {
-				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ') THEN ' . count( $bn_tiers );
+				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ')' . $bn_recent . ' THEN ' . count( $bn_tiers );
 			}
 			if ( ! empty( $bn_interest_ids ) ) {
 				$bn_tiers[] = "WHEN space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
 					. implode( ',', array_map( 'absint', $bn_interest_ids ) )
-					. ')) THEN ' . count( $bn_tiers );
+					. ")){$bn_recent} THEN " . count( $bn_tiers );
 			}
 			// No emptiness guard: the own-post tier above is unconditional, so there is
 			// always at least one WHEN. The guard this replaces dated from when every

@@ -75,6 +75,7 @@ The canonical six reaction slugs are `like`, `love`, `haha`, `wow`, `sad`, `angr
 |---|---|---|---|
 | `buddynext_feed_query_args` | filter | Before a feed query runs (home, profile, space, explore) | `array $args, string $scope, int $viewer_id` (`$args` has `per_page`, `cursor`, `user_id`) |
 | `buddynext_feed_order_by` | filter | The home feed `ORDER BY` clause is built | `string $order_by, int $user_id, array $query_args` |
+| `buddynext_for_you_priority_days` | filter | The For you feed is being ordered. Sets how many days a post by a connection, or in a space matching the member's interests, stays above newer posts from everyone else. Return `0` for no limit. Since 1.2.5. | `int $days, int $user_id` (default `7`) |
 | `buddynext_feed_items` | filter | A feed page is about to be returned | `array $items, string $scope, int $viewer_id, array $args` |
 | `buddynext_post_impression` | action | Each item on a served feed page is rendered | `int $post_id, int $viewer_id, string $surface` (`home_feed`, `profile_feed`, `space_feed`, `explore_feed`) |
 

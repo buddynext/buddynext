@@ -470,6 +470,49 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $out_id, $ids );
 	}
 
+	/**
+	 * A connection's post leads For you for a week, then ranks by date.
+	 *
+	 * @return void
+	 */
+	public function test_for_you_connection_priority_ends_after_the_window(): void {
+		global $wpdb;
+		$connections = new \BuddyNext\SocialGraph\ConnectionService();
+		$connections->send_request( $this->alice, $this->bob );
+		$connections->accept_request( $this->bob, $this->alice );
+
+		$make = function ( int $author, int $age_days ) use ( $wpdb ): int {
+			$id = (int) $this->posts->create(
+				$author,
+				array(
+					'type'    => 'text',
+					'content' => 'Post ' . $age_days,
+					'privacy' => 'public',
+				)
+			);
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - $age_days * DAY_IN_SECONDS - HOUR_IN_SECONDS ) ),
+				array( 'id' => $id )
+			);
+			return $id;
+		};
+		$bob_old   = $make( $this->bob, 10 );
+		$bob_fresh = $make( $this->bob, 2 );
+		$carol_new = $make( $this->carol, 1 );
+
+		$order = function (): array {
+			$this->feed->flush_home_cache( $this->alice );
+			return array_map( 'intval', array_column( $this->feed->home_feed( $this->alice, null, 20, 'for-you' )['items'], 'id' ) );
+		};
+
+		$this->assertSame( array( $bob_fresh, $carol_new, $bob_old ), $order(), 'Inside the window first, then by date.' );
+
+		add_filter( 'buddynext_for_you_priority_days', '__return_zero' );
+		$this->assertSame( array( $bob_fresh, $bob_old, $carol_new ), $order(), 'No window: every connection post leads.' );
+		remove_filter( 'buddynext_for_you_priority_days', '__return_zero' );
+	}
+
 	public function test_home_feed_network_filter_returns_only_connected_users(): void {
 		$connections = new \BuddyNext\SocialGraph\ConnectionService();
 		$connections->send_request( $this->alice, $this->bob );

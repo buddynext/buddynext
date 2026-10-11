@@ -1948,13 +1948,18 @@ class WPMediaVerseBridge {
 	 * newer MVS field — when absent (older MVS) the site is treated as writable,
 	 * so this never hides the control on a version that predates the flag.
 	 *
-	 * @return array{enabled:bool,accept:string,max_size:int}
+	 * `types` is MVS's own list of accepted kinds (pdf, word, csv ...), for a line
+	 * a person can read: the `accept` MIME list only steers the file picker, and
+	 * "All files" or a drop goes straight past it.
+	 *
+	 * @return array{enabled:bool,accept:string,max_size:int,types:string[]}
 	 */
 	public static function document_composer_config(): array {
 		$off = array(
 			'enabled'  => false,
 			'accept'   => '',
 			'max_size' => 0,
+			'types'    => array(),
 		);
 		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
 			return $off;
@@ -1973,6 +1978,7 @@ class WPMediaVerseBridge {
 			'enabled'  => true,
 			'accept'   => implode( ',', array_map( 'sanitize_text_field', $mimes ) ),
 			'max_size' => isset( $docs['max_size'] ) ? (int) $docs['max_size'] : 0,
+			'types'    => isset( $docs['allowed_types'] ) && is_array( $docs['allowed_types'] ) ? array_map( 'sanitize_key', $docs['allowed_types'] ) : array(),
 		);
 	}
 
