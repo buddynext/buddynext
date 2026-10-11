@@ -1594,10 +1594,12 @@ const messagesStore = store( 'buddynext/messages', {
 			ctx.attachmentUploading = true;
 			ctx.attachmentPercent   = 0;
 
-			// MediaVerse's own chat upload route locks the file to the conversation
-			// itself, so no privacy is sent from here.
+			// MediaVerse's chat upload route locks the file to the conversation by
+			// itself. The value is still sent: if a route ever stopped setting it, an
+			// attachment would otherwise fall to the default and become public.
 			const fd = new FormData();
 			fd.append( 'file', file );
+			fd.append( 'privacy', 'dm' );
 
 			// Undo the optimistic chip and tell the member why. toastOnError:false
 			// suppresses restFetch's own toast, so this handler owns the failure UX:

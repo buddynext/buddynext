@@ -320,7 +320,7 @@ class NotificationListener implements ListenerInterface {
 		// reaction withdraws nothing (what's done is done), so reacting again or
 		// switching emoji must not notify again either: toggling Like would otherwise
 		// ping the author on every round.
-		if ( $this->reaction_already_notified( $owner_id, $group_key, $user_id ) ) {
+		if ( self::reaction_already_notified( $owner_id, $group_key, $user_id ) ) {
 			return;
 		}
 
@@ -350,7 +350,7 @@ class NotificationListener implements ListenerInterface {
 	 * @param int    $user_id   Reactor.
 	 * @return bool
 	 */
-	private function reaction_already_notified( int $owner_id, string $group_key, int $user_id ): bool {
+	public static function reaction_already_notified( int $owner_id, string $group_key, int $user_id ): bool {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

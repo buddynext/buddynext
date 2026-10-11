@@ -1783,6 +1783,17 @@ class WPMediaVerseBridge {
 			return;
 		}
 
+		// Nothing from someone on either side of a block.
+		if ( buddynext_service( 'blocks' )->is_blocked( $owner_id, $user_id ) ) {
+			return;
+		}
+
+		// Once per person per item, for good: taking a favourite back and adding it
+		// again must not ping the owner again. The rule post reactions follow.
+		if ( \BuddyNext\Notifications\NotificationListener::reaction_already_notified( $owner_id, "mvs_fav_{$media_id}", $user_id ) ) {
+			return;
+		}
+
 		( new NotificationService() )->create(
 			array(
 				'recipient_id' => $owner_id,
@@ -2576,23 +2587,20 @@ class WPMediaVerseBridge {
 	/**
 	 * Whether a document is linked into a space from another drive.
 	 *
-	 * One primary-key lookup on MediaVerse's link table; the bridge owns partner
-	 * table access. MediaVerse's REST has no per-document answer for this.
+	 * Asked of MediaVerse's own link repository (spaces_for_media), which owns the
+	 * link table.
 	 *
 	 * @param int $doc_id   Document id.
 	 * @param int $space_id Space id.
 	 * @return bool
 	 */
 	private static function linked_to_space( int $doc_id, int $space_id ): bool {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT 1 FROM {$wpdb->prefix}mvs_media_spaces WHERE media_id = %d AND space_id = %d LIMIT 1",
-				$doc_id,
-				$space_id
-			)
-		);
+		$links = MediaClient::space_links();
+		if ( ! is_object( $links ) || ! method_exists( $links, 'spaces_for_media' ) ) {
+			return false;
+		}
+
+		return in_array( $space_id, array_map( 'intval', (array) $links->spaces_for_media( $doc_id ) ), true );
 	}
 
 	/**
