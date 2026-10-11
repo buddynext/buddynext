@@ -650,6 +650,17 @@ class AssetService {
 			array( array( 'id' => '@buddynext/rest-client' ) ),
 			$this->module_version( 'js/media/upload-core.js' )
 		);
+		// `@buddynext/relation-remove` is the unblock / unmute / unrestrict click
+		// handler the profile and notifications stores pull in as a side effect.
+		wp_register_script_module(
+			'@buddynext/relation-remove',
+			$this->assets_url . 'js/social/relation-remove.js',
+			array(
+				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/nav-init' ),
+			),
+			$this->module_version( 'js/social/relation-remove.js' )
+		);
 		// `@buddynext/cover-reposition` is the single drag-to-pan / zoom modal
 		// shared by the member profile cover and the space cover, so both frame a
 		// cover identically. Pure DOM (no store internals), hence no deps.
@@ -808,8 +819,15 @@ class AssetService {
 			}
 			// Media stores import the shared upload core (validate/preview/upload
 			// helpers) — declare it so its import-map entry is versioned too.
-			if ( '@buddynext/media-upload' === $id || '@buddynext/media-albums' === $id ) {
+			// The messages store previews attachments with it as well. It imported
+			// the file by relative path until 1.2.5, which is exactly the stale-cache
+			// failure described above: an old cached copy without mediaPreview broke
+			// sending for good (card 10392657469).
+			if ( in_array( $id, array( '@buddynext/media-upload', '@buddynext/media-albums', '@buddynext/messages' ), true ) ) {
 				$deps[] = array( 'id' => '@buddynext/upload-core' );
+			}
+			if ( '@buddynext/profile' === $id || '@buddynext/notifications' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/relation-remove' );
 			}
 			wp_register_script_module(
 				$id,

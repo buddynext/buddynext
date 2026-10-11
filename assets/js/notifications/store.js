@@ -15,7 +15,7 @@ import { onNavReady } from '@buddynext/nav-init';
 // Relation-removal handler for the Muted-list sidecard's Unmute button
 // (Pattern D-15). Side-effect import — installs a single document-level
 // click listener that any data-bn-relation-remove button can use.
-import '../social/relation-remove.js';
+import '@buddynext/relation-remove';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state

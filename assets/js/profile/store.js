@@ -2621,4 +2621,4 @@ async function doReport( ctx, result ) {
 /* Relation removal (unblock / unmute / unrestrict) — side-effect import.
    Handler now lives in social/relation-remove.js so the notifications
    sidebar muted widget gets the same behaviour. */
-import '../social/relation-remove.js';
+import '@buddynext/relation-remove';
