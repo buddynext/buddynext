@@ -1993,11 +1993,11 @@ class Members extends AdminPageBase {
 					<div class="bn-field">
 						<label class="bn-label" for="bn-members-confirm-duration"><?php esc_html_e( 'Suspension length', 'buddynext' ); ?></label>
 						<select id="bn-members-confirm-duration" class="bn-input" data-bn-confirm-duration-field>
-							<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
 							<option value="1"><?php esc_html_e( '1 day', 'buddynext' ); ?></option>
-							<option value="7"><?php esc_html_e( '7 days', 'buddynext' ); ?></option>
+							<option value="7" selected><?php esc_html_e( '7 days', 'buddynext' ); ?></option>
 							<option value="30"><?php esc_html_e( '30 days', 'buddynext' ); ?></option>
 							<option value="90"><?php esc_html_e( '90 days', 'buddynext' ); ?></option>
+							<option value="0"><?php esc_html_e( 'Indefinite (until lifted)', 'buddynext' ); ?></option>
 						</select>
 					</div>
 					<div class="bn-field">

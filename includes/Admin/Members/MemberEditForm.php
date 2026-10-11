@@ -287,7 +287,18 @@ class MemberEditForm {
 						</button>
 					</form>
 				<?php else : ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<?php
+					// Same confirm as the Directory row: a suspension needs a reason, and
+					// the modal is where it is chosen. Without it this button always
+					// failed with "choose a reason" and nowhere to choose one.
+					?>
+					<form method="post"
+						action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+						data-bn-confirm="1"
+						data-bn-confirm-suspend="1"
+						data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
+						data-bn-confirm-body="<?php /* translators: %s: member display name. */ echo esc_attr( sprintf( __( 'Suspend %s? They lose posting access and see the reason you choose on their account page and in the suspension email.', 'buddynext' ), $wp_user->display_name ) ); ?>"
+						data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
 						<input type="hidden" name="action" value="bn_suspend_member">
 						<input type="hidden" name="user_id" value="<?php echo absint( $user_id ); ?>">
 						<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'saved', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
@@ -301,6 +312,8 @@ class MemberEditForm {
 		</div>
 
 		<?php
+		\BuddyNext\Admin\Members::render_confirm_modal();
+
 		/**
 		 * Fires before the edit-member admin form.
 		 *

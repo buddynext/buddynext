@@ -679,7 +679,9 @@ export function bnSuspendDialog( opts ) {
 	hideRow.className = 'bn-suspend-dialog__check';
 	const hide = document.createElement( 'input' );
 	hide.type = 'checkbox';
-	hide.checked = true;
+	// Unticked by default, as in wp-admin: a suspension is a time-out, and
+	// blanking a member's whole history is a separate, deliberate choice.
+	hide.checked = false;
 	hideRow.appendChild( hide );
 	hideRow.appendChild( document.createTextNode( ' ' + L.hide ) );
 	wrap.appendChild( hideRow );
