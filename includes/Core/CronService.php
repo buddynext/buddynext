@@ -516,6 +516,12 @@ class CronService {
 			return array();
 		}
 
+		// The member's own row for this digest (Daily digest / Weekly digest on the
+		// preferences screen). Off there means they do not want this one.
+		if ( 'off' === ( $saved[ 'bn.' . $cadence . '_digest' ]['email_freq'] ?? '' ) ) {
+			return array();
+		}
+
 		// The master Email channel switch (Settings, Notifications). A member who
 		// turned email off gets no instant email (EmailSender checks the same
 		// switch) and must get no digest either.

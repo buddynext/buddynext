@@ -215,4 +215,21 @@ class DigestEnrolmentTest extends \WP_UnitTestCase {
 
 		$this->assertFalse( $this->emailed() );
 	}
+
+	/**
+	 * Switching the Daily digest row Off stops that digest only.
+	 *
+	 * @return void
+	 */
+	public function test_daily_digest_row_off_stops_the_daily_digest_only(): void {
+		( new NotificationPrefService() )->set_pref( $this->member, 'bn.daily_digest', array( 'email_freq' => 'off' ) );
+		$this->notify( 'bn.post_shared' );
+		$this->notify( 'bn.space_join' );
+
+		( new CronService() )->handle_daily_digest();
+		$this->assertFalse( $this->emailed(), 'No daily digest.' );
+
+		( new CronService() )->handle_weekly_digest();
+		$this->assertTrue( $this->emailed(), 'The weekly digest still goes out.' );
+	}
 }

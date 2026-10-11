@@ -431,13 +431,14 @@ class NotificationPrefCatalogue {
 				'can_email'          => true,
 			),
 			// Master email-digest switch. The digest email's one-click unsubscribe
-			// writes (user, 'digest', email_freq='off'); CronService::get_digest_user_ids
-			// excludes anyone carrying that row from EVERY digest. It is a real
-			// catalogue entry (not an internal pseudo-type) so get_all_prefs() surfaces
-			// it and the settings UI + REST render an on/off control — otherwise the
-			// unsubscribe was a one-way door with no member-facing way back
-			// (card 10264293350). 'off' suppresses; 'daily'/'weekly' re-enrols on that
-			// cadence.
+			// writes (user, 'digest', email_freq='off'); CronService::
+			// fetch_unread_notifications() drops anyone carrying that row from EVERY
+			// digest. It is a real catalogue entry (not an internal pseudo-type) so
+			// get_all_prefs() surfaces it and the settings UI + REST render an on/off
+			// control — otherwise the unsubscribe was a one-way door with no
+			// member-facing way back (card 10264293350). 'off' suppresses; any other
+			// value means on. Which digest a notification goes into is decided by
+			// that notification type's own frequency, not by this row.
 			//
 			// can_email is FALSE: this switch does not itself SEND a mail. The actual
 			// digest sends are bn.daily_digest / bn.weekly_digest (their own templates);
@@ -451,7 +452,7 @@ class NotificationPrefCatalogue {
 			// template treats email_only OR can_email as "show the frequency").
 			'digest'                      => array(
 				'label'              => __( 'Email digests', 'buddynext' ),
-				'description'        => __( 'A periodic email roundup of your unread notifications. Set to Off to stop all digest emails; choose Daily or Weekly to resume.', 'buddynext' ),
+				'description'        => __( 'Email roundups of your unread notifications. Turn Off to stop all digest emails.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
 				'default_on_site'    => false,
 				'default_email_freq' => 'daily',
