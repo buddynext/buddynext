@@ -106,6 +106,15 @@ class PageRouter {
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
 		add_filter( 'redirect_canonical', array( $this, 'keep_paged_query_without_page_route' ), 10, 2 );
 
+		// Any theme's or plugin's Log in / Register / Lost password link reaches the
+		// BuddyNext screens, with the page carried, instead of wp-login.php. Front
+		// end only; wp-admin and wp-login.php itself keep core's own addresses.
+		// Priority 30: themes that pointed these at BuddyNext themselves (BuddyX, at
+		// 20) did it without the return page, and BuddyNext owns sign-in.
+		add_filter( 'login_url', array( self::class, 'core_login_url' ), 30, 2 );
+		add_filter( 'register_url', array( self::class, 'core_register_url' ), 30 );
+		add_filter( 'lostpassword_url', array( self::class, 'core_lostpassword_url' ), 30 );
+
 		// Make a mapped hub page answer is_page()/is_singular() BEFORE
 		// template_redirect runs, so any code that keys on conditional tags at that
 		// point sees the real page. The critical consumer is a membership/access
@@ -4056,15 +4065,7 @@ class PageRouter {
 	 */
 	public static function login_url( ?string $destination = null ): string {
 		if ( null === $destination ) {
-			if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() ) {
-				$destination = '';
-			} elseif ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
-				// On login/signup the page being viewed is the auth screen itself: pass
-				// on where the visitor was going instead, or nothing.
-				$destination = isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only redirect target, validated.
-			} else {
-				$destination = self::current_url();
-			}
+			$destination = self::return_destination();
 		}
 		$auth = self::auth_url();
 		if ( '' === $auth ) {
@@ -4075,17 +4076,111 @@ class PageRouter {
 	}
 
 	/**
-	 * Return the registration (signup) URL — a sub-route of the auth hub.
+	 * Whether a core login / register / lost password address should be answered
+	 * with the BuddyNext screen: a front-end page view on a site that has an auth
+	 * page. wp-admin, wp-login.php, REST, AJAX and cron keep core's addresses, so
+	 * the dashboard login and anything that posts to wp-login.php still work.
+	 *
+	 * @return bool
+	 */
+	private static function owns_core_auth_links(): bool {
+		$takes_over = ! is_admin() && ! wp_doing_ajax() && ! wp_is_serving_rest_request() && ! wp_doing_cron()
+			&& 'wp-login.php' !== ( $GLOBALS['pagenow'] ?? '' )
+			&& '' !== self::auth_url();
+
+		/**
+		 * Filter whether BuddyNext answers core's login, register and lost password
+		 * addresses on the front end.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param bool $takes_over Default true on a front-end page view.
+		 */
+		return (bool) apply_filters( 'buddynext_owns_core_auth_links', $takes_over );
+	}
+
+	/**
+	 * Filter for core's `login_url`: BuddyNext's login page, with the return page.
+	 *
+	 * @param string $url      Core's login address.
+	 * @param string $redirect Return page the caller asked for, if any.
+	 * @return string
+	 */
+	public static function core_login_url( $url, $redirect = '' ): string {
+		if ( ! self::owns_core_auth_links() ) {
+			return (string) $url;
+		}
+
+		return self::login_url( '' !== (string) $redirect ? (string) $redirect : null );
+	}
+
+	/**
+	 * Filter for core's `register_url`: BuddyNext's signup page, with the page.
+	 *
+	 * @param string $url Core's registration address.
+	 * @return string
+	 */
+	public static function core_register_url( $url ): string {
+		return self::owns_core_auth_links() ? self::signup_url( null ) : (string) $url;
+	}
+
+	/**
+	 * Filter for core's `lostpassword_url`: BuddyNext's reset page.
+	 *
+	 * @param string $url Core's lost password address.
+	 * @return string
+	 */
+	public static function core_lostpassword_url( $url ): string {
+		return self::owns_core_auth_links() ? self::reset_url() : (string) $url;
+	}
+
+	/**
+	 * Where a "Log in" or "Register" link on this page should bring the visitor
+	 * back to: the page being viewed, or on a login/signup screen the page they
+	 * were already heading for. Empty outside the front end.
 	 *
 	 * @return string
 	 */
-	public static function signup_url(): string {
+	private static function return_destination(): string {
+		if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() || wp_doing_cron() ) {
+			return '';
+		}
+		if ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
+			// On login/signup the page being viewed is the auth screen itself: pass
+			// on where the visitor was going instead, or nothing.
+			return isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only redirect target, validated.
+		}
+
+		return self::current_url();
+	}
+
+	/**
+	 * Return the registration (signup) URL — a sub-route of the auth hub.
+	 *
+	 * @param string|null $destination Where the new member should land once signed
+	 *                                 up. '' (default) = the plain signup address,
+	 *                                 for emails, invites and redirects. null = the
+	 *                                 page being viewed, for a "Register" link on a
+	 *                                 front-end page (never the front page or the
+	 *                                 onboarding wizard).
+	 * @return string
+	 */
+	public static function signup_url( ?string $destination = '' ): string {
 		/**
 		 * Filter the registration URL.
 		 *
 		 * @param string $url Default {auth}/signup/ URL.
 		 */
-		return (string) apply_filters( 'buddynext_signup_url', trailingslashit( self::auth_url() ) . 'signup/' );
+		$url = (string) apply_filters( 'buddynext_signup_url', trailingslashit( self::auth_url() ) . 'signup/' );
+
+		if ( null === $destination ) {
+			$destination = self::return_destination();
+			if ( trailingslashit( $destination ) === trailingslashit( home_url() ) || 'onboarding' === get_query_var( 'bn_hub', '' ) ) {
+				$destination = '';
+			}
+		}
+
+		return '' === $destination ? $url : add_query_arg( 'redirect_to', rawurlencode( $destination ), $url );
 	}
 
 	/**

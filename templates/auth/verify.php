@@ -73,9 +73,15 @@ if ( $bn_verify_user ) {
 
 $bn_feed_url       = \BuddyNext\Core\PageRouter::activity_url();
 $bn_onboarding_url = \BuddyNext\Core\PageRouter::onboarding_url();
-$bn_auth_url       = \BuddyNext\Core\PageRouter::auth_url();
-$bn_rest_root      = esc_url_raw( rest_url( 'buddynext/v1/' ) );
-$bn_resend_nonce   = wp_create_nonce( 'wp_rest' );
+// Verified, and no welcome wizard to go through: Continue takes the member back
+// to the page they signed up from (once), instead of a wizard address that only
+// forwards to the feed.
+if ( 'success' === $bn_verify_state && ! buddynext_feature_enabled( 'onboarding' ) ) {
+	$bn_onboarding_url = \BuddyNext\Auth\AuthController::take_signup_return( get_current_user_id(), $bn_onboarding_url );
+}
+$bn_auth_url     = \BuddyNext\Core\PageRouter::auth_url();
+$bn_rest_root    = esc_url_raw( rest_url( 'buddynext/v1/' ) );
+$bn_resend_nonce = wp_create_nonce( 'wp_rest' );
 
 // Ensure the auth bundle CSS is enqueued — verify.php may render via
 // the hub bundle path which auto-enqueues bn-auth, but defending against

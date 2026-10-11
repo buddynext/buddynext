@@ -110,7 +110,7 @@ do_action( 'buddynext_part_hashtag_empty_state_before', $args );
 			class="bn-btn"
 			data-variant="primary"
 			data-size="md"
-			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::signup_url() ); ?>"
+			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::signup_url( null ) ); ?>"
 		>
 			<span><?php esc_html_e( 'Join to post', 'buddynext' ); ?></span>
 		</a>

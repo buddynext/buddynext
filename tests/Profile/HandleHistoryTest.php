@@ -76,7 +76,6 @@ class HandleHistoryTest extends \WP_UnitTestCase {
 
 		$router  = ( new \ReflectionClass( PageRouter::class ) )->newInstanceWithoutConstructor();
 		$resolve = new \ReflectionMethod( PageRouter::class, 'resolve_user' );
-		$resolve->setAccessible( true );
 
 		$this->assertSame( $this->member, $resolve->invoke( $router, $original )?->ID );
 		$this->assertNull( $resolve->invoke( $router, 'nobody-ever-had-this' ) );

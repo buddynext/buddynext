@@ -439,7 +439,11 @@ class OnboardingController {
 	private function completion_destination( int $user_id ): string {
 		return $this->pending_invite_redirect(
 			$user_id,
-			\BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::activity_url() )
+			// The page they signed up from, if there was one, is where they were going.
+			\BuddyNext\Auth\AuthController::take_signup_return(
+				$user_id,
+				\BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::activity_url() )
+			)
 		);
 	}
 

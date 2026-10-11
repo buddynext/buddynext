@@ -81,7 +81,7 @@ $social_providers = (array) apply_filters( 'buddynext_auth_social_providers', ar
 
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
-$signup_url = \BuddyNext\Core\PageRouter::signup_url();
+$signup_url = \BuddyNext\Core\PageRouter::signup_url( null ); // Carries the visitor's destination through.
 ?>
 <div class="bn-auth-page">
 	<div class="bn-auth-shell" data-panel="<?php echo (bool) get_option( 'buddynext_auth_panel_show', true ) ? 'on' : 'off'; ?>">

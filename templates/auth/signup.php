@@ -377,6 +377,16 @@ if ( 'invite' === $bn_reg_mode ) {
 					 * @since 1.0.8
 					 */
 					do_action( 'buddynext_signup_form_fields' );
+
+					// The page the visitor came from, so signing up returns them there.
+					// Posted with the form (data-bn-signup-extra) and checked on the
+					// server: same site only.
+					$bn_signup_return = isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only return page, validated.
+					if ( '' !== $bn_signup_return ) :
+						?>
+						<input type="hidden" name="redirect_to" data-bn-signup-extra value="<?php echo esc_attr( $bn_signup_return ); ?>">
+						<?php
+					endif;
 					?>
 
 					<div class="bn-auth-field">
