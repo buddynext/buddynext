@@ -64,16 +64,8 @@ class WidgetService {
 			WidgetCache::GROUP_GLOBAL,
 			WidgetCache::TTL_TRENDING,
 			static function () use ( $limit ): array {
-				/**
-				 * How far back the Trending Topics card looks, in hours.
-				 *
-				 * A slower community can widen it (720 is thirty days).
-				 *
-				 * @since 1.2.5
-				 *
-				 * @param int $hours Window in hours. Default 168 (seven days).
-				 */
-				$hours = (int) apply_filters( 'buddynext_trending_topics_hours', 168 );
+				// The window (and its filter) live with the cache key, so the two agree.
+				$hours = WidgetCache::trending_hours();
 
 				$rows = array();
 				// Ask for a few extra so tags with no public post can be dropped.
@@ -83,7 +75,9 @@ class WidgetService {
 					}
 					$rows[] = (object) array(
 						'slug'       => (string) $tag['slug'],
-						'post_count' => (int) $tag['post_count'],
+						// The number under "this week" is this window's count, not the
+						// tag's all-time total (which is what ranked it before 1.2.5).
+						'post_count' => (int) ( $tag['recent_count'] ?? $tag['post_count'] ),
 					);
 					if ( count( $rows ) >= $limit ) {
 						break;

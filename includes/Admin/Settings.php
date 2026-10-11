@@ -509,7 +509,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			array( __( 'In-app bell + transactional email notifications', 'buddynext' ), true ),
 			array( __( 'Report queue, strikes, suspensions, appeals', 'buddynext' ), true ),
 			array( __( 'REST API, Gutenberg blocks, 1 outbound webhook', 'buddynext' ), true ),
-			array( __( 'Scheduled & recurring posts, up to 10 pinned posts', 'buddynext' ), false ),
+			array( __( 'Scheduled & recurring posts, up to 3 pinned posts', 'buddynext' ), false ),
 			array( __( 'Custom reaction emoji set (up to 20)', 'buddynext' ), false ),
 			array( __( 'Broadcast email campaigns + drip welcome sequences', 'buddynext' ), false ),
 			array( __( 'Group DM + real-time delivery, typing, read receipts', 'buddynext' ), false ),

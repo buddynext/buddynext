@@ -95,7 +95,27 @@ class WidgetCache {
 	 * @return string
 	 */
 	public static function key_trending( int $limit ): string {
-		return 'trending:' . $limit;
+		// The window is part of the key: with the limit alone, a site that changed
+		// the window by filter kept being served the old window's list.
+		return 'trending:' . $limit . ':' . self::trending_hours();
+	}
+
+	/**
+	 * How far back the Trending Topics card looks, in hours.
+	 *
+	 * @return int
+	 */
+	public static function trending_hours(): int {
+		/**
+		 * How far back the Trending Topics card looks, in hours.
+		 *
+		 * A slower community can widen it (720 is thirty days).
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param int $hours Window in hours. Default 168 (seven days).
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_trending_topics_hours', 168 ) );
 	}
 
 	/**

@@ -69,6 +69,14 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
 		);
+		$wpdb->query(
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}jt_space_members (
+				space_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				user_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				source VARCHAR(20) NOT NULL DEFAULT 'manual',
+				PRIMARY KEY (space_id, user_id)
+			) DEFAULT CHARSET=utf8mb4"
+		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		// Plugin class stub is registered in tests/bootstrap.php.
@@ -84,6 +92,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_posts" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_spaces" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_replies" );
+		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_space_members" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		parent::tear_down();
 	}
@@ -653,46 +662,55 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Linking an existing forum copies its members into the space once; a banned
-	 * member is left out, and a job for a space that was unlinked does nothing.
+	 * Linking an existing forum copies its self-joined members into an open space,
+	 * once. A banned member, a member held by a tier, and a private space are all
+	 * left alone, and a job for a space that is not linked does nothing.
 	 *
 	 * @return void
 	 */
 	public function test_forum_members_are_copied_into_the_linked_space(): void {
-		$owner    = self::factory()->user->create();
-		$members  = self::factory()->user->create_many( 3 );
-		$banned   = self::factory()->user->create();
-		$spaces   = new \BuddyNext\Spaces\SpaceMemberService();
-		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+		global $wpdb;
+		$owner   = self::factory()->user->create();
+		$members = self::factory()->user->create_many( 3 );
+		$banned  = self::factory()->user->create();
+		$by_tier = self::factory()->user->create();
+		$spaces  = new \BuddyNext\Spaces\SpaceMemberService();
+		$make    = static fn( string $type ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
 			$owner,
 			array(
-				'name' => 'Linked',
-				'slug' => 'linked-' . wp_rand( 1000, 9999 ),
-				'type' => 'open',
+				'name' => 'Linked ' . $type,
+				'slug' => 'linked-' . $type . '-' . wp_rand( 1000, 9999 ),
+				'type' => $type,
 			)
 		);
-		$spaces->ban_from_space( $space_id, $banned, $owner );
+		$open    = $make( 'open' );
+		$private = $make( 'private' );
+		$spaces->ban_from_space( $open, $banned, $owner );
 
-		$by_tier = self::factory()->user->create();
-		\Jetonomy\Models\SpaceMember::$rows   = array_map( static fn( int $id ): object => (object) array( 'user_id' => $id ), array_merge( $members, array( $banned, 999999 ) ) );
-		\Jetonomy\Models\SpaceMember::$rows[] = (object) array(
-			'user_id' => $by_tier,
-			'source'  => 'tier',
-		);
-		$bridge                              = new JetonomyBridge();
+		foreach ( array_merge( $members, array( $banned, 999999 ) ) as $user_id ) {
+			$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $user_id, 'source' => 'manual' ) );
+		}
+		$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $by_tier, 'source' => 'tier' ) );
 
 		// Not linked to forum 7: nothing is copied.
-		$bridge->copy_forum_members( $space_id, 7, 0 );
-		$this->assertFalse( $spaces->is_member( $space_id, $members[0] ) );
+		$this->bridge->copy_forum_members( $open, 7, 0 );
+		$this->assertFalse( $spaces->is_member( $open, $members[0] ) );
 
-		update_space_meta( $space_id, 'jetonomy_forum_id', 7 );
-		$bridge->copy_forum_members( $space_id, 7, 0 );
+		update_space_meta( $open, 'jetonomy_forum_id', 7 );
+		update_space_meta( $private, 'jetonomy_forum_id', 7 );
+		$this->bridge->copy_forum_members( $open, 7, 0 );
+		$this->bridge->copy_forum_members( $private, 7, 0 );
 
 		foreach ( $members as $member ) {
-			$this->assertTrue( $spaces->is_member( $space_id, $member ) );
+			$this->assertTrue( $spaces->is_member( $open, $member ) );
+			$this->assertFalse( $spaces->is_member( $private, $member ), 'A private space takes nobody without a request or an invitation.' );
 		}
-		$this->assertFalse( $spaces->is_member( $space_id, $banned ), 'A banned member stays out.' );
-		$this->assertFalse( $spaces->is_member( $space_id, $by_tier ), 'A member the forum holds through a paid tier is not copied.' );
+		$this->assertFalse( $spaces->is_member( $open, $banned ), 'A banned member stays out.' );
+		$this->assertFalse( $spaces->is_member( $open, $by_tier ), 'A member the forum holds through a paid tier is not copied.' );
+
+		// Continuing after the highest user id finds nobody left.
+		$this->bridge->copy_forum_members( $open, 7, 999999 );
+		$this->assertSame( 1 + count( $members ), $spaces->member_count( $open ) );
 	}
 
 	/**
@@ -784,30 +802,4 @@ if ( ! class_exists( __NAMESPACE__ . '\\Post' ) ) {
 	 * exists before it reads jt_posts; it never calls it.
 	 */
 	class Post {}
-}
-
-if ( ! class_exists( __NAMESPACE__ . '\\SpaceMember' ) ) {
-	/**
-	 * Test stub for Jetonomy's SpaceMember model: a fixed member list.
-	 */
-	class SpaceMember {
-		/**
-		 * Rows list_by_space() answers with.
-		 *
-		 * @var array<int,object>
-		 */
-		public static array $rows = array();
-
-		/**
-		 * A page of the forum's members.
-		 *
-		 * @param int $space_id Forum id.
-		 * @param int $limit    Page size.
-		 * @param int $offset   Offset.
-		 * @return array<int,object>
-		 */
-		public static function list_by_space( int $space_id, int $limit = 0, int $offset = 0 ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
-			return array_slice( self::$rows, $offset, $limit > 0 ? $limit : null );
-		}
-	}
 }

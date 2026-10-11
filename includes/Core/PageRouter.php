@@ -1872,7 +1872,8 @@ class PageRouter {
 			return;
 		}
 
-		$post = ( new \BuddyNext\Feed\PostService() )->get( $post_id );
+		$posts = new \BuddyNext\Feed\PostService();
+		$post  = $posts->get( $post_id );
 		if ( null === $post ) {
 			return;
 		}
@@ -1880,50 +1881,14 @@ class PageRouter {
 		$viewer_id = get_current_user_id();
 		$author_id = (int) ( $post['user_id'] ?? 0 );
 
-		// Status gate: only published posts get OG previews (drafts and
-		// archived rows shouldn't deep-link into chat clients).
-		if ( isset( $post['status'] ) && 'published' !== $post['status'] && $viewer_id !== $author_id ) {
-			return;
-		}
-
-		// Block gate (bidirectional).
-		if ( $viewer_id > 0 && $author_id > 0 && $viewer_id !== $author_id ) {
-			$blocks = function_exists( 'buddynext_service' )
-				? buddynext_service( 'blocks' )
-				: new \BuddyNext\SocialGraph\BlockService();
-			if ( $blocks->is_blocking_either( $viewer_id, $author_id ) ) {
-				return;
-			}
-		}
-
-		/*
-		 * Space-content gate — the same SpaceVisibility decision point the REST
-		 * read path uses. This method emits the og:/twitter: description for a
-		 * post permalink, so the secret-only check it replaces published the body
-		 * of a PRIVATE space's post into crawler-readable meta tags for anyone
-		 * with the link.
-		 */
-		$space_id = (int) ( $post['space_id'] ?? 0 );
-		if ( $space_id > 0 ) {
-			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
-			if ( null !== $space && ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
-				return;
-			}
-		}
-
-		// Followers-only gate.
-		if ( 'followers' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer_id ) {
-			$follows     = function_exists( 'buddynext_service' )
-				? buddynext_service( 'follows' )
-				: new \BuddyNext\SocialGraph\FollowService();
-			$is_follower = $viewer_id > 0 && $follows->is_following( $viewer_id, $author_id );
-			if ( ! $is_follower ) {
-				return;
-			}
-		}
-
-		// Private gate.
-		if ( 'private' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer_id ) {
+		// Who may read the post is decided in ONE place, PostService::visibility_error(),
+		// the gate the page itself and the REST read use. This method used to keep
+		// its own copy (status, block, space, followers, private), and a copy goes
+		// stale: it never learned that a private account's posts are followers-only,
+		// nor about connections-only posts, so the page answered 404 while its head
+		// still printed the author's name and the full text in the description,
+		// og: and twitter: tags, for crawlers and anyone who views source.
+		if ( null !== $posts->visibility_error( $post_id, $viewer_id ) ) {
 			return;
 		}
 

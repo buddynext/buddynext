@@ -1057,11 +1057,11 @@ class JetonomyBridge {
 	 *
 	 * @param int $space_id BuddyNext space.
 	 * @param int $forum_id Linked Jetonomy forum.
-	 * @param int $offset   Forum members already handled.
+	 * @param int $after_id Forum member user id to continue after.
 	 * @return void
 	 */
-	private static function queue_member_copy( int $space_id, int $forum_id, int $offset ): void {
-		$args = array( $space_id, $forum_id, $offset );
+	private static function queue_member_copy( int $space_id, int $forum_id, int $after_id ): void {
+		$args = array( $space_id, $forum_id, $after_id );
 
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action( self::COPY_MEMBERS_HOOK, $args, 'buddynext' );
@@ -1075,24 +1075,51 @@ class JetonomyBridge {
 	/**
 	 * Copy one batch of a linked forum's members into the space, then queue the next.
 	 *
-	 * Runs once per link, started when an owner links an existing forum. Each
-	 * person joins through the space's normal join, so a banned member, an archived
-	 * space and a paid-plan gate are all respected: whoever may not join is simply
-	 * left out. The owner is not sent one "joined" notification per person.
+	 * Runs once per link, started when an owner links an existing forum, and only
+	 * for an OPEN space. Joining a private or secret space takes a request or an
+	 * invitation, and this job has neither, so those spaces are left alone (the
+	 * owner invites people there as usual).
+	 *
+	 * Who comes across: forum members who joined themselves or were invited. A
+	 * member the forum holds through an access rule, a paid tier or anything else
+	 * is there because of something that can end, and a copy would outlive it.
+	 * Someone banned in the forum or suspended here is skipped too, and the
+	 * space's own join still refuses a space ban, an archived space and a
+	 * paid-plan gate. The owner is not sent one "joined" notification per person.
 	 *
 	 * @param int $space_id BuddyNext space.
 	 * @param int $forum_id Jetonomy forum the members come from.
-	 * @param int $offset   Forum members already handled.
+	 * @param int $after_id Forum member user id the last batch ended on.
 	 * @return void
 	 */
-	public function copy_forum_members( int $space_id, int $forum_id, int $offset = 0 ): void {
+	public function copy_forum_members( int $space_id, int $forum_id, int $after_id = 0 ): void {
 		// Unlinked (or linked to something else) since the job was queued: stop.
-		if ( $space_id <= 0 || $forum_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' )
+		if ( $space_id <= 0 || $forum_id <= 0
 			|| (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) !== $forum_id ) {
 			return;
 		}
 
-		$rows = (array) \Jetonomy\Models\SpaceMember::list_by_space( $forum_id, self::COPY_MEMBERS_BATCH, max( 0, $offset ) );
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( ! is_array( $space ) || 'open' !== (string) ( $space['type'] ?? '' ) ) {
+			return;
+		}
+
+		global $wpdb;
+		// By user id, not OFFSET: jt_space_members is keyed (space_id, user_id), so
+		// each batch is one index range however large the forum is.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, source FROM {$wpdb->prefix}jt_space_members
+				 WHERE space_id = %d AND user_id > %d
+				 ORDER BY user_id ASC
+				 LIMIT %d",
+				$forum_id,
+				max( 0, $after_id ),
+				self::COPY_MEMBERS_BATCH
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( empty( $rows ) ) {
 			return;
 		}
@@ -1105,17 +1132,16 @@ class JetonomyBridge {
 		$members    = new \BuddyNext\Spaces\SpaceMemberService();
 		$moderation = new \BuddyNext\Moderation\ModerationService();
 		$can_ban    = class_exists( '\\Jetonomy\\Models\\Restriction' );
+		$last_id    = $after_id;
 		foreach ( $rows as $row ) {
-			$user_id = (int) ( $row->user_id ?? 0 );
+			$user_id = (int) $row->user_id;
+			$last_id = max( $last_id, $user_id );
 
-			// Only people who are in the forum in their own right. A member the forum
-			// holds through an access rule or a paid tier is there because of
-			// something that can end, and a copy would outlive it. Someone banned in
-			// the forum, or suspended here, is not brought across either.
+			// An allow list: only the two ways a person puts themselves in a forum.
 			// ponytail: one ban lookup per member (memoised by Jetonomy), in a
 			// background batch of 200; a set query if a forum of many thousands is slow.
 			if ( $user_id <= 0 || false === get_userdata( $user_id )
-				|| in_array( (string) ( $row->source ?? 'manual' ), array( 'rule', 'tier' ), true )
+				|| ! in_array( (string) $row->source, array( 'manual', 'invite' ), true )
 				|| ( $can_ban && \Jetonomy\Models\Restriction::is_banned( $user_id ) )
 				|| $moderation->is_suspended( $user_id ) ) {
 				continue;
@@ -1127,7 +1153,7 @@ class JetonomyBridge {
 		remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
 
 		if ( count( $rows ) >= self::COPY_MEMBERS_BATCH ) {
-			self::queue_member_copy( $space_id, $forum_id, $offset + self::COPY_MEMBERS_BATCH );
+			self::queue_member_copy( $space_id, $forum_id, $last_id );
 		}
 	}
 
@@ -1178,8 +1204,8 @@ class JetonomyBridge {
 			if ( $may_link ) {
 				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
 				// An existing forum comes with its people (an imported wpForo or
-				// bbPress forum can have thousands): bring them into the space, once,
-				// in the background. Membership is not mirrored after this.
+				// bbPress forum can have thousands): bring them into an open space,
+				// once, in the background. Membership is not mirrored after this.
 				self::queue_member_copy( $space_id, $link_id, 0 );
 			} elseif ( $this->provision_space_forum( $space_id ) <= 0 ) {
 				// Leaving it on would give members a Discussion tab with nothing behind it.
@@ -1744,12 +1770,30 @@ class JetonomyBridge {
 	 * @return array<string,mixed>|\WP_Error
 	 */
 	public function gate_comment_on_discussion( $data, $user_id, $comment_id = null ) {
-		if ( self::$syncing || null !== $comment_id || ! is_array( $data ) || 'post' !== (string) ( $data['object_type'] ?? '' )
+		if ( self::$syncing || ! is_array( $data )
 			|| ! class_exists( '\\Jetonomy\\Permissions\\Content_Gate' ) || ! class_exists( '\\Jetonomy\\Models\\Post' ) ) {
 			return $data;
 		}
 
-		$card = ( new PostService() )->get( (int) ( $data['object_id'] ?? 0 ) );
+		// A new comment names its post. An edit carries only the new text, so the
+		// post comes from the stored comment, and only a comment that was mirrored
+		// to the forum is the forum's business.
+		$object_type = (string) ( $data['object_type'] ?? '' );
+		$object_id   = (int) ( $data['object_id'] ?? 0 );
+		if ( null !== $comment_id ) {
+			$comments = new \BuddyNext\Comments\CommentService();
+			$comment  = $comments->get( (int) $comment_id );
+			if ( null === $comment || $comments->get_sync_reply_id( (int) $comment_id ) <= 0 ) {
+				return $data;
+			}
+			$object_type = (string) ( $comment['object_type'] ?? '' );
+			$object_id   = (int) ( $comment['object_id'] ?? 0 );
+		}
+		if ( 'post' !== $object_type ) {
+			return $data;
+		}
+
+		$card = ( new PostService() )->get( $object_id );
 		if ( null === $card || 'discussion' !== (string) ( $card['type'] ?? '' ) ) {
 			return $data;
 		}
@@ -1759,9 +1803,28 @@ class JetonomyBridge {
 			return $data;
 		}
 
-		$gate = \Jetonomy\Permissions\Content_Gate::check( (int) $user_id, $topic, 0 );
+		if ( null === $comment_id ) {
+			$gate = \Jetonomy\Permissions\Content_Gate::check( (int) $user_id, $topic, 0 );
 
-		return is_wp_error( $gate ) ? $gate : $data;
+			return is_wp_error( $gate ) ? $gate : $data;
+		}
+
+		// Editing: the rule Jetonomy applies to editing a reply (its replies
+		// controller). The author must still be allowed to reply in that forum, or
+		// the editor must be allowed to edit other people's posts there. A banned
+		// or removed member cannot rewrite forum content through the feed.
+		$space_id = (int) ( $topic->space_id ?? 0 );
+		if ( class_exists( '\\Jetonomy\\Permissions\\Permission_Engine' )
+			&& ! \Jetonomy\Permissions\Permission_Engine::can( (int) $user_id, 'create_replies', $space_id )
+			&& ! \Jetonomy\Permissions\Permission_Engine::can( (int) $user_id, 'edit_others_posts', $space_id ) ) {
+			return new \WP_Error(
+				'bn_discussion_edit_refused',
+				__( 'This comment is also a reply in the forum, and you can no longer post there.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return $data;
 	}
 
 	/**

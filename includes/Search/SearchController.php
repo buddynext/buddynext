@@ -362,6 +362,17 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 			remove_filter( 'buddynext_search_query_args', $injector, 5 );
 		}
 
+		// Every item carries the link the web results page uses, so the app can open
+		// a discussion, an event or any bridged result without knowing how each
+		// plugin builds its addresses. Additive: no existing field changes.
+		if ( isset( $results['items'] ) && is_array( $results['items'] ) ) {
+			foreach ( $results['items'] as $index => $row ) {
+				if ( is_array( $row ) && ! isset( $row['url'] ) ) {
+					$results['items'][ $index ]['url'] = $service->resolve_item_url( (string) ( $row['object_type'] ?? $type ), (int) ( $row['object_id'] ?? 0 ) );
+				}
+			}
+		}
+
 		/*
 		 * Expansion is opt-in and additive: without it the response is the exact
 		 * index shape existing consumers already parse. Only member searches can

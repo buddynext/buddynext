@@ -66,4 +66,33 @@ class TrendingThisWeekTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( 'freshsmall' ), $slugs );
 	}
+
+	/**
+	 * The card prints the window's count, and follows the window when it changes.
+	 *
+	 * @return void
+	 */
+	public function test_count_and_window_follow_the_filter(): void {
+		global $wpdb;
+		Installer::run();
+
+		$old = array( $this->tagged_post( 'mixed' ), $this->tagged_post( 'mixed' ) );
+		$this->tagged_post( 'mixed' );
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_post_hashtags SET created_at = DATE_SUB( UTC_TIMESTAMP(), INTERVAL 30 DAY )
+			 WHERE post_id IN ( " . implode( ',', array_map( 'intval', $old ) ) . ' )'
+		);
+
+		$widgets = new WidgetService( new WidgetCache() );
+		$week    = $widgets->trending_hashtags( 5 );
+		$this->assertSame( 1, (int) $week[0]->post_count, 'One post this week, three all-time: the card says one.' );
+
+		// A wider window is a different list, served at once (not the cached week).
+		$wide = static fn(): int => 24 * 60;
+		add_filter( 'buddynext_trending_topics_hours', $wide );
+		$sixty_days = $widgets->trending_hashtags( 5 );
+		remove_filter( 'buddynext_trending_topics_hours', $wide );
+
+		$this->assertSame( 3, (int) $sixty_days[0]->post_count );
+	}
 }

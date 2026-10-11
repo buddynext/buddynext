@@ -1366,7 +1366,7 @@ class HashtagService {
 	 * @return array
 	 */
 	private function hydrate( array $row ): array {
-		return array(
+		$tag = array(
 			'id'             => (int) $row['id'],
 			'name'           => $row['name'],
 			'slug'           => $row['slug'],
@@ -1374,6 +1374,13 @@ class HashtagService {
 			'follower_count' => (int) $row['follower_count'],
 			'created_at'     => $row['created_at'],
 		);
+		// Only the trending query counts a window. Kept so a card that says "this
+		// week" can print this week's number; post_count is the all-time total.
+		if ( isset( $row['recent_count'] ) ) {
+			$tag['recent_count'] = (int) $row['recent_count'];
+		}
+
+		return $tag;
 	}
 
 	/**

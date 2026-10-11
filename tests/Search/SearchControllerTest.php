@@ -81,6 +81,31 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertContains( 55, $object_ids );
 	}
 
+	/**
+	 * A typed search gives each item the link the web results use, including a
+	 * link a bridge supplies for its own type.
+	 *
+	 * @return void
+	 */
+	public function test_typed_search_items_carry_their_link(): void {
+		$this->search_service->index( 'listing', 77, 'Linkterm topic', 'Linkterm body', $this->author_id );
+		$link = static fn( string $url, string $type, int $id ): string => 'listing' === $type ? 'https://example.test/topic/' . $id . '/' : $url;
+		add_filter( 'buddynext_search_item_url', $link, 10, 3 );
+
+		$request = new \WP_REST_Request( 'GET', '/buddynext/v1/search' );
+		$request->set_query_params(
+			array(
+				'q'    => 'Linkterm',
+				'type' => 'listing',
+			)
+		);
+		$items = rest_do_request( $request )->get_data()['items'];
+		remove_filter( 'buddynext_search_item_url', $link, 10 );
+
+		$this->assertNotEmpty( $items );
+		$this->assertSame( 'https://example.test/topic/77/', $items[0]['url'] );
+	}
+
 	public function test_search_accepts_type_filter(): void {
 		$request = new WP_REST_Request( 'GET', '/buddynext/v1/search' );
 		$request->set_param( 'q', 'test' );
