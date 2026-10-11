@@ -39,6 +39,7 @@ Key contract rules:
 | `buddynext_media_notification_url` | filter | Resolving where a media notification (comment, favorite, reaction, mention) opens | `string $url, int $media_id` |
 | `buddynext_notification_visible_rows` | filter | Reading a page of a member's notifications, after rows whose object is gone are dropped | `array[] $rows` |
 | `buddynext_notification_sources` | filter | Listing the integrations whose notification hook carries the shared payload | `array $sources` |
+| `buddynext_integration_notification_payload` | filter | A partner plugin's notification arrives through the contract, before it is stored. A bridge can adjust it, for example set one `group_key` per course with `renotify => false` so a repeat refreshes the same bell row. Since 1.2.5. | `array $payload, string $source` |
 | `buddynext_notification_group_label` | filter | Naming a settings section BuddyNext does not own (an integration's) | `string $label, string $group` |
 
 Details:

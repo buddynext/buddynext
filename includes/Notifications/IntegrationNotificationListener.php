@@ -203,6 +203,20 @@ class IntegrationNotificationListener implements ListenerInterface {
 	 * @return int Notification id, or 0 when dropped.
 	 */
 	public function receive( string $source, array $payload ): int {
+		/**
+		 * Filter a partner plugin's notification payload before BuddyNext stores it.
+		 *
+		 * For a bridge that knows more about the event than the payload says. A
+		 * payload with a `group_key` and `renotify => false` refreshes the member's
+		 * existing bell row for that key instead of adding another one.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param array<string,mixed> $payload Contract payload.
+		 * @param string              $source  Source slug, e.g. `learnomy`.
+		 */
+		$payload = (array) apply_filters( 'buddynext_integration_notification_payload', $payload, $source );
+
 		$recipient = (int) ( $payload['recipient_id'] ?? 0 );
 		$type      = sanitize_key( (string) ( $payload['type'] ?? '' ) );
 		$message   = trim( wp_strip_all_tags( (string) ( $payload['message'] ?? '' ) ) );
