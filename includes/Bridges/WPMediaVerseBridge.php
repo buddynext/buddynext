@@ -245,6 +245,10 @@ class WPMediaVerseBridge {
 		add_action( 'buddynext_user_followed', array( $this, 'mirror_bn_follow' ), 10, 2 );
 		add_action( 'buddynext_user_unfollowed', array( $this, 'mirror_bn_unfollow' ), 10, 2 );
 
+		// MediaVerse's friends level is BuddyNext's connections.
+		add_filter( 'mvs_are_friends', array( $this, 'are_friends' ), 10, 3 );
+		add_filter( 'mvs_friend_ids', array( $this, 'friend_ids' ), 10, 2 );
+
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
 		// event whose only native listener (the MVS chat panel) is suppressed
 		// while BN owns /messages/. Enqueue a tiny listener that routes the click
@@ -829,9 +833,8 @@ class WPMediaVerseBridge {
 	/**
 	 * Derive each attached media file's privacy from the post it now belongs to.
 	 *
-	 * MediaController already maps the composer's post-privacy vocabulary onto the
-	 * engine's file privacy (PRIVACY_MAP: public -> public, followers/connections
-	 * -> members, private -> private) and `/me/media` accepts a `privacy` param.
+	 * The composer's post-privacy word becomes the engine's file privacy through
+	 * media_privacy_for_post() and `/me/media` accepts a `privacy` param.
 	 * Nothing ever sent it. The upload therefore fell to the default, `public`,
 	 * and a member who attached a photo and set the post to "Only me" got a
 	 * private post whose photo was public: listed on Explore Media and served to
@@ -1015,6 +1018,13 @@ class WPMediaVerseBridge {
 
 		$space   = $space_id > 0 ? buddynext_service( 'spaces' )->get( $space_id ) : null;
 		$privacy = self::media_privacy_for_post( $post_privacy );
+		// A document can hold fewer levels than a photo (no followers, no friends).
+		// One it cannot hold stays with its author, never wider than the post: the
+		// old answer, `members`, showed a followers-only file to every member.
+		$valid = array( '\\WPMediaVersePro\\Documents\\DocumentSettings', 'is_valid_privacy' );
+		if ( is_callable( $valid ) && ! call_user_func( $valid, $privacy ) ) {
+			$privacy = 'private';
+		}
 		if ( is_array( $space ) ) {
 			$privacy = 'open' === (string) ( $space['type'] ?? '' ) && in_array( $post_privacy, array( 'public', 'space_members' ), true ) ? 'public' : 'private';
 		}
@@ -1056,11 +1066,13 @@ class WPMediaVerseBridge {
 	/**
 	 * The engine file-privacy that matches a BuddyNext post privacy.
 	 *
-	 * Mirrors MediaController::PRIVACY_MAP deliberately: the engine has no
-	 * followers/connections concept, so both collapse to logged-in `members` and
-	 * the post's own privacy is what gates the feed surface. An unrecognised
-	 * value resolves to `private` rather than `public` — a privacy vocabulary
-	 * this does not know about must not be guessed open.
+	 * The one answer for an upload, a later change of the post's audience and the
+	 * repair command. It used to exist three times and the copies disagreed: a
+	 * followers-only or connections-only post stored its media as `members`, so
+	 * every signed-in member could open it, and the upload route stored a word it
+	 * did not know as `public`. MediaVerse enforces followers and friends itself;
+	 * BuddyNext answers who the friends are (are_friends / friend_ids) and keeps
+	 * the follow graphs equal (mirror_*_follow).
 	 *
 	 * `space_members` used to sit in that same bucket, and it did not belong
 	 * there. The collapse is sound for followers and connections because the engine
@@ -1087,18 +1099,52 @@ class WPMediaVerseBridge {
 	 * @internal
 	 */
 	public static function media_privacy_for_post( string $post_privacy ): string {
-		switch ( sanitize_key( $post_privacy ) ) {
-			case 'public':
-				return 'public';
-			case 'followers':
-			case 'connections':
-				return 'members';
-			case 'space_members':
-				return 'space';
-			case 'private':
-				return 'private';
+		// MediaVerse owns this vocabulary (2.6.2): followers stay followers,
+		// connections become its friends level, space_members its space level, and
+		// a word it does not know is private. Without that method the answer is
+		// private too: hiding a file is recoverable, publishing one is not.
+		$map = array( '\\WPMediaVerse\\Services\\PrivacyService', 'map_external_privacy' );
+		if ( ! is_callable( $map ) ) {
+			return 'private';
 		}
-		return 'private';
+
+		return (string) call_user_func( $map, $post_privacy, 'buddynext' );
+	}
+
+	/**
+	 * Whether two members are connected, for MediaVerse's friends level.
+	 *
+	 * A connections-only post stores its media as `friends`; MediaVerse asks here
+	 * who that is. Accepted connections only: a pending request is not one.
+	 *
+	 * @param bool $are_friends Earlier answer.
+	 * @param int  $user_a      A member.
+	 * @param int  $user_b      Another member.
+	 * @return bool
+	 */
+	public function are_friends( $are_friends, int $user_a, int $user_b ): bool {
+		unset( $are_friends ); // BuddyNext's connections are the answer on a BuddyNext site.
+
+		return (bool) buddynext_service( 'connections' )->are_connected( $user_a, $user_b );
+	}
+
+	/**
+	 * A member's connections, for MediaVerse lists that show friends-only media.
+	 *
+	 * Must agree with are_friends(), so it reads the same accepted connections.
+	 *
+	 * ponytail: the newest 5,000 connections. A single item is always checked
+	 * exactly through are_friends(); only a list would miss friends-only media of
+	 * a connection past that number. Raise it, or page it, if a member gets there.
+	 *
+	 * @param int[] $friend_ids Earlier answer.
+	 * @param int   $user_id    Member.
+	 * @return int[]
+	 */
+	public function friend_ids( $friend_ids, int $user_id ): array {
+		unset( $friend_ids );
+
+		return array_map( 'intval', (array) buddynext_service( 'connections' )->connections( $user_id, 5000, 0 ) );
 	}
 
 	/**
@@ -1504,6 +1550,17 @@ class WPMediaVerseBridge {
 		$this->mirroring_follow = true;
 		try {
 			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->follow( $follower_id, $following_id ) );
+
+			// BuddyNext decides who follows whom. A private account turns this into a
+			// request, and a block or limit refuses it; MediaVerse has already written
+			// an active follow, which would open the account's followers-only media to
+			// someone who was never approved. Taken back here, with the guard still up
+			// so the unfollow is not mirrored into withdrawing the request.
+			$mvs      = $this->mvs_follows();
+			$approved = (bool) call_user_func( array( $bn, 'is_following' ), $follower_id, $following_id );
+			if ( ! $approved && null !== $mvs && method_exists( $mvs, 'unfollow' ) ) {
+				$mvs->unfollow( $follower_id, $following_id );
+			}
 		} finally {
 			$this->mirroring_follow = false;
 		}

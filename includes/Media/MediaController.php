@@ -31,28 +31,6 @@ use WP_REST_Response;
 class MediaController extends BaseRestController {
 
 	/**
-	 * Map the feed/post privacy vocabulary the composer offers
-	 * (public/followers/connections/private) to the engine's media-file privacy.
-	 * A batch upload becomes a feed post, so the member picks the POST audience;
-	 * the media file's engine privacy is derived to roughly match. The engine
-	 * has no followers/connections concept, so both collapse to logged-in
-	 * 'members' — the post's own privacy is what gates the feed surface.
-	 *
-	 * @var array<string,string>
-	 */
-	private const PRIVACY_MAP = array(
-		'public'      => 'public',
-		'followers'   => 'members',
-		'connections' => 'members',
-		'private'     => 'private',
-		// A space upload is shared WITH the space: the engine stamps the row
-		// `privacy = space`, which is what makes it visible to space members (and
-		// only them) once it is on the space drive. Without passing it through, a
-		// space photo was stored `private` and its own space could not see it.
-		'space'       => 'space',
-	);
-
-	/**
 	 * Register routes under buddynext/v1.
 	 */
 	public function register_routes(): void {
@@ -1328,15 +1306,19 @@ class MediaController extends BaseRestController {
 
 	/**
 	 * Map a composer (post) privacy choice to the engine media-file privacy.
-	 * Unknown values fall back to public.
 	 *
-	 * @param string $privacy Post-vocabulary privacy (public/followers/connections/private).
-	 * @return string Engine media privacy (public/members/private).
+	 * The same answer the post-privacy sync and the repair command use
+	 * (WPMediaVerseBridge::media_privacy_for_post), so an upload and a later
+	 * privacy change can never disagree. No choice sent means the composer's own
+	 * default, public; a word nobody knows is private.
+	 *
+	 * @param string $privacy Post-vocabulary privacy (public/followers/connections/space_members/private).
+	 * @return string Engine media privacy.
 	 */
 	private function sanitize_privacy( string $privacy ): string {
 		$privacy = sanitize_key( $privacy );
 
-		return self::PRIVACY_MAP[ $privacy ] ?? 'public';
+		return \BuddyNext\Bridges\WPMediaVerseBridge::media_privacy_for_post( '' === $privacy ? 'public' : $privacy );
 	}
 
 	/**

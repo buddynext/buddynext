@@ -244,18 +244,43 @@ class MediaControllerTest extends \WP_UnitTestCase {
 	// ── Privacy mapping (post vocabulary → engine vocabulary) ─────────────────
 
 	/**
-	 * The composer/post privacy vocabulary maps to the engine's media-file
-	 * vocabulary per PRIVACY_MAP; unknown values fall back to public.
+	 * A post's audience becomes the media level MediaVerse enforces for that same
+	 * audience, never a wider one.
+	 *
+	 * The must-not-happen half matters most: followers-only and connections-only
+	 * used to become `members` (every signed-in member), a space post's media
+	 * became `public` (the upload route did not know `space_members`), and an
+	 * unknown word became `public`.
 	 */
 	public function test_sanitize_privacy_maps_post_vocabulary_to_engine(): void {
+		if ( ! is_callable( array( '\\WPMediaVerse\\Services\\PrivacyService', 'map_external_privacy' ) ) ) {
+			$this->markTestSkipped( 'Needs MediaVerse 2.6.2 or later.' );
+		}
+
 		$method = new ReflectionMethod( MediaController::class, 'sanitize_privacy' );
 		$method->setAccessible( true );
 
 		$this->assertSame( 'public', $method->invoke( $this->controller, 'public' ) );
-		$this->assertSame( 'members', $method->invoke( $this->controller, 'followers' ) );
-		$this->assertSame( 'members', $method->invoke( $this->controller, 'connections' ) );
+		$this->assertSame( 'followers', $method->invoke( $this->controller, 'followers' ) );
+		$this->assertSame( 'friends', $method->invoke( $this->controller, 'connections' ) );
+		$this->assertSame( 'space', $method->invoke( $this->controller, 'space_members' ) );
+		$this->assertSame( 'space', $method->invoke( $this->controller, 'space' ) );
 		$this->assertSame( 'private', $method->invoke( $this->controller, 'private' ) );
-		$this->assertSame( 'public', $method->invoke( $this->controller, 'nonsense' ) );
+		$this->assertSame( 'public', $method->invoke( $this->controller, '' ), 'No choice sent is the composer default.' );
+
+		foreach ( array( 'followers', 'connections', 'space_members', 'private', 'nonsense', 'PUBLIC ' ) as $word ) {
+			$level = $method->invoke( $this->controller, $word );
+			$this->assertNotSame( 'members', $level, $word . ' must not open to every member.' );
+			if ( 'PUBLIC ' !== $word ) {
+				$this->assertNotSame( 'public', $level, $word . ' must not become public.' );
+			}
+		}
+		$this->assertSame( 'private', $method->invoke( $this->controller, 'nonsense' ), 'An unknown word is private.' );
+
+		// The upload route, the post-privacy sync and the repair command share one answer.
+		foreach ( array( 'public', 'followers', 'connections', 'space_members', 'private', 'nonsense' ) as $word ) {
+			$this->assertSame( \BuddyNext\Bridges\WPMediaVerseBridge::media_privacy_for_post( $word ), $method->invoke( $this->controller, $word ), $word );
+		}
 	}
 
 	// ── Auth: unauthenticated requests are rejected by the route guard ────────
