@@ -326,6 +326,48 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Two copies of one signed request that arrive together: the second is
+	 * refused once it holds the member's lock, even though it passed the first
+	 * replay check before the first copy had recorded itself.
+	 *
+	 * The first copy finishing is simulated from a filter that runs between the
+	 * signature check and the lock.
+	 *
+	 * @return void
+	 */
+	public function test_a_concurrent_copy_of_a_request_is_refused_under_the_lock(): void {
+		$payload   = (string) wp_json_encode(
+			array(
+				'user_id' => $this->user_id,
+				'action'  => 'add_credits',
+				'amount'  => 40,
+			)
+		);
+		$timestamp = (string) time();
+		$digest    = hash_hmac( 'sha256', $timestamp . '.' . $payload, $this->secret );
+
+		add_filter(
+			'buddynext_access_webhook_actions',
+			function ( array $actions ) use ( $digest ): array {
+				\BuddyNext\Outbound\WebhookLog::write( 'add_credits', $this->user_id, array(), 'success', $digest );
+
+				return $actions;
+			}
+		);
+
+		$request = new \WP_REST_Request( 'POST', '/buddynext/v1/webhook/access' );
+		$request->set_header( 'Content-Type', 'application/json' );
+		$request->set_header( 'X-BuddyNext-Timestamp', $timestamp );
+		$request->set_header( 'X-BuddyNext-Signature', 'sha256=' . $digest );
+		$request->set_body( $payload );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 409, $response->get_status() );
+		$this->assertSame( 'replayed_request', $response->get_data()['code'] );
+		$this->assertSame( 0, ( new RoleService() )->get_credits( $this->user_id ), 'The copy changed nothing.' );
+	}
+
+	/**
 	 * A site can switch an action off; the stored log masks the member's address.
 	 *
 	 * @return void

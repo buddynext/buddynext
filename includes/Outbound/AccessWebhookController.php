@@ -128,7 +128,18 @@ class AccessWebhookController {
 		}
 
 		try {
-			$response = $this->run( $action, $user->ID, $body );
+			// Asked again now that the lock is held. verify_signature() looked for
+			// this signature before the lock, and the signature is only recorded
+			// once the action has run, so two copies of one captured request that
+			// arrived together both passed that first look. The second copy waits
+			// here for the first to finish and record itself, and is then refused.
+			$response = $this->replay_seen( $this->accepted_signature )
+				? new WP_Error(
+					'replayed_request',
+					__( 'This request has already been processed.', 'buddynext' ),
+					array( 'status' => 409 )
+				)
+				: $this->run( $action, $user->ID, $body );
 		} finally {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
