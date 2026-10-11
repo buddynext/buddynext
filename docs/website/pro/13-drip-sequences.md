@@ -15,7 +15,7 @@ A drip sequence handles it for you. Write a welcome on day zero, a "here is how 
 Members do not set anything up. Once you enable a sequence with a matching trigger, the member is enrolled and starts receiving the steps:
 
 - When a member registers (or finishes onboarding, depending on the sequence's trigger), they are enrolled automatically.
-- Each step arrives after its own delay. The first step can go out at the next delivery run (a delay of zero days); later steps follow on their own schedule.
+- Each step has a day: the number of days after the member joined the sequence. Day 0 goes out at the next delivery run; day 3 goes out three days after joining, day 7 a week after.
 - The emails are sent through BuddyNext's normal email system, so they carry your community's branding and From address.
 
 ### Unsubscribing
@@ -55,17 +55,17 @@ A developer can add more triggers with the `buddynext_drip_triggers` filter; the
 
 ### Add steps
 
-Each step is one email in the sequence. Use the **Add step** form for each one. Add as many as you need. The step list shows each step's day and subject, in the order they are delivered (sorted by delay).
+Each step is one email in the sequence. Use the **Add step** form for each one. Add as many as you need. The step list shows each step's day and subject, in the order they are delivered (earliest day first). What you see in the list is what members receive.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Delay (days) | How long to wait before this step is sent, measured from the previous step (or from enrollment, for the first step). Use 0 for the next delivery run. | 0 |
+| Days after joining | The day this step is sent, counted from when the member joined the sequence. Use 0 for the next delivery run, 3 for three days in, 7 for a week in. | 0 |
 | Subject | The email subject line. Required and must not be empty. | Empty (you must set it) |
 | Body | The email content. Accepts HTML and supports merge tags such as `{{first_name}}`. Required and must not be empty. | Empty (you must set it) |
 
 > **Note:** A step will not save with a blank subject or body. This is deliberate - it stops the sequence from emailing members an empty message.
 
-You can **Edit** or **Delete** a step from the step list. There is no manual reordering: steps are shown and delivered in order of their delay, so to move a step, change its delay.
+You can **Edit** or **Delete** a step from the step list. There is no manual reordering: steps are shown and delivered in order of their day, so to move a step, change its day. Members who are part-way through keep their place when you add, change or remove a step: they carry on after the last email they already received and are never sent the same one twice. A member who joined some time ago receives a newly added earlier step only if they have not yet passed it.
 
 ### Enable, disable, and delete
 
