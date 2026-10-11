@@ -285,6 +285,13 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 		$this->assertSame( 25, $second['balance'] );
 		$this->assertSame( 25, ( new RoleService() )->get_credits( $this->user_id ) );
 
+		$changed           = $body;
+		$changed['amount'] = 99;
+		$conflict          = $this->call( $changed );
+		$this->assertSame( 409, $conflict->get_status(), 'Same key, different amount.' );
+		$this->assertSame( 'idempotency_conflict', $conflict->get_data()['code'] );
+		$this->assertSame( 25, ( new RoleService() )->get_credits( $this->user_id ) );
+
 		$body['idempotency_key'] = 'payment-1002';
 		$this->assertSame( 50, $this->call( $body )->get_data()['balance'], 'A new key is a new payment.' );
 	}

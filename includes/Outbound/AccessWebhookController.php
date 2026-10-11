@@ -175,9 +175,23 @@ class AccessWebhookController {
 		$key       = is_scalar( $body['idempotency_key'] ?? null ) ? trim( (string) $body['idempotency_key'] ) : '';
 		$transient = '' !== $key ? 'bn_awh_' . md5( $user_id . '|' . $action . '|' . $key ) : '';
 
+		// What the request asks for, apart from the key itself and anything a tool
+		// adds per attempt. The same key with the same ask is a retry; the same key
+		// with a different ask is a mapping mistake in the sender and is refused,
+		// where it used to be answered as a retry and the new ask dropped.
+		$ask = md5( (string) wp_json_encode( array_intersect_key( $body, array_flip( array( 'role', 'ability', 'expires_at', 'lifetime', 'amount', 'source' ) ) ) ) );
+
 		if ( '' !== $transient ) {
 			$earlier = get_transient( $transient );
 			if ( is_array( $earlier ) ) {
+				if ( ( $earlier['_ask'] ?? $ask ) !== $ask ) {
+					return new WP_Error(
+						'idempotency_conflict',
+						__( 'This "idempotency_key" was already used for a different request for this member. Use a new key for a new request.', 'buddynext' ),
+						array( 'status' => 409 )
+					);
+				}
+				unset( $earlier['_ask'] );
 				$earlier['replayed'] = true;
 
 				return $earlier;
@@ -246,7 +260,7 @@ class AccessWebhookController {
 		$response = (array) apply_filters( 'buddynext_access_webhook_response', $response, $action, $user_id, $body );
 
 		if ( '' !== $transient ) {
-			set_transient( $transient, $response, self::IDEMPOTENCY_TTL );
+			set_transient( $transient, $response + array( '_ask' => $ask ), self::IDEMPOTENCY_TTL );
 		}
 
 		return $response;

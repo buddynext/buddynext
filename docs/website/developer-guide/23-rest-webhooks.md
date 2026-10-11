@@ -163,7 +163,7 @@ add_filter( 'buddynext_access_webhook_actions', fn( array $actions ) => array( '
 
 ### Retries: `idempotency_key`
 
-Send an `idempotency_key` (the payment or order id is a good one) with any action. A second request for the same member and action with the same key within 24 hours changes nothing and returns the first answer with `"replayed": true`. Without a key, a tool that retries a request signs it again and `add_credits` is applied twice.
+Send an `idempotency_key` (the payment or order id is a good one) with any action. A second request for the same member and action with the same key within 24 hours changes nothing and returns the first answer with `"replayed": true`. The same key with a different request (another amount, ability, role or date) is a mistake in the sender and answers 409 `idempotency_conflict`. Without a key, a tool that retries a request signs it again and `add_credits` is applied twice.
 
 ### Plans (BuddyNext Pro)
 

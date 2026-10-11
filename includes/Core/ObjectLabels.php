@@ -138,11 +138,38 @@ final class ObjectLabels {
 			return (bool) get_userdata( $object_id );
 		}
 
+		$key = $object_type . ':' . $object_id;
+
 		if ( ! isset( self::OWNED[ $object_type ] ) ) {
-			return null;
+			if ( array_key_exists( $key, self::$exists ) ) {
+				return ! empty( self::$exists[ $key ] );
+			}
+
+			/**
+			 * Lets the plugin that owns an object type say whether one exists.
+			 *
+			 * BuddyNext can only vouch for its own types. A partner that owns
+			 * another (WPMediaVerse: 'message', 'media') answers here so a report,
+			 * reaction or comment aimed at an id that does not exist is refused
+			 * instead of writing a row about nothing. Leave it null when the type
+			 * is not yours: "cannot tell" must not be read as "gone".
+			 *
+			 * @since 1.2.5
+			 *
+			 * @param bool|null $exists      Null when nobody has answered.
+			 * @param string    $object_type Object type slug.
+			 * @param int       $object_id   Object id.
+			 */
+			$answer = apply_filters( 'buddynext_object_exists', null, $object_type, $object_id );
+			if ( null === $answer ) {
+				return null;
+			}
+
+			self::$exists[ $key ] = (bool) $answer;
+
+			return (bool) $answer;
 		}
 
-		$key = $object_type . ':' . $object_id;
 		if ( ! array_key_exists( $key, self::$exists ) ) {
 			self::prime( array( array( $object_type, $object_id ) ) );
 		}

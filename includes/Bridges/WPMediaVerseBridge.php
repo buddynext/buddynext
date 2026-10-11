@@ -157,6 +157,10 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
+		// Answer for the two object types WPMediaVerse owns, so a report, reaction
+		// or comment on a message or media id that does not exist is refused.
+		add_filter( 'buddynext_object_exists', array( $this, 'object_exists' ), 10, 3 );
+
 		// Media reactions and mentions reach the bell through WPMediaVerse's own
 		// notification contract (IntegrationNotificationListener), not from here.
 
@@ -628,6 +632,33 @@ class WPMediaVerseBridge {
 		$args['link_preview'] = $link;
 
 		return $args;
+	}
+
+	/**
+	 * Whether a message or media item exists in WPMediaVerse.
+	 *
+	 * @param bool|null $exists      Earlier answer, or null.
+	 * @param string    $object_type Object type slug.
+	 * @param int       $object_id   Object id.
+	 * @return bool|null Null for any other type, or when WPMediaVerse is not active.
+	 */
+	public function object_exists( $exists, string $object_type, int $object_id ) {
+		if ( ! in_array( $object_type, array( 'message', 'media' ), true ) || ! MediaClient::available() ) {
+			return $exists;
+		}
+
+		if ( 'message' === $object_type ) {
+			global $wpdb;
+			$found = array() !== ( new \BuddyNext\Moderation\ModerationService() )->get_message_sender_ids( array( $object_id ) );
+
+			// A lookup that failed has not shown the message is gone.
+			return ( $found || '' === (string) $wpdb->last_error ) ? $found : $exists;
+		}
+
+		// A media id is a row in the media index, not a post; an id with no owner is no media.
+		$repo = MediaClient::repo();
+
+		return is_object( $repo ) ? (int) $repo->get( $object_id, 'post_author' ) > 0 : $exists;
 	}
 
 	/**
