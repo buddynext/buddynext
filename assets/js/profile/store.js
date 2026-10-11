@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 
@@ -1622,6 +1622,46 @@ const profileStore = store( 'buddynext/profile', {
 
 		/* Per-field autosave kept for backwards compatibility (used by sliders / toggles). */
 		autosave() { doAutoSave( getContext() ); },
+
+		/* Edit cover / Edit avatar on the profile itself: open the file picker from
+		 * this click and upload straight away. A browser only opens a picker from a
+		 * click on the same page, so the link to the edit page could never do it and
+		 * the member had to click twice. A modified click keeps the link, which is
+		 * also where a cover is repositioned and an avatar cropped. */
+		pickPhoto( event ) {
+			if ( event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ) { return; }
+			var link = event.target.closest( '[data-bn-photo]' );
+			if ( ! link || link.getAttribute( 'aria-busy' ) === 'true' ) { return; }
+			event.preventDefault();
+
+			var kind  = 'cover' === link.dataset.bnPhoto ? 'cover' : 'avatar';
+			var nonce = getContext().restNonce;
+			var input = document.createElement( 'input' );
+			input.type   = 'file';
+			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			input.addEventListener( 'change', function () {
+				var file = input.files && input.files[ 0 ];
+				if ( ! file ) { return; }
+				var fd = new FormData();
+				fd.append( 'avatar', file ); // Both endpoints read the file from this field.
+				link.setAttribute( 'aria-busy', 'true' );
+				restFetch( '/me/' + kind, { method: 'POST', nonce: nonce, body: fd, toastOnError: false } )
+					.then( function ( res ) {
+						if ( res.ok ) {
+							bnReloadWithToast( t( 'photoUpdated', 'Photo updated.' ), { tone: 'success' } );
+							return;
+						}
+						link.removeAttribute( 'aria-busy' );
+						var fallback = 'cover' === kind ? t( 'coverSaveFailed', 'Cover could not be saved' ) : t( 'avatarSaveFailed', 'Avatar could not be saved' );
+						bnToast( ( res.data && res.data.message ) || fallback, { tone: 'danger' } );
+					} )
+					.catch( function () {
+						link.removeAttribute( 'aria-busy' );
+						bnToast( 'cover' === kind ? t( 'coverSaveFailed', 'Cover could not be saved' ) : t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
+					} );
+			} );
+			input.click();
+		},
 
 		/* Slug availability check - debounced 400 ms. */
 		checkSlug() {

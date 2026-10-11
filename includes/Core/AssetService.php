@@ -1660,6 +1660,7 @@ class AssetService {
 					'thisField'                        => __( 'This field', 'buddynext' ),
 					'avatarSaveFailed'                 => __( 'Avatar could not be saved', 'buddynext' ),
 					'coverSaveFailed'                  => __( 'Cover could not be saved', 'buddynext' ),
+					'photoUpdated'                     => __( 'Photo updated.', 'buddynext' ),
 					'profileSaved'                     => __( 'Profile saved', 'buddynext' ),
 					'fieldsNeedAttention'              => __( 'Some fields need attention', 'buddynext' ),
 					'saveFailed'                       => __( 'Could not save. Try again.', 'buddynext' ),

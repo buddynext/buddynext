@@ -618,7 +618,7 @@ class WPMediaVerseBridge {
 		}
 
 		if ( method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
-			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large', get_current_user_id() );
+			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, \BuddyNext\Media\MediaUrlResolver::image_variant(), get_current_user_id() );
 			if ( '' !== $thumb ) {
 				$link['thumb'] = $thumb;
 				$link['image'] = $thumb;

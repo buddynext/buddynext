@@ -201,8 +201,11 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					style="<?php echo esc_attr( $bn_pf_img_style ); ?>" />
 			<?php endif; ?>
 			<?php if ( $bn_pf_is_owner && $bn_pf_can_edit_own ) : ?>
+				<?php // One click opens the file picker here (actions.pickPhoto); without the script, or with a modified click, the link still goes to the edit page, where a cover can also be repositioned. ?>
 				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#cover' ); ?>"
 					class="bn-pf-cover__edit"
+					data-bn-photo="cover"
+					data-wp-on--click="actions.pickPhoto"
 					aria-label="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
 					<?php buddynext_icon( 'edit' ); ?>
 					<span><?php esc_html_e( 'Edit cover', 'buddynext' ); ?></span>
@@ -235,6 +238,8 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				</span>
 				<?php if ( $bn_pf_is_owner && $bn_pf_can_edit_own ) : ?>
 					<a class="bn-pf-avatar-edit"
+						data-bn-photo="avatar"
+						data-wp-on--click="actions.pickPhoto"
 						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#avatar' ); ?>"
 						aria-label="<?php esc_attr_e( 'Edit avatar', 'buddynext' ); ?>"
 						title="<?php esc_attr_e( 'Edit avatar', 'buddynext' ); ?>">

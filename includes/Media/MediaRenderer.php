@@ -318,8 +318,10 @@ class MediaRenderer {
 		// on 2x displays, so offer the full original as the 2x source. Collage
 		// tiles are small enough that thumb_large is already crisp at 2x, so we
 		// skip the heavier 2x source there.
+		// A site that picked a smaller feed image (buddynext_feed_image_variant) did
+		// so to send less, so the full original is not offered behind its back.
 		$srcset = '';
-		if ( $hires && '' !== $raw_thumb && $full !== $img_src ) {
+		if ( $hires && '' !== $raw_thumb && $full !== $img_src && 'thumb_large' === MediaUrlResolver::image_variant() ) {
 			$srcset = ' srcset="' . $img_src . ' 1x, ' . $full . ' 2x"';
 		}
 
