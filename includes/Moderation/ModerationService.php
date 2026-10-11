@@ -2728,8 +2728,9 @@ class ModerationService {
 	 * Single source of truth for the profile "account standing" surface, shared by
 	 * the profile REST response and the server-rendered profile banner so they can
 	 * never drift. Discloses active strikes and an active suspension (reason +
-	 * expiry) to the profile OWNER (their own sanctions) and to a viewer who can
-	 * MODERATE; shadow-ban state is added for moderators ONLY (never the owner —
+	 * expiry) to the profile OWNER (their own sanctions) and to SITE STAFF - an
+	 * administrator or a site moderator, never someone who only moderates a space;
+	 * shadow-ban state is added for staff ONLY (never the owner —
 	 * revealing it would defeat the mechanism). Returns null for anyone else, and
 	 * for a clean owner profile (nothing to warn about), so a spotless account
 	 * shows no banner.
@@ -2740,8 +2741,11 @@ class ModerationService {
 	 */
 	public function account_status_for( int $profile_user_id, int $viewer_id ): ?array {
 		$is_self      = ( $viewer_id > 0 && $viewer_id === $profile_user_id );
-		$can_moderate = current_user_can( 'manage_options' )
-			|| ! empty( $this->get_moderated_space_ids( $viewer_id ) );
+		// Site staff only. Owning or moderating a space does not qualify: that
+		// viewer handles their own space's reports and has no business reading the
+		// record of a member who was never in it (owner decision 2026-10-11).
+		$can_moderate = $viewer_id > 0
+			&& ( user_can( $viewer_id, 'manage_options' ) || $this->is_site_moderator( $viewer_id ) );
 
 		// Privileged — regular members never receive it.
 		if ( ! $is_self && ! $can_moderate ) {
