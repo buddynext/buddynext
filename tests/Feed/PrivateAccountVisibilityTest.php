@@ -314,6 +314,11 @@ class PrivateAccountVisibilityTest extends \WP_UnitTestCase {
 		$this->follows->approve_follow_request( $this->author, $follower );
 		$this->follows->follow( $this->viewer, $this->author ); // Left pending.
 
+		if ( ! class_exists( '\\WPMediaVersePro\\Documents\\DocumentSettings' ) ) {
+			// Stand-in for MediaVerse Pro's document vocabulary (four levels).
+			eval( 'namespace WPMediaVersePro\\Documents; class DocumentSettings { public static function is_valid_privacy( string $p ): bool { return in_array( $p, array( "private", "space", "members", "public" ), true ); } }' ); // phpcs:ignore Squiz.PHP.Eval.Discouraged -- test double for an absent plugin.
+		}
+
 		$bridge = new \BuddyNext\Bridges\WPMediaVerseBridge();
 		$ask    = fn( int $viewer, int $doc = 4401 ): bool => $bridge->document_readable_via_post( false, $doc, $viewer, $this->author );
 
@@ -321,6 +326,7 @@ class PrivateAccountVisibilityTest extends \WP_UnitTestCase {
 		$this->assertFalse( $ask( $this->viewer ), 'Pending request.' );
 		$this->assertFalse( $ask( self::factory()->user->create() ), 'Stranger.' );
 		$this->assertFalse( $ask( $follower, 4402 ), 'A document that is on no post.' );
+		$this->assertFalse( $bridge->document_readable_via_post( false, 4401, 0, $this->author ), 'Logged-out visitor.' );
 
 		$this->posts->delete( (int) $post_id, $this->author );
 		$this->assertFalse( $ask( $follower ), 'The post is gone, so is the way in.' );

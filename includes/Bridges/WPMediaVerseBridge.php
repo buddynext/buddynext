@@ -1418,7 +1418,13 @@ class WPMediaVerseBridge {
 			return true;
 		}
 
+		// Signed-in viewers only, and only when the document vocabulary can be
+		// asked: without it there is no telling which posts this is for.
 		$valid = array( '\\WPMediaVersePro\\Documents\\DocumentSettings', 'is_valid_privacy' );
+		if ( (int) $user_id <= 0 || ! is_callable( $valid ) ) {
+			return false;
+		}
+
 		$posts = buddynext_service( 'post_service' );
 		foreach ( $posts->document_posts( (int) $author_id, (int) $media_id ) as $post ) {
 			if ( $post['space_id'] > 0 ) {
@@ -1426,7 +1432,7 @@ class WPMediaVerseBridge {
 			}
 
 			$level = self::media_privacy_for_post( $post['privacy'], 0, (int) $author_id );
-			if ( 'private' === $level || ( is_callable( $valid ) && call_user_func( $valid, $level ) ) ) {
+			if ( 'private' === $level || call_user_func( $valid, $level ) ) {
 				continue; // Only me, or a level the document carries itself.
 			}
 
