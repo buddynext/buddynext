@@ -924,11 +924,34 @@ class WPMediaVerseBridge {
 				continue;
 			}
 
-			// The file is not at the level its post asks for. Logged, because a file
-			// readable by more people than its post is the thing this method exists
-			// to prevent and an owner must be able to find it.
+			// MediaVerse did not put the file at the level its post asks for. This
+			// method exists to keep a file from being readable by more people than
+			// its post, so it fails CLOSED: when what is stored is wider than the
+			// target, the level is written straight to the repository. The value
+			// can only be narrower than what is there, so it cannot open anything.
+			$repo     = MediaClient::repo();
+			$more     = array( '\\WPMediaVerse\\Services\\PrivacyService', 'more_restrictive' );
+			$readable = is_object( $repo ) && method_exists( $repo, 'get' );
+			$current  = $readable ? (string) $repo->get( $media_id, 'privacy' ) : '';
+			$repaired = false;
+			if ( $readable && method_exists( $repo, 'set_many' ) && is_callable( $more )
+				&& ( '' === $current || (string) call_user_func( $more, $current, $target ) !== $current )
+			) {
+				$repo->set_many( $media_id, array( 'privacy' => $target ) );
+				$repaired = (string) $repo->get( $media_id, 'privacy' ) === $target;
+			}
+
+			// Logged either way: an owner should be able to find a privacy write
+			// that needed the fallback, and one that could not be repaired at all.
 			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-				sprintf( 'BuddyNext: media #%d could not be set to "%s" for post #%d (it is "%s") - MEDIA MAY STILL BE READABLE', $media_id, $target, $post_id, $stored )
+				sprintf(
+					'BuddyNext: media #%d was not set to "%s" for post #%d by MediaVerse (it was "%s")%s',
+					$media_id,
+					$target,
+					$post_id,
+					$current,
+					$repaired ? ' - applied directly instead' : ' - MEDIA MAY STILL BE READABLE'
+				)
 			);
 		}
 	}

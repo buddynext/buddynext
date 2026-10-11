@@ -915,7 +915,24 @@ class MediaController extends BaseRestController {
 		// else does. It used to be stamped `private`, which also keeps it from a
 		// logged-out stranger but hides it from the space's own members wherever
 		// the album rule does not carry it.
+		//
+		// Only the caller's own media. The ids come from the request, and this
+		// moves the file to the space drive and opens it to the space: applied to
+		// somebody else's id it would hand their private photo to this space.
+		// MediaVerse's add_items() keeps the same rule (a member adds their own
+		// media; a media manager may add anyone's), so an id skipped here was
+		// not added to the album either.
+		$repo      = MediaClient::repo();
+		$actor_id  = get_current_user_id();
+		$any_owner = $actor_id > 0 && user_can( $actor_id, 'edit_others_mvs_medias' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- MediaVerse's own capability, the one its add_items() checks.
+		if ( ! is_object( $repo ) || ! method_exists( $repo, 'get' ) || $actor_id <= 0 ) {
+			return;
+		}
+
 		foreach ( $media_ids as $media_id ) {
+			if ( ! $any_owner && (int) $repo->get( (int) $media_id, 'post_author' ) !== $actor_id ) {
+				continue;
+			}
 			\BuddyNext\Bridges\WPMediaVerseBridge::apply_media_privacy( (int) $media_id, 'space', $space_id );
 		}
 	}
