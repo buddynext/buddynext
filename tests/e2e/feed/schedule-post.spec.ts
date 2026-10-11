@@ -112,8 +112,9 @@ test.describe('feed / composer schedule', () => {
                     `if ( ! class_exists( '\\\\BuddyNextPro\\\\Membership\\\\MembershipTierService' ) ) { echo 0; exit; }` +
                         ` $svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                         ` $existing = $svc->get_tier_by_slug( '${TIER_SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                        ` echo (int) $svc->create_tier( '${TIER_SLUG}', 'E2E Schedule Post Plan', '', 0, array(` +
-                        `   'status' => 'active', 'price' => 1.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
+                        ` echo (int) $svc->create_tier( '${TIER_SLUG}', 'E2E Schedule Post Plan', '', 99, array(` +
+                        // effective_subscription() ranks paid over free and dearer over cheaper: this plan must outrank every other active plan the member holds.
+                        `   'status' => 'active', 'price' => 999.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
                         `   'entitlements' => array( 'content.scheduled_posts' => true )` +
                         ` ) );`,
                 ]).catch(() => '0')
@@ -121,9 +122,10 @@ test.describe('feed / composer schedule', () => {
             if (tierId > 0) {
                 await wp([
                     'eval',
-                    `$sub = new \\BuddyNextPro\\Membership\\SubscriptionService();` +
-                        ` $exp = gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS );` +
-                        ` $sub->create_subscription( ${memberId}, ${tierId}, 'manual', $exp, '', 'active' );` +
+                    // Grant through the admin REST route, the one data path the admin screen,
+                    // the functional suite and this journey all share.
+                    `wp_set_current_user( 1 ); $r = new WP_REST_Request( 'POST', '/buddynext-pro/v1/users/${memberId}/subscriptions' );` +
+                        ` $r->set_body_params( array( 'tier_id' => ${tierId} ) ); $x = rest_do_request( $r ); echo $x->get_status();` +
                         ` \\BuddyNextPro\\Membership\\MembershipCapabilities::flush();`,
                 ]);
             }

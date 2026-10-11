@@ -1,4 +1,5 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { endActiveAnnouncements } from '../_fixtures/wp';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
 import {
@@ -52,6 +53,8 @@ test.describe('feed / dismiss announcement', () => {
         const content = `j550 site announcement ${stamp}`;
 
         try {
+            // One site announcement is active at a time; retire the model site's own first.
+            await endActiveAnnouncements();
             // Admin (varundubey) seeds a site-wide announcement.
             await page.goto(urls.feed);
             await expect(page.locator(sel.composer).first()).toBeVisible();

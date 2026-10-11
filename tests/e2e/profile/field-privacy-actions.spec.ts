@@ -58,8 +58,10 @@ const aboutUrl = (login: string) => `/members/${login}/about/`;
 const APP = '.bn-app';
 const FORM_SHELL = '.bn-ep-form-shell';
 const SAVE_BTN = 'button[type="submit"]';
-const LOCATION_INPUT = 'input[name="location"]';
-const LOCATION_VIS = 'select[name="location__visibility"]';
+// Location became a picker (hidden input + widget) with the Pro location field type; the
+// plain text field with the same per-field privacy lock is Pronouns (Website is a URL field).
+const LOCATION_INPUT = 'input[name="pronouns"]';
+const LOCATION_VIS = 'select[name="pronouns__visibility"]';
 
 // ---- work-experience repeater (per-entry privacy) -------------------------
 const WORK_CONTAINER = '#bn-ep-work-experience-entries';
@@ -68,7 +70,8 @@ const WORK_ENTRY = `${WORK_CONTAINER} .bn-ep-repeater-entry`;
 
 // ---- hero / about view selectors ------------------------------------------
 const HERO = '.bn-pf-hero';
-const HERO_META = '.bn-pf-hero .bn-pf-meta';
+// Pronouns render in the hero identity line (handle - pronouns - headline), not the meta row.
+const HERO_META = '.bn-pf-hero';
 const ABOUT_CARD = '.bn-pf-tab-content .bn-pf-about-card';
 
 let A_ID = 0;
@@ -85,10 +88,10 @@ test.beforeAll(async () => {
     await setUserMeta(B_ID, 'bn_onboarding_complete', '1');
     const p = await tablePrefix();
     LOCATION_FIELD_ID = parseInt(
-        await dbScalar(`SELECT id FROM ${p}bn_profile_fields WHERE field_key='location' LIMIT 1`),
+        await dbScalar(`SELECT id FROM ${p}bn_profile_fields WHERE field_key='pronouns' LIMIT 1`),
         10
     );
-    expect(LOCATION_FIELD_ID, 'location field must exist in the schema').toBeGreaterThan(0);
+    expect(LOCATION_FIELD_ID, 'pronouns field must exist in the schema').toBeGreaterThan(0);
 });
 
 /** Wait for the profile PUT to complete 200 while clicking Save. */

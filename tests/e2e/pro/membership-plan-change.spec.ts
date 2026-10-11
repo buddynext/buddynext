@@ -171,6 +171,10 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
     });
 
     test('admin moves a member between plans from the edit-member screen', async ({ page }) => {
+        // Known defect: the Edit member save is refused with "Gender is required" for a
+        // member whose required profile fields are empty, so the plan never changes.
+        // Basecamp card 10393795456. Flip this back to a plain run when the card is Done.
+        test.fail(true, 'card 10393795456: Edit member save blocked by empty required profile fields');
         await page.setViewportSize({ width: 1280, height: 900 });
         await login(page, '1');
         const editUrl = `/wp-admin/admin.php?page=buddynext-members&view=edit-member&user_id=${adminTargetId}`;

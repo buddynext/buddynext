@@ -54,14 +54,16 @@ test.describe('feed / pin + unpin', () => {
         const body = `j505 pin-me ${stamp}`;
 
         try {
-            await page.goto(urls.member(OWNER));
+            // The composer lives on the activity hub; the profile only lists posts.
+            await page.goto(urls.feed);
             await expect(page.locator(sel.composer).first()).toBeVisible();
             nonce = await readRestNonce(page);
             await page.locator(sel.composerTextarea).first().fill(body);
             await page.locator(sel.composerSubmit).first().click();
             await expect(cardWith(page, body)).toBeVisible({ timeout: 10_000 });
 
-            // Reload so the card head + kebab are server-rendered and hydrated.
+            // Pinning is a profile-context action: open the profile so the card head + kebab
+            // are server-rendered there and hydrated.
             await page.goto(urls.member(OWNER));
             await expect(cardWith(page, body)).toBeVisible({ timeout: 10_000 });
             createdId = await postIdOfCard(page, body);

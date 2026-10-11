@@ -95,17 +95,23 @@ test.describe('spaces / directory', () => {
             softSkip(testInfo, 'Spaces search not exposed.');
             return;
         }
-        const before = await page.locator(sel.spaceCard).count();
-        await search.fill('test');
-        // A search that changes nothing is not evidence the search works. Assert
-        // the list actually settles into a filtered state — either the count
-        // changed, or the directory says it found nothing. Polling for ">= 0"
-        // asserted only that the page still existed.
-        await expect.poll(async () => {
-            const now = await page.locator(sel.spaceCard).count();
-            const empty = await page.locator(sel.spaceDirectoryEmpty).isVisible().catch(() => false);
-            return now !== before || empty;
-        }, { timeout: 5_000 }).toBeTruthy();
+        // Search for a space that only this run knows about: the one card that comes back
+        // must be it. Searching a word like "test" on a seeded site matched everything and
+        // proved nothing.
+        const stamp = Date.now().toString().slice(-8);
+        const needle = `Needle${stamp}`;
+        const space = await createSpaceApi(page, { name: `E2E ${needle} space`, type: 'open' });
+        try {
+            await page.goto(urls.spaces);
+            const box = page.locator(sel.spaceSearch).first();
+            await box.fill(needle);
+            // The filter strip is a form: the search applies on Enter (server round trip).
+            await Promise.all([page.waitForLoadState('domcontentloaded'), box.press('Enter')]);
+            await expect(page.locator(sel.spaceCard).filter({ hasText: needle }).first()).toBeVisible({ timeout: 10_000 });
+            await expect.poll(async () => page.locator(sel.spaceCard).count(), { timeout: 5_000 }).toBe(1);
+        } finally {
+            await deleteSpaceApi(page, space.id);
+        }
     });
 
     test('J-38 member: filtering the directory by category shows only that category\'s space', async ({

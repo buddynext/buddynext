@@ -2,7 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
-import { wp } from '../_fixtures/wp';
+import { drainQueue } from '../_fixtures/wp';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -48,7 +48,7 @@ test.describe('feed / composer hashtag', () => {
             // Hashtag extraction runs on the `buddynext_async_index_hashtags` hook,
             // queued through Action Scheduler on create. Drain that group so the tag
             // is linked before we look — otherwise the assertion races the queue.
-            await wp(['action-scheduler', 'run', '--group=buddynext']).catch(() => '');
+            await drainQueue(['buddynext_async_index_hashtags', 'buddynext_async_index_post']);
 
             // The tag page is a fresh server render of every public post carrying
             // the tag. The post I just wrote must be one of them.
@@ -87,7 +87,7 @@ test.describe('feed / composer hashtag', () => {
             postId = await postIdOfCard(page, content);
             expect(postId, 'resolved server post id').toBeGreaterThan(0);
 
-            await wp(['action-scheduler', 'run', '--group=buddynext']).catch(() => '');
+            await drainQueue(['buddynext_async_index_hashtags', 'buddynext_async_index_post']);
 
             await page.goto(urls.hashtag(tag), { waitUntil: 'domcontentloaded' });
             await expect(
