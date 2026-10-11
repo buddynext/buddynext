@@ -358,7 +358,7 @@ final class ProfileNav {
 		if ( empty( $feed['private'] ) && null === $cursor ) {
 			$bn_pins = array_values(
 				array_filter(
-					(array) $feed_service->profile_pinned_posts( $c->subject_id, $c->viewer_id, 10 ),
+					(array) $feed_service->profile_pinned_posts( $c->subject_id, $c->viewer_id ),
 					'is_array'
 				)
 			);

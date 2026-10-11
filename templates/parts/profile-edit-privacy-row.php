@@ -106,6 +106,9 @@ if ( $bn_is_select ) :
 		<select class="bn-input"
 			id="<?php echo esc_attr( $bn_input_id ); ?>"
 			name="<?php echo esc_attr( $bn_key ); ?>"
+			<?php if ( '' !== (string) $args['description'] ) : ?>
+			aria-describedby="<?php echo esc_attr( $bn_input_id ); ?>-desc"
+			<?php endif; ?>
 			data-wp-on--change="actions.savePrivacyField">
 			<?php foreach ( (array) $args['options'] as $bn_opt_key => $bn_opt_label ) : ?>
 				<option value="<?php echo esc_attr( (string) $bn_opt_key ); ?>" <?php selected( $bn_value, (string) $bn_opt_key ); ?>>
@@ -113,6 +116,11 @@ if ( $bn_is_select ) :
 				</option>
 			<?php endforeach; ?>
 		</select>
+		<?php if ( '' !== (string) $args['description'] ) : ?>
+			<div class="bn-toggle-row__desc" id="<?php echo esc_attr( $bn_input_id ); ?>-desc">
+				<?php echo esc_html( (string) $args['description'] ); ?>
+			</div>
+		<?php endif; ?>
 	</div>
 	<?php
 else :

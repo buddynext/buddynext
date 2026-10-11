@@ -1808,12 +1808,23 @@ class FeedService {
 		// rather than by status, which is why the omission never showed up there.
 		// (Basecamp 10239861865 — found while building the Pending tab, which is
 		// where a held post is supposed to be visible, and only to its author.)
+		//
+		// Pins: only the ones actually shown above the list are left out of it.
+		// Leaving out every pinned post made any pin beyond the shown ones appear
+		// in neither place (card 10392935152). A member who holds more pins than
+		// the top section shows, from before the ceiling, keeps them here by date.
+		$shown_pins = array_map(
+			static fn( array $pin ): int => (int) $pin['id'],
+			$this->profile_pinned_posts( $profile_user_id, $viewer_id )
+		);
+		$pins_where = $shown_pins ? 'AND id NOT IN ( ' . implode( ',', $shown_pins ) . ' )' : '';
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
 			   AND status = 'published'
-			   AND NOT ( is_pinned = 1 AND space_id IS NULL )
+			   {$pins_where}
 			   {$privacy_clause}
 			   {$space_where}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
@@ -1883,9 +1894,13 @@ class FeedService {
 	 * The profile owner's own pinned posts, hydrated and newest-first.
 	 *
 	 * Pinning is profile-only: a member pins their own posts to the top of their
-	 * profile (is_pinned = 1 AND space_id IS NULL). Those rows are excluded from
-	 * profile_feed_uncached()'s chronological query, so pins live in exactly one
-	 * place and never double up or reappear on load-more.
+	 * profile (is_pinned = 1 AND space_id IS NULL). The rows returned here are
+	 * excluded from profile_feed_uncached()'s chronological query, so a shown pin
+	 * lives in exactly one place and never doubles up or reappears on load-more.
+	 *
+	 * At most PostService::PIN_CEILING are shown. Pinned posts are an introduction,
+	 * not a wall: a profile has to get to what the member posted lately (owner
+	 * decision 2026-10-11).
 	 *
 	 * This list is viewer-scoped: it applies the SAME privacy and block/mute gate
 	 * as profile_feed() so a followers-only post pinned
@@ -1899,15 +1914,15 @@ class FeedService {
 	 *
 	 * @param int $profile_user_id Profile owner.
 	 * @param int $viewer_id       Viewing user ID.
-	 * @param int $limit           Maximum pins to return (clamped 1-10).
+	 * @param int $limit           Maximum pins to return (clamped to the pin ceiling).
 	 * @return array<int,array<string,mixed>> Hydrated pinned post rows, newest first.
 	 */
-	public function profile_pinned_posts( int $profile_user_id, int $viewer_id, int $limit = 10 ): array {
+	public function profile_pinned_posts( int $profile_user_id, int $viewer_id, int $limit = PostService::PIN_CEILING ): array {
 		if ( $profile_user_id <= 0 ) {
 			return array();
 		}
 
-		$limit = max( 1, min( $limit, 10 ) );
+		$limit = max( 1, min( $limit, PostService::PIN_CEILING ) );
 
 		// Same additive audience as the profile feed — a pinned 'connections' post
 		// must be visible to the author's connections, not hidden from the very

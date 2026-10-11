@@ -38,10 +38,17 @@ class WidgetService {
 	}
 
 	/**
-	 * Top N trending hashtags by post count.
+	 * The hashtags most used over the last week, for the Trending Topics card.
+	 *
+	 * Ranked by posts in the window (HashtagService::get_trending()), not by the
+	 * all-time total: the card is captioned "This week", and an all-time ranking
+	 * kept a tag that was busy a year ago at the top for good. A tag with no
+	 * publicly listed post is left out, and the number shown is that public
+	 * count. An empty result hides the card, which is the honest answer for a
+	 * week in which nothing was tagged.
 	 *
 	 * @param int $limit Max rows.
-	 * @return array<int,object>
+	 * @return array<int,object> Rows with slug and post_count.
 	 */
 	public function trending_hashtags( int $limit = 5 ): array {
 		// Respect the Hashtags feature: when the owner turns it off the trending
@@ -57,16 +64,33 @@ class WidgetService {
 			WidgetCache::GROUP_GLOBAL,
 			WidgetCache::TTL_TRENDING,
 			static function () use ( $limit ): array {
-				global $wpdb;
-				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$rows = $wpdb->get_results(
-					$wpdb->prepare(
-						'SELECT slug, post_count FROM ' . $wpdb->prefix . 'bn_hashtags ORDER BY post_count DESC LIMIT %d',
-						$limit
-					)
-				);
-				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				return is_array( $rows ) ? $rows : array();
+				/**
+				 * How far back the Trending Topics card looks, in hours.
+				 *
+				 * A slower community can widen it (720 is thirty days).
+				 *
+				 * @since 1.2.5
+				 *
+				 * @param int $hours Window in hours. Default 168 (seven days).
+				 */
+				$hours = (int) apply_filters( 'buddynext_trending_topics_hours', 168 );
+
+				$rows = array();
+				// Ask for a few extra so tags with no public post can be dropped.
+				foreach ( buddynext_service( 'hashtags' )->get_trending( $limit * 2, $hours ) as $tag ) {
+					if ( (int) ( $tag['post_count'] ?? 0 ) <= 0 ) {
+						continue;
+					}
+					$rows[] = (object) array(
+						'slug'       => (string) $tag['slug'],
+						'post_count' => (int) $tag['post_count'],
+					);
+					if ( count( $rows ) >= $limit ) {
+						break;
+					}
+				}
+
+				return $rows;
 			}
 		);
 	}

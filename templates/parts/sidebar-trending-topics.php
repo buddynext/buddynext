@@ -10,7 +10,7 @@
  *
  * @package BuddyNext
  *
- * @var array<int,object> $sbar_trending Rows from WidgetService::trending_hashtags(). Empty renders the empty state.
+ * @var array<int,object> $sbar_trending Rows from WidgetService::trending_hashtags(). Empty renders nothing.
  */
 
 declare( strict_types=1 );
@@ -18,6 +18,11 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $sbar_trending = isset( $sbar_trending ) ? (array) $sbar_trending : array();
+
+// Nothing was tagged in the window: no card, on every sidebar that uses this.
+if ( empty( $sbar_trending ) ) {
+	return;
+}
 ?>
 <div class="bn-sidebar-card">
 	<div class="bn-sidebar-card__header">
@@ -25,7 +30,6 @@ $sbar_trending = isset( $sbar_trending ) ? (array) $sbar_trending : array();
 		<span class="bn-sidebar-card__caption"><?php esc_html_e( 'This week', 'buddynext' ); ?></span>
 	</div>
 	<div class="bn-sidebar-card__body">
-		<?php if ( ! empty( $sbar_trending ) ) : ?>
 			<?php foreach ( $sbar_trending as $sbar_tag ) : ?>
 				<div class="bn-sbar-row">
 					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( (string) $sbar_tag->slug ) ); ?>"
@@ -44,10 +48,5 @@ $sbar_trending = isset( $sbar_trending ) ? (array) $sbar_trending : array();
 					</span>
 				</div>
 			<?php endforeach; ?>
-		<?php else : ?>
-			<p class="bn-sidebar-card__empty">
-				<?php esc_html_e( 'No trending topics yet.', 'buddynext' ); ?>
-			</p>
-		<?php endif; ?>
 	</div>
 </div>

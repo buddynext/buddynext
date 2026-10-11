@@ -975,7 +975,7 @@ class FeedController extends BaseRestController {
 		if ( null === $cursor && empty( $result['private'] ) ) {
 			$bn_pins = array_values(
 				array_filter(
-					(array) $this->feed_service()->profile_pinned_posts( $profile_user_id, $viewer_id, 10 ),
+					(array) $this->feed_service()->profile_pinned_posts( $profile_user_id, $viewer_id ),
 					'is_array'
 				)
 			);

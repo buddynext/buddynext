@@ -205,6 +205,11 @@ class PostService {
 	public const LINK_META_HOOK = 'buddynext_async_fetch_link_meta';
 
 	/**
+	 * The most posts a member can pin to the top of their profile, on any plan.
+	 */
+	public const PIN_CEILING = 3;
+
+	/**
 	 * The valid members of the bn_posts.privacy ENUM.
 	 *
 	 * ONE source for the whitelist that guards every write and read of a post's
@@ -3470,6 +3475,11 @@ class PostService {
 		// $space_id is always null now (pinning is profile-only); passed for the
 		// filter's stable 3-arg signature so Pro can still raise a member's cap.
 		$pin_limit = (int) apply_filters( 'buddynext_post_pin_limit', 1, null, $user_id );
+
+		// One ceiling for everyone, whatever a plan or a filter asks for. 0 used to
+		// mean unlimited (and administrators had no limit), and a profile then
+		// opened on a wall of pinned posts with the recent ones out of sight.
+		$pin_limit = $pin_limit > 0 ? min( $pin_limit, self::PIN_CEILING ) : self::PIN_CEILING;
 
 		if ( $pin_limit > 0 ) {
 			// Count only PUBLISHED profile pins this author already holds, excluding

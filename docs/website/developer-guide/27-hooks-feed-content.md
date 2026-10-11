@@ -148,6 +148,7 @@ Narrower hooks around announcements, members-only posts, the feed templates, and
 | `buddynext_image_deleted` | action | Just before an owner's image folder is removed, so a CDN integration can purge its remote copies. | `string $kind, string $owner, int $id, string $dir` |
 | `buddynext_stored_image_url` | filter | The public URL of a stored avatar or cover is resolved. Rewrite it onto a CDN host here. | `string $url, string $kind, string $owner, int $id` |
 | `buddynext_replaced_image_grace` | filter | An avatar or cover is being replaced. Sets how long the old file stays on disk (so pages held in a page cache still show an image) before it is removed. Return `0` to remove it at once. | `int $seconds, string $kind, string $owner, int $id` (default one day) |
+| `buddynext_trending_topics_hours` | filter | The Trending Topics sidebar card is being built. Sets how far back it looks; a slower community can widen it. | `int $hours` (default `168`, seven days) |
 | `buddynext_announce_space_album_upload` | filter | Photos are added to a space album. Return `false` to stop the upload posting an activity card to that space. | `bool $announce, int $space_id, int $album_id` |
 | `buddynext_media_max_bytes` | filter | The composer and Media tab compute the upload ceiling they offer (the lower of the MediaVerse limit and the server limit). | `int $max_bytes, int $user_id` |
 
