@@ -442,7 +442,8 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 											</p>
 										<?php endif; ?>
 									<?php else : ?>
-										<span class="bn-prefs-row__no-email"><?php esc_html_e( 'In-app only', 'buddynext' ); ?></span>
+										<?php // A type flagged always_emailed is sent as an account email whatever is chosen here, so saying "In-app only" would be untrue. ?>
+										<span class="bn-prefs-row__no-email"><?php echo esc_html( ! empty( $entry['always_emailed'] ) ? __( 'Always emailed', 'buddynext' ) : __( 'In-app only', 'buddynext' ) ); ?></span>
 									<?php endif; ?>
 								</div>
 							</div>
