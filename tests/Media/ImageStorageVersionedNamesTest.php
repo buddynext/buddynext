@@ -97,21 +97,42 @@ class ImageStorageVersionedNamesTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The previous file stays until the next change, then goes.
+	 * The previous file stays for the grace period, then goes.
 	 *
 	 * @return void
 	 */
-	public function test_one_previous_version_is_kept(): void {
+	public function test_the_previous_version_is_kept_for_the_grace_period_only(): void {
 		$first = $this->store_avatar();
 		sleep( 1 );
 		$second = $this->store_avatar();
 		$this->assertFileExists( $this->path_of( $first ), 'A page cached with the old URL still shows an image.' );
+		$args      = array( 'avatar', 'user', $this->owner );
+		$scheduled = function_exists( 'as_next_scheduled_action' )
+			? as_next_scheduled_action( ImageStorageService::PRUNE_HOOK, $args, 'buddynext' )
+			: wp_next_scheduled( ImageStorageService::PRUNE_HOOK, $args );
+		$this->assertNotFalse( $scheduled, 'Its removal is scheduled.' );
 
-		sleep( 1 );
-		$third = $this->store_avatar();
-		$this->assertFileDoesNotExist( $this->path_of( $first ), 'Two changes back is removed.' );
+		ImageStorageService::prune( 'avatar', 'user', $this->owner );
+
+		$this->assertFileDoesNotExist( $this->path_of( $first ), 'Gone once the grace period is over.' );
 		$this->assertFileExists( $this->path_of( $second ) );
-		$this->assertFileExists( $this->path_of( $third ) );
+		$this->assertSame( $second, $this->images->variation_url( 'avatar', 'user', $this->owner, 'full' ) );
+	}
+
+	/**
+	 * With no grace period the old file is removed on replace.
+	 *
+	 * @return void
+	 */
+	public function test_no_grace_period_removes_the_old_file_at_once(): void {
+		add_filter( 'buddynext_replaced_image_grace', '__return_zero' );
+		$first = $this->store_avatar();
+		sleep( 1 );
+		$second = $this->store_avatar();
+		remove_filter( 'buddynext_replaced_image_grace', '__return_zero' );
+
+		$this->assertFileDoesNotExist( $this->path_of( $first ) );
+		$this->assertFileExists( $this->path_of( $second ) );
 	}
 
 	/**

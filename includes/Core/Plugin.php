@@ -465,6 +465,7 @@ class Plugin {
 		// preview and the scrape runs here, off the member's request — see
 		// PostService::dispatch_link_meta() for why this one has no inline fallback.
 		\BuddyNext\Feed\PostService::register_async();
+		\BuddyNext\Media\ImageStorageService::register_async();
 
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();

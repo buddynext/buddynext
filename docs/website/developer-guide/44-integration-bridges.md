@@ -117,6 +117,12 @@ A reply's comment on the card follows the reply the same way: a new or approved 
 
 > **Note:** The privacy gate is strict. A private/secret space or a private topic never produces a public feed activity - only the search index entry, which respects its own visibility.
 
+> **Anonymous topics and replies are not mirrored.** A topic posted with Jetonomy's anonymous option gets no feed card and no search row, an anonymous or private reply is not copied to the card as a comment, and neither is listed on the author's profile or a hashtag page. A topic edited to anonymous has its card withdrawn. The space Discussions tab lists an anonymous topic as Anonymous. A daily check, run for an administrator in the dashboard, withdraws anything mirrored before the flag was set.
+
+> **Profile Discussions tab.** A member's profile lists their published, signed topics in public forums only. Topics in private or hidden forums stay inside the forum.
+
+> **Unverified authors.** A partner card is published even when its author has not verified their email, because the partner plugin has already published the content. Return `true` from `buddynext_partner_card_requires_verification` to hold it instead.
+
 ### Feed control
 
 Discussion cards follow the Integrations toggle (`buddynext_integration_enabled( 'jetonomy', 'feed' )`, on by default). When it is off, discussions are still indexed for search but no feed card is published. Per-discussion control is available through the `buddynext_jetonomy_discussion_activity` filter (return `false` to skip a specific post).

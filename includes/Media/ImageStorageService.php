@@ -29,10 +29,12 @@
  * rewrites the query string then served the old image for as long as its cache
  * lived, up to a year (card 10390900499).
  *
- * On replace the folder keeps the version it is replacing and removes anything
- * older, so a page held in a page cache still shows the previous image instead
- * of a broken one, and files never pile up. An image stored under the old fixed
- * name keeps resolving until it is next replaced; nothing is migrated.
+ * On replace the folder keeps the version it is replacing for a short grace
+ * period (a day by default), so a page held in a page cache still shows the
+ * previous image instead of a broken one. Then it is removed: a member who
+ * replaces a photo expects the old one to be gone, not reachable at its old
+ * address for as long as they keep the new one. An image stored under the old
+ * fixed name keeps resolving until it is next replaced; nothing is migrated.
  *
  * @package BuddyNext\Media
  */
@@ -47,6 +49,11 @@ use WP_Error;
  * Stores avatar/cover images in per-owner uploads folders as WebP variations.
  */
 class ImageStorageService {
+
+	/**
+	 * Job that removes a replaced image once its grace period is over.
+	 */
+	public const PRUNE_HOOK = 'buddynext_prune_replaced_image';
 
 	/**
 	 * Size variations generated per kind: variation name => longest edge (px).
@@ -92,8 +99,28 @@ class ImageStorageService {
 			return new WP_Error( 'bn_image_mkdir', __( 'Could not create the image directory.', 'buddynext' ) );
 		}
 
-		// Keep what is being replaced, drop what that itself replaced.
-		$this->purge_dir( $dir, $this->current_version( $dir ) );
+		/**
+		 * How long a replaced avatar or cover stays on disk, in seconds.
+		 *
+		 * The grace period exists for page caches: HTML cached before the change
+		 * still points at the old file. Return 0 to remove the old image at once.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param int    $seconds Grace period. Default one day.
+		 * @param string $kind    'avatar' | 'cover'.
+		 * @param string $owner   'user' | 'space'.
+		 * @param int    $id      Owner id.
+		 */
+		$grace = (int) apply_filters( 'buddynext_replaced_image_grace', DAY_IN_SECONDS, $kind, $owner, $id );
+
+		// Keep what is being replaced (for the grace period), drop what that itself
+		// replaced. With no grace period nothing is kept.
+		$previous = $grace > 0 ? $this->current_version( $dir ) : null;
+		$this->purge_dir( $dir, $previous );
+		if ( $grace > 0 && glob( trailingslashit( $dir ) . '*' ) ) {
+			self::schedule_prune( $grace, $kind, $owner, $id );
+		}
 
 		// Seconds in hex: sorts by name in the order it was written, and two
 		// saves in the same second simply overwrite each other.
@@ -153,6 +180,56 @@ class ImageStorageService {
 		 * @param int    $id    Owner id.
 		 */
 		return (string) apply_filters( 'buddynext_stored_image_url', $primary_url, $kind, $owner, $id );
+	}
+
+	/**
+	 * Wire the job that removes a replaced image. Called once from Plugin::init().
+	 *
+	 * @return void
+	 */
+	public static function register_async(): void {
+		add_action( self::PRUNE_HOOK, array( self::class, 'prune' ), 10, 3 );
+	}
+
+	/**
+	 * Queue the removal of an owner's replaced image.
+	 *
+	 * On a host with no Action Scheduler and no working cron the old file simply
+	 * stays until the image is next replaced, which is the behaviour without a
+	 * grace period at all - degraded, never broken.
+	 *
+	 * @param int    $delay Seconds from now.
+	 * @param string $kind  'avatar' | 'cover'.
+	 * @param string $owner 'user' | 'space'.
+	 * @param int    $id    Owner id.
+	 * @return void
+	 */
+	private static function schedule_prune( int $delay, string $kind, string $owner, int $id ): void {
+		$args = array( $kind, $owner, $id );
+
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			as_schedule_single_action( time() + $delay, self::PRUNE_HOOK, $args, 'buddynext' );
+			return;
+		}
+
+		wp_schedule_single_event( time() + $delay, self::PRUNE_HOOK, $args );
+	}
+
+	/**
+	 * Remove every version of an owner's image except the one in use.
+	 *
+	 * @param string $kind  'avatar' | 'cover'.
+	 * @param string $owner 'user' | 'space'.
+	 * @param int    $id    Owner id.
+	 * @return void
+	 */
+	public static function prune( string $kind, string $owner, int $id ): void {
+		$service = new self();
+		if ( ! isset( self::VARIATIONS[ $kind ] ) || ! in_array( $owner, array( 'user', 'space' ), true ) || $id <= 0 ) {
+			return;
+		}
+		$dir = $service->dir_for( $kind, $owner, $id );
+		$service->purge_dir( $dir, $service->current_version( $dir ) );
 	}
 
 	/**
