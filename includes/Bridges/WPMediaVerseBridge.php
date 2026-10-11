@@ -266,6 +266,11 @@ class WPMediaVerseBridge {
 		add_action( self::RESYNC_AUTHOR_HOOK, array( $this, 'resync_author_media' ), 10, 2 );
 
 		// MediaVerse's friends level is BuddyNext's connections.
+		// A document on a followers-only or connections-only post: MediaVerse has
+		// no document level for those crowds, so it asks whether the viewer may
+		// read the post the file is on.
+		add_filter( 'mvs_document_readable_via_post', array( $this, 'document_readable_via_post' ), 10, 4 );
+
 		add_filter( 'mvs_are_friends', array( $this, 'are_friends' ), 10, 3 );
 		add_filter( 'mvs_friend_ids', array( $this, 'friend_ids' ), 10, 2 );
 
@@ -1259,8 +1264,8 @@ class WPMediaVerseBridge {
 	 *   handing the file to a new crowd is not this method's call; hiding a file
 	 *   is recoverable, showing it to the wrong people is not.
 	 *
-	 * A level this does not know is treated as the widest, so it is always brought
-	 * in to the post's level.
+	 * A stored level this does not know is treated as the widest, so it is always
+	 * brought in to the post's level; an unknown post level stores `private`.
 	 *
 	 * @param string $current Stored media privacy.
 	 * @param string $target  The level the post asks for.
@@ -1283,6 +1288,12 @@ class WPMediaVerseBridge {
 
 			return $rings[ $level ] ?? -1;
 		};
+
+		// A post level this does not know cannot be reasoned about, so the file is
+		// kept to its owner rather than left wherever it was.
+		if ( $ring( $target ) < 0 ) {
+			return 'private' === $current ? '' : 'private';
+		}
 
 		if ( $current === $target || $ring( $current ) > $ring( $target ) ) {
 			return '';
@@ -1382,6 +1393,50 @@ class WPMediaVerseBridge {
 	 * Background job that resyncs one member's media after an account privacy change.
 	 */
 	public const RESYNC_AUTHOR_HOOK = 'buddynext_resync_author_media';
+
+	/**
+	 * Whether a viewer may open a document because they may read its post.
+	 *
+	 * Only for posts whose audience a document cannot hold on its own (followers,
+	 * connections, a private account): there the file is stored `private` and
+	 * this is what opens it to the post's readers. A post with an audience a
+	 * document can hold (public, a space) gave the file that level when it was
+	 * shared, and a change the owner then made in their drive is theirs to make,
+	 * so this does not answer for those.
+	 *
+	 * To withdraw a file from followers or connections, the owner removes the
+	 * post; "Only me" in the drive is already what such a file is set to.
+	 *
+	 * @param mixed $allowed   Answer so far.
+	 * @param mixed $media_id  Document media id.
+	 * @param mixed $user_id   Viewer.
+	 * @param mixed $author_id Document owner.
+	 * @return bool
+	 */
+	public function document_readable_via_post( $allowed, $media_id, $user_id, $author_id ): bool {
+		if ( true === $allowed ) {
+			return true;
+		}
+
+		$valid = array( '\\WPMediaVersePro\\Documents\\DocumentSettings', 'is_valid_privacy' );
+		$posts = buddynext_service( 'post_service' );
+		foreach ( $posts->document_posts( (int) $author_id, (int) $media_id ) as $post ) {
+			if ( $post['space_id'] > 0 ) {
+				continue; // A space post shares its file through the space drive.
+			}
+
+			$level = self::media_privacy_for_post( $post['privacy'], 0, (int) $author_id );
+			if ( 'private' === $level || ( is_callable( $valid ) && call_user_func( $valid, $level ) ) ) {
+				continue; // Only me, or a level the document carries itself.
+			}
+
+			if ( null === $posts->visibility_error( $post['id'], (int) $user_id ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	/**
 	 * Whether two members are connected, for MediaVerse's friends level.

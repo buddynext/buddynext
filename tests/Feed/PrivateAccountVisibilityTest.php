@@ -284,4 +284,45 @@ class PrivateAccountVisibilityTest extends \WP_UnitTestCase {
 		$this->assertNull( $this->posts->visibility_error( $post_id, $follower ), 'Approved follower.' );
 		$this->assertNull( $this->posts->visibility_error( $post_id, $this->author ), 'Author.' );
 	}
+
+	/**
+	 * A document shared on a post is opened by whoever may read the post.
+	 *
+	 * MediaVerse has no document level for "followers", so the file is stored
+	 * private and MediaVerse asks BuddyNext. A private account's post is for its
+	 * approved followers: they get the file, a pending request, a stranger and a
+	 * reader of a deleted post do not, and a file MediaVerse did not ask about
+	 * (another id) is not opened either.
+	 *
+	 * @return void
+	 */
+	public function test_document_on_a_post_follows_the_post_readers(): void {
+		$this->make_author_private();
+		$post_id = $this->posts->create(
+			$this->author,
+			array(
+				'type'      => 'document',
+				'content'   => 'Reading list',
+				'privacy'   => 'public',
+				'link_meta' => array( 'doc_id' => 4401 ),
+			)
+		);
+		$this->assertIsInt( $post_id );
+
+		$follower = self::factory()->user->create();
+		$this->follows->follow( $follower, $this->author );
+		$this->follows->approve_follow_request( $this->author, $follower );
+		$this->follows->follow( $this->viewer, $this->author ); // Left pending.
+
+		$bridge = new \BuddyNext\Bridges\WPMediaVerseBridge();
+		$ask    = fn( int $viewer, int $doc = 4401 ): bool => $bridge->document_readable_via_post( false, $doc, $viewer, $this->author );
+
+		$this->assertTrue( $ask( $follower ), 'Approved follower.' );
+		$this->assertFalse( $ask( $this->viewer ), 'Pending request.' );
+		$this->assertFalse( $ask( self::factory()->user->create() ), 'Stranger.' );
+		$this->assertFalse( $ask( $follower, 4402 ), 'A document that is on no post.' );
+
+		$this->posts->delete( (int) $post_id, $this->author );
+		$this->assertFalse( $ask( $follower ), 'The post is gone, so is the way in.' );
+	}
 }

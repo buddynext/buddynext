@@ -3325,6 +3325,47 @@ class PostService {
 	}
 
 	/**
+	 * The published document posts of one member that carry a given document.
+	 *
+	 * A document post keeps its file in link_meta (doc_id), not in media_ids, so
+	 * bn_post_media does not know it. The author's own document posts are a
+	 * short list, found through the author index; the JSON match runs on those
+	 * rows only.
+	 *
+	 * @param int $author_id Post author (the document's owner).
+	 * @param int $doc_id    Document media id.
+	 * @return array<int,array{id:int,privacy:string,space_id:int}>
+	 */
+	public function document_posts( int $author_id, int $doc_id ): array {
+		if ( $author_id <= 0 || $doc_id <= 0 ) {
+			return array();
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, privacy, space_id FROM {$wpdb->prefix}bn_posts
+				  WHERE user_id = %d AND type = 'document' AND status = 'published'
+				    AND link_meta IS NOT NULL AND JSON_VALID( link_meta )
+				    AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.doc_id' ) ) AS UNSIGNED ) = %d
+				  ORDER BY id DESC LIMIT 20",
+				$author_id,
+				$doc_id
+			),
+			ARRAY_A
+		);
+
+		return array_map(
+			static fn( array $row ): array => array(
+				'id'       => (int) $row['id'],
+				'privacy'  => (string) $row['privacy'],
+				'space_id' => (int) $row['space_id'],
+			),
+			(array) $rows
+		);
+	}
+
+	/**
 	 * Record which media a post carries in bn_post_media.
 	 *
 	 * Called wherever bn_posts.media_ids is written: post create, the v63

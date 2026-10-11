@@ -408,6 +408,9 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 			array( 'followers', 'friends', 'private' ),
 			array( 'followers', 'space', 'private' ),
 			array( 'space', 'friends', 'private' ),
+			array( 'public', 'banana', 'private' ),
+			array( 'followers', 'banana', 'private' ),
+			array( 'private', 'banana', '' ),
 		);
 		foreach ( $cases as $case ) {
 			$this->assertSame( $case[2], WPMediaVerseBridge::settle_level( $case[0], $case[1] ), "{$case[0]} -> {$case[1]}" );

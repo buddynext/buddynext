@@ -243,6 +243,7 @@ Authorization reuses the drive-access seam plus one new filter:
 | Filter | Answered by BuddyNext with | Governs |
 | --- | --- | --- |
 | `mvs_document_drive_access` | owner -> `own`, moderator/member -> `write`, viewer -> `read` (`space_drive_access`) | Who may **link** (needs `write` on the target space) and read the space drive. |
+| `mvs_document_readable_via_post` | true when the viewer may read a followers-only, connections-only or private-account post the document is shared on (`document_readable_via_post`) | Who may **open** a file whose post has an audience no document level describes. The file itself stays `private`; view only. Needs MediaVerse Pro 2.6.2. |
 | `mvs_document_can_moderate_space` | true for a space owner/moderator or site admin (`space_files_can_moderate`, fail-closed) | Who may **remove another member's** link. A member may always remove their own; the file owner may always remove their file. |
 
 Because both a member and a moderator resolve to drive `write`, moderation cannot be read off the drive level alone - the new filter is what separates them (the same reason Eventonomy added `evnm_user_can_unbind_space`).
