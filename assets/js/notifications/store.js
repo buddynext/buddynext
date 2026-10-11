@@ -133,6 +133,15 @@ function toast( message, tone ) {
 
 const notificationsStore = store( 'buddynext/notifications', {
 	state: {
+		// Select mode: how many rows are ticked, and whether Delete has anything to do.
+		get selectedLabel() {
+			var ctx = getContext();
+			return t( 'selectedCount', '%d selected' ).replace( '%d', String( ( ctx && ctx.selectedCount ) || 0 ) );
+		},
+		get noneSelected() {
+			var ctx = getContext();
+			return ! ctx || ! ctx.selectedCount;
+		},
 		get unreadLabel() {
 			var ctx = getContext();
 			return formatBadge( ctx && ctx.unreadCount ? ctx.unreadCount : 0 );
@@ -249,6 +258,17 @@ const notificationsStore = store( 'buddynext/notifications', {
 			if ( event.target.closest( '.bn-notif-row__actions' ) ) {
 				return;
 			}
+			// Select mode: a click anywhere on the row ticks it, and opens nothing.
+			var selCtx = getContext();
+			if ( selCtx && selCtx.selecting ) {
+				var box = row.querySelector( '[data-bn-notif-select]' );
+				if ( box && event.target !== box ) {
+					event.preventDefault();
+					box.checked = ! box.checked;
+				}
+				selCtx.selectedCount = document.querySelectorAll( '[data-bn-notif-select]:checked' ).length;
+				return;
+			}
 			var wasUnread = row.classList.contains( 'bn-notif-row--unread' );
 			var previous  = ctx ? ( ctx.unreadCount || 0 ) : 0;
 
@@ -339,6 +359,76 @@ const notificationsStore = store( 'buddynext/notifications', {
 				}
 				toast( t( 'markReadFailed', 'Could not mark this notification as read.' ), 'error' );
 			}
+		},
+
+		// Select mode on / off. Leaving it unticks everything.
+		toggleSelect: function () {
+			var ctx = getContext();
+			if ( ! ctx ) { return; }
+			ctx.selecting = ! ctx.selecting;
+			ctx.selectedCount = 0;
+			document.querySelectorAll( '[data-bn-notif-select], [data-bn-notif-select-all]' ).forEach( function ( box ) { box.checked = false; } );
+		},
+
+		// "Select all" ticks every notification on this page.
+		selectAll: function ( event ) {
+			var ctx   = getContext();
+			var boxes = document.querySelectorAll( '[data-bn-notif-select]' );
+			boxes.forEach( function ( box ) { box.checked = !! event.target.checked; } );
+			if ( ctx ) { ctx.selectedCount = event.target.checked ? boxes.length : 0; }
+		},
+
+		// Delete every ticked notification in one request, after a confirmation.
+		deleteSelected: async function () {
+			var ctx = getContext();
+			var ids = Array.prototype.map.call( document.querySelectorAll( '[data-bn-notif-select]:checked' ), function ( box ) { return parseInt( box.value, 10 ); } );
+			if ( ! ctx || ! ids.length ) { return; }
+
+			if ( typeof window.bnConfirm === 'function' ) {
+				var ok = await window.bnConfirm( {
+					title:        t( 'deleteSelectedTitle', 'Delete notifications' ),
+					body:         t( 'deleteSelectedBody', '%d selected notifications will be deleted. This cannot be undone.' ).replace( '%d', String( ids.length ) ),
+					tone:         'danger',
+					confirmLabel: t( 'deleteSelectedOk', 'Delete' ),
+				} );
+				if ( ! ok ) { return; }
+			}
+
+			try {
+				var res = await restFetch( '', {
+					base: ctx.restUrl,
+					nonce: ctx.nonce,
+					method: 'DELETE',
+					body: { ids: ids },
+					toastOnError: false,
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+			} catch ( _e ) {
+				toast( t( 'deleteSelectedFailed', 'Could not delete the notifications. Try again.' ), 'error' );
+				return;
+			}
+
+			// Same bookkeeping as deleting one row: unread rows leave the counts.
+			ids.forEach( function ( id ) {
+				var row = document.querySelector( '.bn-notif-row[data-notif-id="' + id + '"]' );
+				if ( ! row ) { return; }
+				if ( row.classList.contains( 'bn-notif-row--unread' ) ) {
+					if ( ctx.unreadCount > 0 ) { ctx.unreadCount = ctx.unreadCount - 1; }
+					adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
+				}
+				row.remove();
+			} );
+			ctx.selecting     = false;
+			ctx.selectedCount = 0;
+			document.querySelectorAll( '[data-bn-notif-select-all]' ).forEach( function ( box ) { box.checked = false; } );
+
+			// Nothing left on this page: load it again so the next rows (or the
+			// empty state) and the paging are right.
+			if ( ! document.querySelector( '.bn-notif-row' ) ) {
+				window.location.reload();
+				return;
+			}
+			toast( t( 'deleteSelectedDone', '%d notifications deleted.' ).replace( '%d', String( ids.length ) ), 'success' );
 		},
 
 		dismiss: async function ( event ) {

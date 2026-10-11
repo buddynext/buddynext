@@ -1995,14 +1995,23 @@ class AssetService {
 			'buddynext/notifications',
 			array(
 				'i18n' => array(
-					'markAllReadFailed'   => __( 'Could not mark all as read.', 'buddynext' ),
-					'markReadFailed'      => __( 'Could not mark this notification as read.', 'buddynext' ),
-					'dismissFailed'       => __( 'Could not dismiss. Try again.', 'buddynext' ),
-					'inviteAccepted'      => __( 'Invitation accepted: you have joined the space.', 'buddynext' ),
-					'inviteAcceptFailed'  => __( 'Could not accept the invitation.', 'buddynext' ),
-					'inviteDeclined'      => __( 'Invitation declined.', 'buddynext' ),
-					'inviteDeclineFailed' => __( 'Could not decline the invitation.', 'buddynext' ),
-					'networkError'        => __( 'Network error. Try again.', 'buddynext' ),
+					'markAllReadFailed'    => __( 'Could not mark all as read.', 'buddynext' ),
+					/* translators: %d: number of selected notifications. */
+					'selectedCount'        => __( '%d selected', 'buddynext' ),
+					'deleteSelectedTitle'  => __( 'Delete notifications', 'buddynext' ),
+					/* translators: %d: number of selected notifications. */
+					'deleteSelectedBody'   => __( '%d selected notifications will be deleted. This cannot be undone.', 'buddynext' ),
+					'deleteSelectedOk'     => __( 'Delete', 'buddynext' ),
+					/* translators: %d: number of notifications deleted. */
+					'deleteSelectedDone'   => __( '%d notifications deleted.', 'buddynext' ),
+					'deleteSelectedFailed' => __( 'Could not delete the notifications. Try again.', 'buddynext' ),
+					'markReadFailed'       => __( 'Could not mark this notification as read.', 'buddynext' ),
+					'dismissFailed'        => __( 'Could not dismiss. Try again.', 'buddynext' ),
+					'inviteAccepted'       => __( 'Invitation accepted: you have joined the space.', 'buddynext' ),
+					'inviteAcceptFailed'   => __( 'Could not accept the invitation.', 'buddynext' ),
+					'inviteDeclined'       => __( 'Invitation declined.', 'buddynext' ),
+					'inviteDeclineFailed'  => __( 'Could not decline the invitation.', 'buddynext' ),
+					'networkError'         => __( 'Network error. Try again.', 'buddynext' ),
 
 					/*
 					 * The "N new" pill beside the page title. It is server-rendered from the
@@ -2012,16 +2021,16 @@ class AssetService {
 					 * number, and the word silently disappeared on hydration.
 					 */
 					/* translators: %s is the formatted number of unread notifications (e.g. "12" or "99+"). */
-					'unreadBadge'         => __( '%s unread', 'buddynext' ),
+					'unreadBadge'          => __( '%s unread', 'buddynext' ),
 					// Bulk decide on join requests. Read by notifications/store.js via
 					// t() but never injected, so they always rendered English.
-					'bulkDecideFailed'    => __( 'Could not update those requests.', 'buddynext' ),
+					'bulkDecideFailed'     => __( 'Could not update those requests.', 'buddynext' ),
 					/* translators: 1: number handled, 2: number no longer pending. */
-					'bulkDecidedPartial'  => __( '%1$d handled, %2$d no longer pending.', 'buddynext' ),
+					'bulkDecidedPartial'   => __( '%1$d handled, %2$d no longer pending.', 'buddynext' ),
 					/* translators: %d: number of members approved. */
-					'bulkApproved'        => __( '%d members approved.', 'buddynext' ),
+					'bulkApproved'         => __( '%d members approved.', 'buddynext' ),
 					/* translators: %d: number of requests declined. */
-					'bulkDeclined'        => __( '%d requests declined.', 'buddynext' ),
+					'bulkDeclined'         => __( '%d requests declined.', 'buddynext' ),
 				),
 			)
 		);

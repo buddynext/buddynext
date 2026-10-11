@@ -189,6 +189,28 @@ class NotificationController extends BaseRestController {
 			)
 		);
 
+		// Delete several at once (the Select mode on the notifications page; the
+		// app can use it too). Same path as the list, DELETE instead of GET.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/notifications',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'delete_notifications' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'ids' => array(
+						'type'        => 'array',
+						'required'    => true,
+						'description' => 'Ids of the member\'s own notifications to delete. At most 200 per request.',
+						'items'       => array( 'type' => 'integer' ),
+						'maxItems'    => 200,
+						'minItems'    => 1,
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/notification-prefs',
@@ -409,6 +431,18 @@ class NotificationController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
+	}
+
+	/**
+	 * DELETE /me/notifications — delete several of the member's own notifications.
+	 *
+	 * @param WP_REST_Request $request Request with an `ids` array.
+	 * @return WP_REST_Response
+	 */
+	public function delete_notifications( WP_REST_Request $request ): WP_REST_Response {
+		$deleted = ( new NotificationService() )->delete_many( (array) $request->get_param( 'ids' ), get_current_user_id() );
+
+		return new WP_REST_Response( array( 'deleted' => $deleted ), 200 );
 	}
 
 	/**

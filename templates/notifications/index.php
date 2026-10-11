@@ -270,17 +270,20 @@ do_action( 'buddynext_notifications_before', $current_user_id );
 <?php
 $initial_context = wp_json_encode(
 	array(
-		'markedAll'    => false,
-		'activeFilter' => $active_filter,
-		'nonce'        => $mark_all_nonce,
-		'restUrl'      => rest_url( 'buddynext/v1/me/notifications' ),
-		'unreadCount'  => $badge_unseen,
-		'hasError'     => false,
+		'markedAll'     => false,
+		'activeFilter'  => $active_filter,
+		'nonce'         => $mark_all_nonce,
+		'restUrl'       => rest_url( 'buddynext/v1/me/notifications' ),
+		'unreadCount'   => $badge_unseen,
+		'hasError'      => false,
+		// Select mode for bulk delete.
+		'selecting'     => false,
+		'selectedCount' => 0,
 		// Per-filter unread counts power the reactive tab + sidebar badges
 		// (data-wp-text). markRead/markAllRead mutate these in place so the
 		// badges stay in step without a DOM paint loop. The server re-renders
 		// these fresh on every router navigation.
-		'tabCounts'    => array(
+		'tabCounts'     => array(
 			'all'      => $total_unread,
 			'unread'   => $total_unread,
 			'mention'  => $mention_unread,
@@ -374,6 +377,38 @@ $initial_context = wp_json_encode(
 		'yesterday' => __( 'Yesterday', 'buddynext' ),
 		'older'     => __( 'Older', 'buddynext' ),
 	);
+
+	// Bulk delete. "Select" turns on a tick box per row; the bar then offers
+	// Select all (this page), Delete and Cancel. Off by default, so the list
+	// reads exactly as before for anyone who never uses it.
+	if ( $total_count > 0 ) :
+		?>
+		<div class="bn-notif-bulk">
+			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm"
+				data-wp-on--click="actions.toggleSelect"
+				data-wp-bind--hidden="context.selecting">
+				<?php buddynext_icon( 'check' ); ?>
+				<?php esc_html_e( 'Select', 'buddynext' ); ?>
+			</button>
+			<div class="bn-notif-bulk__bar" hidden data-wp-bind--hidden="!context.selecting">
+				<label class="bn-notif-bulk__all">
+					<input type="checkbox" data-bn-notif-select-all data-wp-on--change="actions.selectAll">
+					<span><?php esc_html_e( 'Select all', 'buddynext' ); ?></span>
+				</label>
+				<span class="bn-notif-bulk__count" role="status" aria-live="polite" data-wp-text="state.selectedLabel"></span>
+				<button type="button" class="bn-btn" data-variant="danger" data-size="sm"
+					data-wp-on--click="actions.deleteSelected"
+					data-wp-bind--disabled="state.noneSelected">
+					<?php buddynext_icon( 'trash' ); ?>
+					<?php esc_html_e( 'Delete', 'buddynext' ); ?>
+				</button>
+				<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.toggleSelect">
+					<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+				</button>
+			</div>
+		</div>
+		<?php
+	endif;
 
 	$has_any = false;
 	foreach ( $groups as $group_key => $group_rows ) :

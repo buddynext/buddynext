@@ -573,3 +573,50 @@
 .bn-notif-sidecard__manage:hover {
 	color: var(--bn-accent);
 }
+
+/* ── Bulk delete (Select mode) ─────────────────────────────────────────── */
+.bn-notif-bulk {
+	display: flex;
+	justify-content: flex-end;
+	padding: var(--bn-s2) var(--bn-s4);
+}
+
+.bn-notif-bulk__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s3);
+	inline-size: 100%;
+}
+
+.bn-notif-bulk__bar[hidden] {
+	display: none;
+}
+
+.bn-notif-bulk__all {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	cursor: pointer;
+}
+
+.bn-notif-bulk__count {
+	margin-inline-end: auto;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+/* The tick box is a third column, only while selecting. */
+.bn-notif-row:has( > .bn-notif-row__select:not( [hidden] ) ) {
+	grid-template-columns: auto auto 1fr;
+}
+
+.bn-notif-row__select {
+	align-self: center;
+	inline-size: 18px;
+	block-size: 18px;
+	margin: 0;
+	cursor: pointer;
+}

@@ -37,6 +37,44 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 401, $response->get_status() );
 	}
 
+	/**
+	 * DELETE /me/notifications removes the member's own rows in one request and
+	 * cannot touch anyone else's.
+	 *
+	 * @return void
+	 */
+	public function test_bulk_delete_removes_only_the_members_own_rows(): void {
+		global $wpdb;
+		$make = fn( int $recipient, int $object ): int => (int) $this->notif_service->create(
+			array(
+				'recipient_id' => $recipient,
+				'sender_id'    => $recipient === $this->user_id ? $this->sender_id : $this->user_id,
+				'type'         => 'bn.new_follower',
+				'object_type'  => 'user',
+				'object_id'    => $object,
+			)
+		);
+		$mine   = array( $make( $this->user_id, 101 ), $make( $this->user_id, 102 ), $make( $this->user_id, 103 ) );
+		$theirs = $make( $this->sender_id, 104 );
+		$exists = static fn( int $id ): bool => (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_notifications WHERE id = %d", $id ) );
+
+		$guest = new WP_REST_Request( 'DELETE', '/buddynext/v1/me/notifications' );
+		$guest->set_param( 'ids', array( $mine[0] ) );
+		$this->assertSame( 401, rest_do_request( $guest )->get_status() );
+
+		wp_set_current_user( $this->user_id );
+		$request = new WP_REST_Request( 'DELETE', '/buddynext/v1/me/notifications' );
+		$request->set_param( 'ids', array( $mine[0], $mine[1], $theirs ) );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 2, $response->get_data()['deleted'] );
+		$this->assertFalse( $exists( $mine[0] ) );
+		$this->assertFalse( $exists( $mine[1] ) );
+		$this->assertTrue( $exists( $mine[2] ), 'A row that was not selected stays.' );
+		$this->assertTrue( $exists( $theirs ), 'Another member\'s row is never deleted.' );
+	}
+
 	public function test_list_notifications_returns_200(): void {
 		wp_set_current_user( $this->user_id );
 

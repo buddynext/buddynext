@@ -114,6 +114,12 @@ do_action( 'buddynext_part_notification_row_before', $args );
 		data-notif-link="<?php echo esc_url( $link_url ); ?>"
 	<?php endif; ?>>
 
+	<?php // Select mode (bulk delete): shown only while the page is selecting. ?>
+	<input type="checkbox" class="bn-notif-row__select" data-bn-notif-select hidden
+		value="<?php echo esc_attr( (string) $bn_row->id ); ?>"
+		data-wp-bind--hidden="!context.selecting"
+		aria-label="<?php esc_attr_e( 'Select this notification', 'buddynext' ); ?>">
+
 	<?php if ( $is_unread ) : ?>
 		<span class="bn-notif-row__pulse" aria-label="<?php esc_attr_e( 'Unread', 'buddynext' ); ?>"></span>
 	<?php endif; ?>
