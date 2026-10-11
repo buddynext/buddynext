@@ -454,7 +454,9 @@ class SpaceService {
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_spaces',
 			array(
-				'name'         => sanitize_text_field( $data['name'] ?? '' ),
+				// The column holds 100 characters (the form's own cap); cut here so a
+				// longer name from an importer or a bridge is stored, not refused.
+				'name'         => mb_substr( sanitize_text_field( $data['name'] ?? '' ), 0, 100 ),
 				'slug'         => $slug,
 				'description'  => isset( $data['description'] ) ? sanitize_textarea_field( $data['description'] ) : null,
 				'category_id'  => $category_id,
@@ -581,7 +583,7 @@ class SpaceService {
 		$format = array();
 
 		if ( isset( $data['name'] ) ) {
-			$fields['name'] = sanitize_text_field( $data['name'] );
+			$fields['name'] = mb_substr( sanitize_text_field( $data['name'] ), 0, 100 );
 			$format[]       = '%s';
 		}
 		if ( isset( $data['description'] ) ) {

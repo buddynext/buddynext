@@ -454,8 +454,14 @@ class Installer {
 	 *      "Posts 15" over an empty page. The upgrade's hashtag re-sync now ends with
 	 *      a chained recount of every tag showing a count (HashtagListener::
 	 *      recount_batch, 200 per batch). Counts only; no table change.
+	 *  66: bn_spaces.name VARCHAR(255) -> VARCHAR(100). The dir_name index
+	 *      (is_archived, name, id) was 1029 bytes on utf8mb4, over MyISAM's 1000-byte
+	 *      key limit and over the 767 bytes old-format InnoDB allows one column, so
+	 *      the table was never created on such hosts and spaces could not be made
+	 *      (card 10384673862). 100 characters is the cap the space form has always
+	 *      enforced; the full column stays indexed, so A-Z sort stays filesort-free.
 	 */
-	private const SCHEMA_VERSION = 65;
+	private const SCHEMA_VERSION = 66;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -2493,6 +2499,10 @@ class Installer {
 		// not add a duplicate meta_id column. No-op on fresh installs (table absent).
 		self::maybe_reshape_space_meta( $wpdb->prefix );
 
+		// v66: bn_spaces.name narrows to 100 characters. Shorten any longer name
+		// first, or strict SQL mode refuses the column change dbDelta is about to make.
+		self::maybe_shorten_space_names( $wpdb->prefix );
+
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
 		//
@@ -2928,6 +2938,39 @@ class Installer {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX `{$index}`, ADD KEY `{$index}` ({$cols})" );
 		}
+	}
+
+	/**
+	 * Cut space names longer than the column allows from schema 66 on.
+	 *
+	 * The space form has always refused a name over 100 characters, so a longer
+	 * one can only have come from an importer or code calling the service
+	 * directly. Runs only while the column is still wider than 100, so it does
+	 * one small UPDATE on the upgrade and nothing afterwards. No-op on a fresh
+	 * install (table absent).
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_shorten_space_names( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from the prefix.
+		$width = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$p . 'bn_spaces',
+				'name'
+			)
+		);
+
+		if ( $width > 100 ) {
+			$wpdb->query( "UPDATE {$p}bn_spaces SET name = LEFT( name, 100 ) WHERE CHAR_LENGTH( name ) > 100" );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**
@@ -4271,7 +4314,7 @@ class Installer {
 
 			"CREATE TABLE {$p}bn_spaces (
 				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				name VARCHAR(255) NOT NULL,
+				name VARCHAR(100) NOT NULL,
 				slug VARCHAR(200) NOT NULL,
 				description TEXT DEFAULT NULL,
 				category_id BIGINT(20) UNSIGNED DEFAULT NULL,
