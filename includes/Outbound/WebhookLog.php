@@ -93,13 +93,13 @@ class WebhookLog {
 	 *                                     A `source` key is lifted into its own column.
 	 * @param string              $status  self::STATUS_SUCCESS | self::STATUS_ERROR.
 	 * @param string              $signature Signature the call was accepted on; '' when there is none.
-	 * @return void
+	 * @return bool Whether the row was stored.
 	 */
-	public static function write( string $action, int $user_id, array $payload, string $status = self::STATUS_SUCCESS, string $signature = '' ): void {
+	public static function write( string $action, int $user_id, array $payload, string $status = self::STATUS_SUCCESS, string $signature = '' ): bool {
 		global $wpdb;
 
 		if ( ! $wpdb instanceof \wpdb ) {
-			return;
+			return false;
 		}
 
 		// created_at is written explicitly, in UTC.
@@ -111,11 +111,13 @@ class WebhookLog {
 		// database is not on UTC it was offset from everything it would be read
 		// beside. Observed at +5:30: a call at 16:57 UTC logged as 22:27.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert(
+		$stored = $wpdb->insert(
 			$wpdb->prefix . 'bn_webhook_log',
 			array(
-				'source'     => sanitize_key( (string) ( $payload['source'] ?? '' ) ),
-				'action'     => $action,
+				// Cut to the column widths: a value longer than its column makes the
+				// whole insert fail, and a row that is not stored cannot stop a replay.
+				'source'     => substr( sanitize_key( (string) ( $payload['source'] ?? '' ) ), 0, 100 ),
+				'action'     => substr( $action, 0, 100 ),
 				'user_id'    => $user_id,
 				'payload'    => wp_json_encode( $payload ),
 				'status'     => self::STATUS_ERROR === $status ? self::STATUS_ERROR : self::STATUS_SUCCESS,
@@ -128,5 +130,7 @@ class WebhookLog {
 			),
 			array( '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
+
+		return false !== $stored;
 	}
 }

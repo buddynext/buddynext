@@ -855,7 +855,7 @@ class FeedService {
 				break;
 
 			case 'network':
-				$sql    = "user_id IN (
+				$sql = "user_id IN (
 					SELECT CASE
 					    WHEN requester_id = %d THEN recipient_id
 					    ELSE requester_id
@@ -863,7 +863,10 @@ class FeedService {
 					 FROM {$wpdb->prefix}bn_connections
 					 WHERE ( requester_id = %d OR recipient_id = %d )
 					   AND status = 'accepted'
-				) AND privacy IN ('public','followers','connections')";
+				) AND privacy IN ('public','followers','connections')"
+					// A private account's public post is for its approved followers; being
+					// connected to its author is not the same thing.
+					. FollowService::private_author_where( $user_id, 'user_id' );
 				$params = array( $user_id, $user_id, $user_id );
 				break;
 
@@ -1963,6 +1966,14 @@ class FeedService {
 		global $wpdb;
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
+		// The status rule of the list under it: a pin is a published post. One
+		// hidden by reports stays visible to its author alone (with its label), and
+		// to nobody else; a held or draft post is never shown as a pin. Without
+		// this a post taken down by reports stayed at the top of the profile.
+		$pin_status_where = ( $viewer_id > 0 && $viewer_id === $profile_user_id )
+			? "status IN ('published', 'under_review')"
+			: "status = 'published'";
+
 		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
 		// posts this viewer reported); its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1972,6 +1983,7 @@ class FeedService {
 				 WHERE user_id = %d
 				   AND space_id IS NULL
 				   AND is_pinned = 1
+				   AND {$pin_status_where}
 				   {$privacy_clause}
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   {$excluded_where}

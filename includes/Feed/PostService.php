@@ -1295,7 +1295,7 @@ class PostService {
 		}
 
 		global $wpdb;
-		return $this->keyset_page(
+		$page = $this->keyset_page(
 			"SELECT c.id, c.content, c.created_at, c.object_id,
 			        p.content AS post_content, p.type AS post_type,
 			        u.display_name AS post_author_name,
@@ -1313,6 +1313,42 @@ class PostService {
 			$cursor,
 			$limit
 		);
+
+		return $this->only_readable( $page, 'object_id', $viewer_id );
+	}
+
+	/**
+	 * Keep the rows of a profile list whose post the viewer may read.
+	 *
+	 * The Replies and Likes lists select by "published and public", which is not
+	 * the whole rule: a post in a private or secret space is stored public when
+	 * the client sends no audience, a private account's public post is for its
+	 * followers, and a block hides both ways. filter_visible() is the one place
+	 * that knows all of it, so the page goes through it. A page can come back
+	 * shorter than asked; the cursor still moves past the rows that were dropped.
+	 *
+	 * @param array{items: array<int, mixed>, next_cursor: ?string} $page      Keyset page.
+	 * @param string                                                $id_key    Field holding the post id on each row.
+	 * @param int                                                   $viewer_id Viewer (0 = logged out).
+	 * @return array{items: array<int, mixed>, next_cursor: ?string}
+	 */
+	private function only_readable( array $page, string $id_key, int $viewer_id ): array {
+		$ids = array();
+		foreach ( $page['items'] as $row ) {
+			$ids[] = (int) ( is_array( $row ) ? ( $row[ $id_key ] ?? 0 ) : ( $row->$id_key ?? 0 ) );
+		}
+
+		$readable      = array_flip( $this->filter_visible( $ids, $viewer_id ) );
+		$page['items'] = array_values(
+			array_filter(
+				$page['items'],
+				static function ( $row ) use ( $readable, $id_key ): bool {
+					return isset( $readable[ (int) ( is_array( $row ) ? ( $row[ $id_key ] ?? 0 ) : ( $row->$id_key ?? 0 ) ) ] );
+				}
+			)
+		);
+
+		return $page;
 	}
 
 	/**
@@ -1354,6 +1390,7 @@ class PostService {
 			$cursor,
 			$limit
 		);
+		$page          = $this->only_readable( $page, 'id', $viewer_id );
 		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
 		return $page;
 	}
@@ -3538,6 +3575,12 @@ class PostService {
 		// themselves on their own profile.
 		if ( (int) $post['user_id'] !== $user_id ) {
 			return new WP_Error( 'not_post_owner', __( 'You are not the owner of this post.', 'buddynext' ) );
+		}
+
+		// Only a published post can be pinned: a draft, a scheduled or held post,
+		// or one hidden by reports is not on the profile to be featured.
+		if ( 'published' !== (string) ( $post['status'] ?? '' ) ) {
+			return new WP_Error( 'pin_not_published', __( 'Only a published post can be pinned.', 'buddynext' ), array( 'status' => 409 ) );
 		}
 
 		global $wpdb;

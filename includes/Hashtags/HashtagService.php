@@ -766,14 +766,24 @@ class HashtagService {
 		// the recent rows instead of a full pivot scan — do NOT drop that index.
 		// A wider window scans more of that range but uses the same index; it is
 		// still bounded, and the result is cached for 30 minutes either way.
+		//
+		// Only what a logged-out visitor could open is counted: public posts, in
+		// no space or an open one, not by a private account (public_listable_where).
+		// The count used to take every pivot row in the window, so it included
+		// posts in private spaces, "only me" posts and comments, and a card that
+		// said "14 posts" opened onto two. One number for the card, the block, the
+		// widget and REST, and one list shared by every reader of the cache.
+		$public_where = self::public_listable_where( 'p' );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT h.id, h.name, h.slug, h.post_count, h.follower_count, h.created_at,
 				        COUNT(ph.hashtag_id) AS recent_count
 				 FROM {$wpdb->prefix}bn_hashtags h
-				 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
+				 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id AND ph.object_type = 'post'
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
 				 WHERE ph.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d HOUR)
+				 {$public_where}
 				 GROUP BY h.id
 				 ORDER BY recent_count DESC, h.post_count DESC
 				 LIMIT %d",

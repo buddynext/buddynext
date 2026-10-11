@@ -272,9 +272,16 @@ class OnboardingController {
 	 * @return WP_REST_Response
 	 */
 	public function skip(): WP_REST_Response {
-		$this->service->skip( get_current_user_id() );
+		$user_id = get_current_user_id();
+		$this->service->skip( $user_id );
 		return new WP_REST_Response(
-			array( 'skipped' => true ),
+			array(
+				'skipped'     => true,
+				// Where Finish would send them: the page they signed up from, when
+				// there was one. Skipping used to drop them on the feed and leave the
+				// remembered page stored for good.
+				'redirect_to' => $this->completion_destination( $user_id ),
+			),
 			200
 		);
 	}

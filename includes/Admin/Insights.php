@@ -208,7 +208,7 @@ class Insights {
 		$comments_total  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$p}bn_comments" );
 		$reactions_total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$p}bn_reactions" );
 		$connections_tot = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$p}bn_connections WHERE status = 'accepted'" );
-		$follows_total   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$p}bn_follows" );
+		$follows_total   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$p}bn_follows WHERE status = 'approved'" );
 
 		// 14-day signup histogram (oldest → newest), zero-filled.
 		$d14  = gmdate( 'Y-m-d 00:00:00', $now - 13 * DAY_IN_SECONDS );

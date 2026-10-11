@@ -214,6 +214,7 @@ class WidgetService {
 						$wpdb->prepare(
 							"SELECT following_id FROM {$wpdb->prefix}bn_follows
 							 WHERE follower_id = %d
+							   AND status = 'approved'
 							   AND following_id IN ( {$row_ph} )",
 							array_merge( array( $user_id ), $row_ids )
 						)

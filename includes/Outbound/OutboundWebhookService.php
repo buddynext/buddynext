@@ -793,6 +793,12 @@ class OutboundWebhookService {
 	private function maybe_deactivate_on_failure( int $webhook_id ): void {
 		global $wpdb;
 
+		// Only failures since the endpoint was last saved count. Re-enabling (or
+		// editing) an endpoint stamps updated_at, so the run of failures that
+		// switched it off no longer counts against it: without this the old error
+		// rows were still the newest ones, and a single timeout after Re-enable
+		// switched the endpoint off again and emailed the owner a second time.
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$error_count = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -801,10 +807,12 @@ class OutboundWebhookService {
 				       SELECT status
 				         FROM {$wpdb->prefix}bn_outbound_webhook_log
 				        WHERE webhook_id = %d
+				          AND created_at >= COALESCE( ( SELECT updated_at FROM {$wpdb->prefix}bn_outbound_webhooks WHERE id = %d ), '1970-01-01' )
 				        ORDER BY id DESC
 				        LIMIT %d
 				   ) AS recent
 				  WHERE status = 'error'",
+				$webhook_id,
 				$webhook_id,
 				self::MAX_CONSECUTIVE_FAILURES
 			)

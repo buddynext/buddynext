@@ -2510,7 +2510,7 @@ class Installer {
 		// v68: media attached to a followers-only or connections-only post, or to a
 		// post in a private space, was stored wider than the post. New uploads are
 		// right; files already on the site are narrowed once, in the background.
-		self::schedule_media_privacy_repair();
+		\BuddyNext\Bridges\WPMediaVerseBridge::maybe_queue_privacy_repair();
 
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
@@ -2946,33 +2946,6 @@ class Installer {
 			$cols = implode( ', ', $columns );
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX `{$index}`, ADD KEY `{$index}` ({$cols})" );
-		}
-	}
-
-	/**
-	 * Queue the one-time repair of media stored wider than its post (schema v68).
-	 *
-	 * Once per site: the flag is set when the job is queued, so a later schema
-	 * step does not queue it again. Action Scheduler when present, a single
-	 * WP-Cron event otherwise. `wp buddynext reconcile-media-privacy` runs the
-	 * same work by hand and can be repeated safely.
-	 *
-	 * @return void
-	 */
-	private static function schedule_media_privacy_repair(): void {
-		if ( get_option( 'buddynext_media_privacy_repair_queued' ) ) {
-			return;
-		}
-		update_option( 'buddynext_media_privacy_repair_queued', time(), false );
-
-		$hook = \BuddyNext\Bridges\MediaPrivacyRepairCommand::HOOK;
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action( $hook, array(), 'buddynext' );
-			return;
-		}
-
-		if ( ! wp_next_scheduled( $hook ) ) {
-			wp_schedule_single_event( time() + 60, $hook );
 		}
 	}
 

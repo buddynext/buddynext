@@ -542,6 +542,16 @@ class CronService {
 			return array();
 		}
 
+		// A member who chose one cadence for all their digests before the per-type
+		// rows existed (digest = daily or weekly) keeps that choice: they get that
+		// digest only, carrying every type that is on either cadence. Without this
+		// someone who had asked for a weekly summary started getting daily ones too.
+		$master = (string) ( $saved['digest']['email_freq'] ?? '' );
+		$single = in_array( $master, array( 'daily', 'weekly' ), true );
+		if ( $single && $master !== $cadence ) {
+			return array();
+		}
+
 		// The member's own row for this digest (Daily digest / Weekly digest on the
 		// preferences screen). Off there means they do not want this one.
 		if ( 'off' === ( $saved[ 'bn.' . $cadence . '_digest' ]['email_freq'] ?? '' ) ) {
@@ -567,7 +577,8 @@ class CronService {
 		$wanted = array();
 		foreach ( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all() as $type => $entry ) {
 			$frequency = $saved[ $type ]['email_freq'] ?? ( $entry['default_email_freq'] ?? 'immediate' );
-			if ( ! empty( $entry['can_email'] ) && $cadence === $frequency ) {
+			$in_this   = $single ? in_array( $frequency, array( 'daily', 'weekly' ), true ) : $cadence === $frequency;
+			if ( ! empty( $entry['can_email'] ) && $in_this ) {
 				$wanted[ (string) $type ] = true;
 			}
 		}

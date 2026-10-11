@@ -743,6 +743,11 @@ class AccessWebhookController {
 			$body['user_email'] = preg_replace( '/^(.).*(@.*)$/', '$1***$2', $body['user_email'] );
 		}
 
-		WebhookLog::write( $action, $user_id, $body, $status, $this->accepted_signature );
+		// The stored row is what stops this signed request being used twice. If it
+		// could not be stored the action has still run, so an owner must be able to
+		// find out: a retry of this request would be accepted again.
+		if ( ! WebhookLog::write( $action, $user_id, $body, $status, $this->accepted_signature ) ) {
+			error_log( sprintf( 'BuddyNext: the access webhook log row for "%s" (member #%d) could not be stored; replay protection for that request is not in place.', $action, $user_id ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		}
 	}
 }

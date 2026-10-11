@@ -1329,7 +1329,7 @@ class MediaController extends BaseRestController {
 	private function sanitize_privacy( string $privacy, int $space_id = 0 ): string {
 		$privacy = sanitize_key( $privacy );
 
-		return \BuddyNext\Bridges\WPMediaVerseBridge::media_privacy_for_post( '' === $privacy ? 'public' : $privacy, $space_id );
+		return \BuddyNext\Bridges\WPMediaVerseBridge::media_privacy_for_post( '' === $privacy ? 'public' : $privacy, $space_id, get_current_user_id() );
 	}
 
 	/**

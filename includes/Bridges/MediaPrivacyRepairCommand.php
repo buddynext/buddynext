@@ -169,7 +169,8 @@ class MediaPrivacyRepairCommand {
 				$wpdb->prepare(
 					"SELECT id, user_id, privacy, space_id, media_ids
 					   FROM {$wpdb->prefix}bn_posts
-					  WHERE ( privacy <> 'public' OR space_id > 0 )
+					  WHERE ( privacy <> 'public' OR space_id > 0
+					          OR user_id IN ( SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_account_private' AND meta_value = '1' ) )
 					    AND media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]'
 					  ORDER BY id ASC
 					  LIMIT %d OFFSET %d",
@@ -190,7 +191,7 @@ class MediaPrivacyRepairCommand {
 				}
 
 				$space_id = (int) ( $post['space_id'] ?? 0 );
-				$target   = WPMediaVerseBridge::media_privacy_for_post( (string) ( $post['privacy'] ?? '' ), $space_id );
+				$target   = WPMediaVerseBridge::media_privacy_for_post( (string) ( $post['privacy'] ?? '' ), $space_id, (int) ( $post['user_id'] ?? 0 ) );
 				if ( 'public' === $target ) {
 					continue; // Nothing can be wider than public, so there is nothing to tighten.
 				}
@@ -326,7 +327,7 @@ class MediaPrivacyRepairCommand {
 		// Only ever narrower. A file already tighter than its post (the member made
 		// it private by hand) is left alone.
 		$more = array( '\\WPMediaVerse\\Services\\PrivacyService', 'more_restrictive' );
-		if ( '' !== $current && $current !== $target && ! $needs_move && (string) call_user_func( $more, $current, $target ) === $current ) {
+		if ( '' !== $current && $current !== $target && (string) call_user_func( $more, $current, $target ) === $current ) {
 			return array(
 				'state'   => 'correct',
 				'message' => '',

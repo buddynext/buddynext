@@ -2072,7 +2072,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'     => 'url',
 							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
 							'label'    => __( 'After onboarding', 'buddynext' ),
-							'hint'     => __( 'Where new members go after onboarding: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed.', 'buddynext' ),
+							'hint'     => __( 'Where new members go after onboarding: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed. A member who signed up from a page goes back to that page instead.', 'buddynext' ),
 						)
 					),
 				)

@@ -99,9 +99,29 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$this->assertNull( $this->service->get_by_slug( 'nonexistentxyz' ) );
 	}
 
+	/**
+	 * Create a real post to tag, since only readable posts count as trending.
+	 *
+	 * @param string $privacy Post audience.
+	 * @return int
+	 */
+	private function real_post( string $privacy = 'public' ): int {
+		$post_id = ( new \BuddyNext\Feed\PostService() )->create(
+			self::factory()->user->create(),
+			array(
+				'type'    => 'text',
+				'content' => 'Post ' . wp_rand(),
+				'privacy' => $privacy,
+			)
+		);
+		$this->assertIsInt( $post_id );
+
+		return (int) $post_id;
+	}
+
 	public function test_get_trending_returns_array(): void {
-		$this->service->sync( 'post', 50, array( 'trending1' ) );
-		$this->service->sync( 'post', 51, array( 'trending2' ) );
+		$this->service->sync( 'post', $this->real_post(), array( 'trending1' ) );
+		$this->service->sync( 'post', $this->real_post(), array( 'trending2' ) );
 
 		$results = $this->service->get_trending( 10 );
 
@@ -109,6 +129,24 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$slugs = array_column( $results, 'slug' );
 		$this->assertContains( 'trending1', $slugs );
 		$this->assertContains( 'trending2', $slugs );
+	}
+
+	/**
+	 * Trending counts what a logged-out visitor could open and nothing else: an
+	 * "only me" post, a comment and a post that does not exist add nothing.
+	 */
+	public function test_get_trending_counts_public_posts_only(): void {
+		$this->service->sync( 'post', $this->real_post(), array( 'opentag' ) );
+		$this->service->sync( 'post', $this->real_post( 'private' ), array( 'opentag', 'hiddentag' ) );
+		$this->service->sync( 'comment', 4242, array( 'opentag', 'commenttag' ) );
+		$this->service->sync( 'post', 987654, array( 'ghosttag' ) );
+
+		$by_slug = array_column( $this->service->get_trending( 20 ), 'recent_count', 'slug' );
+
+		$this->assertSame( 1, (int) ( $by_slug['opentag'] ?? 0 ), 'One public post carries the tag.' );
+		$this->assertArrayNotHasKey( 'hiddentag', $by_slug );
+		$this->assertArrayNotHasKey( 'commenttag', $by_slug );
+		$this->assertArrayNotHasKey( 'ghosttag', $by_slug );
 	}
 
 	public function test_get_trending_respects_limit(): void {
@@ -143,7 +181,8 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 	public function test_sync_writes_created_at_on_both_tables(): void {
 		global $wpdb;
 
-		$this->service->sync( 'post', 777, array( 'utctag' ) );
+		$post_id = $this->real_post();
+		$this->service->sync( 'post', $post_id, array( 'utctag' ) );
 
 		// bn_hashtags row + bn_post_hashtags link must both carry a populated,
 		// UTC-aligned created_at. Previously the inserts omitted the column and
@@ -156,7 +195,7 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$link_created = (string) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT created_at FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id = %d LIMIT 1",
-				777
+				$post_id
 			)
 		);
 
