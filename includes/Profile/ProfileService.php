@@ -4280,8 +4280,9 @@ class ProfileService {
 	 * could be requested on a member's behalf without a visit: an image, frame or
 	 * script whose address is someone's profile, or a browser prefetching a link.
 	 * The browser says what a request is for (Sec-Fetch-Dest, Sec-Purpose), so
-	 * anything that is not a page load or an in-page navigation is not counted. A
-	 * browser too old to send the headers is counted, as before.
+	 * anything that is not a page load or an in-page navigation is not counted.
+	 * Without those headers (an old browser, or a site on plain HTTP) the Accept
+	 * header rules out image, media and stylesheet requests; the rest is counted.
 	 *
 	 * @return bool
 	 */
@@ -4296,9 +4297,18 @@ class ProfileService {
 
 		$dest = isset( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ? sanitize_key( wp_unslash( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ) : '';
 
+		// A browser sends Sec-Fetch-* only to a secure origin, so a site on plain
+		// HTTP gets none. There the Accept header still tells an image, stylesheet
+		// or media request from a page load.
+		if ( '' === $dest ) {
+			$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) ) : '';
+
+			return ! preg_match( '#^(image|video|audio)/|^text/css#', $accept );
+		}
+
 		// 'document' is a page load; 'empty' is fetch(), which the in-page router
 		// uses to navigate. Everything else is a sub-resource of some other page.
-		return in_array( $dest, array( '', 'document', 'empty' ), true );
+		return in_array( $dest, array( 'document', 'empty' ), true );
 	}
 
 	/**

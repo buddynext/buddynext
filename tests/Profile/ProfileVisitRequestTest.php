@@ -24,7 +24,7 @@ class ProfileVisitRequestTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function tear_down(): void {
-		unset( $_SERVER['HTTP_SEC_FETCH_DEST'], $_SERVER['HTTP_SEC_PURPOSE'], $_SERVER['HTTP_PURPOSE'] );
+		unset( $_SERVER['HTTP_SEC_FETCH_DEST'], $_SERVER['HTTP_SEC_PURPOSE'], $_SERVER['HTTP_PURPOSE'], $_SERVER['HTTP_ACCEPT'] );
 		parent::tear_down();
 	}
 
@@ -57,5 +57,18 @@ class ProfileVisitRequestTest extends \WP_UnitTestCase {
 		$_SERVER['HTTP_SEC_FETCH_DEST'] = 'document';
 		$_SERVER['HTTP_SEC_PURPOSE']    = 'prefetch';
 		$this->assertFalse( ProfileService::request_is_a_page_visit(), 'Prefetch.' );
+	}
+
+	/**
+	 * On plain HTTP no Sec-Fetch headers arrive; Accept still rules out an image.
+	 *
+	 * @return void
+	 */
+	public function test_without_fetch_headers_accept_rules_out_an_image(): void {
+		$_SERVER['HTTP_ACCEPT'] = 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
+		$this->assertFalse( ProfileService::request_is_a_page_visit() );
+
+		$_SERVER['HTTP_ACCEPT'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+		$this->assertTrue( ProfileService::request_is_a_page_visit() );
 	}
 }
