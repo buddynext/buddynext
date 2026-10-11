@@ -68,6 +68,24 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * An owner can keep unverified members' partner cards out with one filter.
+	 *
+	 * @return void
+	 */
+	public function test_partner_card_verification_can_be_required_by_filter(): void {
+		update_option( 'buddynext_email_verify', 1 );
+		update_option( 'buddynext_email_verify_enabled_at', time() - DAY_IN_SECONDS );
+		$author = self::factory()->user->create();
+		add_filter( 'buddynext_partner_card_requires_verification', '__return_true' );
+
+		$result = IntegrationActivity::publish( $author, 'started a discussion', 'https://example.test/s/general/t/held/', 'Held topic' );
+
+		remove_filter( 'buddynext_partner_card_requires_verification', '__return_true' );
+		$this->assertWPError( $result );
+		$this->assertSame( 'email_unverified', $result->get_error_code() );
+	}
+
+	/**
 	 * A bare publish() records a public link post for the member.
 	 *
 	 * @return void

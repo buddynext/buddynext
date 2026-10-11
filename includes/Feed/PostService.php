@@ -316,7 +316,30 @@ class PostService {
 		// leaves a forum topic visible in the forum and missing from the feed, with
 		// no error for anyone to see (card 10390929273). The member's own posting
 		// stays gated.
-		if ( ! IntegrationActivity::is_system_publish()
+		//
+		// Narrow on purpose: it has to be the bridge's own write (a card always
+		// carries the partner page's link), so a post some listener creates while a
+		// bridge publish is in flight is still checked.
+		$is_partner_card = IntegrationActivity::is_system_publish() && '' !== (string) ( $data['link_url'] ?? '' );
+
+		/**
+		 * Whether a partner's activity card needs its author to have verified their email.
+		 *
+		 * Default false: the partner plugin already published the content. Return
+		 * true on a site that wants nothing from an unverified member in the feed,
+		 * whichever plugin it came through.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param bool                 $required Whether verification is required. Default false.
+		 * @param int                  $user_id  Card author.
+		 * @param array<string, mixed> $data     Card data being saved.
+		 */
+		if ( $is_partner_card && (bool) apply_filters( 'buddynext_partner_card_requires_verification', false, $user_id, $data ) ) {
+			$is_partner_card = false;
+		}
+
+		if ( ! $is_partner_card
 			&& ! user_can( $user_id, 'manage_options' )
 			&& function_exists( 'buddynext_service' )
 			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {

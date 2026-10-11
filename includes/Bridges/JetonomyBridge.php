@@ -130,8 +130,8 @@ class JetonomyBridge {
 		// jetonomy_after_create_post fires ($post_id, $space_id) — 2 args only.
 		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 2 );
 
-		// Sites that mirrored anonymous content before the bridge read the flag
-		// still hold those rows; clear them once, in the dashboard, in small steps.
+		// Keep mirrored rows in step with the forum's anonymous flag: clears what a
+		// version before 1.2.5 stored, and any later drift. Admin-only, daily.
 		add_action( 'admin_init', array( $this, 'repair_anonymous_mirrors' ) );
 
 		// One sync keeps a discussion's feed card + search row matching its current
@@ -701,32 +701,49 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Withdraw what was mirrored from anonymous content before the bridge read the flag.
+	 * Withdraw anything mirrored from content that is anonymous in the forum.
 	 *
-	 * Until 1.2.5 an anonymous topic got a search row under its author and an
-	 * anonymous or private reply became a signed feed comment. New writes are
-	 * refused; this clears the rows already stored, which would otherwise stay
-	 * until each topic was next edited. A topic is re-synced (its search row goes
-	 * and its card is withdrawn) and a mirrored comment is deleted, 200 of each per
-	 * dashboard request. Removing a row is what takes it out of the next batch, so
-	 * the pass ends by itself and then records that it is done.
+	 * Until 1.2.5 an anonymous topic got a feed card and a search row under its
+	 * author, and an anonymous or private reply became a signed feed comment. New
+	 * writes are refused, but rows already stored would stay until each topic was
+	 * next edited. The same drift can come back at any time if the flag changes
+	 * in the forum without an edit hook reaching the bridge.
+	 *
+	 * So this is a reconciliation, not a one-time migration: at most once a day,
+	 * for an administrator loading a dashboard screen, it re-syncs up to 200
+	 * anonymous topics that still have a card or a search row, and deletes up to
+	 * 200 comments mirrored from anonymous or private replies. While it finds work
+	 * it runs again on the next dashboard load; once it finds none it waits a day.
 	 *
 	 * @return void
 	 */
 	public function repair_anonymous_mirrors(): void {
-		if ( get_option( 'buddynext_jetonomy_anonymous_repaired' ) || '' === $this->anonymous_column() ) {
+		if ( wp_doing_ajax() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( get_transient( 'buddynext_jetonomy_anonymous_checked' ) || '' === $this->anonymous_column() ) {
 			return;
 		}
 
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$topic_ids = $wpdb->get_col(
-			"SELECT si.object_id FROM {$wpdb->prefix}bn_search_index si
-			 INNER JOIN {$wpdb->prefix}jt_posts p ON p.id = si.object_id
-			 WHERE si.object_type = 'discussion' AND p.is_anonymous = 1
+		$indexed   = $wpdb->get_col(
+			"SELECT p.id FROM {$wpdb->prefix}jt_posts p
+			 INNER JOIN {$wpdb->prefix}bn_search_index si ON si.object_type = 'discussion' AND si.object_id = p.id
+			 WHERE p.is_anonymous = 1
 			 LIMIT 200"
 		);
+		$carded    = $wpdb->get_col(
+			"SELECT p.id FROM {$wpdb->prefix}jt_posts p
+			 INNER JOIN {$wpdb->prefix}bn_posts c
+			         ON c.type = 'discussion' AND c.status = 'published'
+			        AND c.link_meta IS NOT NULL AND JSON_VALID( c.link_meta )
+			        AND CAST( JSON_UNQUOTE( JSON_EXTRACT( c.link_meta, '$.post_id' ) ) AS UNSIGNED ) = p.id
+			 WHERE p.is_anonymous = 1
+			 LIMIT 200"
+		);
+		$topic_ids = array_unique( array_map( 'intval', array_merge( (array) $indexed, (array) $carded ) ) );
 		$comments  = $wpdb->get_results(
 			"SELECT c.id, c.user_id FROM {$wpdb->prefix}bn_comments c
 			 INNER JOIN {$wpdb->prefix}jt_replies r ON r.id = c.sync_reply_id
@@ -736,19 +753,21 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $topic_ids && ! $comments ) {
-			update_option( 'buddynext_jetonomy_anonymous_repaired', 1, false );
+			set_transient( 'buddynext_jetonomy_anonymous_checked', 1, DAY_IN_SECONDS );
 			return;
 		}
 
 		foreach ( (array) $topic_ids as $topic_id ) {
-			$this->sync_discussion( (int) $topic_id );
-			// With the search aspect switched off sync_discussion() leaves the index
-			// alone, so drop the row here as well.
+			$topic_id = (int) $topic_id;
+			$this->sync_discussion( $topic_id );
+			// sync_discussion() leaves the index and the card alone when that aspect
+			// is switched off; a row that carries the author goes regardless.
+			IntegrationActivity::withdraw_by_meta( 'discussion', 'post_id', $topic_id );
 			$wpdb->delete(
 				$wpdb->prefix . 'bn_search_index',
 				array(
 					'object_type' => 'discussion',
-					'object_id'   => (int) $topic_id,
+					'object_id'   => $topic_id,
 				),
 				array( '%s', '%d' )
 			); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

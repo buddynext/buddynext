@@ -369,17 +369,44 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// The state an older version left behind: flagged in the forum, still mirrored here.
 		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 260 ) );
 		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'is_anonymous' => 1 ), array( 'id' => 2601 ) );
-		delete_option( 'buddynext_jetonomy_anonymous_repaired' );
+		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 
+		// Nobody but an administrator on a dashboard screen starts it.
+		wp_set_current_user( $this->user_id );
+		$this->bridge->repair_anonymous_mirrors();
+		$this->assertSame( 1, $search(), 'A member cannot trigger the pass.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		$this->bridge->repair_anonymous_mirrors();
 
 		$this->assertSame( 0, $search(), 'The search row is gone.' );
 		$this->assertSame( 0, $comment(), 'The signed comment is gone.' );
 		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'The card is withdrawn.' );
-		$this->assertFalse( (bool) get_option( 'buddynext_jetonomy_anonymous_repaired' ), 'Not marked done while it still found work.' );
+		$this->assertFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Runs again while it still found work.' );
 
 		$this->bridge->repair_anonymous_mirrors();
-		$this->assertTrue( (bool) get_option( 'buddynext_jetonomy_anonymous_repaired' ), 'Marked done once nothing is left.' );
+		$this->assertNotFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Waits a day once nothing is left.' );
+	}
+
+	/**
+	 * A card with no search row behind it is still withdrawn.
+	 *
+	 * @return void
+	 */
+	public function test_repair_withdraws_a_card_that_has_no_search_row(): void {
+		global $wpdb;
+		$this->seed_jt_space( 27, 'card-only' );
+		$this->seed_jt_post( 270, $this->author_id, 'Card only', 'Body', 'card-only' );
+		$this->publish_jt_post( 270, 27 );
+		$wpdb->delete( $wpdb->prefix . 'bn_search_index', array( 'object_type' => 'discussion', 'object_id' => 270 ) );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 270 ) );
+		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
+		$this->assertSame( 1, $this->discussion_cards( $this->author_id ), 'Fixture: a published card.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->bridge->repair_anonymous_mirrors();
+
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ) );
 	}
 
 	/**
