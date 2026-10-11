@@ -176,6 +176,11 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 		get rowFreqActive() {
 			var ctx = getContext();
 			var entry = ctx && ctx.prefs ? ctx.prefs[ ctx.prefType ] : null;
+			// The digest row is an On/Off switch: any stored value other than
+			// 'off' (an older Weekly or Immediate included) reads as On.
+			if ( entry && ctx.chipSwitch ) {
+				return ( 'off' === ctx.chipFreq ) === ( 'off' === entry.email_freq );
+			}
 			return !! ( entry && entry.email_freq === ctx.chipFreq );
 		},
 		// Space "All / Mentions only / None" chip: reactive like rowFreqActive. The

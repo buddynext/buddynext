@@ -382,8 +382,20 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 										<span class="bn-prefs-freq__caption" id="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>"><?php esc_html_e( 'Email', 'buddynext' ); ?></span>
 										<div class="bn-prefs-freq" role="radiogroup" aria-labelledby="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>">
 											<?php
-											foreach ( $freq_options as $freq_value => $freq_label ) :
-												$is_active = ( $resolved_row['email_freq'] === $freq_value );
+											// The digest row is a switch, not a schedule: each type above
+											// chooses its own Daily or Weekly, and this row only decides
+											// whether digests are sent at all. Offering Immediate, Daily and
+											// Weekly here promised a choice that changed nothing.
+											$row_freq_options = $email_only
+												? array(
+													(string) ( $entry['default_email_freq'] ?? 'daily' ) => __( 'On', 'buddynext' ),
+													'off' => __( 'Off', 'buddynext' ),
+												)
+												: $freq_options;
+											foreach ( $row_freq_options as $freq_value => $freq_label ) :
+												$is_active = $email_only
+													? ( ( 'off' === $freq_value ) === ( 'off' === $resolved_row['email_freq'] ) )
+													: ( $resolved_row['email_freq'] === $freq_value );
 												// Digests off site-wide → the chip cannot deliver anything, so it
 												// is disabled rather than left as a choice that sends nothing.
 												$freq_dead = ! $digests_enabled && in_array( $freq_value, $digest_freqs, true );
@@ -400,7 +412,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 													class="bn-prefs-chip"
 													data-type="<?php echo esc_attr( $type_slug ); ?>"
 													data-freq="<?php echo esc_attr( $freq_value ); ?>"
-													data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'chipFreq' => $freq_value ) ) ); ?>"
+													data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'chipFreq' => $freq_value, 'chipSwitch' => $email_only ) ) ); ?>"
 													aria-pressed="<?php echo $is_active ? 'true' : 'false'; ?>"
 													data-wp-bind--aria-pressed="state.rowFreqActive"
 													data-wp-bind--disabled="state.emailFreqDisabled"

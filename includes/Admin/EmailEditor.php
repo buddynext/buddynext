@@ -376,18 +376,18 @@ class EmailEditor {
 				'bn.daily_digest'  => array(
 					'name'    => __( 'Daily digest', 'buddynext' ),
 					'trigger' => __( 'Daily summary of community activity', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'tokens'  => array( '{{user_name}}', '{{notification_list}}', '{{action_url}}', '{{site_name}}', '{{site_url}}', '{{unsubscribe_url}}', '{{current_year}}' ),
 					'subject' => 'Your daily digest from {{site_name}}',
 					'preview' => "Here's what happened today.",
-					'body'    => "Hi {{recipient_name}},\n\nHere's a summary of recent activity on {{site_name}}.\n\n<a href=\"{{site_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
+					'body'    => "Hi {{user_name}},\n\nHere's a summary of recent activity on {{site_name}}.\n\n{{notification_list}}\n\n<a href=\"{{action_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
 				),
 				'bn.weekly_digest' => array(
 					'name'    => __( 'Weekly digest', 'buddynext' ),
 					'trigger' => __( 'Weekly summary of community activity', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'tokens'  => array( '{{user_name}}', '{{notification_list}}', '{{action_url}}', '{{site_name}}', '{{site_url}}', '{{unsubscribe_url}}', '{{current_year}}' ),
 					'subject' => 'Your weekly digest from {{site_name}}',
 					'preview' => "Here's what happened this week.",
-					'body'    => "Hi {{recipient_name}},\n\nHere's a summary of this week's activity on {{site_name}}.\n\n<a href=\"{{site_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
+					'body'    => "Hi {{user_name}},\n\nHere's a summary of this week's activity on {{site_name}}.\n\n{{notification_list}}\n\n<a href=\"{{action_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
 				),
 			),
 			__( 'Onboarding', 'buddynext' ) => array(
