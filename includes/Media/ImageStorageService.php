@@ -13,15 +13,26 @@
  * ──────
  * Every owner gets its own folder, never mixed with the WP media library:
  *
- *   uploads/bn-avatars/{user_id}/{variation}.webp        (member avatar)
- *   uploads/bn-covers/{user_id}/{variation}.webp         (member cover)
- *   uploads/bn-space-avatars/{space_id}/{variation}.webp (space avatar)
- *   uploads/bn-space-covers/{space_id}/{variation}.webp  (space cover)
+ *   uploads/bn-avatars/{user_id}/{variation}-{version}.webp        (member avatar)
+ *   uploads/bn-covers/{user_id}/{variation}-{version}.webp         (member cover)
+ *   uploads/bn-space-avatars/{space_id}/{variation}-{version}.webp (space avatar)
+ *   uploads/bn-space-covers/{space_id}/{variation}-{version}.webp  (space cover)
  *
  * Each folder holds the WebP size variations for that one image (e.g. a
- * full-size and a thumbnail). On replace the owner's folder is wiped first,
- * so old variations are never orphaned and there's no cleanup cron. The
- * returned URL carries a `?v=` cache-buster since the filenames are stable.
+ * full-size and a thumbnail).
+ *
+ * FILE NAMES CARRY A VERSION
+ * ──────────────────────────
+ * A replaced image gets a new file name, so it has a new URL for the browser
+ * and for every CDN or image optimiser in between. The name used to be fixed
+ * with a `?v=` query string doing the cache-busting; a CDN that drops or
+ * rewrites the query string then served the old image for as long as its cache
+ * lived, up to a year (card 10390900499).
+ *
+ * On replace the folder keeps the version it is replacing and removes anything
+ * older, so a page held in a page cache still shows the previous image instead
+ * of a broken one, and files never pile up. An image stored under the old fixed
+ * name keeps resolving until it is next replaced; nothing is migrated.
  *
  * @package BuddyNext\Media
  */
@@ -58,13 +69,14 @@ class ImageStorageService {
 	/**
 	 * Store an uploaded image for an owner and return the primary variation URL.
 	 *
-	 * Wipes the owner's image folder first, so a replacement leaves no orphan.
+	 * Keeps the files being replaced as the one previous version and removes
+	 * anything older (see the file header).
 	 *
 	 * @param string $tmp_path Absolute path to the uploaded temp file.
 	 * @param string $kind     'avatar' | 'cover'.
 	 * @param string $owner    'user' | 'space'.
 	 * @param int    $id       Owner id.
-	 * @return string|WP_Error Primary variation URL (with cache-buster) or error.
+	 * @return string|WP_Error Primary variation URL or error.
 	 */
 	public function store( string $tmp_path, string $kind, string $owner, int $id ): string|WP_Error {
 		if ( ! isset( self::VARIATIONS[ $kind ] ) || ! in_array( $owner, array( 'user', 'space' ), true ) || $id <= 0 ) {
@@ -80,9 +92,12 @@ class ImageStorageService {
 			return new WP_Error( 'bn_image_mkdir', __( 'Could not create the image directory.', 'buddynext' ) );
 		}
 
-		// Clean slate — remove any previous variations for this owner so a
-		// re-upload (or a format change) never leaves an orphaned file.
-		$this->purge_dir( $dir );
+		// Keep what is being replaced, drop what that itself replaced.
+		$this->purge_dir( $dir, $this->current_version( $dir ) );
+
+		// Seconds in hex: sorts by name in the order it was written, and two
+		// saves in the same second simply overwrite each other.
+		$version = dechex( time() );
 
 		$webp_ok     = wp_image_editor_supports( array( 'mime_type' => 'image/webp' ) );
 		$ext         = $webp_ok ? 'webp' : 'jpg';
@@ -103,7 +118,7 @@ class ImageStorageService {
 				$editor->resize( $size, null, false ); // cap width.
 			}
 
-			$dest  = trailingslashit( $dir ) . $variation . '.' . $ext;
+			$dest  = trailingslashit( $dir ) . $variation . '-' . $version . '.' . $ext;
 			$saved = $editor->save( $dest, $mime );
 			if ( is_wp_error( $saved ) ) {
 				return $saved;
@@ -137,9 +152,7 @@ class ImageStorageService {
 		 * @param string $owner 'user' | 'space'.
 		 * @param int    $id    Owner id.
 		 */
-		$primary_url = (string) apply_filters( 'buddynext_stored_image_url', $primary_url, $kind, $owner, $id );
-
-		return add_query_arg( 'v', (string) time(), $primary_url );
+		return (string) apply_filters( 'buddynext_stored_image_url', $primary_url, $kind, $owner, $id );
 	}
 
 	/**
@@ -160,26 +173,23 @@ class ImageStorageService {
 			return '';
 		}
 		$dir = $this->dir_for( $kind, $owner, $id );
+
+		// The newest versioned file. The version is fixed-width hex, so the last
+		// name in sorted order is the latest; the URL is stable between requests
+		// and changes exactly when the image does.
+		$versioned = glob( trailingslashit( $dir ) . $variation . '-*.*' );
+		if ( $versioned ) {
+			sort( $versioned );
+
+			return (string) apply_filters( 'buddynext_stored_image_url', $this->url_for_path( (string) end( $versioned ) ), $kind, $owner, $id );
+		}
+
+		// An image stored before file names carried a version. The name is fixed,
+		// so the file's mtime in a query string is its only cache-buster.
 		foreach ( array( 'webp', 'jpg', 'jpeg', 'png' ) as $ext ) {
 			$path = trailingslashit( $dir ) . $variation . '.' . $ext;
 			if ( file_exists( $path ) ) {
-				$url = (string) apply_filters( 'buddynext_stored_image_url', $this->url_for_path( $path ), $kind, $owner, $id );
-
-				/*
-				 * Cache-bust with the file's mtime.
-				 *
-				 * store() already returns a versioned URL, but this method - which is what
-				 * every RENDERED surface uses (the space header, directory cards, the rails)
-				 * - returned a bare one. Filenames are stable by design (full.webp), so the
-				 * browser had a cached copy under exactly that URL and kept showing the OLD
-				 * image after a re-upload, even through a full page reload. That is the
-				 * "avatar does not update" report: the upload succeeded, the file changed,
-				 * the URL did not.
-				 *
-				 * mtime, not time(): the URL must stay STABLE between requests or every page
-				 * load would miss the cache and re-download every avatar on the page. It
-				 * changes exactly when the image does, which is the whole point.
-				 */
+				$url   = (string) apply_filters( 'buddynext_stored_image_url', $this->url_for_path( $path ), $kind, $owner, $id );
 				$mtime = @filemtime( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a race with delete() must not warn; false is handled below.
 
 				return $mtime ? add_query_arg( 'v', (string) $mtime, $url ) : $url;
@@ -248,12 +258,37 @@ class ImageStorageService {
 	}
 
 	/**
-	 * Remove every file directly inside a directory (non-recursive — our image
-	 * folders are flat). Leaves the directory itself in place for re-use.
+	 * The version of a file name: '4f2a9c10' for `thumb-4f2a9c10.webp`, and ''
+	 * for the fixed name used before names carried a version (`thumb.webp`).
+	 *
+	 * @param string $file File path or name.
+	 * @return string
+	 */
+	private function version_of( string $file ): string {
+		return preg_match( '/-([0-9a-f]+)\.[a-z]+$/', basename( $file ), $m ) ? $m[1] : '';
+	}
+
+	/**
+	 * The version of the image a folder currently serves.
 	 *
 	 * @param string $dir Absolute directory path.
+	 * @return string Newest version in the folder; '' for an old fixed-name image
+	 *                or an empty folder.
 	 */
-	private function purge_dir( string $dir ): void {
+	private function current_version( string $dir ): string {
+		$versions = array_map( array( $this, 'version_of' ), glob( trailingslashit( $dir ) . '*' ) ?: array() );
+
+		return $versions ? (string) max( $versions ) : '';
+	}
+
+	/**
+	 * Remove the files directly inside a directory (non-recursive — our image
+	 * folders are flat). Leaves the directory itself in place for re-use.
+	 *
+	 * @param string      $dir  Absolute directory path.
+	 * @param string|null $keep Version whose files stay; null removes every file.
+	 */
+	private function purge_dir( string $dir, ?string $keep = null ): void {
 		if ( ! is_dir( $dir ) ) {
 			return;
 		}
@@ -262,7 +297,7 @@ class ImageStorageService {
 			return;
 		}
 		foreach ( $files as $file ) {
-			if ( is_file( $file ) ) {
+			if ( is_file( $file ) && ( null === $keep || $this->version_of( $file ) !== $keep ) ) {
 				wp_delete_file( $file );
 			}
 		}
