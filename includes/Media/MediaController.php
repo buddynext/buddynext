@@ -332,7 +332,7 @@ class MediaController extends BaseRestController {
 		$args = array(
 			'title'       => sanitize_text_field( (string) $request->get_param( 'title' ) ),
 			'description' => sanitize_textarea_field( (string) $request->get_param( 'description' ) ),
-			'privacy'     => $this->sanitize_privacy( (string) $request->get_param( 'privacy' ) ),
+			'privacy'     => $this->sanitize_privacy( (string) $request->get_param( 'privacy' ), absint( $request->get_param( 'space_id' ) ) ),
 		);
 
 		// A media title/description (caption) is user-authored public text, so it
@@ -911,13 +911,12 @@ class MediaController extends BaseRestController {
 			return;
 		}
 
-		$repo = MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'set' ) ) {
-			return;
-		}
-
+		// The space level, through MediaVerse: its members see the photo, nobody
+		// else does. It used to be stamped `private`, which also keeps it from a
+		// logged-out stranger but hides it from the space's own members wherever
+		// the album rule does not carry it.
 		foreach ( $media_ids as $media_id ) {
-			$repo->set( (int) $media_id, 'privacy', 'private' );
+			\BuddyNext\Bridges\WPMediaVerseBridge::apply_media_privacy( (int) $media_id, 'space', $space_id );
 		}
 	}
 
@@ -1126,17 +1125,11 @@ class MediaController extends BaseRestController {
 		// repository is keyed by MEDIA id, so the album's real privacy never
 		// changed, its photos stayed public, and on any site where a media id
 		// equals the album's post id that row's privacy was overwritten instead
-		// (card 10369186079). The repository write survives only for a
-		// WPMediaVerse older than set_privacy() (2.4.0), which stored it there.
+		// (card 10369186079).
 		if ( null !== $privacy && ! $space_album ) {
 			$clean = $this->sanitize_album_privacy( (string) $privacy );
 			if ( $album_svc && method_exists( $album_svc, 'set_privacy' ) ) {
 				$album_svc->set_privacy( $album_id, $clean );
-			} else {
-				$repo = MediaClient::repo();
-				if ( $repo && method_exists( $repo, 'set' ) ) {
-					$repo->set( $album_id, 'privacy', $clean );
-				}
 			}
 		}
 
@@ -1312,13 +1305,14 @@ class MediaController extends BaseRestController {
 	 * privacy change can never disagree. No choice sent means the composer's own
 	 * default, public; a word nobody knows is private.
 	 *
-	 * @param string $privacy Post-vocabulary privacy (public/followers/connections/space_members/private).
+	 * @param string $privacy  Post-vocabulary privacy (public/followers/connections/space_members/private).
+	 * @param int    $space_id Space the upload is for, or 0.
 	 * @return string Engine media privacy.
 	 */
-	private function sanitize_privacy( string $privacy ): string {
+	private function sanitize_privacy( string $privacy, int $space_id = 0 ): string {
 		$privacy = sanitize_key( $privacy );
 
-		return \BuddyNext\Bridges\WPMediaVerseBridge::media_privacy_for_post( '' === $privacy ? 'public' : $privacy );
+		return \BuddyNext\Bridges\WPMediaVerseBridge::media_privacy_for_post( '' === $privacy ? 'public' : $privacy, $space_id );
 	}
 
 	/**

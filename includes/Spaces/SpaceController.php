@@ -973,20 +973,14 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'unlink_failed', __( 'Could not resolve the item owner.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
-		// Return the item to its owner's personal drive as private, via MediaVerse's
-		// own index writer (set_many writes drive_type/drive_id/privacy atomically
-		// and fires mvs_media_privacy_changed). The item was just confirmed to exist
-		// on this space's drive, so this is an update, never a partial insert. Keeps
-		// the member's copy; removes the space's. Item is on the space drive, so it
-		// exists — no new MediaVerse code, just its existing API.
-		$repo->set_many(
-			$media_id,
-			array(
-				'drive_type' => 'user',
-				'drive_id'   => $owner_id,
-				'privacy'    => 'private',
-			)
-		);
+		// Return the item to its owner's personal drive as private, through
+		// MediaVerse: move_to_drive() for the location, then its privacy setter, so
+		// the album and chat-file rules apply. Keeps the member's copy; removes the
+		// space's.
+		if ( ! method_exists( $repo, 'move_to_drive' ) || ! $repo->move_to_drive( $media_id, 'user', $owner_id ) ) {
+			return new WP_Error( 'unlink_failed', __( 'Could not move the item out of the space.', 'buddynext' ), array( 'status' => 500 ) );
+		}
+		\BuddyNext\Bridges\WPMediaVerseBridge::apply_media_privacy( $media_id, 'private' );
 
 		// Tell the owner their item left the space (they keep it). Skipped when a
 		// moderator unlinks their own upload. A native BuddyNext event, so the pref
