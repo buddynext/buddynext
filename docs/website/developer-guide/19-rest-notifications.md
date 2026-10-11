@@ -29,6 +29,7 @@ In short:
 | PUT | `/me/notifications/(?P<id>[\d]+)/read` | auth | Mark one notification read. Also accepts `POST`. |
 | PUT | `/me/notifications/(?P<id>[\d]+)/unread` | auth | Mark one notification unread. Also accepts `POST`. |
 | DELETE | `/me/notifications/(?P<id>[\d]+)` | auth | Delete one of the current user's notifications. |
+| DELETE | `/me/notifications` | auth | Delete several of the current user's notifications in one call. Body: `ids`, an array of notification ids. Ids that are not the caller's are ignored. Returns `{ deleted }`, the number removed. |
 | GET | `/me/notification-prefs` | auth | Per-type preferences, with catalogue defaults merged so every type appears once. |
 | PUT | `/me/notification-prefs` | auth | Update per-type preferences. Body keyed by type, values `{ on_site, email_freq }`. Returns `422` on an invalid `email_freq`. |
 | GET | `/me/notification-channels` | auth | Master channel switches (`in_app`, `email`, `push`, `sound`) plus `push_available`. |

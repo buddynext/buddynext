@@ -30,7 +30,7 @@ The admin member editor (BuddyNext > Members > Directory, then Edit on a member)
 
 | Part | What you pick |
 |---|---|
-| Field that decides | A **Dropdown**, **Radio**, **Checkboxes**, **Yes / No** or **Member Type** field that is always shown |
+| Field that decides | A **Dropdown**, **Radio**, **Multi-select**, **Yes / No** or **Member Type** field that is always shown |
 | Comparison | **is** or **is not**. For Yes / No: **is Yes** or **is No**. |
 | Answers | Tick one or more of that field's options |
 
@@ -40,7 +40,7 @@ The admin member editor (BuddyNext > Members > Directory, then Edit on a member)
 |---|---|
 | Gender **is** Male | The member picked Male |
 | Role **is** Manager, Director | The member picked either one |
-| Skills **is** Leadership (Checkboxes) | Leadership is one of the ticked boxes |
+| Skills **is** Leadership (Multi-select) | Leadership is one of the ticked boxes |
 | Gender **is not** Male | The member picked an answer, and it is not Male |
 | Open to mentoring **is Yes** | The box is ticked |
 

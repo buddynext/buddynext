@@ -141,6 +141,7 @@ Open the Plans tab and choose **Add plan**. A plan is defined by three groups of
 | Trial days | Length of a free trial in days. Set to 0 to disable the trial. | 0 |
 | Billing type | Whether the plan bills repeatedly or once. Options: Recurring, One-time. | Recurring |
 | Billing interval | How often a recurring plan bills, or whether it is a single charge. Options: Monthly, Yearly, Once. | Monthly |
+| Access lasts | Shown in place of Billing interval when Billing type is One-time: how long one payment gives access. Options: 1 month, 1 year, Forever. | 1 month |
 | Also offer an annual price | For a recurring plan, lets members choose monthly or yearly at checkout. The plan grants the same access either way. The Price field above is then the monthly price. | Off |
 | Annual price | The yearly recurring price, shown when the box above is ticked. | 0.00 |
 | Points price | Gamification points that redeem the plan. Set to 0 to turn points redemption off for this plan. | 0 |
