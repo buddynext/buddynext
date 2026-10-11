@@ -368,6 +368,45 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A request stamped ahead of the clock stays acceptable for longer than the
+	 * tolerance, so a copy sent after the tolerance has passed is still refused.
+	 *
+	 * @return void
+	 */
+	public function test_replay_is_refused_for_the_whole_time_a_request_is_valid(): void {
+		global $wpdb;
+
+		$payload   = (string) wp_json_encode(
+			array(
+				'user_id' => $this->user_id,
+				'action'  => 'add_credits',
+				'amount'  => 5,
+			)
+		);
+		$timestamp = (string) ( time() + 200 );
+		$digest    = hash_hmac( 'sha256', $timestamp . '.' . $payload, $this->secret );
+		$send      = function () use ( $payload, $timestamp, $digest ): \WP_REST_Response {
+			$request = new \WP_REST_Request( 'POST', '/buddynext/v1/webhook/access' );
+			$request->set_header( 'Content-Type', 'application/json' );
+			$request->set_header( 'X-BuddyNext-Timestamp', $timestamp );
+			$request->set_header( 'X-BuddyNext-Signature', $digest );
+			$request->set_body( $payload );
+
+			return rest_do_request( $request );
+		};
+
+		$this->assertSame( 200, $send()->get_status() );
+
+		// Six minutes later by the log: past the tolerance, but the request, stamped
+		// ahead, is still inside its window.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}bn_webhook_log SET created_at = %s WHERE signature = %s", gmdate( 'Y-m-d H:i:s', time() - 360 ), $digest ) );
+
+		$this->assertSame( 409, $send()->get_status() );
+		$this->assertSame( 5, ( new RoleService() )->get_credits( $this->user_id ) );
+	}
+
+	/**
 	 * A site can switch an action off; the stored log masks the member's address.
 	 *
 	 * @return void

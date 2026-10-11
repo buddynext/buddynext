@@ -169,6 +169,7 @@ class AccessWebhookController {
 	 * @param int    $user_id Member the request is about.
 	 * @param array  $body    Decoded request body.
 	 * @return array<string,mixed>|WP_Error Response body, or the refusal.
+	 * @throws \Throwable Whatever the action threw, after the request is logged.
 	 */
 	private function run( string $action, int $user_id, array $body ): array|WP_Error {
 		$key       = is_scalar( $body['idempotency_key'] ?? null ) ? trim( (string) $body['idempotency_key'] ) : '';
@@ -204,7 +205,15 @@ class AccessWebhookController {
 		// stand down for the duration of this one. Without that, every HTTP grant
 		// would be recorded twice: once here and once by the listener.
 		WebhookLog::begin_request_scope();
-		$result = $refusal instanceof WP_Error ? $refusal : $this->dispatch( $action, $user_id, $body );
+		try {
+			$result = $refusal instanceof WP_Error ? $refusal : $this->dispatch( $action, $user_id, $body );
+		} catch ( \Throwable $error ) {
+			// Recorded even when the action blew up part-way, so the signature is on
+			// file and the same request cannot be sent again to finish the job twice.
+			WebhookLog::end_request_scope();
+			$this->log( $action, $user_id, $body, 'error' );
+			throw $error;
+		}
 		WebhookLog::end_request_scope();
 
 		$this->log( $action, $user_id, $body, $result instanceof WP_Error ? 'error' : 'success' );
@@ -688,11 +697,15 @@ class AccessWebhookController {
 				 WHERE signature = %s AND created_at > %s
 				 LIMIT 1",
 				$signature,
-				gmdate( 'Y-m-d H:i:s', time() - self::TIMESTAMP_TOLERANCE )
+				// Twice the tolerance: a request stamped five minutes ahead (a sender's
+				// fast clock) stays acceptable for ten, so the look back must cover ten.
+				gmdate( 'Y-m-d H:i:s', time() - 2 * self::TIMESTAMP_TOLERANCE )
 			)
 		);
 
-		return null !== $found;
+		// A lookup that failed cannot say "not seen". Refusing is the safe answer:
+		// the sender retries, where accepting would let a replay through.
+		return null !== $found || '' !== (string) $wpdb->last_error;
 	}
 
 	/**
