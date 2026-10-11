@@ -2061,57 +2061,28 @@ class ModerationService {
 	/**
 	 * Resolve the sender of each reported direct message.
 	 *
-	 * One batched read for the whole queue page — never a lookup per row — so
+	 * One batched read for the whole queue page, never a lookup per row, so
 	 * message reports can carry a real offender id for the Warn / Strike /
 	 * Suspend actions and the "Remove content" takedown can address the DM to
-	 * its author. Returns an empty map when the WPMediaVerse engine (which owns
-	 * the DM store) is absent; without it, no DM can exist to be reported.
-	 *
-	 * @internal Read-only. The engine exposes no accessor for a message's sender
-	 *           id, so this reads the messaging store directly — mirroring
-	 *           MessagesData::unread_count(). Every WRITE to a message still
-	 *           goes through MessagingService (see ModerationListener) so the
-	 *           tombstone, unread and conversation-preview bookkeeping runs.
+	 * its author. MediaVerse owns the message store and answers
+	 * (MessagingService::get_message_senders, 2.6.2). Empty when it is absent;
+	 * without it, no DM can exist to be reported.
 	 *
 	 * @param int[] $message_ids Reported message IDs.
 	 * @return array<int,int> Map of message ID => sender user ID (missing rows are omitted).
 	 */
 	public function get_message_sender_ids( array $message_ids ): array {
-		$ids = array();
-		foreach ( $message_ids as $mid ) {
-			$mid = absint( $mid );
-			if ( $mid > 0 ) {
-				$ids[ $mid ] = true;
-			}
-		}
-		$ids = array_keys( $ids );
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $message_ids ) ) ) );
 
-		if ( empty( $ids ) || ! \BuddyNext\Media\MediaClient::available() ) {
+		$messaging = $ids && \BuddyNext\Media\MediaClient::available() ? \BuddyNext\Media\MediaClient::messaging() : null;
+		if ( ! is_object( $messaging ) || ! method_exists( $messaging, 'get_message_senders' ) ) {
 			return array();
 		}
 
-		global $wpdb;
-
-		// $placeholders is a "%d,…" string bound through ...$ids; the literal
-		// placeholders live inside it, so the analyser reports UnfinishedPrepare
-		// even though the binding is correct.
-		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, sender_id FROM {$wpdb->prefix}mvs_messages WHERE id IN ({$placeholders})",
-				...$ids
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
 		$senders = array();
-		foreach ( (array) $rows as $row ) {
-			$sender = (int) $row['sender_id'];
-			if ( $sender > 0 ) {
-				$senders[ (int) $row['id'] ] = $sender;
+		foreach ( (array) $messaging->get_message_senders( $ids ) as $message_id => $sender_id ) {
+			if ( (int) $sender_id > 0 ) {
+				$senders[ (int) $message_id ] = (int) $sender_id;
 			}
 		}
 
