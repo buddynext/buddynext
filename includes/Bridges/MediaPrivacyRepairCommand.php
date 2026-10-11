@@ -324,14 +324,19 @@ class MediaPrivacyRepairCommand {
 			}
 		}
 
-		// A file its owner already locked down is left alone. Every other level is
-		// set to the post's: followers, connections and space members do not nest,
-		// so a "stricter of the two" answer would leave a file with the wrong crowd.
-		if ( $current !== $target && WPMediaVerseBridge::is_locked_down( $current ) ) {
+		// Only ever narrower. A file already tighter than its post is left alone.
+		// One held by a different crowd (followers on a connections post) is made
+		// private, unless it is on its way into the post's space, which MediaVerse
+		// moves and levels itself.
+		$settle = WPMediaVerseBridge::settle_level( $current, $target );
+		if ( '' === $settle && $current !== $target ) {
 			return array(
 				'state'   => 'correct',
 				'message' => '',
 			);
+		}
+		if ( 'private' === $settle && ! $move_to_space ) {
+			$target = 'private';
 		}
 
 		if ( ! $dry_run ) {

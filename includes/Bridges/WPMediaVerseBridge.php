@@ -940,16 +940,18 @@ class WPMediaVerseBridge {
 
 			// MediaVerse did not put the file at the level its post asks for. This
 			// method exists to keep a file from being readable by more people than
-			// its post, so it fails CLOSED: when what is stored is not the
-			// post's level, that level is written straight to the repository. Only a
-			// file its owner already locked down (is_locked_down) is left as it is.
+			// its post, so it fails CLOSED: a file stored wider than its post is
+			// written straight to the repository at the post's level, and one held by
+			// a different crowd is made private. A file MediaVerse kept narrower
+			// than the post is its decision and is left alone (settle_level).
 			$repo     = MediaClient::repo();
 			$readable = is_object( $repo ) && method_exists( $repo, 'get' );
 			$current  = $readable ? (string) $repo->get( $media_id, 'privacy' ) : '';
 			$repaired = false;
-			if ( $readable && method_exists( $repo, 'set_many' ) && ! self::is_locked_down( $current ) ) {
-				$repo->set_many( $media_id, array( 'privacy' => $target ) );
-				$repaired = (string) $repo->get( $media_id, 'privacy' ) === $target;
+			$settle   = self::settle_level( $current, $target );
+			if ( $readable && method_exists( $repo, 'set_many' ) && '' !== $settle ) {
+				$repo->set_many( $media_id, array( 'privacy' => $settle ) );
+				$repaired = (string) $repo->get( $media_id, 'privacy' ) === $settle;
 			}
 
 			// Logged either way: an owner should be able to find a privacy write
@@ -1244,18 +1246,49 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Whether a file is already kept to its owner (or to a hand-picked audience).
+	 * The level a file should be stored at, given what it holds and what its post asks.
 	 *
-	 * The only levels that are narrower than every post audience. The others do
-	 * not nest: connections are not a subset of followers, and space members are
-	 * neither, so "which is stricter" has no answer between them and the post's
-	 * own level is the one to store.
+	 * Audiences come in rings: everyone, then members, then one crowd (followers,
+	 * connections or a space), then the owner alone. A ring further in is always
+	 * narrower. The crowds in the third ring do not nest: connections are not a
+	 * subset of followers, and space members are neither.
 	 *
-	 * @param string $privacy Stored media privacy.
-	 * @return bool
+	 * - The file is already narrower than its post: leave it ('' is returned).
+	 * - The file is wider than its post: the post's level.
+	 * - Same ring, different crowd: `private`. Neither is the stricter one, and
+	 *   handing the file to a new crowd is not this method's call; hiding a file
+	 *   is recoverable, showing it to the wrong people is not.
+	 *
+	 * A level this does not know is treated as the widest, so it is always brought
+	 * in to the post's level.
+	 *
+	 * @param string $current Stored media privacy.
+	 * @param string $target  The level the post asks for.
+	 * @return string Level to store, or '' to leave the file as it is.
 	 */
-	public static function is_locked_down( string $privacy ): bool {
-		return in_array( $privacy, array( 'private', 'custom', 'dm' ), true );
+	public static function settle_level( string $current, string $target ): string {
+		$ring = static function ( string $level ): int {
+			$rings = array(
+				'public'    => 0,
+				'members'   => 1,
+				'loggedin'  => 1,
+				'followers' => 2,
+				'friends'   => 2,
+				'space'     => 2,
+				'group'     => 2,
+				'private'   => 3,
+				'custom'    => 3,
+				'dm'        => 3,
+			);
+
+			return $rings[ $level ] ?? -1;
+		};
+
+		if ( $current === $target || $ring( $current ) > $ring( $target ) ) {
+			return '';
+		}
+
+		return $ring( $current ) === $ring( $target ) ? 'private' : $target;
 	}
 
 	/**
