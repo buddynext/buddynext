@@ -549,10 +549,15 @@ class AccessWebhookValidationTest extends \WP_UnitTestCase {
 
 		// A staff power granted as an ability is the same thing by another name,
 		// however the slug is spelled.
-		foreach ( array( 'buddynext-profile/edit-any', 'buddynext_profile_edit_any', 'BuddyNext-Profile/Edit-Any' ) as $staff ) {
+		foreach ( array( 'buddynext-profile/edit-any', 'buddynext_profile_edit_any', 'BuddyNext-Profile/Edit-Any', 'buddynext-moderate-space', 'buddynext-something/not-in-the-map' ) as $staff ) {
 			$this->assertSame( 403, $this->call( array( 'user_id' => $this->user_id, 'action' => 'grant_ability', 'ability' => $staff ) )->get_status(), $staff );
 		}
 		$this->assertSame( '', (string) get_user_meta( $this->user_id, PermissionService::ability_meta_key( 'buddynext-profile/edit-any' ), true ) );
+
+		// What is meant to be granted still is: member-level and gated-space access.
+		foreach ( array( 'buddynext-spaces/join-gated', 'buddynext-feed/create-post', 'tier:gold', 'badge:supporter' ) as $fine ) {
+			$this->assertFalse( PermissionService::is_staff_ability( $fine ), $fine );
+		}
 
 		// A site whose log shows a role change from before the update.
 		\BuddyNext\Outbound\WebhookLog::write( 'set_role', $this->user_id, array( 'role' => 'moderator' ) );

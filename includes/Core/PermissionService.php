@@ -519,26 +519,39 @@ class PermissionService {
 	}
 
 	/**
-	 * Whether an ability is one the role map keeps for moderators or admins.
+	 * Whether an ability is a BuddyNext power that only staff should hold.
 	 *
-	 * Granting such an ability by hand gives the member that staff power without
-	 * the role, so a door that may not change roles must not hand these out
-	 * either. Compared on the stored form (ability_meta_key), because that is
-	 * what a grant writes: "buddynext-profile/edit-any" and
-	 * "buddynext_profile_edit_any" are the same grant.
+	 * Granting such an ability by hand gives the member that power without the
+	 * role, so a door that may not change roles must not hand these out either.
+	 *
+	 * Anything in BuddyNext's own capability namespace is staff-only unless the
+	 * role map gives it to every member, or it is one of the two capabilities
+	 * that exist to be granted (viewing profiles, joining a gated space). That
+	 * includes a capability this map has never heard of: unknown is refused, not
+	 * waved through. An owner's own abilities and plans (`early_access`,
+	 * `tier:pro`, `badge:supporter`) are outside the namespace and unaffected.
+	 *
+	 * Compared on the stored form (ability_meta_key), because that is what a
+	 * grant writes: "buddynext-profile/edit-any" and "buddynext_profile_edit_any"
+	 * are the same grant.
 	 *
 	 * @param string $ability Ability or capability slug.
 	 * @return bool
 	 */
 	public static function is_staff_ability( string $ability ): bool {
 		$key = strtolower( self::ability_meta_key( $ability ) );
+		if ( 0 !== strpos( $key, 'bn_ability_buddynext' ) ) {
+			return false;
+		}
+
+		$grantable = array( 'buddynext-profile/view', 'buddynext-spaces/join-gated' );
 		foreach ( self::ROLE_MAP as $capability => $role ) {
-			if ( in_array( $role, array( 'moderator', 'admin' ), true ) && strtolower( self::ability_meta_key( $capability ) ) === $key ) {
-				return true;
+			if ( strtolower( self::ability_meta_key( $capability ) ) === $key ) {
+				return 'member' !== $role && ! in_array( $capability, $grantable, true );
 			}
 		}
 
-		return false;
+		return true;
 	}
 
 	/**

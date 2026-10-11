@@ -1510,12 +1510,26 @@ class ProfileService {
 	 * conditional-hidden 422 fix and Zoho #40859 cannot hold on one branch while the
 	 * other still ships the bug.
 	 *
+	 * It is also not enforced when someone else edits the member's account
+	 * (card 10393795456): the rule binds the member, not their administrator.
+	 *
 	 * @param array<string, mixed> $field_def Field (or repeater sub-field) definition.
 	 * @param array<string, mixed> $data      The full submission (a rule's trigger may live in it).
 	 * @param int                  $user_id   Member whose profile is being saved.
 	 * @return bool Whether the required rule applies to this user + submission.
 	 */
 	private function required_rule_active( array $field_def, array $data, int $user_id ): bool {
+		// "Required" is asked of the member filling in their own profile. Someone
+		// editing another member's account (an administrator fixing a name or an
+		// email) is not the one who owes the answer, and must not have to invent
+		// the member's gender to save. WordPress's own Edit User screen and
+		// BuddyPress's admin editor work the same way. Type and allowed-value
+		// checks still run on whatever the editor does enter.
+		$actor = get_current_user_id();
+		if ( $actor > 0 && $actor !== $user_id && current_user_can( 'edit_user', $user_id ) ) {
+			return false;
+		}
+
 		$active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field_def, $data, $user_id );
 
 		if ( ! $this->field_applies_to_user( $field_def, $user_id ) ) {

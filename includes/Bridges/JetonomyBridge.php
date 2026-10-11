@@ -2968,7 +2968,7 @@ class JetonomyBridge {
 				        p.author_id, u.display_name AS author_name, u.user_login AS author_login{$this->anonymous_column( 'p' )}
 				 FROM {$wpdb->prefix}jt_posts p
 				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
-				 WHERE p.space_id = %d AND p.status = 'publish'
+				 WHERE p.space_id = %d AND p.status = 'publish' AND p.is_private = 0
 				 ORDER BY p.created_at DESC
 				 LIMIT %d",
 				$forum_id,
@@ -2979,6 +2979,12 @@ class JetonomyBridge {
 
 		$rows = is_array( $rows ) ? $rows : array();
 
+		// A topic marked private in the forum is for its author and the forum's
+		// moderators. This list is one shared, cached page for every member of the
+		// space, so it carries no private topic at all (the query above, and the
+		// count beside it); the author and moderators read theirs in the forum.
+		// It used to print the private topic's title to every member.
+		//
 		// The forum lists an anonymous topic without its author; so does this tab.
 		foreach ( $rows as $row ) {
 			if ( ! empty( $row->is_anonymous ) ) {
@@ -3024,7 +3030,7 @@ class JetonomyBridge {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish'",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish' AND is_private = 0",
 				$forum_id
 			)
 		);

@@ -210,16 +210,25 @@ class WidgetService {
 					);
 					$pending = array_map( 'intval', (array) $pending );
 
-					$following = $wpdb->get_col(
+					// One read of the follow rows: an approved follow is "following",
+					// a request to a private account still waiting is "requested". It
+					// used to read every row as following, then no pending row at all.
+					$follow_rows = $wpdb->get_results(
 						$wpdb->prepare(
-							"SELECT following_id FROM {$wpdb->prefix}bn_follows
+							"SELECT following_id, status FROM {$wpdb->prefix}bn_follows
 							 WHERE follower_id = %d
-							   AND status = 'approved'
 							   AND following_id IN ( {$row_ph} )",
 							array_merge( array( $user_id ), $row_ids )
 						)
 					);
-					$following = array_map( 'intval', (array) $following );
+					$following   = array();
+					foreach ( (array) $follow_rows as $follow_row ) {
+						if ( 'approved' === $follow_row->status ) {
+							$following[] = (int) $follow_row->following_id;
+						} elseif ( 'pending' === $follow_row->status ) {
+							$pending[] = (int) $follow_row->following_id;
+						}
+					}
 					// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 					foreach ( $rows as &$row ) {

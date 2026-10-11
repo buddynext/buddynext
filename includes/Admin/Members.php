@@ -911,6 +911,38 @@ class Members extends AdminPageBase {
 	}
 
 	/**
+	 * Change the role shown in the Edit member Role box, and only that one.
+	 *
+	 * The box shows the member's first role and is always posted, so the save
+	 * used to call set_role() on every edit: that removes ALL of a member's roles
+	 * and leaves the posted one. A course instructor, a shop customer or an
+	 * administrator with a second role lost it by an unrelated edit such as a
+	 * display name fix (card 10393731049).
+	 *
+	 * Nothing happens when the posted role is the one already shown. When it
+	 * differs, that one role is swapped and the others stay. An administrator's
+	 * own role is not changed from here, as on WordPress's own profile screen:
+	 * one stray click must not lock the owner out of their site.
+	 *
+	 * @param int    $user_id  Member being edited.
+	 * @param string $new_role Role posted from the Role box.
+	 * @return void
+	 */
+	public static function swap_primary_role( int $user_id, string $new_role ): void {
+		$user    = new \WP_User( $user_id );
+		$current = (string) ( array_values( (array) $user->roles )[0] ?? '' );
+
+		if ( '' === $new_role || $new_role === $current || get_current_user_id() === $user_id ) {
+			return;
+		}
+
+		if ( '' !== $current ) {
+			$user->remove_role( $current );
+		}
+		$user->add_role( $new_role );
+	}
+
+	/**
 	 * Handle admin_post_bn_save_member_profile form submission.
 	 *
 	 * @return void
@@ -1075,7 +1107,7 @@ class Members extends AdminPageBase {
 
 		// Handle role update (checked in member_edit_error() above).
 		if ( isset( $_POST['bn_user_role'] ) && '' !== $_POST['bn_user_role'] ) {
-			( new \WP_User( $user_id ) )->set_role( sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) );
+			self::swap_primary_role( $user_id, sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) );
 		}
 
 		// Handle profile slug update.
