@@ -212,6 +212,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'docEnabled'            => (bool) $composer_doc_config['enabled'],
 				'docAccept'             => (string) $composer_doc_config['accept'],
 				'docMaxSize'            => (int) $composer_doc_config['max_size'],
+				'docUploadUrl'          => $composer_doc_config['enabled'] ? esc_url_raw( rest_url( 'mvs-pro/v1/documents/upload' ) ) : '',
 				'documentId'            => 0,
 				'documentName'          => '',
 				'documentUploading'     => false,

@@ -1594,9 +1594,10 @@ const messagesStore = store( 'buddynext/messages', {
 			ctx.attachmentUploading = true;
 			ctx.attachmentPercent   = 0;
 
+			// MediaVerse's own chat upload route locks the file to the conversation
+			// itself, so no privacy is sent from here.
 			const fd = new FormData();
 			fd.append( 'file', file );
-			fd.append( 'privacy', 'dm' ); // Conversation-scoped MediaVerse media: visible only to the DM's participants, never on any public surface, activity feed, or wall.
 
 			// Undo the optimistic chip and tell the member why. toastOnError:false
 			// suppresses restFetch's own toast, so this handler owns the failure UX:
@@ -1609,8 +1610,11 @@ const messagesStore = store( 'buddynext/messages', {
 			};
 
 			try {
+				// The chat upload route, not the general media route: any member who
+				// may message may attach, where the media route needs the upload
+				// capability and answered 403 to a role without it, in chat only.
 				// FormData sets its own multipart Content-Type boundary — pass it through untouched.
-				const res = yield restFetch( '/media', {
+				const res = yield restFetch( '/messages/upload', {
 					base: ctx.mvsRest,
 					nonce: ctx.nonce,
 					method: 'POST',

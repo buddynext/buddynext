@@ -1075,9 +1075,14 @@ store( 'buddynext/post-composer', {
 			}
 			const nonce   = ctxData.restNonce || '';
 			const maxSize = ctxData.docMaxSize || 0;
-			// MVS's document endpoint sits under mvs-pro/v1, derived from the
-			// composer's own REST root so it works whatever the permalink shape.
-			const uploadUrl = String( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs-pro/v1' ) + '/documents/upload';
+			// The document route's address comes from the server (rest_url), not from
+			// rewriting BuddyNext's own REST root, which broke as soon as either
+			// plugin's namespace or the permalink shape differed.
+			const uploadUrl = String( ctxData.docUploadUrl || '' );
+			if ( ! uploadUrl ) {
+				bnToast( t( 'documentsUnavailable', 'Documents are not available on your account.' ), { tone: 'info' } );
+				return;
+			}
 
 			if ( ! docInput._bnWired ) {
 				docInput._bnWired = true;
