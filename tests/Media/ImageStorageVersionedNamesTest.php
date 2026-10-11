@@ -151,4 +151,38 @@ class ImageStorageVersionedNamesTest extends \WP_UnitTestCase {
 		$this->assertFileExists( $dir . '/full.jpg', 'Kept as the previous version.' );
 		$this->assertSame( $new, $this->images->variation_url( 'avatar', 'user', $this->owner, 'full' ) );
 	}
+
+	/**
+	 * Deleting an account or a space removes its image files.
+	 *
+	 * @return void
+	 */
+	public function test_deleting_the_owner_removes_the_files(): void {
+		\BuddyNext\Core\Installer::run();
+		$uploads = wp_upload_dir();
+		$user_id = self::factory()->user->create();
+		$this->images->store( DIR_TESTDATA . '/images/canola.jpg', 'avatar', 'user', $user_id );
+		$this->images->store( DIR_TESTDATA . '/images/canola.jpg', 'cover', 'user', $user_id );
+		$this->assertDirectoryExists( $uploads['basedir'] . '/bn-avatars/' . $user_id );
+
+		( new \BuddyNext\Profile\MemberCleanupService() )->purge_user_relations( $user_id );
+
+		$this->assertDirectoryDoesNotExist( $uploads['basedir'] . '/bn-avatars/' . $user_id );
+		$this->assertDirectoryDoesNotExist( $uploads['basedir'] . '/bn-covers/' . $user_id );
+
+		$spaces   = new \BuddyNext\Spaces\SpaceService();
+		$owner    = self::factory()->user->create();
+		$space_id = (int) $spaces->create(
+			$owner,
+			array(
+				'name' => 'Image Space',
+				'slug' => 'image-space-' . wp_rand( 1000, 9999 ),
+			)
+		);
+		$this->images->store( DIR_TESTDATA . '/images/canola.jpg', 'avatar', 'space', $space_id );
+		$this->assertDirectoryExists( $uploads['basedir'] . '/bn-space-avatars/' . $space_id );
+
+		$this->assertTrue( $spaces->delete( $space_id, $owner ) );
+		$this->assertDirectoryDoesNotExist( $uploads['basedir'] . '/bn-space-avatars/' . $space_id );
+	}
 }

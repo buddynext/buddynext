@@ -1442,6 +1442,11 @@ class SpaceService {
 		 */
 		do_action( 'buddynext_purge_space_data', $space_id, $user_id );
 
+		// The space's avatar and cover are files, not rows.
+		$images = new \BuddyNext\Media\ImageStorageService();
+		$images->delete( 'avatar', 'space', $space_id );
+		$images->delete( 'cover', 'space', $space_id );
+
 		return true;
 	}
 
