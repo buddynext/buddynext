@@ -42,6 +42,14 @@ Muting is the quiet option. When you mute someone, their content stops appearing
 
 Restrict is the in-between option, modeled on the "limit this person" pattern from mainstream social apps. It limits how much the other person can interact with you while stopping short of a full block. Like mute, it applies quietly and toggles on and off in one tap.
 
+What changes when you restrict someone:
+
+- They can still see your posts and comment on them.
+- Their comments on your posts are visible only to you and to them. Nobody else sees them.
+- You get no notifications from them.
+- Their direct messages still arrive in your inbox, without a notification.
+- They are not told.
+
 ### Managing your blocked and muted lists
 
 Everything you have blocked, muted, or restricted is listed in one place in your profile settings, so you never have to revisit the other person's profile to undo an action. Open **Settings > Privacy** and find **Blocked, restricted & muted**, then remove anyone from it to unblock, unmute, or unrestrict them. This is also where the block confirmation dialog points you when it says you can reverse a block later.

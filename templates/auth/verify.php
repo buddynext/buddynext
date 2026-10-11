@@ -272,6 +272,25 @@ wp_enqueue_style( 'bn-auth' );
 					<?php esc_html_e( 'Click the link in the email to verify your address. The link expires in 48 hours.', 'buddynext' ); ?>
 				</p>
 
+				<?php
+				// Say so before it happens: an account that never verifies is deleted
+				// by the cleanup job (CronService::purge_stale_unverified()).
+				$bn_verify_purge_days = (bool) get_option( 'buddynext_email_verify', false ) ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
+				if ( $bn_verify_purge_days > 0 ) :
+					?>
+					<p class="bn-auth-sub">
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: %s: number of days. */
+								_n( 'An account that is not verified within %s day is removed.', 'An account that is not verified within %s days is removed.', $bn_verify_purge_days, 'buddynext' ),
+								number_format_i18n( $bn_verify_purge_days )
+							)
+						);
+						?>
+					</p>
+				<?php endif; ?>
+
 				<div class="bn-badge bn-verify-feedback" role="status" aria-live="polite"
 					data-wp-bind--hidden="!state.feedback"
 					data-wp-bind--data-tone="context.tone"

@@ -4095,6 +4095,31 @@ code.bn-ep-code {
 
 /* ── Activity admin (Engagement > Activity) ───────────────────────────────── */
 
+/* The post text is the point of the Activity screen, so it gets the room: the
+   author column has a floor (column-primary) and Content had none, which left
+   it about 115px wide beside a 288px author. */
+.bn-activity-content {
+	min-width: 9rem; /* The most a 1536px screen can give without pushing Posted further under the pinned Actions column. */
+	width: 45%;
+}
+
+/* The room comes from the author cell. Its 16rem floor was written for the
+   Members directory, where the cell also carries an email; here it holds a name
+   and a handle, and that floor is what squeezed the post text. */
+.bn-admin-hub__content table.bn-table[data-bn-bulk="bn-activity-bulk"] td.column-primary,
+.bn-admin-hub__content table.bn-table[data-bn-bulk="bn-activity-bulk"] th.column-primary {
+	min-width: 10rem;
+}
+
+@media screen and ( max-width: 782px ) {
+
+	.bn-activity-content,
+	.bn-admin-hub__content table.bn-table[data-bn-bulk="bn-activity-bulk"] td.column-primary {
+		min-width: 0;
+		width: auto;
+	}
+}
+
 .bn-activity-toolbar {
 	display: flex;
 	flex-wrap: wrap;

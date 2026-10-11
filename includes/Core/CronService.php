@@ -217,6 +217,23 @@ class CronService {
 	}
 
 	/**
+	 * Days a never-verified account is kept before the purge deletes it.
+	 *
+	 * One answer for the purge itself and for the two places that tell people
+	 * about it (the verification setting and the Check your inbox page).
+	 *
+	 * @return int Days; 0 when the purge is off.
+	 */
+	public static function unverified_purge_days(): int {
+		/**
+		 * Filter the grace period (days) before a never-verified account is deleted.
+		 *
+		 * @param int $days Default 7. 0 disables the purge.
+		 */
+		return max( 0, (int) apply_filters( 'buddynext_unverified_purge_days', 7 ) );
+	}
+
+	/**
 	 * Delete accounts that registered under email verification and never verified.
 	 *
 	 * Only accounts carrying the buddynext_verify_pending marker (set at token
@@ -233,12 +250,7 @@ class CronService {
 			return; // Verification not enforced — nothing to purge.
 		}
 
-		/**
-		 * Filter the grace period (days) before a never-verified account is deleted.
-		 *
-		 * @param int $days Default 7. 0 disables the purge.
-		 */
-		$days = (int) apply_filters( 'buddynext_unverified_purge_days', 7 );
+		$days = self::unverified_purge_days();
 		if ( $days <= 0 ) {
 			return;
 		}
@@ -272,9 +284,23 @@ class CronService {
 			// Legitimate accounts that happen to be unverified: never delete an
 			// admin, an already-verified account, or one with any content. Clear the
 			// marker so they drop out of future scans.
+			/**
+			 * Filter whether a never-verified account past the grace period is kept.
+			 *
+			 * BuddyNext keeps an account that has written a post. Anything else a
+			 * site counts as "this is a real member" belongs here: a purchase, a
+			 * course enrolment, a booking. BuddyNext Pro keeps paying members.
+			 *
+			 * @since 1.2.5
+			 *
+			 * @param bool $keep    Whether to keep the account. Default: it has posts.
+			 * @param int  $user_id The account.
+			 */
+			$keep = (bool) apply_filters( 'buddynext_unverified_account_keep', $this->user_has_posts( $uid ), $uid );
+
 			if ( user_can( $uid, 'manage_options' )
 				|| (bool) get_user_meta( $uid, 'buddynext_email_verified', true )
-				|| $this->user_has_posts( $uid ) ) {
+				|| $keep ) {
 				delete_user_meta( $uid, 'buddynext_verify_pending' );
 				continue;
 			}

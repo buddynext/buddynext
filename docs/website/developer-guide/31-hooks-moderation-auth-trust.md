@@ -263,6 +263,7 @@ Narrower hooks around report handling, the sign-up and login screens, and onboar
 | `buddynext_invite_csv_max_rows` | filter | An invite CSV is uploaded. Caps the rows processed per upload (default `500`). | `int $max` |
 | `buddynext_legal_page_url` | filter | A terms or privacy page URL is resolved for the sign-up consent text. Answer for terms hosted off-site. Applied on every path, including unreadable pages. | `string $url, int $page_id` |
 | `buddynext_unverified_purge_days` | filter | The cron purge reads how many days a never-verified account is kept (default `7`; `0` disables the purge). | `int $days` |
+| `buddynext_unverified_account_keep` | filter | The cron purge is about to delete a never-verified account past the grace period. Return `true` to keep it. Default keeps an account that has posted; BuddyNext Pro keeps paying members. Since 1.2.5. | `bool $keep, int $user_id` |
 | `buddynext_auth_show_form_logo` | filter | The auth card decides whether to repeat the logo above the form (default `false`; the theme header already shows it). | `bool $show` |
 | `buddynext_signup_url` / `buddynext_reset_url` / `buddynext_verify_url` | filter | The sign-up, password-reset, and email-verification screen URLs are resolved. Defaults are `{auth}/signup/`, `{auth}/reset/`, and `{auth}/verify/`. | `string $url` |
 

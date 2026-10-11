@@ -855,6 +855,62 @@ class Members extends AdminPageBase {
 	}
 
 	/**
+	 * The first reason this member edit cannot be saved, or '' when it can.
+	 *
+	 * Checks only; nothing is written here. Covers the avatar and cover uploads,
+	 * the email, the WordPress role and the handle. Profile fields are validated
+	 * by ProfileService::save_profile(), which the handler runs before any other
+	 * write.
+	 *
+	 * @param int      $user_id Member being edited.
+	 * @param \WP_User $wp_user That member.
+	 * @return string An error code for the `bn_error` query arg, or ''.
+	 */
+	private function member_edit_error( int $user_id, \WP_User $wp_user ): string {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- check_admin_referer() ran in the caller.
+		$images = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
+		foreach ( array(
+			'avatar' => 2,
+			'cover'  => 5,
+		) as $kind => $max_mb ) {
+			$file = isset( $_FILES[ 'bn_' . $kind ] ) && is_array( $_FILES[ 'bn_' . $kind ] ) ? $_FILES[ 'bn_' . $kind ] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- size and type are compared, never stored.
+			if ( empty( $file['name'] ) ) {
+				continue;
+			}
+			if ( isset( $file['size'] ) && (int) $file['size'] > $max_mb * MB_IN_BYTES ) {
+				return $kind . '_size';
+			}
+			if ( isset( $file['type'] ) && ! in_array( $file['type'], $images, true ) ) {
+				return $kind . '_type';
+			}
+		}
+
+		$new_email = isset( $_POST['bn_user_email'] ) ? sanitize_email( wp_unslash( $_POST['bn_user_email'] ) ) : '';
+		if ( '' !== $new_email && $new_email !== $wp_user->user_email ) {
+			if ( ! is_email( $new_email ) ) {
+				return 'email_invalid';
+			}
+			$existing_owner = email_exists( $new_email );
+			if ( false !== $existing_owner && (int) $existing_owner !== $user_id ) {
+				return 'email_taken';
+			}
+		}
+
+		$new_role = isset( $_POST['bn_user_role'] ) ? sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) : '';
+		if ( '' !== $new_role && ! in_array( $new_role, array_keys( wp_roles()->get_names() ), true ) ) {
+			return 'role_invalid';
+		}
+
+		$new_slug = isset( $_POST['bn_profile_slug'] ) ? sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) ) : '';
+		if ( '' !== $new_slug && ! \BuddyNext\Core\PageRouter::is_slug_available( $new_slug, $user_id ) ) {
+			return 'slug_taken';
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		return '';
+	}
+
+	/**
 	 * Handle admin_post_bn_save_member_profile form submission.
 	 *
 	 * @return void
@@ -890,142 +946,19 @@ class Members extends AdminPageBase {
 			admin_url( 'admin.php' )
 		);
 
-		// Handle avatar removal.
-		if ( ! empty( $_POST['bn_remove_avatar'] ) ) {
-			delete_user_meta( $user_id, 'bn_avatar' );
-			// Drop the stored image variations too — usermeta alone orphans the
-			// uploads/bn-avatars/{user_id}/ files on disk.
-			( new \BuddyNext\Media\ImageStorageService() )->delete( 'avatar', 'user', (int) $user_id );
-			wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
-			wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
-			wp_cache_delete( "profile_{$user_id}_viewer_public", 'buddynext_profiles' );
+		// Every check runs before anything is written, so a refused edit really
+		// does leave the member as they were. The checks used to sit in front of
+		// each write: a profile field that failed validation, checked last, came
+		// back as "nothing was saved" after the name, email, role and handle had
+		// already been changed.
+		$edit_error = $this->member_edit_error( $user_id, $wp_user );
+		if ( '' !== $edit_error ) {
+			wp_safe_redirect( add_query_arg( 'bn_error', $edit_error, $redirect_url ) );
+			exit;
 		}
 
-		// Handle avatar upload.
-		if ( ! empty( $_FILES['bn_avatar']['name'] ) ) {
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- isset checked via !empty on ['name']
-			if ( isset( $_FILES['bn_avatar']['size'] ) && $_FILES['bn_avatar']['size'] > 2 * 1024 * 1024 ) {
-				wp_safe_redirect( add_query_arg( 'bn_error', 'avatar_size', $redirect_url ) );
-				exit;
-			}
-
-			$allowed_types = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- type validated against allowlist
-			if ( isset( $_FILES['bn_avatar']['type'] ) && ! in_array( $_FILES['bn_avatar']['type'], $allowed_types, true ) ) {
-				wp_safe_redirect( add_query_arg( 'bn_error', 'avatar_type', $redirect_url ) );
-				exit;
-			}
-
-			if ( ! function_exists( 'wp_handle_upload' ) ) {
-				require_once ABSPATH . 'wp-admin/includes/file.php';
-			}
-
-			// Organized, per-owner WebP storage (uploads/bn-avatars/{id}/) — same
-			// path the front-end avatar upload uses; no attachments, no orphans.
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-			$avatar_tmp = isset( $_FILES['bn_avatar']['tmp_name'] ) ? (string) $_FILES['bn_avatar']['tmp_name'] : '';
-			$uploaded   = ( new \BuddyNext\Media\ImageStorageService() )->store( $avatar_tmp, 'avatar', 'user', (int) $user_id );
-
-			if ( ! is_wp_error( $uploaded ) ) {
-				update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $uploaded ) );
-				wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
-				wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
-				wp_cache_delete( "profile_{$user_id}_viewer_public", 'buddynext_profiles' );
-			}
-		}
-
-		// Handle cover photo removal.
-		if ( ! empty( $_POST['bn_remove_cover'] ) ) {
-			( new \BuddyNext\Profile\AvatarService() )->delete_cover( (int) $user_id );
-			delete_user_meta( $user_id, 'buddynext_cover_focal' );
-			( new \BuddyNext\Media\ImageStorageService() )->delete( 'cover', 'user', (int) $user_id );
-		}
-
-		// Handle cover photo upload.
-		if ( ! empty( $_FILES['bn_cover']['name'] ) ) {
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- size validated numerically
-			if ( isset( $_FILES['bn_cover']['size'] ) && (int) $_FILES['bn_cover']['size'] > 5 * 1024 * 1024 ) {
-				wp_safe_redirect( add_query_arg( 'bn_error', 'cover_size', $redirect_url ) );
-				exit;
-			}
-
-			$cover_allowed = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- type validated against allowlist
-			if ( isset( $_FILES['bn_cover']['type'] ) && ! in_array( $_FILES['bn_cover']['type'], $cover_allowed, true ) ) {
-				wp_safe_redirect( add_query_arg( 'bn_error', 'cover_type', $redirect_url ) );
-				exit;
-			}
-
-			// Organized, per-owner WebP storage (uploads/bn-covers/{id}/).
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-			$cover_tmp      = isset( $_FILES['bn_cover']['tmp_name'] ) ? (string) $_FILES['bn_cover']['tmp_name'] : '';
-			$cover_uploaded = ( new \BuddyNext\Media\ImageStorageService() )->store( $cover_tmp, 'cover', 'user', (int) $user_id );
-
-			if ( ! is_wp_error( $cover_uploaded ) ) {
-				( new \BuddyNext\Profile\AvatarService() )->save_cover_url( (int) $user_id, (string) $cover_uploaded );
-			}
-		}
-
-		// Handle display name update.
-		if ( isset( $_POST['display_name'] ) && '' !== $_POST['display_name'] ) {
-			wp_update_user(
-				array(
-					'ID'           => $user_id,
-					'display_name' => sanitize_text_field( wp_unslash( $_POST['display_name'] ) ),
-				)
-			);
-		}
-
-		// Handle email update. A bad or already-taken email must surface an error
-		// rather than silently skipping and reporting "saved" (same early-exit
-		// pattern the slug-taken check below uses).
-		if ( isset( $_POST['bn_user_email'] ) && '' !== $_POST['bn_user_email'] ) {
-			$new_email = sanitize_email( wp_unslash( $_POST['bn_user_email'] ) );
-			if ( '' !== $new_email && $new_email !== $wp_user->user_email ) {
-				if ( ! is_email( $new_email ) ) {
-					wp_safe_redirect( add_query_arg( 'bn_error', 'email_invalid', $redirect_url ) );
-					exit;
-				}
-				$existing_owner = email_exists( $new_email );
-				if ( false !== $existing_owner && (int) $existing_owner !== $user_id ) {
-					wp_safe_redirect( add_query_arg( 'bn_error', 'email_taken', $redirect_url ) );
-					exit;
-				}
-				wp_update_user(
-					array(
-						'ID'         => $user_id,
-						'user_email' => $new_email,
-					)
-				);
-			}
-		}
-
-		// Handle role update. An invalid role must surface an error rather than
-		// silently skipping and reporting success.
-		if ( isset( $_POST['bn_user_role'] ) && '' !== $_POST['bn_user_role'] ) {
-			$new_role    = sanitize_key( wp_unslash( $_POST['bn_user_role'] ) );
-			$valid_roles = array_keys( wp_roles()->get_names() );
-			if ( ! in_array( $new_role, $valid_roles, true ) ) {
-				wp_safe_redirect( add_query_arg( 'bn_error', 'role_invalid', $redirect_url ) );
-				exit;
-			}
-			$user_obj = new \WP_User( $user_id );
-			$user_obj->set_role( $new_role );
-		}
-
-		// Handle profile slug update.
-		if ( isset( $_POST['bn_profile_slug'] ) && '' !== $_POST['bn_profile_slug'] ) {
-			$new_slug = sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) );
-			if ( '' !== $new_slug ) {
-				if ( \BuddyNext\Core\PageRouter::is_slug_available( $new_slug, $user_id ) ) {
-					\BuddyNext\Profile\Handle::set( $user_id, $new_slug );
-				} else {
-					wp_safe_redirect( add_query_arg( 'bn_error', 'slug_taken', $redirect_url ) );
-					exit;
-				}
-			}
-		}
-
+		// Profile fields go first of the writes: save_profile() validates the
+		// whole set and writes all of it or none of it.
 		$profile_data = self::collect_profile_data( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- check_admin_referer() ran at the top of this handler.
 
 		if ( ! empty( $profile_data ) ) {
@@ -1064,6 +997,92 @@ class Members extends AdminPageBase {
 
 				wp_safe_redirect( add_query_arg( 'bn_error', 'profile_invalid', $redirect_url ) );
 				exit;
+			}
+		}
+
+		// Handle avatar removal.
+		if ( ! empty( $_POST['bn_remove_avatar'] ) ) {
+			delete_user_meta( $user_id, 'bn_avatar' );
+			// Drop the stored image variations too — usermeta alone orphans the
+			// uploads/bn-avatars/{user_id}/ files on disk.
+			( new \BuddyNext\Media\ImageStorageService() )->delete( 'avatar', 'user', (int) $user_id );
+			wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
+			wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
+			wp_cache_delete( "profile_{$user_id}_viewer_public", 'buddynext_profiles' );
+		}
+
+		// Handle avatar upload.
+		if ( ! empty( $_FILES['bn_avatar']['name'] ) ) {
+			if ( ! function_exists( 'wp_handle_upload' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+
+			// Organized, per-owner WebP storage (uploads/bn-avatars/{id}/) — same
+			// path the front-end avatar upload uses; no attachments, no orphans.
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+			$avatar_tmp = isset( $_FILES['bn_avatar']['tmp_name'] ) ? (string) $_FILES['bn_avatar']['tmp_name'] : '';
+			$uploaded   = ( new \BuddyNext\Media\ImageStorageService() )->store( $avatar_tmp, 'avatar', 'user', (int) $user_id );
+
+			if ( ! is_wp_error( $uploaded ) ) {
+				update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $uploaded ) );
+				wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
+				wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
+				wp_cache_delete( "profile_{$user_id}_viewer_public", 'buddynext_profiles' );
+			}
+		}
+
+		// Handle cover photo removal.
+		if ( ! empty( $_POST['bn_remove_cover'] ) ) {
+			( new \BuddyNext\Profile\AvatarService() )->delete_cover( (int) $user_id );
+			delete_user_meta( $user_id, 'buddynext_cover_focal' );
+			( new \BuddyNext\Media\ImageStorageService() )->delete( 'cover', 'user', (int) $user_id );
+		}
+
+		// Handle cover photo upload.
+		if ( ! empty( $_FILES['bn_cover']['name'] ) ) {
+			// Organized, per-owner WebP storage (uploads/bn-covers/{id}/).
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+			$cover_tmp      = isset( $_FILES['bn_cover']['tmp_name'] ) ? (string) $_FILES['bn_cover']['tmp_name'] : '';
+			$cover_uploaded = ( new \BuddyNext\Media\ImageStorageService() )->store( $cover_tmp, 'cover', 'user', (int) $user_id );
+
+			if ( ! is_wp_error( $cover_uploaded ) ) {
+				( new \BuddyNext\Profile\AvatarService() )->save_cover_url( (int) $user_id, (string) $cover_uploaded );
+			}
+		}
+
+		// Handle display name update.
+		if ( isset( $_POST['display_name'] ) && '' !== $_POST['display_name'] ) {
+			wp_update_user(
+				array(
+					'ID'           => $user_id,
+					'display_name' => sanitize_text_field( wp_unslash( $_POST['display_name'] ) ),
+				)
+			);
+		}
+
+		// Handle email update (checked in member_edit_error() above).
+		if ( isset( $_POST['bn_user_email'] ) && '' !== $_POST['bn_user_email'] ) {
+			$new_email = sanitize_email( wp_unslash( $_POST['bn_user_email'] ) );
+			if ( '' !== $new_email && $new_email !== $wp_user->user_email ) {
+				wp_update_user(
+					array(
+						'ID'         => $user_id,
+						'user_email' => $new_email,
+					)
+				);
+			}
+		}
+
+		// Handle role update (checked in member_edit_error() above).
+		if ( isset( $_POST['bn_user_role'] ) && '' !== $_POST['bn_user_role'] ) {
+			( new \WP_User( $user_id ) )->set_role( sanitize_key( wp_unslash( $_POST['bn_user_role'] ) ) );
+		}
+
+		// Handle profile slug update.
+		if ( isset( $_POST['bn_profile_slug'] ) && '' !== $_POST['bn_profile_slug'] ) {
+			$new_slug = sanitize_title( wp_unslash( $_POST['bn_profile_slug'] ) );
+			if ( '' !== $new_slug ) {
+				\BuddyNext\Profile\Handle::set( $user_id, $new_slug ); // Availability checked in member_edit_error() above.
 			}
 		}
 

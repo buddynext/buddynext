@@ -1192,11 +1192,11 @@ class AssetService {
 					'privacySpaceMembers'       => __( 'Space members', 'buddynext' ),
 					'imageUploadsUnavailable'   => __( 'Image uploads are not available on this site.', 'buddynext' ),
 					'mediaEngineInactive'       => __( 'Image uploads are unavailable (media engine not active).', 'buddynext' ),
-					/* translators: %d: maximum number of images */
-					'maxImagesPerPost'          => __( 'You can attach at most %d images per post.', 'buddynext' ),
-					'oneMoreImage'              => __( 'Only 1 more image can be added.', 'buddynext' ),
-					/* translators: %d: number of additional images */
-					'moreImages'                => __( 'Only %d more images can be added.', 'buddynext' ),
+					/* translators: %d: maximum number of files */
+					'maxImagesPerPost'          => __( 'You can attach at most %d files per post.', 'buddynext' ),
+					'oneMoreImage'              => __( 'Only 1 more file can be added.', 'buddynext' ),
+					/* translators: %d: number of additional files */
+					'moreImages'                => __( 'Only %d more files can be added.', 'buddynext' ),
 					/* translators: 1: file name, 2: HTTP status code */
 					'uploadFailedError'         => __( 'Could not upload %1$s (error %2$d).', 'buddynext' ),
 					'joined'                    => __( 'Joined', 'buddynext' ),

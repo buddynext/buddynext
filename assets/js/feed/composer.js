@@ -803,14 +803,14 @@ store( 'buddynext/post-composer', {
 					// mid-upload could attach more than MAX_MEDIA.
 					const remaining = MAX_MEDIA - _mediaState.ids.length - _mediaState.uploading;
 					if ( remaining <= 0 ) {
-						bnToast( fmt( t( 'maxImagesPerPost', 'You can attach at most %d images per post.' ), MAX_MEDIA ), { tone: 'info' } );
+						bnToast( fmt( t( 'maxImagesPerPost', 'You can attach at most %d files per post.' ), MAX_MEDIA ), { tone: 'info' } );
 						return;
 					}
 					if ( files.length > remaining ) {
 						bnToast(
 							remaining === 1
-								? t( 'oneMoreImage', 'Only 1 more image can be added.' )
-								: fmt( t( 'moreImages', 'Only %d more images can be added.' ), remaining ),
+								? t( 'oneMoreImage', 'Only 1 more file can be added.' )
+								: fmt( t( 'moreImages', 'Only %d more files can be added.' ), remaining ),
 							{ tone: 'info' }
 						);
 					}

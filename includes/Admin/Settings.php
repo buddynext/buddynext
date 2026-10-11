@@ -297,6 +297,30 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * One sentence for the verification setting: what happens to an account that
+	 * never verifies. Empty when the purge is switched off by filter.
+	 *
+	 * @return string Sentence with a leading space, or ''.
+	 */
+	public static function unverified_purge_hint(): string {
+		$days = \BuddyNext\Core\CronService::unverified_purge_days();
+		if ( $days <= 0 ) {
+			return '';
+		}
+
+		return ' ' . sprintf(
+			/* translators: %s: number of days. */
+			_n(
+				'An account that never verifies is deleted after %s day, unless it has posted.',
+				'An account that never verifies is deleted after %s days, unless it has posted.',
+				$days,
+				'buddynext'
+			),
+			number_format_i18n( $days )
+		);
+	}
+
+	/**
 	 * Hint for the cookie notice's link label, naming the page it links to.
 	 *
 	 * The notice reuses the WordPress privacy policy page rather than asking for
@@ -891,7 +915,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Allow members to export their data', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Adds a "Download my data" option on member profile settings. Generates a JSON archive of posts, reactions, and profile fields.', 'buddynext' ),
+							'hint'    => __( 'Adds an "Export my data" option on member privacy settings. The member gets an archive of their posts, comments, profile fields and other records they created.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1823,7 +1847,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default' => false,
 							'type'    => 'toggle',
 							'label'   => __( 'Require email verification', 'buddynext' ),
-							'hint'    => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ),
+							'hint'    => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ) . self::unverified_purge_hint(),
 						)
 					),
 					new Field(
@@ -2027,7 +2051,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'     => 'url',
 							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
 							'label'    => __( 'After login', 'buddynext' ),
-							'hint'     => __( 'Where members go after logging in: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed.', 'buddynext' ),
+							'hint'     => __( 'Where members go after logging in: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed. A member who was sent to log in from a page goes back to that page instead.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -2750,7 +2774,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			$this->render_toggle_row(
 				'buddynext_email_verify',
 				__( 'Require email verification', 'buddynext' ),
-				__( 'Ask new members to confirm their email address.', 'buddynext' ),
+				__( 'Ask new members to confirm their email address.', 'buddynext' ) . self::unverified_purge_hint(),
 				(bool) get_option( 'buddynext_email_verify', false )
 			);
 
@@ -3581,6 +3605,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							<td data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) ( $hook['created_at'] ?? '' ) ); ?></td>
 							<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 								<div class="bn-row-actions">
+									<?php if ( empty( $hook['is_active'] ) ) : ?>
+										<?php // The auto-disable email tells the owner to re-enable the endpoint here. ?>
+										<button type="button"
+											class="bn-btn"
+											data-variant="primary"
+											data-size="sm"
+											data-bn-webhook-enable="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+										><?php esc_html_e( 'Re-enable', 'buddynext' ); ?></button>
+									<?php endif; ?>
 									<button type="button"
 										class="bn-btn"
 										data-variant="secondary"

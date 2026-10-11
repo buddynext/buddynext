@@ -257,7 +257,9 @@ class MemberEditForm {
 				// already verified. A button that reports success without changing
 				// anything is worse than no button - and "Verified" as a state the
 				// admin can read is the other half of what they came here for.
-				$bn_verify_on       = buddynext_feature_enabled( 'verification' );
+				// On only while verification is actually required: with the requirement
+				// off, marking a member verified sets a flag nothing reads.
+				$bn_verify_on       = buddynext_feature_enabled( 'verification' ) && (bool) get_option( 'buddynext_email_verify', false );
 				$bn_member_verified = (bool) get_user_meta( $user_id, 'buddynext_email_verified', true );
 				?>
 				<?php if ( $bn_verify_on && $bn_member_verified ) : ?>

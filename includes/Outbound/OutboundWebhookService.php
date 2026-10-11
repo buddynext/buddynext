@@ -878,7 +878,7 @@ class OutboundWebhookService {
 		);
 		$body = sprintf(
 			/* translators: 1: endpoint URL, 2: failure threshold. */
-			__( "The webhook endpoint %1\$s was automatically disabled after %2\$d consecutive delivery failures.\n\nCheck that the receiver is reachable, then re-enable it (rotating its secret if needed) from BuddyNext → Webhooks.", 'buddynext' ),
+			__( "The webhook endpoint %1\$s was automatically disabled after %2\$d consecutive delivery failures.\n\nCheck that the receiver is reachable, then click Re-enable on its row under BuddyNext, Platform, Webhooks.", 'buddynext' ),
 			$url,
 			(int) self::MAX_CONSECUTIVE_FAILURES
 		);
