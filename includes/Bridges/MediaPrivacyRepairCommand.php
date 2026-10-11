@@ -324,10 +324,10 @@ class MediaPrivacyRepairCommand {
 			}
 		}
 
-		// Only ever narrower. A file already tighter than its post (the member made
-		// it private by hand) is left alone.
-		$more = array( '\\WPMediaVerse\\Services\\PrivacyService', 'more_restrictive' );
-		if ( '' !== $current && $current !== $target && (string) call_user_func( $more, $current, $target ) === $current ) {
+		// A file its owner already locked down is left alone. Every other level is
+		// set to the post's: followers, connections and space members do not nest,
+		// so a "stricter of the two" answer would leave a file with the wrong crowd.
+		if ( $current !== $target && WPMediaVerseBridge::is_locked_down( $current ) ) {
 			return array(
 				'state'   => 'correct',
 				'message' => '',

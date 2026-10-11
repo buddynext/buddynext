@@ -385,6 +385,22 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 
 		remove_all_filters( 'buddynext_media_max_bytes' );
 	}
+
+	/**
+	 * Only a file kept to its owner is left alone by the privacy sync. Followers,
+	 * connections and space members are different crowds, not stricter or looser
+	 * versions of each other, so none of them counts as "already tighter".
+	 *
+	 * @return void
+	 */
+	public function test_only_owner_levels_count_as_locked_down(): void {
+		foreach ( array( 'private', 'custom', 'dm' ) as $level ) {
+			$this->assertTrue( WPMediaVerseBridge::is_locked_down( $level ), $level );
+		}
+		foreach ( array( 'public', 'members', 'followers', 'friends', 'space', 'group', '' ) as $level ) {
+			$this->assertFalse( WPMediaVerseBridge::is_locked_down( $level ), $level );
+		}
+	}
 }
 
 // The "WPMediaVerse absent" fallback of media_max_bytes() is deliberately not

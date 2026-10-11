@@ -263,7 +263,7 @@ class WPMediaVerseBridge {
 		foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $bn_meta_hook ) {
 			add_action( $bn_meta_hook, array( $this, 'on_account_privacy_meta' ), 10, 3 );
 		}
-		add_action( self::RESYNC_AUTHOR_HOOK, array( $this, 'resync_author_media' ), 10, 1 );
+		add_action( self::RESYNC_AUTHOR_HOOK, array( $this, 'resync_author_media' ), 10, 2 );
 
 		// MediaVerse's friends level is BuddyNext's connections.
 		add_filter( 'mvs_are_friends', array( $this, 'are_friends' ), 10, 3 );
@@ -940,17 +940,14 @@ class WPMediaVerseBridge {
 
 			// MediaVerse did not put the file at the level its post asks for. This
 			// method exists to keep a file from being readable by more people than
-			// its post, so it fails CLOSED: when what is stored is wider than the
-			// target, the level is written straight to the repository. The value
-			// can only be narrower than what is there, so it cannot open anything.
+			// its post, so it fails CLOSED: when what is stored is not the
+			// post's level, that level is written straight to the repository. Only a
+			// file its owner already locked down (is_locked_down) is left as it is.
 			$repo     = MediaClient::repo();
-			$more     = array( '\\WPMediaVerse\\Services\\PrivacyService', 'more_restrictive' );
 			$readable = is_object( $repo ) && method_exists( $repo, 'get' );
 			$current  = $readable ? (string) $repo->get( $media_id, 'privacy' ) : '';
 			$repaired = false;
-			if ( $readable && method_exists( $repo, 'set_many' ) && is_callable( $more )
-				&& ( '' === $current || (string) call_user_func( $more, $current, $target ) !== $current )
-			) {
+			if ( $readable && method_exists( $repo, 'set_many' ) && ! self::is_locked_down( $current ) ) {
 				$repo->set_many( $media_id, array( 'privacy' => $target ) );
 				$repaired = (string) $repo->get( $media_id, 'privacy' ) === $target;
 			}
@@ -1247,42 +1244,87 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * Whether a file is already kept to its owner (or to a hand-picked audience).
+	 *
+	 * The only levels that are narrower than every post audience. The others do
+	 * not nest: connections are not a subset of followers, and space members are
+	 * neither, so "which is stricter" has no answer between them and the post's
+	 * own level is the one to store.
+	 *
+	 * @param string $privacy Stored media privacy.
+	 * @return bool
+	 */
+	public static function is_locked_down( string $privacy ): bool {
+		return in_array( $privacy, array( 'private', 'custom', 'dm' ), true );
+	}
+
+	/**
 	 * Bring a member's attached media in line with their posts again.
 	 *
 	 * Run when the member switches their account between public and private:
 	 * the audience of every public post they have made changes with it, in
 	 * either direction, so each post's media is put through the same sync a
-	 * post edit uses.
-	 *
-	 * ponytail: the member's newest 2,000 posts with media, in one background
-	 * run. Older ones keep their level until `wp buddynext reconcile-media-privacy`
-	 * (narrowing only) or the next edit of the post. Chain the job if members
-	 * with more media than that appear.
+	 * post edit uses. Works through every post the member has, newest first,
+	 * 200 per background run, queueing the next run until none are left.
 	 *
 	 * @param int $author_id Member whose account privacy changed.
+	 * @param int $before_id Only posts with a lower id (0 = start from the newest).
 	 * @return void
 	 */
-	public function resync_author_media( $author_id ): void {
+	public function resync_author_media( $author_id, $before_id = 0 ): void {
 		global $wpdb;
 
 		$author_id = (int) $author_id;
+		$before_id = (int) $before_id;
 		if ( $author_id <= 0 || ! MediaClient::available() ) {
 			return;
 		}
 
+		$batch = 200;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts
-				  WHERE user_id = %d AND status = 'published'
-				    AND media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]'
-				  ORDER BY created_at DESC LIMIT 2000",
-				$author_id
+		$post_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					  WHERE user_id = %d AND status = 'published' AND ( %d = 0 OR id < %d )
+					    AND media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]'
+					  ORDER BY id DESC LIMIT %d",
+					$author_id,
+					$before_id,
+					$before_id,
+					$batch
+				)
 			)
 		);
 
-		foreach ( (array) $post_ids as $post_id ) {
-			$this->on_post_privacy_changed( (int) $post_id );
+		foreach ( $post_ids as $post_id ) {
+			$this->on_post_privacy_changed( $post_id );
+		}
+
+		if ( count( $post_ids ) === $batch ) {
+			self::queue_author_resync( $author_id, (int) end( $post_ids ) );
+		}
+	}
+
+	/**
+	 * Queue one background run of the member media resync.
+	 *
+	 * @param int $author_id Member.
+	 * @param int $before_id Continue below this post id (0 = from the newest).
+	 * @return void
+	 */
+	private static function queue_author_resync( int $author_id, int $before_id = 0 ): void {
+		$args = array( $author_id, $before_id );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' ) ) {
+				as_enqueue_async_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' );
+			}
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::RESYNC_AUTHOR_HOOK, $args ) ) {
+			wp_schedule_single_event( time() + 30, self::RESYNC_AUTHOR_HOOK, $args );
 		}
 	}
 
@@ -1300,17 +1342,7 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		$args = array( (int) $user_id );
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' ) ) {
-				as_enqueue_async_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' );
-			}
-			return;
-		}
-
-		if ( ! wp_next_scheduled( self::RESYNC_AUTHOR_HOOK, $args ) ) {
-			wp_schedule_single_event( time() + 30, self::RESYNC_AUTHOR_HOOK, $args );
-		}
+		self::queue_author_resync( (int) $user_id );
 	}
 
 	/**
@@ -1373,7 +1405,11 @@ class WPMediaVerseBridge {
 		// makes for another reason (a file shared into a conversation) still works.
 		$mvs = $this->mvs_follows();
 
-		return ( null !== $mvs && method_exists( $mvs, 'is_following' ) && $mvs->is_following( (int) $user_id, $owner ) ) ? false : $result;
+		if ( null === $mvs || ! method_exists( $mvs, 'is_following' ) ) {
+			return false; // Cannot ask why MediaVerse said yes, so BuddyNext's "not a follower" stands.
+		}
+
+		return $mvs->is_following( (int) $user_id, $owner ) ? false : $result;
 	}
 
 	/**
