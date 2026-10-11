@@ -360,12 +360,16 @@ def walk(node):
         # Identity is file + title: stable across reordering, unlike an index.
         ident = f"{spec.get('file','')}::{spec.get('title','')}"
         for test in spec.get('tests', []):
-            for result in test.get('results', []):
-                status = result.get('status')
-                if status in ('failed', 'timedOut'):
-                    failed.add(ident)
-                elif status == 'passed':
-                    passed.add(ident)
+            # Playwright's per-test verdict already folds in test.fail(): a
+            # journey that documents an open defect with test.fail(true, 'card N')
+            # reports 'expected' when it fails, 'unexpected' when it starts
+            # passing (the card is Done: drop the annotation). Reading the raw
+            # result status instead counted every documented defect as a regression.
+            verdict = test.get('status')
+            if verdict == 'unexpected':
+                failed.add(ident)
+            elif verdict in ('expected', 'flaky'):
+                passed.add(ident)
 
 for suite in data.get('suites', []):
     walk(suite)

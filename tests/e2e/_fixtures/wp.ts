@@ -285,7 +285,19 @@ export async function settleOverlays(page: Page): Promise<void> {
  * so a spec that asserts their effect drains the queue itself instead of sleeping.
  */
 export async function drainQueue(hooks: string[], batches = 3): Promise<void> {
-    await wp(['action-scheduler', 'run', `--hooks=${hooks.join(',')}`, `--batches=${batches}`, '--batch-size=50']).catch(() => undefined);
+    // Two specs draining at once race for the same claims; a pass that finds nothing
+    // because a sibling holds the claim must not end the drain. Three passes, a beat apart.
+    for (let pass = 0; pass < 3; pass++) {
+        await wp(['action-scheduler', 'run', `--hooks=${hooks.join(',')}`, `--batches=${batches}`, '--batch-size=50']).catch(() => undefined);
+        const pending = await wp([
+            'eval',
+            `global $wpdb; $h = array_map( 'esc_sql', explode( ',', '${hooks.join(',')}' ) ); echo (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}actionscheduler_actions WHERE status IN ('pending','in-progress') AND hook IN ('" . implode( "','", $h ) . "')" );`,
+        ]).catch(() => '0');
+        if (parseInt(pending.trim(), 10) === 0) {
+            return;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+    }
 }
 
 /**
