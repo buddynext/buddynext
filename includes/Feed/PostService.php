@@ -3077,6 +3077,70 @@ class PostService {
 	}
 
 	/**
+	 * Merge fields into the link_meta of every card stamped with a partner id.
+	 *
+	 * One UPDATE (JSON_MERGE_PATCH), so an event with two thousand attendee cards
+	 * costs one write, not two thousand. Each card's cached row is dropped and its
+	 * space's feed is told it changed, as the other *_link_meta_* writers do.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @param string               $type     Card post type.
+	 * @param string               $meta_key link_meta field holding the partner id.
+	 * @param int                  $value    The partner id.
+	 * @param array<string, mixed> $fields   Fields to set on each card.
+	 * @return int Cards changed.
+	 */
+	public function merge_link_meta_cards( string $type, string $meta_key, int $value, array $fields ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$type,
+				'$.' . $meta_key,
+				$value
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], (array) $rows ) ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+		$changed = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET link_meta = JSON_MERGE_PATCH( link_meta, %s ), updated_at = UTC_TIMESTAMP() WHERE id IN ({$in})",
+				(string) wp_json_encode( $fields )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$spaces = array();
+		foreach ( (array) $rows as $row ) {
+			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
+			if ( ! empty( $row['space_id'] ) ) {
+				$spaces[ (int) $row['space_id'] ] = true;
+			}
+		}
+		foreach ( array_keys( $spaces ) as $sid ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $sid );
+		}
+
+		return is_int( $changed ) ? $changed : 0;
+	}
+
+	/**
 	 * Put every card of a type whose link_meta id matches into another space.
 	 *
 	 * The space-move counterpart of transition_link_meta_status(), used through

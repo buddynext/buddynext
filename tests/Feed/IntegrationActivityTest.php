@@ -131,6 +131,44 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * refresh_by_meta() brings every card of a partner id up to date and leaves
+	 * each card's own fields, and other partner ids, alone.
+	 *
+	 * @return void
+	 */
+	public function test_refresh_by_meta_updates_every_card_of_the_id(): void {
+		$attendee  = self::factory()->user->create();
+		$facts     = array(
+			'event_id' => 9,
+			'day'      => '20',
+			'month'    => 'Sep',
+		);
+		$organiser = IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/event/9/', 'Meetup', 'event', '', 0, $facts + array( 'relation' => 'organizing' ) );
+		$going     = IntegrationActivity::publish( $attendee, 'is attending', 'https://example.test/event/9/?going=' . $attendee, 'Meetup', 'event', '', 0, $facts + array( 'relation' => 'attending' ) );
+		$other     = IntegrationActivity::publish( $attendee, 'is attending', 'https://example.test/event/10/', 'Other', 'event', '', 0, array( 'event_id' => 10, 'day' => '20' ) );
+		$meta      = static fn( int $id ): array => (array) ( new \BuddyNext\Feed\PostService() )->get( $id )['link_meta'];
+
+		$this->assertSame(
+			2,
+			IntegrationActivity::refresh_by_meta(
+				'event',
+				'event_id',
+				9,
+				array(
+					'day'   => '18',
+					'month' => 'Oct',
+					'title' => 'Meetup, moved',
+				)
+			)
+		);
+
+		$this->assertSame( array( '18', 'Oct', 'Meetup, moved', 'attending' ), array( $meta( $going )['day'], $meta( $going )['month'], $meta( $going )['title'], $meta( $going )['relation'] ) );
+		$this->assertSame( array( '18', 'organizing' ), array( $meta( $organiser )['day'], $meta( $organiser )['relation'] ) );
+		$this->assertSame( '20', $meta( $other )['day'], 'Another event is not touched.' );
+		$this->assertStringContainsString( 'going=', (string) $meta( $going )['url'], 'The attendee link is kept.' );
+	}
+
+	/**
 	 * rewrite_by_meta() changes a card's text and link in place, never its moment,
 	 * and refuses a link another card already owns.
 	 *
