@@ -308,7 +308,7 @@ do_action( 'buddynext_profile_before', (int) $user_id );
 // fires (see ProfileController::get_profile for its contract). It used to fire
 // from REST only, so "who viewed your profile" and the Profile views figure
 // counted app reads and never a visit to this page.
-if ( ! $is_own_profile ) {
+if ( ! $is_own_profile && \BuddyNext\Profile\ProfileService::request_is_a_page_visit() ) {
 	do_action( 'buddynext_profile_viewed', (int) $user_id, (int) $current_user_id );
 }
 

@@ -4273,6 +4273,35 @@ class ProfileService {
 	}
 
 	/**
+	 * Whether the current request is a person opening a page.
+	 *
+	 * A profile view is recorded when the profile page is served, and "who viewed
+	 * your profile" shows the viewer to the owner. Without this check the page
+	 * could be requested on a member's behalf without a visit: an image, frame or
+	 * script whose address is someone's profile, or a browser prefetching a link.
+	 * The browser says what a request is for (Sec-Fetch-Dest, Sec-Purpose), so
+	 * anything that is not a page load or an in-page navigation is not counted. A
+	 * browser too old to send the headers is counted, as before.
+	 *
+	 * @return bool
+	 */
+	public static function request_is_a_page_visit(): bool {
+		$purpose = isset( $_SERVER['HTTP_SEC_PURPOSE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_SEC_PURPOSE'] ) ) : '';
+		if ( '' === $purpose && isset( $_SERVER['HTTP_PURPOSE'] ) ) {
+			$purpose = sanitize_text_field( wp_unslash( $_SERVER['HTTP_PURPOSE'] ) );
+		}
+		if ( false !== stripos( $purpose, 'prefetch' ) || false !== stripos( $purpose, 'prerender' ) ) {
+			return false;
+		}
+
+		$dest = isset( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ? sanitize_key( wp_unslash( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ) : '';
+
+		// 'document' is a page load; 'empty' is fetch(), which the in-page router
+		// uses to navigate. Everything else is a sub-resource of some other page.
+		return in_array( $dest, array( '', 'document', 'empty' ), true );
+	}
+
+	/**
 	 * Remove the custom avatar for the given user and bust all related caches.
 	 *
 	 * @param int $user_id Target user ID.
