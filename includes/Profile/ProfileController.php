@@ -2015,7 +2015,30 @@ class ProfileController extends BaseRestController {
 			$data['is_searchable'] = false;
 		}
 
-		$field_id = buddynext_service( 'profiles' )->create_field( $data );
+		// A field belongs to a group or it is nowhere: not in the field list, not
+		// on any profile, and a member writing it is told the parameter is
+		// unrecognised. The call used to answer 201 and store exactly that.
+		$group_id   = (int) ( $data['group_id'] ?? 0 );
+		$group_name = sanitize_key( (string) ( $data['group_name'] ?? '' ) );
+		$profiles   = buddynext_service( 'profiles' );
+		if ( $group_id > 0 ) {
+			$known = array_map( 'intval', array_column( (array) $profiles->get_groups(), 'id' ) );
+			if ( ! in_array( $group_id, $known, true ) ) {
+				$group_id = 0;
+			}
+		}
+		if ( $group_id <= 0 && '' === $group_name ) {
+			return new WP_Error(
+				'missing_group',
+				__( 'Choose the group this field belongs to: send group_id for an existing group, or group_name to use or create one.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+		if ( $group_id <= 0 ) {
+			unset( $data['group_id'] ); // An id that names no group falls back to the name.
+		}
+
+		$field_id = $profiles->create_field( $data );
 
 		return new WP_REST_Response( array( 'id' => $field_id ), 201 );
 	}

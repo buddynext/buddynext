@@ -320,11 +320,6 @@ class HashtagService {
 		// spaces off the public tag page (visible only to space members).
 		[ $listable_where, $space_params ] = $this->listable_where( 'p', $viewer_id );
 
-		// A hidden-suspended or shadow-banned author's posts stay off the tag page
-		// for everyone but moderators and the author, as in every feed. The tag
-		// page had no such rule and listed them to all.
-		$listable_where .= ' ' . buddynext_service( 'moderation' )->hidden_authors_where( 'p.user_id', (int) $viewer_id );
-
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d, the space-visibility fragment's optional %d, and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
@@ -1005,6 +1000,10 @@ class HashtagService {
 			. " OR ( {$alias}.privacy = 'space_members' AND{$member_of} )"
 			. ' )';
 
+		// A hidden-suspended or shadow-banned author's posts stay off every tag
+		// surface for everyone but moderators and the author, as in every feed.
+		$sql .= ' ' . ( new \BuddyNext\Moderation\ModerationService() )->hidden_authors_where( "{$alias}.user_id", $viewer_id );
+
 		$params = array_merge( $space_params, array( $viewer_id ) );
 
 		return array( $sql, $params );
@@ -1034,7 +1033,10 @@ class HashtagService {
 			. " AND ( {$alias}.space_id IS NULL"
 			. " OR {$alias}.space_id = 0"
 			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )"
-			. \BuddyNext\SocialGraph\FollowService::private_author_where( 0, "{$alias}.user_id" );
+			. \BuddyNext\SocialGraph\FollowService::private_author_where( 0, "{$alias}.user_id" )
+			// And never a hidden-suspended or shadow-banned author's: the tag feed,
+			// its counts, its contributors and the trending list all read this.
+			. ' ' . ( new \BuddyNext\Moderation\ModerationService() )->hidden_authors_where( "{$alias}.user_id", 0 );
 	}
 
 	/**

@@ -1451,7 +1451,7 @@ class SpaceMemberService {
 		// Optional suspension / shadow-ban exclusion via the canonical builder.
 		$moderation_where = '';
 		if ( ! empty( $args['exclude_suspended'] ) ) {
-			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+			$moderation_where = ' ' . buddynext_service( 'moderation' )->discovery_exclude_sql( 'sm.user_id' );
 		}
 
 		// $limit was clamped to the cap at the top (before the cache key was built).
@@ -1548,7 +1548,7 @@ class SpaceMemberService {
 
 		$moderation_where = '';
 		if ( ! empty( $args['exclude_suspended'] ) ) {
-			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+			$moderation_where = ' ' . buddynext_service( 'moderation' )->discovery_exclude_sql( 'sm.user_id' );
 		}
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1610,7 +1610,9 @@ class SpaceMemberService {
 			}
 		}
 		if ( ! empty( $args['exclude_suspended'] ) ) {
-			$sql .= ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+			// A roster is a member list: any active suspension takes a member off
+			// it (the directory's rule), not only the "hide their posts" kind.
+			$sql .= ' ' . buddynext_service( 'moderation' )->discovery_exclude_sql( 'sm.user_id' );
 		}
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
@@ -1652,8 +1654,39 @@ class SpaceMemberService {
 
 		global $wpdb;
 
-		$filters       = $this->member_filters_sql( $viewer_id, $args, true );
-		$cursor_data   = ( null !== $cursor && '' !== $cursor ) ? \BuddyNext\Core\CursorCodec::decode( $cursor ) : null;
+		$filters     = $this->member_filters_sql( $viewer_id, $args, true );
+		$cursor_data = ( null !== $cursor && '' !== $cursor ) ? \BuddyNext\Core\CursorCodec::decode( $cursor ) : null;
+
+		// Owner, then moderators, then members, as a group's member list reads
+		// everywhere else. The staff are a handful of rows, so they are read on
+		// their own and put at the top of the first page; the members below keep
+		// paging on the (joined_at, user_id) index. Sorting the whole roster by
+		// role instead would sort every member of a 100k space on each page.
+		// When the caller filters by one role there is nothing to arrange.
+		$by_role = ! in_array( (string) ( $args['role'] ?? '' ), self::ALLOWED_ROLES, true );
+		$staff   = array();
+		if ( $by_role ) {
+			if ( null === $cursor_data ) {
+				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $filters is built from prepared fragments.
+				$staff = (array) $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT sm.user_id, sm.role, sm.joined_at, u.display_name, u.user_nicename
+						 FROM {$wpdb->prefix}bn_space_members sm
+						 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
+						 WHERE sm.space_id = %d AND sm.status = 'active' AND sm.role IN ( 'owner', 'moderator' )
+						   {$filters}
+						 ORDER BY ( sm.role = 'owner' ) DESC, sm.joined_at ASC, sm.user_id ASC
+						 LIMIT %d",
+						$space_id,
+						$per_page
+					),
+					ARRAY_A
+				);
+				// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			}
+			$filters .= " AND sm.role NOT IN ( 'owner', 'moderator' )";
+		}
+		$member_slots  = max( 0, $per_page - count( $staff ) );
 		$cursor_where  = '';
 		$cursor_params = array();
 		if ( null !== $cursor_data ) {
@@ -1671,20 +1704,26 @@ class SpaceMemberService {
 				   {$filters}{$cursor_where}
 				 ORDER BY sm.joined_at ASC, sm.user_id ASC
 				 LIMIT %d",
-				...array_merge( array( $space_id ), $cursor_params, array( $per_page + 1 ) )
+				...array_merge( array( $space_id ), $cursor_params, array( $member_slots + 1 ) )
 			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		$rows        = (array) $rows;
-		$has_more    = count( $rows ) > $per_page;
-		$rows        = $has_more ? array_slice( $rows, 0, $per_page ) : $rows;
+		$has_more    = count( $rows ) > $member_slots;
+		$rows        = $has_more ? array_slice( $rows, 0, $member_slots ) : $rows;
 		$next_cursor = null;
-		if ( $has_more && ! empty( $rows ) ) {
-			$last        = end( $rows );
+		if ( $has_more ) {
+			// With a first page filled by staff alone there is no member row to
+			// continue from; the epoch start means "every member".
+			$last        = ! empty( $rows ) ? end( $rows ) : array(
+				'joined_at' => '1970-01-01 00:00:00',
+				'user_id'   => 0,
+			);
 			$next_cursor = \BuddyNext\Core\CursorCodec::encode( (string) $last['joined_at'], (int) $last['user_id'] );
 		}
+		$rows = array_merge( $staff, $rows );
 
 		$this->prime_roster_users( $rows );
 
@@ -2159,7 +2198,7 @@ class SpaceMemberService {
 		// Optional suspension / shadow-ban exclusion via the canonical builder.
 		$moderation_where = '';
 		if ( ! empty( $args['exclude_suspended'] ) ) {
-			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+			$moderation_where = ' ' . buddynext_service( 'moderation' )->discovery_exclude_sql( 'sm.user_id' );
 		}
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

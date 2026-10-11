@@ -2485,8 +2485,8 @@ class JetonomyBridge {
 	public function register_integration( array $items ): array {
 		if ( class_exists( 'Jetonomy\Jetonomy' ) ) {
 			$items['jetonomy'] = array(
-				'label'          => __( 'Jetonomy', 'buddynext' ),
-				'version'        => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
+				'label'            => __( 'Jetonomy', 'buddynext' ),
+				'version'          => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
 				// No hard floor evidenced for the model/action seams this bridge
 				// consumes, so none is declared (an invented floor would be worse
 				// than an honest null). Tested against 2.0.1: every Jetonomy hook, class,
@@ -2494,11 +2494,19 @@ class JetonomyBridge {
 				// the partner code at that tag on 2026-10-11 (all present; hook argument
 				// lists unchanged; Space::create() and Space::update() may now return a
 				// WP_Error, handled where the result is read).
-				'tested_version' => '2.0.1',
-				'has_nav'        => true,
-				'nav_label'      => __( 'Discussions', 'buddynext' ),
-				'has_feed'       => true,
-				'has_search'     => true,
+				'tested_version'   => '2.0.1',
+				// Forum notifications reach the BuddyNext bell through a contract
+				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
+				// On 2.0.0 the forum still notifies in its own list and the bell
+				// stays silent, so the status screen says which update brings it
+				// instead of reporting the integration as fine.
+				'feature_versions' => array(
+					__( 'Forum notifications in the BuddyNext bell', 'buddynext' ) => '2.0.1',
+				),
+				'has_nav'          => true,
+				'nav_label'        => __( 'Discussions', 'buddynext' ),
+				'has_feed'         => true,
+				'has_search'       => true,
 			);
 		}
 		return $items;
@@ -2939,6 +2947,52 @@ class JetonomyBridge {
 	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, author_id, author_name, author_login.
 	 */
 	public function space_discussions( int $space_id, int $limit = 20 ): array {
+		$rows = $this->public_space_discussions( $space_id, $limit );
+
+		// The author still sees their own private topics here, as in the forum.
+		// They are read per viewer and never enter the shared list above.
+		$viewer_id = get_current_user_id();
+		$forum_id  = $viewer_id > 0 && class_exists( 'Jetonomy\Models\Post' ) ? $this->forum_id_for_space( $space_id ) : 0;
+		if ( $forum_id <= 0 ) {
+			return $rows;
+		}
+
+		global $wpdb;
+		$limit = max( 1, min( 50, $limit ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$own = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+				        p.author_id, u.display_name AS author_name, u.user_login AS author_login{$this->anonymous_column( 'p' )}
+				 FROM {$wpdb->prefix}jt_posts p
+				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
+				 WHERE p.space_id = %d AND p.status = 'publish' AND p.is_private = 1 AND p.author_id = %d
+				 ORDER BY p.created_at DESC
+				 LIMIT %d",
+				$forum_id,
+				$viewer_id,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( empty( $own ) ) {
+			return $rows;
+		}
+
+		$rows = array_merge( $rows, $own );
+		usort( $rows, static fn( $a, $b ): int => strcmp( (string) $b->created_at, (string) $a->created_at ) );
+
+		return array_slice( $rows, 0, $limit );
+	}
+
+	/**
+	 * The discussions every member of the space may see: one shared, cached list.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @param int $limit    Max rows (1-50).
+	 * @return array<int,object>
+	 */
+	private function public_space_discussions( int $space_id, int $limit = 20 ): array {
 		if ( ! class_exists( 'Jetonomy\Models\Post' ) ) {
 			return array();
 		}
@@ -2982,7 +3036,8 @@ class JetonomyBridge {
 		// A topic marked private in the forum is for its author and the forum's
 		// moderators. This list is one shared, cached page for every member of the
 		// space, so it carries no private topic at all (the query above, and the
-		// count beside it); the author and moderators read theirs in the forum.
+		// count beside it). space_discussions() adds the viewer's own on top;
+		// moderators read the rest in the forum.
 		// It used to print the private topic's title to every member.
 		//
 		// The forum lists an anonymous topic without its author; so does this tab.

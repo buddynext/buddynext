@@ -147,6 +147,13 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$this->assertArrayNotHasKey( 'hiddentag', $by_slug );
 		$this->assertArrayNotHasKey( 'commenttag', $by_slug );
 		$this->assertArrayNotHasKey( 'ghosttag', $by_slug );
+
+		// A shadow-banned author's public post counts for nobody either.
+		$banned_post = $this->real_post();
+		$this->service->sync( 'post', $banned_post, array( 'bannedtag' ) );
+		global $wpdb;
+		update_user_meta( (int) $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $banned_post ) ), 'bn_shadow_banned', '1' );
+		$this->assertArrayNotHasKey( 'bannedtag', array_column( $this->service->get_trending( 20 ), 'recent_count', 'slug' ) );
 	}
 
 	public function test_get_trending_respects_limit(): void {
