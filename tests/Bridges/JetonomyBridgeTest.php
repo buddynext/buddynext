@@ -342,6 +342,47 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Rows mirrored from anonymous content before the fix are cleared once.
+	 *
+	 * @return void
+	 */
+	public function test_repair_clears_previously_mirrored_anonymous_content(): void {
+		global $wpdb;
+		$this->seed_jt_space( 26, 'repair' );
+		$this->seed_jt_post( 260, $this->author_id, 'Was signed', 'Body', 'was-signed' );
+		$this->publish_jt_post( 260, 26 );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_replies',
+			array(
+				'id'            => 2601,
+				'post_id'       => 260,
+				'author_id'     => $this->user_id,
+				'content_plain' => 'A reply',
+			)
+		);
+		do_action( 'jetonomy_reply_publish_transition', 2601, 1, '' );
+		$search  = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = 260" );
+		$comment = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = 2601 AND is_deleted = 0" );
+		$this->assertSame( 1, $search(), 'Fixture: mirrored while signed.' );
+		$this->assertSame( 1, $comment(), 'Fixture: reply mirrored while signed.' );
+
+		// The state an older version left behind: flagged in the forum, still mirrored here.
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 260 ) );
+		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'is_anonymous' => 1 ), array( 'id' => 2601 ) );
+		delete_option( 'buddynext_jetonomy_anonymous_repaired' );
+
+		$this->bridge->repair_anonymous_mirrors();
+
+		$this->assertSame( 0, $search(), 'The search row is gone.' );
+		$this->assertSame( 0, $comment(), 'The signed comment is gone.' );
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'The card is withdrawn.' );
+		$this->assertFalse( (bool) get_option( 'buddynext_jetonomy_anonymous_repaired' ), 'Not marked done while it still found work.' );
+
+		$this->bridge->repair_anonymous_mirrors();
+		$this->assertTrue( (bool) get_option( 'buddynext_jetonomy_anonymous_repaired' ), 'Marked done once nothing is left.' );
+	}
+
+	/**
 	 * An anonymous or private reply is not mirrored as a signed feed comment.
 	 *
 	 * @return void

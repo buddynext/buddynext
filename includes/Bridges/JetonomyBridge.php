@@ -130,6 +130,10 @@ class JetonomyBridge {
 		// jetonomy_after_create_post fires ($post_id, $space_id) — 2 args only.
 		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 2 );
 
+		// Sites that mirrored anonymous content before the bridge read the flag
+		// still hold those rows; clear them once, in the dashboard, in small steps.
+		add_action( 'admin_init', array( $this, 'repair_anonymous_mirrors' ) );
+
 		// One sync keeps a discussion's feed card + search row matching its current
 		// state. Two triggers: an edit (jetonomy_post_updated: title/body/privacy),
 		// and every move into or out of publish (jetonomy_post_publish_transition,
@@ -694,6 +698,70 @@ class JetonomyBridge {
 		IntegrationActivity::withdraw( $url, 'discussion' );
 		$this->verified_cards[ $url ] = '';
 		return '';
+	}
+
+	/**
+	 * Withdraw what was mirrored from anonymous content before the bridge read the flag.
+	 *
+	 * Until 1.2.5 an anonymous topic got a search row under its author and an
+	 * anonymous or private reply became a signed feed comment. New writes are
+	 * refused; this clears the rows already stored, which would otherwise stay
+	 * until each topic was next edited. A topic is re-synced (its search row goes
+	 * and its card is withdrawn) and a mirrored comment is deleted, 200 of each per
+	 * dashboard request. Removing a row is what takes it out of the next batch, so
+	 * the pass ends by itself and then records that it is done.
+	 *
+	 * @return void
+	 */
+	public function repair_anonymous_mirrors(): void {
+		if ( get_option( 'buddynext_jetonomy_anonymous_repaired' ) || '' === $this->anonymous_column() ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$topic_ids = $wpdb->get_col(
+			"SELECT si.object_id FROM {$wpdb->prefix}bn_search_index si
+			 INNER JOIN {$wpdb->prefix}jt_posts p ON p.id = si.object_id
+			 WHERE si.object_type = 'discussion' AND p.is_anonymous = 1
+			 LIMIT 200"
+		);
+		$comments  = $wpdb->get_results(
+			"SELECT c.id, c.user_id FROM {$wpdb->prefix}bn_comments c
+			 INNER JOIN {$wpdb->prefix}jt_replies r ON r.id = c.sync_reply_id
+			 WHERE c.is_deleted = 0 AND ( r.is_anonymous = 1 OR r.is_private = 1 )
+			 LIMIT 200"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! $topic_ids && ! $comments ) {
+			update_option( 'buddynext_jetonomy_anonymous_repaired', 1, false );
+			return;
+		}
+
+		foreach ( (array) $topic_ids as $topic_id ) {
+			$this->sync_discussion( (int) $topic_id );
+			// With the search aspect switched off sync_discussion() leaves the index
+			// alone, so drop the row here as well.
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_search_index',
+				array(
+					'object_type' => 'discussion',
+					'object_id'   => (int) $topic_id,
+				),
+				array( '%s', '%d' )
+			); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		}
+
+		$service = new \BuddyNext\Comments\CommentService();
+		foreach ( (array) $comments as $comment ) {
+			self::mirror(
+				static function () use ( $service, $comment ) {
+					$service->delete( (int) $comment->id, (int) $comment->user_id );
+				}
+			);
+		}
 	}
 
 	/**
