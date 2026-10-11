@@ -1271,7 +1271,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService emoji markup is wp_kses'd.
 						echo \BuddyNext\Core\IconService::render_emoji( $bn_reaction, 'bn-reaction-palette__emoji' );
 						?>
-						<span><?php echo esc_html( ucfirst( $bn_reaction ) ); ?></span>
+						<?php // The owner's own name for it (ReactionService::label), not the emoji slug: a custom reaction named "Ship it" read "Rocket" here. ?>
+						<span><?php echo esc_html( \BuddyNext\Reactions\ReactionService::label( (string) $bn_reaction ) ); ?></span>
 					</label>
 				<?php endforeach; ?>
 			</div>
@@ -3250,7 +3251,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				$bn_basename = (string) ( $bn_c['free']['basename'] ?? '' );
 				$bn_logo     = $logo_base . sanitize_file_name( (string) $bn_slug ) . '.svg';
 
-				if ( 'active' === $bn_status ) {
+				// Four of these connect through a bridge that ships in BuddyNext Pro.
+				// Without Pro the plugin is installed but nothing is wired, so the
+				// card must not say "Connected" or tick off what it unlocks.
+				$bn_waits_for_pro = 'active' === $bn_status && ! empty( $bn_c['needs_pro'] ) && ! defined( 'BUDDYNEXTPRO_VERSION' );
+
+				if ( $bn_waits_for_pro ) {
+					$bn_badge_class = 'bn-companion-badge bn-companion-badge--warning';
+					$bn_badge_label = __( 'Installed', 'buddynext' );
+				} elseif ( 'active' === $bn_status ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--success';
 					$bn_badge_label = __( 'Connected', 'buddynext' );
 				} elseif ( 'inactive' === $bn_status ) {
@@ -3279,7 +3288,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					<p class="bn-companion-card__why"><?php echo esc_html( $bn_why ); ?></p>
 				<?php endif; ?>
 
-				<?php if ( 'active' === $bn_status && '' !== $bn_unlocks ) : ?>
+				<?php if ( $bn_waits_for_pro ) : ?>
+					<p class="bn-companion-card__unlocks">
+						<?php buddynext_icon( 'lock' ); ?>
+						<?php
+						/* translators: %s: what the integration adds, e.g. "Job posts as activity cards in the feed." */
+						echo esc_html( sprintf( __( 'Needs BuddyNext Pro to connect. With Pro: %s', 'buddynext' ), $bn_unlocks ) );
+						?>
+					</p>
+				<?php elseif ( 'active' === $bn_status && '' !== $bn_unlocks ) : ?>
 					<p class="bn-companion-card__unlocks">
 						<?php buddynext_icon( 'check' ); ?>
 						<?php echo esc_html( $bn_unlocks ); ?>

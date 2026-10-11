@@ -70,6 +70,7 @@ class GamificationAchievements {
 						__( 'Custom points name', 'buddynext' ) => '1.6.5',
 					),
 					'has_nav'          => true,
+					'nav_label'        => __( 'Achievements', 'buddynext' ),
 					'has_feed'         => true,
 
 					/*

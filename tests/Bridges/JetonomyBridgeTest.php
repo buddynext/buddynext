@@ -673,7 +673,12 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		);
 		$spaces->ban_from_space( $space_id, $banned, $owner );
 
-		\Jetonomy\Models\SpaceMember::$rows = array_map( static fn( int $id ): object => (object) array( 'user_id' => $id ), array_merge( $members, array( $banned, 999999 ) ) );
+		$by_tier = self::factory()->user->create();
+		\Jetonomy\Models\SpaceMember::$rows   = array_map( static fn( int $id ): object => (object) array( 'user_id' => $id ), array_merge( $members, array( $banned, 999999 ) ) );
+		\Jetonomy\Models\SpaceMember::$rows[] = (object) array(
+			'user_id' => $by_tier,
+			'source'  => 'tier',
+		);
 		$bridge                              = new JetonomyBridge();
 
 		// Not linked to forum 7: nothing is copied.
@@ -687,6 +692,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 			$this->assertTrue( $spaces->is_member( $space_id, $member ) );
 		}
 		$this->assertFalse( $spaces->is_member( $space_id, $banned ), 'A banned member stays out.' );
+		$this->assertFalse( $spaces->is_member( $space_id, $by_tier ), 'A member the forum holds through a paid tier is not copied.' );
 	}
 
 	/**

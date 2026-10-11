@@ -1248,6 +1248,7 @@ class WPMediaVerseBridge {
 				// methods whose signatures changed since 2.6.0 are ones BuddyNext calls.
 				'tested_version' => '2.6.1',
 				'has_nav'        => true,
+				'nav_label'      => __( 'Media', 'buddynext' ),
 				'has_feed'       => true,
 				'subtabs'        => array(
 					'albums' => __( 'Albums', 'buddynext' ),

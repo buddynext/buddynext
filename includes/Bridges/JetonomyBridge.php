@@ -209,6 +209,9 @@ class JetonomyBridge {
 		// either surface is heard on both. A static in-request guard (self::$syncing)
 		// blocks the reciprocal mirror, so the two hooks can never loop.
 		add_action( 'buddynext_comment_created', array( $this, 'sync_comment_to_forum' ), 10, 4 );
+		// The forum's own rules decide who may reply: a comment on a discussion card
+		// is a reply in the forum, so it is refused here when the forum would refuse it.
+		add_filter( 'buddynext_comment_before_save', array( $this, 'gate_comment_on_discussion' ), 10, 3 );
 		// A mirror write never notifies: the side where the member acted sends the
 		// one notification, so a forum reply is one Jetonomy row and a card comment
 		// one BuddyNext row, never both (card 10344414409, decision 10062150983).
@@ -1099,12 +1102,26 @@ class JetonomyBridge {
 		};
 		add_filter( 'buddynext_notification_should_send', $quiet, 10, 2 );
 
-		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		$members    = new \BuddyNext\Spaces\SpaceMemberService();
+		$moderation = new \BuddyNext\Moderation\ModerationService();
+		$can_ban    = class_exists( '\\Jetonomy\\Models\\Restriction' );
 		foreach ( $rows as $row ) {
 			$user_id = (int) ( $row->user_id ?? 0 );
-			if ( $user_id > 0 && false !== get_userdata( $user_id ) ) {
-				$members->join( $space_id, $user_id ); // A refusal (banned, gated) leaves them out.
+
+			// Only people who are in the forum in their own right. A member the forum
+			// holds through an access rule or a paid tier is there because of
+			// something that can end, and a copy would outlive it. Someone banned in
+			// the forum, or suspended here, is not brought across either.
+			// ponytail: one ban lookup per member (memoised by Jetonomy), in a
+			// background batch of 200; a set query if a forum of many thousands is slow.
+			if ( $user_id <= 0 || false === get_userdata( $user_id )
+				|| in_array( (string) ( $row->source ?? 'manual' ), array( 'rule', 'tier' ), true )
+				|| ( $can_ban && \Jetonomy\Models\Restriction::is_banned( $user_id ) )
+				|| $moderation->is_suspended( $user_id ) ) {
+				continue;
 			}
+
+			$members->join( $space_id, $user_id ); // A refusal (banned from the space, gated) leaves them out.
 		}
 
 		remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
@@ -1710,6 +1727,41 @@ class JetonomyBridge {
 			return false;
 		}
 		return (bool) buddynext_service( 'permissions' )->can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
+	 * Refuse a new comment on a discussion card when the forum would refuse the reply.
+	 *
+	 * The comment becomes a forum reply (sync_comment_to_forum()). Written straight
+	 * through the model, that reply skipped everything Jetonomy checks on its own
+	 * reply form: a closed topic, a locked or archived forum, a banned or silenced
+	 * member. Jetonomy keeps those rules in one place (Content_Gate), so this asks
+	 * it and hands the member the forum's own reason.
+	 *
+	 * @param array<string,mixed>|\WP_Error $data       Comment data, or an earlier refusal.
+	 * @param int                           $user_id    Commenter.
+	 * @param int|null                      $comment_id Null on create; an id on edit.
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	public function gate_comment_on_discussion( $data, $user_id, $comment_id = null ) {
+		if ( self::$syncing || null !== $comment_id || ! is_array( $data ) || 'post' !== (string) ( $data['object_type'] ?? '' )
+			|| ! class_exists( '\\Jetonomy\\Permissions\\Content_Gate' ) || ! class_exists( '\\Jetonomy\\Models\\Post' ) ) {
+			return $data;
+		}
+
+		$card = ( new PostService() )->get( (int) ( $data['object_id'] ?? 0 ) );
+		if ( null === $card || 'discussion' !== (string) ( $card['type'] ?? '' ) ) {
+			return $data;
+		}
+
+		$topic = \Jetonomy\Models\Post::find( $this->topic_id_for_card( $card ) );
+		if ( ! is_object( $topic ) ) {
+			return $data;
+		}
+
+		$gate = \Jetonomy\Permissions\Content_Gate::check( (int) $user_id, $topic, 0 );
+
+		return is_wp_error( $gate ) ? $gate : $data;
 	}
 
 	/**
@@ -2381,6 +2433,7 @@ class JetonomyBridge {
 				// WP_Error, handled where the result is read).
 				'tested_version' => '2.0.1',
 				'has_nav'        => true,
+				'nav_label'      => __( 'Discussions', 'buddynext' ),
 				'has_feed'       => true,
 				'has_search'     => true,
 			);

@@ -2248,7 +2248,28 @@ class ProfileFieldsManager {
 						?>
 						<table class="bn-pf-hook-rows"><tbody>
 							<?php do_action( 'buddynext_profile_field_type_options', '', array() ); ?>
-						</tbody></table>
+						</tbody>
+						<?php
+						// A new field has no type until the owner picks one, so the call
+						// above (type '') could never draw a type's own settings: a Number
+						// (advanced) field got its unit, minimum and maximum only after it
+						// was saved once and opened again. Draw each type's rows now, hidden,
+						// and let the Field type select show the one that matches
+						// (profile-fields.js). Rows of the other types are disabled there, so
+						// they are not posted.
+						foreach ( self::field_types() as $bn_pf_type ) :
+							ob_start();
+							do_action( 'buddynext_profile_field_type_options', (string) $bn_pf_type, array() );
+							$bn_pf_type_rows = (string) ob_get_clean();
+							if ( '' === trim( $bn_pf_type_rows ) ) {
+								continue;
+							}
+							?>
+							<tbody data-bn-pf-type-options="<?php echo esc_attr( (string) $bn_pf_type ); ?>" hidden>
+								<?php echo $bn_pf_type_rows; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- hook output; handlers escape (see the hook's contract above). ?>
+							</tbody>
+						<?php endforeach; ?>
+						</table>
 						<?php
 						/** This action is documented in the edit panel above. An empty $field means a new field. */
 						do_action( 'buddynext_profile_field_settings', array(), $group );

@@ -145,8 +145,16 @@ class IntegrationControlsAdmin {
 										<span class="bn-toggle-row__label"><?php esc_html_e( 'Show in navigation', 'buddynext' ); ?></span>
 										<p class="bn-field-hint">
 											<?php
-											/* translators: %s: integration name. */
-											printf( esc_html__( 'Adds the %s tab to member navigation.', 'buddynext' ), esc_html( $bn_label ) );
+											// Name the tab the member will actually see. The integration's
+											// own name was printed here ("Adds the Jetonomy tab") for a tab
+											// called Discussions.
+											$bn_nav_label = (string) ( $entry['nav_label'] ?? '' );
+											if ( '' !== $bn_nav_label ) {
+												/* translators: %s: name of the tab, e.g. Discussions. */
+												printf( esc_html__( 'Adds the %s tab to member navigation.', 'buddynext' ), esc_html( $bn_nav_label ) );
+											} else {
+												esc_html_e( 'Shows what this integration adds in member navigation.', 'buddynext' );
+											}
 											?>
 										</p>
 									</div>

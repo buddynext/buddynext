@@ -93,7 +93,27 @@
 		if ( dateWrap ) {
 			dateWrap.style.display = isDateType( type ) ? 'block' : 'none';
 		}
+		showTypeOptions( selectEl );
 	}
+
+	// The Add field form carries each type's own settings (a Pro type's unit,
+	// minimum, maximum) in a hidden block. Show the block for the chosen type and
+	// disable the inputs of the others, so only that type's settings are posted.
+	function showTypeOptions( selectEl ) {
+		var form = selectEl.form;
+		if ( ! form ) {
+			return;
+		}
+		form.querySelectorAll( '[data-bn-pf-type-options]' ).forEach( function ( block ) {
+			var on = block.getAttribute( 'data-bn-pf-type-options' ) === selectEl.value;
+			block.hidden = ! on;
+			block.querySelectorAll( 'input, select, textarea' ).forEach( function ( el ) {
+				el.disabled = ! on;
+			} );
+		} );
+	}
+
+	document.querySelectorAll( 'select[name="type"][data-bn-pf-opts-wrap]' ).forEach( showTypeOptions );
 
 	// Delegated handlers for toggles.
 	document.addEventListener( 'click', function ( e ) {
