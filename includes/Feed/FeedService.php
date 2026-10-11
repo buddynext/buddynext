@@ -256,21 +256,50 @@ class FeedService {
 	 * both mean "anyone" in an open space; 'followers'/'connections'/'private' are
 	 * narrower and stay out). A non-space post shows when it is 'public', unchanged.
 	 *
+	 * A private account narrows it further: its posts are for approved followers,
+	 * so discovery leaves them out for everyone else (FollowService::private_author_where()).
+	 * That holds for an open-space post too - it stays readable inside its space,
+	 * which the space feed decides, but is not promoted here (owner decision
+	 * 2026-10-11, card 10392816788).
+	 *
 	 * Bracketed, bare column refs on bn_posts, no params - replaces the old bare
 	 * `privacy = 'public'` on the Explore grid and its matching pulse count.
 	 *
+	 * @param int|null $viewer_id Viewer the surface is built for; null reads the
+	 *                            current user, 0 is a logged-out visitor.
 	 * @return string SQL fragment (a single bracketed boolean expression).
 	 */
-	public function explore_space_where(): string {
+	public function explore_space_where( ?int $viewer_id = null ): string {
 		global $wpdb;
 
+		$private_where = FollowService::private_author_where( $viewer_id ?? get_current_user_id() );
+
 		return "(
-			( ( space_id IS NULL OR space_id = 0 ) AND privacy = 'public' )
-			OR (
-				space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
-				AND privacy IN ( 'public', 'space_members' )
+			(
+				( ( space_id IS NULL OR space_id = 0 ) AND privacy = 'public' )
+				OR (
+					space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+					AND privacy IN ( 'public', 'space_members' )
+				)
 			)
+			{$private_where}
 		)";
+	}
+
+	/**
+	 * The accounts a viewer follows, as a subquery with one %d (the viewer).
+	 *
+	 * Approved follows only: a request to a private account is stored as 'pending'
+	 * and is not a follow until the owner accepts it. Every feed clause that asks
+	 * "does the viewer follow this author" goes through here so none can forget
+	 * the status (card 10392935011: the Following and For You tabs did).
+	 *
+	 * @return string SQL subquery body, bare column refs, one %d placeholder.
+	 */
+	private function following_subquery(): string {
+		global $wpdb;
+
+		return "SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved'";
 	}
 
 	/**
@@ -761,9 +790,7 @@ class FeedService {
 		$sql = "(
 			privacy IN ('public','space_members')
 			OR user_id = %d
-			OR ( privacy = 'followers' AND user_id IN (
-				SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved'
-			) )
+			OR ( privacy = 'followers' AND user_id IN ( {$this->following_subquery()} ) )
 			OR ( privacy = 'connections' AND user_id IN (
 				SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END
 				FROM {$wpdb->prefix}bn_connections
@@ -789,9 +816,7 @@ class FeedService {
 
 		switch ( $filter ) {
 			case 'following':
-				$sql    = "user_id IN (
-					SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
-				) AND privacy IN ('public','followers')";
+				$sql    = "user_id IN ( {$this->following_subquery()} ) AND privacy IN ('public','followers')";
 				$params = array( $user_id );
 				break;
 
@@ -857,9 +882,7 @@ class FeedService {
 				[ $audience_sql, $audience_params ] = $this->post_audience_clause( $user_id );
 
 				$sql = "(
-					user_id IN (
-						SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
-					)
+					user_id IN ( {$this->following_subquery()} )
 					AND privacy IN ('public','followers')
 				)
 				OR user_id = %d
@@ -880,7 +903,7 @@ class FeedService {
 						)
 					)
 					AND (
-						{$this->explore_space_where()}
+						{$this->explore_space_where( $user_id )}
 						OR (
 							space_id IN (
 								SELECT space_id FROM {$wpdb->prefix}bn_space_members
@@ -890,7 +913,7 @@ class FeedService {
 						)
 					)
 				)
-				OR {$this->explore_space_where()}";
+				OR {$this->explore_space_where( $user_id )}";
 				// Placeholder order: follows, own, joined-space member, joined-space
 				// audience (5), hashtag follow, hashtag member-space, its audience (5).
 				$params = array_merge(

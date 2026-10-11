@@ -296,7 +296,7 @@ class WidgetService {
 				$new_followers_7d = apply_filters( 'buddynext_user_weekly_followers_gained', null, $user_id );
 				if ( null === $new_followers_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
+					$new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND status = 'approved' AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 				$new_followers_7d = (int) $new_followers_7d;

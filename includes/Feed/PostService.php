@@ -1693,7 +1693,8 @@ class PostService {
 	 *   1. Block list (bidirectional) — returns a 404 WP_Error so the post's existence
 	 *      is not disclosed.
 	 *   2. Secret/hidden-space membership — non-members (and non-admins) get a 404.
-	 *   3. Followers-only privacy — a non-follower (and non-author) gets a 403.
+	 *   3. Followers-only privacy, or a private account's own-timeline post — a
+	 *      non-follower (and non-author) gets a 403.
 	 *   4. Private privacy — anyone but the author gets a 403.
 	 * The author always passes; admins (manage_options) bypass the space gate. A
 	 * missing post yields a 404. Returns null when the viewer may see the post.
@@ -1761,11 +1762,13 @@ class PostService {
 		// they can already moderate/edit it from the backend, and the space gate
 		// above grants them the same bypass (via SpaceVisibility). Gate 4 (private /
 		// "Only Me") below stays author-only even for admins.
+		//
+		// is_followers_only() also covers a private account's own-timeline post.
 		$viewer_is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
-		if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $viewer_is_admin ) {
-			$follows     = function_exists( 'buddynext_service' )
-				? buddynext_service( 'follows' )
-				: new \BuddyNext\SocialGraph\FollowService();
+		$follows         = function_exists( 'buddynext_service' )
+			? buddynext_service( 'follows' )
+			: new \BuddyNext\SocialGraph\FollowService();
+		if ( $this->is_followers_only( $post, $follows ) && ! $is_author && ! $viewer_is_admin ) {
 			$is_follower = $viewer_id > 0 && $follows->is_following( $viewer_id, $author_id );
 			if ( ! $is_follower ) {
 				return new WP_Error(
@@ -1905,6 +1908,32 @@ class PostService {
 	}
 
 	/**
+	 * Whether a post may be read by its author's approved followers only.
+	 *
+	 * True for a post made with the Followers audience, and for a public post on
+	 * the own timeline of a private account: "Only approved followers see your
+	 * posts" has to hold for a direct link, a bookmark and the engagement
+	 * endpoints, not just on the feeds. A post made in a space is left to the
+	 * space gate - the member chose to speak to that space (owner decision
+	 * 2026-10-11, card 10392816788).
+	 *
+	 * @param array                                $post    Post row.
+	 * @param \BuddyNext\SocialGraph\FollowService $follows Follow service.
+	 * @return bool
+	 */
+	private function is_followers_only( array $post, \BuddyNext\SocialGraph\FollowService $follows ): bool {
+		$privacy = (string) ( $post['privacy'] ?? '' );
+
+		if ( 'followers' === $privacy ) {
+			return true;
+		}
+
+		return 'public' === $privacy
+			&& 0 === (int) ( $post['space_id'] ?? 0 )
+			&& $follows->is_private_account( (int) ( $post['user_id'] ?? 0 ) );
+	}
+
+	/**
 	 * Filter a list of post IDs down to those the viewer is permitted to see.
 	 *
 	 * Single source of truth for the post-privacy gate that was previously
@@ -1980,7 +2009,7 @@ class PostService {
 			// grant them: an admin who moderates/edits the post from the backend
 			// getting a frontend 403 was just an inconsistency. Gate 4 (private /
 			// "Only Me") stays author-only even for admins.
-			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $is_admin ) {
+			if ( $this->is_followers_only( $post, $follows ) && ! $is_author && ! $is_admin ) {
 				if ( ! ( $viewer > 0 && $follows->is_following( $viewer, $author_id ) ) ) {
 					continue;
 				}

@@ -1337,6 +1337,12 @@ class ProfileController extends BaseRestController {
 			}
 		}
 
+		// Going public: anyone may now follow this account in one click, so the
+		// requests still waiting on it become follows (owner decision 2026-10-11).
+		if ( $search_vis_before['bn_account_private'] && ! get_user_meta( $user_id, 'bn_account_private', true ) ) {
+			buddynext_service( 'follows' )->approve_pending_requests( $user_id );
+		}
+
 		// Cap long-form PLAIN-TEXT fields at sensible lengths before they hit the
 		// service. These caps only make sense for text/textarea: they truncate the
 		// raw string, which corrupts a STRUCTURED value. The built-in `location`

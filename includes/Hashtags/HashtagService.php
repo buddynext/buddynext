@@ -981,8 +981,12 @@ class HashtagService {
 		// stop — verified: a non-member's query returns 0 rows for such a post.
 		$member_of = " {$alias}.space_id IN ( SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active' )";
 
+		// A tag page is discovery: a private account's public post is listed for
+		// its approved followers only, the rule Explore applies.
+		$private_where = \BuddyNext\SocialGraph\FollowService::private_author_where( $viewer_id, "{$alias}.user_id" );
+
 		$sql = " AND {$alias}.status = 'published' AND ("
-			. " ( {$alias}.privacy = 'public' {$space_where} )"
+			. " ( {$alias}.privacy = 'public' {$space_where}{$private_where} )"
 			. " OR ( {$alias}.privacy = 'space_members' AND{$member_of} )"
 			. ' )';
 
@@ -1014,7 +1018,8 @@ class HashtagService {
 			. " AND {$alias}.privacy = 'public'"
 			. " AND ( {$alias}.space_id IS NULL"
 			. " OR {$alias}.space_id = 0"
-			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )";
+			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )"
+			. \BuddyNext\SocialGraph\FollowService::private_author_where( 0, "{$alias}.user_id" );
 	}
 
 	/**
