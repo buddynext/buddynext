@@ -1201,11 +1201,11 @@ class AssetService {
 					'uploadFailedError'         => __( 'Could not upload %1$s (error %2$d).', 'buddynext' ),
 					'joined'                    => __( 'Joined', 'buddynext' ),
 					'feedEnd'                   => __( "You've reached the end.", 'buddynext' ),
-					'oneNewPost'                => __( '1 new post: refresh to view', 'buddynext' ),
+					'oneNewPost'                => __( '1 new post: click to show', 'buddynext' ),
 					/* translators: %d: number of new posts */
-					'manyNewPosts'              => __( '%d new posts: refresh to view', 'buddynext' ),
+					'manyNewPosts'              => __( '%d new posts: click to show', 'buddynext' ),
 					/* translators: %d: the display ceiling for the new-posts pill (e.g. "99+ new posts"). */
-					'manyNewPostsCapped'        => __( '%d+ new posts: refresh to view', 'buddynext' ),
+					'manyNewPostsCapped'        => __( '%d+ new posts: click to show', 'buddynext' ),
 					'oneNewComment'             => __( '1 new comment: show', 'buddynext' ),
 					/* translators: %d: number of new comments */
 					'manyNewComments'           => __( '%d new comments: show', 'buddynext' ),

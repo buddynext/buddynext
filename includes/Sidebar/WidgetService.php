@@ -312,10 +312,12 @@ class WidgetService {
 				$engagement_in_7d = (int) $engagement_in_7d;
 
 				// Week-over-week delta percent. Suppressed when prior-week is 0
-				// (can't divide by zero, and "first week" deltas are misleading).
+				// (can't divide by zero, and "first week" deltas are misleading), and
+				// when this week is 0: "0 notifications -100%" is correct arithmetic
+				// that reads like something broke, on what is only a quiet week.
 				$wow_delta_label = '';
 				$wow_trend       = 'flat';
-				if ( $notifs_prev_7d > 0 ) {
+				if ( $notifs_prev_7d > 0 && $notifs_7d > 0 ) {
 					$pct = (int) round( ( ( $notifs_7d - $notifs_prev_7d ) / $notifs_prev_7d ) * 100 );
 					if ( 0 !== $pct ) {
 						$wow_delta_label = ( $pct > 0 ? '+' : '' ) . $pct . '%';

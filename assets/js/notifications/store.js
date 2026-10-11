@@ -720,8 +720,11 @@ function bootstrapNotifPolling() {
 		// is updated in place when present, hidden when the count drops to 0, and
 		// created inside the bell link when a count first arrives — keeping it
 		// live site-wide rather than only on the /notifications/ page.
-		var bellLink = document.querySelector( '.bn-notification-bell-link' );
-		if ( bellLink ) {
+		// Every bell on the page, not the first one: a theme may print the header
+		// twice (BuddyX has a hidden small-screen copy before the visible one), and
+		// updating only the first left the bell the member can see stale until a
+		// reload.
+		document.querySelectorAll( '.bn-notification-bell-link' ).forEach( function ( bellLink ) {
 			var bellBadge = bellLink.querySelector( '.bn-notification-badge' );
 			if ( count > 0 ) {
 				if ( ! bellBadge ) {
@@ -736,7 +739,7 @@ function bootstrapNotifPolling() {
 			} else if ( bellBadge ) {
 				bellBadge.hidden = true;
 			}
-		}
+		} );
 		// Any data-wp-text="state.unreadLabel" elements will re-render
 		// when ctx.unreadCount is mutated by the store; this paint pass
 		// covers no-Interactivity DOM (the header pill + bell badge).
