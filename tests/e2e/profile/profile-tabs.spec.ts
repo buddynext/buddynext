@@ -328,9 +328,10 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
 
     test('J-725 About tab is content-gated (present with content, absent without)', async ({ page }) => {
         // B has no about content at all (the required answers count as content) → no About tab.
+        // Log in first: loginAs() refills the required answers, the hard clear must come after.
+        await loginAs(page, B_LOGIN);
         await clearProfileValuesHard(B_ID);
         try {
-            await loginAs(page, B_LOGIN);
 
             // Give A about content (skills / work) so the card has something to show; the
             // configured test member starts empty.
