@@ -2678,6 +2678,35 @@ class ModerationService {
 	}
 
 	/**
+	 * Hide hidden-suspended and shadow-banned authors' content from a viewer.
+	 *
+	 * The one rule every content list asks (feeds, the hashtag page): everyone
+	 * loses sight of such an author's posts except moderators, who must review
+	 * them, and the author, who must not notice. A shadow ban only works while
+	 * the member keeps seeing what they post; with their own profile suddenly
+	 * empty they knew at once (card 10393846671).
+	 *
+	 * @param string $column    Author column, optionally table-qualified.
+	 * @param int    $viewer_id Viewer (0 = logged out).
+	 * @return string SQL fragment starting with AND, or '' for a moderator.
+	 */
+	public function hidden_authors_where( string $column, int $viewer_id ): string {
+		if ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) ) {
+			return '';
+		}
+
+		$exclude = $this->moderation_exclude_sql( $column );
+		if ( $viewer_id <= 0 ) {
+			return $exclude;
+		}
+
+		// moderation_exclude_sql() has already reduced the column to a safe identifier.
+		$column = preg_replace( '/[^a-zA-Z0-9_.]/', '', $column );
+
+		return sprintf( 'AND ( %s = %d OR ( 1 = 1 %s ) )', $column, $viewer_id, $exclude );
+	}
+
+	/**
 	 * Discovery-surface counterpart to moderation_exclude_sql().
 	 *
 	 * Member-discovery surfaces (directory, search, explore) exclude a member from

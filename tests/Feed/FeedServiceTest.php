@@ -359,6 +359,48 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
 	}
 
+	/**
+	 * A shadow ban goes unnoticed: the banned member still sees their own posts
+	 * on their profile, on Explore and on a tag page, while another member and a
+	 * logged-out visitor see none of them.
+	 */
+	public function test_shadow_banned_member_still_sees_their_own_posts(): void {
+		$post_id = $this->posts->create(
+			$this->carol,
+			array(
+				'type'    => 'text',
+				'content' => 'Carol keeps posting',
+				'privacy' => 'public',
+			)
+		);
+		$tags = new \BuddyNext\Hashtags\HashtagService();
+		$tags->sync( 'post', (int) $post_id, array( 'quietban' ) );
+		update_user_meta( $this->carol, 'bn_shadow_banned', '1' );
+
+		$seen_by = function ( int $viewer ) use ( $post_id, $tags ): array {
+			wp_set_current_user( $viewer );
+			wp_cache_flush();
+
+			return array(
+				'profile' => in_array( $post_id, array_map( 'intval', array_column( $this->feed->profile_feed( $this->carol, $viewer )['items'], 'id' ) ), true ),
+				'explore' => in_array( $post_id, array_map( 'intval', array_column( $this->feed->explore_feed()['items'], 'id' ) ), true ),
+				'tag'     => in_array( $post_id, array_map( 'intval', array_column( $tags->get_feed( 'quietban', array( 'viewer_id' => $viewer ) )['items'], 'id' ) ), true ),
+			);
+		};
+
+		$all  = array(
+			'profile' => true,
+			'explore' => true,
+			'tag'     => true,
+		);
+		$none = array_map( '__return_false', $all );
+
+		$this->assertSame( $all, $seen_by( $this->carol ), 'The banned member notices nothing.' );
+		$this->assertSame( $none, $seen_by( $this->alice ), 'Another member sees none of it.' );
+		$this->assertSame( $none, $seen_by( 0 ), 'Nor does a visitor.' );
+		$this->assertSame( $all, $seen_by( $this->admin_id ), 'A moderator still reviews it.' );
+	}
+
 	// ── Home-feed filter tabs (F2) ─────────────────────────────────────────
 
 	/**

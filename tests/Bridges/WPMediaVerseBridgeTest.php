@@ -387,6 +387,33 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A block closes a direct message thread for both people, and unblocking
+	 * reopens it for both. It used to stop only the blocked person.
+	 */
+	public function test_a_block_stops_messages_in_both_directions(): void {
+		\BuddyNext\Core\Installer::run();
+		$blocker = self::factory()->user->create();
+		$blocked = self::factory()->user->create();
+		$other   = self::factory()->user->create();
+		$admin   = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$bridge  = new WPMediaVerseBridge();
+		$blocks  = buddynext_service( 'blocks' );
+
+		$this->assertTrue( $bridge->check_block( true, $blocker, $blocked ), 'No block yet.' );
+
+		$blocks->block( $blocker, $blocked );
+		$this->assertFalse( $bridge->check_block( true, $blocked, $blocker ), 'The blocked person cannot write.' );
+		$this->assertFalse( $bridge->check_block( true, $blocker, $blocked ), 'Neither can the one who blocked.' );
+		$this->assertTrue( $bridge->check_block( true, $blocker, $other ), 'Other threads are untouched.' );
+		$this->assertTrue( $bridge->check_block( true, $admin, $blocker ), 'Site staff can still reach a member.' );
+		$this->assertFalse( $bridge->check_block( false, $blocker, $other ), 'An earlier refusal stands.' );
+
+		$blocks->unblock( $blocker, $blocked );
+		$this->assertTrue( $bridge->check_block( true, $blocker, $blocked ) );
+		$this->assertTrue( $bridge->check_block( true, $blocked, $blocker ) );
+	}
+
+	/**
 	 * What the privacy sync stores for a file, from what it holds and what its
 	 * post asks: never wider than it was, never handed to a different crowd.
 	 *

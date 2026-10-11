@@ -344,15 +344,15 @@ class FeedService {
 	 * shadow-banned authors' posts in the feed to review them; hiding that
 	 * content from a moderator defeats moderation.
 	 *
+	 * The viewer's own posts are never excluded (card 10393846671).
+	 *
 	 * @return string Raw SQL fragment — no user-supplied data, safe to embed.
 	 */
 	private function excluded_users_where(): string {
-		if ( current_user_can( 'manage_options' ) ) {
-			return '';
-		}
-		// Delegate to the one canonical moderation-exclusion builder so the feed
-		// and follow suggestions exclude the same suspended/shadow-banned set.
-		return buddynext_service( 'moderation' )->moderation_exclude_sql( 'user_id' );
+		// One rule, owned by moderation and shared with the hashtag page: hidden
+		// from everyone except moderators and the author. Every feed is built per
+		// viewer, so the viewer's id can sit in the clause.
+		return buddynext_service( 'moderation' )->hidden_authors_where( 'user_id', get_current_user_id() );
 	}
 
 	/**
@@ -1697,9 +1697,10 @@ class FeedService {
 	/**
 	 * Return the profile feed for a given user as seen by a viewer.
 	 *
-	 * Suspended and shadow-banned users' posts are hidden from all viewers,
-	 * including the profile owner themselves, so that moderation is transparent
-	 * at the data layer rather than relying on template-level checks.
+	 * Suspended and shadow-banned users' posts are hidden from every other viewer
+	 * at the data layer rather than relying on template-level checks. The owner
+	 * still sees their own (excluded_users_where): a shadow ban is meant to go
+	 * unnoticed.
 	 *
 	 * @param int         $profile_user_id  User whose posts to show.
 	 * @param int         $viewer_id        Viewing user ID (0 = anonymous).

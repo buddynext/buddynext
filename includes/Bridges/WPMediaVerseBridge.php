@@ -1785,9 +1785,13 @@ class WPMediaVerseBridge {
 		}
 		// WPMediaVerse reports a refused send as 'blocked' by default, which is the
 		// right reason here: this gate only ever refuses for a block.
+		// Either way round, as MediaVerse does for its own blocks: someone who
+		// blocked a member cannot write to them either, so the thread is closed
+		// for both and reopens for both on unblock. It used to refuse only the
+		// blocked person, and the blocker could keep sending into the thread.
 		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
-		return ! ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
-			&& $blocks->has_blocked( $recipient_id, $sender_id ) );
+		return ! ( is_object( $blocks ) && method_exists( $blocks, 'is_blocking_either' )
+			&& $blocks->is_blocking_either( $sender_id, $recipient_id ) );
 	}
 
 	/**

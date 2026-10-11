@@ -320,6 +320,11 @@ class HashtagService {
 		// spaces off the public tag page (visible only to space members).
 		[ $listable_where, $space_params ] = $this->listable_where( 'p', $viewer_id );
 
+		// A hidden-suspended or shadow-banned author's posts stay off the tag page
+		// for everyone but moderators and the author, as in every feed. The tag
+		// page had no such rule and listed them to all.
+		$listable_where .= ' ' . buddynext_service( 'moderation' )->hidden_authors_where( 'p.user_id', (int) $viewer_id );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d, the space-visibility fragment's optional %d, and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
