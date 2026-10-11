@@ -310,7 +310,14 @@ class PostService {
 		// member cannot post until they confirm their address (admins exempt).
 		// is_verified() returns true when the feature is off, so this is a no-op in
 		// open mode.
-		if ( ! user_can( $user_id, 'manage_options' )
+		//
+		// A partner's card is exempt: the partner plugin has already accepted and
+		// published that content under its own rules, so refusing the card only
+		// leaves a forum topic visible in the forum and missing from the feed, with
+		// no error for anyone to see (card 10390929273). The member's own posting
+		// stays gated.
+		if ( ! IntegrationActivity::is_system_publish()
+			&& ! user_can( $user_id, 'manage_options' )
 			&& function_exists( 'buddynext_service' )
 			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
 			return new WP_Error(

@@ -255,6 +255,15 @@ class BlogPostListener implements ListenerInterface {
 			return;
 		}
 
+		// A site that requires email verification holds an unverified member's own
+		// activity; on_user_verified() offers their posts again once they verify.
+		// Checked here because the post service no longer refuses a bridge-driven
+		// card: that exemption is for partner plugins, which apply their own rules
+		// before content is published, and site tracking is BuddyNext's own.
+		if ( ! user_can( $author, 'manage_options' ) && ! buddynext_service( 'verification' )->is_verified( $author ) ) {
+			return;
+		}
+
 		/**
 		 * Filter whether a published post posts an activity card.
 		 *

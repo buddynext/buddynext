@@ -38,6 +38,36 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A partner's card is published for an author whose email is not verified.
+	 *
+	 * The partner plugin already accepted and published the content. Dropping its
+	 * card left a forum topic visible in the forum and missing from the feed, with
+	 * no error anywhere. The member's own posting stays gated.
+	 *
+	 * @return void
+	 */
+	public function test_publish_is_not_blocked_by_an_unverified_author(): void {
+		update_option( 'buddynext_email_verify', 1 );
+		update_option( 'buddynext_email_verify_enabled_at', time() - DAY_IN_SECONDS );
+		$author = self::factory()->user->create();
+		$this->assertFalse( buddynext_service( 'verification' )->is_verified( $author ), 'Fixture: the author is unverified.' );
+
+		$id = IntegrationActivity::publish( $author, 'started a discussion', 'https://example.test/s/general/t/unverified/', 'Unverified topic' );
+		$this->assertIsInt( $id );
+		$this->assertGreaterThan( 0, $id );
+
+		$own = ( new \BuddyNext\Feed\PostService() )->create(
+			$author,
+			array(
+				'type'    => 'text',
+				'content' => 'My own post',
+			)
+		);
+		$this->assertWPError( $own );
+		$this->assertSame( 'email_unverified', $own->get_error_code() );
+	}
+
+	/**
 	 * A bare publish() records a public link post for the member.
 	 *
 	 * @return void
