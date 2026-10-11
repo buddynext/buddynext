@@ -467,7 +467,7 @@ class Installer {
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
 	 * unedited copies to the new wording.
 	 */
-	private const EMAIL_DEFAULTS_VERSION = 1;
+	private const EMAIL_DEFAULTS_VERSION = 2;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3322,9 +3322,9 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.new_follower',
-				'subject'      => 'Someone followed you on {{site_name}}',
+				'subject'      => '{{actor_name}} started following you on {{site_name}}',
 				'preview_text' => 'You have a new follower',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{action_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> started following you on {{site_name}}. <a href="{{action_url}}">View their profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.connection_requested',
@@ -3506,6 +3506,14 @@ class Installer {
 		}
 
 		$previous = array(
+			// 1.2.5: the new-follower email names the follower, as the bell does.
+			// "Someone followed you" read like spam and gave no reason to open it.
+			'bn.new_follower'     => array(
+				array(
+					'subject'   => 'Someone followed you on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{action_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
 			// 1.2.4: the welcome body ran the site name into the next sentence
 			// ("Welcome to X Your account...") and used an em-dash.
 			'welcome'             => array(
