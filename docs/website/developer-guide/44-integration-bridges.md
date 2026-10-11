@@ -80,14 +80,14 @@ Current declared values (update the row when you re-verify a bridge against a ne
 
 | Integration | Partner constant | `min_version` | `tested_version` |
 |---|---|---|---|
-| `media` | `MVS_VERSION` | 2.4.0 | 2.5.0 |
-| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.6.4 |
-| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.6.0 |
-| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 1.9.5 |
-| `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.6.0 |
-| `jetonomy` | `JETONOMY_VERSION` | (none) | 1.9.7 |
-| `listora` | `WB_LISTORA_VERSION` | (none) | 1.8.0 |
-| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.1.0 |
+| `media` | `MVS_VERSION` | 2.4.0 | 2.6.1 |
+| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.6.5 |
+| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.8.0 |
+| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 2.1.0 |
+| `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.8.0 |
+| `jetonomy` | `JETONOMY_VERSION` | (none) | 2.0.1 |
+| `listora` | `WB_LISTORA_VERSION` | (none) | 1.9.0 |
+| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.3.0 |
 
 ## Identity takeover (BuddyNext is master)
 

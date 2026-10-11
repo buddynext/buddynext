@@ -1419,7 +1419,7 @@ class JetonomyBridge {
 		}
 
 		$owner_id = (int) ( $space['owner_id'] ?? 0 );
-		$forum_id = (int) \Jetonomy\Models\Space::create(
+		$created  = \Jetonomy\Models\Space::create(
 			array(
 				'title'      => (string) ( $space['name'] ?? '' ),
 				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
@@ -1429,6 +1429,9 @@ class JetonomyBridge {
 			),
 			$owner_id
 		);
+		// Jetonomy 2.0.1 can answer with a WP_Error. Casting that to int gives 1,
+		// which would link this space to whichever forum has id 1.
+		$forum_id = is_wp_error( $created ) ? 0 : (int) $created;
 
 		if ( $forum_id > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
@@ -2286,8 +2289,12 @@ class JetonomyBridge {
 				'version'        => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
 				// No hard floor evidenced for the model/action seams this bridge
 				// consumes, so none is declared (an invented floor would be worse
-				// than an honest null). Tested against 2.0.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
-				'tested_version' => '2.0.0',
+				// than an honest null). Tested against 2.0.1: every Jetonomy hook, class,
+				// method and function BuddyNext and BuddyNext Pro use was checked against
+				// the partner code at that tag on 2026-10-11 (all present; hook argument
+				// lists unchanged; Space::create() and Space::update() may now return a
+				// WP_Error, handled where the result is read).
+				'tested_version' => '2.0.1',
 				'has_nav'        => true,
 				'has_feed'       => true,
 				'has_search'     => true,
