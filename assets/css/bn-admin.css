@@ -4403,3 +4403,16 @@ code.bn-ep-code {
 .bn-email-log time {
 	white-space: nowrap;
 }
+
+/* Appeals: note on its own row, the two decisions under it. */
+.bn-appeal-decision {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-a-s2);
+	min-inline-size: 13rem;
+}
+
+.bn-appeal-decision .bn-input {
+	flex: 1 1 100%;
+	min-inline-size: 0;
+}

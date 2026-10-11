@@ -47,7 +47,6 @@ class RolesTab extends AdminPageBase {
 				'buddynext-comments/create'      => __( 'Comment on posts', 'buddynext' ),
 				'buddynext-feed/interact'        => __( 'React, share, bookmark and vote', 'buddynext' ),
 				'buddynext-feed/schedule-post'   => __( 'Schedule posts', 'buddynext' ),
-				'buddynext-feed/pin-post'        => __( 'Pin posts', 'buddynext' ),
 				'buddynext-feed/delete-any-post' => __( "Delete anyone's post", 'buddynext' ),
 			),
 			// 'buddynext-spaces/manage-settings' and '…/delete' are intentionally

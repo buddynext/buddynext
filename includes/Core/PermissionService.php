@@ -59,7 +59,6 @@ class PermissionService {
 		'buddynext-comments/create'         => 'member',
 		'buddynext-feed/delete-own-post'    => 'member',
 		'buddynext-feed/delete-any-post'    => 'moderator',
-		'buddynext-feed/pin-post'           => 'moderator',
 		'buddynext-feed/schedule-post'      => 'member',
 		'buddynext-spaces/create'           => 'member',
 		'buddynext-spaces/join'             => 'member',
@@ -522,9 +521,9 @@ class PermissionService {
 	/**
 	 * Build the user_meta key for an ability grant.
 	 *
-	 * Ability slugs may contain '/' and '-' (e.g. "buddynext-feed/pin-post"); we
+	 * Ability slugs may contain '/' and '-' (e.g. "buddynext-feed/create-post"); we
 	 * translate those into '_' so the resulting meta_key is readable and stable
-	 * when inspecting wp_usermeta in phpMyAdmin: `bn_ability_buddynext_feed_pin_post`.
+	 * when inspecting wp_usermeta in phpMyAdmin: `bn_ability_buddynext_feed_create_post`.
 	 *
 	 * @param string $ability Ability slug.
 	 * @return string user_meta key.

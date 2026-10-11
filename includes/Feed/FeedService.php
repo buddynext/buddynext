@@ -1809,6 +1809,14 @@ class FeedService {
 		// (Basecamp 10239861865 — found while building the Pending tab, which is
 		// where a held post is supposed to be visible, and only to its author.)
 		//
+		// A post hidden by reports ('under_review') stays out of everyone's view
+		// except its author's: on their own profile they still see it, labelled, as
+		// a comment in the same state already is. Without that it simply vanished,
+		// with no word of why, and members reposted it (card 10393122331).
+		$status_where = ( $viewer_id > 0 && $viewer_id === $profile_user_id )
+			? "status IN ( 'published', 'under_review' )"
+			: "status = 'published'";
+
 		// Pins: only the ones actually shown above the list are left out of it.
 		// Leaving out every pinned post made any pin beyond the shown ones appear
 		// in neither place (card 10392935152). A member who holds more pins than
@@ -1823,7 +1831,7 @@ class FeedService {
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
-			   AND status = 'published'
+			   AND {$status_where}
 			   {$pins_where}
 			   {$privacy_clause}
 			   {$space_where}

@@ -166,7 +166,7 @@ buddynext-profile/view            buddynext-spaces/join-gated      buddynext-mod
 buddynext-feed/create-post        buddynext-spaces/post            buddynext-moderation/review-queue
 buddynext-feed/delete-own-post    buddynext-spaces/moderate        buddynext-moderation/issue-strike
 buddynext-feed/delete-any-post    buddynext-spaces/manage-settings buddynext-moderation/suspend-user
-buddynext-feed/pin-post           buddynext-spaces/delete
+                                  buddynext-spaces/delete
 buddynext-feed/schedule-post      buddynext-comments/create
 buddynext-feed/interact           buddynext-moderation/dismiss
                                   (space-scoped, per-space methods)  buddynext-moderate-space

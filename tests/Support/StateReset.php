@@ -136,6 +136,7 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Feed\IntegrationActivity::class        => array(
 			'system_publish' => false,
 			'mirror_depth'   => 0,
+			'search_only'    => false,
 		),
 		\BuddyNext\Outbound\WebhookLog::class             => array( 'in_request' => false ),
 		// Per-REQUEST record of spaces unlocked by opening a valid invite link. Must

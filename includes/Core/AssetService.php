@@ -1817,6 +1817,13 @@ class AssetService {
 				'i18n'              => array(
 					'dismissFailed'         => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
 					'warnPolicyReminder'    => __( 'Content policy reminder', 'buddynext' ),
+					'warnTitle'             => __( 'Warn this member?', 'buddynext' ),
+					'warnBody'              => __( 'They are notified and can read this message on their Account status page.', 'buddynext' ),
+					'warnConfirm'           => __( 'Send warning', 'buddynext' ),
+					'strikeTitle'           => __( 'Issue a strike?', 'buddynext' ),
+					'strikeBody'            => __( 'They can read this reason on their Account status page. Strikes add up toward automatic suspension.', 'buddynext' ),
+					'strikeConfirm'         => __( 'Issue strike', 'buddynext' ),
+					'reasonRequired'        => __( 'Add a reason. The member will see it.', 'buddynext' ),
 					'warnSpaceRule'         => __( 'Space rule violation', 'buddynext' ),
 					'strikeReportedContent' => __( 'Strike issued for reported content', 'buddynext' ),
 					'cwAdded'               => __( 'Content warning applied', 'buddynext' ),

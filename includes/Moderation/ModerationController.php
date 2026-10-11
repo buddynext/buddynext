@@ -453,7 +453,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'resolve_appeal' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_appeals_reviewer' ),
 				'args'                => array(
 					'id'            => array(
 						'required' => true,
@@ -681,7 +681,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'list_appeals' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_appeals_reviewer' ),
 				'args'                => array(
 					'per_page' => array(
 						'type'              => 'integer',
@@ -709,7 +709,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::EDITABLE,
 				'callback'            => array( $this, 'approve_appeal' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_appeals_reviewer' ),
 				'args'                => array(
 					'id'   => array(
 						'required' => true,
@@ -732,7 +732,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::EDITABLE,
 				'callback'            => array( $this, 'deny_appeal' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_appeals_reviewer' ),
 				'args'                => array(
 					'id'   => array(
 						'required' => true,
@@ -1436,7 +1436,7 @@ class ModerationController extends BaseRestController {
 		$post_id       = absint( $request->get_param( 'id' ) );
 		$has_warning   = (bool) $request->get_param( 'content_warning' );
 		$warning_type  = sanitize_key( (string) ( $request->get_param( 'content_warning_type' ) ?? 'nsfw' ) );
-		$allowed_types = array( 'nsfw', 'spoilers', 'violence', 'language' );
+		$allowed_types = ModerationService::CONTENT_WARNING_TYPES;
 
 		if ( ! in_array( $warning_type, $allowed_types, true ) ) {
 			return new WP_Error(
@@ -1739,6 +1739,23 @@ class ModerationController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'appeal_id' => $result ), 201 );
+	}
+
+	/**
+	 * Permission callback for the appeal queue and its decisions.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function require_appeals_reviewer(): bool|WP_Error {
+		if ( ModerationService::can_resolve_appeals( get_current_user_id() ) ) {
+			return true;
+		}
+
+		return new WP_Error(
+			'rest_forbidden',
+			__( 'You do not have permission to do that.', 'buddynext' ),
+			array( 'status' => is_user_logged_in() ? 403 : 401 )
+		);
 	}
 
 	/**

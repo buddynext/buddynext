@@ -75,7 +75,6 @@ The role map holds 24 generic capabilities:
 | `buddynext-feed/create-post` | `member` |
 | `buddynext-feed/delete-own-post` | `member` |
 | `buddynext-feed/delete-any-post` | `moderator` |
-| `buddynext-feed/pin-post` | `moderator` |
 | `buddynext-feed/schedule-post` | `member` |
 | `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes; not in `Abilities::CATALOG`) |
 | `buddynext-comments/create` | `member` |
@@ -109,7 +108,7 @@ The role map holds 24 generic capabilities:
 
 Three additional space-scoped capabilities - `buddynext-moderate-space`, `buddynext-manage-space`, and `buddynext-own-space` - are resolved by dedicated per-space methods (`can_moderate_space()` / `can_manage_space()` / `can_own_space()`) and are not part of the generic role map. `buddynext-moderate-space` and `buddynext-manage-space` are both granted to a space `owner` OR `moderator` (moderators can manage space settings, they just cannot remove the owner or delete the space); `buddynext-own-space` is the strictly owner-only gate, split out for the two things a moderator must never do because neither is reversible from their side: delete the space, and change who owns it (transfer ownership, assign a new owner).
 
-> Ability slugs may contain `/` and `-`. The grant meta key translates those to `_`, so `buddynext-feed/pin-post` is stored as `bn_ability_buddynext_feed_pin_post`. Use `PermissionService::ability_meta_key( $slug )` to build the key rather than hand-rolling it.
+> Ability slugs may contain `/` and `-`. The grant meta key translates those to `_`, so `buddynext-feed/schedule-post` is stored as `bn_ability_buddynext_feed_schedule_post`. Use `PermissionService::ability_meta_key( $slug )` to build the key rather than hand-rolling it.
 
 ## Examples
 
@@ -156,8 +155,8 @@ The capability is now enforceable through `buddynext_can( $user_id, 'buddynext-f
 add_filter(
     'buddynext_user_can',
     function ( bool $result, int $user_id, string $capability, array $context ) {
-        // Let verified members pin posts even though pin defaults to moderator.
-        if ( 'buddynext-feed/pin-post' === $capability
+        // Let verified members delete any post even though that defaults to moderator.
+        if ( 'buddynext-feed/delete-any-post' === $capability
             && get_user_meta( $user_id, 'is_verified_member', true ) ) {
             return true;
         }

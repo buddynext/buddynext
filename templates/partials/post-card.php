@@ -781,6 +781,18 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 		<?php
 	}
 
+	// Hidden by reports and waiting for a moderator. Only the author's own
+	// profile lists a post in this state (FeedService::profile_feed), so only the
+	// author ever sees this line.
+	if ( 'under_review' === (string) ( $bn_post['status'] ?? '' ) ) {
+		?>
+		<div class="bn-post-card__pending">
+			<?php buddynext_icon( 'shield' ); ?>
+			<span><?php esc_html_e( 'Under review. Only you can see this post until a moderator has looked at it.', 'buddynext' ); ?></span>
+		</div>
+		<?php
+	}
+
 	buddynext_get_template(
 		'parts/post-cw-overlay.php',
 		array(

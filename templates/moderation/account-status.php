@@ -297,6 +297,7 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 				<?php foreach ( $bn_as_appeals as $bn_as_ap ) : ?>
 					<?php
 					$bn_as_ap_msg                           = trim( (string) ( $bn_as_ap['message'] ?? '' ) );
+					$bn_as_ap_note                          = trim( (string) ( $bn_as_ap['reviewer_note'] ?? '' ) );
 					$bn_as_ap_date                          = $bn_as_date( $bn_as_ap['created_at'] ?? '' );
 					list( $bn_as_ap_tone, $bn_as_ap_label ) = $bn_as_appeal_badge( (string) ( $bn_as_ap['status'] ?? '' ) );
 					?>
@@ -310,6 +311,14 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 							</div>
 							<?php if ( '' !== $bn_as_ap_msg ) : ?>
 								<div class="bn-acct-list__reason"><?php echo esc_html( $bn_as_ap_msg ); ?></div>
+							<?php endif; ?>
+							<?php if ( '' !== $bn_as_ap_note ) : ?>
+								<div class="bn-acct-list__reason">
+									<?php
+									/* translators: %s: the reviewer's note on an appeal decision. */
+									echo esc_html( sprintf( __( 'Reviewer note: %s', 'buddynext' ), $bn_as_ap_note ) );
+									?>
+								</div>
 							<?php endif; ?>
 						</div>
 					</li>

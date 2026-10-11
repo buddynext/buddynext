@@ -1433,7 +1433,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'   => __( 'Strikes before warning', 'buddynext' ),
 							'default' => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_warn_threshold' ),
 							'min'     => 1,
-							'hint'    => __( 'A warning email is sent to the member after this many active strikes.', 'buddynext' ),
+							'hint'    => __( 'From this many active strikes, the notice a member gets with each strike also warns that their account is at risk of suspension.', 'buddynext' ),
 						)
 					),
 					new Field(

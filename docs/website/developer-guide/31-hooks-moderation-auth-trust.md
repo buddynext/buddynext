@@ -43,6 +43,7 @@ Because it runs on both, the filter is passed a final `$context` argument - `'cr
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
 | `buddynext_moderation_auto_actions` | filter | A report has just been inserted, deciding which automated actions to apply (Free returns empty; Pro stacks actions here) | `array $actions, array $report` |
 | `buddynext_suspension_reasons` | filter | Building the reason list moderators pick from when suspending a member. Keep `other`: it is the free-text fallback and requires a note. Since 1.2.4. | `array $reasons` (code => member-facing label) |
+| `buddynext_can_resolve_appeals` | filter | Deciding who may read and decide appeals (wp-admin, Community Admin and REST). Default is site administrators; return `true` for a dedicated trust team. Since 1.2.5. | `bool $allowed, int $user_id` |
 
 > **Note:** `$result` is `true` when every built-in check passed. To block content, return a `WP_Error`. To allow it, return `$result` unchanged. Returning a non-`WP_Error`, non-`true` value is treated as allow. The `pending_review` error code is intentionally non-fatal upstream - callers save the post with a pending status rather than discarding it - so reserve `WP_Error` returns from your filter for content you genuinely want rejected.
 

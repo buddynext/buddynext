@@ -27,6 +27,11 @@ use WP_Error;
 class ModerationService {
 
 	/**
+	 * Content warning types a post can carry.
+	 */
+	public const CONTENT_WARNING_TYPES = array( 'nsfw', 'spoilers', 'violence', 'language' );
+
+	/**
 	 * Per-request answers of is_suspended(), keyed by user id.
 	 *
 	 * @var array<int,bool>
@@ -1167,6 +1172,11 @@ class ModerationService {
 	 *                   null when the post does not exist.
 	 */
 	public function set_post_content_warning( int $post_id, bool $has_warning, string $warning_type, int $actor_id = 0 ): ?bool {
+		// One list of warning types for every way in (REST, wp-admin, here).
+		if ( $has_warning && ! in_array( $warning_type, self::CONTENT_WARNING_TYPES, true ) ) {
+			return false;
+		}
+
 		$actor_id = $actor_id > 0 ? $actor_id : get_current_user_id();
 
 		// A site-wide community moderator, not only a WP admin (card 10264294189).
@@ -2740,7 +2750,7 @@ class ModerationService {
 	 * @return array<string, mixed>|null Status payload, or null when not disclosable.
 	 */
 	public function account_status_for( int $profile_user_id, int $viewer_id ): ?array {
-		$is_self      = ( $viewer_id > 0 && $viewer_id === $profile_user_id );
+		$is_self = ( $viewer_id > 0 && $viewer_id === $profile_user_id );
 		// Site staff only. Owning or moderating a space does not qualify: that
 		// viewer handles their own space's reports and has no business reading the
 		// record of a member who was never in it (owner decision 2026-10-11).
@@ -2995,7 +3005,7 @@ class ModerationService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, suspension_id, user_id, message, status, created_at
+				"SELECT id, suspension_id, user_id, message, status, reviewer_note, created_at
 				 FROM {$wpdb->prefix}bn_appeals
 				 WHERE user_id = %d
 				 ORDER BY created_at DESC
@@ -3155,6 +3165,31 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a user may read and decide appeals.
+	 *
+	 * Administrators only by default: an appeal asks someone above the moderator
+	 * who issued the penalty to look again, so it is not decided at that level.
+	 * The one rule for the service, the REST routes and the Appeals tab, so a
+	 * person is never shown buttons that then refuse them.
+	 *
+	 * @param int $user_id User to check.
+	 * @return bool
+	 */
+	public static function can_resolve_appeals( int $user_id ): bool {
+		/**
+		 * Filter who may read and decide appeals.
+		 *
+		 * An owner with a dedicated trust team can return true for those people.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param bool $allowed Whether the user may. Default: administrators.
+		 * @param int  $user_id User being checked.
+		 */
+		return (bool) apply_filters( 'buddynext_can_resolve_appeals', $user_id > 0 && user_can( $user_id, 'manage_options' ), $user_id );
+	}
+
+	/**
 	 * Resolve an appeal (approve or deny).
 	 *
 	 * @param int    $appeal_id      Appeal to resolve.
@@ -3164,7 +3199,7 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function resolve_appeal( int $appeal_id, int $actor_id, string $decision, string $reviewer_note = '' ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! self::can_resolve_appeals( $actor_id ) ) {
 			// Carry the 403 on the error itself so every route reports it correctly.
 			// The REST resolve route now preserves the service's status rather than
 			// flattening everything that is not 'forbidden' to 400 — which is what

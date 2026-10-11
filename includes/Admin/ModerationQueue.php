@@ -704,12 +704,16 @@ class ModerationQueue {
 								<td><?php echo esc_html( (string) $a['message'] ); ?></td>
 								<td><?php echo esc_html( $this->ago( (string) ( $a['created_at'] ?? '' ) ) ); ?></td>
 								<td>
-									<div class="bn-row-actions">
-										<?php
-										$this->appeal_button( (int) $a['id'], 'approved', __( 'Approve', 'buddynext' ), 'primary' );
-										$this->appeal_button( (int) $a['id'], 'denied', __( 'Deny', 'buddynext' ), 'secondary' );
-										?>
-									</div>
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-appeal-decision">
+										<input type="hidden" name="action" value="bn_mod_appeal_action">
+										<input type="hidden" name="appeal_id" value="<?php echo esc_attr( (string) (int) $a['id'] ); ?>">
+										<?php wp_nonce_field( 'bn_mod_appeal_action' ); ?>
+										<input type="text" class="bn-input" name="reviewer_note" maxlength="500"
+											placeholder="<?php esc_attr_e( 'Optional note', 'buddynext' ); ?>"
+											aria-label="<?php esc_attr_e( 'Note for the member (optional)', 'buddynext' ); ?>">
+										<button type="submit" name="decision" value="approved" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
+										<button type="submit" name="decision" value="denied" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Deny', 'buddynext' ); ?></button>
+									</form>
 								</td>
 							</tr>
 						<?php endforeach; ?>
@@ -1114,7 +1118,10 @@ class ModerationQueue {
 				$cw_post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
 				$cw_type    = isset( $_POST['cw_type'] ) ? sanitize_key( wp_unslash( (string) $_POST['cw_type'] ) ) : 'nsfw';
 				// phpcs:enable WordPress.Security.NonceVerification.Missing
-				$result = null !== $service->set_post_content_warning( $cw_post_id, 'cw_set' === $op, $cw_type, $actor );
+				// Success is true only. The service answers false for a refusal or a
+				// failed write and null for a missing post; counting anything but
+				// null as success reported "Content warning added" for both.
+				$result = true === $service->set_post_content_warning( $cw_post_id, 'cw_set' === $op, $cw_type, $actor );
 				break;
 		}
 
@@ -1180,11 +1187,12 @@ class ModerationQueue {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$appeal_id = isset( $_POST['appeal_id'] ) ? absint( wp_unslash( $_POST['appeal_id'] ) ) : 0;
 		$decision  = isset( $_POST['decision'] ) ? sanitize_key( wp_unslash( (string) $_POST['decision'] ) ) : '';
+		$note      = isset( $_POST['reviewer_note'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['reviewer_note'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		$actor = get_current_user_id();
 
 		$result = in_array( $decision, array( 'approved', 'denied' ), true )
-			? ( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision )
+			? ( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision, $note )
 			: new \WP_Error( 'bn_invalid_decision', __( 'Choose approve or deny.', 'buddynext' ) );
 
 		if ( ! is_wp_error( $result ) ) {
@@ -1458,28 +1466,6 @@ class ModerationQueue {
 			$variant,
 			$confirm,
 			$in_dropdown
-		);
-	}
-
-	/**
-	 * Render an appeal-decision button form.
-	 *
-	 * @param int    $appeal_id Appeal ID.
-	 * @param string $decision  approved|denied.
-	 * @param string $label     Button label.
-	 * @param string $variant   Button class hint.
-	 * @return void
-	 */
-	private function appeal_button( int $appeal_id, string $decision, string $label, string $variant ): void {
-		$this->action_form(
-			'bn_mod_appeal_action',
-			array(
-				'appeal_id' => $appeal_id,
-				'decision'  => $decision,
-			),
-			$label,
-			$variant,
-			''
 		);
 	}
 

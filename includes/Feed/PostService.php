@@ -4548,10 +4548,10 @@ class PostService {
 	/**
 	 * Whether a user may moderate (remove) a post they do not own.
 	 *
-	 * Site admins can remove any post; a space owner or moderator can remove
-	 * posts inside the space they moderate (resolved through PermissionService,
-	 * which also honours moderator scoping). Global (non-space) posts are
-	 * admin-only.
+	 * Site admins can remove any post, and so can anyone the owner has granted
+	 * "Delete anyone's post" on the Roles screen (moderators by default). A space
+	 * owner or moderator can remove posts inside the space they moderate
+	 * (resolved through PermissionService, which also honours moderator scoping).
 	 *
 	 * @param int $post_id Post ID.
 	 * @param int $user_id Acting user ID.
@@ -4563,6 +4563,13 @@ class PostService {
 		}
 
 		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		// The capability the Delete button and the REST route already test. Only
+		// the service ignored it, so a moderator was shown Delete and then told
+		// "You are not the owner of this post" (card 10393175240).
+		if ( function_exists( 'buddynext_can' ) && buddynext_can( $user_id, 'buddynext-feed/delete-any-post' ) ) {
 			return true;
 		}
 
