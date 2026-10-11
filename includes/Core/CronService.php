@@ -507,11 +507,20 @@ class CronService {
 
 		// The member's own choice per type, or the catalogue default where they made
 		// none. One read: the service caches the member's saved rows.
-		$saved = ( new \BuddyNext\Notifications\NotificationPrefService() )->get_all_prefs( $user_id );
+		$prefs = new \BuddyNext\Notifications\NotificationPrefService();
+		$saved = $prefs->get_all_prefs( $user_id );
 
 		// The digest email's unsubscribe link writes digest = off. That stops every
 		// digest, whatever the individual types say.
 		if ( 'off' === ( $saved['digest']['email_freq'] ?? '' ) ) {
+			return array();
+		}
+
+		// The master Email channel switch (Settings, Notifications). A member who
+		// turned email off gets no instant email (EmailSender checks the same
+		// switch) and must get no digest either.
+		$channels = (array) $prefs->get_channel_prefs( $user_id );
+		if ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) ) {
 			return array();
 		}
 

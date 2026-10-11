@@ -201,4 +201,18 @@ class DigestEnrolmentTest extends \WP_UnitTestCase {
 
 		$this->assertTrue( $this->emailed() );
 	}
+
+	/**
+	 * The master Email switch stops the digest as it stops instant email.
+	 *
+	 * @return void
+	 */
+	public function test_master_email_channel_off_sends_nothing(): void {
+		( new NotificationPrefService() )->set_channel_prefs( $this->member, array( 'email' => false ) );
+		$this->notify( 'bn.post_shared' );
+
+		( new CronService() )->handle_daily_digest();
+
+		$this->assertFalse( $this->emailed() );
+	}
 }
