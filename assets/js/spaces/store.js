@@ -758,13 +758,22 @@ function bumpMemberCount( card, delta ) {
  *
  * @return {void}
  */
-function refreshSpacePageAfterJoin() {
-	// Only when the composer gate is actually on this page.
-	if ( ! document.querySelector( '.bn-sh-guest-cta' ) ) { return; }
+function refreshSpacePageAfterJoin( message ) {
+	// Only when the composer gate is actually on this page. Elsewhere (a space
+	// card in a list) the confirmation is shown in place.
+	if ( ! document.querySelector( '.bn-sh-guest-cta' ) ) {
+		if ( message && window.bnToast ) { window.bnToast( message, 'success' ); }
+		return;
+	}
 
-	// Let the "Joined" button state and its toast paint first, so the reload
-	// reads as a page catching up rather than a click that did nothing.
+	// Let the "Joined" button state paint first, so the reload reads as a page
+	// catching up rather than a click that did nothing. The confirmation, which
+	// says what the member will now hear from the space, survives the reload.
 	window.setTimeout( function () {
+		if ( message ) {
+			bnReloadWithToast( message, 'success' );
+			return;
+		}
 		window.location.reload();
 	}, 350 );
 }
@@ -863,7 +872,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					// Update the member count in the same card (no-op off-card).
 					bumpMemberCount( spaceCardFor( btn ), 1 );
 					// ...and re-render the space page, if that is where we are.
-					refreshSpacePageAfterJoin();
+					refreshSpacePageAfterJoin( data.message || '' );
 				} else if ( res.ok && ( data.requested || data.pending ) ) {
 					// Open space with "require approval to join": the server accepted
 					// the join REQUEST and returns 200 {requested:true} (not joined).

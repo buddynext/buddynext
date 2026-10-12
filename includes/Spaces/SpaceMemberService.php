@@ -72,10 +72,10 @@ class SpaceMemberService {
 	private function default_notification_pref( int $space_id ): string {
 		$pref = (string) buddynext_get_space_field( $space_id, 'default_notification_pref' );
 
-		// Fallback mirrors the field default (CoreSpaceFields): new members start on
-		// the quieter 'mentions_only' and opt UP to all activity, never silently
-		// subscribed to every post on join (owner ruling, card 10294398101 item 7).
-		return in_array( $pref, array( 'all', 'mentions_only', 'none' ), true ) ? $pref : 'mentions_only';
+		// Fallback mirrors the field default (CoreSpaceFields): a new member hears
+		// about new posts in the bell until they turn it down (owner ruling,
+		// card 10393846811).
+		return in_array( $pref, array( 'all', 'mentions_only', 'none' ), true ) ? $pref : 'all';
 	}
 
 	/**

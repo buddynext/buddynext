@@ -244,7 +244,11 @@ class NotificationPrefCatalogue {
 				'description'        => __( 'Someone posted in a space you belong to.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
 				'default_on_site'    => true,
-				'default_email_freq' => 'daily',
+				// Bell only by default. Joining a space now means hearing about its
+				// new posts (card 10393846811), and that must not also mean email
+				// about every space a member is in. A member who wants them by
+				// email picks daily or weekly on their preferences screen.
+				'default_email_freq' => 'off',
 				'can_email'          => true,
 			),
 			'bn.space_media_unlinked'     => array(

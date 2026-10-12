@@ -2518,6 +2518,36 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * The answer to a successful join: joined, and what the member will hear.
+	 *
+	 * The space's alert setting for this member rides along so the confirmation
+	 * can say it in words ("new posts will appear in your notifications") rather
+	 * than leave a new member guessing why a space is noisy or silent.
+	 *
+	 * @param int $space_id Space joined.
+	 * @param int $user_id  The member.
+	 * @return WP_REST_Response
+	 */
+	private function joined_response( int $space_id, int $user_id ): WP_REST_Response {
+		$pref    = ( new SpaceMemberService() )->get_notification_pref( $space_id, $user_id );
+		$message = __( 'You joined this space.', 'buddynext' );
+		if ( 'all' === $pref ) {
+			$message = __( 'You joined. New posts here will appear in your notifications. You can change this with the bell on the space page.', 'buddynext' );
+		} elseif ( 'mentions_only' === $pref ) {
+			$message = __( 'You joined. You will hear from this space when someone mentions you. You can change this with the bell on the space page.', 'buddynext' );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'joined'            => true,
+				'notification_pref' => $pref,
+				'message'           => $message,
+			),
+			200
+		);
+	}
+
+	/**
 	 * Join a space (or request to join for private, 403 for secret without invite).
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -2558,7 +2588,7 @@ class SpaceController extends BaseRestController {
 			// Already an active member — no-op, and crucially do not consume a use
 			// or set a "joined via link" marker for someone who was already in.
 			if ( 'active' === $members->get_status( $space_id, $user_id ) ) {
-				return new WP_REST_Response( array( 'joined' => true ), 200 );
+				return $this->joined_response( $space_id, $user_id );
 			}
 
 			$links = new SpaceInviteLinkService();
@@ -2607,7 +2637,7 @@ class SpaceController extends BaseRestController {
 			}
 			$links->mark_joined( $space_id, $user_id );
 
-			return new WP_REST_Response( array( 'joined' => true ), 200 );
+			return $this->joined_response( $space_id, $user_id );
 		}
 
 		// A standing invitation: accepting it joins directly, regardless of the
@@ -2620,7 +2650,7 @@ class SpaceController extends BaseRestController {
 			if ( is_wp_error( $result ) ) {
 				return $this->preserve_status( $result, 400 );
 			}
-			return new WP_REST_Response( array( 'joined' => true ), 200 );
+			return $this->joined_response( $space_id, $user_id );
 		}
 
 		// Role-map enforcement, applied only to non-invited joins. A standing
@@ -2665,7 +2695,7 @@ class SpaceController extends BaseRestController {
 
 			// If already an active member or has a pending request, treat as success.
 			if ( 'active' === $current_status ) {
-				return new WP_REST_Response( array( 'joined' => true ), 200 );
+				return $this->joined_response( $space_id, $user_id );
 			}
 
 			$result = $members->request_join( $space_id, $user_id );
@@ -2684,7 +2714,7 @@ class SpaceController extends BaseRestController {
 			return $this->preserve_status( $result, 400 );
 		}
 
-		return new WP_REST_Response( array( 'joined' => true ), 200 );
+		return $this->joined_response( $space_id, $user_id );
 	}
 
 	/**
