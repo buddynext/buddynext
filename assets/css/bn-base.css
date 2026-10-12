@@ -1357,8 +1357,8 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 		height: 24px;
 		flex-shrink: 0;
 	}
-	.bn-mobile-nav__item[aria-current="page"] { color: var(--brand); }
-	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--brand); }
+	.bn-mobile-nav__item[aria-current="page"] { color: var(--bn-accent-text, var(--brand)); }
+	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--bn-accent-text, var(--brand)); }
 	/* Centred by arithmetic, not by an offset: a fixed-width slot between two
 	   flex:1 items on each side lands on the viewport centre only while the bar
 	   has exactly 5 slots. See templates/partials/nav.php — do not add a 6th. */
@@ -1622,7 +1622,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-hover-card__header { display: flex; gap: var(--bn-s3); align-items: flex-start; margin-bottom: var(--bn-s3); }
 .bn-hover-card__avatar {
 	width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
-	background: var(--brand-light); color: var(--brand); font-size: 18px; font-weight: 700;
+	background: var(--brand-light); color: var(--bn-accent-text, var(--brand)); font-size: 18px; font-weight: 700;
 	display: flex; align-items: center; justify-content: center; overflow: hidden;
 	text-decoration: none;
 }
@@ -1640,7 +1640,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-hover-card__stat-num { font-weight: var(--fw-bold); color: var(--text-1); }
 .bn-hover-card__follow {
 	margin-top: var(--bn-s3); width: 100%; padding: var(--bn-s2); border: 1px solid var(--brand);
-	border-radius: var(--bn-r-full); background: transparent; color: var(--brand);
+	border-radius: var(--bn-r-full); background: transparent; color: var(--bn-accent-text, var(--brand));
 	font-size: var(--text-sm); font-weight: var(--fw-semibold); cursor: pointer;
 	transition: all 0.15s ease;
 }
@@ -1692,7 +1692,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 
 .bn-wrap a {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	text-decoration: none;
 	transition: color 0.12s;
 }
@@ -1962,7 +1962,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	overflow: hidden;
 	flex-shrink: 0;
 	background: var(--brand-light);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	font-weight: var(--fw-semibold);
 }
 
@@ -2038,7 +2038,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-pill--active {
 	background: var(--brand-light);
 	border-color: var(--brand);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────── */
@@ -2090,7 +2090,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 .bn-context-nav__item:hover { color: var(--text-1); }
 .bn-context-nav__item--active {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	border-bottom-color: var(--brand);
 }
 @media (max-width: 640px) {
@@ -2287,7 +2287,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-.bn-member-row__link:hover .bn-member-row__name { color: var(--brand); }
+.bn-member-row__link:hover .bn-member-row__name { color: var(--bn-accent-text, var(--brand)); }
 .bn-member-row__meta {
 	font-family: var(--bn-font-mono, ui-monospace, monospace);
 	font-size: var(--text-xs);
@@ -2336,7 +2336,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-.bn-sbar-row__name:hover { color: var(--brand); }
+.bn-sbar-row__name:hover { color: var(--bn-accent-text, var(--brand)); }
 /* The action (Follow button — partials/follow-button.php, a .bn-btn) must never
    shrink or grow; it sits compact at the row end after the name column. */
 .bn-sbar-row > .bn-btn,
@@ -2374,7 +2374,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	height: 32px;
 	border-radius: var(--bn-r-md);
 	background: var(--brand-light);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2389,7 +2389,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	padding: 3px 11px;
 	border-radius: var(--bn-r-full);
 	border: 1.5px solid var(--brand);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	font-size: var(--text-xs);
 	font-weight: 600;
 	cursor: pointer;
@@ -3322,7 +3322,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	lower chroma) in dark so the avatar reads as a quiet tinted disc, not a
 	glowing block. Only applies when an actual image is not present. */
 .bn-avatar[data-tone] {
-	--bn-avatar-tone-l: 58%;
+	--bn-avatar-tone-l: 52%; /* The letter on it is small (11px in a space emblem), so it needs 4.5:1; at 58% the white letter sat at about 3.8 to 4.0. */
 	--bn-avatar-tone-c: 0.14;
 	background: oklch(var(--bn-avatar-tone-l) var(--bn-avatar-tone-c) var(--bn-avatar-tone-h, 240));
 	color: oklch(99% 0 0);

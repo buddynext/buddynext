@@ -152,11 +152,11 @@
 
 .bn-post-card__action:hover {
 	background: var(--bg-hover);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 .bn-post-card__action--active {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 .bn-feed-load-more {
@@ -252,7 +252,7 @@
 .bn-hashtag-row__tag {
 	font-size: var(--text-sm);
 	font-weight: var(--fw-semibold);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 .bn-hashtag-row__count {
@@ -358,7 +358,7 @@
 
 .bn-connect-btn:hover {
 	border-color: var(--brand);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 .bn-connect-btn--pending {
@@ -368,7 +368,7 @@
 
 .bn-connect-btn--connected {
 	background: var(--brand-light);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	border-color: var(--brand-light);
 }
 
@@ -589,7 +589,7 @@
 .bn-completion-pct {
 	font-size: var(--text-sm);
 	font-weight: var(--fw-bold);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 /* .bn-completion-bar / .bn-completion-bar__fill are defined ONCE in
@@ -710,7 +710,7 @@
 }
 
 .bn-auth-links a {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	text-decoration: none;
 }
 

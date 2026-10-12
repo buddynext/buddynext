@@ -359,6 +359,7 @@ $bn_subtitle = sprintf(
 						// pill while the admin showed the styled one.
 						$bn_chip_bg     = (string) ( $bn_cat_item->color ?? '' );
 						$bn_chip_fg     = (string) ( $bn_cat_item->text_color ?? '' );
+						$bn_chip_fg     = '' !== $bn_chip_bg ? buddynext_readable_text_color( $bn_chip_bg, $bn_chip_fg ) : $bn_chip_fg;
 						$bn_chip_swatch = ( '' !== $bn_chip_bg && '' !== $bn_chip_fg )
 							? ' style="' . esc_attr( sprintf( 'background:%1$s;color:%2$s;', $bn_chip_bg, $bn_chip_fg ) ) . '"'
 							: '';

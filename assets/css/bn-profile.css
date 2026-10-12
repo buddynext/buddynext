@@ -1974,9 +1974,9 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-connections-header { display: flex; align-items: center; gap: var(--bn-s3); margin-bottom: var(--bn-s5); flex-wrap: wrap; }
 .bn-connections-title { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: var(--fw-extrabold); color: var(--text-1); letter-spacing: -0.5px; }
-.bn-connections-count { background: var(--brand-light); color: var(--brand); font-size: var(--text-sm); font-weight: var(--fw-bold); padding: 3px 10px; border-radius: var(--bn-r-full); }
+.bn-connections-count { background: var(--brand-light); color: var(--bn-accent-text, var(--brand)); font-size: var(--text-sm); font-weight: var(--fw-bold); padding: 3px 10px; border-radius: var(--bn-r-full); }
 .bn-connections-back { font-size: var(--text-sm); color: var(--text-2); text-decoration: none; display: flex; align-items: center; gap: var(--bn-s1); margin-inline-start: auto; }
-.bn-connections-back:hover { color: var(--brand); }
+.bn-connections-back:hover { color: var(--bn-accent-text, var(--brand)); }
 .bn-connections-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--bn-s3); }
 /* .bn-member-card / .bn-member-name / .bn-member-handle / .bn-card-actions /
    .bn-page-btn are defined ONCE in bn-members.css (on --bn-* tokens). Only the
@@ -2933,11 +2933,13 @@ a.bn-space-row:hover .bn-space-name {
 	transform: translateY(-1px);
 }
 .bn-pf-social-chip svg { width: 14px; height: 14px; }
-.bn-pf-social-chip[data-social="social_twitter"]   { color: #1da1f2; }
-.bn-pf-social-chip[data-social="social_linkedin"]  { color: #0a66c2; }
+/* Each network's own colour, mixed toward the ink so the NAME can be read: the raw
+   brand colours are logo colours (Twitter blue is about 2.7:1 as text). */
+.bn-pf-social-chip[data-social="social_twitter"]   { color: color-mix(in oklch, #1da1f2 55%, var(--bn-ink)); }
+.bn-pf-social-chip[data-social="social_linkedin"]  { color: color-mix(in oklch, #0a66c2 80%, var(--bn-ink)); }
 .bn-pf-social-chip[data-social="social_github"]    { color: var(--bn-ink); }
-.bn-pf-social-chip[data-social="social_instagram"] { color: #e1306c; }
-.bn-pf-social-chip[data-social="social_youtube"]   { color: #ff0000; }
+.bn-pf-social-chip[data-social="social_instagram"] { color: color-mix(in oklch, #e1306c 75%, var(--bn-ink)); }
+.bn-pf-social-chip[data-social="social_youtube"]   { color: color-mix(in oklch, #ff0000 75%, var(--bn-ink)); }
 
 /* Brand colours are fixed by definition, but the darker ones (LinkedIn,
    Twitter) lose contrast on a dark surface — lift their lightness in dark mode

@@ -1293,8 +1293,10 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	outline-offset: 2px;
 }
 
-.bn-post-card__action-btn.is-reacted { color: var(--bn-danger); }
-.bn-post-card__action-btn.is-bookmarked { color: var(--bn-warn); }
+/* The state colour carries a text label ("Save", "Like") as well as the icon, so
+   each is mixed toward the ink to stay readable: raw amber was about 3.3:1. */
+.bn-post-card__action-btn.is-reacted { color: color-mix(in oklch, var(--bn-danger) 80%, var(--bn-ink)); }
+.bn-post-card__action-btn.is-bookmarked { color: color-mix(in oklch, var(--bn-warn) 62%, var(--bn-ink)); }
 .bn-post-card__action-btn.is-shared { color: var(--bn-accent-text); }
 
 /* Bookmarked = the Lucide bookmark filled solid, not just recoloured. The icon
@@ -2547,7 +2549,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	color: inherit;
 }
 .bn-post-card__shared-content-link:hover .bn-post-card__shared-content {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 .bn-post-card__shared-content {
@@ -2562,7 +2564,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	margin-top: var(--bn-s2);
 	font-size: var(--bn-text-xs);
 	font-weight: var(--fw-semibold);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 .bn-post-card__shared-content-link:hover .bn-post-card__shared-viewlink {
 	text-decoration: underline;
@@ -2616,7 +2618,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	line-height: 1.4;
 }
 .bn-post-card__shared-content-link:hover .bn-post-card__shared-linktitle {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 .bn-post-card__shared-empty,
@@ -3130,7 +3132,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 }
 .bn-composer__tool:hover {
 	background: var(--bg-hover);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	/* Geometry (size/padding/border) is locked once in bn-base.css under .bn-app
 	   (theme-proof interactive controls) — base == hover, so no per-state lock. */
 }

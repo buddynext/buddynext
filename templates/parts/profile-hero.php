@@ -278,7 +278,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						<span
 							class="bn-badge bn-pf-type-badge"
 							data-tone="accent"
-							style="background:<?php echo esc_attr( $bn_pf_member_type['color'] ); ?>;color:<?php echo esc_attr( $bn_pf_member_type['text_color'] ); ?>;"
+							style="background:<?php echo esc_attr( $bn_pf_member_type['color'] ); ?>;color:<?php echo esc_attr( buddynext_readable_text_color( (string) $bn_pf_member_type['color'], (string) $bn_pf_member_type['text_color'] ) ); ?>;"
 						>
 						<?php
 						if ( '' !== $bn_pf_type_icon ) :

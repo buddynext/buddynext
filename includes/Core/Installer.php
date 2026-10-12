@@ -2512,6 +2512,19 @@ class Installer {
 		// right; files already on the site are narrowed once, in the background.
 		\BuddyNext\Bridges\WPMediaVerseBridge::maybe_queue_privacy_repair();
 
+		// v68 also: the shipped Contributor badge moves to the readable shade on a
+		// site that still has the colour BuddyNext gave it. An owner's own colour
+		// is left alone (and its text is kept readable when it is printed).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_member_types',
+			array( 'color' => '#1971c2' ),
+			array(
+				'slug'  => 'contributor',
+				'color' => '#1c7ed6',
+			)
+		);
+
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
 		//
@@ -3643,7 +3656,9 @@ class Installer {
 		// not a category, and a neutral reads that way beside the coloured ones.
 		$types = array(
 			// slug, name, color, self_select.
-			array( 'contributor', 'Contributor', '#1c7ed6', 1 ),
+			// A shade darker than the sweep's #1c7ed6: white text on that one was
+			// about 4.2:1, and a badge label needs 4.5:1.
+			array( 'contributor', 'Contributor', '#1971c2', 1 ),
 			array( 'staff', 'Staff', '#495057', 0 ),
 		);
 

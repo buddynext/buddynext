@@ -505,6 +505,57 @@ function buddynext_prime_object_labels( array $pairs ): void {
 }
 
 /**
+ * A text colour that can be read on a given badge background.
+ *
+ * Member types, space categories and member labels carry a background colour
+ * and a text colour. The pair an owner saved (and several pairs BuddyNext
+ * itself ships) can fall below the 4.5:1 a small label needs: white text on a
+ * mid blue is about 4.2:1. This keeps the saved text colour when it reads well
+ * and otherwise returns whichever of white or black has more contrast with
+ * the background, which is never less than about 4.5:1.
+ *
+ * @param string $background Badge background as a hex colour (#rgb or #rrggbb).
+ * @param string $preferred  The saved text colour, or '' for none.
+ * @return string Hex text colour. The preferred one when it cannot be judged.
+ */
+function buddynext_readable_text_color( string $background, string $preferred = '' ): string {
+	$luminance = static function ( string $hex ): ?float {
+		$hex = ltrim( trim( $hex ), '#' );
+		if ( 3 === strlen( $hex ) ) {
+			$hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+		}
+		if ( 6 !== strlen( $hex ) || ! ctype_xdigit( $hex ) ) {
+			return null;
+		}
+		$channels = array();
+		foreach ( array( 0, 2, 4 ) as $offset ) {
+			$value      = hexdec( substr( $hex, $offset, 2 ) ) / 255;
+			$channels[] = $value <= 0.03928 ? $value / 12.92 : ( ( $value + 0.055 ) / 1.055 ) ** 2.4;
+		}
+
+		return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
+	};
+
+	$bg = $luminance( $background );
+	if ( null === $bg ) {
+		return $preferred;
+	}
+
+	$ratio = static function ( float $a, float $b ): float {
+		return ( max( $a, $b ) + 0.05 ) / ( min( $a, $b ) + 0.05 );
+	};
+
+	$wanted = '' !== $preferred ? $luminance( $preferred ) : null;
+	if ( null !== $wanted && $ratio( $wanted, $bg ) >= 4.5 ) {
+		return $preferred;
+	}
+
+	// Pure black, not a softened one: on a mid-tone background the softened
+	// black and white both fall short (about 4.2:1), while black still clears it.
+	return $ratio( 1.0, $bg ) >= $ratio( 0.0, $bg ) ? '#ffffff' : '#000000';
+}
+
+/**
  * Read a single space field value, type-cast, with the field's registered
  * default applied when unset. The canonical accessor for per-space settings —
  * the default lives once in the field registration, never duplicated per reader.

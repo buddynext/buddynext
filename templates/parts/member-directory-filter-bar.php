@@ -114,7 +114,7 @@ foreach ( $bn_member_types_raw as $bn_mt ) {
 		// badge does - a type reads the same wherever it appears, which is the
 		// whole point of unifying these two directories.
 		'color' => isset( $bn_mt['color'] ) ? (string) $bn_mt['color'] : '',
-		'fg'    => isset( $bn_mt['text_color'] ) ? (string) $bn_mt['text_color'] : '',
+		'fg'    => ! empty( $bn_mt['color'] ) ? buddynext_readable_text_color( (string) $bn_mt['color'], (string) ( $bn_mt['text_color'] ?? '' ) ) : (string) ( $bn_mt['text_color'] ?? '' ),
 	);
 }
 unset( $bn_member_types_raw, $bn_mt );
