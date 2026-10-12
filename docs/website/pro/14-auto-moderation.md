@@ -2,7 +2,7 @@
 
 Auto-moderation rules let you set conditions that act on content automatically - blocking a banned word, flagging a spammy link, capping how fast someone can post, or removing content that gets reported too many times. Rules run on their own, the moment content is submitted or reported, so you are not the only line of defense. Auto-Moderation Rules is a Pro feature.
 
-![The Moderation > Rules admin tab where you define auto-moderation rules and thresholds](../images/admin-automod.webp)
+![The Automation > Rules admin tab where you define auto-moderation rules and thresholds](../images/admin-automod.webp)
 
 ## Why use it
 
@@ -23,7 +23,7 @@ The community sees the effect - less spam, fewer abusive posts - without any vis
 
 ## Setting it up (for owners)
 
-Auto-moderation rules are managed at **BuddyNext > Moderation > Rules**. They have their own switch in the Features catalogue, **Moderation rules**, which is on by default. The rules apply to posts, comments, direct messages, and member profile fields; the rate limit applies to posts only. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them. The **Test a phrase** box at the top of the screen lets you paste text and see which enabled rules would flag or block it, and the exact term that trips each. Nothing is saved.
+Auto-moderation rules are managed at **BuddyNext > Automation > Rules**. They have their own switch in the Features catalogue, **Moderation rules**, which is on by default. The rules apply to posts, comments, direct messages, and member profile fields; the rate limit applies to posts only. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them. The **Test a phrase** box at the top of the screen lets you paste text and see which enabled rules would flag or block it, and the exact term that trips each. Nothing is saved.
 
 ### Rule types
 
