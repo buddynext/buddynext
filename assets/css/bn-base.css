@@ -3076,16 +3076,18 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 /* A toned badge prints its tone as TEXT on that tone's own tint. The raw tone
    colours are tuned for fills and sat at about 4.1 to 4.4:1 there, so each is
-   mixed toward the ink to clear 4.5:1 in both schemes. */
+   mixed toward the ink. 60%, the same as the accent text: at 72% the amber one
+   cleared 4.5:1 on BuddyX and fell to 4.1 on BuddyX Pro, whose surfaces differ.
+   At 60% the lowest is 6.3:1 on BuddyX light, which leaves room for any theme. */
 .bn-badge[data-tone="neutral"]  { background: var(--bn-sunken); color: var(--bn-ink-2); border-color: var(--bn-line); }
 .bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-text); border-color: transparent; }
-.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklch, var(--bn-success) 72%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklch, var(--bn-warn) 72%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklch, var(--bn-danger) 72%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklch, var(--bn-info) 72%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklch, var(--bn-jetonomy) 72%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklch, var(--bn-media) 72%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklch, var(--bn-events) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklch, var(--bn-success) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklch, var(--bn-warn) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklch, var(--bn-danger) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklch, var(--bn-info) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklch, var(--bn-jetonomy) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklch, var(--bn-media) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklch, var(--bn-events) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Chip group — the shared wrapper an injecting engine (Pro / gamification) should
    wrap a row of .bn-badge chips in (member labels, credential badges, level frames)
@@ -3257,7 +3259,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-normal);
 }
-.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklch, var(--bn-paid) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklch, var(--bn-paid) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
 	and sits inline before the label via the badge's own flex gap. */
