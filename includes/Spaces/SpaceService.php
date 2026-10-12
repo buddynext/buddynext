@@ -502,6 +502,7 @@ class SpaceService {
 		// likely to notice: they make a space and it is not in the directory.
 		self::flush_space_lists();
 
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
 		do_action( 'buddynext_space_created', $space_id, $owner_id );
 
 		return $space_id;
@@ -691,6 +692,7 @@ class SpaceService {
 		 * @param int   $user_id  User who updated the space.
 		 * @param array $data     Fields that were updated.
 		 */
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
 		do_action( 'buddynext_space_updated', $space_id, $user_id, $fields );
 
 		return true;
@@ -1429,6 +1431,7 @@ class SpaceService {
 		 * @param int $space_id Deleted space ID.
 		 * @param int $user_id  User who deleted it.
 		 */
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
 		do_action( 'buddynext_space_deleted', $space_id, $user_id );
 
 		/**

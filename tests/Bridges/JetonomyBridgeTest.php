@@ -380,21 +380,46 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'is_anonymous' => 1 ), array( 'id' => 2601 ) );
 		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
 
-		// Nobody but an administrator on a dashboard screen starts it.
-		wp_set_current_user( $this->user_id );
-		$this->bridge->repair_anonymous_mirrors();
-		$this->assertSame( 1, $search(), 'A member cannot trigger the pass.' );
+		$hook   = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
+		$queued = static function () use ( $hook ): bool {
+			return function_exists( 'as_has_scheduled_action' )
+				? (bool) as_has_scheduled_action( $hook, array(), 'buddynext' )
+				: false !== wp_next_scheduled( $hook );
+		};
+		$unqueue = static function () use ( $hook ): void {
+			if ( function_exists( 'as_unschedule_all_actions' ) ) {
+				as_unschedule_all_actions( $hook, array(), 'buddynext' );
+			}
+			wp_clear_scheduled_hook( $hook );
+		};
+		$unqueue();
 
+		// Nobody but an administrator on a dashboard screen asks for it.
+		wp_set_current_user( $this->user_id );
+		$this->bridge->queue_anonymous_repair();
+		$this->assertFalse( $queued(), 'A member cannot start the pass.' );
+		$this->assertFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ) );
+
+		// An administrator's page load only queues the job: nothing is repaired
+		// inside the request, and the day is marked so it is not queued twice.
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->bridge->queue_anonymous_repair();
+		$this->assertTrue( $queued(), 'The check is queued.' );
+		$this->assertSame( 1, $search(), 'The page load itself repaired nothing.' );
+		$this->assertNotFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Asked for once a day.' );
+
+		// The background job does the work, and asks for another run while it found some.
+		$unqueue();
 		$this->bridge->repair_anonymous_mirrors();
 
 		$this->assertSame( 0, $search(), 'The search row is gone.' );
 		$this->assertSame( 0, $comment(), 'The signed comment is gone.' );
 		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'The card is withdrawn.' );
-		$this->assertFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Runs again while it still found work.' );
+		$this->assertTrue( $queued(), 'Runs again while it still found work.' );
 
+		$unqueue();
 		$this->bridge->repair_anonymous_mirrors();
-		$this->assertNotFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Waits a day once nothing is left.' );
+		$this->assertFalse( $queued(), 'Stops once nothing is left.' );
 	}
 
 	/**

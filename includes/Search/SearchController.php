@@ -366,6 +366,7 @@ class SearchController extends \BuddyNext\REST\BaseRestController {
 		// a discussion, an event or any bridged result without knowing how each
 		// plugin builds its addresses. Additive: no existing field changes.
 		if ( isset( $results['items'] ) && is_array( $results['items'] ) ) {
+			$service->prime_item_urls( $results['items'], (string) $type );
 			foreach ( $results['items'] as $index => $row ) {
 				if ( is_array( $row ) && ! isset( $row['url'] ) ) {
 					$results['items'][ $index ]['url'] = $service->resolve_item_url( (string) ( $row['object_type'] ?? $type ), (int) ( $row['object_id'] ?? 0 ) );

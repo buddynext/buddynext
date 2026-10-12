@@ -547,6 +547,57 @@ class SearchService {
 	}
 
 	/**
+	 * Load what a page of results needs to build its links, once per type.
+	 *
+	 * The single-row lookup (resolve_item_url) answers one row at a time. Asked cold for a page of
+	 * results it cost two queries per member, one per space and three per forum
+	 * topic, on every search (card 10393793823). Members are loaded together,
+	 * space addresses in one query, and a bridge loads its own on
+	 * `buddynext_search_prime_item_urls`.
+	 *
+	 * @param array<int, mixed> $rows         Result rows (object_type, object_id).
+	 * @param string            $default_type Type to assume for a row without one.
+	 * @return void
+	 */
+	public function prime_item_urls( array $rows, string $default_type = '' ): void {
+		$by_type = array();
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$type = (string) ( $row['object_type'] ?? $default_type );
+			$id   = (int) ( $row['object_id'] ?? 0 );
+			if ( '' !== $type && $id > 0 ) {
+				if ( in_array( $type, self::space_object_types(), true ) ) {
+					$type = 'space';
+				}
+				$by_type[ $type ][ $id ] = $id;
+			}
+		}
+
+		$members = array_values( ( $by_type['user'] ?? array() ) + ( $by_type['member'] ?? array() ) );
+		if ( $members ) {
+			cache_users( $members );
+		}
+		if ( ! empty( $by_type['space'] ) ) {
+			\BuddyNext\Core\PageRouter::prime_space_urls( array_values( $by_type['space'] ) );
+		}
+
+		/**
+		 * Fires before the links for a page of search results are built.
+		 *
+		 * A bridge whose results need a lookup per row (a forum topic, an event)
+		 * loads them all here, in one query, and answers
+		 * `buddynext_search_item_url` from what it loaded.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param array<string, int[]> $by_type Result ids, keyed by object type.
+		 */
+		do_action( 'buddynext_search_prime_item_urls', array_map( 'array_values', $by_type ) );
+	}
+
+	/**
 	 * Resolve the canonical front-end URL for an indexed object.
 	 *
 	 * Delegates entirely to PageRouter — the same helpers enrich_results() uses —

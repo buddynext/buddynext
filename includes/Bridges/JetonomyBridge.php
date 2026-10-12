@@ -132,7 +132,10 @@ class JetonomyBridge {
 
 		// Keep mirrored rows in step with the forum's anonymous flag: clears what a
 		// version before 1.2.5 stored, and any later drift. Admin-only, daily.
-		add_action( 'admin_init', array( $this, 'repair_anonymous_mirrors' ) );
+		// The check itself runs in the background; an administrator's page load
+		// only asks for it, at most once a day.
+		add_action( 'admin_init', array( $this, 'queue_anonymous_repair' ) );
+		add_action( self::REPAIR_ANONYMOUS_HOOK, array( $this, 'repair_anonymous_mirrors' ) );
 
 		// One sync keeps a discussion's feed card + search row matching its current
 		// state. Two triggers: an edit (jetonomy_post_updated: title/body/privacy),
@@ -188,6 +191,7 @@ class JetonomyBridge {
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
 		add_action( 'buddynext_integration_search_disabled', array( $this, 'on_search_disabled' ) );
 		add_filter( 'buddynext_search_item_url', array( $this, 'search_item_url' ), 10, 3 );
+		add_action( 'buddynext_search_prime_item_urls', array( $this, 'prime_search_item_urls' ), 10, 1 );
 		add_filter( 'buddynext_integration_reindex_ids', array( $this, 'reindex_ids' ), 10, 4 );
 		add_action( 'buddynext_integration_reindex_item', array( $this, 'reindex_item' ), 10, 2 );
 
@@ -709,6 +713,55 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Background job that reconciles anonymous and private forum content.
+	 */
+	public const REPAIR_ANONYMOUS_HOOK = 'buddynext_jetonomy_repair_anonymous';
+
+	/**
+	 * Ask for the anonymous-content check, at most once a day.
+	 *
+	 * Runs on an administrator's dashboard load and does nothing but queue the
+	 * job: one transient read, and on the first load of the day one enqueue. The
+	 * three joins the check needs (one reads a JSON field and cannot use an
+	 * index) used to run right here, inside the page load, and on a large forum
+	 * could hold the dashboard for seconds with no sign of why
+	 * (card 10393793799).
+	 *
+	 * Action Scheduler when present, a single WP-Cron event otherwise.
+	 *
+	 * @return void
+	 */
+	public function queue_anonymous_repair(): void {
+		if ( wp_doing_ajax() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( get_transient( 'buddynext_jetonomy_anonymous_checked' ) ) {
+			return;
+		}
+		// Marked for the day now, so the next page load does not queue it again.
+		set_transient( 'buddynext_jetonomy_anonymous_checked', 1, DAY_IN_SECONDS );
+		self::enqueue_anonymous_repair();
+	}
+
+	/**
+	 * Queue one run of the anonymous-content check.
+	 *
+	 * @return void
+	 */
+	private static function enqueue_anonymous_repair(): void {
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::REPAIR_ANONYMOUS_HOOK, array(), 'buddynext' ) ) {
+				as_enqueue_async_action( self::REPAIR_ANONYMOUS_HOOK, array(), 'buddynext' );
+			}
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::REPAIR_ANONYMOUS_HOOK ) ) {
+			wp_schedule_single_event( time() + 60, self::REPAIR_ANONYMOUS_HOOK );
+		}
+	}
+
+	/**
 	 * Withdraw anything mirrored from content that is anonymous in the forum.
 	 *
 	 * Until 1.2.5 an anonymous topic got a feed card and a search row under its
@@ -717,19 +770,16 @@ class JetonomyBridge {
 	 * next edited. The same drift can come back at any time if the flag changes
 	 * in the forum without an edit hook reaching the bridge.
 	 *
-	 * So this is a reconciliation, not a one-time migration: at most once a day,
-	 * for an administrator loading a dashboard screen, it re-syncs up to 200
-	 * anonymous topics that still have a card or a search row, and deletes up to
-	 * 200 comments mirrored from anonymous or private replies. While it finds work
-	 * it runs again on the next dashboard load; once it finds none it waits a day.
+	 * So this is a reconciliation, not a one-time migration: asked for at most once
+	 * a day (queue_anonymous_repair) and run in the background, it re-syncs up to
+	 * 200 anonymous topics that still have a card or a search row, and deletes up
+	 * to 200 comments mirrored from anonymous or private replies. While it finds
+	 * work it queues itself again; once it finds none it waits for the next day.
 	 *
 	 * @return void
 	 */
 	public function repair_anonymous_mirrors(): void {
-		if ( wp_doing_ajax() || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-		if ( get_transient( 'buddynext_jetonomy_anonymous_checked' ) || '' === $this->anonymous_column() ) {
+		if ( '' === $this->anonymous_column() ) {
 			return;
 		}
 
@@ -761,9 +811,12 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $topic_ids && ! $comments ) {
-			set_transient( 'buddynext_jetonomy_anonymous_checked', 1, DAY_IN_SECONDS );
-			return;
+			return; // Nothing left; the next check is tomorrow's.
 		}
+
+		// Up to 200 of each were found, so there may be more: run again in the
+		// background rather than wait for tomorrow.
+		self::enqueue_anonymous_repair();
 
 		foreach ( (array) $topic_ids as $topic_id ) {
 			$topic_id = (int) $topic_id;
@@ -2579,13 +2632,57 @@ class JetonomyBridge {
 			return $url;
 		}
 
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$forum_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $object_id ) );
+		// A page of results is loaded together by prime_search_item_urls(); a
+		// single lookup from anywhere else loads just this one.
+		if ( ! array_key_exists( $object_id, $this->topic_urls ) ) {
+			$this->prime_search_item_urls( array( 'discussion' => array( $object_id ) ) );
+		}
 
-		// ponytail: a few lookups per result row, on a page of at most 12 rows.
-		// Batch them if discussion results are ever listed by the hundred.
-		return $forum_id > 0 ? $this->discussion_url( $object_id, $forum_id ) : $url;
+		return '' !== ( $this->topic_urls[ $object_id ] ?? '' ) ? $this->topic_urls[ $object_id ] : $url;
+	}
+
+	/**
+	 * Topic id => permalink, as built during this request ('' = no such topic).
+	 *
+	 * @var array<int, string>
+	 */
+	private array $topic_urls = array();
+
+	/**
+	 * Build the links for a page of forum topics in one query.
+	 *
+	 * Each topic link needs its own slug and its forum's slug. Asked one row at
+	 * a time that was three queries per search result.
+	 *
+	 * @param array<string, int[]> $by_type Result ids, keyed by object type.
+	 * @return void
+	 */
+	public function prime_search_item_urls( $by_type ): void {
+		$ids = array_values( array_diff( array_filter( array_map( 'absint', (array) ( ( (array) $by_type )['discussion'] ?? array() ) ) ), array_keys( $this->topic_urls ) ) );
+		if ( ! $ids ) {
+			return;
+		}
+
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $in is a list of %d placeholders.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.slug AS post_slug, s.slug AS space_slug
+				   FROM {$wpdb->prefix}jt_posts p
+				   LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+				  WHERE p.id IN ({$in})",
+				$ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		foreach ( $ids as $id ) {
+			$this->topic_urls[ $id ] = '';
+		}
+		foreach ( (array) $rows as $row ) {
+			$this->topic_urls[ (int) $row->id ] = $this->discussion_permalink( (string) $row->space_slug, (string) $row->post_slug );
+		}
 	}
 
 	/**

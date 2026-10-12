@@ -1427,6 +1427,17 @@ class WPMediaVerseBridge {
 			if ( 'followers' === self::settle_level( (string) ( $row['privacy'] ?? '' ), 'followers' ) ) {
 				self::apply_media_privacy( $media_id, 'followers' );
 			}
+
+			// A photo in an album follows the album, and MediaVerse keeps the level
+			// it had before under `own_privacy` to give back when it leaves the
+			// album. Left at `public`, the photo would reopen the day it is taken
+			// out of the album, long after the account went private.
+			if ( method_exists( $repo, 'set' ) ) {
+				$own = (string) $repo->get( $media_id, 'own_privacy' );
+				if ( '' !== $own && 'followers' === self::settle_level( $own, 'followers' ) ) {
+					$repo->set( $media_id, 'own_privacy', 'followers' );
+				}
+			}
 		}
 
 		if ( count( $rows ) === $batch && $last > $after_id ) {

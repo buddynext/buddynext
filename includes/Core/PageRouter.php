@@ -3827,22 +3827,69 @@ class PageRouter {
 			return self::spaces_url();
 		}
 
-		global $wpdb;
+		if ( ! array_key_exists( $space_id, self::$space_slugs ) ) {
+			self::prime_space_urls( array( $space_id ) );
+		}
+		$slug = self::$space_slugs[ $space_id ] ?? '';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$slug = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT slug FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$space_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( null === $slug || '' === (string) $slug ) {
+		if ( '' === $slug ) {
 			return self::spaces_url();
 		}
 
-		return self::spaces_url() . rawurlencode( (string) $slug ) . '/';
+		return self::spaces_url() . rawurlencode( $slug ) . '/';
+	}
+
+	/**
+	 * Space id => slug, as read during this request ('' = no such space).
+	 *
+	 * @var array<int, string>
+	 */
+	private static array $space_slugs = array();
+
+	/**
+	 * Forget the remembered address of a space (or of all of them).
+	 *
+	 * Called when a space is created, renamed or deleted, so a link built later
+	 * in the same request (the redirect after a rename) uses the new address.
+	 *
+	 * @param int $space_id Space id, or 0 for all.
+	 * @return void
+	 */
+	public static function forget_space_url( int $space_id = 0 ): void {
+		if ( $space_id > 0 ) {
+			unset( self::$space_slugs[ $space_id ] );
+			return;
+		}
+		self::$space_slugs = array();
+	}
+
+	/**
+	 * Read the slugs of several spaces in one query, for space_url().
+	 *
+	 * A list that links many spaces (search results, a directory) calls this
+	 * once instead of paying one query per row. Remembered for the request only.
+	 *
+	 * @param int[] $space_ids Space ids.
+	 * @return void
+	 */
+	public static function prime_space_urls( array $space_ids ): void {
+		$space_ids = array_values( array_diff( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ), array_keys( self::$space_slugs ) ) );
+		if ( ! $space_ids ) {
+			return;
+		}
+
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $in is a list of %d placeholders.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, slug FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$in})", $space_ids ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		foreach ( $space_ids as $space_id ) {
+			self::$space_slugs[ $space_id ] = '';
+		}
+		foreach ( (array) $rows as $row ) {
+			self::$space_slugs[ (int) $row->id ] = (string) $row->slug;
+		}
 	}
 
 	/**

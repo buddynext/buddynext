@@ -119,6 +119,9 @@ final class StateReset implements BeforeTestHook {
 			'rendering'           => null,
 			'title_claimed'       => false,
 			'search_note_printed' => false,
+			// Space id => slug, remembered for a request. A space made in one test
+			// must not lend its address to the same id in the next.
+			'space_slugs'         => array(),
 		),
 		// Re-entrancy flags. A test that dies mid-sync leaves these true and every
 		// later test silently skips the work they guard.
