@@ -155,7 +155,7 @@
 	align-items: center;
 	padding: 3px 10px;
 	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	border-radius: var(--bn-r-full, 999px);
 	text-decoration: none;
 	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
@@ -236,7 +236,7 @@
 	margin-inline-start: auto;
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	display: inline-flex;
 	align-items: center;
@@ -602,5 +602,5 @@
 
 .bn-search-saved__run:hover,
 .bn-search-saved__run:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }

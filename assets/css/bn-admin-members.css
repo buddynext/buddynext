@@ -256,7 +256,7 @@
 	align-items: center;
 	gap: 6px;
 	font-size: var(--bn-text-sm);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	margin-bottom: var(--bn-s3);
 	font-weight: 500;
@@ -492,7 +492,7 @@
 	background: transparent;
 	border: 1px dashed var(--bn-line-strong);
 	border-radius: var(--bn-r-sm);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	cursor: pointer;
 	font-size: var(--bn-text-xs);
 	font-weight: 600;

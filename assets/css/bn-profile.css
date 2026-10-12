@@ -1151,7 +1151,7 @@
 	border: 0;
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-medium, 500);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	cursor: pointer;
 }
 .bn-pf-bio__toggle:hover,
@@ -1178,7 +1178,7 @@
 	flex-shrink: 0;
 }
 .bn-pf-meta__item a {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 .bn-pf-meta__item a:hover,
@@ -1254,7 +1254,7 @@
 	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: 11px;
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
 	border-radius: 999px;
 	padding: 1px 8px;
@@ -1304,7 +1304,7 @@
 	text-decoration: none;
 	line-height: 1.2;
 }
-.bn-follow-requests__name:hover { color: var(--bn-accent); }
+.bn-follow-requests__name:hover { color: var(--bn-accent-text); }
 .bn-follow-requests__handle {
 	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: var(--bn-text-xs);
@@ -1469,7 +1469,7 @@
 	padding: 6px 10px 6px 6px;
 	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
 	border-radius: var(--bn-r-full, 999px);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
 	text-decoration: none;
@@ -1599,7 +1599,7 @@
 	font-size: 10px;
 }
 .bn-field-value { color: var(--bn-ink); word-break: break-word; font-weight: 500; }
-.bn-field-value a { color: var(--bn-accent); text-decoration: none; }
+.bn-field-value a { color: var(--bn-accent-text); text-decoration: none; }
 .bn-field-value a:hover,
 .bn-field-value a:focus-visible { text-decoration: underline; }
 
@@ -1618,7 +1618,7 @@ a.bn-space-row {
 	border-radius: var(--bn-r-sm);
 }
 a.bn-space-row:hover .bn-space-name {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 .bn-space-icon {
 	width: 32px;
@@ -1626,7 +1626,7 @@ a.bn-space-row:hover .bn-space-name {
 	border-radius: var(--bn-r-sm);
 	background: linear-gradient(135deg, var(--bn-accent-100), var(--bn-surface));
 	border: 1px solid var(--bn-line);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -1661,7 +1661,7 @@ a.bn-space-row:hover .bn-space-name {
 	font-family: var(--bn-font-mono);
 	font-size: var(--bn-text-xs);
 	font-weight: 700;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 .bn-completion-track {
 	background: var(--bn-sunken);
@@ -1692,7 +1692,7 @@ a.bn-space-row:hover .bn-space-name {
 	border-radius: var(--bn-r-md);
 	background: var(--bn-accent-100);
 	font-size: var(--bn-text-xs);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	font-weight: 500;
 	text-decoration: none;
 	border: 1px solid transparent;
@@ -1812,7 +1812,7 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-task__cta {
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 .bn-pf-task__cta:hover { text-decoration: underline; }
@@ -2338,7 +2338,7 @@ a.bn-space-row:hover .bn-space-name {
 	padding: var(--bn-s1) var(--bn-s3);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-accent-50);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
 }
@@ -2497,7 +2497,7 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-ep-add-entry:hover {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: var(--bn-accent-100);
 }
 .bn-ep-add-entry svg { width: 14px; height: 14px; }
@@ -2968,7 +2968,7 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-about-card__title svg {
 	width: 18px;
 	height: 18px;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-pf-timeline {
@@ -3181,7 +3181,7 @@ a.bn-space-row:hover .bn-space-name {
 	padding: var(--bn-s1) var(--bn-s3);
 	border-radius: 999px;
 	background: var(--bn-accent-100, rgba(59, 130, 246, 0.1));
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	font-size: var(--bn-text-sm);
 	font-weight: 500;

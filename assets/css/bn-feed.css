@@ -114,7 +114,7 @@
 	margin-inline-end: auto;
 	font-size: var(--bn-text-xs);
 	font-weight: 700;
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	text-transform: uppercase;
 	letter-spacing: 0.06em;
 }
@@ -204,7 +204,7 @@
 	font-weight: 600;
 }
 
-.bn-post-card__author-name:hover { color: var(--bn-accent); }
+.bn-post-card__author-name:hover { color: var(--bn-accent-text); }
 
 /* Connection-degree pill (1st / 2nd) — matches parts/member-card's
    .bn-md-card__degree so the byline and directory read consistently. */
@@ -216,7 +216,7 @@
 	line-height: 1.2;
 	padding: 2px 6px;
 	border-radius: 999px;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
 	border: 1px solid color-mix(in oklch, var(--bn-accent) 28%, transparent);
 }
@@ -242,7 +242,7 @@
 	text-decoration: none;
 }
 
-.bn-post-card__handle:hover { color: var(--bn-accent); }
+.bn-post-card__handle:hover { color: var(--bn-accent-text); }
 
 .bn-post-card__space-link {
 	display: inline-flex;
@@ -252,7 +252,7 @@
 	font-weight: 500;
 	text-decoration: none;
 }
-.bn-post-card__space-link:hover { color: var(--bn-accent); }
+.bn-post-card__space-link:hover { color: var(--bn-accent-text); }
 .bn-post-card__space-link .bn-icon {
 	width: 12px;
 	height: 12px;
@@ -473,7 +473,7 @@
 .bn-post-card__cw-reveal:hover {
 	border-color: var(--bn-accent);
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
 /* Body block — v2 baseline. JS swaps `bn-post-card__body--blurred` when CW is active. */
@@ -602,12 +602,12 @@
 
 .bn-post-card__more-link:hover,
 .bn-post-card__more-link:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
 .bn-post-card__content a {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 
@@ -630,14 +630,14 @@
  * the pill was also the only inline entity in the product that disagreed with
  * its own sibling. Matching them fixes both problems at once. */
 .bn-hashtag {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: 500;
 	text-decoration: none;
 }
 .bn-hashtag:hover { text-decoration: underline; }
 
 .bn-mention {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: 500;
 	text-decoration: none;
 }
@@ -866,7 +866,7 @@
 .bn-post-card__poll-option:hover { border-color: var(--bn-accent); }
 .bn-post-card__poll-option.is-voted {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	font-weight: 600;
 }
 .bn-post-card__poll-option.is-voted .bn-post-card__poll-fill {
@@ -898,7 +898,7 @@
 	z-index: 1;
 	font-size: var(--bn-text-xs);
 	font-weight: 700;
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	margin-inline-start: auto;
 	padding-inline-start: var(--bn-s2);
 }
@@ -1197,7 +1197,7 @@
 	line-height: 1.35;
 	text-decoration: none;
 }
-a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
+a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 
 .bn-post-card__bridge-text {
 	font-size: var(--bn-text-sm);
@@ -1282,7 +1282,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 .bn-post-card__action-btn:hover,
 .bn-post-card__action-btn:focus {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: var(--bn-sunken);
 	/* Geometry (padding/border) is locked once in bn-base.css under .bn-app
 	   (theme-proof interactive controls) — base == hover, so no per-state lock. */
@@ -1295,7 +1295,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 .bn-post-card__action-btn.is-reacted { color: var(--bn-danger); }
 .bn-post-card__action-btn.is-bookmarked { color: var(--bn-warn); }
-.bn-post-card__action-btn.is-shared { color: var(--bn-accent); }
+.bn-post-card__action-btn.is-shared { color: var(--bn-accent-text); }
 
 /* Bookmarked = the Lucide bookmark filled solid, not just recoloured. The icon
    ships fill="none"; painting the path with currentColor (the amber above)
@@ -1453,7 +1453,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 /* React button label colour-matches the reacted state for an extra
    FB-style affordance ("Like" turns blue when you've liked, etc.). */
-.bn-post-card__action-btn--react.is-reacted .bn-post-card__action-label { color: var(--bn-accent); font-weight: 600; }
+.bn-post-card__action-btn--react.is-reacted .bn-post-card__action-label { color: var(--bn-accent-text); font-weight: 600; }
 
 /* ── Feed tabs ──────────────────────────────────────────────────────────────
    Feed tabs use the .bn-tabs + .bn-tab primitives from bn-base.css. The
@@ -1904,7 +1904,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	font-weight: 500;
 }
 
-.bn-comment__reply-btn:hover { color: var(--bn-accent); }
+.bn-comment__reply-btn:hover { color: var(--bn-accent-text); }
 .bn-comment__delete-btn:hover { color: var(--bn-danger); }
 .bn-comment__reply-cancel:hover { color: var(--bn-ink); }
 
@@ -2075,7 +2075,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-comment__pinned-badge {
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: var(--bn-accent-50);
 	padding: 0 var(--bn-s2);
 	border-radius: var(--bn-r-sm);
@@ -2125,8 +2125,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 
 .bn-comment__like-btn:hover { color: var(--bn-danger); }
-.bn-comment__edit-btn:hover { color: var(--bn-accent); }
-.bn-comment__pin-btn:hover { color: var(--bn-accent); }
+.bn-comment__edit-btn:hover { color: var(--bn-accent-text); }
+.bn-comment__pin-btn:hover { color: var(--bn-accent-text); }
 .bn-comment__report-btn:hover { color: var(--bn-danger); }
 
 /* Icon-on-mobile treatment for the comment action row. Each action button carries
@@ -2411,7 +2411,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	background: transparent;
 	border: 0;
 	padding: 0;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	cursor: pointer;
 	font-weight: 600;
 	text-decoration: underline;
@@ -2427,7 +2427,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	background: var(--bn-sunken);
 	border: 0;
 	border-radius: var(--bn-r-md);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-sm);
 	font-weight: 600;
 	cursor: pointer;
@@ -2813,7 +2813,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 /* Active tool (e.g. Poll button when poll panel is open). */
 .bn-composer__tool[aria-pressed="true"] {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 /* Drag-drop overlay state — outline + faint accent wash when the user
@@ -2864,10 +2864,10 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__typeahead-item:hover,
 .bn-composer__typeahead-item[aria-selected="true"] {
 	background: var(--bn-sunken, #f3f4f6);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 .bn-composer__typeahead-prefix {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: 600;
 	margin-inline-end: 2px;
 }
@@ -2920,7 +2920,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 .bn-md-link,
 .bn-autolink {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
@@ -3034,7 +3034,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	margin: 0 0 var(--bn-s2);
 	padding: 6px 12px;
 	background: color-mix(in oklab, var(--bn-accent) 12%, transparent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	border: 0;
 	border-radius: var(--bn-r-md, 8px);
 	font-size: var(--text-sm);
@@ -3638,7 +3638,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 
 /* ── Chip-style privacy selector ─────────────────────────────────────────── */
-.bn-composer__tool[data-tone="ai"] { color: var(--bn-accent, var(--brand)); }
+.bn-composer__tool[data-tone="ai"] { color: var(--bn-accent-text, var(--bn-accent, var(--brand))); }
 .bn-composer__privacy-wrap { position: relative; flex-shrink: 0; }
 .bn-composer__privacy-chip {
 	display: inline-flex;
@@ -3855,7 +3855,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 	justify-content: center;
 	border-radius: 50%;
 	background: color-mix(in oklch, var(--bn-accent, var(--brand)) 12%, var(--bn-surface));
-	color: var(--bn-accent, var(--brand));
+	color: var(--bn-accent-text, var(--bn-accent, var(--brand)));
 	margin-bottom: var(--bn-s3);
 }
 .bn-composer-modal__upsell-icon .bn-icon { width: 24px; height: 24px; }
@@ -4072,7 +4072,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 }
 .bn-load-more .bn-load-more__btn[data-variant]:hover {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 	transform: translateY(-1px);
 }
@@ -4303,7 +4303,7 @@ a.bn-composer__error-retry[hidden] { display: none; }
 
 .bn-post-card__members-lock-icon {
 	display: inline-flex;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-post-card__members-lock-icon svg {

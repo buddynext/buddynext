@@ -61,7 +61,7 @@ a.bn-hashtag-chip:hover {
 
 /* Inline #hashtag link inside post body (linkified by post-card). */
 a.bn-hashtag {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	font-weight: var(--bn-fw-medium);
 }
@@ -352,7 +352,7 @@ a.bn-hashtag:hover {
 }
 
 .bn-card-bridge__title:hover {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-card-bridge__footer {
@@ -400,7 +400,7 @@ a.bn-hashtag:hover {
 	height: 56px;
 	border-radius: var(--bn-r-full);
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
 .bn-hashtag-empty__icon svg {

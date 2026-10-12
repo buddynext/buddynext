@@ -325,7 +325,7 @@ class TokenService {
 			// Text.
 			'--bn-ink'        => 'var(--reign-site-headings-color, oklch(20% 0.01 var(--bn-hue)))',
 			'--bn-ink-2'      => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
-			'--bn-ink-3'      => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
+			'--bn-ink-3'      => 'var(--reign-site-alternate-text-color, oklch(52% 0.008 var(--bn-hue)))',
 		);
 
 		// Reign stores typography per element in the customizer, in the same array
@@ -371,7 +371,10 @@ class TokenService {
 			// Text — site-title for headings/strong ink, font-color for body.
 			'--bn-ink'        => 'var(--color-site-title, oklch(20% 0.01 var(--bn-hue)))',
 			'--bn-ink-2'      => 'var(--global-font-color, oklch(40% 0.01 var(--bn-hue)))',
-			'--bn-ink-3'      => 'color-mix(in oklch, var(--bn-ink-2) 70%, var(--bn-surface))',
+			// 82% of the theme's text colour: tab labels, handles and section
+			// subtitles are written in this, and at 70% they sat at about 3.6:1 on
+			// BuddyX's page and 3.9:1 on its cards. 82% clears 4.5:1 on both.
+			'--bn-ink-3'      => 'color-mix(in oklch, var(--bn-ink-2) 82%, var(--bn-surface))',
 		);
 
 		// BuddyX stores typography per element in the customizer: `typography_option`

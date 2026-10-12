@@ -47,7 +47,7 @@
 	display: inline-flex;
 	width: var(--bn-s8);
 	height: var(--bn-s8);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-mu__dropzone-icon svg {

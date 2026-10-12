@@ -110,7 +110,7 @@
 .bn-md-filters__view-btn[aria-pressed="true"] {
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
 	border-color: color-mix(in oklch, var(--bn-accent) 40%, var(--bn-surface));
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 /* Identity group (name + handle) is transparent to layout in grid view via
@@ -362,7 +362,7 @@
 	letter-spacing: 0.04em;
 	padding: 2px 6px;
 	border-radius: 999px;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
 	border: 1px solid color-mix(in oklch, var(--bn-accent) 28%, transparent);
 	line-height: 1.2;
@@ -381,7 +381,7 @@
 
 .bn-md-card__name a:hover,
 .bn-md-card__name a:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-md-card__name a:focus-visible {
@@ -584,7 +584,7 @@
 
 .bn-md-sidebar-row__link.is-active {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
 .bn-md-sidebar-row__link:focus-visible {

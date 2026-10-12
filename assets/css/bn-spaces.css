@@ -191,7 +191,7 @@
 	flex: 0 0 auto;
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-medium);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	white-space: nowrap;
 }
@@ -299,7 +299,7 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-sd-card__emblem svg {
@@ -321,7 +321,7 @@
 .bn-sh-hero__emblem-letter {
 	font-family: var(--bn-font-ui, ui-sans-serif, system-ui, sans-serif);
 	font-weight: 700;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 .bn-sd-card__emblem-letter { font-size: 24px; line-height: 1; }
 .bn-sh-hero__emblem-letter { font-size: 32px; line-height: 1; }
@@ -363,7 +363,7 @@
 }
 
 .bn-sd-card__name-link:hover .bn-sd-card__name {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 /* "in {parent}" under a sub-space's name. Tighter to the name than the body's
@@ -386,7 +386,7 @@
 
 .bn-sd-card__parent a:hover,
 .bn-sd-card__parent a:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
@@ -704,7 +704,7 @@
 
 .bn-sd-side-row.is-active {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
 .bn-sd-side-row__icon {
@@ -900,7 +900,7 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background-image: linear-gradient(135deg, var(--bn-accent-100), var(--bn-surface));
 }
 
@@ -975,7 +975,7 @@
 
 a.bn-sh-hero__crumb:hover,
 a.bn-sh-hero__crumb:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
@@ -1395,7 +1395,7 @@ a.bn-sh-statpill:focus-visible {
 	color: inherit;
 }
 .bn-sh-side-mod__id:hover .bn-sh-side-member__name,
-.bn-sh-side-member__id:hover .bn-sh-side-member__name { color: var(--bn-accent); }
+.bn-sh-side-member__id:hover .bn-sh-side-member__name { color: var(--bn-accent-text); }
 .bn-sh-side-mod__msg {
 	flex-shrink: 0;
 	padding: var(--bn-s1);
@@ -1560,7 +1560,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sh-side-space__id:hover .bn-sh-side-space__name,
 .bn-sh-side-space__id:focus-visible .bn-sh-side-space__name {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-sh-side-space__meta {
@@ -1674,7 +1674,7 @@ a.bn-sh-statpill:focus-visible {
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-sh-avatar svg {
@@ -2066,7 +2066,7 @@ a.bn-sh-statpill:focus-visible {
 	justify-content: center;
 	border: 1px solid var(--bn-line);
 	flex-shrink: 0;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-space-settings__upload-current svg {
@@ -2137,7 +2137,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-settings__cover:hover,
 .bn-space-settings__cover:focus-visible {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 }
@@ -2672,7 +2672,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-mod__scope-head {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	padding: var(--bn-s3) var(--bn-s4);
 	border-block-end: 1px solid var(--bn-line);
 	font-weight: var(--bn-fw-bold);
@@ -2728,7 +2728,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-mod__scope-link {
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	display: inline-flex;
 	align-items: center;
@@ -2998,7 +2998,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sd-sort__option[aria-selected="true"] {
 	font-weight: 600;
-	color: var(--bn-accent, #5b8def);
+	color: var(--bn-accent-text, var(--bn-accent, #5b8def));
 }
 
 /* Skeleton */
@@ -3178,7 +3178,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sh-notif__option[aria-selected="true"] {
 	font-weight: 600;
-	color: var(--bn-accent, #5b8def);
+	color: var(--bn-accent-text, var(--bn-accent, #5b8def));
 }
 
 .bn-sh-members__head {
@@ -3305,7 +3305,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-settings__upsell-icon {
 	font-size: 24px;
-	color: var(--bn-accent, #5b8def);
+	color: var(--bn-accent-text, var(--bn-accent, #5b8def));
 	flex-shrink: 0;
 }
 
@@ -3607,7 +3607,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sh-invite__icon {
 	display: inline-flex;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-sh-invite__actions {
@@ -3647,7 +3647,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-admin__stat-icon {
 	display: inline-flex;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-space-admin__stat-value {
@@ -3693,7 +3693,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-admin__tile-icon {
 	display: inline-flex;
 	flex-shrink: 0;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-space-admin__tile-body {

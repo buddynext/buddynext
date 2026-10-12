@@ -1368,7 +1368,8 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Bring a private account's public library items down to followers only.
+	 * Bring a private account's library down to followers only: every item and
+	 * album that is wider (public, or all members).
 	 *
 	 * The posts pass (resync_author_media) covers media attached to a post. A
 	 * photo uploaded straight to the library has no post, kept `public`, and
@@ -1393,11 +1394,20 @@ class WPMediaVerseBridge {
 			return; // Cannot list, or the member went public again before this ran.
 		}
 
+		// Albums first, once: an album decides for its photos, so a public or
+		// members album would keep every photo in it open whatever the photo says.
+		if ( 0 === $after_id ) {
+			$this->narrow_author_albums( $author_id );
+		}
+
+		// Every item, whatever level it holds: "all members" is wider than
+		// followers too, not only "public". settle_level() says which ones are
+		// wider; a narrower one (private, a hand-picked audience) is never touched.
 		$batch = 200;
 		$rows  = (array) $repo->query(
 			array(
 				'author_id' => $author_id,
-				'privacy'   => 'public',
+				'privacy'   => 'any',
 				'status'    => 'publish',
 				'orderby'   => 'media_id',
 				'order'     => 'ASC',
@@ -1408,16 +1418,64 @@ class WPMediaVerseBridge {
 
 		$last = $after_id;
 		foreach ( $rows as $row ) {
-			$media_id = (int) ( is_array( $row ) ? ( $row['media_id'] ?? 0 ) : ( $row->media_id ?? 0 ) );
+			$row      = (array) $row;
+			$media_id = (int) ( $row['media_id'] ?? 0 );
 			if ( $media_id <= 0 ) {
 				continue;
 			}
 			$last = max( $last, $media_id );
-			self::apply_media_privacy( $media_id, 'followers' );
+			if ( 'followers' === self::settle_level( (string) ( $row['privacy'] ?? '' ), 'followers' ) ) {
+				self::apply_media_privacy( $media_id, 'followers' );
+			}
 		}
 
 		if ( count( $rows ) === $batch && $last > $after_id ) {
 			self::queue_author_resync( $author_id, 0, $last );
+		}
+	}
+
+	/**
+	 * Bring a private account's albums down to followers only.
+	 *
+	 * Through MediaVerse's album service, which carries the level to the photos
+	 * inside. Only albums wider than followers; a private album stays private.
+	 *
+	 * @param int $author_id Member whose account is private.
+	 * @return void
+	 */
+	private function narrow_author_albums( int $author_id ): void {
+		$albums = MediaClient::albums();
+		if ( ! is_object( $albums ) || ! method_exists( $albums, 'get_privacy' ) || ! method_exists( $albums, 'set_privacy' ) ) {
+			return;
+		}
+
+		// ponytail: the newest 500 albums, 100 at a time. Queue a follow-up run if
+		// members with more appear.
+		for ( $page = 1; $page <= 5; $page++ ) {
+			$album_ids = get_posts(
+				array(
+					'post_type'        => 'mvs_album',
+					'author'           => $author_id,
+					'post_status'      => 'any',
+					'fields'           => 'ids',
+					'posts_per_page'   => 100,
+					'paged'            => $page,
+					'orderby'          => 'ID',
+					'order'            => 'DESC',
+					'no_found_rows'    => true,
+					'suppress_filters' => true,
+				)
+			);
+
+			foreach ( (array) $album_ids as $album_id ) {
+				if ( 'followers' === self::settle_level( (string) $albums->get_privacy( (int) $album_id ), 'followers' ) ) {
+					$albums->set_privacy( (int) $album_id, 'followers' );
+				}
+			}
+
+			if ( count( (array) $album_ids ) < 100 ) {
+				break;
+			}
 		}
 	}
 

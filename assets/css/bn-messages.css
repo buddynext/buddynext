@@ -245,7 +245,7 @@
 }
 
 .bn-dm-rail__item.is-unread .bn-dm-rail__item-time {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-semibold);
 }
 
@@ -263,7 +263,7 @@
 }
 
 .bn-dm-rail__item-preview.is-typing {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-style: italic;
 }
 
@@ -489,7 +489,7 @@
 	height: 64px;
 	border-radius: var(--bn-r-full);
 	background: var(--bn-accent-100);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -696,7 +696,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-medium);
 }
 
@@ -733,7 +733,7 @@
 .bn-dm-msg__reaction.is-mine {
 	border-color: var(--bn-accent);
 	background: var(--bn-accent-50, var(--bn-sunken));
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-dm-msg__reaction .bn-emoji {
@@ -821,7 +821,7 @@
 	   themes (e.g. Reign) paint a primary-blue fill on button:focus/:active,
 	   which would otherwise leak into these icon buttons. */
 	background: var(--bn-surface);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	border-color: var(--bn-accent);
 }
 .bn-dm-msg__action:focus-visible {
@@ -1679,7 +1679,7 @@
 	font-size: var(--bn-text-sm);
 }
 
-.bn-req-breadcrumb a { color: var(--bn-accent); text-decoration: none; }
+.bn-req-breadcrumb a { color: var(--bn-accent-text); text-decoration: none; }
 .bn-req-breadcrumb a:hover { text-decoration: underline; }
 .bn-req-breadcrumb-sep { color: var(--bn-ink-4); }
 .bn-req-breadcrumb-current { color: var(--bn-ink); }
@@ -1707,7 +1707,7 @@
 	padding: var(--bn-s3) var(--bn-s4);
 	margin-bottom: var(--bn-s5);
 	font-size: var(--bn-text-sm);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	line-height: var(--bn-leading-normal);
 }
 
@@ -1747,7 +1747,7 @@
 .bn-req-identity { flex: 1; min-width: 0; }
 .bn-req-name { font-weight: var(--bn-fw-bold); font-size: var(--bn-text-sm); color: var(--bn-ink); }
 .bn-req-name a { color: inherit; text-decoration: none; }
-.bn-req-name a:hover { color: var(--bn-accent); }
+.bn-req-name a:hover { color: var(--bn-accent-text); }
 .bn-req-meta { font-size: var(--bn-text-xs); color: var(--bn-ink-2); margin-top: 2px; }
 
 .bn-req-mutual {
@@ -1854,7 +1854,7 @@
 	align-items: center;
 	justify-content: center;
 	margin-bottom: var(--bn-s4);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-msg-empty-icon svg {
@@ -1905,7 +1905,7 @@
 	align-items: center;
 	justify-content: center;
 	background: var(--bn-accent-100);
-	color: var(--bn-accent, #4f46e5);
+	color: var(--bn-accent-text, var(--bn-accent, #4f46e5));
 }
 .bn-dm-avatar--group .bn-icon {
 	width: 55%;
@@ -2270,7 +2270,7 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	text-align: center;
 	padding: var(--bn-s3, 0.75rem);
 	font-size: var(--bn-text-sm, 0.875rem);
-	color: var(--bn-accent, var(--brand));
+	color: var(--bn-accent-text, var(--bn-accent, var(--brand)));
 	text-decoration: none;
 }
 

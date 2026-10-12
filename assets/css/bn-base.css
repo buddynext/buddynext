@@ -65,6 +65,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-800: oklch(34% calc(var(--bn-chroma) * 0.85) var(--bn-hue));
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
+	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
 	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
 	   white label needs (see the @supports block below). */
@@ -85,7 +86,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-ink:    oklch(20% 0.01 var(--bn-hue));
 	--bn-ink-2:  oklch(40% 0.01 var(--bn-hue));
 	--bn-ink-3:  oklch(52% 0.008 var(--bn-hue)); /* AA (4.5:1) on canvas, sunken surfaces and WP's #f0f0f0 */
-	--bn-ink-4:  oklch(72% 0.005 var(--bn-hue));
+	--bn-ink-4:  oklch(54% 0.005 var(--bn-hue)); /* AA (4.5:1) on canvas and cards. Was 72%, about 2.4:1: timestamps and hints could not be read. */
 
 	/* Semantic */
 	--bn-success:    oklch(55% 0.15 145);
@@ -431,7 +432,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-ink:    oklch(96% 0.005 var(--bn-hue));
 	--bn-ink-2:  oklch(78% 0.008 var(--bn-hue));
 	--bn-ink-3:  oklch(60% 0.008 var(--bn-hue));
-	--bn-ink-4:  oklch(45% 0.008 var(--bn-hue));
+	--bn-ink-4:  oklch(62% 0.008 var(--bn-hue)); /* AA on the dark canvas and cards. Was 45%, about 2.4:1. */
 
 	--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 	--bn-accent-600: oklch(78% var(--bn-chroma) var(--bn-hue));
@@ -443,6 +444,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-300: oklch(42% 0.10 var(--bn-hue));
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
+	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 	--bn-accent-solid: var(--bn-accent);
 
@@ -487,10 +489,11 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-ink:   oklch(96% 0.005 var(--bn-hue));
 		--bn-ink-2: oklch(78% 0.008 var(--bn-hue));
 		--bn-ink-3: oklch(60% 0.008 var(--bn-hue));
-		--bn-ink-4: oklch(45% 0.008 var(--bn-hue));
+		--bn-ink-4: oklch(62% 0.008 var(--bn-hue));
 		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
+		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 		--bn-accent-solid: var(--bn-accent);
 	}
@@ -589,6 +592,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-800: #28316a;
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
+		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #ffffff;
 		--bn-accent-solid: #4754ad;
 
@@ -604,7 +608,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-ink:   #1f2030;
 		--bn-ink-2: #4d4f60;
 		--bn-ink-3: #666877;
-		--bn-ink-4: #aaabb8;
+		--bn-ink-4: #737580;
 
 		--bn-success:    #2fa66f;
 		--bn-success-bg: #e8f7ee;
@@ -646,7 +650,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-ink:   #ebebf2;
 		--bn-ink-2: #c2c2cf;
 		--bn-ink-3: #8c8d9c;
-		--bn-ink-4: #5e6071;
+		--bn-ink-4: #8e90a0;
 
 		--bn-accent-500: #8d96e0;
 		--bn-accent-600: #a0a8e7;
@@ -655,6 +659,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-200: #404670;
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
+		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #15161f;
 		--bn-accent-solid: #8d96e0;
 
@@ -1100,7 +1105,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 
 .bn-member-name a:hover {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-member-handle {
@@ -1137,7 +1142,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-btn-message:hover,
 .bn-btn-message:focus-visible {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-btn-message:focus-visible {
@@ -1177,7 +1182,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-page-btn:hover,
 .bn-page-btn:focus-visible {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-page-btn:focus-visible {
@@ -2404,12 +2409,12 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	margin-top: var(--bn-s3);
 	font-size: var(--text-sm);
 	font-weight: 600;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 .bn-sidebar-card .bn-sidebar-see-all:hover,
 .bn-sidebar-see-all:hover {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
@@ -2504,7 +2509,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-upcoming-events__cta {
 	font-size: var(--bn-text-xs);
 	font-weight: 500;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 .bn-upcoming-events__cta:hover { text-decoration: underline; }
@@ -2558,7 +2563,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	color: var(--bn-ink);
 	text-decoration: none;
 }
-.bn-upcoming-events__name:hover { color: var(--bn-accent); }
+.bn-upcoming-events__name:hover { color: var(--bn-accent-text); }
 .bn-upcoming-events__meta {
 	display: block;
 	margin-top: 2px;
@@ -2607,7 +2612,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
 }
-.bn-by-role__link:hover .bn-by-role__label { color: var(--bn-accent); }
+.bn-by-role__link:hover .bn-by-role__label { color: var(--bn-accent-text); }
 .bn-by-role__count {
 	font-size: var(--bn-text-sm);
 	font-weight: 600;
@@ -3069,15 +3074,18 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-2);
 	border: 1px solid var(--bn-line);
 }
+/* A toned badge prints its tone as TEXT on that tone's own tint. The raw tone
+   colours are tuned for fills and sat at about 4.1 to 4.4:1 there, so each is
+   mixed toward the ink to clear 4.5:1 in both schemes. */
 .bn-badge[data-tone="neutral"]  { background: var(--bn-sunken); color: var(--bn-ink-2); border-color: var(--bn-line); }
-.bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-700); border-color: transparent; }
-.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: var(--bn-success); border-color: transparent; }
-.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: var(--bn-warn); border-color: transparent; }
-.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: var(--bn-danger); border-color: transparent; }
-.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: var(--bn-info); border-color: transparent; }
-.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: var(--bn-jetonomy); border-color: transparent; }
-.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: var(--bn-media); border-color: transparent; }
-.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: var(--bn-events); border-color: transparent; }
+.bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-text); border-color: transparent; }
+.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklch, var(--bn-success) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklch, var(--bn-warn) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklch, var(--bn-danger) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklch, var(--bn-info) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklch, var(--bn-jetonomy) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklch, var(--bn-media) 72%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklch, var(--bn-events) 72%, var(--bn-ink)); border-color: transparent; }
 
 /* Chip group — the shared wrapper an injecting engine (Pro / gamification) should
    wrap a row of .bn-badge chips in (member labels, credential badges, level frames)
@@ -3249,7 +3257,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-normal);
 }
-.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
+.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklch, var(--bn-paid) 72%, var(--bn-ink)); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
 	and sits inline before the label via the badge's own flex gap. */
@@ -3264,7 +3272,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	justify-content: center;
 	border-radius: var(--bn-r-full);
 	background: var(--bn-accent-200);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	font-weight: 600;
 	font-family: var(--bn-font-display);
 	flex-shrink: 0;
@@ -3697,7 +3705,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 :where(body:not(.wp-admin)) .bn-notice__cta {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: underline;
 	text-underline-offset: 2px;
@@ -3920,7 +3928,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-tab[aria-selected="true"] .bn-tab__count,
 .bn-tab[aria-current="true"] .bn-tab__count {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -4060,7 +4068,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-app .bn-subnav__item[aria-selected="true"]:focus,
 .bn-app .bn-subnav__item[aria-selected="true"]:active,
 .bn-app .bn-subnav__item.active {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: none;
 	box-shadow: none;
 	font-weight: var(--bn-fw-semibold);
@@ -4451,7 +4459,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	height: 32px;
 	align-items: center;
 	justify-content: center;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	flex-shrink: 0;
 }
 .bn-section-head__text {
@@ -4995,7 +5003,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 .bn-cookie-consent__link {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
@@ -5046,7 +5054,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-unsub-notice--success { border-inline-start-color: var(--bn-success); }
 .bn-unsub-notice--error { border-inline-start-color: var(--bn-danger); }
 .bn-unsub-notice__manage {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: none;
 	white-space: nowrap;

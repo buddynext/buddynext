@@ -326,7 +326,7 @@
 .bn-lb-row__points-val {
 	font-size: var(--bn-text-lg);
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	line-height: 1;
 }
 
@@ -364,7 +364,7 @@
 	font-weight: var(--bn-fw-bold);
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	background: var(--bn-accent-100);
 	padding: 2px var(--bn-s2);
 	border-radius: var(--bn-r-full);
@@ -403,7 +403,7 @@
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line);
 	flex-shrink: 0;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-lb-ribbon__item svg,
@@ -520,7 +520,7 @@
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line);
 	padding: var(--bn-s2);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	overflow: hidden;
 	transition: border-color var(--bn-dur-fast) var(--bn-ease);
 }

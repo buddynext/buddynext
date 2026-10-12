@@ -159,7 +159,7 @@
 
 .bn-prefs-channel__icon {
 	grid-area: icon;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	inline-size: 36px;
 	block-size: 36px;
 	display: inline-flex;
@@ -404,7 +404,7 @@
 	min-inline-size: 0;
 }
 
-.bn-prefs-space__head:hover .bn-prefs-space__name { color: var(--bn-accent); }
+.bn-prefs-space__head:hover .bn-prefs-space__name { color: var(--bn-accent-text); }
 
 .bn-prefs-space__avatar {
 	inline-size: 40px;
@@ -450,7 +450,7 @@
 	justify-content: center;
 	border-radius: 50%;
 	background: var(--bn-sunken);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-prefs-empty__title {

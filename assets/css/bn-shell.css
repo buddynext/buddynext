@@ -358,7 +358,7 @@ body.admin-bar .bn-app__rail {
 
 .bn-rail__item[aria-current="page"] {
 	background: var(--bn-canvas);
-	color: var(--bn-accent, var(--brand));
+	color: var(--bn-accent-text, var(--bn-accent, var(--brand)));
 	font-weight: var(--bn-fw-semibold);
 }
 
@@ -808,7 +808,7 @@ body.admin-bar .bn-app__rail {
 .bn-notif-dropdown__mark-read {
 	background: none;
 	border: none;
-	color: var(--bn-accent, var(--brand));
+	color: var(--bn-accent-text, var(--bn-accent, var(--brand)));
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
 	cursor: pointer;
@@ -837,7 +837,7 @@ body.admin-bar .bn-app__rail {
 	border-radius: var(--bn-r-full);
 	flex-shrink: 0;
 	background: var(--bn-accent-100);
-	color: var(--bn-accent, var(--brand));
+	color: var(--bn-accent-text, var(--bn-accent, var(--brand)));
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-bold);
 	display: flex;
@@ -864,7 +864,7 @@ body.admin-bar .bn-app__rail {
 	padding: var(--bn-s2);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-accent, var(--brand));
+	color: var(--bn-accent-text, var(--bn-accent, var(--brand)));
 	text-decoration: none;
 	border-top: 1px solid var(--bn-line-faint);
 }
@@ -906,7 +906,7 @@ body.admin-bar .bn-app__rail {
 }
 .bn-community-menu__list > li.current-menu-item > a {
 	background: var(--bn-canvas);
-	color: var(--bn-accent, var(--brand));
+	color: var(--bn-accent-text, var(--bn-accent, var(--brand)));
 }
 
 /* My-spaces switcher — a JS-free <details> flyout under the Spaces rail item

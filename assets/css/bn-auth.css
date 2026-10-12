@@ -327,7 +327,7 @@
 	border: 0;
 	padding: 0;
 	font: inherit;
-	color: var(--bn-accent, #2563eb);
+	color: var(--bn-accent-text, var(--bn-accent, #2563eb));
 	cursor: pointer;
 	text-decoration: underline;
 }
@@ -388,7 +388,7 @@
 }
 
 .bn-auth-foot a {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-medium-semibold);
 	text-decoration: none;
 }
@@ -530,7 +530,7 @@
 
 .bn-verify-icon[data-tone="info"] {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
 .bn-verify-badge-row {
@@ -581,7 +581,7 @@
 }
 
 .bn-verify-footer a {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 
@@ -635,7 +635,7 @@
 }
 
 .bn-block-form-row a {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 
@@ -871,7 +871,7 @@ body.bn-hub-auth .bn-auth-page {
 	cursor: pointer;
 }
 .bn-auth-link {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	font-size: var(--bn-text-sm);
 }
@@ -910,7 +910,7 @@ body.bn-hub-auth .bn-auth-page {
 	padding: var(--bn-s1, 4px) var(--bn-s2, 8px);
 	border: 0;
 	background: transparent;
-	color: var(--bn-accent, #2563eb);
+	color: var(--bn-accent-text, var(--bn-accent, #2563eb));
 	font: inherit;
 	font-size: var(--bn-text-sm, 0.875rem);
 	font-weight: 600;
