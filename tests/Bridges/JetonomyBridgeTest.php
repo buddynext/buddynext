@@ -406,7 +406,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->bridge->queue_anonymous_repair();
 		$this->assertTrue( $queued(), 'The check is queued.' );
 		$this->assertSame( 1, $search(), 'The page load itself repaired nothing.' );
-		$this->assertNotFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Asked for once a day.' );
+		$this->assertNotFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Not queued again on the next page load.' );
+		$this->assertLessThanOrEqual( time() + HOUR_IN_SECONDS, (int) get_option( '_transient_timeout_buddynext_jetonomy_anonymous_checked' ), 'Held for an hour, not a day, until a run has finished clean.' );
 
 		// The background job does the work, and asks for another run while it found some.
 		$unqueue();
@@ -420,6 +421,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$unqueue();
 		$this->bridge->repair_anonymous_mirrors();
 		$this->assertFalse( $queued(), 'Stops once nothing is left.' );
+		$this->assertGreaterThan( time() + HOUR_IN_SECONDS, (int) get_option( '_transient_timeout_buddynext_jetonomy_anonymous_checked' ), 'A clean run waits a day.' );
 	}
 
 	/**

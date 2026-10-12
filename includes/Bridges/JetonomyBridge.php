@@ -718,7 +718,8 @@ class JetonomyBridge {
 	public const REPAIR_ANONYMOUS_HOOK = 'buddynext_jetonomy_repair_anonymous';
 
 	/**
-	 * Ask for the anonymous-content check, at most once a day.
+	 * Ask for the anonymous-content check: once a day after a clean run, and
+	 * again within the hour while a run is still owed.
 	 *
 	 * Runs on an administrator's dashboard load and does nothing but queue the
 	 * job: one transient read, and on the first load of the day one enqueue. The
@@ -738,8 +739,10 @@ class JetonomyBridge {
 		if ( get_transient( 'buddynext_jetonomy_anonymous_checked' ) ) {
 			return;
 		}
-		// Marked for the day now, so the next page load does not queue it again.
-		set_transient( 'buddynext_jetonomy_anonymous_checked', 1, DAY_IN_SECONDS );
+		// Marked for an hour only: enough to stop every page load queueing it, short
+		// enough that a job which never ran (a stuck scheduler) is asked for again
+		// soon. The job itself marks the full day once it has run and found nothing.
+		set_transient( 'buddynext_jetonomy_anonymous_checked', 1, HOUR_IN_SECONDS );
 		self::enqueue_anonymous_repair();
 	}
 
@@ -811,7 +814,9 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $topic_ids && ! $comments ) {
-			return; // Nothing left; the next check is tomorrow's.
+			// A clean run: the next check is tomorrow's.
+			set_transient( 'buddynext_jetonomy_anonymous_checked', 1, DAY_IN_SECONDS );
+			return;
 		}
 
 		// Up to 200 of each were found, so there may be more: run again in the
