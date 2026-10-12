@@ -501,6 +501,11 @@ class CronService {
 	}
 
 	/**
+	 * How many notifications a digest email lists before "and N more".
+	 */
+	private const DIGEST_LINES = 15;
+
+	/**
 	 * Return a member's unread notifications that belong in a digest of this cadence.
 	 *
 	 * @param int    $user_id Recipient user ID.
@@ -514,12 +519,14 @@ class CronService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT type, COALESCE( group_count, 1 ) AS group_count
+				"SELECT id, type, sender_id, object_type, object_id, data, created_at, is_read,
+				        COALESCE( group_count, 1 ) AS group_count
 				   FROM {$wpdb->prefix}bn_notifications
 				  WHERE recipient_id = %d
 				    AND is_read      = 0
 				    AND created_at  >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )
-				  ORDER BY created_at DESC",
+				  ORDER BY created_at DESC
+				  LIMIT 200",
 				$user_id,
 				$days
 			),
@@ -586,9 +593,14 @@ class CronService {
 
 		return array_values(
 			array_map(
-				static fn( array $r ) => array(
-					'type'        => (string) $r['type'],
-					'group_count' => (int) $r['group_count'],
+				// The whole row travels on: the email names the person and links to
+				// the item, and both come from sender_id, object_id and data.
+				static fn( array $r ) => array_merge(
+					$r,
+					array(
+						'type'        => (string) $r['type'],
+						'group_count' => (int) $r['group_count'],
+					)
 				),
 				$rows
 			)
@@ -655,35 +667,47 @@ class CronService {
 	/**
 	 * Build an HTML list of notification summaries for digest email bodies.
 	 *
-	 * Converts the notification type slug to a human-readable label using a
-	 * static map, then appends a count suffix when group_count > 1.
+	 * One line per notification, worded by NotificationMessageService (the bell's
+	 * own wording) and linked to the item. At most DIGEST_LINES lines, then a
+	 * count of the rest linking to the notifications page.
 	 *
-	 * @param array<int, array{type: string, group_count: int}> $notifications Notification rows.
+	 * @param array<int, array<string, mixed>> $notifications Notification rows.
 	 * @return string HTML unordered list.
 	 */
 	private function build_notification_list_html( array $notifications ): string {
-		$labels = array(
-			'bn.new_follower'             => 'Someone followed you',
-			'bn.connection_requested'     => 'New connection request',
-			'bn.connection_accepted'      => 'A connection was accepted',
-			'bn.mention'                  => 'You were mentioned in a post',
-			'bn.post_reacted'             => 'Someone reacted to your post',
-			'bn.post_commented'           => 'New comment on your post',
-			'bn.post_shared'              => 'Your post was shared',
-			'bn.space_invite'             => 'You were invited to a space',
-			'bn.space_join_requested'     => 'A member wants to join your space',
-			'bn.space_request_approved'   => 'Your space join request was approved',
-			'bn.space_ownership_received' => 'You became the owner of a space',
-			'bn.strike_issued'            => 'A moderation action was taken on your account',
-		);
+		// The same sentence the bell shows, from the same service, so a digest
+		// line names the person ("Jonas Keller started following you", "Elena
+		// Whitfield and 3 others reacted to your post") and links to the item.
+		// A fixed label per type ("Someone followed you") read like spam and gave
+		// no reason to open the email, and a new notification type could ship
+		// with a generic line; there is now no second list of wordings to forget.
+		$messages = new \BuddyNext\Notifications\NotificationMessageService();
+		$shown    = array_slice( $notifications, 0, self::DIGEST_LINES );
 
 		$items = '';
-		foreach ( $notifications as $n ) {
-			$label = $labels[ $n['type'] ] ?? ucwords( str_replace( array( 'bn.', '_' ), array( '', ' ' ), $n['type'] ) );
-			if ( $n['group_count'] > 1 ) {
-				$label .= sprintf( ' (%d)', $n['group_count'] );
+		foreach ( $shown as $n ) {
+			$line = $messages->compose( (array) $n );
+			$text = trim( wp_strip_all_tags( (string) ( $line['message'] ?? '' ) ) );
+			if ( '' === $text ) {
+				continue;
 			}
-			$items .= '<li>' . esc_html( $label ) . '</li>';
+			$url    = (string) ( $line['url'] ?? '' );
+			$items .= '' !== $url
+				? '<li><a href="' . esc_url( $url ) . '">' . esc_html( $text ) . '</a></li>'
+				: '<li>' . esc_html( $text ) . '</li>';
+		}
+
+		$more = count( $notifications ) - count( $shown );
+		if ( $more > 0 ) {
+			$items .= '<li><a href="' . esc_url( \BuddyNext\Core\PageRouter::notifications_url() ) . '">'
+				. esc_html(
+					sprintf(
+						/* translators: %d: number of further notifications not listed in the email. */
+						_n( 'And %d more notification', 'And %d more notifications', $more, 'buddynext' ),
+						$more
+					)
+				)
+				. '</a></li>';
 		}
 
 		return '<ul>' . $items . '</ul>';

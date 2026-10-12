@@ -263,7 +263,7 @@ class WPMediaVerseBridge {
 		foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $bn_meta_hook ) {
 			add_action( $bn_meta_hook, array( $this, 'on_account_privacy_meta' ), 10, 3 );
 		}
-		add_action( self::RESYNC_AUTHOR_HOOK, array( $this, 'resync_author_media' ), 10, 2 );
+		add_action( self::RESYNC_AUTHOR_HOOK, array( $this, 'resync_author_media' ), 10, 3 );
 
 		// MediaVerse's friends level is BuddyNext's connections.
 		// A document on a followers-only or connections-only post: MediaVerse has
@@ -1311,16 +1311,25 @@ class WPMediaVerseBridge {
 	 * post edit uses. Works through every post the member has, newest first,
 	 * 200 per background run, queueing the next run until none are left.
 	 *
-	 * @param int $author_id Member whose account privacy changed.
-	 * @param int $before_id Only posts with a lower id (0 = start from the newest).
+	 * @param int $author_id     Member whose account privacy changed.
+	 * @param int $before_id     Only posts with a lower id (0 = start from the newest).
+	 * @param int $library_after -1 for the posts pass. 0 or more runs the library
+	 *                           pass instead (narrow_author_library), continuing
+	 *                           above that media id.
 	 * @return void
 	 */
-	public function resync_author_media( $author_id, $before_id = 0 ): void {
+	public function resync_author_media( $author_id, $before_id = 0, $library_after = -1 ): void {
 		global $wpdb;
 
-		$author_id = (int) $author_id;
-		$before_id = (int) $before_id;
+		$author_id     = (int) $author_id;
+		$before_id     = (int) $before_id;
+		$library_after = (int) $library_after;
 		if ( $author_id <= 0 || ! MediaClient::available() ) {
+			return;
+		}
+
+		if ( $library_after >= 0 ) {
+			$this->narrow_author_library( $author_id, $library_after );
 			return;
 		}
 
@@ -1348,18 +1357,80 @@ class WPMediaVerseBridge {
 
 		if ( count( $post_ids ) === $batch ) {
 			self::queue_author_resync( $author_id, (int) end( $post_ids ) );
+			return;
+		}
+
+		// Posts done. A private account's library follows: photos and videos the
+		// member uploaded and never posted are still on their profile's media tab.
+		// Run in this same job (it queues its own follow-up past 200 items): the
+		// member should not wait a second scheduler round for a photo to close.
+		$this->narrow_author_library( $author_id, 0 );
+	}
+
+	/**
+	 * Bring a private account's public library items down to followers only.
+	 *
+	 * The posts pass (resync_author_media) covers media attached to a post. A
+	 * photo uploaded straight to the library has no post, kept `public`, and
+	 * stayed open on the member's media tab and by its link after they went
+	 * private (card 10393863361). New uploads were already stored followers-only.
+	 *
+	 * Narrowing only, through MediaVerse's own writer, so an item it keeps public
+	 * for its own reasons (a competition entry) stays as it decides. Going public
+	 * again does not reopen these: BuddyNext cannot tell an item it narrowed from
+	 * one the member set by hand, so the member widens what they want shown.
+	 *
+	 * 200 per background run, walked by media id, the next run queued until none
+	 * are left.
+	 *
+	 * @param int $author_id Member whose account is private.
+	 * @param int $after_id  Continue above this media id (0 = from the first).
+	 * @return void
+	 */
+	private function narrow_author_library( int $author_id, int $after_id ): void {
+		$repo = MediaClient::repo();
+		if ( ! is_object( $repo ) || ! method_exists( $repo, 'query' ) || ! buddynext_service( 'follows' )->is_private_account( $author_id ) ) {
+			return; // Cannot list, or the member went public again before this ran.
+		}
+
+		$batch = 200;
+		$rows  = (array) $repo->query(
+			array(
+				'author_id' => $author_id,
+				'privacy'   => 'public',
+				'status'    => 'publish',
+				'orderby'   => 'media_id',
+				'order'     => 'ASC',
+				'id_after'  => $after_id,
+				'limit'     => $batch,
+			)
+		);
+
+		$last = $after_id;
+		foreach ( $rows as $row ) {
+			$media_id = (int) ( is_array( $row ) ? ( $row['media_id'] ?? 0 ) : ( $row->media_id ?? 0 ) );
+			if ( $media_id <= 0 ) {
+				continue;
+			}
+			$last = max( $last, $media_id );
+			self::apply_media_privacy( $media_id, 'followers' );
+		}
+
+		if ( count( $rows ) === $batch && $last > $after_id ) {
+			self::queue_author_resync( $author_id, 0, $last );
 		}
 	}
 
 	/**
 	 * Queue one background run of the member media resync.
 	 *
-	 * @param int $author_id Member.
-	 * @param int $before_id Continue below this post id (0 = from the newest).
+	 * @param int $author_id     Member.
+	 * @param int $before_id     Continue below this post id (0 = from the newest).
+	 * @param int $library_after -1 for the posts pass, else the library pass cursor.
 	 * @return void
 	 */
-	private static function queue_author_resync( int $author_id, int $before_id = 0 ): void {
-		$args = array( $author_id, $before_id );
+	private static function queue_author_resync( int $author_id, int $before_id = 0, int $library_after = -1 ): void {
+		$args = array( $author_id, $before_id, $library_after );
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' ) ) {
 				as_enqueue_async_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' );
