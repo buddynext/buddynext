@@ -26,6 +26,8 @@ When you ban someone:
 - Their membership of the space ends. If they were an active member, the space's member count drops by one.
 - A ban record is kept for the space, so the ban holds even if their old membership row is later cleared.
 - Any future attempt to join or request to join the space is refused with a message telling them they are banned.
+- They can no longer take part in the space's posts: commenting, replying, reacting, sharing, saving and voting in a poll are all refused, and those buttons are not shown to them. Before 1.2.5 a banned member could still do these on an open space.
+- On an open space they can still read what any visitor can read, and they can still report a post. A ban stops participation; it does not hide a public space.
 
 > **Note:** The space owner cannot be banned. Transfer ownership first if you need to remove an owner from their own space.
 

@@ -252,6 +252,8 @@ Action `buddynext_access_webhook_completed( string $action, int $user_id, array 
 
 The Webhooks screen shows the endpoint address, a request to copy as a starting point, and the last ten requests with what was asked, for whom, from which tool and whether it was done.
 
+> **Runnable snippet:** limiting a payment scenario to the plan actions and keeping the order reference on the member (`buddynext_access_webhook_actions`, `buddynext_access_webhook_completed`) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `integrations/limit-access-webhook-actions.php`. Its header says what to change and how it was checked.
+
 ## Notes / gotchas
 
 - The generated outbound `secret` is shown only in the `POST /webhooks` response. Store it on creation; it is not returned again by `GET /webhooks`.

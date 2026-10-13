@@ -29,6 +29,13 @@ This release lets Make, Zapier or n8n sell plans, tightens blocks and space bans
 - **Moderation.** Moderation holds the daily work and Automation holds what is set once. Warnings and strikes carry a reason, and administrators can resolve appeals.
 - **Media files.** A replaced avatar or cover gets a new file name, the old file is removed after a day, and deleting a member or space removes its images.
 
+## Worth knowing when you update
+
+Two things behave differently after this update. Neither needs action, but both are easy to be surprised by.
+
+- **Email for new posts in a member's spaces is off by default.** A member who joins a space hears about its new posts in the bell, not by email. Members who joined before 1.2.5 keep the level they had. See [Space Notifications](../spaces/07-space-notifications.md).
+- **A plan granted through the access webhook with no end date runs for the plan's own period** (a month, a year, or for ever for a one-time plan), where it used to never end. Send `"lifetime": true` when the plan really should never end. See [Webhooks REST](../developer-guide/23-rest-webhooks.md).
+
 ## Fixes
 
 - Editing a Multi-select (advanced) field saved in 1.2.4 no longer empties or wipes its choices, and choice labels survive an edit.
