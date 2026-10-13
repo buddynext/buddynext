@@ -38,7 +38,7 @@ Each field also has a privacy control next to it. The field's default is only a 
 
 ### Uploading your avatar and cover photo
 
-From your profile or the edit screen you can upload two images:
+From your profile or the edit screen you can upload two images. On your own profile, **Edit cover** sits on the cover and **Edit avatar** on your picture, so either is one click away:
 
 - **Avatar** - your profile picture, shown everywhere your name appears (the directory, the feed, comments, member cards).
 - **Cover photo** - the wide banner across the top of your profile header.
