@@ -327,9 +327,11 @@ $bn_subtitle = sprintf(
 			$bn_is_mine = ( 'mine' === $bn_scope && $current_user_id > 0 );
 			?>
 			<?php // All Spaces + My Spaces are pretty-URL links (scope = a view, not a reactive filter); category/search/sort stay reactive within the All view. ?>
+			<?php // data-bn-scope-chip="all" puts this link in the single-select row the store clears and resets. ?>
 			<a
 				class="bn-tab bn-sd-chip"
 				role="tab"
+				data-bn-scope-chip="all"
 				aria-selected="<?php echo ( ! $bn_is_mine && '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
 				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::spaces_url() ); ?>"
 			><?php esc_html_e( 'All Spaces', 'buddynext' ); ?></a>
