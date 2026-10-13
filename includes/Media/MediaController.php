@@ -31,28 +31,6 @@ use WP_REST_Response;
 class MediaController extends BaseRestController {
 
 	/**
-	 * Map the feed/post privacy vocabulary the composer offers
-	 * (public/followers/connections/private) to the engine's media-file privacy.
-	 * A batch upload becomes a feed post, so the member picks the POST audience;
-	 * the media file's engine privacy is derived to roughly match. The engine
-	 * has no followers/connections concept, so both collapse to logged-in
-	 * 'members' — the post's own privacy is what gates the feed surface.
-	 *
-	 * @var array<string,string>
-	 */
-	private const PRIVACY_MAP = array(
-		'public'      => 'public',
-		'followers'   => 'members',
-		'connections' => 'members',
-		'private'     => 'private',
-		// A space upload is shared WITH the space: the engine stamps the row
-		// `privacy = space`, which is what makes it visible to space members (and
-		// only them) once it is on the space drive. Without passing it through, a
-		// space photo was stored `private` and its own space could not see it.
-		'space'       => 'space',
-	);
-
-	/**
 	 * Register routes under buddynext/v1.
 	 */
 	public function register_routes(): void {
@@ -354,7 +332,7 @@ class MediaController extends BaseRestController {
 		$args = array(
 			'title'       => sanitize_text_field( (string) $request->get_param( 'title' ) ),
 			'description' => sanitize_textarea_field( (string) $request->get_param( 'description' ) ),
-			'privacy'     => $this->sanitize_privacy( (string) $request->get_param( 'privacy' ) ),
+			'privacy'     => $this->sanitize_privacy( (string) $request->get_param( 'privacy' ), absint( $request->get_param( 'space_id' ) ) ),
 		);
 
 		// A media title/description (caption) is user-authored public text, so it
@@ -933,13 +911,29 @@ class MediaController extends BaseRestController {
 			return;
 		}
 
-		$repo = MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'set' ) ) {
+		// The space level, through MediaVerse: its members see the photo, nobody
+		// else does. It used to be stamped `private`, which also keeps it from a
+		// logged-out stranger but hides it from the space's own members wherever
+		// the album rule does not carry it.
+		//
+		// Only the caller's own media. The ids come from the request, and this
+		// moves the file to the space drive and opens it to the space: applied to
+		// somebody else's id it would hand their private photo to this space.
+		// MediaVerse's add_items() keeps the same rule (a member adds their own
+		// media; a media manager may add anyone's), so an id skipped here was
+		// not added to the album either.
+		$repo      = MediaClient::repo();
+		$actor_id  = get_current_user_id();
+		$any_owner = $actor_id > 0 && user_can( $actor_id, 'edit_others_mvs_medias' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- MediaVerse's own capability, the one its add_items() checks.
+		if ( ! is_object( $repo ) || ! method_exists( $repo, 'get' ) || $actor_id <= 0 ) {
 			return;
 		}
 
 		foreach ( $media_ids as $media_id ) {
-			$repo->set( (int) $media_id, 'privacy', 'private' );
+			if ( ! $any_owner && (int) $repo->get( (int) $media_id, 'post_author' ) !== $actor_id ) {
+				continue;
+			}
+			\BuddyNext\Bridges\WPMediaVerseBridge::apply_media_privacy( (int) $media_id, 'space', $space_id );
 		}
 	}
 
@@ -1148,17 +1142,11 @@ class MediaController extends BaseRestController {
 		// repository is keyed by MEDIA id, so the album's real privacy never
 		// changed, its photos stayed public, and on any site where a media id
 		// equals the album's post id that row's privacy was overwritten instead
-		// (card 10369186079). The repository write survives only for a
-		// WPMediaVerse older than set_privacy() (2.4.0), which stored it there.
+		// (card 10369186079).
 		if ( null !== $privacy && ! $space_album ) {
 			$clean = $this->sanitize_album_privacy( (string) $privacy );
 			if ( $album_svc && method_exists( $album_svc, 'set_privacy' ) ) {
 				$album_svc->set_privacy( $album_id, $clean );
-			} else {
-				$repo = MediaClient::repo();
-				if ( $repo && method_exists( $repo, 'set' ) ) {
-					$repo->set( $album_id, 'privacy', $clean );
-				}
 			}
 		}
 
@@ -1328,15 +1316,20 @@ class MediaController extends BaseRestController {
 
 	/**
 	 * Map a composer (post) privacy choice to the engine media-file privacy.
-	 * Unknown values fall back to public.
 	 *
-	 * @param string $privacy Post-vocabulary privacy (public/followers/connections/private).
-	 * @return string Engine media privacy (public/members/private).
+	 * The same answer the post-privacy sync and the repair command use
+	 * (WPMediaVerseBridge::media_privacy_for_post), so an upload and a later
+	 * privacy change can never disagree. No choice sent means the composer's own
+	 * default, public; a word nobody knows is private.
+	 *
+	 * @param string $privacy  Post-vocabulary privacy (public/followers/connections/space_members/private).
+	 * @param int    $space_id Space the upload is for, or 0.
+	 * @return string Engine media privacy.
 	 */
-	private function sanitize_privacy( string $privacy ): string {
+	private function sanitize_privacy( string $privacy, int $space_id = 0 ): string {
 		$privacy = sanitize_key( $privacy );
 
-		return self::PRIVACY_MAP[ $privacy ] ?? 'public';
+		return \BuddyNext\Bridges\WPMediaVerseBridge::media_privacy_for_post( '' === $privacy ? 'public' : $privacy, $space_id, get_current_user_id() );
 	}
 
 	/**

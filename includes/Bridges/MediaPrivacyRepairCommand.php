@@ -76,11 +76,11 @@ class MediaPrivacyRepairCommand {
 		}
 
 		$dry_run = isset( $assoc_args['dry-run'] );
-		$result  = $this->reconcile(
-			$dry_run,
-			\WPMediaVerse\Core\Plugin::container()->get( 'media_repository' ),
-			array( '\\WPMediaVerse\\Services\\PrivacyService', 'more_restrictive' )
-		);
+		$result  = self::run( $dry_run );
+		if ( null === $result ) {
+			WP_CLI::error( 'WPMediaVerse is not active, so there is no media store to reconcile.' );
+			return;
+		}
 
 		foreach ( $result['changes'] as $line ) {
 			WP_CLI::log( '  ' . $line );
@@ -107,6 +107,36 @@ class MediaPrivacyRepairCommand {
 
 		WP_CLI::success( $summary );
 	}
+
+	/**
+	 * Tighten every attached media file that is wider than its post.
+	 *
+	 * The command's work without WP-CLI, so it can also run once in the
+	 * background after an update (Installer schedules HOOK): a site that already
+	 * holds files stored too widely is repaired without its owner opening a
+	 * terminal. It only ever narrows, so running it again changes nothing.
+	 *
+	 * ponytail: one pass that holds a small entry per attached media id in
+	 * memory. Fine for hundreds of thousands of files; a site far past that
+	 * should run the command from WP-CLI, where memory can be raised.
+	 *
+	 * @param bool $dry_run Report without writing.
+	 * @return array{posts:int,changed:int,correct:int,skipped:int,changes:string[],skips:string[]}|null Null when MediaVerse is not active.
+	 */
+	public static function run( bool $dry_run = false ): ?array {
+		$repo = \BuddyNext\Media\MediaClient::available() ? \BuddyNext\Media\MediaClient::repo() : null;
+		$more = array( '\\WPMediaVerse\\Services\\PrivacyService', 'more_restrictive' );
+		if ( ! is_object( $repo ) || ! is_callable( $more ) ) {
+			return null;
+		}
+
+		return ( new self() )->reconcile( $dry_run, $repo, $more );
+	}
+
+	/**
+	 * Hook the background run answers.
+	 */
+	public const HOOK = 'buddynext_reconcile_media_privacy';
 
 	/**
 	 * Walk every non-public post carrying media and reconcile its files.
@@ -139,7 +169,8 @@ class MediaPrivacyRepairCommand {
 				$wpdb->prepare(
 					"SELECT id, user_id, privacy, space_id, media_ids
 					   FROM {$wpdb->prefix}bn_posts
-					  WHERE privacy <> 'public'
+					  WHERE ( privacy <> 'public' OR space_id > 0
+					          OR user_id IN ( SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_account_private' AND meta_value = '1' ) )
 					    AND media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]'
 					  ORDER BY id ASC
 					  LIMIT %d OFFSET %d",
@@ -159,8 +190,11 @@ class MediaPrivacyRepairCommand {
 					continue;
 				}
 
-				$target   = WPMediaVerseBridge::media_privacy_for_post( (string) ( $post['privacy'] ?? '' ) );
 				$space_id = (int) ( $post['space_id'] ?? 0 );
+				$target   = WPMediaVerseBridge::media_privacy_for_post( (string) ( $post['privacy'] ?? '' ), $space_id, (int) ( $post['user_id'] ?? 0 ) );
+				if ( 'public' === $target ) {
+					continue; // Nothing can be wider than public, so there is nothing to tighten.
+				}
 
 				foreach ( $media_ids as $media_id ) {
 					$media_id = (int) $media_id;
@@ -257,31 +291,16 @@ class MediaPrivacyRepairCommand {
 	 * @return array{state:string,message:string}
 	 */
 	private function reconcile_one( $repo, int $media_id, string $target, int $space_id, int $author, bool $dry_run ): array {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				// The media index keys on `media_id`, not `id`. Getting that wrong does
-				// not error - the row simply is not found, every item reports "no row
-				// in the media index", and the command cheerfully reports zero drift on
-				// a site that is full of it. It did exactly that on the first run here.
-				"SELECT privacy, drive_type, drive_id FROM {$wpdb->prefix}mvs_media_index WHERE media_id = %d",
-				$media_id
-			),
-			ARRAY_A
-		);
-
-		if ( ! is_array( $row ) ) {
+		if ( ! method_exists( $repo, 'exists' ) || ! $repo->exists( $media_id ) ) {
 			return array(
 				'state'   => 'skip',
 				'message' => sprintf( 'media #%d: no row in the media index (deleted?).', $media_id ),
 			);
 		}
 
-		$current    = (string) ( $row['privacy'] ?? '' );
-		$drive_type = (string) ( $row['drive_type'] ?? 'user' );
-		$drive_id   = (int) ( $row['drive_id'] ?? 0 );
+		$current    = (string) $repo->get( $media_id, 'privacy' );
+		$drive_type = (string) $repo->get( $media_id, 'drive_type' );
+		$drive_id   = (int) $repo->get( $media_id, 'drive_id' );
 
 		$needs_move = 'space' === $target && $space_id > 0
 			&& ( 'space' !== $drive_type || $drive_id !== $space_id );
@@ -305,13 +324,31 @@ class MediaPrivacyRepairCommand {
 			}
 		}
 
+		// Only ever narrower. A file already tighter than its post is left alone.
+		// One held by a different crowd (followers on a connections post) is made
+		// private, unless it is on its way into the post's space, which MediaVerse
+		// moves and levels itself.
+		$settle = WPMediaVerseBridge::settle_level( $current, $target );
+		if ( '' === $settle && $current !== $target ) {
+			return array(
+				'state'   => 'correct',
+				'message' => '',
+			);
+		}
+		if ( 'private' === $settle && ! $move_to_space ) {
+			$target = 'private';
+		}
+
 		if ( ! $dry_run ) {
-			$update = array( 'privacy' => $target );
-			if ( $move_to_space ) {
-				$update['drive_type'] = 'space';
-				$update['drive_id']   = $space_id;
+			// MediaVerse's own writers: the drive move, then its privacy setter, so
+			// an album still decides for its photos and a chat file stays locked.
+			$stored = WPMediaVerseBridge::apply_media_privacy( $media_id, $target, $move_to_space ? $space_id : 0 );
+			if ( 'album' === $stored ) {
+				return array(
+					'state'   => 'correct',
+					'message' => '',
+				);
 			}
-			$repo->set_many( $media_id, $update );
 		}
 
 		return array(

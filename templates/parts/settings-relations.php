@@ -32,13 +32,15 @@ $bn_restricted_ids = (array) buddynext_service( 'blocks' )->restricted_users( $u
 // Define each state up front: "restricted" has no common meaning and the three
 // read as interchangeable without this. Wording verified against BlockService
 // (block/restrict/mute docblocks) so the copy matches what the code actually
-// does — notably a restricted person can still see and reply to your posts;
-// you just stop seeing their comments, messages and notifications.
+// does. A restricted person can still see and reply to your posts: their
+// comments on your posts are hidden from everyone except you and them
+// (CommentService), their notifications to you are dropped, and their messages
+// still arrive, without a notification (WPMediaVerseBridge).
 $bn_relations_html = '<dl class="bn-ep-relations-legend">'
 	. '<div class="bn-ep-relations-legend__item"><dt>' . esc_html__( 'Blocked', 'buddynext' ) . '</dt>'
 	. '<dd>' . esc_html__( "They can't see your profile or posts, and can't follow, message or mention you.", 'buddynext' ) . '</dd></div>'
 	. '<div class="bn-ep-relations-legend__item"><dt>' . esc_html__( 'Restricted', 'buddynext' ) . '</dt>'
-	. '<dd>' . esc_html__( "They can still see and reply to your posts, but you no longer see their comments, messages or notifications - and they aren't told.", 'buddynext' ) . '</dd></div>'
+	. '<dd>' . esc_html__( "They can still see and reply to your posts. Only you and they see their comments on your posts, and their messages arrive without a notification. They aren't told.", 'buddynext' ) . '</dd></div>'
 	. '<div class="bn-ep-relations-legend__item"><dt>' . esc_html__( 'Muted', 'buddynext' ) . '</dt>'
 	. '<dd>' . esc_html__( "You stop seeing their activity. They aren't told.", 'buddynext' ) . '</dd></div>'
 	. '</dl>';

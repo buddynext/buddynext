@@ -658,6 +658,55 @@
 	}
 }
 
+/* Moderation Log toolbar: a filter-bar whose controls carry a visible label above
+   them, bottom-aligned with the Filter button, and Export / Run now pinned to the
+   right of the row instead of wrapping underneath it. */
+/* .bn-toolbar (later in this file, same specificity) sets display:flex; the
+   doubled class is what lets the grid win. */
+.bn-toolbar.bn-modlog-toolbar {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) auto;
+	align-items: end;
+	gap: var(--bn-a-s3);
+}
+
+.bn-modlog-toolbar .bn-filter-bar {
+	align-items: flex-end;
+	margin-bottom: 0;
+}
+
+.bn-modlog-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s1);
+}
+
+.bn-modlog-field .bn-label {
+	margin-bottom: 0;
+}
+
+.bn-modlog-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
+@media screen and ( max-width: 782px ) {
+
+	.bn-toolbar.bn-modlog-toolbar {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	/* Undo the desktop bottom-alignment, or each label shrink-wraps its control. */
+	.bn-modlog-toolbar .bn-filter-bar {
+		align-items: stretch;
+	}
+
+	.bn-ss-body .bn-filter-bar .bn-modlog-field input.bn-input {
+		width: 100%;
+	}
+}
+
 .bn-settings-section .bn-ss-body .bn-field-hint,
 .bn-settings-section .bn-ss-body p.description {
 	max-width: 72ch;
@@ -4095,6 +4144,31 @@ code.bn-ep-code {
 
 /* ── Activity admin (Engagement > Activity) ───────────────────────────────── */
 
+/* The post text is the point of the Activity screen, so it gets the room: the
+   author column has a floor (column-primary) and Content had none, which left
+   it about 115px wide beside a 288px author. */
+.bn-activity-content {
+	min-width: 9rem; /* The most a 1536px screen can give without pushing Posted further under the pinned Actions column. */
+	width: 45%;
+}
+
+/* The room comes from the author cell. Its 16rem floor was written for the
+   Members directory, where the cell also carries an email; here it holds a name
+   and a handle, and that floor is what squeezed the post text. */
+.bn-admin-hub__content table.bn-table[data-bn-bulk="bn-activity-bulk"] td.column-primary,
+.bn-admin-hub__content table.bn-table[data-bn-bulk="bn-activity-bulk"] th.column-primary {
+	min-width: 10rem;
+}
+
+@media screen and ( max-width: 782px ) {
+
+	.bn-activity-content,
+	.bn-admin-hub__content table.bn-table[data-bn-bulk="bn-activity-bulk"] td.column-primary {
+		min-width: 0;
+		width: auto;
+	}
+}
+
 .bn-activity-toolbar {
 	display: flex;
 	flex-wrap: wrap;
@@ -4402,4 +4476,17 @@ code.bn-ep-code {
 
 .bn-email-log time {
 	white-space: nowrap;
+}
+
+/* Appeals: note on its own row, the two decisions under it. */
+.bn-appeal-decision {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-a-s2);
+	min-inline-size: 13rem;
+}
+
+.bn-appeal-decision .bn-input {
+	flex: 1 1 100%;
+	min-inline-size: 0;
 }

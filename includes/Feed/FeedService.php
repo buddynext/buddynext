@@ -256,21 +256,50 @@ class FeedService {
 	 * both mean "anyone" in an open space; 'followers'/'connections'/'private' are
 	 * narrower and stay out). A non-space post shows when it is 'public', unchanged.
 	 *
+	 * A private account narrows it further: its posts are for approved followers,
+	 * so discovery leaves them out for everyone else (FollowService::private_author_where()).
+	 * That holds for an open-space post too - it stays readable inside its space,
+	 * which the space feed decides, but is not promoted here (owner decision
+	 * 2026-10-11, card 10392816788).
+	 *
 	 * Bracketed, bare column refs on bn_posts, no params - replaces the old bare
 	 * `privacy = 'public'` on the Explore grid and its matching pulse count.
 	 *
+	 * @param int|null $viewer_id Viewer the surface is built for; null reads the
+	 *                            current user, 0 is a logged-out visitor.
 	 * @return string SQL fragment (a single bracketed boolean expression).
 	 */
-	public function explore_space_where(): string {
+	public function explore_space_where( ?int $viewer_id = null ): string {
 		global $wpdb;
 
+		$private_where = FollowService::private_author_where( $viewer_id ?? get_current_user_id() );
+
 		return "(
-			( ( space_id IS NULL OR space_id = 0 ) AND privacy = 'public' )
-			OR (
-				space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
-				AND privacy IN ( 'public', 'space_members' )
+			(
+				( ( space_id IS NULL OR space_id = 0 ) AND privacy = 'public' )
+				OR (
+					space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )
+					AND privacy IN ( 'public', 'space_members' )
+				)
 			)
+			{$private_where}
 		)";
+	}
+
+	/**
+	 * The accounts a viewer follows, as a subquery with one %d (the viewer).
+	 *
+	 * Approved follows only: a request to a private account is stored as 'pending'
+	 * and is not a follow until the owner accepts it. Every feed clause that asks
+	 * "does the viewer follow this author" goes through here so none can forget
+	 * the status (card 10392935011: the Following and For You tabs did).
+	 *
+	 * @return string SQL subquery body, bare column refs, one %d placeholder.
+	 */
+	private function following_subquery(): string {
+		global $wpdb;
+
+		return "SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved'";
 	}
 
 	/**
@@ -315,15 +344,15 @@ class FeedService {
 	 * shadow-banned authors' posts in the feed to review them; hiding that
 	 * content from a moderator defeats moderation.
 	 *
+	 * The viewer's own posts are never excluded (card 10393846671).
+	 *
 	 * @return string Raw SQL fragment — no user-supplied data, safe to embed.
 	 */
 	private function excluded_users_where(): string {
-		if ( current_user_can( 'manage_options' ) ) {
-			return '';
-		}
-		// Delegate to the one canonical moderation-exclusion builder so the feed
-		// and follow suggestions exclude the same suspended/shadow-banned set.
-		return buddynext_service( 'moderation' )->moderation_exclude_sql( 'user_id' );
+		// One rule, owned by moderation and shared with the hashtag page: hidden
+		// from everyone except moderators and the author. Every feed is built per
+		// viewer, so the viewer's id can sit in the clause.
+		return buddynext_service( 'moderation' )->hidden_authors_where( 'user_id', get_current_user_id() );
 	}
 
 	/**
@@ -626,13 +655,32 @@ class FeedService {
 				self::OWN_POST_FLOAT_MINUTES
 			);
 
+			/**
+			 * Filter how many days a post keeps its connections / interests priority
+			 * in the For you feed.
+			 *
+			 * Without a window one active connection filled the whole first page
+			 * with posts up to weeks old, above everything newer from everyone
+			 * else. Past the window a post ranks by date like any other. Return 0
+			 * for no window (the old behaviour).
+			 *
+			 * @since 1.2.5
+			 *
+			 * @param int $days    Days. Default 7.
+			 * @param int $user_id Viewer.
+			 */
+			$bn_days   = max( 0, (int) apply_filters( 'buddynext_for_you_priority_days', 7, $user_id ) );
+			$bn_recent = $bn_days > 0
+				? sprintf( ' AND created_at > DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )', $bn_days )
+				: '';
+
 			if ( ! empty( $bn_conn_ids ) ) {
-				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ') THEN ' . count( $bn_tiers );
+				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ')' . $bn_recent . ' THEN ' . count( $bn_tiers );
 			}
 			if ( ! empty( $bn_interest_ids ) ) {
 				$bn_tiers[] = "WHEN space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
 					. implode( ',', array_map( 'absint', $bn_interest_ids ) )
-					. ')) THEN ' . count( $bn_tiers );
+					. ")){$bn_recent} THEN " . count( $bn_tiers );
 			}
 			// No emptiness guard: the own-post tier above is unconditional, so there is
 			// always at least one WHEN. The guard this replaces dated from when every
@@ -761,9 +809,7 @@ class FeedService {
 		$sql = "(
 			privacy IN ('public','space_members')
 			OR user_id = %d
-			OR ( privacy = 'followers' AND user_id IN (
-				SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved'
-			) )
+			OR ( privacy = 'followers' AND user_id IN ( {$this->following_subquery()} ) )
 			OR ( privacy = 'connections' AND user_id IN (
 				SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END
 				FROM {$wpdb->prefix}bn_connections
@@ -789,9 +835,7 @@ class FeedService {
 
 		switch ( $filter ) {
 			case 'following':
-				$sql    = "user_id IN (
-					SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
-				) AND privacy IN ('public','followers')";
+				$sql    = "user_id IN ( {$this->following_subquery()} ) AND privacy IN ('public','followers')";
 				$params = array( $user_id );
 				break;
 
@@ -811,7 +855,7 @@ class FeedService {
 				break;
 
 			case 'network':
-				$sql    = "user_id IN (
+				$sql = "user_id IN (
 					SELECT CASE
 					    WHEN requester_id = %d THEN recipient_id
 					    ELSE requester_id
@@ -819,7 +863,10 @@ class FeedService {
 					 FROM {$wpdb->prefix}bn_connections
 					 WHERE ( requester_id = %d OR recipient_id = %d )
 					   AND status = 'accepted'
-				) AND privacy IN ('public','followers','connections')";
+				) AND privacy IN ('public','followers','connections')"
+					// A private account's public post is for its approved followers; being
+					// connected to its author is not the same thing.
+					. FollowService::private_author_where( $user_id, 'user_id' );
 				$params = array( $user_id, $user_id, $user_id );
 				break;
 
@@ -857,9 +904,7 @@ class FeedService {
 				[ $audience_sql, $audience_params ] = $this->post_audience_clause( $user_id );
 
 				$sql = "(
-					user_id IN (
-						SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
-					)
+					user_id IN ( {$this->following_subquery()} )
 					AND privacy IN ('public','followers')
 				)
 				OR user_id = %d
@@ -880,7 +925,7 @@ class FeedService {
 						)
 					)
 					AND (
-						{$this->explore_space_where()}
+						{$this->explore_space_where( $user_id )}
 						OR (
 							space_id IN (
 								SELECT space_id FROM {$wpdb->prefix}bn_space_members
@@ -890,7 +935,7 @@ class FeedService {
 						)
 					)
 				)
-				OR {$this->explore_space_where()}";
+				OR {$this->explore_space_where( $user_id )}";
 				// Placeholder order: follows, own, joined-space member, joined-space
 				// audience (5), hashtag follow, hashtag member-space, its audience (5).
 				$params = array_merge(
@@ -1652,9 +1697,10 @@ class FeedService {
 	/**
 	 * Return the profile feed for a given user as seen by a viewer.
 	 *
-	 * Suspended and shadow-banned users' posts are hidden from all viewers,
-	 * including the profile owner themselves, so that moderation is transparent
-	 * at the data layer rather than relying on template-level checks.
+	 * Suspended and shadow-banned users' posts are hidden from every other viewer
+	 * at the data layer rather than relying on template-level checks. The owner
+	 * still sees their own (excluded_users_where): a shadow ban is meant to go
+	 * unnoticed.
 	 *
 	 * @param int         $profile_user_id  User whose posts to show.
 	 * @param int         $viewer_id        Viewing user ID (0 = anonymous).
@@ -1785,12 +1831,31 @@ class FeedService {
 		// rather than by status, which is why the omission never showed up there.
 		// (Basecamp 10239861865 — found while building the Pending tab, which is
 		// where a held post is supposed to be visible, and only to its author.)
+		//
+		// A post hidden by reports ('under_review') stays out of everyone's view
+		// except its author's: on their own profile they still see it, labelled, as
+		// a comment in the same state already is. Without that it simply vanished,
+		// with no word of why, and members reposted it (card 10393122331).
+		$status_where = ( $viewer_id > 0 && $viewer_id === $profile_user_id )
+			? "status IN ( 'published', 'under_review' )"
+			: "status = 'published'";
+
+		// Pins: only the ones actually shown above the list are left out of it.
+		// Leaving out every pinned post made any pin beyond the shown ones appear
+		// in neither place (card 10392935152). A member who holds more pins than
+		// the top section shows, from before the ceiling, keeps them here by date.
+		$shown_pins = array_map(
+			static fn( array $pin ): int => (int) $pin['id'],
+			$this->profile_pinned_posts( $profile_user_id, $viewer_id )
+		);
+		$pins_where = $shown_pins ? 'AND id NOT IN ( ' . implode( ',', $shown_pins ) . ' )' : '';
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
-			   AND status = 'published'
-			   AND NOT ( is_pinned = 1 AND space_id IS NULL )
+			   AND {$status_where}
+			   {$pins_where}
 			   {$privacy_clause}
 			   {$space_where}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
@@ -1860,9 +1925,13 @@ class FeedService {
 	 * The profile owner's own pinned posts, hydrated and newest-first.
 	 *
 	 * Pinning is profile-only: a member pins their own posts to the top of their
-	 * profile (is_pinned = 1 AND space_id IS NULL). Those rows are excluded from
-	 * profile_feed_uncached()'s chronological query, so pins live in exactly one
-	 * place and never double up or reappear on load-more.
+	 * profile (is_pinned = 1 AND space_id IS NULL). The rows returned here are
+	 * excluded from profile_feed_uncached()'s chronological query, so a shown pin
+	 * lives in exactly one place and never doubles up or reappears on load-more.
+	 *
+	 * At most PostService::PIN_CEILING are shown. Pinned posts are an introduction,
+	 * not a wall: a profile has to get to what the member posted lately (owner
+	 * decision 2026-10-11).
 	 *
 	 * This list is viewer-scoped: it applies the SAME privacy and block/mute gate
 	 * as profile_feed() so a followers-only post pinned
@@ -1876,15 +1945,15 @@ class FeedService {
 	 *
 	 * @param int $profile_user_id Profile owner.
 	 * @param int $viewer_id       Viewing user ID.
-	 * @param int $limit           Maximum pins to return (clamped 1-10).
+	 * @param int $limit           Maximum pins to return (clamped to the pin ceiling).
 	 * @return array<int,array<string,mixed>> Hydrated pinned post rows, newest first.
 	 */
-	public function profile_pinned_posts( int $profile_user_id, int $viewer_id, int $limit = 10 ): array {
+	public function profile_pinned_posts( int $profile_user_id, int $viewer_id, int $limit = PostService::PIN_CEILING ): array {
 		if ( $profile_user_id <= 0 ) {
 			return array();
 		}
 
-		$limit = max( 1, min( $limit, 10 ) );
+		$limit = max( 1, min( $limit, PostService::PIN_CEILING ) );
 
 		// Same additive audience as the profile feed — a pinned 'connections' post
 		// must be visible to the author's connections, not hidden from the very
@@ -1898,6 +1967,14 @@ class FeedService {
 		global $wpdb;
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
+		// The status rule of the list under it: a pin is a published post. One
+		// hidden by reports stays visible to its author alone (with its label), and
+		// to nobody else; a held or draft post is never shown as a pin. Without
+		// this a post taken down by reports stayed at the top of the profile.
+		$pin_status_where = ( $viewer_id > 0 && $viewer_id === $profile_user_id )
+			? "status IN ('published', 'under_review')"
+			: "status = 'published'";
+
 		// $hidden_where is the canonical viewer-scoped exclusion (blocks, mutes, and
 		// posts this viewer reported); its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1907,6 +1984,7 @@ class FeedService {
 				 WHERE user_id = %d
 				   AND space_id IS NULL
 				   AND is_pinned = 1
+				   AND {$pin_status_where}
 				   {$privacy_clause}
 				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   {$excluded_where}

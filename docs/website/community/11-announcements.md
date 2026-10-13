@@ -55,7 +55,7 @@ An administrator can end an announcement at any time from **BuddyNext > Engageme
 | Admins end an announcement | Yes | Yes |
 | Announcements pinned at once | One (newest, or the admin-featured one) | One (newest, or the admin-featured one) |
 
-Announcements themselves work the same in Free and Pro. Pro adds a separate capability for ordinary feed posts: it lifts Free's single-pinned-post limit so up to 10 posts can be pinned at once (on a profile). That pinned-post feature is distinct from the site-wide announcement above. (Pinning is profile-only; inside a space, use an Announcement to feature a post.)
+Announcements themselves work the same in Free and Pro. Pro adds a separate capability for ordinary feed posts: it lifts Free's single-pinned-post limit so up to 3 posts can be pinned at once (on a profile). That pinned-post feature is distinct from the site-wide announcement above. (Pinning is profile-only; inside a space, use an Announcement to feature a post.)
 
 ## Related
 

@@ -43,6 +43,8 @@ class ExploreListener implements ListenerInterface {
 				'buddynext_post_created',
 				'buddynext_space_created',
 				'user_register',
+				// A Private account switch changes whose posts discovery may show.
+				'buddynext_user_search_visibility_changed',
 			) as $hook
 		) {
 			add_action( $hook, array( $this, 'flush' ), 10, 0 );

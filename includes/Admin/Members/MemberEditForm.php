@@ -257,7 +257,9 @@ class MemberEditForm {
 				// already verified. A button that reports success without changing
 				// anything is worse than no button - and "Verified" as a state the
 				// admin can read is the other half of what they came here for.
-				$bn_verify_on       = buddynext_feature_enabled( 'verification' );
+				// On only while verification is actually required: with the requirement
+				// off, marking a member verified sets a flag nothing reads.
+				$bn_verify_on       = buddynext_feature_enabled( 'verification' ) && (bool) get_option( 'buddynext_email_verify', false );
 				$bn_member_verified = (bool) get_user_meta( $user_id, 'buddynext_email_verified', true );
 				?>
 				<?php if ( $bn_verify_on && $bn_member_verified ) : ?>
@@ -287,7 +289,18 @@ class MemberEditForm {
 						</button>
 					</form>
 				<?php else : ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<?php
+					// Same confirm as the Directory row: a suspension needs a reason, and
+					// the modal is where it is chosen. Without it this button always
+					// failed with "choose a reason" and nowhere to choose one.
+					?>
+					<form method="post"
+						action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+						data-bn-confirm="1"
+						data-bn-confirm-suspend="1"
+						data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
+						data-bn-confirm-body="<?php /* translators: %s: member display name. */ echo esc_attr( sprintf( __( 'Suspend %s? They lose posting access and see the reason you choose on their account page and in the suspension email.', 'buddynext' ), $wp_user->display_name ) ); ?>"
+						data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
 						<input type="hidden" name="action" value="bn_suspend_member">
 						<input type="hidden" name="user_id" value="<?php echo absint( $user_id ); ?>">
 						<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'saved', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
@@ -301,6 +314,8 @@ class MemberEditForm {
 		</div>
 
 		<?php
+		\BuddyNext\Admin\Members::render_confirm_modal();
+
 		/**
 		 * Fires before the edit-member admin form.
 		 *
@@ -407,7 +422,8 @@ class MemberEditForm {
 
 				$slug         = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 				$all_roles    = wp_roles()->get_names();
-				$current_role = ( (array) $wp_user->roles )[0] ?? '';
+				$current_role = array_values( (array) $wp_user->roles )[0] ?? '';
+				$other_roles  = array_slice( array_values( (array) $wp_user->roles ), 1 );
 				$this->open_section( __( 'Account', 'buddynext' ) );
 				$this->render_text_row(
 					'display_name',
@@ -425,13 +441,28 @@ class MemberEditForm {
 				<div class="bn-field-row">
 					<div class="bn-label"><label for="bn-user-role"><?php esc_html_e( 'Role', 'buddynext' ); ?></label></div>
 					<div class="bn-control">
-						<select id="bn-user-role" name="bn_user_role" class="bn-select">
+						<?php $bn_own_account = get_current_user_id() === (int) $user_id; ?>
+						<select id="bn-user-role" name="bn_user_role" class="bn-select" <?php disabled( $bn_own_account ); ?>>
 							<?php foreach ( $all_roles as $role_key => $role_label ) : ?>
 								<option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $current_role, $role_key ); ?>>
 									<?php echo esc_html( translate_user_role( $role_label ) ); ?>
 								</option>
 							<?php endforeach; ?>
 						</select>
+						<?php if ( $bn_own_account ) : ?>
+							<p class="bn-edit-hint"><?php esc_html_e( 'You cannot change your own role here.', 'buddynext' ); ?></p>
+						<?php endif; ?>
+						<?php if ( $other_roles ) : ?>
+							<p class="bn-edit-hint">
+								<?php
+								printf(
+									/* translators: %s: comma-separated list of role names. */
+									esc_html__( 'Also holds: %s. These are kept when you save.', 'buddynext' ),
+									esc_html( implode( ', ', array_map( static fn( string $role ): string => translate_user_role( $all_roles[ $role ] ?? $role ), $other_roles ) ) )
+								);
+								?>
+							</p>
+						<?php endif; ?>
 					</div>
 				</div>
 				<div class="bn-field-row">
@@ -613,7 +644,10 @@ class MemberEditForm {
 		<?php
 		// One renderer for every type, the same one the member's own editor calls.
 		// Returns markup it has escaped itself.
-		echo \BuddyNext\Profile\FieldType::render_input( $field, $raw_val, $key ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
+		// No browser-side "required" on this form: the rule binds the member, not
+		// the administrator editing them (ProfileService::required_rule_active), and
+		// the attribute stopped the form being sent at all.
+		echo \BuddyNext\Profile\FieldType::render_input( array( 'is_required' => false ) + $field, $raw_val, $key ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
 		?>
 	</div>
 </div>
@@ -671,7 +705,10 @@ class MemberEditForm {
 	<?php endif; ?>
 		<?php
 		// Escaped by the renderer, same contract as the flat branch.
-		echo \BuddyNext\Profile\FieldType::render_input( $field, $value, $name ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
+		// No browser-side "required" on this form: the rule binds the member, not
+		// the administrator editing them (ProfileService::required_rule_active), and
+		// the attribute stopped the form being sent at all.
+		echo \BuddyNext\Profile\FieldType::render_input( array( 'is_required' => false ) + $field, $value, $name ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by the renderer.
 		?>
 </div>
 		<?php

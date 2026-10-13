@@ -27,6 +27,8 @@ class AccessWebhookTest extends \WP_Test_REST_TestCase {
 		parent::set_up();
 		Installer::run();
 		update_option( 'buddynext_webhook_secret', $this->secret );
+		// These cases exercise set_role itself, which the owner now switches on.
+		update_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE, 1 );
 		$this->user_id = self::factory()->user->create();
 		update_user_meta( $this->user_id, 'bn_community_role', 'member' );
 		( new Router() )->register();

@@ -38,10 +38,17 @@ class WidgetService {
 	}
 
 	/**
-	 * Top N trending hashtags by post count.
+	 * The hashtags most used over the last week, for the Trending Topics card.
+	 *
+	 * Ranked by posts in the window (HashtagService::get_trending()), not by the
+	 * all-time total: the card is captioned "This week", and an all-time ranking
+	 * kept a tag that was busy a year ago at the top for good. A tag with no
+	 * publicly listed post is left out, and the number shown is that public
+	 * count. An empty result hides the card, which is the honest answer for a
+	 * week in which nothing was tagged.
 	 *
 	 * @param int $limit Max rows.
-	 * @return array<int,object>
+	 * @return array<int,object> Rows with slug and post_count.
 	 */
 	public function trending_hashtags( int $limit = 5 ): array {
 		// Respect the Hashtags feature: when the owner turns it off the trending
@@ -57,16 +64,27 @@ class WidgetService {
 			WidgetCache::GROUP_GLOBAL,
 			WidgetCache::TTL_TRENDING,
 			static function () use ( $limit ): array {
-				global $wpdb;
-				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$rows = $wpdb->get_results(
-					$wpdb->prepare(
-						'SELECT slug, post_count FROM ' . $wpdb->prefix . 'bn_hashtags ORDER BY post_count DESC LIMIT %d',
-						$limit
-					)
-				);
-				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				return is_array( $rows ) ? $rows : array();
+				// The window (and its filter) live with the cache key, so the two agree.
+				$hours = WidgetCache::trending_hours();
+
+				$rows = array();
+				// Ask for a few extra so tags with no public post can be dropped.
+				foreach ( buddynext_service( 'hashtags' )->get_trending( $limit * 2, $hours ) as $tag ) {
+					if ( (int) ( $tag['post_count'] ?? 0 ) <= 0 ) {
+						continue;
+					}
+					$rows[] = (object) array(
+						'slug'       => (string) $tag['slug'],
+						// The number under "this week" is this window's count, not the
+						// tag's all-time total (which is what ranked it before 1.2.5).
+						'post_count' => (int) ( $tag['recent_count'] ?? $tag['post_count'] ),
+					);
+					if ( count( $rows ) >= $limit ) {
+						break;
+					}
+				}
+
+				return $rows;
 			}
 		);
 	}
@@ -168,50 +186,6 @@ class WidgetService {
 					}
 				}
 
-				// Hydrate follow_status per row — unfollowed | requested | following.
-				// Since we just filtered out current follows, "following" can still
-				// occur if the cache populated mid-cycle. "requested" reads any
-				// pending connection request the viewer sent to that user.
-				// Both reads are constrained to the handful of candidate rows —
-				// the unconstrained versions loaded the viewer's ENTIRE
-				// following / pending sets on every logged-in sidebar render,
-				// growing with their follow count, only to in_array() them
-				// against these few candidates.
-				if ( ! empty( $rows ) ) {
-					$row_ids = array_map( static fn( $r ) => (int) ( $r->ID ?? 0 ), $rows );
-					$row_ph  = implode( ',', array_fill( 0, count( $row_ids ), '%d' ) );
-
-					// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $row_ph is a counted "%d,..." list; every value is bound.
-					$pending = $wpdb->get_col(
-						$wpdb->prepare(
-							"SELECT recipient_id FROM {$wpdb->prefix}bn_connections
-							 WHERE requester_id = %d AND status = 'pending'
-							   AND recipient_id IN ( {$row_ph} )",
-							array_merge( array( $user_id ), $row_ids )
-						)
-					);
-					$pending = array_map( 'intval', (array) $pending );
-
-					$following = $wpdb->get_col(
-						$wpdb->prepare(
-							"SELECT following_id FROM {$wpdb->prefix}bn_follows
-							 WHERE follower_id = %d
-							   AND following_id IN ( {$row_ph} )",
-							array_merge( array( $user_id ), $row_ids )
-						)
-					);
-					$following = array_map( 'intval', (array) $following );
-					// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-
-					foreach ( $rows as &$row ) {
-						$row_id             = (int) ( $row->ID ?? 0 );
-						$row->follow_status = in_array( $row_id, $following, true )
-							? 'following'
-							: ( in_array( $row_id, $pending, true ) ? 'requested' : 'unfollowed' );
-					}
-					unset( $row );
-				}
-
 				return $rows;
 			}
 		);
@@ -219,7 +193,75 @@ class WidgetService {
 		// Per-load rotation: sample the display set from the top of the cached POOL
 		// on every render, so the widget varies each load even when the pool is
 		// served from a persistent object cache (the sample is never itself cached).
-		return buddynext_sample_ranked( $pool, $limit );
+		// Follow status is worked out on every render, for the shown sample only: it
+		// changes the moment the viewer acts, so it cannot live in the cached pool.
+		return $this->hydrate_follow_status( $user_id, buddynext_sample_ranked( $pool, $limit ) );
+	}
+
+	/**
+	 * Stamp each suggested row with the viewer's follow status.
+	 *
+	 * @param int           $user_id Viewer user ID.
+	 * @param array<object> $rows    Suggested user rows (ID, display fields).
+	 * @return array<object> Same rows with follow_status: unfollowed | requested | following.
+	 */
+	private function hydrate_follow_status( int $user_id, array $rows ): array {
+		global $wpdb;
+
+		// "following" covers a member the viewer followed since the pool was
+		// cached. "requested" reads a pending follow request, or a pending
+		// connection request the viewer sent to that user.
+		// Both reads are constrained to the handful of candidate rows —
+		// the unconstrained versions loaded the viewer's ENTIRE
+		// following / pending sets on every logged-in sidebar render,
+		// growing with their follow count, only to in_array() them
+		// against these few candidates.
+		if ( ! empty( $rows ) ) {
+			$row_ids = array_map( static fn( $r ) => (int) ( $r->ID ?? 0 ), $rows );
+			$row_ph  = implode( ',', array_fill( 0, count( $row_ids ), '%d' ) );
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- live per render (never cached); $row_ph is a counted "%d,..." list; every value is bound.
+			$pending = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT recipient_id FROM {$wpdb->prefix}bn_connections
+					 WHERE requester_id = %d AND status = 'pending'
+					   AND recipient_id IN ( {$row_ph} )",
+					array_merge( array( $user_id ), $row_ids )
+				)
+			);
+			$pending = array_map( 'intval', (array) $pending );
+
+			// One read of the follow rows: an approved follow is "following",
+			// a request to a private account still waiting is "requested". It
+			// used to read every row as following, then no pending row at all.
+			$follow_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT following_id, status FROM {$wpdb->prefix}bn_follows
+					 WHERE follower_id = %d
+					   AND following_id IN ( {$row_ph} )",
+					array_merge( array( $user_id ), $row_ids )
+				)
+			);
+			$following   = array();
+			foreach ( (array) $follow_rows as $follow_row ) {
+				if ( 'approved' === $follow_row->status ) {
+					$following[] = (int) $follow_row->following_id;
+				} elseif ( 'pending' === $follow_row->status ) {
+					$pending[] = (int) $follow_row->following_id;
+				}
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+			foreach ( $rows as &$row ) {
+				$row_id             = (int) ( $row->ID ?? 0 );
+				$row->follow_status = in_array( $row_id, $following, true )
+					? 'following'
+					: ( in_array( $row_id, $pending, true ) ? 'requested' : 'unfollowed' );
+			}
+			unset( $row );
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -296,7 +338,7 @@ class WidgetService {
 				$new_followers_7d = apply_filters( 'buddynext_user_weekly_followers_gained', null, $user_id );
 				if ( null === $new_followers_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
+					$new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND status = 'approved' AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id ) );
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				}
 				$new_followers_7d = (int) $new_followers_7d;
@@ -304,7 +346,9 @@ class WidgetService {
 				$engagement_in_7d = apply_filters( 'buddynext_user_weekly_engagement_received', null, $user_id );
 				if ( null === $engagement_in_7d ) {
 					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$reactions_in_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
+					// With reactions switched off the tile counts comments only (and
+					// says so), so the reactions query is skipped altogether.
+					$reactions_in_7d  = ! buddynext_feature_enabled( 'reactions' ) ? 0 : (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
 					$comments_in_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.object_type = 'post' AND p.user_id = %d AND c.user_id != %d AND c.is_deleted = 0 AND c.is_hidden = 0 AND c.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )", $user_id, $user_id ) );
 					$engagement_in_7d = $reactions_in_7d + $comments_in_7d;
 					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -312,10 +356,12 @@ class WidgetService {
 				$engagement_in_7d = (int) $engagement_in_7d;
 
 				// Week-over-week delta percent. Suppressed when prior-week is 0
-				// (can't divide by zero, and "first week" deltas are misleading).
+				// (can't divide by zero, and "first week" deltas are misleading), and
+				// when this week is 0: "0 notifications -100%" is correct arithmetic
+				// that reads like something broke, on what is only a quiet week.
 				$wow_delta_label = '';
 				$wow_trend       = 'flat';
-				if ( $notifs_prev_7d > 0 ) {
+				if ( $notifs_prev_7d > 0 && $notifs_7d > 0 ) {
 					$pct = (int) round( ( ( $notifs_7d - $notifs_prev_7d ) / $notifs_prev_7d ) * 100 );
 					if ( 0 !== $pct ) {
 						$wow_delta_label = ( $pct > 0 ? '+' : '' ) . $pct . '%';

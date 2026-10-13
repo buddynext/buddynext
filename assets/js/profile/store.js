@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 
@@ -627,6 +627,11 @@ function clearErrors( ctx ) {
 	document.querySelectorAll( '.bn-ep-injected-error' ).forEach( function ( el ) {
 		el.remove();
 	} );
+	document.querySelectorAll( '[data-bn-ep-invalid]' ).forEach( function ( el ) {
+		el.removeAttribute( 'aria-invalid' );
+		el.removeAttribute( 'aria-describedby' );
+		el.removeAttribute( 'data-bn-ep-invalid' );
+	} );
 }
 
 /* Surface a 422's per-field errors on their controls and bring the first
@@ -643,13 +648,20 @@ function surfaceFieldErrors( errors ) {
 		var control = document.querySelector( '[name="' + key + '"], [name="' + key + '[]"]' );
 		if ( ! control ) { return; }
 		if ( ! firstControl ) { firstControl = control; }
-		if ( document.getElementById( 'bn-ep-error-' + key ) ) {
+		// Screen readers hear which field failed and why, not just "Some fields need attention".
+		var errorId = 'bn-ep-error-' + key;
+		control.setAttribute( 'aria-invalid', 'true' );
+		control.setAttribute( 'data-bn-ep-invalid', '' );
+		if ( document.getElementById( errorId ) ) {
+			control.setAttribute( 'aria-describedby', errorId );
 			return; // The server-rendered slot renders this one reactively.
 		}
 		var span = document.createElement( 'span' );
 		span.className = 'bn-ep-field-error bn-ep-injected-error';
+		span.id = errorId.replace( /[^A-Za-z0-9_-]/g, '-' );
 		span.setAttribute( 'role', 'alert' );
 		span.textContent = String( errors[ key ] );
+		control.setAttribute( 'aria-describedby', span.id );
 		var wrap = control.closest( '.bn-ep-field, .bn-ep-hero-field' ) || control.parentElement;
 		wrap.appendChild( span );
 	} );
@@ -1623,21 +1635,64 @@ const profileStore = store( 'buddynext/profile', {
 		/* Per-field autosave kept for backwards compatibility (used by sliders / toggles). */
 		autosave() { doAutoSave( getContext() ); },
 
+		/* Edit cover / Edit avatar on the profile itself: open the file picker from
+		 * this click and upload straight away. A browser only opens a picker from a
+		 * click on the same page, so the link to the edit page could never do it and
+		 * the member had to click twice. A modified click keeps the link, which is
+		 * also where a cover is repositioned and an avatar cropped. */
+		pickPhoto( event ) {
+			if ( event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ) { return; }
+			var link = event.target.closest( '[data-bn-photo]' );
+			if ( ! link || link.getAttribute( 'aria-busy' ) === 'true' ) { return; }
+			event.preventDefault();
+
+			var kind  = 'cover' === link.dataset.bnPhoto ? 'cover' : 'avatar';
+			var nonce = getContext().restNonce;
+			var input = document.createElement( 'input' );
+			input.type   = 'file';
+			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			input.addEventListener( 'change', function () {
+				var file = input.files && input.files[ 0 ];
+				if ( ! file ) { return; }
+				var fd = new FormData();
+				fd.append( 'avatar', file ); // Both endpoints read the file from this field.
+				link.setAttribute( 'aria-busy', 'true' );
+				restFetch( '/me/' + kind, { method: 'POST', nonce: nonce, body: fd, toastOnError: false } )
+					.then( function ( res ) {
+						if ( res.ok ) {
+							bnReloadWithToast( t( 'photoUpdated', 'Photo updated.' ), { tone: 'success' } );
+							return;
+						}
+						link.removeAttribute( 'aria-busy' );
+						var fallback = 'cover' === kind ? t( 'coverSaveFailed', 'Cover could not be saved' ) : t( 'avatarSaveFailed', 'Avatar could not be saved' );
+						bnToast( ( res.data && res.data.message ) || fallback, { tone: 'danger' } );
+					} )
+					.catch( function () {
+						link.removeAttribute( 'aria-busy' );
+						bnToast( 'cover' === kind ? t( 'coverSaveFailed', 'Cover could not be saved' ) : t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
+					} );
+			} );
+			input.click();
+		},
+
 		/* Slug availability check - debounced 400 ms. */
 		checkSlug() {
 			var ctx   = getContext();
 			var input = document.getElementById( 'bn-ep-slug' );
 			if ( ! input ) { return; }
 
-			var raw  = input.value.trim().toLowerCase();
-			var slug = raw.replace( /[^a-z0-9-]/g, '-' )
-			              .replace( /-{2,}/g, '-' )
-			              .replace( /^-|-$/g, '' );
-			input.value = slug;
+			// The server's alphabet (Handle::CHARSET, lowercased): letters, digits,
+			// hyphen and underscore. A space becomes a hyphen; anything else is
+			// dropped. Leading and trailing hyphens are left alone here, or a hyphen
+			// could never be typed: the server trims them on save.
+			var slug = input.value.toLowerCase()
+			                .replace( /\s+/g, '-' )
+			                .replace( /[^a-z0-9_-]/g, '' );
 
-			// Mirror the normalised value into context so the @handle preview shows
-			// what the member will actually be called, not what they typed.
+			// The box is bound to this draft (data-wp-bind--value), so the box and
+			// the @handle preview always show the same thing.
 			ctx.slugDraft = slug;
+			if ( input.value !== slug ) { input.value = slug; }
 
 			if ( slug === '' ) {
 				ctx.slugAvailable = null;
@@ -1687,6 +1742,7 @@ const profileStore = store( 'buddynext/profile', {
 				if ( res.ok && res.data ) {
 					ctx.profileUrl  = res.data.url;
 					ctx.profileSlug = res.data.slug;
+					ctx.slugDraft   = res.data.slug;
 					ctx.slugSaved   = true;
 					setTimeout( function () { ctx.slugSaved = false; }, 3000 );
 				}
@@ -2621,4 +2677,4 @@ async function doReport( ctx, result ) {
 /* Relation removal (unblock / unmute / unrestrict) — side-effect import.
    Handler now lives in social/relation-remove.js so the notifications
    sidebar muted widget gets the same behaviour. */
-import '../social/relation-remove.js';
+import '@buddynext/relation-remove';

@@ -205,6 +205,11 @@ class PostService {
 	public const LINK_META_HOOK = 'buddynext_async_fetch_link_meta';
 
 	/**
+	 * The most posts a member can pin to the top of their profile, on any plan.
+	 */
+	public const PIN_CEILING = 3;
+
+	/**
 	 * The valid members of the bn_posts.privacy ENUM.
 	 *
 	 * ONE source for the whitelist that guards every write and read of a post's
@@ -310,7 +315,37 @@ class PostService {
 		// member cannot post until they confirm their address (admins exempt).
 		// is_verified() returns true when the feature is off, so this is a no-op in
 		// open mode.
-		if ( ! user_can( $user_id, 'manage_options' )
+		//
+		// A partner's card is exempt: the partner plugin has already accepted and
+		// published that content under its own rules, so refusing the card only
+		// leaves a forum topic visible in the forum and missing from the feed, with
+		// no error for anyone to see (card 10390929273). The member's own posting
+		// stays gated.
+		//
+		// Narrow on purpose: it has to be the bridge's own write (a card always
+		// carries the partner page's link), so a post some listener creates while a
+		// bridge publish is in flight is still checked.
+		$is_partner_card = IntegrationActivity::is_system_publish() && '' !== (string) ( $data['link_url'] ?? '' );
+
+		/**
+		 * Whether a partner's activity card needs its author to have verified their email.
+		 *
+		 * Default false: the partner plugin already published the content. Return
+		 * true on a site that wants nothing from an unverified member in the feed,
+		 * whichever plugin it came through.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param bool                 $required Whether verification is required. Default false.
+		 * @param int                  $user_id  Card author.
+		 * @param array<string, mixed> $data     Card data being saved.
+		 */
+		if ( $is_partner_card && (bool) apply_filters( 'buddynext_partner_card_requires_verification', false, $user_id, $data ) ) {
+			$is_partner_card = false;
+		}
+
+		if ( ! $is_partner_card
+			&& ! user_can( $user_id, 'manage_options' )
 			&& function_exists( 'buddynext_service' )
 			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
 			return new WP_Error(
@@ -1260,7 +1295,7 @@ class PostService {
 		}
 
 		global $wpdb;
-		return $this->keyset_page(
+		$page = $this->keyset_page(
 			"SELECT c.id, c.content, c.created_at, c.object_id,
 			        p.content AS post_content, p.type AS post_type,
 			        u.display_name AS post_author_name,
@@ -1278,6 +1313,42 @@ class PostService {
 			$cursor,
 			$limit
 		);
+
+		return $this->only_readable( $page, 'object_id', $viewer_id );
+	}
+
+	/**
+	 * Keep the rows of a profile list whose post the viewer may read.
+	 *
+	 * The Replies and Likes lists select by "published and public", which is not
+	 * the whole rule: a post in a private or secret space is stored public when
+	 * the client sends no audience, a private account's public post is for its
+	 * followers, and a block hides both ways. filter_visible() is the one place
+	 * that knows all of it, so the page goes through it. A page can come back
+	 * shorter than asked; the cursor still moves past the rows that were dropped.
+	 *
+	 * @param array{items: array<int, mixed>, next_cursor: ?string} $page      Keyset page.
+	 * @param string                                                $id_key    Field holding the post id on each row.
+	 * @param int                                                   $viewer_id Viewer (0 = logged out).
+	 * @return array{items: array<int, mixed>, next_cursor: ?string}
+	 */
+	private function only_readable( array $page, string $id_key, int $viewer_id ): array {
+		$ids = array();
+		foreach ( $page['items'] as $row ) {
+			$ids[] = (int) ( is_array( $row ) ? ( $row[ $id_key ] ?? 0 ) : ( $row->$id_key ?? 0 ) );
+		}
+
+		$readable      = array_flip( $this->filter_visible( $ids, $viewer_id ) );
+		$page['items'] = array_values(
+			array_filter(
+				$page['items'],
+				static function ( $row ) use ( $readable, $id_key ): bool {
+					return isset( $readable[ (int) ( is_array( $row ) ? ( $row[ $id_key ] ?? 0 ) : ( $row->$id_key ?? 0 ) ) ] );
+				}
+			)
+		);
+
+		return $page;
 	}
 
 	/**
@@ -1319,6 +1390,7 @@ class PostService {
 			$cursor,
 			$limit
 		);
+		$page          = $this->only_readable( $page, 'id', $viewer_id );
 		$page['items'] = array_map( array( $this, 'hydrate' ), $page['items'] );
 		return $page;
 	}
@@ -1693,7 +1765,8 @@ class PostService {
 	 *   1. Block list (bidirectional) — returns a 404 WP_Error so the post's existence
 	 *      is not disclosed.
 	 *   2. Secret/hidden-space membership — non-members (and non-admins) get a 404.
-	 *   3. Followers-only privacy — a non-follower (and non-author) gets a 403.
+	 *   3. Followers-only privacy, or a private account's own-timeline post — a
+	 *      non-follower (and non-author) gets a 403.
 	 *   4. Private privacy — anyone but the author gets a 403.
 	 * The author always passes; admins (manage_options) bypass the space gate. A
 	 * missing post yields a 404. Returns null when the viewer may see the post.
@@ -1761,11 +1834,13 @@ class PostService {
 		// they can already moderate/edit it from the backend, and the space gate
 		// above grants them the same bypass (via SpaceVisibility). Gate 4 (private /
 		// "Only Me") below stays author-only even for admins.
+		//
+		// is_followers_only() also covers a private account's own-timeline post.
 		$viewer_is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
-		if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $viewer_is_admin ) {
-			$follows     = function_exists( 'buddynext_service' )
-				? buddynext_service( 'follows' )
-				: new \BuddyNext\SocialGraph\FollowService();
+		$follows         = function_exists( 'buddynext_service' )
+			? buddynext_service( 'follows' )
+			: new \BuddyNext\SocialGraph\FollowService();
+		if ( $this->is_followers_only( $post, $follows ) && ! $is_author && ! $viewer_is_admin ) {
 			$is_follower = $viewer_id > 0 && $follows->is_following( $viewer_id, $author_id );
 			if ( ! $is_follower ) {
 				return new WP_Error(
@@ -1905,6 +1980,32 @@ class PostService {
 	}
 
 	/**
+	 * Whether a post may be read by its author's approved followers only.
+	 *
+	 * True for a post made with the Followers audience, and for a public post on
+	 * the own timeline of a private account: "Only approved followers see your
+	 * posts" has to hold for a direct link, a bookmark and the engagement
+	 * endpoints, not just on the feeds. A post made in a space is left to the
+	 * space gate - the member chose to speak to that space (owner decision
+	 * 2026-10-11, card 10392816788).
+	 *
+	 * @param array                                $post    Post row.
+	 * @param \BuddyNext\SocialGraph\FollowService $follows Follow service.
+	 * @return bool
+	 */
+	private function is_followers_only( array $post, \BuddyNext\SocialGraph\FollowService $follows ): bool {
+		$privacy = (string) ( $post['privacy'] ?? '' );
+
+		if ( 'followers' === $privacy ) {
+			return true;
+		}
+
+		return 'public' === $privacy
+			&& 0 === (int) ( $post['space_id'] ?? 0 )
+			&& $follows->is_private_account( (int) ( $post['user_id'] ?? 0 ) );
+	}
+
+	/**
 	 * Filter a list of post IDs down to those the viewer is permitted to see.
 	 *
 	 * Single source of truth for the post-privacy gate that was previously
@@ -1980,7 +2081,7 @@ class PostService {
 			// grant them: an admin who moderates/edits the post from the backend
 			// getting a frontend 403 was just an inconsistency. Gate 4 (private /
 			// "Only Me") stays author-only even for admins.
-			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author && ! $is_admin ) {
+			if ( $this->is_followers_only( $post, $follows ) && ! $is_author && ! $is_admin ) {
 				if ( ! ( $viewer > 0 && $follows->is_following( $viewer, $author_id ) ) ) {
 					continue;
 				}
@@ -2349,7 +2450,12 @@ class PostService {
 			// Owners delete their own posts; site admins and space moderators
 			// may remove another member's post as a moderation action. Any
 			// other error (e.g. a missing post) is returned unchanged.
-			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+			// "Delete anyone's post" (Roles screen, moderators by default) is what
+			// the Delete button and the REST route test, so the service honours it
+			// here, for deletion only: it does not let anyone edit or hide a post.
+			$may_delete = $this->can_moderate_post( $post_id, $user_id )
+				|| ( function_exists( 'buddynext_can' ) && buddynext_can( $user_id, 'buddynext-feed/delete-any-post' ) );
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $may_delete ) {
 				return $ownership;
 			}
 		}
@@ -3008,6 +3114,83 @@ class PostService {
 	}
 
 	/**
+	 * Merge fields into the link_meta of every card stamped with a partner id.
+	 *
+	 * One UPDATE (JSON_MERGE_PATCH) per thousand cards, so an event with two
+	 * thousand attendee cards costs two writes, not two thousand. Each card's
+	 * cached row is dropped and its space's feed is told it changed, as the other
+	 * *_link_meta_* writers do.
+	 *
+	 * ponytail: the cards are found the way every *_link_meta_* method finds them,
+	 * by reading the cards of this type (link_lookup index) and matching the id
+	 * inside link_meta. That is a read of every card of the type on each call. If
+	 * a site's partner cards grow large enough for that to show, give the partner
+	 * id its own indexed column for all of those methods together.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @param string               $type     Card post type.
+	 * @param string               $meta_key link_meta field holding the partner id.
+	 * @param int                  $value    The partner id.
+	 * @param array<string, mixed> $fields   Fields to set on each card.
+	 * @return int Cards changed.
+	 */
+	public function merge_link_meta_cards( string $type, string $meta_key, int $value, array $fields ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$type,
+				'$.' . $meta_key,
+				$value
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$ids = array_values( array_filter( array_map( static fn( $row ) => (int) $row['id'], (array) $rows ) ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		// Written a thousand cards at a time, so the id list of a very popular
+		// event never grows into one statement larger than the server accepts.
+		$changed = 0;
+		$patch   = (string) wp_json_encode( $fields );
+		foreach ( array_chunk( $ids, 1000 ) as $chunk ) {
+			$in = implode( ',', $chunk );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+			$changed += (int) $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET link_meta = JSON_MERGE_PATCH( link_meta, %s ), updated_at = UTC_TIMESTAMP() WHERE id IN ({$in})",
+					$patch
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		$spaces = array();
+		foreach ( (array) $rows as $row ) {
+			wp_cache_delete( 'post_' . (int) $row['id'], self::CACHE_GROUP );
+			if ( ! empty( $row['space_id'] ) ) {
+				$spaces[ (int) $row['space_id'] ] = true;
+			}
+		}
+		foreach ( array_keys( $spaces ) as $sid ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $sid );
+		}
+
+		return $changed;
+	}
+
+	/**
 	 * Put every card of a type whose link_meta id matches into another space.
 	 *
 	 * The space-move counterpart of transition_link_meta_status(), used through
@@ -3139,6 +3322,47 @@ class PostService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * The published document posts of one member that carry a given document.
+	 *
+	 * A document post keeps its file in link_meta (doc_id), not in media_ids, so
+	 * bn_post_media does not know it. The author's own document posts are a
+	 * short list, found through the author index; the JSON match runs on those
+	 * rows only.
+	 *
+	 * @param int $author_id Post author (the document's owner).
+	 * @param int $doc_id    Document media id.
+	 * @return array<int,array{id:int,privacy:string,space_id:int}>
+	 */
+	public function document_posts( int $author_id, int $doc_id ): array {
+		if ( $author_id <= 0 || $doc_id <= 0 ) {
+			return array();
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, privacy, space_id FROM {$wpdb->prefix}bn_posts
+				  WHERE user_id = %d AND type = 'document' AND status = 'published'
+				    AND link_meta IS NOT NULL AND JSON_VALID( link_meta )
+				    AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, '$.doc_id' ) ) AS UNSIGNED ) = %d
+				  ORDER BY id DESC LIMIT 20",
+				$author_id,
+				$doc_id
+			),
+			ARRAY_A
+		);
+
+		return array_map(
+			static fn( array $row ): array => array(
+				'id'       => (int) $row['id'],
+				'privacy'  => (string) $row['privacy'],
+				'space_id' => (int) $row['space_id'],
+			),
+			(array) $rows
+		);
 	}
 
 	/**
@@ -3394,6 +3618,12 @@ class PostService {
 			return new WP_Error( 'not_post_owner', __( 'You are not the owner of this post.', 'buddynext' ) );
 		}
 
+		// Only a published post can be pinned: a draft, a scheduled or held post,
+		// or one hidden by reports is not on the profile to be featured.
+		if ( 'published' !== (string) ( $post['status'] ?? '' ) ) {
+			return new WP_Error( 'pin_not_published', __( 'Only a published post can be pinned.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
 		global $wpdb;
 
 		/**
@@ -3411,6 +3641,11 @@ class PostService {
 		// $space_id is always null now (pinning is profile-only); passed for the
 		// filter's stable 3-arg signature so Pro can still raise a member's cap.
 		$pin_limit = (int) apply_filters( 'buddynext_post_pin_limit', 1, null, $user_id );
+
+		// One ceiling for everyone, whatever a plan or a filter asks for. 0 used to
+		// mean unlimited (and administrators had no limit), and a profile then
+		// opened on a wall of pinned posts with the recent ones out of sight.
+		$pin_limit = $pin_limit > 0 ? min( $pin_limit, self::PIN_CEILING ) : self::PIN_CEILING;
 
 		if ( $pin_limit > 0 ) {
 			// Count only PUBLISHED profile pins this author already holds, excluding
@@ -4481,8 +4716,9 @@ class PostService {
 	 *
 	 * Site admins can remove any post; a space owner or moderator can remove
 	 * posts inside the space they moderate (resolved through PermissionService,
-	 * which also honours moderator scoping). Global (non-space) posts are
-	 * admin-only.
+	 * which also honours moderator scoping). Also gates editing and hiding, so
+	 * the "Delete anyone's post" capability is NOT read here: delete() adds it
+	 * for deletion alone.
 	 *
 	 * @param int $post_id Post ID.
 	 * @param int $user_id Acting user ID.

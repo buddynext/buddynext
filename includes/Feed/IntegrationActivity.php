@@ -48,6 +48,36 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * True while a bridge is re-indexing its content for search only.
+	 *
+	 * @var bool
+	 */
+	private static bool $search_only = false;
+
+	/**
+	 * Run a bridge's own sync with new activity cards switched off.
+	 *
+	 * A bridge has one sync per item, and it both indexes the item for search and
+	 * gives it a feed card when it has none. Re-indexing a whole integration
+	 * through that sync must not publish a card for every old item it meets: the
+	 * feed would fill with years of forum topics dated today. Existing cards are
+	 * still refreshed and restored as usual; only the creation of a new one is
+	 * skipped.
+	 *
+	 * @param callable $run The bridge sync to run.
+	 * @return mixed Whatever $run returns.
+	 */
+	public static function search_only( callable $run ) {
+		$before            = self::$search_only;
+		self::$search_only = true;
+		try {
+			return $run();
+		} finally {
+			self::$search_only = $before;
+		}
+	}
+
+	/**
 	 * How many bridge mirror writes are in flight (nesting-safe).
 	 *
 	 * @var int
@@ -120,6 +150,11 @@ class IntegrationActivity {
 	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0, array $meta = array() ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
+		}
+
+		// A search-only re-index never creates a card (see search_only()).
+		if ( self::$search_only ) {
+			return 0;
 		}
 
 		$type    = '' !== $type ? $type : 'link';
@@ -312,6 +347,37 @@ class IntegrationActivity {
 			$link_url,
 			self::normalise_link_meta( array_merge( $service->get_link_meta( $type, $link_url ), $meta ) )
 		);
+	}
+
+	/**
+	 * Refresh the snapshot of EVERY card of a partner id, e.g. all of an event's
+	 * cards (the organiser's and each attendee's) by their shared event_id.
+	 *
+	 * Where refresh() reaches one card by its link, a fact the partner object owns (an
+	 * event's date, cover, title) is copied onto every card about it, so when it
+	 * changes all of them have to follow. The fields given are merged over what
+	 * each card already carries; anything not named (each card's own `relation`,
+	 * its link) is left alone.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @param string               $type     Card post type (e.g. 'event').
+	 * @param string               $meta_key link_meta field the id was stored under.
+	 * @param int                  $value    The partner id whose cards to refresh.
+	 * @param array<string, mixed> $meta     Fields to update on each card.
+	 * @return int Cards refreshed.
+	 */
+	public static function refresh_by_meta( string $type, string $meta_key, int $value, array $meta ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 || array() === $meta ) {
+			return 0;
+		}
+		// Keep `image` and `thumbnail` in step, but only when the caller sent one:
+		// normalising a patch without either would blank both on every card.
+		if ( isset( $meta['image'] ) || isset( $meta['thumbnail'] ) ) {
+			$meta = self::normalise_link_meta( $meta );
+		}
+
+		return ( new PostService() )->merge_link_meta_cards( $type, $meta_key, $value, $meta );
 	}
 
 	/**

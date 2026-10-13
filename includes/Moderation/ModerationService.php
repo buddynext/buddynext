@@ -27,6 +27,11 @@ use WP_Error;
 class ModerationService {
 
 	/**
+	 * Content warning types a post can carry.
+	 */
+	public const CONTENT_WARNING_TYPES = array( 'nsfw', 'spoilers', 'violence', 'language' );
+
+	/**
 	 * Per-request answers of is_suspended(), keyed by user id.
 	 *
 	 * @var array<int,bool>
@@ -374,7 +379,7 @@ class ModerationService {
 		// enum + existence check, sharing the same front door as reactions and
 		// comments (buddynext_validate_object_target). 422 for a bogus type, 404
 		// for a target that is gone.
-		$allowed = (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'message', 'media' ) );
+		$allowed = self::reportable_types();
 		$valid   = buddynext_validate_object_target( $object_type, $object_id, $allowed );
 		if ( is_wp_error( $valid ) ) {
 			return $valid;
@@ -1167,6 +1172,11 @@ class ModerationService {
 	 *                   null when the post does not exist.
 	 */
 	public function set_post_content_warning( int $post_id, bool $has_warning, string $warning_type, int $actor_id = 0 ): ?bool {
+		// One list of warning types for every way in (REST, wp-admin, here).
+		if ( $has_warning && ! in_array( $warning_type, self::CONTENT_WARNING_TYPES, true ) ) {
+			return false;
+		}
+
 		$actor_id = $actor_id > 0 ? $actor_id : get_current_user_id();
 
 		// A site-wide community moderator, not only a WP admin (card 10264294189).
@@ -2035,59 +2045,44 @@ class ModerationService {
 	}
 
 	/**
+	 * The kinds of content a member can report.
+	 *
+	 * One list for the report form's check and for every screen that filters
+	 * reports by type, so a screen never offers a type nothing can be reported as.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @return string[]
+	 */
+	public static function reportable_types(): array {
+		return array_values( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'message', 'media' ) ) ) );
+	}
+
+	/**
 	 * Resolve the sender of each reported direct message.
 	 *
-	 * One batched read for the whole queue page — never a lookup per row — so
+	 * One batched read for the whole queue page, never a lookup per row, so
 	 * message reports can carry a real offender id for the Warn / Strike /
 	 * Suspend actions and the "Remove content" takedown can address the DM to
-	 * its author. Returns an empty map when the WPMediaVerse engine (which owns
-	 * the DM store) is absent; without it, no DM can exist to be reported.
-	 *
-	 * @internal Read-only. The engine exposes no accessor for a message's sender
-	 *           id, so this reads the messaging store directly — mirroring
-	 *           MessagesData::unread_count(). Every WRITE to a message still
-	 *           goes through MessagingService (see ModerationListener) so the
-	 *           tombstone, unread and conversation-preview bookkeeping runs.
+	 * its author. MediaVerse owns the message store and answers
+	 * (MessagingService::get_message_senders, 2.6.2). Empty when it is absent;
+	 * without it, no DM can exist to be reported.
 	 *
 	 * @param int[] $message_ids Reported message IDs.
 	 * @return array<int,int> Map of message ID => sender user ID (missing rows are omitted).
 	 */
 	public function get_message_sender_ids( array $message_ids ): array {
-		$ids = array();
-		foreach ( $message_ids as $mid ) {
-			$mid = absint( $mid );
-			if ( $mid > 0 ) {
-				$ids[ $mid ] = true;
-			}
-		}
-		$ids = array_keys( $ids );
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $message_ids ) ) ) );
 
-		if ( empty( $ids ) || ! \BuddyNext\Media\MediaClient::available() ) {
+		$messaging = $ids && \BuddyNext\Media\MediaClient::available() ? \BuddyNext\Media\MediaClient::messaging() : null;
+		if ( ! is_object( $messaging ) || ! method_exists( $messaging, 'get_message_senders' ) ) {
 			return array();
 		}
 
-		global $wpdb;
-
-		// $placeholders is a "%d,…" string bound through ...$ids; the literal
-		// placeholders live inside it, so the analyser reports UnfinishedPrepare
-		// even though the binding is correct.
-		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, sender_id FROM {$wpdb->prefix}mvs_messages WHERE id IN ({$placeholders})",
-				...$ids
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
 		$senders = array();
-		foreach ( (array) $rows as $row ) {
-			$sender = (int) $row['sender_id'];
-			if ( $sender > 0 ) {
-				$senders[ (int) $row['id'] ] = $sender;
+		foreach ( (array) $messaging->get_message_senders( $ids ) as $message_id => $sender_id ) {
+			if ( (int) $sender_id > 0 ) {
+				$senders[ (int) $message_id ] = (int) $sender_id;
 			}
 		}
 
@@ -2683,6 +2678,35 @@ class ModerationService {
 	}
 
 	/**
+	 * Hide hidden-suspended and shadow-banned authors' content from a viewer.
+	 *
+	 * The one rule every content list asks (feeds, the hashtag page): everyone
+	 * loses sight of such an author's posts except moderators, who must review
+	 * them, and the author, who must not notice. A shadow ban only works while
+	 * the member keeps seeing what they post; with their own profile suddenly
+	 * empty they knew at once (card 10393846671).
+	 *
+	 * @param string $column    Author column, optionally table-qualified.
+	 * @param int    $viewer_id Viewer (0 = logged out).
+	 * @return string SQL fragment starting with AND, or '' for a moderator.
+	 */
+	public function hidden_authors_where( string $column, int $viewer_id ): string {
+		if ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) ) {
+			return '';
+		}
+
+		$exclude = $this->moderation_exclude_sql( $column );
+		if ( $viewer_id <= 0 ) {
+			return $exclude;
+		}
+
+		// moderation_exclude_sql() has already reduced the column to a safe identifier.
+		$column = preg_replace( '/[^a-zA-Z0-9_.]/', '', $column );
+
+		return sprintf( 'AND ( %s = %d OR ( 1 = 1 %s ) )', $column, $viewer_id, $exclude );
+	}
+
+	/**
 	 * Discovery-surface counterpart to moderation_exclude_sql().
 	 *
 	 * Member-discovery surfaces (directory, search, explore) exclude a member from
@@ -2728,8 +2752,9 @@ class ModerationService {
 	 * Single source of truth for the profile "account standing" surface, shared by
 	 * the profile REST response and the server-rendered profile banner so they can
 	 * never drift. Discloses active strikes and an active suspension (reason +
-	 * expiry) to the profile OWNER (their own sanctions) and to a viewer who can
-	 * MODERATE; shadow-ban state is added for moderators ONLY (never the owner —
+	 * expiry) to the profile OWNER (their own sanctions) and to SITE STAFF - an
+	 * administrator or a site moderator, never someone who only moderates a space;
+	 * shadow-ban state is added for staff ONLY (never the owner —
 	 * revealing it would defeat the mechanism). Returns null for anyone else, and
 	 * for a clean owner profile (nothing to warn about), so a spotless account
 	 * shows no banner.
@@ -2739,9 +2764,12 @@ class ModerationService {
 	 * @return array<string, mixed>|null Status payload, or null when not disclosable.
 	 */
 	public function account_status_for( int $profile_user_id, int $viewer_id ): ?array {
-		$is_self      = ( $viewer_id > 0 && $viewer_id === $profile_user_id );
-		$can_moderate = current_user_can( 'manage_options' )
-			|| ! empty( $this->get_moderated_space_ids( $viewer_id ) );
+		$is_self = ( $viewer_id > 0 && $viewer_id === $profile_user_id );
+		// Site staff only. Owning or moderating a space does not qualify: that
+		// viewer handles their own space's reports and has no business reading the
+		// record of a member who was never in it (owner decision 2026-10-11).
+		$can_moderate = $viewer_id > 0
+			&& ( user_can( $viewer_id, 'manage_options' ) || $this->is_site_moderator( $viewer_id ) );
 
 		// Privileged — regular members never receive it.
 		if ( ! $is_self && ! $can_moderate ) {
@@ -2991,7 +3019,7 @@ class ModerationService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, suspension_id, user_id, message, status, created_at
+				"SELECT id, suspension_id, user_id, message, status, reviewer_note, created_at
 				 FROM {$wpdb->prefix}bn_appeals
 				 WHERE user_id = %d
 				 ORDER BY created_at DESC
@@ -3151,6 +3179,31 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a user may read and decide appeals.
+	 *
+	 * Administrators only by default: an appeal asks someone above the moderator
+	 * who issued the penalty to look again, so it is not decided at that level.
+	 * The one rule for the service, the REST routes and the Appeals tab, so a
+	 * person is never shown buttons that then refuse them.
+	 *
+	 * @param int $user_id User to check.
+	 * @return bool
+	 */
+	public static function can_resolve_appeals( int $user_id ): bool {
+		/**
+		 * Filter who may read and decide appeals.
+		 *
+		 * An owner with a dedicated trust team can return true for those people.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param bool $allowed Whether the user may. Default: administrators.
+		 * @param int  $user_id User being checked.
+		 */
+		return (bool) apply_filters( 'buddynext_can_resolve_appeals', $user_id > 0 && user_can( $user_id, 'manage_options' ), $user_id );
+	}
+
+	/**
 	 * Resolve an appeal (approve or deny).
 	 *
 	 * @param int    $appeal_id      Appeal to resolve.
@@ -3160,7 +3213,7 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function resolve_appeal( int $appeal_id, int $actor_id, string $decision, string $reviewer_note = '' ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! self::can_resolve_appeals( $actor_id ) ) {
 			// Carry the 403 on the error itself so every route reports it correctly.
 			// The REST resolve route now preserves the service's status rather than
 			// flattening everything that is not 'forbidden' to 400 — which is what

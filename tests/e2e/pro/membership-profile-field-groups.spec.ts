@@ -156,10 +156,19 @@ test.describe('pro / gate profile field groups behind a plan', () => {
             await page.goto(`/?autologin=${MEMBER_DEFAULT}`, { waitUntil: 'domcontentloaded' });
             await page.goto(`/members/${MEMBER_DEFAULT}/edit/`, { waitUntil: 'domcontentloaded' });
 
+            // The default (free) plan may itself lock groups (the model site locks
+            // work_experience there), so the expectation is that plan's own count, not zero.
+            const defaultLocked = Number(
+                await wp([
+                    'eval',
+                    `global $wpdb; $e = json_decode( (string) $wpdb->get_var( "SELECT entitlements FROM {$wpdb->prefix}bn_membership_tiers WHERE is_free = 1 AND status = 'active' ORDER BY id LIMIT 1" ), true );` +
+                        ` echo count( (array) ( $e['profile.locked_groups'] ?? array() ) );`,
+                ])
+            );
             await expect(
                 page.locator('.bn-ep-group--locked'),
-                'a member not on the restricted plan should see no locked groups'
-            ).toHaveCount(0);
+                `a member on the default plan sees exactly the groups that plan locks (${defaultLocked})`
+            ).toHaveCount(defaultLocked);
         });
     }
 });

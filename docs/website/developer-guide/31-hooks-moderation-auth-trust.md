@@ -43,6 +43,7 @@ Because it runs on both, the filter is passed a final `$context` argument - `'cr
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
 | `buddynext_moderation_auto_actions` | filter | A report has just been inserted, deciding which automated actions to apply (Free returns empty; Pro stacks actions here) | `array $actions, array $report` |
 | `buddynext_suspension_reasons` | filter | Building the reason list moderators pick from when suspending a member. Keep `other`: it is the free-text fallback and requires a note. Since 1.2.4. | `array $reasons` (code => member-facing label) |
+| `buddynext_can_resolve_appeals` | filter | Deciding who may read and decide appeals (wp-admin, Community Admin and REST). Default is site administrators; return `true` for a dedicated trust team. Since 1.2.5. | `bool $allowed, int $user_id` |
 
 > **Note:** `$result` is `true` when every built-in check passed. To block content, return a `WP_Error`. To allow it, return `$result` unchanged. Returning a non-`WP_Error`, non-`true` value is treated as allow. The `pending_review` error code is intentionally non-fatal upstream - callers save the post with a pending status rather than discarding it - so reserve `WP_Error` returns from your filter for content you genuinely want rejected.
 
@@ -239,6 +240,7 @@ Narrower hooks around report handling, the sign-up and login screens, and onboar
 | `buddynext_rate_limit_exempt` | filter | The post rate limit is checked. Default: site admins and moderators are exempt. One filter lifts every post throttle, for example during an import replay. | `bool $exempt, int $user_id` |
 | `buddynext_report_reason_labels` | filter | Report reason labels are resolved. Pair with `buddynext_report_reasons`, which decides which reasons exist. | `array $labels` (slug => label) |
 | `buddynext_reportable_object_types` | filter | A report is filed. The closed list of object types that may be reported (default `post`, `comment`, `user`, `message`, `media`). | `string[] $types` |
+| `buddynext_object_exists` | filter | A report, reaction or comment names an object BuddyNext does not own. The plugin that owns the type answers whether the id exists, so a write aimed at nothing is refused with 404. Return null when the type is not yours. The media bridge answers for `message` and `media`. | `bool\|null $exists, string $object_type, int $object_id` |
 | `buddynext_removed_content_author` | filter | A takedown notice needs the author of removed content. An extension that claimed its own object type resolves the author here. | `int $author_id, string $object_type, int $object_id` |
 | `buddynext_object_label` | filter | A moderation object gets its label in reports and the log. Name your own object type here, or moderators see a bare "Thing #12". | `string $label, string $object_type, int $object_id` |
 | `buddynext_engagement_object_types` | filter | Reactions and comments check which object types they accept (default `post`, `comment`). | `string[] $types` |
@@ -262,6 +264,8 @@ Narrower hooks around report handling, the sign-up and login screens, and onboar
 | `buddynext_invite_csv_max_rows` | filter | An invite CSV is uploaded. Caps the rows processed per upload (default `500`). | `int $max` |
 | `buddynext_legal_page_url` | filter | A terms or privacy page URL is resolved for the sign-up consent text. Answer for terms hosted off-site. Applied on every path, including unreadable pages. | `string $url, int $page_id` |
 | `buddynext_unverified_purge_days` | filter | The cron purge reads how many days a never-verified account is kept (default `7`; `0` disables the purge). | `int $days` |
+| `buddynext_owns_core_auth_links` | filter | Core's `login_url`, `register_url` or `lostpassword_url` is being answered on the front end. BuddyNext returns its own login, signup and reset pages (with the page the visitor is on carried as `redirect_to`). Return `false` to leave core's addresses alone. Since 1.2.5. | `bool $takes_over` |
+| `buddynext_unverified_account_keep` | filter | The cron purge is about to delete a never-verified account past the grace period. Return `true` to keep it. Default keeps an account that has posted; BuddyNext Pro keeps paying members. Since 1.2.5. | `bool $keep, int $user_id` |
 | `buddynext_auth_show_form_logo` | filter | The auth card decides whether to repeat the logo above the form (default `false`; the theme header already shows it). | `bool $show` |
 | `buddynext_signup_url` / `buddynext_reset_url` / `buddynext_verify_url` | filter | The sign-up, password-reset, and email-verification screen URLs are resolved. Defaults are `{auth}/signup/`, `{auth}/reset/`, and `{auth}/verify/`. | `string $url` |
 

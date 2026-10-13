@@ -50,7 +50,6 @@ class AbilitiesTest extends \WP_UnitTestCase {
 				'buddynext-feed/create-post',
 				'buddynext-feed/delete-own-post',
 				'buddynext-feed/delete-any-post',
-				'buddynext-feed/pin-post',
 				'buddynext-feed/schedule-post',
 				'buddynext-spaces/create',
 				'buddynext-spaces/join',

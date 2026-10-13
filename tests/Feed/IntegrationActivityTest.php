@@ -38,6 +38,54 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A partner's card is published for an author whose email is not verified.
+	 *
+	 * The partner plugin already accepted and published the content. Dropping its
+	 * card left a forum topic visible in the forum and missing from the feed, with
+	 * no error anywhere. The member's own posting stays gated.
+	 *
+	 * @return void
+	 */
+	public function test_publish_is_not_blocked_by_an_unverified_author(): void {
+		update_option( 'buddynext_email_verify', 1 );
+		update_option( 'buddynext_email_verify_enabled_at', time() - DAY_IN_SECONDS );
+		$author = self::factory()->user->create();
+		$this->assertFalse( buddynext_service( 'verification' )->is_verified( $author ), 'Fixture: the author is unverified.' );
+
+		$id = IntegrationActivity::publish( $author, 'started a discussion', 'https://example.test/s/general/t/unverified/', 'Unverified topic' );
+		$this->assertIsInt( $id );
+		$this->assertGreaterThan( 0, $id );
+
+		$own = ( new \BuddyNext\Feed\PostService() )->create(
+			$author,
+			array(
+				'type'    => 'text',
+				'content' => 'My own post',
+			)
+		);
+		$this->assertWPError( $own );
+		$this->assertSame( 'email_unverified', $own->get_error_code() );
+	}
+
+	/**
+	 * An owner can keep unverified members' partner cards out with one filter.
+	 *
+	 * @return void
+	 */
+	public function test_partner_card_verification_can_be_required_by_filter(): void {
+		update_option( 'buddynext_email_verify', 1 );
+		update_option( 'buddynext_email_verify_enabled_at', time() - DAY_IN_SECONDS );
+		$author = self::factory()->user->create();
+		add_filter( 'buddynext_partner_card_requires_verification', '__return_true' );
+
+		$result = IntegrationActivity::publish( $author, 'started a discussion', 'https://example.test/s/general/t/held/', 'Held topic' );
+
+		remove_filter( 'buddynext_partner_card_requires_verification', '__return_true' );
+		$this->assertWPError( $result );
+		$this->assertSame( 'email_unverified', $result->get_error_code() );
+	}
+
+	/**
 	 * A bare publish() records a public link post for the member.
 	 *
 	 * @return void
@@ -80,6 +128,44 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertNull( $row()->space_id );
 		$this->assertSame( 'public', $row()->privacy );
 		$this->assertSame( 'published', $row()->status );
+	}
+
+	/**
+	 * refresh_by_meta() brings every card of a partner id up to date and leaves
+	 * each card's own fields, and other partner ids, alone.
+	 *
+	 * @return void
+	 */
+	public function test_refresh_by_meta_updates_every_card_of_the_id(): void {
+		$attendee  = self::factory()->user->create();
+		$facts     = array(
+			'event_id' => 9,
+			'day'      => '20',
+			'month'    => 'Sep',
+		);
+		$organiser = IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/event/9/', 'Meetup', 'event', '', 0, $facts + array( 'relation' => 'organizing' ) );
+		$going     = IntegrationActivity::publish( $attendee, 'is attending', 'https://example.test/event/9/?going=' . $attendee, 'Meetup', 'event', '', 0, $facts + array( 'relation' => 'attending' ) );
+		$other     = IntegrationActivity::publish( $attendee, 'is attending', 'https://example.test/event/10/', 'Other', 'event', '', 0, array( 'event_id' => 10, 'day' => '20' ) );
+		$meta      = static fn( int $id ): array => (array) ( new \BuddyNext\Feed\PostService() )->get( $id )['link_meta'];
+
+		$this->assertSame(
+			2,
+			IntegrationActivity::refresh_by_meta(
+				'event',
+				'event_id',
+				9,
+				array(
+					'day'   => '18',
+					'month' => 'Oct',
+					'title' => 'Meetup, moved',
+				)
+			)
+		);
+
+		$this->assertSame( array( '18', 'Oct', 'Meetup, moved', 'attending' ), array( $meta( $going )['day'], $meta( $going )['month'], $meta( $going )['title'], $meta( $going )['relation'] ) );
+		$this->assertSame( array( '18', 'organizing' ), array( $meta( $organiser )['day'], $meta( $organiser )['relation'] ) );
+		$this->assertSame( '20', $meta( $other )['day'], 'Another event is not touched.' );
+		$this->assertStringContainsString( 'going=', (string) $meta( $going )['url'], 'The attendee link is kept.' );
 	}
 
 	/**

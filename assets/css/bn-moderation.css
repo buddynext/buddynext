@@ -143,7 +143,7 @@
 .bn-ca-subheader__link:hover { color: var(--bn-ink); }
 
 .bn-ca-subheader__link[data-emphasis="primary"] {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-semibold);
 }
 
@@ -200,7 +200,7 @@
 
 .bn-ca-nav-item[aria-current="page"] {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	border-inline-start-color: var(--bn-accent);
 	font-weight: var(--bn-fw-semibold);
 }
@@ -322,7 +322,7 @@
 
 .bn-ca-card__link {
 	font-size: var(--bn-text-xs);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 	font-weight: var(--bn-fw-semibold);
 }

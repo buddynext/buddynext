@@ -163,8 +163,21 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 			)
 		);
 
-		$expected = home_url( 'gamification/badge/champ/' . $this->member_id . '/share/' );
-		$this->assertStringContainsString( esc_url( $expected ), $this->render() );
+		$expected = esc_url( home_url( 'gamification/badge/champ/' . $this->member_id . '/share/' ) );
+
+		// The member opens their own badge page.
+		wp_set_current_user( $this->member_id );
+		$this->assertStringContainsString( $expected, $this->render() );
+
+		// A visitor gets a plain tile, not a link, while the partner cannot say
+		// which badges are published (WB Gamification older than 1.6.5): the link
+		// would only send them to the login page (card 10393921605).
+		if ( ! function_exists( 'wb_gam_get_shared_badges' ) ) {
+			wp_set_current_user( 0 );
+			$html = $this->render();
+			$this->assertStringContainsString( 'Champion', $html, 'The badge is still shown.' );
+			$this->assertStringNotContainsString( $expected, $html, 'But not as a link.' );
+		}
 	}
 
 	public function test_panel_shows_standing_strip(): void {

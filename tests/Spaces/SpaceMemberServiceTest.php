@@ -48,19 +48,32 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->service->is_member( $this->space_id, $user_id ) );
 	}
 
-	public function test_new_member_defaults_to_quieter_notifications(): void {
-		// Owner ruling (card 10294398101 item 7): a new member is NOT silently
-		// subscribed to every post — they start on 'mentions_only' and opt UP to
-		// 'all'. Guards against a regression of the default back to 'all'.
+	public function test_new_member_hears_new_posts_in_the_bell_by_default(): void {
+		// Owner ruling, 12 Oct 2026 (card 10393846811), replacing card 10294398101
+		// item 7: a member who joins a space hears from it. New posts reach the
+		// bell until they turn it down, and by default never their inbox.
 		$user_id = self::factory()->user->create();
 
 		$this->service->join( $this->space_id, $user_id );
 
 		$this->assertSame(
-			'mentions_only',
+			'all',
 			$this->service->get_notification_pref( $this->space_id, $user_id ),
-			'A member joining a space (owner default unset) must default to mentions_only, not all.'
+			'A member joining a space (owner default unset) hears about new posts.'
 		);
+
+		$catalogue = ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all();
+		$this->assertTrue( (bool) $catalogue['bn.space_new_post']['default_on_site'], 'In the bell.' );
+		$this->assertSame( 'off', $catalogue['bn.space_new_post']['default_email_freq'], 'Not by email unless the member asks.' );
+	}
+
+	public function test_space_owner_can_still_set_a_quieter_default(): void {
+		update_space_meta( $this->space_id, 'default_notification_pref', 'mentions_only' );
+		$user_id = self::factory()->user->create();
+
+		$this->service->join( $this->space_id, $user_id );
+
+		$this->assertSame( 'mentions_only', $this->service->get_notification_pref( $this->space_id, $user_id ) );
 	}
 
 	public function test_duplicate_join_is_safe(): void {

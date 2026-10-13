@@ -73,9 +73,15 @@ if ( $bn_verify_user ) {
 
 $bn_feed_url       = \BuddyNext\Core\PageRouter::activity_url();
 $bn_onboarding_url = \BuddyNext\Core\PageRouter::onboarding_url();
-$bn_auth_url       = \BuddyNext\Core\PageRouter::auth_url();
-$bn_rest_root      = esc_url_raw( rest_url( 'buddynext/v1/' ) );
-$bn_resend_nonce   = wp_create_nonce( 'wp_rest' );
+// Verified, and no welcome wizard to go through: Continue takes the member back
+// to the page they signed up from (once), instead of a wizard address that only
+// forwards to the feed.
+if ( 'success' === $bn_verify_state && ! buddynext_feature_enabled( 'onboarding' ) ) {
+	$bn_onboarding_url = \BuddyNext\Auth\AuthController::take_signup_return( get_current_user_id(), $bn_onboarding_url );
+}
+$bn_auth_url     = \BuddyNext\Core\PageRouter::auth_url();
+$bn_rest_root    = esc_url_raw( rest_url( 'buddynext/v1/' ) );
+$bn_resend_nonce = wp_create_nonce( 'wp_rest' );
 
 // Ensure the auth bundle CSS is enqueued — verify.php may render via
 // the hub bundle path which auto-enqueues bn-auth, but defending against
@@ -271,6 +277,25 @@ wp_enqueue_style( 'bn-auth' );
 				<p class="bn-auth-sub">
 					<?php esc_html_e( 'Click the link in the email to verify your address. The link expires in 48 hours.', 'buddynext' ); ?>
 				</p>
+
+				<?php
+				// Say so before it happens: an account that never verifies is deleted
+				// by the cleanup job (CronService::purge_stale_unverified()).
+				$bn_verify_purge_days = (bool) get_option( 'buddynext_email_verify', false ) ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
+				if ( $bn_verify_purge_days > 0 ) :
+					?>
+					<p class="bn-auth-sub">
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: %s: number of days. */
+								_n( 'An account that is not verified within %s day is removed.', 'An account that is not verified within %s days is removed.', $bn_verify_purge_days, 'buddynext' ),
+								number_format_i18n( $bn_verify_purge_days )
+							)
+						);
+						?>
+					</p>
+				<?php endif; ?>
 
 				<div class="bn-badge bn-verify-feedback" role="status" aria-live="polite"
 					data-wp-bind--hidden="!state.feedback"

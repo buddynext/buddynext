@@ -74,7 +74,15 @@ final class StateReset implements BeforeTestHook {
 		),
 		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
 		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
-		\BuddyNext\Core\PermissionService::class          => array( 'role_map_cache' => null ),
+		// The hard-ban memo, and its "forget on ban/unban" hooks: the suite resets hooks
+		// between tests, so the flag must reset too or later tests read a stale ban.
+		\BuddyNext\Core\PermissionService::class          => array(
+			'role_map_cache'  => null,
+			'hard_ban_memo'   => array(),
+			'ban_memo_hooked' => false,
+		),
+		// Image addresses resolved from disk, remembered for one request.
+		\BuddyNext\Media\ImageStorageService::class      => array( 'url_memo' => array() ),
 		// Both report-reason memos: the slug list and its labels. Each applies a
 		// filter once per request, so a test that adds a reason must not inherit
 		// the previous test's answer.
@@ -117,6 +125,9 @@ final class StateReset implements BeforeTestHook {
 			'rendering'           => null,
 			'title_claimed'       => false,
 			'search_note_printed' => false,
+			// Space id => slug, remembered for a request. A space made in one test
+			// must not lend its address to the same id in the next.
+			'space_slugs'         => array(),
 		),
 		// Re-entrancy flags. A test that dies mid-sync leaves these true and every
 		// later test silently skips the work they guard.
@@ -136,6 +147,7 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Feed\IntegrationActivity::class        => array(
 			'system_publish' => false,
 			'mirror_depth'   => 0,
+			'search_only'    => false,
 		),
 		\BuddyNext\Outbound\WebhookLog::class             => array( 'in_request' => false ),
 		// Per-REQUEST record of spaces unlocked by opening a valid invite link. Must

@@ -309,6 +309,15 @@ if ( ! class_exists( 'Member_Blog_Compat' ) ) {
 		public static function get_dashboard_url( $user_id = 0 ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
 			return '';
 		}
+		/**
+		 * Stub for the real per-post edit address resolver.
+		 *
+		 * @param int $post_id The post.
+		 * @return string
+		 */
+		public static function get_edit_post_url( $post_id ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Stub.
+			return '';
+		}
 	}
 }
 

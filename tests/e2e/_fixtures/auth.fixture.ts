@@ -1,4 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
+import { settleOverlays, satisfyRequiredFields } from './wp';
 
 /**
  * Custom Playwright fixture: `authenticatedPage`.
@@ -22,7 +23,11 @@ const TEST_USER = process.env.BN_TEST_USER ?? 'varundubey';
 const TEST_PASS = process.env.BN_TEST_PASS ?? 'password';
 
 async function tryAutologin(page: Page): Promise<boolean> {
-    await page.goto('/?autologin=1', { waitUntil: 'domcontentloaded' });
+    // The mu-plugin accepts a login name. `autologin=1` always meant user ID 1, so with a
+    // BN_TEST_USER other than that account every "own profile" spec acted as the wrong
+    // member (the 2026-10-12 gate: Edit link "missing", follow rows for the wrong actor,
+    // the space owner not on their own roster).
+    await page.goto(`/?autologin=${encodeURIComponent(TEST_USER)}`, { waitUntil: 'domcontentloaded' });
     const cookies = await page.context().cookies();
     return cookies.some((c) => c.name.startsWith('wordpress_logged_in'));
 }
@@ -51,6 +56,9 @@ export const test = base.extend<AuthFixtures>({
             `Login fixture expected a wordpress_logged_in_* cookie. Set BN_TEST_USER / BN_TEST_PASS env vars if defaults don't match.`
         ).toBeTruthy();
 
+        await settleOverlays(page);
+        // A member must satisfy the site's required profile fields before any full save.
+        await satisfyRequiredFields(TEST_USER);
         await use(page);
     },
 });

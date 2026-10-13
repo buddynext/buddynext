@@ -1711,6 +1711,27 @@ class FieldType {
 	}
 
 	/**
+	 * Whether a value is a web address a member may put on their profile.
+	 *
+	 * Checks the FORM only (http/https and a dotted host), not whether this server
+	 * may fetch it - that is wp_http_validate_url()'s job, and it would wrongly
+	 * refuse private hosts and unusual TLDs. One rule for every entry point: the
+	 * profile REST route and FieldType::sanitize() both ask here.
+	 *
+	 * @param string $url Candidate URL, scheme included.
+	 * @return bool
+	 */
+	public static function is_web_url( string $url ): bool {
+		$parts  = wp_parse_url( $url );
+		$scheme = is_array( $parts ) ? strtolower( (string) ( $parts['scheme'] ?? '' ) ) : '';
+		$host   = is_array( $parts ) ? (string) ( $parts['host'] ?? '' ) : '';
+
+		return false !== filter_var( $url, FILTER_VALIDATE_URL )
+			&& in_array( $scheme, array( 'http', 'https' ), true )
+			&& str_contains( $host, '.' );
+	}
+
+	/**
 	 * Validate + sanitize a raw submitted value into a storable scalar.
 	 *
 	 * Returns a storable scalar string (multi → comma-joined option slugs) or a
@@ -1736,8 +1757,10 @@ class FieldType {
 				return sanitize_textarea_field( (string) ( is_array( $raw ) ? '' : $raw ) );
 
 			case 'url':
+				// esc_url_raw() turns any bare word into http://word, so the result is
+				// also held to the same form rule the profile REST route uses.
 				$url = esc_url_raw( trim( (string) $raw ) );
-				if ( '' !== trim( (string) $raw ) && '' === $url ) {
+				if ( '' !== trim( (string) $raw ) && ( '' === $url || ! self::is_web_url( $url ) ) ) {
 					/* translators: %s: field label. */
 					return new WP_Error( 'bn_invalid_url', sprintf( __( '%s must be a valid URL.', 'buddynext' ), $label ) );
 				}

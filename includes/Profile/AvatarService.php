@@ -482,10 +482,10 @@ class AvatarService {
 	 * (ImageStorageService); legacy, external, or plugin-supplied URLs return a
 	 * '' from variation_url() and fall through unchanged.
 	 *
-	 * The thumb URL is stable (no cache-buster of its own), so we carry over the
-	 * `v=` token from the canonical `full` URL — both variations are (re)written
-	 * together on upload, so that token tracks the thumb too and a replacement
-	 * never serves a stale cached thumbnail.
+	 * A stored file name carries its own version, so its thumb URL already changes
+	 * with the image. An avatar stored before 1.2.5 has a fixed name; for that one
+	 * we carry over the `v=` token from the canonical `full` URL — both variations
+	 * were written together on upload, so the token tracks the thumb too.
 	 *
 	 * @param string               $canonical Stored avatar URL (the `full` variation).
 	 * @param int                  $user_id   Owner user ID.

@@ -680,6 +680,41 @@ class NotificationService {
 	}
 
 	/**
+	 * Delete several of a member's own notifications in one go.
+	 *
+	 * One statement, scoped to the member: an id that belongs to someone else (or
+	 * to nobody) simply matches no row, so the count says how many were theirs.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @param int[] $ids     Notification ids (at most 200 are used).
+	 * @param int   $user_id The member deleting them.
+	 * @return int Rows deleted.
+	 */
+	public function delete_many( array $ids, int $user_id ): int {
+		global $wpdb;
+
+		$ids = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ), 0, 200 );
+		if ( $user_id <= 0 || empty( $ids ) ) {
+			return 0;
+		}
+
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is an int-mapped id list.
+		$deleted = $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND id IN ({$in})",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$this->forget_counts( $user_id );
+
+		return is_int( $deleted ) ? $deleted : 0;
+	}
+
+	/**
 	 * Mark all of a user's notifications as read.
 	 *
 	 * @param int $user_id User whose notifications to mark.
@@ -1140,7 +1175,9 @@ class NotificationService {
 
 	/**
 	 * The inbox tabs this site offers. No Messages tab while messaging is off
-	 * in WPMediaVerse.
+	 * in WPMediaVerse, and no Reactions tab while the owner has reactions off
+	 * (the tab, and its "No reactions yet" empty state, would promise something
+	 * the community does not have). Reaction rows from before stay under All.
 	 *
 	 * @return string[]
 	 */
@@ -1148,6 +1185,9 @@ class NotificationService {
 		$filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );
 		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
 			$filters = array_values( array_diff( $filters, array( 'message' ) ) );
+		}
+		if ( function_exists( 'buddynext_feature_enabled' ) && ! buddynext_feature_enabled( 'reactions' ) ) {
+			$filters = array_values( array_diff( $filters, array( 'reaction' ) ) );
 		}
 		return $filters;
 	}

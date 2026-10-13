@@ -27,10 +27,10 @@ A member submits an appeal against a specific suspension and waits for a moderat
 
 ## How it works (for moderators)
 
-Moderators see pending appeals under **BuddyNext > Moderation > Appeals** in wp-admin, or on the **Appeals** tab of **Community Admin > Moderation** on the front end, and resolve each one with a decision.
+Site administrators see pending appeals under **BuddyNext > Moderation > Appeals** in wp-admin, or on the **Appeals** tab of **Community Admin > Moderation** on the front end, and resolve each one with a decision.
 
 1. **Review the appeal.** Open the pending appeal to read the member's message and see which suspension it targets.
-2. **Decide.** Approve the appeal (**Approve & lift suspension** in Community Admin) or deny it. In wp-admin you can attach a note explaining your reasoning, which becomes part of the record.
+2. **Decide.** Approve the appeal (**Approve & lift suspension** in Community Admin) or deny it. In wp-admin you can add a short note with the decision. The member sees it next to the outcome on their Account status page.
 3. **Approving lifts the suspension.** When you approve an appeal, BuddyNext lifts the exact suspension that was appealed - the member can post again immediately. Denying the appeal leaves the suspension in place.
 
 > **Tip:** Approving an appeal is the clean way to undo a suspension, because it both records the decision and lifts the suspension in one step - you do not have to separately go and unsuspend the member.

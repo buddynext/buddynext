@@ -11,7 +11,7 @@
             "name": "GPL-2.0-or-later",
             "identifier": "GPL-2.0-or-later"
         },
-        "version": "1.2.4"
+        "version": "1.2.5"
     },
     "servers": [
         {
@@ -5771,6 +5771,56 @@
                         "appPassword": []
                     }
                 ]
+            },
+            "delete": {
+                "tags": [
+                    "Notifications"
+                ],
+                "operationId": "delete_me_notifications",
+                "summary": "DELETE /buddynext/v1/me/notifications",
+                "parameters": [
+                    {
+                        "name": "ids",
+                        "in": "query",
+                        "required": true,
+                        "description": "Ids of the member's own notifications to delete. At most 200 per request.",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/me/notifications/read-all": {
@@ -10341,6 +10391,36 @@
                         "description": "Pro: filter members active within the last N days (1-365).",
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "required": false,
+                        "description": "Only results updated within this window.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "any",
+                                "week",
+                                "month",
+                                "year"
+                            ],
+                            "default": "any"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "description": "Order results by relevance or by most recent.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "relevant",
+                                "recent"
+                            ],
+                            "default": "relevant"
                         }
                     }
                 ],

@@ -66,7 +66,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Pin a post to a profile, or pin a comment on a post? | YES | `PostService::pin()`/`unpin()` (profile-only, capped by the `buddynext_post_pin_limit` filter, default 1); `CommentController::pin()`/`unpin()` caps one pinned top-level comment per object via `bn_pinned_comment_*` option |
 | Bookmark and reshare posts? | YES | `bn_bookmarks`, `bn_shares`. 1.1.7: Save in the media lightbox bookmarks the POST the photo belongs to, so it lands in the same saved list as Save on the feed card - it previously wrote a WPMediaVerse Pro collection, a different store behind an identical icon. Reactions left in the lightbox likewise apply to the post and are counted once |
 | Follow people, and connect mutually? | YES | `bn_follows` (follow) and `bn_connections` (request/accept) are separate graphs |
-| Block another member? | YES | `bn_blocks`; enforced on feed, comments and DM |
+| Block another member? | YES | `bn_blocks`; enforced on feed, comments and DM. A blocked DM turns read-only, and the member who blocked can Unblock from the thread, its info panel or the other member's Message link |
 | Mute a member's posts without blocking them? | YES | `SocialGraph\BlockService::mute()`/`unmute()`; same `bn_blocks` table as Block, distinct `type = 'mute'` row - silences content without notifying the muted member, and never downgrades an existing block |
 | Restrict a member without them knowing? | YES | `SocialGraph\BlockService::restrict()`; `type = 'restrict'` row in `bn_blocks` - the restricted member keeps seeing the restrictor's profile/posts, but the effect is one-way and silent |
 | Group content into spaces? | YES | 32 `/spaces` routes, `bn_spaces` + `bn_space_members` + `bn_space_meta` |
@@ -150,6 +150,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Run behind a page cache? | YES | 1.2.2. Logged-in community pages are marked uncacheable (`DONOTCACHEPAGE` + `nocache_headers()` in `Core\PageRouter`); guest views of public pages stay cached and are purged on change by `Core\PageCachePurger`. Tested with WP Super Cache, W3 Total Cache, WP Rocket and LiteSpeed Cache |
 | Offer a REST API? | YES | 224 routes under `buddynext/v1`; catalogued in `docs/api/openapi.json` (210 paths) |
 | Send outbound webhooks? | YES | opt-in. `bn_outbound_webhooks` + log; 4 `/webhooks` routes |
+| Accept signed requests from Make, Zapier or n8n? | YES | `POST /webhook/access` (HMAC with timestamp): abilities, credits, roles (off by default), and with Pro `grant_plan` / `extend_plan` / `cancel_plan`. An account it creates for a new buyer (opt-in) is always a plain member. The Webhooks screen shows the endpoint, a request to copy and the last ten requests. `Outbound\AccessWebhookController` |
 | Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
 | Integrate with Wbcom plugins? | YES | bridges for WPMediaVerse (DM), Jetonomy (forums), Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |

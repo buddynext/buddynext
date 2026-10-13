@@ -40,7 +40,7 @@ A flagged post is not blocked. It publishes normally, and a report is filed to t
 
 ## Setting it up (for owners)
 
-All safeguards live under **BuddyNext > Moderation > Controls**. Each one is a single option you can change at any time without touching code. Leave a list empty to turn a list-based guard off. Numeric guards that can be switched off carry a tick box for it - untick the box and the number field is ignored. A few guards have no off switch and take a minimum of 1; they are marked below.
+All safeguards live under **BuddyNext > Automation > Controls**. Each one is a single option you can change at any time without touching code. Leave a list empty to turn a list-based guard off. Numeric guards that can be switched off carry a tick box for it - untick the box and the number field is ignored. A few guards have no off switch and take a minimum of 1; they are marked below.
 
 | Setting | What it does | Default |
 |---|---|---|

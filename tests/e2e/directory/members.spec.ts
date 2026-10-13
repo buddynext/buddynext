@@ -128,13 +128,17 @@ test.describe('directory / members', () => {
         await wp(['db', 'query', clearSql]);
 
         try {
-            await Promise.all([
+            const [followResponse] = await Promise.all([
                 page.waitForResponse(
                     (r) => r.url().includes(`/users/${targetId}/follow`) && r.request().method() === 'POST',
                     { timeout: 10_000 }
                 ),
                 card.locator(sel.memberCardFollow).first().click(),
             ]);
+            expect(
+                followResponse.status(),
+                `the follow call must succeed: ${await followResponse.text().catch(() => '')}`
+            ).toBeLessThan(300);
 
             expect(
                 await dbCount(rowSql),

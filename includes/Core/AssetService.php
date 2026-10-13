@@ -650,6 +650,17 @@ class AssetService {
 			array( array( 'id' => '@buddynext/rest-client' ) ),
 			$this->module_version( 'js/media/upload-core.js' )
 		);
+		// `@buddynext/relation-remove` is the unblock / unmute / unrestrict click
+		// handler the profile and notifications stores pull in as a side effect.
+		wp_register_script_module(
+			'@buddynext/relation-remove',
+			$this->assets_url . 'js/social/relation-remove.js',
+			array(
+				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/nav-init' ),
+			),
+			$this->module_version( 'js/social/relation-remove.js' )
+		);
 		// `@buddynext/cover-reposition` is the single drag-to-pan / zoom modal
 		// shared by the member profile cover and the space cover, so both frame a
 		// cover identically. Pure DOM (no store internals), hence no deps.
@@ -808,8 +819,15 @@ class AssetService {
 			}
 			// Media stores import the shared upload core (validate/preview/upload
 			// helpers) — declare it so its import-map entry is versioned too.
-			if ( '@buddynext/media-upload' === $id || '@buddynext/media-albums' === $id ) {
+			// The messages store previews attachments with it as well. It imported
+			// the file by relative path until 1.2.5, which is exactly the stale-cache
+			// failure described above: an old cached copy without mediaPreview broke
+			// sending for good (card 10392657469).
+			if ( in_array( $id, array( '@buddynext/media-upload', '@buddynext/media-albums', '@buddynext/messages' ), true ) ) {
 				$deps[] = array( 'id' => '@buddynext/upload-core' );
+			}
+			if ( '@buddynext/profile' === $id || '@buddynext/notifications' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/relation-remove' );
 			}
 			wp_register_script_module(
 				$id,
@@ -1174,20 +1192,20 @@ class AssetService {
 					'privacySpaceMembers'       => __( 'Space members', 'buddynext' ),
 					'imageUploadsUnavailable'   => __( 'Image uploads are not available on this site.', 'buddynext' ),
 					'mediaEngineInactive'       => __( 'Image uploads are unavailable (media engine not active).', 'buddynext' ),
-					/* translators: %d: maximum number of images */
-					'maxImagesPerPost'          => __( 'You can attach at most %d images per post.', 'buddynext' ),
-					'oneMoreImage'              => __( 'Only 1 more image can be added.', 'buddynext' ),
-					/* translators: %d: number of additional images */
-					'moreImages'                => __( 'Only %d more images can be added.', 'buddynext' ),
+					/* translators: %d: maximum number of files */
+					'maxImagesPerPost'          => __( 'You can attach at most %d files per post.', 'buddynext' ),
+					'oneMoreImage'              => __( 'Only 1 more file can be added.', 'buddynext' ),
+					/* translators: %d: number of additional files */
+					'moreImages'                => __( 'Only %d more files can be added.', 'buddynext' ),
 					/* translators: 1: file name, 2: HTTP status code */
 					'uploadFailedError'         => __( 'Could not upload %1$s (error %2$d).', 'buddynext' ),
 					'joined'                    => __( 'Joined', 'buddynext' ),
 					'feedEnd'                   => __( "You've reached the end.", 'buddynext' ),
-					'oneNewPost'                => __( '1 new post: refresh to view', 'buddynext' ),
+					'oneNewPost'                => __( '1 new post: click to show', 'buddynext' ),
 					/* translators: %d: number of new posts */
-					'manyNewPosts'              => __( '%d new posts: refresh to view', 'buddynext' ),
+					'manyNewPosts'              => __( '%d new posts: click to show', 'buddynext' ),
 					/* translators: %d: the display ceiling for the new-posts pill (e.g. "99+ new posts"). */
-					'manyNewPostsCapped'        => __( '%d+ new posts: refresh to view', 'buddynext' ),
+					'manyNewPostsCapped'        => __( '%d+ new posts: click to show', 'buddynext' ),
 					'oneNewComment'             => __( '1 new comment: show', 'buddynext' ),
 					/* translators: %d: number of new comments */
 					'manyNewComments'           => __( '%d new comments: show', 'buddynext' ),
@@ -1527,6 +1545,10 @@ class AssetService {
 					'blockSuccess'              => __( '%s blocked', 'buddynext' ),
 					/* translators: %s: member display name. */
 					'blockFailed'               => __( 'Could not block %s. Try again.', 'buddynext' ),
+					/* translators: %s: member display name. */
+					'unblockSuccess'            => __( '%s unblocked', 'buddynext' ),
+					/* translators: %s: member display name. */
+					'unblockFailed'             => __( 'Could not unblock %s. Try again.', 'buddynext' ),
 					'reportConversationTitle'   => __( 'Report this conversation', 'buddynext' ),
 					'reportConversationSuccess' => __( 'Reported. Our moderators will review it.', 'buddynext' ),
 					'reportConversationFailed'  => __( 'Could not submit the report. Try again.', 'buddynext' ),
@@ -1642,6 +1664,7 @@ class AssetService {
 					'thisField'                        => __( 'This field', 'buddynext' ),
 					'avatarSaveFailed'                 => __( 'Avatar could not be saved', 'buddynext' ),
 					'coverSaveFailed'                  => __( 'Cover could not be saved', 'buddynext' ),
+					'photoUpdated'                     => __( 'Photo updated.', 'buddynext' ),
 					'profileSaved'                     => __( 'Profile saved', 'buddynext' ),
 					'fieldsNeedAttention'              => __( 'Some fields need attention', 'buddynext' ),
 					'saveFailed'                       => __( 'Could not save. Try again.', 'buddynext' ),
@@ -1799,6 +1822,13 @@ class AssetService {
 				'i18n'              => array(
 					'dismissFailed'         => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
 					'warnPolicyReminder'    => __( 'Content policy reminder', 'buddynext' ),
+					'warnTitle'             => __( 'Warn this member?', 'buddynext' ),
+					'warnBody'              => __( 'They are notified and can read this message on their Account status page.', 'buddynext' ),
+					'warnConfirm'           => __( 'Send warning', 'buddynext' ),
+					'strikeTitle'           => __( 'Issue a strike?', 'buddynext' ),
+					'strikeBody'            => __( 'They can read this reason on their Account status page. Strikes add up toward automatic suspension.', 'buddynext' ),
+					'strikeConfirm'         => __( 'Issue strike', 'buddynext' ),
+					'reasonRequired'        => __( 'Add a reason. The member will see it.', 'buddynext' ),
 					'warnSpaceRule'         => __( 'Space rule violation', 'buddynext' ),
 					'strikeReportedContent' => __( 'Strike issued for reported content', 'buddynext' ),
 					'cwAdded'               => __( 'Content warning applied', 'buddynext' ),
@@ -1969,14 +1999,23 @@ class AssetService {
 			'buddynext/notifications',
 			array(
 				'i18n' => array(
-					'markAllReadFailed'   => __( 'Could not mark all as read.', 'buddynext' ),
-					'markReadFailed'      => __( 'Could not mark this notification as read.', 'buddynext' ),
-					'dismissFailed'       => __( 'Could not dismiss. Try again.', 'buddynext' ),
-					'inviteAccepted'      => __( 'Invitation accepted: you have joined the space.', 'buddynext' ),
-					'inviteAcceptFailed'  => __( 'Could not accept the invitation.', 'buddynext' ),
-					'inviteDeclined'      => __( 'Invitation declined.', 'buddynext' ),
-					'inviteDeclineFailed' => __( 'Could not decline the invitation.', 'buddynext' ),
-					'networkError'        => __( 'Network error. Try again.', 'buddynext' ),
+					'markAllReadFailed'    => __( 'Could not mark all as read.', 'buddynext' ),
+					/* translators: %d: number of selected notifications. */
+					'selectedCount'        => __( '%d selected', 'buddynext' ),
+					'deleteSelectedTitle'  => __( 'Delete notifications', 'buddynext' ),
+					/* translators: %d: number of selected notifications. */
+					'deleteSelectedBody'   => __( '%d selected notifications will be deleted. This cannot be undone.', 'buddynext' ),
+					'deleteSelectedOk'     => __( 'Delete', 'buddynext' ),
+					/* translators: %d: number of notifications deleted. */
+					'deleteSelectedDone'   => __( '%d notifications deleted.', 'buddynext' ),
+					'deleteSelectedFailed' => __( 'Could not delete the notifications. Try again.', 'buddynext' ),
+					'markReadFailed'       => __( 'Could not mark this notification as read.', 'buddynext' ),
+					'dismissFailed'        => __( 'Could not dismiss. Try again.', 'buddynext' ),
+					'inviteAccepted'       => __( 'Invitation accepted: you have joined the space.', 'buddynext' ),
+					'inviteAcceptFailed'   => __( 'Could not accept the invitation.', 'buddynext' ),
+					'inviteDeclined'       => __( 'Invitation declined.', 'buddynext' ),
+					'inviteDeclineFailed'  => __( 'Could not decline the invitation.', 'buddynext' ),
+					'networkError'         => __( 'Network error. Try again.', 'buddynext' ),
 
 					/*
 					 * The "N new" pill beside the page title. It is server-rendered from the
@@ -1986,16 +2025,16 @@ class AssetService {
 					 * number, and the word silently disappeared on hydration.
 					 */
 					/* translators: %s is the formatted number of unread notifications (e.g. "12" or "99+"). */
-					'unreadBadge'         => __( '%s unread', 'buddynext' ),
+					'unreadBadge'          => __( '%s unread', 'buddynext' ),
 					// Bulk decide on join requests. Read by notifications/store.js via
 					// t() but never injected, so they always rendered English.
-					'bulkDecideFailed'    => __( 'Could not update those requests.', 'buddynext' ),
+					'bulkDecideFailed'     => __( 'Could not update those requests.', 'buddynext' ),
 					/* translators: 1: number handled, 2: number no longer pending. */
-					'bulkDecidedPartial'  => __( '%1$d handled, %2$d no longer pending.', 'buddynext' ),
+					'bulkDecidedPartial'   => __( '%1$d handled, %2$d no longer pending.', 'buddynext' ),
 					/* translators: %d: number of members approved. */
-					'bulkApproved'        => __( '%d members approved.', 'buddynext' ),
+					'bulkApproved'         => __( '%d members approved.', 'buddynext' ),
 					/* translators: %d: number of requests declined. */
-					'bulkDeclined'        => __( '%d requests declined.', 'buddynext' ),
+					'bulkDeclined'         => __( '%d requests declined.', 'buddynext' ),
 				),
 			)
 		);
@@ -2050,6 +2089,7 @@ class AssetService {
 					'nameSearchFirst'       => __( 'Please name this search first.', 'buddynext' ),
 					'searchSaved'           => __( 'Search saved.', 'buddynext' ),
 					'searchSaveProRequired' => __( 'Could not save. Saved searches require BuddyNext Pro.', 'buddynext' ),
+					'searchSaveFailed'      => __( 'Could not save this search. Try again.', 'buddynext' ),
 					'recentSearchesLabel'   => __( 'Recent searches', 'buddynext' ),
 					'recentSearchesTitle'   => __( 'Recent:', 'buddynext' ),
 					'clear'                 => __( 'Clear', 'buddynext' ),

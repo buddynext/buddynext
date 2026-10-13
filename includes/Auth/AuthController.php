@@ -1479,6 +1479,10 @@ class AuthController {
 		// shared pipeline.
 		self::mark_password_known( (int) $user_id );
 
+		// The page the visitor was on when they chose to sign up. Kept with the
+		// account, because verification or the welcome wizard may come first.
+		self::remember_signup_return( (int) $user_id, (string) $request->get_param( 'redirect_to' ) );
+
 		// Email verification is handled by VerificationListener::on_user_register,
 		// which wp_create_user() inside the pipeline already triggered via the
 		// user_register hook. Do NOT create a token here as well.
@@ -1705,6 +1709,54 @@ class AuthController {
 	}
 
 	/**
+	 * User meta holding the page a visitor signed up from, until they are sent back.
+	 *
+	 * @var string
+	 */
+	public const SIGNUP_RETURN_META = 'bn_signup_return';
+
+	/**
+	 * Remember the page a new member signed up from.
+	 *
+	 * Same site only: anything else is dropped (wp_validate_redirect()).
+	 *
+	 * @since 1.2.5
+	 *
+	 * @param int    $user_id   The new account.
+	 * @param string $requested The `redirect_to` the signup form carried.
+	 * @return void
+	 */
+	public static function remember_signup_return( int $user_id, string $requested ): void {
+		$url = '' !== $requested ? wp_validate_redirect( esc_url_raw( $requested ), '' ) : '';
+		if ( $user_id > 0 && '' !== $url ) {
+			update_user_meta( $user_id, self::SIGNUP_RETURN_META, $url );
+		}
+	}
+
+	/**
+	 * The page a new member signed up from, once.
+	 *
+	 * Called at the last step of signing up (registration itself, the verified
+	 * screen, or the end of the welcome wizard, whichever comes last). Returns the
+	 * fallback when nothing was remembered, and forgets the page once it is given.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @param int    $user_id  The member.
+	 * @param string $fallback Where to go when no page was remembered.
+	 * @return string
+	 */
+	public static function take_signup_return( int $user_id, string $fallback ): string {
+		$url = $user_id > 0 ? wp_validate_redirect( (string) get_user_meta( $user_id, self::SIGNUP_RETURN_META, true ), '' ) : '';
+		if ( '' === $url ) {
+			return $fallback;
+		}
+		delete_user_meta( $user_id, self::SIGNUP_RETURN_META );
+
+		return $url;
+	}
+
+	/**
 	 * Where a freshly registered member lands.
 	 *
 	 * Email verification, when enabled, takes precedence so the account is
@@ -1726,9 +1778,11 @@ class AuthController {
 			$onboarding_on = function_exists( 'buddynext_service' )
 				&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
 
+			// Nothing stands between the new member and the community, so this is
+			// the moment to take them back to the page they signed up from.
 			$url = $onboarding_on
 				? \BuddyNext\Core\PageRouter::onboarding_url()
-				: \BuddyNext\Core\PageRouter::activity_url();
+				: self::take_signup_return( $user_id, \BuddyNext\Core\PageRouter::activity_url() );
 		}
 
 		/**
@@ -1858,6 +1912,19 @@ class AuthController {
 			$site_name
 		);
 
+		$defaults['subject'] = $subject;
+		$defaults['message'] = \BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject );
+		$defaults['headers'] = self::account_email_headers();
+
+		return $defaults;
+	}
+
+	/**
+	 * Headers for an account email: HTML, the site's From identity and Reply-To.
+	 *
+	 * @return string[]
+	 */
+	private static function account_email_headers(): array {
 		$headers      = array( 'Content-Type: text/html; charset=UTF-8' );
 		$from_name    = \BuddyNext\Notifications\EmailSender::from_name();
 		$from_address = \BuddyNext\Notifications\EmailSender::from_address();
@@ -1871,11 +1938,47 @@ class AuthController {
 			$headers[] = 'Reply-To: ' . $reply_to;
 		}
 
-		$defaults['subject'] = $subject;
-		$defaults['message'] = \BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject );
-		$defaults['headers'] = $headers;
+		return $headers;
+	}
 
-		return $defaults;
+	/**
+	 * Email a member whose account was made for them a link to set their password.
+	 *
+	 * For an account created from outside (a purchase in another tool): the
+	 * member has never seen the site and has no password. Same branded shell and
+	 * the same /{auth}/reset/ screen as a password reset, worded as a welcome.
+	 *
+	 * @param \WP_User $user The new member.
+	 * @return bool Whether the email was handed to the mailer.
+	 */
+	public static function send_set_password_email( \WP_User $user ): bool {
+		$key = get_password_reset_key( $user );
+		if ( is_wp_error( $key ) ) {
+			return false;
+		}
+
+		$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+		$url       = add_query_arg(
+			array(
+				'key'   => rawurlencode( $key ),
+				'login' => rawurlencode( $user->user_login ),
+			),
+			\BuddyNext\Core\PageRouter::reset_url()
+		);
+		$subject   = sprintf(
+			/* translators: %s: site name. */
+			__( 'Your %s account is ready', 'buddynext' ),
+			$site_name
+		);
+		$body = sprintf(
+			/* translators: 1: site name, 2: email address, 3: set-password URL. */
+			__( '<p>Welcome. An account has been created for you on %1$s with the email address <strong>%2$s</strong>.</p><p>Choose a password to sign in for the first time.</p><p><a href="%3$s">Set your password</a></p><p>If the button does not work, copy this link into your browser:<br>%3$s</p>', 'buddynext' ),
+			esc_html( $site_name ),
+			esc_html( $user->user_email ),
+			esc_url( $url )
+		);
+
+		return (bool) wp_mail( $user->user_email, $subject, \BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject ), self::account_email_headers() );
 	}
 
 	/**

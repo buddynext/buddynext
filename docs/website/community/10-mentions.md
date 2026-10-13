@@ -32,7 +32,7 @@ The mentioned member sees a notification that says they were mentioned in a post
 
 - **Mentioning yourself does nothing.** If you write your own `@username`, no self-notification is sent - the mention is skipped.
 - **Mentions respect blocking.** If the mentioned member has blocked the person writing the mention, no mention notification is delivered.
-- **Mentions respect a member's mention privacy.** Each member can decide who is allowed to mention them with **Who can @mention me in posts** in their Privacy settings: Everyone, Members only, My connections, or Nobody. If someone is not allowed to mention a given member, writing their `@username` does not notify them. This is a per-member privacy choice, not an owner setting.
+- **Mentions respect a member's mention privacy.** Each member can decide who is allowed to mention them with **Who can @mention me** in their Privacy settings: Members, My connections, or Nobody. If someone is not allowed to mention a given member, writing their `@username` does not notify them. This is a per-member privacy choice, not an owner setting.
 - **The username has to match.** A mention notifies a member only when the `@` text matches a real member's username. A misspelled or non-existent name still renders but reaches no one.
 
 ## Setting it up (for owners)

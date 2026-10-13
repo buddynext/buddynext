@@ -371,7 +371,7 @@ class Plugin {
 					}
 					$wizard_url = admin_url( 'admin.php?page=buddynext-setup' );
 					printf(
-						'<div class="notice notice-info is-dismissible"><p><strong>%s</strong>: <a href="%s">%s</a></p></div>',
+						'<div class="notice notice-info is-dismissible"><p><strong>%s</strong> <a href="%s">%s</a></p></div>',
 						esc_html__( 'BuddyNext setup is not complete.', 'buddynext' ),
 						esc_url( $wizard_url ),
 						esc_html__( 'Run the setup wizard', 'buddynext' )
@@ -465,6 +465,7 @@ class Plugin {
 		// preview and the scrape runs here, off the member's request — see
 		// PostService::dispatch_link_meta() for why this one has no inline fallback.
 		\BuddyNext\Feed\PostService::register_async();
+		\BuddyNext\Media\ImageStorageService::register_async();
 
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();
@@ -931,8 +932,10 @@ class Plugin {
 				'url'   => PageRouter::search_url(),
 			),
 		);
-		// No Leaderboard entry when the owner handed the leaderboard to Jetonomy.
-		if ( ! \BuddyNext\Bridges\GamificationBridge::leaderboard_deferred() ) {
+		// No Leaderboard entry when the owner handed the leaderboard to Jetonomy, or
+		// when WB Gamification is not active: the link would only open a notice that
+		// the leaderboard needs that plugin (same test the page itself uses).
+		if ( function_exists( 'wb_gam_get_leaderboard' ) && ! \BuddyNext\Bridges\GamificationBridge::leaderboard_deferred() ) {
 			$pages[] = array(
 				'title' => __( 'Leaderboard', 'buddynext' ),
 				'url'   => PageRouter::leaderboard_url(),

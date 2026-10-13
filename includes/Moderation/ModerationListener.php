@@ -366,8 +366,14 @@ class ModerationListener implements ListenerInterface {
 	/**
 	 * Notify the user when a moderator issues them a formal warning.
 	 *
-	 * Creates a bn.user_warned in-app notification and dispatches the
-	 * bn.strike_warning transactional email to the warned user's address.
+	 * Creates one bn.user_warned notification carrying the moderator's own words.
+	 * Its email is the "Member warned" template, sent through the normal
+	 * notification path like any other, so the owner can edit it and the member
+	 * gets one email.
+	 *
+	 * This used to also send the bn.strike_warning template directly, from the
+	 * time bn.user_warned had no email template of its own. Once it gained one,
+	 * every warning went out twice under two subjects (card 10393122331).
 	 *
 	 * @param int    $user_id    User receiving the warning.
 	 * @param int    $by_user_id Moderator user ID who issued the warning.
@@ -378,6 +384,8 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
+		$message = trim( $message );
+
 		buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $user_id,
@@ -386,19 +394,8 @@ class ModerationListener implements ListenerInterface {
 				'object_type'  => 'user',
 				'object_id'    => $user_id,
 				'group_key'    => null,
-				'message'      => __( 'You have received a formal warning from a moderator.', 'buddynext' ),
+				'message'      => '' !== $message ? $message : __( 'You have received a formal warning from a moderator.', 'buddynext' ),
 			)
-		);
-
-		// Not duplicated: the bn.user_warned notification has no email template, so
-		// EmailDispatchListener sends nothing for it. The warning email therefore
-		// comes ONLY from this direct send of the bn.strike_warning template — it
-		// must stay unconditional (do not move it behind a create()===0 guard, or
-		// warned members would stop receiving the email entirely).
-		buddynext_service( 'email_sender' )->send(
-			$user_id,
-			'bn.strike_warning',
-			array( 'message' => $message )
 		);
 	}
 

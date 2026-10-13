@@ -22,6 +22,29 @@ namespace BuddyNext\Media;
 class MediaUrlResolver {
 
 	/**
+	 * Which MediaVerse image size BuddyNext shows in feeds and link previews.
+	 *
+	 * Large by default. A site that would rather send lighter pages can ask for
+	 * the medium size; the photo lightbox still opens the full image.
+	 *
+	 * @since 1.2.5
+	 *
+	 * @return string thumb_large, thumb_medium or thumb_thumb.
+	 */
+	public static function image_variant(): string {
+		/**
+		 * Filter the MediaVerse image size used for feed media and link previews.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param string $variant One of thumb_large (default), thumb_medium, thumb_thumb.
+		 */
+		$variant = (string) apply_filters( 'buddynext_feed_image_variant', 'thumb_large' );
+
+		return in_array( $variant, array( 'thumb_large', 'thumb_medium', 'thumb_thumb' ), true ) ? $variant : 'thumb_large';
+	}
+
+	/**
 	 * Build a render descriptor for a media id, or null if unavailable.
 	 *
 	 * @param int $media_id Media id (WPMediaVerse mvs_media_index id).
@@ -60,10 +83,10 @@ class MediaUrlResolver {
 		// then to the bundled default video poster.
 		$thumb = '';
 		if ( method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
-			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large' );
+			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, self::image_variant() );
 		}
 		if ( '' === $thumb && method_exists( $repo, 'get_broadcast_thumbnail_url' ) ) {
-			$thumb = (string) $repo->get_broadcast_thumbnail_url( $media_id, 'thumb_large' );
+			$thumb = (string) $repo->get_broadcast_thumbnail_url( $media_id, self::image_variant() );
 		}
 		// A video with no server-generated poster frame yields an empty thumb,
 		// which would render as a black poster-less tile. Fall back to the

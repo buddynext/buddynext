@@ -262,9 +262,11 @@ class Galleries {
 	/**
 	 * Count of media owned by a user that the viewer may see.
 	 *
-	 * Mirrors query_by_author()'s privacy rule so the profile "Media" count
-	 * badge matches the grid: owner / moderator see all; everyone else sees
-	 * the non-private total.
+	 * MediaVerse's own viewer-aware count, given the same arguments as the grid
+	 * (user_media_ids), so the number on the profile Media tab is the number of
+	 * tiles under it. It used to count with the retired `hide_private` mode,
+	 * which counted members, followers and friends items for any visitor and
+	 * ignored blocks: a stranger saw "Media 12" above a grid of 4.
 	 *
 	 * @param int $owner_id  Media owner user id.
 	 * @param int $viewer_id Current viewer user id.
@@ -272,18 +274,11 @@ class Galleries {
 	 */
 	public static function user_media_count( int $owner_id, int $viewer_id ): int {
 		$repo = MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'query_count' ) ) {
+		if ( ! $repo || ! method_exists( $repo, 'count_visible_by_author' ) ) {
 			return 0;
 		}
 
-		return (int) $repo->query_count(
-			array(
-				'author_id' => $owner_id,
-				'status'    => 'publish',
-				'privacy'   => self::can_see_private( $owner_id, $viewer_id ) ? 'any' : 'hide_private',
-				'viewer_id' => $viewer_id,
-			)
-		);
+		return (int) $repo->count_visible_by_author( $owner_id, $viewer_id, array( 'status' => 'publish' ) );
 	}
 
 	/**

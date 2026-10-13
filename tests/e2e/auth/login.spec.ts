@@ -38,9 +38,12 @@ test.describe('auth / login', () => {
         // Seed a dedicated verified member with known credentials when WP-CLI is
         // available, so the real wp-login flow is deterministic on any site. Fall
         // back to the canonical env user where seeding is off (CI supplies both).
+        // Keyed on the PASSWORD: the journey runner always exports BN_TEST_USER
+        // (the autologin account) but never its password, so keying on the user
+        // logged in as the site admin with a guessed password.
         let user = process.env.BN_TEST_USER ?? 'varundubey';
         let pass = process.env.BN_TEST_PASS ?? 'password';
-        if (dbSeedingAvailable() && !process.env.BN_TEST_USER) {
+        if (dbSeedingAvailable() && !process.env.BN_TEST_PASS) {
             user = await seedLoginUser();
             pass = LOGIN_PASSWORD;
         }

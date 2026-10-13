@@ -182,7 +182,7 @@
 	grid-column: 1 / -1;
 }
 .bn-ob-step__icon {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	display: inline-flex;
 }
 .bn-ob-step__icon svg { width: 28px; height: 28px; }
@@ -287,7 +287,7 @@
 	background: none;
 	font: inherit;
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	cursor: pointer;
 	text-align: start;
 }
@@ -445,7 +445,7 @@
 }
 .bn-ob-chip:hover {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 .bn-ob-chip[aria-pressed="true"],
 .bn-ob-chip.is-selected {
@@ -487,7 +487,7 @@
 		color-mix(in oklch, var(--bn-accent) 25%, var(--bn-surface)),
 		var(--bn-surface)
 	);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -538,7 +538,7 @@
 	height: 36px;
 	border-radius: var(--bn-r-sm);
 	background: color-mix(in oklch, var(--bn-accent) 12%, var(--bn-surface));
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -812,7 +812,7 @@
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink);
 }
-.bn-wizard__logo svg { color: var(--bn-accent); flex-shrink: 0; }
+.bn-wizard__logo svg { color: var(--bn-accent-text); flex-shrink: 0; }
 .bn-wizard__progress {
 	display: flex;
 	flex-direction: column;
@@ -943,7 +943,7 @@
 .bn-wizard__step[data-state="active"] .bn-wizard__step-marker {
 	background: var(--bn-surface);
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
 }
 .bn-wizard__step[data-state="active"] {
@@ -1265,7 +1265,7 @@
 	font: inherit;
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	cursor: pointer;
 	border-radius: 4px;
 }
@@ -1415,7 +1415,7 @@
 .bn-wizard__page-link {
 	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: var(--bn-text-xs);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 .bn-wizard__page-link:hover { text-decoration: underline; }
@@ -1501,7 +1501,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	margin-inline-start: var(--bn-s2);
 	padding: 2px var(--bn-s2);
 	font-size: var(--bn-text-xs);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: transparent;
 	border: 1px solid var(--bn-accent);
 	border-radius: var(--bn-r-sm);
@@ -1632,7 +1632,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	color: var(--bn-ink);
 	border-color: var(--bn-line);
 }
-.bn-wizard__btn-secondary:hover { border-color: var(--bn-accent); color: var(--bn-accent); }
+.bn-wizard__btn-secondary:hover { border-color: var(--bn-accent); color: var(--bn-accent-text); }
 
 /* ── Done step ───────────────────────────────────────────────────────── */
 
@@ -1649,7 +1649,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	height: 72px;
 	border-radius: 50%;
 	background: var(--bn-sunken);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;

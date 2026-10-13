@@ -278,6 +278,13 @@ $can_pin = $is_own_post && 'profile' === $context && 0 === $bn_space_id;
 $bn_can_interact = ( $current_user_id > 0
 	&& ( ! function_exists( 'buddynext_can' ) || buddynext_can( $current_user_id, 'buddynext-feed/interact' ) ) );
 
+// A member banned from this post's space can still read an open space but not
+// take part (the REST engagement gate refuses it), so no write control renders.
+// Report stays: a banned member can still flag harmful content.
+$bn_space_banned = $current_user_id > 0 && $bn_space_id > 0 && function_exists( 'buddynext_service' )
+	&& buddynext_service( 'permissions' )->is_space_banned( $current_user_id, $bn_space_id );
+$bn_can_interact = $bn_can_interact && ! $bn_space_banned;
+
 // Commenting and reporting each have their own ability on Roles & Capabilities
 // (and their own server gate), so each control follows its own: an owner who
 // raises "React, share, bookmark and vote" has not thereby switched off comments
@@ -304,7 +311,7 @@ $can_react            = ( $current_user_id > 0 && $bn_reactions_enabled && $bn_c
 $bn_comments_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'comments' );
-$can_comment         = ( $bn_comments_enabled && $bn_holds( 'buddynext-comments/create' ) );
+$can_comment         = ( $bn_comments_enabled && ! $bn_space_banned && $bn_holds( 'buddynext-comments/create' ) );
 
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not
@@ -777,6 +784,18 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 		<div class="bn-post-card__pending">
 			<?php buddynext_icon( 'shield' ); ?>
 			<span><?php esc_html_e( 'Waiting for a moderator to review this post.', 'buddynext' ); ?></span>
+		</div>
+		<?php
+	}
+
+	// Hidden by reports and waiting for a moderator. Only the author's own
+	// profile lists a post in this state (FeedService::profile_feed), so only the
+	// author ever sees this line.
+	if ( 'under_review' === (string) ( $bn_post['status'] ?? '' ) ) {
+		?>
+		<div class="bn-post-card__pending">
+			<?php buddynext_icon( 'shield' ); ?>
+			<span><?php esc_html_e( 'Under review. Only you can see this post until a moderator has looked at it.', 'buddynext' ); ?></span>
 		</div>
 		<?php
 	}

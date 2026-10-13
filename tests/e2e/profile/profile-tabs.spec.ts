@@ -9,6 +9,7 @@ import {
     dbCount,
     displayName,
     wp,
+    satisfyRequiredFields,
 } from '../_fixtures/wp';
 
 /**
@@ -61,7 +62,9 @@ const connectionsUrl = (login: string) => `/members/${login}/connections/`;
 const APP = '.bn-app';
 const HERO = '.bn-pf-hero';
 const SAVE_BTN = 'button[type="submit"]';
-const LOCATION_INPUT = 'input[name="location"]';
+// Location became a picker (hidden input + widget) with the Pro location field type; the
+// plain text field with the same per-field privacy lock is Website.
+const LOCATION_INPUT = 'input[name="pronouns"]';
 const RING_PCT = '.bn-pf-ring__pct';
 const ABOUT_CARD = '.bn-pf-tab-content .bn-pf-about-card';
 const TAB = 'a.bn-tab[role="tab"]';
@@ -109,6 +112,15 @@ async function saveProfile(page: Page): Promise<void> {
 
 /** Wipe every profile field value for a user (fresh 0%-strength baseline). */
 async function clearProfileValues(uid: number): Promise<void> {
+    const p = await tablePrefix();
+    await wp(['db', 'query', `DELETE FROM ${p}bn_profile_values WHERE user_id=${uid}`]);
+    // A member with empty required fields cannot complete a full save (1.2.5 rule), so an
+    // "empty" baseline still carries the required answers.
+    await satisfyRequiredFields(uid);
+}
+
+/** Truly empty profile (no required answers either): only for a member who VIEWS, never saves. */
+async function clearProfileValuesHard(uid: number): Promise<void> {
     const p = await tablePrefix();
     await wp(['db', 'query', `DELETE FROM ${p}bn_profile_values WHERE user_id=${uid}`]);
 }
@@ -160,7 +172,9 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             await page.goto(memberUrl(B_LOGIN));
             await expect(strengthLocator(page)).toBeVisible();
             const before = await ringPct(page);
-            expect(before, 'a member with no fields starts at 0%').toBe(0);
+            // The required answers alone give a small baseline; the promise is that filling a
+            // field moves the ring, so the assertion below is relative.
+            expect(before, 'baseline is below full').toBeLessThan(100);
 
             // Fill one field through the real edit UI.
             await page.goto(editUrl(B_LOGIN));
@@ -313,12 +327,18 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
     });
 
     test('J-725 About tab is content-gated (present with content, absent without)', async ({ page }) => {
-        // B has no about content → no About tab.
-        await clearProfileValues(B_ID);
+        // B has no about content at all (the required answers count as content) → no About tab.
+        // Log in first: loginAs() refills the required answers, the hard clear must come after.
+        await loginAs(page, B_LOGIN);
+        await clearProfileValuesHard(B_ID);
         try {
-            await loginAs(page, B_LOGIN);
 
-            // A has profile content (skills / work / education) → About tab present.
+            // Give A about content (skills / work) so the card has something to show; the
+            // configured test member starts empty.
+            await wp([
+                'eval',
+                `buddynext_service( 'profiles' )->save_profile( ${A_ID}, array( 'skills' => 'e2e skills', 'about_me' => 'e2e about', 'work_company' => 'E2E Co', 'work_title' => 'Tester' ) ); echo 'ok';`,
+            ]);
             await page.goto(memberUrl(A_LOGIN));
             await expect(page.locator(HERO).first()).toBeVisible();
             await expect(
@@ -334,7 +354,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 'a profile without about content must not show the About tab'
             ).toHaveCount(0);
         } finally {
-            await clearProfileValues(B_ID);
+            await satisfyRequiredFields(B_ID);
         }
     });
 });

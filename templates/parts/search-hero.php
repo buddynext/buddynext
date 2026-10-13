@@ -103,7 +103,7 @@ do_action( 'buddynext_part_search_hero_before', $args );
 		} else {
 			esc_html_e( 'Tip: press', 'buddynext' );
 			echo ' <kbd class="bn-kbd">/</kbd> ';
-			esc_html_e( 'anywhere to focus search.', 'buddynext' );
+			esc_html_e( 'on this page to focus search.', 'buddynext' );
 		}
 		?>
 	</div>

@@ -75,6 +75,7 @@ The canonical six reaction slugs are `like`, `love`, `haha`, `wow`, `sad`, `angr
 |---|---|---|---|
 | `buddynext_feed_query_args` | filter | Before a feed query runs (home, profile, space, explore) | `array $args, string $scope, int $viewer_id` (`$args` has `per_page`, `cursor`, `user_id`) |
 | `buddynext_feed_order_by` | filter | The home feed `ORDER BY` clause is built | `string $order_by, int $user_id, array $query_args` |
+| `buddynext_for_you_priority_days` | filter | The For you feed is being ordered. Sets how many days a post by a connection, or in a space matching the member's interests, stays above newer posts from everyone else. Return `0` for no limit. Since 1.2.5. | `int $days, int $user_id` (default `7`) |
 | `buddynext_feed_items` | filter | A feed page is about to be returned | `array $items, string $scope, int $viewer_id, array $args` |
 | `buddynext_post_impression` | action | Each item on a served feed page is rendered | `int $post_id, int $viewer_id, string $surface` (`home_feed`, `profile_feed`, `space_feed`, `explore_feed`) |
 
@@ -116,6 +117,7 @@ Narrower hooks around announcements, members-only posts, the feed templates, and
 | `buddynext_render_post_body_{type}` | filter | A post card renders the body of a post whose type is `{type}` (for example `media`, `document`, `badge`). Return the pre-escaped card HTML for that type; an empty string falls through to the default body. | `string $html, array $args` (`$args` has the post, id, link meta, and content) |
 | `buddynext_scheduled_publish_failed` | action | A scheduled post is abandoned after repeated publish failures and returned to draft. | `int $post_id, int $attempts` |
 | `buddynext_site_tracking_publish` | filter | A published WordPress post is about to post an activity card (site tracking). Runs last, so it has the final say per post. | `bool $publish, WP_Post $post, int $author_id` |
+| `buddynext_partner_card_requires_verification` | filter | A partner plugin's activity card (a forum topic, an event, a course) is being saved for an author who has not verified their email. Return `true` to hold it, as a member's own post is held. | `bool $required, int $user_id, array $data` (default `false`) |
 | `buddynext_sync_blog_comments` | filter | Comments on a published WordPress post and on its feed card are mirrored. Return `false` to stop the mirroring. | `bool $enabled` (default `true`) |
 | `buddynext_post_preview_char_limit` | filter | A post card decides how many characters show before "Show more" (default `300`). | `int $limit, string $context` (feed context the card renders in) |
 | `buddynext_post_preview_line_limit` | filter | A post card decides how many line breaks show before "Show more" (default `6`). | `int $limit, string $context` |
@@ -146,6 +148,9 @@ Narrower hooks around announcements, members-only posts, the feed templates, and
 | `buddynext_image_stored` | action | An avatar or cover and all its variations have been written to disk. A CDN or offload integration pushes the files from here. | `string $kind, string $owner, int $id, array $written` (`$kind` is `avatar` or `cover`, `$owner` is `user` or `space`, `$written` maps variation to absolute path) |
 | `buddynext_image_deleted` | action | Just before an owner's image folder is removed, so a CDN integration can purge its remote copies. | `string $kind, string $owner, int $id, string $dir` |
 | `buddynext_stored_image_url` | filter | The public URL of a stored avatar or cover is resolved. Rewrite it onto a CDN host here. | `string $url, string $kind, string $owner, int $id` |
+| `buddynext_replaced_image_grace` | filter | An avatar or cover is being replaced. Sets how long the old file stays on disk (so pages held in a page cache still show an image) before it is removed. Return `0` to remove it at once. | `int $seconds, string $kind, string $owner, int $id` (default one day) |
+| `buddynext_feed_image_variant` | filter | A feed card or link preview is choosing which MediaVerse image size to show. Return `thumb_medium` for lighter pages; the single-image 2x source (the full original) is then left out too. The lightbox still opens the full image. Since 1.2.5. | `string $variant` (default `thumb_large`; also `thumb_medium`, `thumb_thumb`) |
+| `buddynext_trending_topics_hours` | filter | The Trending Topics sidebar card is being built. Sets how far back it looks; a slower community can widen it. | `int $hours` (default `168`, seven days) |
 | `buddynext_announce_space_album_upload` | filter | Photos are added to a space album. Return `false` to stop the upload posting an activity card to that space. | `bool $announce, int $space_id, int $album_id` |
 | `buddynext_media_max_bytes` | filter | The composer and Media tab compute the upload ceiling they offer (the lower of the MediaVerse limit and the server limit). | `int $max_bytes, int $user_id` |
 

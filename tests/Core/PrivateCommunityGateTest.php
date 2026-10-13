@@ -171,4 +171,16 @@ class PrivateCommunityGateTest extends WP_UnitTestCase {
 
 		remove_filter( 'buddynext_private_community_exempt_routes', $declare );
 	}
+
+	/**
+	 * Learnomy's private-academy toggle survives BuddyNext: the filter adds the
+	 * community gate to Learnomy's value instead of replacing it.
+	 */
+	public function test_learnomy_gate_keeps_its_own_toggle(): void {
+		$this->assertFalse( PrivateCommunity::require_login_for_learnomy( false ), 'Both off: public.' );
+		$this->assertTrue( PrivateCommunity::require_login_for_learnomy( true ), 'Learnomy on, community public: gated.' );
+
+		update_option( PrivateCommunity::OPTION, 1 );
+		$this->assertTrue( PrivateCommunity::require_login_for_learnomy( false ), 'Community private: gated.' );
+	}
 }

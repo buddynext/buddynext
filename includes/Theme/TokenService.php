@@ -325,7 +325,7 @@ class TokenService {
 			// Text.
 			'--bn-ink'        => 'var(--reign-site-headings-color, oklch(20% 0.01 var(--bn-hue)))',
 			'--bn-ink-2'      => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
-			'--bn-ink-3'      => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
+			'--bn-ink-3'      => 'var(--reign-site-alternate-text-color, oklch(52% 0.008 var(--bn-hue)))',
 		);
 
 		// Reign stores typography per element in the customizer, in the same array
@@ -371,7 +371,10 @@ class TokenService {
 			// Text — site-title for headings/strong ink, font-color for body.
 			'--bn-ink'        => 'var(--color-site-title, oklch(20% 0.01 var(--bn-hue)))',
 			'--bn-ink-2'      => 'var(--global-font-color, oklch(40% 0.01 var(--bn-hue)))',
-			'--bn-ink-3'      => 'color-mix(in oklch, var(--bn-ink-2) 70%, var(--bn-surface))',
+			// 82% of the theme's text colour: tab labels, handles and section
+			// subtitles are written in this, and at 70% they sat at about 3.6:1 on
+			// BuddyX's page and 3.9:1 on its cards. 82% clears 4.5:1 on both.
+			'--bn-ink-3'      => 'color-mix(in oklch, var(--bn-ink-2) 82%, var(--bn-surface))',
 		);
 
 		// BuddyX stores typography per element in the customizer: `typography_option`
@@ -609,6 +612,10 @@ class TokenService {
 		$takeover .= "}\n";
 
 		// ── Shared animations — apply BuddyNext motion to Jetonomy + MVS ──
+		// Fill mode is `backwards` on every rule below, never `both`: a forwards
+		// fill leaves `transform` on the element for good, which makes it the
+		// containing block for the partner's own fixed-position menus (Jetonomy's
+		// row menu opened clipped inside the list).
 		// Jetonomy list/card entrances.
 		$takeover .= ".jt-app .jt-topics > a,\n";
 		$takeover .= ".jt-app .jt-topics > div,\n";
@@ -618,7 +625,7 @@ class TokenService {
 		$takeover .= ".jt-app .jt-badge-card,\n";
 		$takeover .= ".jt-app .jt-sidebar > *,\n";
 		$takeover .= ".jt-app .jt-notif-item {\n";
-		$takeover .= "\tanimation: bn-slide-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;\n";
+		$takeover .= "\tanimation: bn-slide-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;\n";
 		$takeover .= "}\n";
 
 		// Jetonomy stagger delays for topic rows.
@@ -632,9 +639,9 @@ class TokenService {
 		$takeover .= ".jt-app .jt-page-title,\n";
 		$takeover .= ".jt-app .jt-space-head h1,\n";
 		$takeover .= ".jt-app .jt-post-head h1 {\n";
-		$takeover .= "\tanimation: bn-fade-title 0.5s ease both;\n";
+		$takeover .= "\tanimation: bn-fade-title 0.5s ease backwards;\n";
 		$takeover .= "}\n";
-		$takeover .= ".jt-app .jt-crumb { animation: bn-fade-in 0.4s ease both; animation-delay: 0.05s; }\n";
+		$takeover .= ".jt-app .jt-crumb { animation: bn-fade-in 0.4s ease backwards; animation-delay: 0.05s; }\n";
 
 		// WPMediaVerse grid/card entrances.
 		$takeover .= "body.mvs-page .mvs-grid-item,\n";
@@ -642,14 +649,14 @@ class TokenService {
 		$takeover .= "body.mvs-page .mvs-collection-item,\n";
 		$takeover .= "body.mvs-page .mvs-comment,\n";
 		$takeover .= "body.mvs-page .mvs-notification-item {\n";
-		$takeover .= "\tanimation: bn-slide-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;\n";
+		$takeover .= "\tanimation: bn-slide-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;\n";
 		$takeover .= "}\n";
 
 		// WPMediaVerse heading entrances.
 		$takeover .= "body.mvs-page .mvs-profile-header-name,\n";
 		$takeover .= "body.mvs-page .mvs-single-media h1,\n";
 		$takeover .= "body.mvs-page .mvs-single-album h1 {\n";
-		$takeover .= "\tanimation: bn-fade-title 0.5s ease both;\n";
+		$takeover .= "\tanimation: bn-fade-title 0.5s ease backwards;\n";
 		$takeover .= "}\n";
 
 		// Respect reduced motion for all takeover animations.

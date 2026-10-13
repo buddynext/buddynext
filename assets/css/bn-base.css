@@ -65,6 +65,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-800: oklch(34% calc(var(--bn-chroma) * 0.85) var(--bn-hue));
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
+	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
 	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
 	   white label needs (see the @supports block below). */
@@ -85,7 +86,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-ink:    oklch(20% 0.01 var(--bn-hue));
 	--bn-ink-2:  oklch(40% 0.01 var(--bn-hue));
 	--bn-ink-3:  oklch(52% 0.008 var(--bn-hue)); /* AA (4.5:1) on canvas, sunken surfaces and WP's #f0f0f0 */
-	--bn-ink-4:  oklch(72% 0.005 var(--bn-hue));
+	--bn-ink-4:  oklch(54% 0.005 var(--bn-hue)); /* AA (4.5:1) on canvas and cards. Was 72%, about 2.4:1: timestamps and hints could not be read. */
 
 	/* Semantic */
 	--bn-success:    oklch(55% 0.15 145);
@@ -431,7 +432,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-ink:    oklch(96% 0.005 var(--bn-hue));
 	--bn-ink-2:  oklch(78% 0.008 var(--bn-hue));
 	--bn-ink-3:  oklch(60% 0.008 var(--bn-hue));
-	--bn-ink-4:  oklch(45% 0.008 var(--bn-hue));
+	--bn-ink-4:  oklch(62% 0.008 var(--bn-hue)); /* AA on the dark canvas and cards. Was 45%, about 2.4:1. */
 
 	--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 	--bn-accent-600: oklch(78% var(--bn-chroma) var(--bn-hue));
@@ -443,6 +444,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-300: oklch(42% 0.10 var(--bn-hue));
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
+	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 	--bn-accent-solid: var(--bn-accent);
 
@@ -487,10 +489,11 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-ink:   oklch(96% 0.005 var(--bn-hue));
 		--bn-ink-2: oklch(78% 0.008 var(--bn-hue));
 		--bn-ink-3: oklch(60% 0.008 var(--bn-hue));
-		--bn-ink-4: oklch(45% 0.008 var(--bn-hue));
+		--bn-ink-4: oklch(62% 0.008 var(--bn-hue));
 		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
+		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 		--bn-accent-solid: var(--bn-accent);
 	}
@@ -589,6 +592,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-800: #28316a;
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
+		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #ffffff;
 		--bn-accent-solid: #4754ad;
 
@@ -604,7 +608,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-ink:   #1f2030;
 		--bn-ink-2: #4d4f60;
 		--bn-ink-3: #666877;
-		--bn-ink-4: #aaabb8;
+		--bn-ink-4: #737580;
 
 		--bn-success:    #2fa66f;
 		--bn-success-bg: #e8f7ee;
@@ -646,7 +650,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-ink:   #ebebf2;
 		--bn-ink-2: #c2c2cf;
 		--bn-ink-3: #8c8d9c;
-		--bn-ink-4: #5e6071;
+		--bn-ink-4: #8e90a0;
 
 		--bn-accent-500: #8d96e0;
 		--bn-accent-600: #a0a8e7;
@@ -655,6 +659,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-200: #404670;
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
+		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #15161f;
 		--bn-accent-solid: #8d96e0;
 
@@ -1100,7 +1105,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 
 .bn-member-name a:hover {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-member-handle {
@@ -1137,7 +1142,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-btn-message:hover,
 .bn-btn-message:focus-visible {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-btn-message:focus-visible {
@@ -1177,7 +1182,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-page-btn:hover,
 .bn-page-btn:focus-visible {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-page-btn:focus-visible {
@@ -1352,8 +1357,8 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 		height: 24px;
 		flex-shrink: 0;
 	}
-	.bn-mobile-nav__item[aria-current="page"] { color: var(--brand); }
-	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--brand); }
+	.bn-mobile-nav__item[aria-current="page"] { color: var(--bn-accent-text, var(--brand)); }
+	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--bn-accent-text, var(--brand)); }
 	/* Centred by arithmetic, not by an offset: a fixed-width slot between two
 	   flex:1 items on each side lands on the viewport centre only while the bar
 	   has exactly 5 slots. See templates/partials/nav.php — do not add a 6th. */
@@ -1617,7 +1622,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-hover-card__header { display: flex; gap: var(--bn-s3); align-items: flex-start; margin-bottom: var(--bn-s3); }
 .bn-hover-card__avatar {
 	width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
-	background: var(--brand-light); color: var(--brand); font-size: 18px; font-weight: 700;
+	background: var(--brand-light); color: var(--bn-accent-text, var(--brand)); font-size: 18px; font-weight: 700;
 	display: flex; align-items: center; justify-content: center; overflow: hidden;
 	text-decoration: none;
 }
@@ -1635,7 +1640,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-hover-card__stat-num { font-weight: var(--fw-bold); color: var(--text-1); }
 .bn-hover-card__follow {
 	margin-top: var(--bn-s3); width: 100%; padding: var(--bn-s2); border: 1px solid var(--brand);
-	border-radius: var(--bn-r-full); background: transparent; color: var(--brand);
+	border-radius: var(--bn-r-full); background: transparent; color: var(--bn-accent-text, var(--brand));
 	font-size: var(--text-sm); font-weight: var(--fw-semibold); cursor: pointer;
 	transition: all 0.15s ease;
 }
@@ -1687,7 +1692,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 
 .bn-wrap a {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	text-decoration: none;
 	transition: color 0.12s;
 }
@@ -1957,7 +1962,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	overflow: hidden;
 	flex-shrink: 0;
 	background: var(--brand-light);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	font-weight: var(--fw-semibold);
 }
 
@@ -2033,7 +2038,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-pill--active {
 	background: var(--brand-light);
 	border-color: var(--brand);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────── */
@@ -2085,7 +2090,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 .bn-context-nav__item:hover { color: var(--text-1); }
 .bn-context-nav__item--active {
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	border-bottom-color: var(--brand);
 }
 @media (max-width: 640px) {
@@ -2282,7 +2287,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-.bn-member-row__link:hover .bn-member-row__name { color: var(--brand); }
+.bn-member-row__link:hover .bn-member-row__name { color: var(--bn-accent-text, var(--brand)); }
 .bn-member-row__meta {
 	font-family: var(--bn-font-mono, ui-monospace, monospace);
 	font-size: var(--text-xs);
@@ -2331,7 +2336,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-.bn-sbar-row__name:hover { color: var(--brand); }
+.bn-sbar-row__name:hover { color: var(--bn-accent-text, var(--brand)); }
 /* The action (Follow button — partials/follow-button.php, a .bn-btn) must never
    shrink or grow; it sits compact at the row end after the name column. */
 .bn-sbar-row > .bn-btn,
@@ -2369,7 +2374,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	height: 32px;
 	border-radius: var(--bn-r-md);
 	background: var(--brand-light);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2384,7 +2389,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	padding: 3px 11px;
 	border-radius: var(--bn-r-full);
 	border: 1.5px solid var(--brand);
-	color: var(--brand);
+	color: var(--bn-accent-text, var(--brand));
 	font-size: var(--text-xs);
 	font-weight: 600;
 	cursor: pointer;
@@ -2404,12 +2409,12 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	margin-top: var(--bn-s3);
 	font-size: var(--text-sm);
 	font-weight: 600;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 .bn-sidebar-card .bn-sidebar-see-all:hover,
 .bn-sidebar-see-all:hover {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
@@ -2504,7 +2509,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 .bn-upcoming-events__cta {
 	font-size: var(--bn-text-xs);
 	font-weight: 500;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: none;
 }
 .bn-upcoming-events__cta:hover { text-decoration: underline; }
@@ -2558,7 +2563,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	color: var(--bn-ink);
 	text-decoration: none;
 }
-.bn-upcoming-events__name:hover { color: var(--bn-accent); }
+.bn-upcoming-events__name:hover { color: var(--bn-accent-text); }
 .bn-upcoming-events__meta {
 	display: block;
 	margin-top: 2px;
@@ -2607,7 +2612,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
 }
-.bn-by-role__link:hover .bn-by-role__label { color: var(--bn-accent); }
+.bn-by-role__link:hover .bn-by-role__label { color: var(--bn-accent-text); }
 .bn-by-role__count {
 	font-size: var(--bn-text-sm);
 	font-weight: 600;
@@ -2635,6 +2640,18 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 }
 .bn-this-week-stats__grid .bn-stat__value {
 	font-size: var(--bn-text-lg);
+}
+
+/* Two tiles share a narrow sidebar card (85px of text each at desktop widths),
+   so a long one-word label in tracked capitals (NOTIFICATIONS, or a longer
+   translation) ran over the tile's edge. Written as typed, without tracking,
+   the labels fit on one line; a word that still does not fit (a long
+   translation) breaks instead of overflowing. */
+.bn-this-week-stats__grid .bn-stat__label {
+	min-width: 0;
+	letter-spacing: 0;
+	text-transform: none;
+	overflow-wrap: anywhere;
 }
 
 /* Mobile — hub shell collapses, sidebar hidden */
@@ -3057,15 +3074,20 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-2);
 	border: 1px solid var(--bn-line);
 }
+/* A toned badge prints its tone as TEXT on that tone's own tint. The raw tone
+   colours are tuned for fills and sat at about 4.1 to 4.4:1 there, so each is
+   mixed toward the ink. 60%, the same as the accent text: at 72% the amber one
+   cleared 4.5:1 on BuddyX and fell to 4.1 on BuddyX Pro, whose surfaces differ.
+   At 60% the lowest is 6.3:1 on BuddyX light, which leaves room for any theme. */
 .bn-badge[data-tone="neutral"]  { background: var(--bn-sunken); color: var(--bn-ink-2); border-color: var(--bn-line); }
-.bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-700); border-color: transparent; }
-.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: var(--bn-success); border-color: transparent; }
-.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: var(--bn-warn); border-color: transparent; }
-.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: var(--bn-danger); border-color: transparent; }
-.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: var(--bn-info); border-color: transparent; }
-.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: var(--bn-jetonomy); border-color: transparent; }
-.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: var(--bn-media); border-color: transparent; }
-.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: var(--bn-events); border-color: transparent; }
+.bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-text); border-color: transparent; }
+.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklch, var(--bn-success) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklch, var(--bn-warn) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklch, var(--bn-danger) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklch, var(--bn-info) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklch, var(--bn-jetonomy) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklch, var(--bn-media) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklch, var(--bn-events) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Chip group — the shared wrapper an injecting engine (Pro / gamification) should
    wrap a row of .bn-badge chips in (member labels, credential badges, level frames)
@@ -3237,7 +3259,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-normal);
 }
-.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
+.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklch, var(--bn-paid) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
 	and sits inline before the label via the badge's own flex gap. */
@@ -3252,7 +3274,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	justify-content: center;
 	border-radius: var(--bn-r-full);
 	background: var(--bn-accent-200);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 	font-weight: 600;
 	font-family: var(--bn-font-display);
 	flex-shrink: 0;
@@ -3302,7 +3324,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	lower chroma) in dark so the avatar reads as a quiet tinted disc, not a
 	glowing block. Only applies when an actual image is not present. */
 .bn-avatar[data-tone] {
-	--bn-avatar-tone-l: 58%;
+	--bn-avatar-tone-l: 52%; /* The letter on it is small (11px in a space emblem), so it needs 4.5:1; at 58% the white letter sat at about 3.8 to 4.0. */
 	--bn-avatar-tone-c: 0.14;
 	background: oklch(var(--bn-avatar-tone-l) var(--bn-avatar-tone-c) var(--bn-avatar-tone-h, 240));
 	color: oklch(99% 0 0);
@@ -3685,7 +3707,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 :where(body:not(.wp-admin)) .bn-notice__cta {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: underline;
 	text-underline-offset: 2px;
@@ -3908,7 +3930,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-tab[aria-selected="true"] .bn-tab__count,
 .bn-tab[aria-current="true"] .bn-tab__count {
 	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -4048,7 +4070,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-app .bn-subnav__item[aria-selected="true"]:focus,
 .bn-app .bn-subnav__item[aria-selected="true"]:active,
 .bn-app .bn-subnav__item.active {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	background: none;
 	box-shadow: none;
 	font-weight: var(--bn-fw-semibold);
@@ -4439,7 +4461,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	height: 32px;
 	align-items: center;
 	justify-content: center;
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	flex-shrink: 0;
 }
 .bn-section-head__text {
@@ -4983,7 +5005,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 .bn-cookie-consent__link {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
@@ -5034,7 +5056,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-unsub-notice--success { border-inline-start-color: var(--bn-success); }
 .bn-unsub-notice--error { border-inline-start-color: var(--bn-danger); }
 .bn-unsub-notice__manage {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-weight: var(--bn-fw-semibold);
 	text-decoration: none;
 	white-space: nowrap;

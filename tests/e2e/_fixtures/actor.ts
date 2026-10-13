@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { settleOverlays, satisfyRequiredFields } from './wp';
 
 /**
  * Switch the browser session to a specific member via the dev autologin
@@ -20,4 +21,6 @@ export async function loginAs(page: Page, login: string): Promise<void> {
         cookies.some((c) => c.name.startsWith('wordpress_logged_in')),
         `autologin=${login} did not establish a session (no wordpress_logged_in cookie)`
     ).toBeTruthy();
+    await settleOverlays(page);
+    await satisfyRequiredFields(login);
 }

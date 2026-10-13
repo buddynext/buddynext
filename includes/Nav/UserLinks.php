@@ -356,7 +356,7 @@ final class UserLinks {
 	private static function register_url(): string {
 		$auth = PageRouter::auth_url();
 		if ( '' !== $auth ) {
-			return PageRouter::signup_url();
+			return PageRouter::signup_url( null );
 		}
 		return get_option( 'users_can_register' ) ? wp_registration_url() : '';
 	}

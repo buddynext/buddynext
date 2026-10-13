@@ -21,7 +21,7 @@ This is a recommendation, not a strict requirement - BuddyNext works without one
 **Likely cause:** The limits do not need a persistent object cache. BuddyNext counts posts from the database, and counts comments and sign-ups in a database table when no object cache is present. The usual causes are a switch that is off, an exempt account, or a shared IP address.
 
 **Fix:**
-1. Open **BuddyNext > Moderation > Controls > Content safeguards** and check that **Rate-limit posting** and **Rate-limit commenting** are ticked, with the numbers you expect. Unticked means no limit.
+1. Open **BuddyNext > Automation > Controls > Content safeguards** and check that **Rate-limit posting** and **Rate-limit commenting** are ticked, with the numbers you expect. Unticked means no limit.
 2. Test as an ordinary member. Administrators and moderators are exempt from the post limit.
 3. For sign-ups, open **BuddyNext > Members > Registration & Login > Spam & Abuse Protection** and check **Rate-limit sign-ups per IP** (default 5 per hour).
 4. The sign-up limit counts per IP address. If your site sits behind a proxy or CDN that hides visitors' real addresses, everyone can look like one IP address, so the limit trips too early or not at all. A developer can map the real address with the `buddynext_client_ip` filter.

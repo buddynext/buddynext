@@ -62,10 +62,10 @@ The composer's behavior is controlled from three admin tabs, shown in the **Wher
 | Enable link previews | Engagement > Social (Activity Feed) | Whether pasted links get an auto-fetched preview card. Turn off to stop the community from fetching external pages. | On |
 | Enable emoji picker | Engagement > Social (Activity Feed) | Whether the emoji picker is available in the composer. | On |
 | Polls | Platform > Features | Whether members can create poll posts. | On |
-| Post rate limit (per minute) | Moderation > Controls | Maximum posts one member may publish per minute, to stop flooding. Untick the box to disable. Administrators and moderators are exempt. | 10 |
-| Comment rate limit (per minute) | Moderation > Controls | Maximum comments one member may publish per minute. | 30 |
-| Duplicate post window (minutes) | Moderation > Controls | If a member re-posts identical text within this many minutes, the duplicate is published but flagged into the moderation queue for review. Untick the box to disable. | 0 (off) |
-| New member review threshold | Moderation > Controls | New members whose total post count is below this number have their posts flagged into the moderation queue for review (the post still publishes). Untick the box to disable. | 0 (off) |
+| Post rate limit (per minute) | Automation > Controls | Maximum posts one member may publish per minute, to stop flooding. Untick the box to disable. Administrators and moderators are exempt. | 10 |
+| Comment rate limit (per minute) | Automation > Controls | Maximum comments one member may publish per minute. | 30 |
+| Duplicate post window (minutes) | Automation > Controls | If a member re-posts identical text within this many minutes, the duplicate is published but flagged into the moderation queue for review. Untick the box to disable. | 0 (off) |
+| New member review threshold | Automation > Controls | New members whose total post count is below this number have their posts flagged into the moderation queue for review (the post still publishes). Untick the box to disable. | 0 (off) |
 
 > **Note:** BuddyNext uses reactive moderation, the same model as mainstream social platforms. The duplicate and new-member thresholds do not hold a post back; the post publishes and a report is filed so a moderator can review it after the fact. BuddyNext has no admin setting for holding every post for approval; a developer can switch that on with a filter (see Content Safeguards).
 

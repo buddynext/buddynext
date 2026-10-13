@@ -297,7 +297,7 @@ class ActivityAdmin implements ListenerInterface {
 										</span>
 									</div>
 								</td>
-								<td data-colname="<?php esc_attr_e( 'Content', 'buddynext' ); ?>">
+								<td class="bn-activity-content" data-colname="<?php esc_attr_e( 'Content', 'buddynext' ); ?>">
 									<span class="bn-badge" data-tone="<?php echo esc_attr( $this->type_tone( (string) $row['type'], (int) $row['is_announcement'] ) ); ?>"><?php echo esc_html( $this->type_label( (string) $row['type'] ) ); ?></span>
 									<span class="bn-activity-preview"><?php echo esc_html( $this->preview( (string) $row['content'] ) ); ?></span>
 								</td>
@@ -493,6 +493,16 @@ class ActivityAdmin implements ListenerInterface {
 					}
 					$result = $posts->delete( $pid, $actor_id );
 				} else {
+					// Hide only applies to a published post and Restore to a hidden one.
+					// set_hidden() answers true for anything else as a no-op, so a draft
+					// or scheduled post ticked for Hide used to be counted as "hidden from
+					// the feed". Count a post only when it ends up in the state the notice
+					// names.
+					$row    = $posts->get( $pid );
+					$status = is_array( $row ) ? (string) ( $row['status'] ?? '' ) : '';
+					if ( ( 'hide' === $bulk_action ? 'published' : 'under_review' ) !== $status ) {
+						continue;
+					}
 					$result = $posts->set_hidden( $pid, 'hide' === $bulk_action, $actor_id );
 				}
 				if ( is_wp_error( $result ) ) {

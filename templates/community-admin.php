@@ -197,7 +197,17 @@ $bn_ca_rp_types = array(
 $bn_ca_rp_type  = isset( $_GET['rtype'] ) ? sanitize_key( wp_unslash( $_GET['rtype'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_ca_rp_type  = isset( $bn_ca_rp_types[ $bn_ca_rp_type ] ) ? $bn_ca_rp_type : '';
 $bn_ca_rp_sort  = ( isset( $_GET['rsort'] ) && 'reported' === $_GET['rsort'] ) ? 'reported' : 'newest'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_ca_queue    = $bn_ca_mod->get_queue(
+// The queue is for whoever holds "Review the report queue". The panel itself
+// opens on space moderation, so a moderator can be here with that row raised to
+// Admins only: they get the other tabs, not the reports.
+$bn_ca_can_queue = buddynext_can( $current_user_id, 'buddynext-moderation/review-queue' );
+if ( ! $bn_ca_can_queue ) {
+	$open_reports = 0;
+}
+$bn_ca_queue    = ! $bn_ca_can_queue ? array(
+	'items' => array(),
+	'total' => 0,
+) : $bn_ca_mod->get_queue(
 	array(
 		'per_page'    => 20,
 		'page'        => $bn_ca_rp_page,
@@ -258,9 +268,20 @@ do_action( 'buddynext_community_admin_before' );
 <?php
 // Active section tab. Default 'reports' as the most action-oriented stream.
 $allowed_sections = array( 'reports', 'mod_appeals', 'appeals', 'strikes', 'actions' );
-$active_section   = isset( $_GET['bn_section'] ) ? sanitize_key( wp_unslash( $_GET['bn_section'] ) ) : 'reports'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+// The Appeals tab is for the people who can decide an appeal (administrators,
+// unless the owner widens it). Everyone else who reaches this panel used to get
+// the tab and its Approve / Deny buttons, then a refusal on click.
+$bn_ca_can_appeals = \BuddyNext\Moderation\ModerationService::can_resolve_appeals( get_current_user_id() );
+if ( ! $bn_ca_can_appeals ) {
+	$allowed_sections = array_values( array_diff( $allowed_sections, array( 'mod_appeals' ) ) );
+}
+if ( ! $bn_ca_can_queue ) {
+	$allowed_sections = array_values( array_diff( $allowed_sections, array( 'reports' ) ) );
+}
+$active_section = isset( $_GET['bn_section'] ) ? sanitize_key( wp_unslash( $_GET['bn_section'] ) ) : 'reports'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $active_section, $allowed_sections, true ) ) {
-	$active_section = 'reports';
+	$active_section = $allowed_sections[0];
 }
 
 $posts_pct_abs = abs( $posts_pct );
@@ -854,6 +875,12 @@ $posts_pct_abs = abs( $posts_pct );
 						'count' => is_countable( $activity_rows ) ? count( $activity_rows ) : 0,
 					),
 				);
+				if ( ! $bn_ca_can_appeals ) {
+					unset( $sections['mod_appeals'] );
+				}
+				if ( ! $bn_ca_can_queue ) {
+					unset( $sections['reports'] );
+				}
 				foreach ( $sections as $skey => $sdata ) :
 					$is_active = ( $active_section === $skey );
 					$shref     = add_query_arg( 'bn_section', $skey );
@@ -919,7 +946,9 @@ $posts_pct_abs = abs( $posts_pct );
 							<?php
 							$rpt_count    = (int) ( $rpt['reporter_count'] ?? 1 );
 							$rpt_severity = bn_report_severity( $rpt_count );
-							$rpt_reason   = ucfirst( (string) ( $rpt['reason'] ?? __( 'Report', 'buddynext' ) ) );
+							$rpt_reason   = '' !== (string) ( $rpt['reason'] ?? '' )
+								? \BuddyNext\Moderation\ModerationService::reason_label( (string) $rpt['reason'] )
+								: __( 'Report', 'buddynext' );
 							$rpt_ts       = ! empty( $rpt['created_at'] ) ? (int) strtotime( (string) $rpt['created_at'] . ' UTC' ) : 0;
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
 							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours". */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';

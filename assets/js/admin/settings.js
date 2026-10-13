@@ -169,6 +169,30 @@
 				var testBtn = e.target.closest( '[data-bn-webhook-test]' );
 				var rmBtn   = e.target.closest( '[data-bn-webhook-remove]' );
 				var logBtn  = e.target.closest( '[data-bn-webhook-log]' );
+				var onBtn   = e.target.closest( '[data-bn-webhook-enable]' );
+				if ( onBtn ) {
+					onBtn.disabled = true;
+					setStatus( __( 'Re-enabling…', 'buddynext' ) );
+					fetch( restUrl + '/' + onBtn.dataset.bnWebhookEnable, {
+						method: 'PATCH',
+						headers: { 'X-WP-Nonce': restNonce, 'Content-Type': 'application/json' },
+						body: JSON.stringify( { is_active: true } ),
+					} )
+					.then( function ( r ) {
+						if ( r.ok ) {
+							// The Status badge is server-rendered: reload to show it.
+							window.location.reload();
+							return;
+						}
+						onBtn.disabled = false;
+						setStatus( __( 'Could not re-enable the webhook. Try again.', 'buddynext' ), true );
+					} )
+					.catch( function () {
+						onBtn.disabled = false;
+						setStatus( __( 'Network error. Try again.', 'buddynext' ), true );
+					} );
+					return;
+				}
 				if ( logBtn ) {
 					var logId  = logBtn.dataset.bnWebhookLog;
 					var logRow = tbody.querySelector( '[data-bn-webhook-log-row="' + logId + '"]' );

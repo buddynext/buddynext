@@ -57,7 +57,7 @@ The hook with differing call sites is called out on its own page.
 The split is not arbitrary. It tells you what the hook is for.
 
 - An **action** (`do_action`) is a notification that something happened. BuddyNext does not use the return value. Use actions to react to events: award points, write an analytics row, send an external webhook, sync to a CRM. Example: `buddynext_post_created` fires after a post is saved.
-- A **filter** (`apply_filters`) asks you to shape a value and return it. BuddyNext uses what you return. Use filters to change behavior or markup: rerank a feed, add a profile field type, raise a limit, inject markup into a template part. Example: `buddynext_post_pin_limit` lets Pro raise the pinned-post cap from 1 to 10.
+- A **filter** (`apply_filters`) asks you to shape a value and return it. BuddyNext uses what you return. Use filters to change behavior or markup: rerank a feed, add a profile field type, raise a limit, inject markup into a template part. Example: `buddynext_post_pin_limit` lets Pro raise the pinned-post cap from 1 to 3.
 
 > **Note:** A filter callback must return a value. Returning nothing (or the wrong type) from a filter can break the surface that depends on it. An action callback's return value is ignored.
 
@@ -131,13 +131,13 @@ add_action(
 
 ### Shaping a value with add_filter
 
-`buddynext_post_pin_limit` is a domain filter. BuddyNext defaults the pinned-post cap to 1 and uses whatever you return. Here, raise it to 5 (this is the same seam Pro uses to lift the cap to 10).
+`buddynext_post_pin_limit` is a domain filter. BuddyNext defaults the pinned-post cap to 1 and uses whatever you return. Here, raise it to 3, the most BuddyNext allows (this is the same seam Pro uses to lift the cap).
 
 ```php
 add_filter(
     'buddynext_post_pin_limit',
     function ( int $limit ): int {
-        return 5;
+        return 3;
     }
 );
 ```

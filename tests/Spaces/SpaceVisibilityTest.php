@@ -138,6 +138,7 @@ class SpaceVisibilityTest extends \WP_Test_REST_TestCase {
 				'type' => 'secret',
 			)
 		);
+		$this->assertGreaterThan( 0, $this->secret_id, 'Fixture: the secret space was created.' );
 		$this->open_id    = (int) $this->service->create(
 			$this->owner_id,
 			array(
@@ -229,7 +230,14 @@ class SpaceVisibilityTest extends \WP_Test_REST_TestCase {
 	public function test_logged_out_cannot_see_secret_roster(): void {
 		$this->assertFalse( SpaceVisibility::can_view_roster( $this->service->get( $this->secret_id ), 0 ) );
 		$this->assertFalse( SpaceVisibility::can_view_space( $this->service->get( $this->secret_id ), 0 ) );
-		$this->assertSame( 403, $this->get_members_rest( $this->secret_id )->get_status() );
+		// 404, not 403: a secret space does not exist for someone who cannot see it,
+		// so its id cannot be confirmed by probing (SpaceController::
+		// hide_unseen_space, card 10369170447). That gate is added when the routes
+		// register; it is added here too so the answer does not depend on whether an
+		// earlier test happened to register them (this assertion read 403 or 404 by
+		// run order, card 10384520178).
+		add_filter( 'rest_request_before_callbacks', array( \BuddyNext\Spaces\SpaceController::class, 'hide_unseen_space' ), 5, 3 );
+		$this->assertSame( 404, $this->get_members_rest( $this->secret_id )->get_status() );
 		$this->assertStringNotContainsString( 'Roster Rita', $this->render_members_template( $this->secret_id ) );
 	}
 

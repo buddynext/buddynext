@@ -1551,6 +1551,88 @@ class FollowService {
 	}
 
 	/**
+	 * Keep a private account's posts off a discovery surface for non-followers.
+	 *
+	 * "Only approved followers see your posts" is the promise the Private account
+	 * switch makes. The profile feed and search already keep it; this is the same
+	 * rule for surfaces that show posts outside the follow graph (Explore, the
+	 * public part of For You, hashtag pages). The author, an approved follower and
+	 * an administrator are not affected.
+	 *
+	 * A subquery, never a PHP id list, so it holds on a 100k-member site. The viewer
+	 * id is an int cast, so the fragment carries no placeholder and can be dropped
+	 * into a statement that is prepared afterwards.
+	 *
+	 * Static so the hashtag count repair in the Installer, which runs before the
+	 * service container exists, can use the same clause.
+	 *
+	 * @param int    $viewer_id Viewer user ID (0 = logged-out visitor).
+	 * @param string $column    Author column of the posts being filtered, with its
+	 *                          table alias when the query uses one. Code-supplied.
+	 * @return string SQL fragment starting with AND, or '' for an administrator.
+	 */
+	public static function private_author_where( int $viewer_id, string $column = 'user_id' ): string {
+		global $wpdb;
+
+		if ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) ) {
+			return '';
+		}
+
+		$private_authors = sprintf(
+			"SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = '%s' AND meta_value NOT IN ( '', '0' )",
+			esc_sql( self::PRIVATE_META )
+		);
+
+		if ( $viewer_id <= 0 ) {
+			return " AND {$column} NOT IN ( {$private_authors} )";
+		}
+
+		return sprintf(
+			" AND (
+				{$column} NOT IN ( {$private_authors} )
+				OR {$column} = %1\$d
+				OR {$column} IN (
+					SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %1\$d AND status = 'approved'
+				)
+			)",
+			$viewer_id
+		);
+	}
+
+	/**
+	 * Approve every follow request waiting on an account.
+	 *
+	 * Called when a private account is switched back to public: from then on
+	 * anyone may follow it in one click, so a request left waiting would be the
+	 * only follow the owner still has to approve by hand. Each row goes through
+	 * approve_follow_request(), so counters, caches and the follow hooks behave
+	 * exactly as for a single approval.
+	 *
+	 * @param int $owner_id Account whose waiting requests are approved.
+	 * @return int Requests approved.
+	 */
+	public function approve_pending_requests( int $owner_id ): int {
+		$approved = 0;
+
+		// ponytail: handled in the request, 200 at a time, at most 1000. An account
+		// holding more waiting requests than that keeps the rest in its inbox; move
+		// this to Action Scheduler if such accounts turn out to exist.
+		for ( $batch = 0; $batch < 5; $batch++ ) {
+			$follower_ids = $this->pending_followers( $owner_id );
+			if ( ! $follower_ids ) {
+				break;
+			}
+			foreach ( $follower_ids as $follower_id ) {
+				if ( $this->approve_follow_request( $owner_id, (int) $follower_id ) ) {
+					++$approved;
+				}
+			}
+		}
+
+		return $approved;
+	}
+
+	/**
 	 * Reject a pending follow request.
 	 *
 	 * Deletes the pending row outright (no rejected-history kept for

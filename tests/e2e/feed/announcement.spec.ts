@@ -1,4 +1,5 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { endActiveAnnouncements } from '../_fixtures/wp';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, type MemberSession } from '../_fixtures/feed-wave1.helpers';
@@ -32,6 +33,8 @@ test.describe('feed / composer announcement', () => {
         let member: MemberSession | null = null;
 
         try {
+            // One site announcement is active at a time; retire the model site's own first.
+            await endActiveAnnouncements();
             await page.goto(urls.feed);
             const composer = page.locator(sel.composer).first();
             await expect(composer).toBeVisible();

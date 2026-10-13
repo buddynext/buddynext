@@ -327,9 +327,11 @@ $bn_subtitle = sprintf(
 			$bn_is_mine = ( 'mine' === $bn_scope && $current_user_id > 0 );
 			?>
 			<?php // All Spaces + My Spaces are pretty-URL links (scope = a view, not a reactive filter); category/search/sort stay reactive within the All view. ?>
+			<?php // data-bn-scope-chip="all" puts this link in the single-select row the store clears and resets. ?>
 			<a
 				class="bn-tab bn-sd-chip"
 				role="tab"
+				data-bn-scope-chip="all"
 				aria-selected="<?php echo ( ! $bn_is_mine && '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
 				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::spaces_url() ); ?>"
 			><?php esc_html_e( 'All Spaces', 'buddynext' ); ?></a>
@@ -359,6 +361,7 @@ $bn_subtitle = sprintf(
 						// pill while the admin showed the styled one.
 						$bn_chip_bg     = (string) ( $bn_cat_item->color ?? '' );
 						$bn_chip_fg     = (string) ( $bn_cat_item->text_color ?? '' );
+						$bn_chip_fg     = '' !== $bn_chip_bg ? buddynext_readable_text_color( $bn_chip_bg, $bn_chip_fg ) : $bn_chip_fg;
 						$bn_chip_swatch = ( '' !== $bn_chip_bg && '' !== $bn_chip_fg )
 							? ' style="' . esc_attr( sprintf( 'background:%1$s;color:%2$s;', $bn_chip_bg, $bn_chip_fg ) ) . '"'
 							: '';

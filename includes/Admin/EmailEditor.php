@@ -87,6 +87,32 @@ class EmailEditor {
 	// ── Template catalogue ────────────────────────────────────────────────────
 
 	/**
+	 * Use the email BuddyNext actually ships as the wording shown when a
+	 * template has no saved row.
+	 *
+	 * The catalogue below carries its own sample wording, written with tokens
+	 * the sender does not fill ({{follower_name}}, {{recipient_name}}), so an
+	 * owner previewing or saving from it would send those tokens as text. The
+	 * seeded email (Installer) is the real default, with real tokens.
+	 *
+	 * @param string               $type     Template type.
+	 * @param array<string, mixed> $defaults Catalogue entry.
+	 * @return array<string, mixed>
+	 */
+	private static function with_seed_wording( string $type, array $defaults ): array {
+		foreach ( \BuddyNext\Core\Installer::email_template_seeds() as $seed ) {
+			if ( ( $seed['type'] ?? '' ) === $type ) {
+				$defaults['subject'] = (string) $seed['subject'];
+				$defaults['preview'] = (string) $seed['preview_text'];
+				$defaults['body']    = (string) $seed['body_html'];
+				break;
+			}
+		}
+
+		return $defaults;
+	}
+
+	/**
 	 * Return the catalogue of built-in templates grouped by category.
 	 *
 	 * @return array<string, array<string, array<string, string|list<string>>>>
@@ -376,18 +402,18 @@ class EmailEditor {
 				'bn.daily_digest'  => array(
 					'name'    => __( 'Daily digest', 'buddynext' ),
 					'trigger' => __( 'Daily summary of community activity', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'tokens'  => array( '{{user_name}}', '{{notification_list}}', '{{action_url}}', '{{site_name}}', '{{site_url}}', '{{unsubscribe_url}}', '{{current_year}}' ),
 					'subject' => 'Your daily digest from {{site_name}}',
 					'preview' => "Here's what happened today.",
-					'body'    => "Hi {{recipient_name}},\n\nHere's a summary of recent activity on {{site_name}}.\n\n<a href=\"{{site_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
+					'body'    => "Hi {{user_name}},\n\nHere's a summary of recent activity on {{site_name}}.\n\n{{notification_list}}\n\n<a href=\"{{action_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
 				),
 				'bn.weekly_digest' => array(
 					'name'    => __( 'Weekly digest', 'buddynext' ),
 					'trigger' => __( 'Weekly summary of community activity', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'tokens'  => array( '{{user_name}}', '{{notification_list}}', '{{action_url}}', '{{site_name}}', '{{site_url}}', '{{unsubscribe_url}}', '{{current_year}}' ),
 					'subject' => 'Your weekly digest from {{site_name}}',
 					'preview' => "Here's what happened this week.",
-					'body'    => "Hi {{recipient_name}},\n\nHere's a summary of this week's activity on {{site_name}}.\n\n<a href=\"{{site_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
+					'body'    => "Hi {{user_name}},\n\nHere's a summary of this week's activity on {{site_name}}.\n\n{{notification_list}}\n\n<a href=\"{{action_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
 				),
 			),
 			__( 'Onboarding', 'buddynext' ) => array(
@@ -595,9 +621,10 @@ class EmailEditor {
 			return false;
 		}
 
-		$saved   = $this->get_saved( $slug );
-		$subject = $saved ? $saved->subject : $defaults['subject'];
-		$body    = $saved ? $saved->body_html : $defaults['body'];
+		$saved    = $this->get_saved( $slug );
+		$defaults = self::with_seed_wording( $slug, $defaults );
+		$subject  = $saved ? $saved->subject : $defaults['subject'];
+		$body     = $saved ? $saved->body_html : $defaults['body'];
 
 		$bn_current   = wp_get_current_user();
 		$bn_first     = (string) get_user_meta( $bn_current->ID, 'first_name', true );
@@ -831,6 +858,7 @@ class EmailEditor {
 		}
 
 		$saved        = $this->get_saved( $active_slug );
+		$active_def   = self::with_seed_wording( $active_slug, $active_def );
 		$subject      = $saved ? $saved->subject : $active_def['subject'];
 		$preview_text = $saved ? $saved->preview_text : $active_def['preview'];
 		$body_html    = $saved ? $saved->body_html : $active_def['body'];

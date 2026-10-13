@@ -15,7 +15,7 @@ import { onNavReady } from '@buddynext/nav-init';
 // Relation-removal handler for the Muted-list sidecard's Unmute button
 // (Pattern D-15). Side-effect import — installs a single document-level
 // click listener that any data-bn-relation-remove button can use.
-import '../social/relation-remove.js';
+import '@buddynext/relation-remove';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -86,6 +86,56 @@ function filterKeyForType( type ) {
  * @param {string} [type] Raw notification type, to also move its type tab.
  */
 /**
+ * Keep each day group's "N unread" label equal to the unread rows under it.
+ *
+ * The label is printed by the server. Every way a row stops being unread or
+ * leaves the list (read, read all, delete, delete selected) changes the rows
+ * themselves, so the label is recounted from them instead of each action
+ * keeping its own tally.
+ */
+function syncGroupUnreadLabels() {
+	document.querySelectorAll( '.bn-notif-group' ).forEach( function ( group ) {
+		var head = group.querySelector( '.bn-notif-group__head' );
+		if ( ! head ) { return; }
+		var n     = group.querySelectorAll( '.bn-notif-row--unread' ).length;
+		var label = head.querySelector( '.bn-notif-group__meta' );
+		if ( n > 0 && ! label ) {
+			label = document.createElement( 'span' );
+			label.className = 'bn-notif-group__meta';
+			head.appendChild( label );
+		}
+		if ( ! label ) { return; }
+		var text = n > 0 ? fmt( t( 'unreadBadge', '%s unread' ), String( n ) ) : '';
+		if ( label.textContent.trim() !== text ) { label.textContent = text; }
+		label.hidden = n <= 0;
+		// A group whose last row was deleted has nothing left to head.
+		group.hidden = ! group.querySelector( '.bn-notif-row' );
+	} );
+}
+
+/**
+ * Take deleted rows off the "This week" notifications figure.
+ *
+ * That figure counts notifications received in the last seven days, so only a
+ * deleted row from that window lowers it.
+ *
+ * @param {Element[]} rows Rows that were deleted on the server.
+ */
+function takeFromWeekTile( rows ) {
+	var tile = document.querySelector( '[data-bn-week-notifs]' );
+	if ( ! tile ) { return; }
+	var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+	var gone    = rows.filter( function ( row ) {
+		var time = row.querySelector( 'time[datetime]' );
+		return time && Date.parse( time.getAttribute( 'datetime' ) ) >= weekAgo;
+	} ).length;
+	var left = Math.max( 0, ( parseInt( tile.getAttribute( 'data-bn-week-notifs' ), 10 ) || 0 ) - gone );
+	tile.setAttribute( 'data-bn-week-notifs', String( left ) );
+	// The server shortens large figures (1.2k); those wait for the next load.
+	if ( left < 1000 ) { tile.textContent = String( left ); }
+}
+
+/**
  * Total UNREAD notifications, as maintained for the filter-bar tabs.
  *
  * @param {Object} ctx Interactivity context.
@@ -133,6 +183,15 @@ function toast( message, tone ) {
 
 const notificationsStore = store( 'buddynext/notifications', {
 	state: {
+		// Select mode: how many rows are ticked, and whether Delete has anything to do.
+		get selectedLabel() {
+			var ctx = getContext();
+			return t( 'selectedCount', '%d selected' ).replace( '%d', String( ( ctx && ctx.selectedCount ) || 0 ) );
+		},
+		get noneSelected() {
+			var ctx = getContext();
+			return ! ctx || ! ctx.selectedCount;
+		},
 		get unreadLabel() {
 			var ctx = getContext();
 			return formatBadge( ctx && ctx.unreadCount ? ctx.unreadCount : 0 );
@@ -249,6 +308,17 @@ const notificationsStore = store( 'buddynext/notifications', {
 			if ( event.target.closest( '.bn-notif-row__actions' ) ) {
 				return;
 			}
+			// Select mode: a click anywhere on the row ticks it, and opens nothing.
+			var selCtx = getContext();
+			if ( selCtx && selCtx.selecting ) {
+				var box = row.querySelector( '[data-bn-notif-select]' );
+				if ( box && event.target !== box ) {
+					event.preventDefault();
+					box.checked = ! box.checked;
+				}
+				selCtx.selectedCount = document.querySelectorAll( '[data-bn-notif-select]:checked' ).length;
+				return;
+			}
 			var wasUnread = row.classList.contains( 'bn-notif-row--unread' );
 			var previous  = ctx ? ( ctx.unreadCount || 0 ) : 0;
 
@@ -341,6 +411,79 @@ const notificationsStore = store( 'buddynext/notifications', {
 			}
 		},
 
+		// Select mode on / off. Leaving it unticks everything.
+		toggleSelect: function () {
+			var ctx = getContext();
+			if ( ! ctx ) { return; }
+			ctx.selecting = ! ctx.selecting;
+			ctx.selectedCount = 0;
+			document.querySelectorAll( '[data-bn-notif-select], [data-bn-notif-select-all]' ).forEach( function ( box ) { box.checked = false; } );
+		},
+
+		// "Select all" ticks every notification on this page.
+		selectAll: function ( event ) {
+			var ctx   = getContext();
+			var boxes = document.querySelectorAll( '[data-bn-notif-select]' );
+			boxes.forEach( function ( box ) { box.checked = !! event.target.checked; } );
+			if ( ctx ) { ctx.selectedCount = event.target.checked ? boxes.length : 0; }
+		},
+
+		// Delete every ticked notification in one request, after a confirmation.
+		deleteSelected: async function () {
+			var ctx = getContext();
+			var ids = Array.prototype.map.call( document.querySelectorAll( '[data-bn-notif-select]:checked' ), function ( box ) { return parseInt( box.value, 10 ); } );
+			if ( ! ctx || ! ids.length ) { return; }
+
+			if ( typeof window.bnConfirm === 'function' ) {
+				var ok = await window.bnConfirm( {
+					title:        t( 'deleteSelectedTitle', 'Delete notifications' ),
+					body:         t( 'deleteSelectedBody', '%d selected notifications will be deleted. This cannot be undone.' ).replace( '%d', String( ids.length ) ),
+					tone:         'danger',
+					confirmLabel: t( 'deleteSelectedOk', 'Delete' ),
+				} );
+				if ( ! ok ) { return; }
+			}
+
+			try {
+				var res = await restFetch( '', {
+					base: ctx.restUrl,
+					nonce: ctx.nonce,
+					method: 'DELETE',
+					body: { ids: ids },
+					toastOnError: false,
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+			} catch ( _e ) {
+				toast( t( 'deleteSelectedFailed', 'Could not delete the notifications. Try again.' ), 'error' );
+				return;
+			}
+
+			// Same bookkeeping as deleting one row: unread rows leave the counts.
+			var deletedRows = [];
+			ids.forEach( function ( id ) {
+				var row = document.querySelector( '.bn-notif-row[data-notif-id="' + id + '"]' );
+				if ( ! row ) { return; }
+				deletedRows.push( row );
+				if ( row.classList.contains( 'bn-notif-row--unread' ) ) {
+					if ( ctx.unreadCount > 0 ) { ctx.unreadCount = ctx.unreadCount - 1; }
+					adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
+				}
+				row.remove();
+			} );
+			takeFromWeekTile( deletedRows );
+			ctx.selecting     = false;
+			ctx.selectedCount = 0;
+			document.querySelectorAll( '[data-bn-notif-select-all]' ).forEach( function ( box ) { box.checked = false; } );
+
+			// Nothing left on this page: load it again so the next rows (or the
+			// empty state) and the paging are right.
+			if ( ! document.querySelector( '.bn-notif-row' ) ) {
+				window.location.reload();
+				return;
+			}
+			toast( t( 'deleteSelectedDone', '%d notifications deleted.' ).replace( '%d', String( ids.length ) ), 'success' );
+		},
+
 		dismiss: async function ( event ) {
 			// Per-row delete — DELETE /me/notifications/{id}. Optimistically
 			// removes the row from the DOM and decrements the badge if the
@@ -390,6 +533,7 @@ const notificationsStore = store( 'buddynext/notifications', {
 				toast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), 'error' );
 				return;
 			}
+			takeFromWeekTile( [ row ] );
 		},
 
 		// Accept a space invitation straight from its notification. POSTs to the
@@ -631,6 +775,26 @@ const notificationsStore = store( 'buddynext/notifications', {
 I18N = ( notificationsStore.state && notificationsStore.state.i18n ) || {};
 
 /**
+ * Recount the day group labels whenever the rows under them change.
+ */
+function watchNotifGroups() {
+	var groups = document.querySelectorAll( '.bn-notif-group' );
+	if ( ! groups.length || typeof MutationObserver === 'undefined' ) { return; }
+	var observer = new MutationObserver( syncGroupUnreadLabels );
+	groups.forEach( function ( group ) {
+		var list = group.querySelector( '.bn-notif-list' );
+		if ( list ) {
+			observer.observe( list, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
+		}
+	} );
+}
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', watchNotifGroups );
+} else {
+	watchNotifGroups();
+}
+
+/**
  * Background unread-count polling.
  *
  * C1 from the notifications completion walk. Keeps the mobile nav badge
@@ -699,11 +863,36 @@ function bootstrapNotifPolling() {
 	function paintBadge( count ) {
 		var label = count > 99 ? '99+' : String( count );
 
-		// Mobile nav badge.
-		var badge = document.querySelector( '.bn-mobile-nav__badge' );
-		if ( badge ) {
-			badge.textContent = label;
-			badge.hidden = ! count || count <= 0;
+		// The same number on the phone nav and on the left rail. Matched by the
+		// notifications page's own address (as header/user-menu.js does), so a
+		// badge on another item is never touched; the phone nav's first badge is
+		// the fallback when the page has no bell to read the address from.
+		var bell      = document.querySelector( '.bn-notification-bell-link' );
+		var notifPath = bell ? bell.pathname : '';
+		var phone     = document.querySelectorAll( '.bn-mobile-nav__badge' );
+		Array.prototype.forEach.call( phone, function ( badge, index ) {
+			var link = badge.closest( 'a[href]' );
+			if ( notifPath ? ( link && link.pathname === notifPath ) : 0 === index ) {
+				badge.textContent = label;
+				badge.hidden = ! count || count <= 0;
+			}
+		} );
+		if ( notifPath ) {
+			// The rail prints its badge only when the count is above zero, so one is
+			// made here when a first notification arrives in an open page.
+			document.querySelectorAll( 'a.bn-rail__item[href]' ).forEach( function ( item ) {
+				if ( item.pathname !== notifPath ) { return; }
+				var railBadge = item.querySelector( '.bn-rail__badge' );
+				if ( count > 0 && ! railBadge ) {
+					railBadge = document.createElement( 'span' );
+					railBadge.className = 'bn-rail__badge';
+					item.appendChild( railBadge );
+				}
+				if ( railBadge ) {
+					railBadge.textContent = label;
+					railBadge.hidden = ! count || count <= 0;
+				}
+			} );
 		}
 		// Header pill (legacy bn-shell dropdown badge), if rendered by host theme.
 		var pill = document.querySelector( '.bn-nav-notif-wrap .bn-nav-pill' );
@@ -720,8 +909,11 @@ function bootstrapNotifPolling() {
 		// is updated in place when present, hidden when the count drops to 0, and
 		// created inside the bell link when a count first arrives — keeping it
 		// live site-wide rather than only on the /notifications/ page.
-		var bellLink = document.querySelector( '.bn-notification-bell-link' );
-		if ( bellLink ) {
+		// Every bell on the page, not the first one: a theme may print the header
+		// twice (BuddyX has a hidden small-screen copy before the visible one), and
+		// updating only the first left the bell the member can see stale until a
+		// reload.
+		document.querySelectorAll( '.bn-notification-bell-link' ).forEach( function ( bellLink ) {
 			var bellBadge = bellLink.querySelector( '.bn-notification-badge' );
 			if ( count > 0 ) {
 				if ( ! bellBadge ) {
@@ -736,7 +928,7 @@ function bootstrapNotifPolling() {
 			} else if ( bellBadge ) {
 				bellBadge.hidden = true;
 			}
-		}
+		} );
 		// Any data-wp-text="state.unreadLabel" elements will re-render
 		// when ctx.unreadCount is mutated by the store; this paint pass
 		// covers no-Interactivity DOM (the header pill + bell badge).

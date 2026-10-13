@@ -339,6 +339,44 @@ if ( $bn_sf_is_space ) {
 		<?php endif; ?>
 	</div>
 
+	<?php
+	// What Upload takes, in words. The picker's accept list is invisible and is
+	// bypassed by "All files" and by a drop, so a refused photo used to be the
+	// first time a member learned this tab is for documents.
+	if ( $bn_sf_can_upload && ! empty( $bn_sf_doc_config['types'] ) ) :
+		$bn_sf_type_names = array(
+			'pdf'              => 'PDF',
+			'word'             => 'Word',
+			'excel'            => 'Excel',
+			'powerpoint'       => 'PowerPoint',
+			'odf_text'         => 'OpenDocument',
+			'odf_sheet'        => 'OpenDocument',
+			'odf_presentation' => 'OpenDocument',
+			'text'             => __( 'plain text', 'buddynext' ),
+			'markdown'         => 'Markdown',
+			'csv'              => 'CSV',
+			'rtf'              => 'RTF',
+		);
+		$bn_sf_type_list  = array();
+		foreach ( (array) $bn_sf_doc_config['types'] as $bn_sf_type ) {
+			$bn_sf_type_list[] = $bn_sf_type_names[ $bn_sf_type ] ?? strtoupper( (string) $bn_sf_type );
+		}
+		$bn_sf_type_list = implode( ', ', array_unique( $bn_sf_type_list ) );
+		$bn_sf_max_bytes = (int) ( $bn_sf_doc_config['max_size'] ?? 0 );
+		?>
+		<p class="bn-files__hint">
+			<?php
+			echo esc_html(
+				$bn_sf_max_bytes > 0
+					/* translators: 1: list of accepted document types, 2: largest file size, e.g. 300 MB. */
+					? sprintf( __( 'Documents only: %1$s. Up to %2$s each.', 'buddynext' ), $bn_sf_type_list, size_format( $bn_sf_max_bytes ) )
+					/* translators: %s: list of accepted document types. */
+					: sprintf( __( 'Documents only: %s.', 'buddynext' ), $bn_sf_type_list )
+			);
+			?>
+		</p>
+	<?php endif; ?>
+
 	<?php if ( ! $bn_sf_can_upload && $bn_sf_show_ro_notice ) : ?>
 		<p class="bn-files__notice" data-bn-files-readonly>
 			<?php

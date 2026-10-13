@@ -212,7 +212,9 @@ $bn_purl      = PageRouter::post_url( $bn_pid );
 $bn_av        = $bn_author_id > 0 ? (string) get_avatar_url( $bn_author_id, array( 'size' => 40 ) ) : '';
 $bn_atone     = bn_explore_tone( $bn_author_id, $bn_palette );
 
-$bn_reactions = (int) ( $bn_post['reaction_count'] ?? 0 );
+// With reactions switched off the count is not shown, as on the feed card. Zero
+// here is enough: every card variant below prints it only when above zero.
+$bn_reactions = buddynext_feature_enabled( 'reactions' ) ? (int) ( $bn_post['reaction_count'] ?? 0 ) : 0;
 $bn_comments  = (int) ( $bn_post['comment_count'] ?? 0 );
 $bn_shares    = (int) ( $bn_post['share_count'] ?? 0 );
 $bn_created   = (string) ( $bn_post['created_at'] ?? '' );

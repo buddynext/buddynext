@@ -121,6 +121,9 @@ final class IntegrationRegistry {
 				// needs); the bridge stays on and the owner is told which to update for.
 				'feature_versions' => self::feature_versions( $entry['feature_versions'] ?? array() ),
 				'has_nav'          => ! empty( $entry['has_nav'] ),
+				// What the tab is called on screen ("Discussions", not "Jetonomy"), for
+				// the Show in navigation help. Empty when an integration adds several.
+				'nav_label'        => isset( $entry['nav_label'] ) ? (string) $entry['nav_label'] : '',
 				'has_feed'         => ! empty( $entry['has_feed'] ),
 				// Whether this integration writes into the search index. Only integrations
 				// that declare it get the "Include in search" switch — otherwise the owner

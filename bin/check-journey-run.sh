@@ -289,6 +289,19 @@ if [ -z "${BN_TEST_OTHER_USER:-}" ]; then
 	echo "journey run: BN_TEST_OTHER_USER=$BN_TEST_OTHER_USER (the seeded non-owner member)"
 fi
 
+# Match the Pro specs to the site. With Pro active, plan gates answer Free's
+# capabilities (scheduling, follows, DMs), so a spec that assumes a Free-only
+# site fails for the wrong reason; with Pro inactive, Pro specs cannot run.
+if [ -z "${BN_PRO:-}" ]; then
+	if wp --path="$BN_WP_PATH" plugin is-active buddynext-pro >/dev/null 2>&1; then
+		BN_PRO=1
+	else
+		BN_PRO=0
+	fi
+	export BN_PRO
+	echo "journey run: BN_PRO=$BN_PRO (buddynext-pro active on the site under test)"
+fi
+
 REPORT="$(mktemp -t bn-journey-XXXXXX.json)"
 REPORTDIR="$(mktemp -d -t bn-journey-XXXXXX)"
 trap 'rm -f "$REPORT"; rm -rf "$REPORTDIR" "${BN_MEM_WRAP_DIR:-}"' EXIT
@@ -360,12 +373,16 @@ def walk(node):
         # Identity is file + title: stable across reordering, unlike an index.
         ident = f"{spec.get('file','')}::{spec.get('title','')}"
         for test in spec.get('tests', []):
-            for result in test.get('results', []):
-                status = result.get('status')
-                if status in ('failed', 'timedOut'):
-                    failed.add(ident)
-                elif status == 'passed':
-                    passed.add(ident)
+            # Playwright's per-test verdict already folds in test.fail(): a
+            # journey that documents an open defect with test.fail(true, 'card N')
+            # reports 'expected' when it fails, 'unexpected' when it starts
+            # passing (the card is Done: drop the annotation). Reading the raw
+            # result status instead counted every documented defect as a regression.
+            verdict = test.get('status')
+            if verdict == 'unexpected':
+                failed.add(ident)
+            elif verdict in ('expected', 'flaky'):
+                passed.add(ident)
 
 for suite in data.get('suites', []):
     walk(suite)

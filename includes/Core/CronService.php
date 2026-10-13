@@ -37,9 +37,9 @@ class CronService {
 	/**
 	 * Send daily digest emails to users with email_freq = 'daily'.
 	 *
-	 * Queries bn_notification_prefs for distinct user IDs with the daily
-	 * frequency, capped at DIGEST_USER_CAP per run. For each user, fetches
-	 * unread notifications created within the last 24 hours. Skips any user
+	 * Pages through the members who have something unread from the last 24 hours,
+	 * capped at DIGEST_USER_CAP per run. For each one, keeps the notifications
+	 * whose frequency is Daily (their own choice, or the type's default). Skips any user
 	 * whose daily digest was already sent today (checked via bn_email_log).
 	 * Sends via wp_mail using the bn.daily_digest template and logs each
 	 * successful delivery to bn_email_log with digest_date = today.
@@ -60,7 +60,7 @@ class CronService {
 			return;
 		}
 
-		$user_ids = $this->get_digest_user_ids( 'daily', $after_id );
+		$user_ids = $this->get_digest_user_ids( 1, $after_id );
 		if ( empty( $user_ids ) ) {
 			return;
 		}
@@ -70,7 +70,7 @@ class CronService {
 				continue;
 			}
 
-			$notifications = $this->fetch_unread_notifications( $user_id, 1 );
+			$notifications = $this->fetch_unread_notifications( $user_id, 1, 'daily' );
 			if ( empty( $notifications ) ) {
 				continue;
 			}
@@ -89,7 +89,7 @@ class CronService {
 	// ── Weekly digest ─────────────────────────────────────────────────────────
 
 	/**
-	 * Send weekly digest emails to users with email_freq = 'weekly'.
+	 * Send the weekly digest to every member with something unread that belongs in it.
 	 *
 	 * Identical flow to handle_daily_digest() but spans 7 days and uses the
 	 * bn.weekly_digest template. The digest_already_sent check looks for a
@@ -110,7 +110,7 @@ class CronService {
 			return;
 		}
 
-		$user_ids = $this->get_digest_user_ids( 'weekly', $after_id );
+		$user_ids = $this->get_digest_user_ids( 7, $after_id );
 		if ( empty( $user_ids ) ) {
 			return;
 		}
@@ -120,7 +120,7 @@ class CronService {
 				continue;
 			}
 
-			$notifications = $this->fetch_unread_notifications( $user_id, 7 );
+			$notifications = $this->fetch_unread_notifications( $user_id, 7, 'weekly' );
 			if ( empty( $notifications ) ) {
 				continue;
 			}
@@ -217,6 +217,23 @@ class CronService {
 	}
 
 	/**
+	 * Days a never-verified account is kept before the purge deletes it.
+	 *
+	 * One answer for the purge itself and for the two places that tell people
+	 * about it (the verification setting and the Check your inbox page).
+	 *
+	 * @return int Days; 0 when the purge is off.
+	 */
+	public static function unverified_purge_days(): int {
+		/**
+		 * Filter the grace period (days) before a never-verified account is deleted.
+		 *
+		 * @param int $days Default 7. 0 disables the purge.
+		 */
+		return max( 0, (int) apply_filters( 'buddynext_unverified_purge_days', 7 ) );
+	}
+
+	/**
 	 * Delete accounts that registered under email verification and never verified.
 	 *
 	 * Only accounts carrying the buddynext_verify_pending marker (set at token
@@ -233,12 +250,7 @@ class CronService {
 			return; // Verification not enforced — nothing to purge.
 		}
 
-		/**
-		 * Filter the grace period (days) before a never-verified account is deleted.
-		 *
-		 * @param int $days Default 7. 0 disables the purge.
-		 */
-		$days = (int) apply_filters( 'buddynext_unverified_purge_days', 7 );
+		$days = self::unverified_purge_days();
 		if ( $days <= 0 ) {
 			return;
 		}
@@ -272,9 +284,23 @@ class CronService {
 			// Legitimate accounts that happen to be unverified: never delete an
 			// admin, an already-verified account, or one with any content. Clear the
 			// marker so they drop out of future scans.
+			/**
+			 * Filter whether a never-verified account past the grace period is kept.
+			 *
+			 * BuddyNext keeps an account that has written a post. Anything else a
+			 * site counts as "this is a real member" belongs here: a purchase, a
+			 * course enrolment, a booking. BuddyNext Pro keeps paying members.
+			 *
+			 * @since 1.2.5
+			 *
+			 * @param bool $keep    Whether to keep the account. Default: it has posts.
+			 * @param int  $user_id The account.
+			 */
+			$keep = (bool) apply_filters( 'buddynext_unverified_account_keep', $this->user_has_posts( $uid ), $uid );
+
 			if ( user_can( $uid, 'manage_options' )
 				|| (bool) get_user_meta( $uid, 'buddynext_email_verified', true )
-				|| $this->user_has_posts( $uid ) ) {
+				|| $keep ) {
 				delete_user_meta( $uid, 'buddynext_verify_pending' );
 				continue;
 			}
@@ -408,58 +434,45 @@ class CronService {
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**
-	 * Page through the distinct user IDs whose email_freq preference is $freq.
+	 * Page through the members who have something unread in the digest window.
 	 *
-	 * DISTINCT user_id collapses a member's multiple notification-pref rows to a
-	 * single digest. Keyset-paginated by user_id (cursor $after_id) and capped at
+	 * Candidates come from the notifications themselves, not from the preference
+	 * table. A member who has never opened their preferences has no row there,
+	 * yet the catalogue default for several types is Daily or Weekly, which holds
+	 * the instant email back for the digest. Enrolling from saved rows only meant
+	 * those notifications were never emailed at all, for almost every member
+	 * (card 10393122295). Which of a candidate's notifications belong in THIS
+	 * digest is decided per type in fetch_unread_notifications(), which is also
+	 * where a member who unsubscribed from digests is dropped.
+	 *
+	 * Keyset-paginated by recipient_id (cursor $after_id) and capped at
 	 * DIGEST_USER_CAP per chunk, so the handler chains through the whole base via
-	 * Action Scheduler without any single unbounded run.
+	 * Action Scheduler without any single unbounded run. Reads the `bell` index
+	 * (recipient_id, is_read, created_at) in recipient order and stops at the cap.
 	 *
-	 * @param string $freq     'daily' or 'weekly'.
-	 * @param int    $after_id Keyset cursor — return only users with a greater user_id.
+	 * @param int $days     Look-back window in days (1 = daily, 7 = weekly).
+	 * @param int $after_id Keyset cursor — return only members with a greater user id.
 	 * @return int[]
 	 */
-	private function get_digest_user_ids( string $freq, int $after_id = 0 ): array {
+	private function get_digest_user_ids( int $days, int $after_id = 0 ): array {
 		global $wpdb;
 
-		// Only catalogue types enrol a member in a digest. A junk/legacy row (a type
-		// no longer in the catalogue) that happens to carry email_freq='daily' would
-		// otherwise pull the member into the digest scan even though nothing surfaces
-		// it in the prefs UI — the read-side inert-orphan rule applied to the mailer
-		// too (card 10264293350). The IN list is the catalogue keys, which includes
-		// 'digest' itself so a member who re-subscribes (digest=daily/weekly) enrols.
-		$catalogue_types = array_keys( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all() );
-		if ( empty( $catalogue_types ) ) {
-			return array();
-		}
-		$type_placeholders = implode( ', ', array_fill( 0, count( $catalogue_types ), '%s' ) );
-
-		// Keyset cursor on user_id (not a bare LIMIT) so successive runs page through
-		// EVERY digest-frequency user. The old `LIMIT 200` with no cursor returned the
-		// same first ~200 users every run and starved everyone past them; the caller
-		// chains the next chunk via Action Scheduler keyed on the last user_id here.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		// The NOT EXISTS honours the digest email's own unsubscribe link, which
-		// writes a (user, 'digest', email_freq='off') row. Without it that row
-		// was written but never read — the member kept receiving digests after
-		// unsubscribing (customer report, 2026-07-06). Sargable via the same
-		// (user_id, type) key the pref reads use.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$raw = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT DISTINCT p.user_id
-				   FROM {$wpdb->prefix}bn_notification_prefs p
-				  WHERE p.email_freq = %s AND p.user_id > %d
-				    AND p.type IN ( {$type_placeholders} )
-				    AND NOT EXISTS (
-						SELECT 1 FROM {$wpdb->prefix}bn_notification_prefs px
-						 WHERE px.user_id = p.user_id AND px.type = 'digest' AND px.email_freq = 'off'
-					)
-				  ORDER BY p.user_id ASC
+				"SELECT DISTINCT recipient_id
+				   FROM {$wpdb->prefix}bn_notifications
+				  WHERE recipient_id > %d
+				    AND is_read      = 0
+				    AND created_at  >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )
+				  ORDER BY recipient_id ASC
 				  LIMIT %d",
-				array_merge( array( $freq, $after_id ), $catalogue_types, array( self::DIGEST_USER_CAP ) )
+				$after_id,
+				$days,
+				self::DIGEST_USER_CAP
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map( 'intval', (array) $raw );
 	}
@@ -488,24 +501,32 @@ class CronService {
 	}
 
 	/**
-	 * Return unread notification rows for a user within the last $days days.
+	 * How many notifications a digest email lists before "and N more".
+	 */
+	private const DIGEST_LINES = 15;
+
+	/**
+	 * Return a member's unread notifications that belong in a digest of this cadence.
 	 *
-	 * @param int $user_id Recipient user ID.
-	 * @param int $days    Look-back window in days.
+	 * @param int    $user_id Recipient user ID.
+	 * @param int    $days    Look-back window in days.
+	 * @param string $cadence 'daily' or 'weekly': the digest being built.
 	 * @return array<int, array{type: string, group_count: int}>
 	 */
-	private function fetch_unread_notifications( int $user_id, int $days ): array {
+	private function fetch_unread_notifications( int $user_id, int $days, string $cadence ): array {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT type, COALESCE( group_count, 1 ) AS group_count
+				"SELECT id, type, sender_id, object_type, object_id, data, created_at, is_read,
+				        COALESCE( group_count, 1 ) AS group_count
 				   FROM {$wpdb->prefix}bn_notifications
 				  WHERE recipient_id = %d
 				    AND is_read      = 0
 				    AND created_at  >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )
-				  ORDER BY created_at DESC",
+				  ORDER BY created_at DESC
+				  LIMIT 200",
 				$user_id,
 				$days
 			),
@@ -517,24 +538,69 @@ class CronService {
 			return array();
 		}
 
-		// Only types BuddyNext may email. A partner plugin sends its own emails
-		// (badge and level-up belong to WB Gamification), so a notification that
-		// is collect-only for email never reaches a digest either (card
-		// 10344441224). A digest left with nothing is skipped by the callers.
-		// Built once per digest: the catalogue is filterable and not cheap per row.
-		$emailable = array();
+		// The member's own choice per type, or the catalogue default where they made
+		// none. One read: the service caches the member's saved rows.
+		$prefs = new \BuddyNext\Notifications\NotificationPrefService();
+		$saved = $prefs->get_all_prefs( $user_id );
+
+		// The digest email's unsubscribe link writes digest = off. That stops every
+		// digest, whatever the individual types say.
+		if ( 'off' === ( $saved['digest']['email_freq'] ?? '' ) ) {
+			return array();
+		}
+
+		// A member who chose one cadence for all their digests before the per-type
+		// rows existed (digest = daily or weekly) keeps that choice: they get that
+		// digest only, carrying every type that is on either cadence. Without this
+		// someone who had asked for a weekly summary started getting daily ones too.
+		$master = (string) ( $saved['digest']['email_freq'] ?? '' );
+		$single = in_array( $master, array( 'daily', 'weekly' ), true );
+		if ( $single && $master !== $cadence ) {
+			return array();
+		}
+
+		// The member's own row for this digest (Daily digest / Weekly digest on the
+		// preferences screen). Off there means they do not want this one.
+		if ( 'off' === ( $saved[ 'bn.' . $cadence . '_digest' ]['email_freq'] ?? '' ) ) {
+			return array();
+		}
+
+		// The master Email channel switch (Settings, Notifications). A member who
+		// turned email off gets no instant email (EmailSender checks the same
+		// switch) and must get no digest either.
+		$channels = (array) $prefs->get_channel_prefs( $user_id );
+		if ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) ) {
+			return array();
+		}
+
+		// A type belongs in this digest when BuddyNext may email it and its
+		// frequency IS this cadence. That one test keeps out three things:
+		// - a type switched Off (it used to be listed anyway);
+		// - a type on Immediate, which was emailed when it happened and would
+		// otherwise be emailed a second time here;
+		// - a type a partner plugin emails itself (badge and level-up belong to WB
+		// Gamification), which is collect-only for email (card 10344441224).
+		// A digest left with nothing is skipped by the callers.
+		$wanted = array();
 		foreach ( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all() as $type => $entry ) {
-			if ( ! empty( $entry['can_email'] ) ) {
-				$emailable[ (string) $type ] = true;
+			$frequency = $saved[ $type ]['email_freq'] ?? ( $entry['default_email_freq'] ?? 'immediate' );
+			$in_this   = $single ? in_array( $frequency, array( 'daily', 'weekly' ), true ) : $cadence === $frequency;
+			if ( ! empty( $entry['can_email'] ) && $in_this ) {
+				$wanted[ (string) $type ] = true;
 			}
 		}
-		$rows = array_filter( $rows, static fn( array $r ): bool => isset( $emailable[ (string) $r['type'] ] ) );
+		$rows = array_filter( $rows, static fn( array $r ): bool => isset( $wanted[ (string) $r['type'] ] ) );
 
 		return array_values(
 			array_map(
-				static fn( array $r ) => array(
-					'type'        => (string) $r['type'],
-					'group_count' => (int) $r['group_count'],
+				// The whole row travels on: the email names the person and links to
+				// the item, and both come from sender_id, object_id and data.
+				static fn( array $r ) => array_merge(
+					$r,
+					array(
+						'type'        => (string) $r['type'],
+						'group_count' => (int) $r['group_count'],
+					)
 				),
 				$rows
 			)
@@ -601,35 +667,47 @@ class CronService {
 	/**
 	 * Build an HTML list of notification summaries for digest email bodies.
 	 *
-	 * Converts the notification type slug to a human-readable label using a
-	 * static map, then appends a count suffix when group_count > 1.
+	 * One line per notification, worded by NotificationMessageService (the bell's
+	 * own wording) and linked to the item. At most DIGEST_LINES lines, then a
+	 * count of the rest linking to the notifications page.
 	 *
-	 * @param array<int, array{type: string, group_count: int}> $notifications Notification rows.
+	 * @param array<int, array<string, mixed>> $notifications Notification rows.
 	 * @return string HTML unordered list.
 	 */
 	private function build_notification_list_html( array $notifications ): string {
-		$labels = array(
-			'bn.new_follower'             => 'Someone followed you',
-			'bn.connection_requested'     => 'New connection request',
-			'bn.connection_accepted'      => 'A connection was accepted',
-			'bn.mention'                  => 'You were mentioned in a post',
-			'bn.post_reacted'             => 'Someone reacted to your post',
-			'bn.post_commented'           => 'New comment on your post',
-			'bn.post_shared'              => 'Your post was shared',
-			'bn.space_invite'             => 'You were invited to a space',
-			'bn.space_join_requested'     => 'A member wants to join your space',
-			'bn.space_request_approved'   => 'Your space join request was approved',
-			'bn.space_ownership_received' => 'You became the owner of a space',
-			'bn.strike_issued'            => 'A moderation action was taken on your account',
-		);
+		// The same sentence the bell shows, from the same service, so a digest
+		// line names the person ("Jonas Keller started following you", "Elena
+		// Whitfield and 3 others reacted to your post") and links to the item.
+		// A fixed label per type ("Someone followed you") read like spam and gave
+		// no reason to open the email, and a new notification type could ship
+		// with a generic line; there is now no second list of wordings to forget.
+		$messages = new \BuddyNext\Notifications\NotificationMessageService();
+		$shown    = array_slice( $notifications, 0, self::DIGEST_LINES );
 
 		$items = '';
-		foreach ( $notifications as $n ) {
-			$label = $labels[ $n['type'] ] ?? ucwords( str_replace( array( 'bn.', '_' ), array( '', ' ' ), $n['type'] ) );
-			if ( $n['group_count'] > 1 ) {
-				$label .= sprintf( ' (%d)', $n['group_count'] );
+		foreach ( $shown as $n ) {
+			$line = $messages->compose( (array) $n );
+			$text = trim( wp_strip_all_tags( (string) ( $line['message'] ?? '' ) ) );
+			if ( '' === $text ) {
+				continue;
 			}
-			$items .= '<li>' . esc_html( $label ) . '</li>';
+			$url    = (string) ( $line['url'] ?? '' );
+			$items .= '' !== $url
+				? '<li><a href="' . esc_url( $url ) . '">' . esc_html( $text ) . '</a></li>'
+				: '<li>' . esc_html( $text ) . '</li>';
+		}
+
+		$more = count( $notifications ) - count( $shown );
+		if ( $more > 0 ) {
+			$items .= '<li><a href="' . esc_url( \BuddyNext\Core\PageRouter::notifications_url() ) . '">'
+				. esc_html(
+					sprintf(
+						/* translators: %d: number of further notifications not listed in the email. */
+						_n( 'And %d more notification', 'And %d more notifications', $more, 'buddynext' ),
+						$more
+					)
+				)
+				. '</a></li>';
 		}
 
 		return '<ul>' . $items . '</ul>';

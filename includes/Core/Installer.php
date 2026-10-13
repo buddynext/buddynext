@@ -454,14 +454,20 @@ class Installer {
 	 *      "Posts 15" over an empty page. The upgrade's hashtag re-sync now ends with
 	 *      a chained recount of every tag showing a count (HashtagListener::
 	 *      recount_batch, 200 per batch). Counts only; no table change.
+	 *  66: bn_spaces.name VARCHAR(255) -> VARCHAR(100). The dir_name index
+	 *      (is_archived, name, id) was 1029 bytes on utf8mb4, over MyISAM's 1000-byte
+	 *      key limit and over the 767 bytes old-format InnoDB allows one column, so
+	 *      the table was never created on such hosts and spaces could not be made
+	 *      (card 10384673862). 100 characters is the cap the space form has always
+	 *      enforced; the full column stays indexed, so A-Z sort stays filesort-free.
 	 */
-	private const SCHEMA_VERSION = 65;
+	private const SCHEMA_VERSION = 68;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
 	 * unedited copies to the new wording.
 	 */
-	private const EMAIL_DEFAULTS_VERSION = 1;
+	private const EMAIL_DEFAULTS_VERSION = 2;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -2493,6 +2499,19 @@ class Installer {
 		// not add a duplicate meta_id column. No-op on fresh installs (table absent).
 		self::maybe_reshape_space_meta( $wpdb->prefix );
 
+		// v66: bn_spaces.name narrows to 100 characters. Shorten any longer name
+		// first, or strict SQL mode refuses the column change dbDelta is about to make.
+		self::maybe_shorten_space_names( $wpdb->prefix );
+
+		// v67: two indexes the schema stopped declaring are still on sites that
+		// upgraded from before. dbDelta adds keys and never drops them.
+		self::maybe_drop_redundant_indexes( $wpdb->prefix );
+
+		// v68: media attached to a followers-only or connections-only post, or to a
+		// post in a private space, was stored wider than the post. New uploads are
+		// right; files already on the site are narrowed once, in the background.
+		\BuddyNext\Bridges\WPMediaVerseBridge::maybe_queue_privacy_repair();
+
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
 		//
@@ -2539,6 +2558,20 @@ class Installer {
 		// silently skip new columns — so we guard each add with an
 		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
 		self::maybe_alter_tables( $wpdb->prefix );
+
+		// v68 also: the shipped Contributor badge moves to the readable shade on a
+		// site that still has the colour BuddyNext gave it. An owner's own colour
+		// is left alone (and its text is kept readable when it is printed). After
+		// dbDelta, so a fresh install has the table before it is written to.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_member_types',
+			array( 'color' => '#1971c2' ),
+			array(
+				'slug'  => 'contributor',
+				'color' => '#1c7ed6',
+			)
+		);
 
 		// Widen indexes whose column set changed in a later schema. dbDelta only
 		// CREATES a missing index; it cannot alter one already present, so a widened
@@ -2931,6 +2964,67 @@ class Installer {
 	}
 
 	/**
+	 * Drop two indexes that are the exact leftmost part of another index.
+	 *
+	 * `bn_follows.following` (following_id, status) is covered by `pending_inbox`
+	 * and `bn_reactions.object_reactions` by `object_recent`. Neither is in the
+	 * schema any more, so a fresh install never has them; an upgraded site kept
+	 * both and paid an extra index write on every follow and every reaction.
+	 * Each is dropped only when it exists and its covering index is in place,
+	 * so the step does nothing afterwards and never leaves a query uncovered.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_drop_redundant_indexes( string $p ): void {
+		global $wpdb;
+
+		$redundant = array(
+			array( $p . 'bn_follows', 'following', 'pending_inbox' ),
+			array( $p . 'bn_reactions', 'object_reactions', 'object_recent' ),
+		);
+		foreach ( $redundant as list( $table, $index, $covering ) ) {
+			if ( self::index_exists( $table, $index ) && self::index_exists( $table, $covering ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- fixed table and index names.
+				$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX `{$index}`" );
+			}
+		}
+	}
+
+	/**
+	 * Cut space names longer than the column allows from schema 66 on.
+	 *
+	 * The space form has always refused a name over 100 characters, so a longer
+	 * one can only have come from an importer or code calling the service
+	 * directly. Runs only while the column is still wider than 100, so it does
+	 * one small UPDATE on the upgrade and nothing afterwards. No-op on a fresh
+	 * install (table absent).
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_shorten_space_names( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from the prefix.
+		$width = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$p . 'bn_spaces',
+				'name'
+			)
+		);
+
+		if ( $width > 100 ) {
+			$wpdb->query( "UPDATE {$p}bn_spaces SET name = LEFT( name, 100 ) WHERE CHAR_LENGTH( name ) > 100" );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
 	 * Whether an ENUM column already permits a given value.
 	 *
 	 * Reads COLUMN_TYPE (e.g. `enum('published','draft')`) and looks for the
@@ -3242,9 +3336,9 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.new_follower',
-				'subject'      => 'Someone followed you on {{site_name}}',
+				'subject'      => '{{actor_name}} started following you on {{site_name}}',
 				'preview_text' => 'You have a new follower',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{action_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> started following you on {{site_name}}. <a href="{{action_url}}">View their profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.connection_requested',
@@ -3426,6 +3520,14 @@ class Installer {
 		}
 
 		$previous = array(
+			// 1.2.5: the new-follower email names the follower, as the bell does.
+			// "Someone followed you" read like spam and gave no reason to open it.
+			'bn.new_follower'     => array(
+				array(
+					'subject'   => 'Someone followed you on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{action_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
 			// 1.2.4: the welcome body ran the site name into the next sentence
 			// ("Welcome to X Your account...") and used an em-dash.
 			'welcome'             => array(
@@ -3555,7 +3657,9 @@ class Installer {
 		// not a category, and a neutral reads that way beside the coloured ones.
 		$types = array(
 			// slug, name, color, self_select.
-			array( 'contributor', 'Contributor', '#1c7ed6', 1 ),
+			// A shade darker than the sweep's #1c7ed6: white text on that one was
+			// about 4.2:1, and a badge label needs 4.5:1.
+			array( 'contributor', 'Contributor', '#1971c2', 1 ),
 			array( 'staff', 'Staff', '#495057', 0 ),
 		);
 
@@ -4271,7 +4375,7 @@ class Installer {
 
 			"CREATE TABLE {$p}bn_spaces (
 				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				name VARCHAR(255) NOT NULL,
+				name VARCHAR(100) NOT NULL,
 				slug VARCHAR(200) NOT NULL,
 				description TEXT DEFAULT NULL,
 				category_id BIGINT(20) UNSIGNED DEFAULT NULL,

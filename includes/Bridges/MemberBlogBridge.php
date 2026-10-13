@@ -130,7 +130,11 @@ class MemberBlogBridge {
 			),
 			$existing,
 			array(
-				'has_nav'        => true,
+				// The Articles tab only exists with Member Blog active, so the "Show in
+				// navigation" switch is only offered then. It used to be offered always,
+				// for a tab that could not appear.
+				'has_nav'        => self::available(),
+				'nav_label'      => __( 'Articles', 'buddynext' ),
 				// BlogPostListener registers this key with a null version, because
 				// site tracking is core - there is no plugin behind it to name. Once
 				// Member Blog IS present it is the thing supplying the surface, so
@@ -282,15 +286,26 @@ class MemberBlogBridge {
 		$paged    = max( 1, absint( get_query_var( 'paged', 0 ) ) );
 		$per_page = self::articles_per_page();
 
-		$query = new \WP_Query( $this->articles_query_args( $user_id, $viewer_id, $per_page, $paged ) );
+		$query    = new \WP_Query( $this->articles_query_args( $user_id, $viewer_id, $per_page, $paged ) );
+		$is_owner = $viewer_id > 0 && $viewer_id === $user_id;
+
+		// Each row's Edit goes to THAT post. It used to open the dashboard for
+		// every row, leaving the owner to find the post again.
+		$edit_urls = array();
+		if ( $is_owner ) {
+			foreach ( $query->posts as $post ) {
+				$edit_urls[ (int) $post->ID ] = $this->edit_url( (int) $post->ID, $user_id );
+			}
+		}
 
 		buddynext_get_template(
 			'parts/profile/articles-panel.php',
 			array(
 				'profile_user_id' => $user_id,
 				'viewer_id'       => $viewer_id,
-				'is_owner'        => $viewer_id > 0 && $viewer_id === $user_id,
+				'is_owner'        => $is_owner,
 				'articles'        => $query->posts,
+				'edit_urls'       => $edit_urls,
 				'article_count'   => (int) $query->found_posts,
 				'page'            => $paged,
 				'total_pages'     => (int) $query->max_num_pages,
@@ -360,6 +375,8 @@ class MemberBlogBridge {
 				'cover'        => $cover ? (string) $cover : null,
 				'status'       => $status,
 				'status_label' => $obj ? (string) $obj->label : $status,
+				// Where the owner edits THIS post; '' for everyone else.
+				'edit_url'     => $is_owner ? $this->edit_url( (int) $post->ID, $user_id ) : '',
 			);
 		}
 		wp_reset_postdata();
@@ -407,6 +424,37 @@ class MemberBlogBridge {
 		}
 
 		return array( 'publish' );
+	}
+
+	/**
+	 * Where the owner edits one of their posts.
+	 *
+	 * Member Blog's own answer when its class is loaded, else its configured
+	 * "post" page with the post id (the address that class builds on a standalone
+	 * site), else the WordPress editor for a member who can use it. Empty when
+	 * there is nowhere to send them; the panel then falls back to the dashboard.
+	 *
+	 * @param int $post_id The post.
+	 * @param int $user_id Its author.
+	 * @return string
+	 */
+	private function edit_url( int $post_id, int $user_id ): string {
+		if ( class_exists( '\Member_Blog_Compat' ) ) {
+			$url = (string) \Member_Blog_Compat::get_edit_post_url( $post_id );
+			if ( '' !== $url ) {
+				return $url;
+			}
+		}
+
+		if ( function_exists( 'bp_member_blog_get_settings' ) ) {
+			$page_id = (int) bp_member_blog_get_settings( 'bp_post_page', 0 );
+			$url     = $page_id > 0 ? (string) get_permalink( $page_id ) : '';
+			if ( '' !== $url ) {
+				return add_query_arg( 'post_id', $post_id, $url );
+			}
+		}
+
+		return user_can( $user_id, 'edit_post', $post_id ) ? (string) get_edit_post_link( $post_id, 'raw' ) : '';
 	}
 
 	/**

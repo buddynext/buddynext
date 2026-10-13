@@ -77,7 +77,7 @@
 .bn-files__tool-btn:hover,
 .bn-files__tool-btn:focus-visible {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	outline: 2px solid transparent;
 }
 
@@ -146,7 +146,7 @@
 }
 
 .bn-files__search-clear {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	font-size: var(--bn-text-sm);
 	text-decoration: none;
 	white-space: nowrap;
@@ -175,7 +175,7 @@
 
 .bn-files__crumb:hover,
 .bn-files__crumb:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-files__crumb--current {
@@ -289,7 +289,7 @@
 
 .bn-files__chip--dir {
 	background: var(--bn-accent-50);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 /* Folders show the folder icon, sized to the text chips beside them. */
@@ -316,7 +316,7 @@
 
 a.bn-files__name:hover,
 a.bn-files__name:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 
@@ -378,7 +378,7 @@ a.bn-files__name:focus-visible {
 .bn-files__icon-btn:hover,
 .bn-files__icon-btn:focus-visible {
 	background: var(--bn-accent-50);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-files__remove:hover,
@@ -425,7 +425,7 @@ a.bn-files__name:focus-visible {
 .bn-files__pager-link:hover,
 .bn-files__pager-link:focus-visible {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-files__pager-link svg {
@@ -516,7 +516,7 @@ a.bn-files__name:focus-visible {
 
 .bn-file-single__back:hover,
 .bn-file-single__back:focus-visible {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-file-single__back svg {
@@ -1090,7 +1090,7 @@ a.bn-files__name:focus-visible {
 
 .bn-files-link[open] .bn-files-link__toggle {
 	border-color: var(--bn-accent);
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-files-link__pop {
@@ -1176,4 +1176,11 @@ a.bn-files__name:focus-visible {
 	font-size: var(--bn-text-xs, 0.75rem);
 	font-weight: var(--bn-fw-semibold);
 	line-height: 1.6;
+}
+
+/* What Upload accepts, under the toolbar. */
+.bn-files__hint {
+	margin: var(--bn-s2, 8px) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
 }

@@ -21,6 +21,20 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 	private SearchService $search_service;
 	private int $author_id;
 
+	/**
+	 * Post written 40 days ago (see seed_old_and_new()).
+	 *
+	 * @var int
+	 */
+	private int $old_post = 0;
+
+	/**
+	 * Post written today.
+	 *
+	 * @var int
+	 */
+	private int $new_post = 0;
+
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
@@ -65,6 +79,31 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 
 		$object_ids = array_column( $data['items'], 'object_id' );
 		$this->assertContains( 55, $object_ids );
+	}
+
+	/**
+	 * A typed search gives each item the link the web results use, including a
+	 * link a bridge supplies for its own type.
+	 *
+	 * @return void
+	 */
+	public function test_typed_search_items_carry_their_link(): void {
+		$this->search_service->index( 'listing', 77, 'Linkterm topic', 'Linkterm body', $this->author_id );
+		$link = static fn( string $url, string $type, int $id ): string => 'listing' === $type ? 'https://example.test/topic/' . $id . '/' : $url;
+		add_filter( 'buddynext_search_item_url', $link, 10, 3 );
+
+		$request = new \WP_REST_Request( 'GET', '/buddynext/v1/search' );
+		$request->set_query_params(
+			array(
+				'q'    => 'Linkterm',
+				'type' => 'listing',
+			)
+		);
+		$items = rest_do_request( $request )->get_data()['items'];
+		remove_filter( 'buddynext_search_item_url', $link, 10 );
+
+		$this->assertNotEmpty( $items );
+		$this->assertSame( 'https://example.test/topic/77/', $items[0]['url'] );
 	}
 
 	public function test_search_accepts_type_filter(): void {
@@ -168,5 +207,93 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 		$data = rest_do_request( $request )->get_data();
 
 		$this->assertSame( 0, (int) $data['total'], 'a non-matching ?q= must return no members, not the unfiltered page.' );
+	}
+
+	/**
+	 * Run a typed search over REST and return the matching object ids, in order.
+	 *
+	 * @param array<string,string> $params Extra query params.
+	 * @return int[]
+	 */
+	private function search_ids( array $params ): array {
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/search' );
+		$request->set_param( 'q', 'windowterm' );
+		$request->set_param( 'type', 'post' );
+		foreach ( $params as $key => $value ) {
+			$request->set_param( $key, $value );
+		}
+
+		return array_map( 'intval', array_column( (array) rest_do_request( $request )->get_data()['items'], 'object_id' ) );
+	}
+
+	/**
+	 * Index two posts matching the same word, one updated a month ago.
+	 *
+	 * @return void
+	 */
+	private function seed_old_and_new(): void {
+		global $wpdb;
+		$posts = new \BuddyNext\Feed\PostService();
+		$old   = (int) $posts->create(
+			$this->author_id,
+			array(
+				'type'    => 'text',
+				'content' => 'windowterm old windowterm windowterm',
+				'privacy' => 'public',
+			)
+		);
+		$new   = (int) $posts->create(
+			$this->author_id,
+			array(
+				'type'    => 'text',
+				'content' => 'windowterm new',
+				'privacy' => 'public',
+			)
+		);
+		$this->search_service->index( 'post', $old, 'windowterm old', 'windowterm windowterm windowterm', $this->author_id );
+		$this->search_service->index( 'post', $new, 'windowterm new', 'windowterm', $this->author_id );
+		// The old post was written 40 days ago. Its index row is fresh, as after a
+		// re-index: the window must follow the post, not the row.
+		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET created_at = DATE_SUB( UTC_TIMESTAMP(), INTERVAL 40 DAY ) WHERE id = %d", $old ) );
+		$this->old_post = $old;
+		$this->new_post = $new;
+	}
+
+	/**
+	 * The date window is applied: the app gets what the page's Date control does.
+	 *
+	 * @return void
+	 */
+	public function test_date_window_leaves_out_older_results(): void {
+		$this->seed_old_and_new();
+
+		$this->assertEqualsCanonicalizing( array( $this->old_post, $this->new_post ), $this->search_ids( array() ), 'No window: both.' );
+		$this->assertSame( array( $this->new_post ), $this->search_ids( array( 'date' => 'week' ) ) );
+	}
+
+	/**
+	 * Sort by recent puts the newest result first.
+	 *
+	 * @return void
+	 */
+	public function test_sort_recent_orders_newest_first(): void {
+		$this->seed_old_and_new();
+
+		$this->assertSame( array( $this->new_post, $this->old_post ), $this->search_ids( array( 'sort' => 'recent' ) ) );
+	}
+
+	/**
+	 * A bridge can link a result whose type is not a WordPress post.
+	 *
+	 * @return void
+	 */
+	public function test_result_link_can_be_answered_by_a_bridge(): void {
+		$answer = static fn( string $url, string $type, int $id ): string => 'qa_topic' === $type ? 'https://example.test/t/' . $id . '/' : $url;
+		add_filter( 'buddynext_search_item_url', $answer, 10, 3 );
+
+		$this->assertSame( 'https://example.test/t/77/', $this->search_service->resolve_item_url( 'qa_topic', 77 ) );
+		$this->assertSame( '', $this->search_service->resolve_item_url( 'unknown_type', 999999999 ), 'Unanswered and not a post: no link.' );
+
+		remove_filter( 'buddynext_search_item_url', $answer, 10 );
 	}
 }

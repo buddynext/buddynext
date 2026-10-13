@@ -157,6 +157,10 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
+		// Answer for the two object types WPMediaVerse owns, so a report, reaction
+		// or comment on a message or media id that does not exist is refused.
+		add_filter( 'buddynext_object_exists', array( $this, 'object_exists' ), 10, 3 );
+
 		// Media reactions and mentions reach the bell through WPMediaVerse's own
 		// notification contract (IntegrationNotificationListener), not from here.
 
@@ -240,6 +244,39 @@ class WPMediaVerseBridge {
 		add_action( 'mvs_user_unfollowed', array( $this, 'mirror_mvs_unfollow' ), 10, 2 );
 		add_action( 'buddynext_user_followed', array( $this, 'mirror_bn_follow' ), 10, 2 );
 		add_action( 'buddynext_user_unfollowed', array( $this, 'mirror_bn_unfollow' ), 10, 2 );
+
+		// The one-time repair of files stored wider than their post. Asked on init
+		// as well as by the installer: a site that updates BuddyNext before
+		// MediaVerse cannot run it yet, and must still get it once it can.
+		add_action( 'init', array( self::class, 'maybe_queue_privacy_repair' ), 20, 0 );
+		add_action(
+			MediaPrivacyRepairCommand::HOOK,
+			static function (): void {
+				MediaPrivacyRepairCommand::run();
+			},
+			10,
+			0
+		);
+
+		// A member switching their account between public and private changes the
+		// audience of their public posts, so their attached media follows.
+		foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $bn_meta_hook ) {
+			add_action( $bn_meta_hook, array( $this, 'on_account_privacy_meta' ), 10, 3 );
+		}
+		add_action( self::RESYNC_AUTHOR_HOOK, array( $this, 'resync_author_media' ), 10, 3 );
+
+		// MediaVerse's friends level is BuddyNext's connections.
+		// A document on a followers-only or connections-only post: MediaVerse has
+		// no document level for those crowds, so it asks whether the viewer may
+		// read the post the file is on.
+		add_filter( 'mvs_document_readable_via_post', array( $this, 'document_readable_via_post' ), 10, 4 );
+
+		add_filter( 'mvs_are_friends', array( $this, 'are_friends' ), 10, 3 );
+		add_filter( 'mvs_friend_ids', array( $this, 'friend_ids' ), 10, 2 );
+
+		// Followers-only media: BuddyNext's own follow list has the last word. Late,
+		// so a grant another rule already made (a competition entry) is left alone.
+		add_filter( 'mvs_privacy_can_view', array( $this, 'followers_only_needs_a_bn_follow' ), 20, 4 );
 
 		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
 		// event whose only native listener (the MVS chat panel) is suppressed
@@ -618,7 +655,7 @@ class WPMediaVerseBridge {
 		}
 
 		if ( method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
-			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large', get_current_user_id() );
+			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, \BuddyNext\Media\MediaUrlResolver::image_variant(), get_current_user_id() );
 			if ( '' !== $thumb ) {
 				$link['thumb'] = $thumb;
 				$link['image'] = $thumb;
@@ -628,6 +665,38 @@ class WPMediaVerseBridge {
 		$args['link_preview'] = $link;
 
 		return $args;
+	}
+
+	/**
+	 * Whether a message or media item exists in WPMediaVerse.
+	 *
+	 * @param bool|null $exists      Earlier answer, or null.
+	 * @param string    $object_type Object type slug.
+	 * @param int       $object_id   Object id.
+	 * @return bool|null Null for any other type, or when WPMediaVerse is not active.
+	 */
+	public function object_exists( $exists, string $object_type, int $object_id ) {
+		if ( ! in_array( $object_type, array( 'message', 'media' ), true ) || ! MediaClient::available() ) {
+			return $exists;
+		}
+
+		if ( 'message' === $object_type ) {
+			$messaging = MediaClient::messaging();
+			if ( ! is_object( $messaging ) || ! method_exists( $messaging, 'get_message_senders' ) ) {
+				return $exists; // This MediaVerse cannot say; "cannot tell" is not "gone".
+			}
+
+			global $wpdb;
+			$found = array() !== ( new \BuddyNext\Moderation\ModerationService() )->get_message_sender_ids( array( $object_id ) );
+
+			// A lookup that failed has not shown the message is gone.
+			return ( $found || '' === (string) $wpdb->last_error ) ? $found : $exists;
+		}
+
+		// A media id is a row in the media index, not a post; an id with no owner is no media.
+		$repo = MediaClient::repo();
+
+		return is_object( $repo ) ? (int) $repo->get( $object_id, 'post_author' ) > 0 : $exists;
 	}
 
 	/**
@@ -798,9 +867,8 @@ class WPMediaVerseBridge {
 	/**
 	 * Derive each attached media file's privacy from the post it now belongs to.
 	 *
-	 * MediaController already maps the composer's post-privacy vocabulary onto the
-	 * engine's file privacy (PRIVACY_MAP: public -> public, followers/connections
-	 * -> members, private -> private) and `/me/media` accepts a `privacy` param.
+	 * The composer's post-privacy word becomes the engine's file privacy through
+	 * media_privacy_for_post() and `/me/media` accepts a `privacy` param.
 	 * Nothing ever sent it. The upload therefore fell to the default, `public`,
 	 * and a member who attached a photo and set the post to "Only me" got a
 	 * private post whose photo was public: listed on Explore Media and served to
@@ -861,59 +929,97 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		$target = self::media_privacy_for_post( (string) ( $row['privacy'] ?? 'public' ) );
+		$space_id = (int) $row['space_id'];
+		$target   = self::media_privacy_for_post( (string) ( $row['privacy'] ?? 'public' ), $space_id, (int) $row['user_id'] );
 
 		foreach ( $media_ids as $media_id ) {
 			$media_id = (int) $media_id;
 			if ( $media_id <= 0 ) {
 				continue;
 			}
-			$req = new \WP_REST_Request( 'PATCH', '/mvs/v1/media/' . $media_id );
-			$req->set_body_params( array( 'privacy' => $target ) );
-			$res = rest_do_request( $req );
 
-			if ( ! $res->is_error() ) {
+			$stored = self::apply_media_privacy( $media_id, $target, $space_id );
+			if ( $stored === $target || 'album' === $stored ) {
 				continue;
 			}
 
-			/*
-			 * The PATCH failed, and the whole point of this method is that it is a
-			 * PRIVACY tightening. Discarding the return left the file at whatever it
-			 * was uploaded with - in the case this was written for, `public` under a
-			 * post the member had marked "Only me". Silent, and on Explore.
-			 *
-			 * Reproduced by running the cascade with no authenticated user (a cron or
-			 * WP-CLI context): the request is refused and the media stays public.
-			 *
-			 * So: fail CLOSED through MediaVerse's own repository rather than accept
-			 * the failure. The value is one this bridge derived, and it can only ever
-			 * be narrower than what is stored, so writing it directly cannot leak
-			 * anything the REST call would have prevented. It is the same seam the
-			 * reconcile-media-privacy command writes through.
-			 */
+			// MediaVerse did not put the file at the level its post asks for. This
+			// method exists to keep a file from being readable by more people than
+			// its post, so it fails CLOSED: a file stored wider than its post is
+			// written straight to the repository at the post's level, and one held by
+			// a different crowd is made private. A file MediaVerse kept narrower
+			// than the post is its decision and is left alone (settle_level).
+			$repo     = MediaClient::repo();
+			$readable = is_object( $repo ) && method_exists( $repo, 'get' );
+			$current  = $readable ? (string) $repo->get( $media_id, 'privacy' ) : '';
 			$repaired = false;
-			if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
-				$repo = \WPMediaVerse\Core\Plugin::container()->get( 'media_repository' );
-				if ( is_object( $repo ) && method_exists( $repo, 'set_many' ) ) {
-					$repo->set_many( $media_id, array( 'privacy' => $target ) );
-					$repaired = true;
-				}
+			$settle   = self::settle_level( $current, $target );
+			if ( $readable && method_exists( $repo, 'set_many' ) && '' !== $settle ) {
+				$repo->set_many( $media_id, array( 'privacy' => $settle ) );
+				$repaired = (string) $repo->get( $media_id, 'privacy' ) === $settle;
 			}
 
-			// Logged either way. A privacy write that needed a fallback is something
-			// an owner should be able to find afterwards, and one that could not be
-			// repaired at all is a file still readable by more people than the post
-			// it belongs to.
+			// Logged either way: an owner should be able to find a privacy write
+			// that needed the fallback, and one that could not be repaired at all.
 			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 				sprintf(
-					'BuddyNext: media #%d privacy PATCH to "%s" failed (%s)%s',
+					'BuddyNext: media #%d was not set to "%s" for post #%d by MediaVerse (it was "%s")%s',
 					$media_id,
 					$target,
-					$res->get_data()['code'] ?? (string) $res->get_status(),
+					$post_id,
+					$current,
 					$repaired ? ' - applied directly instead' : ' - MEDIA MAY STILL BE READABLE'
 				)
 			);
 		}
+	}
+
+	/**
+	 * Put a media item at a privacy level, on the right drive, through MediaVerse.
+	 *
+	 * The one writer BuddyNext uses: the post-privacy sync, the repair run and
+	 * taking a file back out of a space. MediaVerse applies its own rules (an
+	 * album decides for its photos, a chat file stays locked) and needs no
+	 * signed-in user, so a scheduled post published from cron is covered too.
+	 *
+	 * `space` only means something on a space drive, so the item is filed there
+	 * first; on a personal drive MediaVerse reads `space` as the author alone.
+	 *
+	 * @param int    $media_id Media id.
+	 * @param string $privacy  MediaVerse privacy level.
+	 * @param int    $space_id Space whose drive the item belongs on for `space`, or 0.
+	 * @return string The level now stored, 'album' when its album decides, '' when MediaVerse is not there.
+	 */
+	public static function apply_media_privacy( int $media_id, string $privacy, int $space_id = 0 ): string {
+		$service = MediaClient::privacy();
+		$repo    = MediaClient::repo();
+		if ( ! is_object( $repo ) || ! method_exists( $repo, 'get' ) ) {
+			return '';
+		}
+
+		// A MediaVerse older than 2.6.2 has neither writer. Its repository write is
+		// used instead, as BuddyNext did before, so privacy still follows the post
+		// on a site that updates BuddyNext first.
+		if ( ! is_object( $service ) || ! method_exists( $service, 'apply_requested_privacy' ) ) {
+			if ( ! method_exists( $repo, 'set_many' ) ) {
+				return '';
+			}
+			$repo->set_many( $media_id, array( 'privacy' => $privacy ) );
+
+			return (string) $repo->get( $media_id, 'privacy' );
+		}
+
+		if ( 'space' === $privacy && $space_id > 0 && method_exists( $repo, 'move_to_drive' )
+			&& ( 'space' !== (string) $repo->get( $media_id, 'drive_type' ) || (int) $repo->get( $media_id, 'drive_id' ) !== $space_id )
+		) {
+			$repo->move_to_drive( $media_id, 'space', $space_id );
+		}
+
+		if ( 'album' === $service->apply_requested_privacy( $media_id, $privacy ) ) {
+			return 'album';
+		}
+
+		return (string) $repo->get( $media_id, 'privacy' );
 	}
 
 	/**
@@ -983,7 +1089,14 @@ class WPMediaVerseBridge {
 		}
 
 		$space   = $space_id > 0 ? buddynext_service( 'spaces' )->get( $space_id ) : null;
-		$privacy = self::media_privacy_for_post( $post_privacy );
+		$privacy = self::media_privacy_for_post( $post_privacy, 0, $author_id );
+		// A document can hold fewer levels than a photo (no followers, no friends).
+		// One it cannot hold stays with its author, never wider than the post: the
+		// old answer, `members`, showed a followers-only file to every member.
+		$valid = array( '\\WPMediaVersePro\\Documents\\DocumentSettings', 'is_valid_privacy' );
+		if ( is_callable( $valid ) && ! call_user_func( $valid, $privacy ) ) {
+			$privacy = 'private';
+		}
 		if ( is_array( $space ) ) {
 			$privacy = 'open' === (string) ( $space['type'] ?? '' ) && in_array( $post_privacy, array( 'public', 'space_members' ), true ) ? 'public' : 'private';
 		}
@@ -1025,11 +1138,13 @@ class WPMediaVerseBridge {
 	/**
 	 * The engine file-privacy that matches a BuddyNext post privacy.
 	 *
-	 * Mirrors MediaController::PRIVACY_MAP deliberately: the engine has no
-	 * followers/connections concept, so both collapse to logged-in `members` and
-	 * the post's own privacy is what gates the feed surface. An unrecognised
-	 * value resolves to `private` rather than `public` — a privacy vocabulary
-	 * this does not know about must not be guessed open.
+	 * The one answer for an upload, a later change of the post's audience and the
+	 * repair command. It used to exist three times and the copies disagreed: a
+	 * followers-only or connections-only post stored its media as `members`, so
+	 * every signed-in member could open it, and the upload route stored a word it
+	 * did not know as `public`. MediaVerse enforces followers and friends itself;
+	 * BuddyNext answers who the friends are (are_friends / friend_ids) and keeps
+	 * the follow graphs equal (mirror_*_follow).
 	 *
 	 * `space_members` used to sit in that same bucket, and it did not belong
 	 * there. The collapse is sound for followers and connections because the engine
@@ -1047,6 +1162,8 @@ class WPMediaVerseBridge {
 	 * and for the mobile app until they send it.
 	 *
 	 * @param string $post_privacy BuddyNext post privacy.
+	 * @param int    $space_id     Space the post is in, or 0.
+	 * @param int    $author_id    Post author, or 0 when not known.
 	 * @return string Engine media privacy.
 	 *
 	 * Public because the backfill command (MediaPrivacyRepairCommand) must derive
@@ -1055,19 +1172,497 @@ class WPMediaVerseBridge {
 	 *
 	 * @internal
 	 */
-	public static function media_privacy_for_post( string $post_privacy ): string {
-		switch ( sanitize_key( $post_privacy ) ) {
-			case 'public':
-				return 'public';
-			case 'followers':
-			case 'connections':
-				return 'members';
-			case 'space_members':
-				return 'space';
-			case 'private':
-				return 'private';
+	public static function media_privacy_for_post( string $post_privacy, int $space_id = 0, int $author_id = 0 ): string {
+		$word = sanitize_key( $post_privacy );
+
+		// MediaVerse owns the vocabulary (2.6.2): followers stay followers,
+		// connections become its friends level, space_members its space level, and
+		// a word it does not know is private. Without that method the answer is
+		// private too: hiding a file is recoverable, publishing one is not.
+		$map = array( '\\WPMediaVerse\\Services\\PrivacyService', 'map_external_privacy' );
+		if ( is_callable( $map ) ) {
+			$level = (string) call_user_func( $map, $word, 'buddynext' );
+		} else {
+			// A MediaVerse older than 2.6.2 has no map to ask and no followers or
+			// friends level BuddyNext can rely on. Public and space posts keep their
+			// level, so a site that has not updated MediaVerse yet still shows its
+			// photos; every narrower audience stays with the author.
+			$level = in_array( $word, array( 'public', 'space', 'space_members' ), true )
+				? ( 'public' === $word ? 'public' : 'space' )
+				: 'private';
 		}
-		return 'private';
+
+		// A space that keeps its content to its members decides, whatever word the
+		// post carries. A member's post there is stored `public` when the client
+		// sends no audience (the app, any REST caller), and its file then went out
+		// as public: readable by a logged-out visitor while the post was hidden.
+		// A post the author made NARROWER than the space (only me, followers,
+		// connections) keeps its file with the author: the space level would hand
+		// it to every member of the space.
+		if ( $space_id > 0 ) {
+			$space = buddynext_service( 'spaces' )->get( $space_id );
+			if ( is_array( $space ) && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) ( $space['type'] ?? '' ) ) ) {
+				return in_array( $level, array( 'public', 'space' ), true ) ? 'space' : 'private';
+			}
+
+			return $level;
+		}
+
+		// A private account's own-timeline post is for its approved followers even
+		// though the post row says public (PostService::is_followers_only). Its file
+		// follows the same rule, or the photo stays open while the post answers 403.
+		if ( 'public' === $level && $author_id > 0 && buddynext_service( 'follows' )->is_private_account( $author_id ) ) {
+			return 'followers';
+		}
+
+		return $level;
+	}
+
+	/**
+	 * Queue the one-time repair of media stored wider than its post, once.
+	 *
+	 * Only when MediaVerse has the writers the repair needs (2.6.2), and only
+	 * once per site: the flag is set when the job is queued. Action Scheduler
+	 * when present, a single WP-Cron event otherwise.
+	 *
+	 * @return void
+	 */
+	public static function maybe_queue_privacy_repair(): void {
+		if ( get_option( 'buddynext_media_privacy_repair_queued' ) ) {
+			return;
+		}
+
+		$service = MediaClient::available() ? MediaClient::privacy() : null;
+		if ( ! is_object( $service ) || ! method_exists( $service, 'apply_requested_privacy' ) ) {
+			return;
+		}
+
+		update_option( 'buddynext_media_privacy_repair_queued', time(), true );
+
+		$hook = MediaPrivacyRepairCommand::HOOK;
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( $hook, array(), 'buddynext' );
+			return;
+		}
+
+		if ( ! wp_next_scheduled( $hook ) ) {
+			wp_schedule_single_event( time() + 60, $hook );
+		}
+	}
+
+	/**
+	 * The level a file should be stored at, given what it holds and what its post asks.
+	 *
+	 * Audiences come in rings: everyone, then members, then one crowd (followers,
+	 * connections or a space), then the owner alone. A ring further in is always
+	 * narrower. The crowds in the third ring do not nest: connections are not a
+	 * subset of followers, and space members are neither.
+	 *
+	 * - The file is already narrower than its post: leave it ('' is returned).
+	 * - The file is wider than its post: the post's level.
+	 * - Same ring, different crowd: `private`. Neither is the stricter one, and
+	 *   handing the file to a new crowd is not this method's call; hiding a file
+	 *   is recoverable, showing it to the wrong people is not.
+	 *
+	 * A stored level this does not know is treated as the widest, so it is always
+	 * brought in to the post's level; an unknown post level stores `private`.
+	 *
+	 * @param string $current Stored media privacy.
+	 * @param string $target  The level the post asks for.
+	 * @return string Level to store, or '' to leave the file as it is.
+	 */
+	public static function settle_level( string $current, string $target ): string {
+		$ring = static function ( string $level ): int {
+			$rings = array(
+				'public'    => 0,
+				'members'   => 1,
+				'loggedin'  => 1,
+				'followers' => 2,
+				'friends'   => 2,
+				'space'     => 2,
+				'group'     => 2,
+				'private'   => 3,
+				'custom'    => 3,
+				'dm'        => 3,
+			);
+
+			return $rings[ $level ] ?? -1;
+		};
+
+		// A post level this does not know cannot be reasoned about, so the file is
+		// kept to its owner rather than left wherever it was.
+		if ( $ring( $target ) < 0 ) {
+			return 'private' === $current ? '' : 'private';
+		}
+
+		if ( $current === $target || $ring( $current ) > $ring( $target ) ) {
+			return '';
+		}
+
+		return $ring( $current ) === $ring( $target ) ? 'private' : $target;
+	}
+
+	/**
+	 * Bring a member's attached media in line with their posts again.
+	 *
+	 * Run when the member switches their account between public and private:
+	 * the audience of every public post they have made changes with it, in
+	 * either direction, so each post's media is put through the same sync a
+	 * post edit uses. Works through every post the member has, newest first,
+	 * 200 per background run, queueing the next run until none are left.
+	 *
+	 * @param int $author_id     Member whose account privacy changed.
+	 * @param int $before_id     Only posts with a lower id (0 = start from the newest).
+	 * @param int $library_after -1 for the posts pass. 0 or more runs the library
+	 *                           pass instead (narrow_author_library), continuing
+	 *                           above that media id.
+	 * @return void
+	 */
+	public function resync_author_media( $author_id, $before_id = 0, $library_after = -1 ): void {
+		global $wpdb;
+
+		$author_id     = (int) $author_id;
+		$before_id     = (int) $before_id;
+		$library_after = (int) $library_after;
+		if ( $author_id <= 0 || ! MediaClient::available() ) {
+			return;
+		}
+
+		if ( $library_after >= 0 ) {
+			$this->narrow_author_library( $author_id, $library_after );
+			return;
+		}
+
+		$batch = 200;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					  WHERE user_id = %d AND status = 'published' AND ( %d = 0 OR id < %d )
+					    AND media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]'
+					  ORDER BY id DESC LIMIT %d",
+					$author_id,
+					$before_id,
+					$before_id,
+					$batch
+				)
+			)
+		);
+
+		foreach ( $post_ids as $post_id ) {
+			$this->on_post_privacy_changed( $post_id );
+		}
+
+		if ( count( $post_ids ) === $batch ) {
+			self::queue_author_resync( $author_id, (int) end( $post_ids ) );
+			return;
+		}
+
+		// Posts done. A private account's library follows: photos and videos the
+		// member uploaded and never posted are still on their profile's media tab.
+		// Run in this same job (it queues its own follow-up past 200 items): the
+		// member should not wait a second scheduler round for a photo to close.
+		$this->narrow_author_library( $author_id, 0 );
+	}
+
+	/**
+	 * Bring a private account's library down to followers only: every item and
+	 * album that is wider (public, or all members).
+	 *
+	 * The posts pass (resync_author_media) covers media attached to a post. A
+	 * photo uploaded straight to the library has no post, kept `public`, and
+	 * stayed open on the member's media tab and by its link after they went
+	 * private (card 10393863361). New uploads were already stored followers-only.
+	 *
+	 * Narrowing only, through MediaVerse's own writer, so an item it keeps public
+	 * for its own reasons (a competition entry) stays as it decides. Going public
+	 * again does not reopen these: BuddyNext cannot tell an item it narrowed from
+	 * one the member set by hand, so the member widens what they want shown.
+	 *
+	 * 200 per background run, walked by media id, the next run queued until none
+	 * are left.
+	 *
+	 * @param int $author_id Member whose account is private.
+	 * @param int $after_id  Continue above this media id (0 = from the first).
+	 * @return void
+	 */
+	private function narrow_author_library( int $author_id, int $after_id ): void {
+		$repo = MediaClient::repo();
+		if ( ! is_object( $repo ) || ! method_exists( $repo, 'query' ) || ! buddynext_service( 'follows' )->is_private_account( $author_id ) ) {
+			return; // Cannot list, or the member went public again before this ran.
+		}
+
+		// Albums first, once: an album decides for its photos, so a public or
+		// members album would keep every photo in it open whatever the photo says.
+		if ( 0 === $after_id ) {
+			$this->narrow_author_albums( $author_id );
+		}
+
+		// Every item, whatever level it holds: "all members" is wider than
+		// followers too, not only "public". settle_level() says which ones are
+		// wider; a narrower one (private, a hand-picked audience) is never touched.
+		$batch = 200;
+		$rows  = (array) $repo->query(
+			array(
+				'author_id' => $author_id,
+				'privacy'   => 'any',
+				'status'    => 'publish',
+				'orderby'   => 'media_id',
+				'order'     => 'ASC',
+				'id_after'  => $after_id,
+				'limit'     => $batch,
+			)
+		);
+
+		$last = $after_id;
+		foreach ( $rows as $row ) {
+			$row      = (array) $row;
+			$media_id = (int) ( $row['media_id'] ?? 0 );
+			if ( $media_id <= 0 ) {
+				continue;
+			}
+			$last = max( $last, $media_id );
+			if ( 'followers' === self::settle_level( (string) ( $row['privacy'] ?? '' ), 'followers' ) ) {
+				self::apply_media_privacy( $media_id, 'followers' );
+			}
+
+			// A photo in an album follows the album, and MediaVerse keeps the level
+			// it had before under `own_privacy` to give back when it leaves the
+			// album. Left at `public`, the photo would reopen the day it is taken
+			// out of the album, long after the account went private.
+			if ( method_exists( $repo, 'set' ) ) {
+				$own = (string) $repo->get( $media_id, 'own_privacy' );
+				if ( '' !== $own && 'followers' === self::settle_level( $own, 'followers' ) ) {
+					$repo->set( $media_id, 'own_privacy', 'followers' );
+				}
+			}
+		}
+
+		if ( count( $rows ) === $batch && $last > $after_id ) {
+			self::queue_author_resync( $author_id, 0, $last );
+		}
+	}
+
+	/**
+	 * Bring a private account's albums down to followers only.
+	 *
+	 * Through MediaVerse's album service, which carries the level to the photos
+	 * inside. Only albums wider than followers; a private album stays private.
+	 *
+	 * @param int $author_id Member whose account is private.
+	 * @return void
+	 */
+	private function narrow_author_albums( int $author_id ): void {
+		$albums = MediaClient::albums();
+		if ( ! is_object( $albums ) || ! method_exists( $albums, 'get_privacy' ) || ! method_exists( $albums, 'set_privacy' ) ) {
+			return;
+		}
+
+		// ponytail: the newest 500 albums, 100 at a time. Queue a follow-up run if
+		// members with more appear.
+		for ( $page = 1; $page <= 5; $page++ ) {
+			$album_ids = get_posts(
+				array(
+					'post_type'        => 'mvs_album',
+					'author'           => $author_id,
+					'post_status'      => 'any',
+					'fields'           => 'ids',
+					'posts_per_page'   => 100,
+					'paged'            => $page,
+					'orderby'          => 'ID',
+					'order'            => 'DESC',
+					'no_found_rows'    => true,
+					'suppress_filters' => true,
+				)
+			);
+
+			foreach ( (array) $album_ids as $album_id ) {
+				if ( 'followers' === self::settle_level( (string) $albums->get_privacy( (int) $album_id ), 'followers' ) ) {
+					$albums->set_privacy( (int) $album_id, 'followers' );
+				}
+			}
+
+			if ( count( (array) $album_ids ) < 100 ) {
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Queue one background run of the member media resync.
+	 *
+	 * @param int $author_id     Member.
+	 * @param int $before_id     Continue below this post id (0 = from the newest).
+	 * @param int $library_after -1 for the posts pass, else the library pass cursor.
+	 * @return void
+	 */
+	private static function queue_author_resync( int $author_id, int $before_id = 0, int $library_after = -1 ): void {
+		$args = array( $author_id, $before_id, $library_after );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			if ( ! function_exists( 'as_has_scheduled_action' ) || ! as_has_scheduled_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' ) ) {
+				as_enqueue_async_action( self::RESYNC_AUTHOR_HOOK, $args, 'buddynext' );
+			}
+			return;
+		}
+
+		if ( ! wp_next_scheduled( self::RESYNC_AUTHOR_HOOK, $args ) ) {
+			wp_schedule_single_event( time() + 30, self::RESYNC_AUTHOR_HOOK, $args );
+		}
+	}
+
+	/**
+	 * Queue a media resync when a member's account privacy changes.
+	 *
+	 * @param int    $meta_id  Meta row id (unused).
+	 * @param int    $user_id  Member.
+	 * @param string $meta_key Meta key that changed.
+	 * @return void
+	 */
+	public function on_account_privacy_meta( $meta_id, $user_id, $meta_key ): void {
+		unset( $meta_id );
+		if ( \BuddyNext\SocialGraph\FollowService::PRIVATE_META !== $meta_key ) {
+			return;
+		}
+
+		self::queue_author_resync( (int) $user_id );
+	}
+
+	/**
+	 * Background job that resyncs one member's media after an account privacy change.
+	 */
+	public const RESYNC_AUTHOR_HOOK = 'buddynext_resync_author_media';
+
+	/**
+	 * Whether a viewer may open a document because they may read its post.
+	 *
+	 * Only for posts whose audience a document cannot hold on its own (followers,
+	 * connections, a private account): there the file is stored `private` and
+	 * this is what opens it to the post's readers. A post with an audience a
+	 * document can hold (public, a space) gave the file that level when it was
+	 * shared, and a change the owner then made in their drive is theirs to make,
+	 * so this does not answer for those.
+	 *
+	 * To withdraw a file from followers or connections, the owner removes the
+	 * post; "Only me" in the drive is already what such a file is set to.
+	 *
+	 * @param mixed $allowed   Answer so far.
+	 * @param mixed $media_id  Document media id.
+	 * @param mixed $user_id   Viewer.
+	 * @param mixed $author_id Document owner.
+	 * @return bool
+	 */
+	public function document_readable_via_post( $allowed, $media_id, $user_id, $author_id ): bool {
+		if ( true === $allowed ) {
+			return true;
+		}
+
+		// Signed-in viewers only, and only when the document vocabulary can be
+		// asked: without it there is no telling which posts this is for.
+		$valid = array( '\\WPMediaVersePro\\Documents\\DocumentSettings', 'is_valid_privacy' );
+		if ( (int) $user_id <= 0 || ! is_callable( $valid ) ) {
+			return false;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		foreach ( $posts->document_posts( (int) $author_id, (int) $media_id ) as $post ) {
+			if ( $post['space_id'] > 0 ) {
+				continue; // A space post shares its file through the space drive.
+			}
+
+			$level = self::media_privacy_for_post( $post['privacy'], 0, (int) $author_id );
+			if ( 'private' === $level || call_user_func( $valid, $level ) ) {
+				continue; // Only me, or a level the document carries itself.
+			}
+
+			if ( null === $posts->visibility_error( $post['id'], (int) $user_id ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether two members are connected, for MediaVerse's friends level.
+	 *
+	 * A connections-only post stores its media as `friends`; MediaVerse asks here
+	 * who that is. Accepted connections only: a pending request is not one.
+	 *
+	 * @param bool $are_friends Earlier answer.
+	 * @param int  $user_a      A member.
+	 * @param int  $user_b      Another member.
+	 * @return bool
+	 */
+	public function are_friends( $are_friends, int $user_a, int $user_b ): bool {
+		unset( $are_friends ); // BuddyNext's connections are the answer on a BuddyNext site.
+
+		return (bool) buddynext_service( 'connections' )->are_connected( $user_a, $user_b );
+	}
+
+	/**
+	 * Refuse followers-only media to someone BuddyNext does not count as a follower.
+	 *
+	 * MediaVerse reads its own copy of the follow list, which the mirror keeps
+	 * equal to BuddyNext's. A copy can drift (a follow ended by a path that does
+	 * not announce it, rows from before the two were mirrored), and on this level
+	 * a stale row opens private media. So the question is asked again here, of
+	 * the list that is the truth. It only ever refuses: the author, an
+	 * administrator and everything MediaVerse grants for another reason are left
+	 * to MediaVerse.
+	 *
+	 * @param bool|null $result   Earlier answer; null when nobody has decided.
+	 * @param int       $media_id Media id.
+	 * @param int       $user_id  Viewer (0 = logged out).
+	 * @param string    $privacy  The item's privacy level.
+	 * @return bool|null
+	 */
+	public function followers_only_needs_a_bn_follow( $result, $media_id, $user_id, $privacy ) {
+		if ( null !== $result || 'followers' !== $privacy || (int) $user_id <= 0 || user_can( (int) $user_id, 'manage_options' ) ) {
+			return $result;
+		}
+
+		$repo  = MediaClient::repo();
+		$owner = is_object( $repo ) ? (int) $repo->get( (int) $media_id, 'post_author' ) : 0;
+		if ( $owner <= 0 || $owner === (int) $user_id ) {
+			return $result;
+		}
+
+		if ( buddynext_service( 'follows' )->is_following( (int) $user_id, $owner ) ) {
+			return $result;
+		}
+
+		// Refuse only the case this exists for: MediaVerse's copy still says
+		// "following" and BuddyNext's list does not. When MediaVerse does not count
+		// the viewer as a follower either, its own rules decide, so a grant it
+		// makes for another reason (a file shared into a conversation) still works.
+		$mvs = $this->mvs_follows();
+
+		if ( null === $mvs || ! method_exists( $mvs, 'is_following' ) ) {
+			return false; // Cannot ask why MediaVerse said yes, so BuddyNext's "not a follower" stands.
+		}
+
+		return $mvs->is_following( (int) $user_id, $owner ) ? false : $result;
+	}
+
+	/**
+	 * A member's connections, for MediaVerse lists that show friends-only media.
+	 *
+	 * Must agree with are_friends(), so it reads the same accepted connections.
+	 *
+	 * ponytail: the newest 5,000 connections. A single item is always checked
+	 * exactly through are_friends(); only a list would miss friends-only media of
+	 * a connection past that number. Raise it, or page it, if a member gets there.
+	 *
+	 * @param int[] $friend_ids Earlier answer.
+	 * @param int   $user_id    Member.
+	 * @return int[]
+	 */
+	public function friend_ids( $friend_ids, int $user_id ): array {
+		unset( $friend_ids );
+
+		return array_map( 'intval', (array) buddynext_service( 'connections' )->connections( $user_id, 5000, 0 ) );
 	}
 
 	/**
@@ -1240,11 +1835,15 @@ class WPMediaVerseBridge {
 			$items['media'] = array(
 				'label'          => __( 'Media', 'buddynext' ),
 				'version'        => defined( 'MVS_VERSION' ) ? MVS_VERSION : null,
-				// Floor: 2.4.0 added the collections / document-drive / trash seams
-				// the bridge wires. Tested against 2.6.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
-				'min_version'    => '2.4.0',
-				'tested_version' => '2.6.0',
+				// Floor: 2.6.2 added the doors the bridge now calls instead of keeping its
+				// own copies of MediaVerse's rules (privacy vocabulary, friends, privacy
+				// and drive writes, messaging lookups, the upload client). Its core
+				// contract is docs/architecture/core-contract.md in MediaVerse.
+				'min_version'    => '2.6.2',
+				// Tested against the 2.6.2 branch on 2026-10-11.
+				'tested_version' => '2.6.2',
 				'has_nav'        => true,
+				'nav_label'      => __( 'Media', 'buddynext' ),
 				'has_feed'       => true,
 				'subtabs'        => array(
 					'albums' => __( 'Albums', 'buddynext' ),
@@ -1326,9 +1925,13 @@ class WPMediaVerseBridge {
 		}
 		// WPMediaVerse reports a refused send as 'blocked' by default, which is the
 		// right reason here: this gate only ever refuses for a block.
+		// Either way round, as MediaVerse does for its own blocks: someone who
+		// blocked a member cannot write to them either, so the thread is closed
+		// for both and reopens for both on unblock. It used to refuse only the
+		// blocked person, and the blocker could keep sending into the thread.
 		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
-		return ! ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
-			&& $blocks->has_blocked( $recipient_id, $sender_id ) );
+		return ! ( is_object( $blocks ) && method_exists( $blocks, 'is_blocking_either' )
+			&& $blocks->is_blocking_either( $sender_id, $recipient_id ) );
 	}
 
 	/**
@@ -1469,6 +2072,17 @@ class WPMediaVerseBridge {
 		$this->mirroring_follow = true;
 		try {
 			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $bn->follow( $follower_id, $following_id ) );
+
+			// BuddyNext decides who follows whom. A private account turns this into a
+			// request, and a block or limit refuses it; MediaVerse has already written
+			// an active follow, which would open the account's followers-only media to
+			// someone who was never approved. Taken back here, with the guard still up
+			// so the unfollow is not mirrored into withdrawing the request.
+			$mvs      = $this->mvs_follows();
+			$approved = (bool) call_user_func( array( $bn, 'is_following' ), $follower_id, $following_id );
+			if ( ! $approved && null !== $mvs && method_exists( $mvs, 'unfollow' ) ) {
+				$mvs->unfollow( $follower_id, $following_id );
+			}
 		} finally {
 			$this->mirroring_follow = false;
 		}
@@ -1603,6 +2217,17 @@ class WPMediaVerseBridge {
 		$repo     = MediaClient::repo();
 		$owner_id = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
+			return;
+		}
+
+		// Nothing from someone on either side of a block.
+		if ( buddynext_service( 'blocks' )->is_blocked( $owner_id, $user_id ) ) {
+			return;
+		}
+
+		// Once per person per item, for good: taking a favourite back and adding it
+		// again must not ping the owner again. The rule post reactions follow.
+		if ( \BuddyNext\Notifications\NotificationListener::reaction_already_notified( $owner_id, "mvs_fav_{$media_id}", $user_id ) ) {
 			return;
 		}
 
@@ -1948,13 +2573,18 @@ class WPMediaVerseBridge {
 	 * newer MVS field — when absent (older MVS) the site is treated as writable,
 	 * so this never hides the control on a version that predates the flag.
 	 *
-	 * @return array{enabled:bool,accept:string,max_size:int}
+	 * `types` is MVS's own list of accepted kinds (pdf, word, csv ...), for a line
+	 * a person can read: the `accept` MIME list only steers the file picker, and
+	 * "All files" or a drop goes straight past it.
+	 *
+	 * @return array{enabled:bool,accept:string,max_size:int,types:string[]}
 	 */
 	public static function document_composer_config(): array {
 		$off = array(
 			'enabled'  => false,
 			'accept'   => '',
 			'max_size' => 0,
+			'types'    => array(),
 		);
 		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
 			return $off;
@@ -1973,6 +2603,7 @@ class WPMediaVerseBridge {
 			'enabled'  => true,
 			'accept'   => implode( ',', array_map( 'sanitize_text_field', $mimes ) ),
 			'max_size' => isset( $docs['max_size'] ) ? (int) $docs['max_size'] : 0,
+			'types'    => isset( $docs['allowed_types'] ) && is_array( $docs['allowed_types'] ) ? array_map( 'sanitize_key', $docs['allowed_types'] ) : array(),
 		);
 	}
 
@@ -2393,23 +3024,20 @@ class WPMediaVerseBridge {
 	/**
 	 * Whether a document is linked into a space from another drive.
 	 *
-	 * One primary-key lookup on MediaVerse's link table; the bridge owns partner
-	 * table access. MediaVerse's REST has no per-document answer for this.
+	 * Asked of MediaVerse's own link repository (spaces_for_media), which owns the
+	 * link table.
 	 *
 	 * @param int $doc_id   Document id.
 	 * @param int $space_id Space id.
 	 * @return bool
 	 */
 	private static function linked_to_space( int $doc_id, int $space_id ): bool {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT 1 FROM {$wpdb->prefix}mvs_media_spaces WHERE media_id = %d AND space_id = %d LIMIT 1",
-				$doc_id,
-				$space_id
-			)
-		);
+		$links = MediaClient::space_links();
+		if ( ! is_object( $links ) || ! method_exists( $links, 'spaces_for_media' ) ) {
+			return false;
+		}
+
+		return in_array( $space_id, array_map( 'intval', (array) $links->spaces_for_media( $doc_id ) ), true );
 	}
 
 	/**

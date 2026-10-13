@@ -37,6 +37,7 @@ class RelocatedTabRedirectTest extends WP_UnitTestCase {
 		'engagement',
 		'notifications',
 		'moderation',
+		'automation',
 		'monetization',
 		'campaigns',
 		'realtime',
@@ -47,14 +48,15 @@ class RelocatedTabRedirectTest extends WP_UnitTestCase {
 	);
 
 	/**
-	 * The nine tabs Moderation holds after the merge, in the order a moderator works.
+	 * Moderation's five tabs, the daily work, in the order a moderator meets it
+	 * (owner decision, card 10393846782: no section holds more than five).
 	 */
-	private const MODERATION_TABS = array( 'moderation', 'pending', 'reports', 'suspensions', 'appeals', 'rules', 'ai', 'bulk', 'log' );
+	private const MODERATION_TABS = array( 'pending', 'reports', 'suspensions', 'appeals', 'log' );
 
 	/**
-	 * The four tabs that moved out of the retired "Moderation Tools" section.
+	 * The tabs that are set up once and then run, now in Automation.
 	 */
-	private const FORMER_AUTOMOD_TABS = array( 'rules', 'ai', 'bulk', 'log' );
+	private const AUTOMATION_TABS = array( 'rules', 'ai', 'bulk' );
 
 	/**
 	 * The menu order matches the owner journey, and the automod section is gone.
@@ -69,31 +71,43 @@ class RelocatedTabRedirectTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Every former automod tab now resolves under Moderation, not the retired page —
-	 * the "nothing disappears, everything lands in one place" guarantee.
+	 * Rules, AI and Bulk actions live in Automation, never on the retired page,
+	 * and an old Moderation address for them still lands there.
 	 *
 	 * @return void
 	 */
-	public function test_former_automod_tabs_live_under_moderation(): void {
-		foreach ( self::FORMER_AUTOMOD_TABS as $tab ) {
+	public function test_set_up_once_tabs_live_under_automation(): void {
+		foreach ( self::AUTOMATION_TABS as $tab ) {
 			$url = AdminHub::tab_url( 'moderation', $tab );
-			$this->assertStringContainsString( 'page=buddynext-moderation', $url, $tab . ' must render under Moderation now.' );
+			$this->assertStringContainsString( 'page=buddynext-automation', $url, $tab . ' must render under Automation.' );
 			$this->assertStringContainsString( 'tab=' . $tab, $url );
 			$this->assertStringNotContainsString( 'buddynext-automod', $url, $tab . ' must not point at the retired automod page.' );
 		}
+
+		// The reporting and auto-hide controls open Automation, not Settings
+		// (which would then be the section with six tabs).
+		$this->assertStringContainsString( 'page=buddynext-automation', AdminHub::tab_url( 'settings', 'moderation' ) );
 	}
 
 	/**
-	 * All nine Moderation tabs resolve to the Moderation page (the full merged set).
+	 * Moderation keeps its five daily-work tabs, and no section holds more than five.
 	 *
 	 * @return void
 	 */
-	public function test_moderation_holds_the_full_merged_tab_set(): void {
+	public function test_moderation_keeps_five_tabs_and_no_section_exceeds_five(): void {
 		foreach ( self::MODERATION_TABS as $tab ) {
 			$url = AdminHub::tab_url( 'moderation', $tab );
 			$this->assertStringContainsString( 'page=buddynext-moderation', $url, $tab . ' must be a Moderation tab.' );
 			$this->assertStringContainsString( 'tab=' . $tab, $url );
 		}
+
+		$per_section = array();
+		foreach ( (array) ( new \ReflectionClass( AdminHub::class ) )->getConstant( 'TAB_PLACEMENT' ) as $rule ) {
+			if ( isset( $rule['position'] ) ) {
+				$per_section[ (string) $rule['section'] ] = ( $per_section[ (string) $rule['section'] ] ?? 0 ) + 1;
+			}
+		}
+		$this->assertSame( array(), array_filter( $per_section, static fn( int $count ): bool => $count > 5 ), 'No admin section holds more than five tabs.' );
 	}
 
 	/**

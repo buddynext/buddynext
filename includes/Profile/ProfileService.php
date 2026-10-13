@@ -1510,12 +1510,26 @@ class ProfileService {
 	 * conditional-hidden 422 fix and Zoho #40859 cannot hold on one branch while the
 	 * other still ships the bug.
 	 *
+	 * It is also not enforced when someone else edits the member's account
+	 * (card 10393795456): the rule binds the member, not their administrator.
+	 *
 	 * @param array<string, mixed> $field_def Field (or repeater sub-field) definition.
 	 * @param array<string, mixed> $data      The full submission (a rule's trigger may live in it).
 	 * @param int                  $user_id   Member whose profile is being saved.
 	 * @return bool Whether the required rule applies to this user + submission.
 	 */
 	private function required_rule_active( array $field_def, array $data, int $user_id ): bool {
+		// "Required" is asked of the member filling in their own profile. Someone
+		// editing another member's account (an administrator fixing a name or an
+		// email) is not the one who owes the answer, and must not have to invent
+		// the member's gender to save. WordPress's own Edit User screen and
+		// BuddyPress's admin editor work the same way. Type and allowed-value
+		// checks still run on whatever the editor does enter.
+		$actor = get_current_user_id();
+		if ( $actor > 0 && $actor !== $user_id && current_user_can( 'edit_user', $user_id ) ) {
+			return false;
+		}
+
 		$active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field_def, $data, $user_id );
 
 		if ( ! $this->field_applies_to_user( $field_def, $user_id ) ) {
@@ -4270,6 +4284,45 @@ class ProfileService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_profile_values', array( 'user_id' => $user_id ), array( '%d' ) );
 		$this->bust_profile_cache( $user_id );
+	}
+
+	/**
+	 * Whether the current request is a person opening a page.
+	 *
+	 * A profile view is recorded when the profile page is served, and "who viewed
+	 * your profile" shows the viewer to the owner. Without this check the page
+	 * could be requested on a member's behalf without a visit: an image, frame or
+	 * script whose address is someone's profile, or a browser prefetching a link.
+	 * The browser says what a request is for (Sec-Fetch-Dest, Sec-Purpose), so
+	 * anything that is not a page load or an in-page navigation is not counted.
+	 * Without those headers (an old browser, or a site on plain HTTP) the Accept
+	 * header rules out image, media and stylesheet requests; the rest is counted.
+	 *
+	 * @return bool
+	 */
+	public static function request_is_a_page_visit(): bool {
+		$purpose = isset( $_SERVER['HTTP_SEC_PURPOSE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_SEC_PURPOSE'] ) ) : '';
+		if ( '' === $purpose && isset( $_SERVER['HTTP_PURPOSE'] ) ) {
+			$purpose = sanitize_text_field( wp_unslash( $_SERVER['HTTP_PURPOSE'] ) );
+		}
+		if ( false !== stripos( $purpose, 'prefetch' ) || false !== stripos( $purpose, 'prerender' ) ) {
+			return false;
+		}
+
+		$dest = isset( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ? sanitize_key( wp_unslash( $_SERVER['HTTP_SEC_FETCH_DEST'] ) ) : '';
+
+		// A browser sends Sec-Fetch-* only to a secure origin, so a site on plain
+		// HTTP gets none. There the Accept header still tells an image, stylesheet
+		// or media request from a page load.
+		if ( '' === $dest ) {
+			$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) ) : '';
+
+			return ! preg_match( '#^(image|video|audio)/|^text/css#', $accept );
+		}
+
+		// 'document' is a page load; 'empty' is fetch(), which the in-page router
+		// uses to navigate. Everything else is a sub-resource of some other page.
+		return in_array( $dest, array( 'document', 'empty' ), true );
 	}
 
 	/**

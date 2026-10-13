@@ -41,7 +41,7 @@ class AdminHub {
 	 */
 	private const RETIRED_SECTION_SLUGS = array(
 		// "Moderation Tools" merged into Moderation (card 10114177928).
-		'buddynext-automod' => 'moderation',
+		'buddynext-automod' => 'automation',
 	);
 
 	/**
@@ -91,15 +91,22 @@ class AdminHub {
 				'label' => __( 'Notifications', 'buddynext' ),
 				'icon'  => 'bell',
 			),
-			// Moderation now holds the whole surface: the queue a moderator works
-			// (Overview, Pending, Reports, Suspensions, Appeals) followed by the tools
-			// (Rules, AI, Bulk, Log). The former "Moderation Tools" (automod) section
-			// wrapper was retired and its four tabs merged in — one place to keep a
-			// community healthy instead of two.
+			// Moderation is the daily work: Pending, Reports, Suspensions, Appeals
+			// and the Log. What is set up once and then runs by itself (Rules, AI,
+			// Bulk actions) sits in Automation, next to it. Owner decision, 12 Oct
+			// 2026 (card 10393846782): one merged section had grown to nine tabs,
+			// against the five-tab rule every other section keeps, and was the one
+			// place a new owner had to hunt. This replaces the merge made on card
+			// 10114177928. The reporting and auto-hide controls open Automation.
 			'moderation'           => array(
 				'slug'  => 'buddynext-moderation',
 				'label' => __( 'Moderation', 'buddynext' ),
 				'icon'  => 'shield',
+			),
+			'automation'           => array(
+				'slug'  => 'buddynext-automation',
+				'label' => __( 'Automation', 'buddynext' ),
+				'icon'  => 'cpu',
 			),
 			'monetization'         => array(
 				'slug'  => 'buddynext-monetization',
@@ -331,46 +338,48 @@ class AdminHub {
 			'position' => 40,
 		),
 
-		// Moderation — controls first (they drive everything), then the queues.
-		'settings:moderation'           => array(
+		// Moderation — the daily work, in the order a moderator meets it, ending
+		// with the record of what was done.
+		'moderation:pending'            => array(
 			'section'  => 'moderation',
 			'position' => 10,
 		),
-		'moderation:pending'            => array(
+		'moderation:reports'            => array(
 			'section'  => 'moderation',
 			'position' => 20,
 		),
-		'moderation:reports'            => array(
+		'moderation:suspensions'        => array(
 			'section'  => 'moderation',
 			'position' => 30,
 		),
-		'moderation:suspensions'        => array(
+		'moderation:appeals'            => array(
 			'section'  => 'moderation',
 			'position' => 40,
 		),
-		'moderation:appeals'            => array(
+		'moderation:log'                => array(
 			'section'  => 'moderation',
 			'position' => 50,
 		),
-		// The former "Moderation Tools" tabs, merged into Moderation after the
-		// queue (card 10114177928). Order a moderator works: the queue first
-		// (Overview…Appeals, positions 10-50 above), then the tools — Rules, AI,
-		// Bulk, Log. Rules and AI are Pro (hidden in free); Bulk and Log are free.
+
+		// Automation — set up once, then it runs: the reporting and auto-hide
+		// controls first (they drive the rest), then Rules and AI (Pro, hidden in
+		// free) and Bulk actions. The controls are a Settings tab by registration;
+		// under Settings they would have made that section the sixth-tab one.
+		'settings:moderation'           => array(
+			'section'  => 'automation',
+			'position' => 10,
+		),
 		'moderation:rules'              => array(
-			'section'  => 'moderation',
-			'position' => 60,
+			'section'  => 'automation',
+			'position' => 20,
 		),
 		'moderation:ai'                 => array(
-			'section'  => 'moderation',
-			'position' => 70,
+			'section'  => 'automation',
+			'position' => 30,
 		),
 		'moderation:bulk'               => array(
-			'section'  => 'moderation',
-			'position' => 80,
-		),
-		'moderation:log'                => array(
-			'section'  => 'moderation',
-			'position' => 90,
+			'section'  => 'automation',
+			'position' => 40,
 		),
 
 		// Monetization (Pro). Hidden in free.
@@ -1161,7 +1170,21 @@ class AdminHub {
 
 		$rule = self::tab_placement()[ $section . ':' . $tab ] ?? null;
 		if ( ! is_array( $rule ) || empty( $rule['section'] ) ) {
-			return; // No relocation rule — a genuine misroute; render_section() warns.
+			// No rule under this section's name. A tab that was only ever a GUEST
+			// here (registered under another section and placed in this one, as
+			// Moderation's settings were) leaves no rule behind when it moves on.
+			// If exactly one section holds a tab of that name now, that is where
+			// the old address meant.
+			$homes = array();
+			foreach ( array_keys( self::sections() ) as $candidate ) {
+				if ( $candidate !== $section && isset( self::get_tabs( $candidate )[ $tab ] ) ) {
+					$homes[] = $candidate;
+				}
+			}
+			if ( 1 !== count( $homes ) ) {
+				return; // A genuine misroute; render_section() warns.
+			}
+			$rule = array( 'section' => $homes[0] );
 		}
 
 		$dest = (string) $rule['section'];
@@ -1176,8 +1199,20 @@ class AdminHub {
 		$extra = array_map( 'sanitize_text_field', array_filter( $carry, 'is_scalar' ) );
 
 		// tab_url() applies the same placement remap, so passing the ORIGIN section
-		// yields the destination page slug + tab.
-		$url = self::tab_url( $section, $tab, $extra );
+		// yields the destination page slug + tab. A guest tab has no rule under
+		// this section, so it is addressed at its home directly.
+		$url = isset( self::tab_placement()[ $section . ':' . $tab ] )
+			? self::tab_url( $section, $tab, $extra )
+			: add_query_arg(
+				array_merge(
+					array(
+						'page' => (string) ( self::sections()[ $dest ]['slug'] ?? '' ),
+						'tab'  => $tab,
+					),
+					$extra
+				),
+				admin_url( 'admin.php' )
+			);
 		if ( admin_url( 'admin.php' ) === $url ) {
 			return; // Unknown section — don't bounce into a dead end.
 		}
@@ -1817,8 +1852,10 @@ class AdminHub {
 			),
 			'moderation'    => array(
 				'appeals' => 'moderation/04-appeals/',
-				'bulk'    => 'pro/16-bulk-moderation/',
 				'reports' => 'moderation/01-reporting-content/',
+			),
+			'automation'    => array(
+				'bulk' => 'pro/16-bulk-moderation/',
 			),
 			'realtime'      => array(
 				'push'       => 'pro/17-push-notifications/',

@@ -47,7 +47,7 @@ A site administrator, or the owner or a moderator of the space the post is in, c
 
 Comments are on by default. You can turn the whole feature off, and you can set how many comments a member may post per minute.
 
-The feature toggle lives under **BuddyNext > Platform > Features**. The comment rate limit lives under **BuddyNext > Moderation > Controls**.
+The feature toggle lives under **BuddyNext > Platform > Features**. The comment rate limit lives under **BuddyNext > Automation > Controls**.
 
 | Setting | What it does | Default |
 |---|---|---|

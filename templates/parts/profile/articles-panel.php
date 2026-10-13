@@ -32,6 +32,9 @@ $bn_ar_total     = isset( $article_count ) ? (int) $article_count : count( $bn_a
 $bn_ar_page      = isset( $page ) ? max( 1, (int) $page ) : 1;
 $bn_ar_pages     = isset( $total_pages ) ? max( 1, (int) $total_pages ) : 1;
 $bn_ar_dashboard = isset( $dashboard_url ) ? (string) $dashboard_url : '';
+// Per-post edit address (post id => URL), from the bridge. A post without one
+// falls back to the dashboard.
+$bn_ar_edit_urls = isset( $edit_urls ) && is_array( $edit_urls ) ? $edit_urls : array();
 
 // The owner's route back to where they write. Shown ABOVE the list and also in the
 // empty state, because a member with nothing published is exactly who needs it.
@@ -123,9 +126,11 @@ endif;
 						<p class="bn-article-card__excerpt"><?php echo esc_html( wp_trim_words( $bn_ar_excerpt, 28 ) ); ?></p>
 					<?php endif; ?>
 
-					<?php if ( $bn_ar_owner && '' !== $bn_ar_dashboard ) : ?>
+					<?php $bn_ar_edit = (string) ( $bn_ar_edit_urls[ $bn_ar_id ] ?? '' ); ?>
+					<?php $bn_ar_edit = '' !== $bn_ar_edit ? $bn_ar_edit : $bn_ar_dashboard; ?>
+					<?php if ( $bn_ar_owner && '' !== $bn_ar_edit ) : ?>
 						<div class="bn-article-card__actions">
-							<a class="bn-btn bn-btn--secondary bn-btn--sm" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
+							<a class="bn-btn bn-btn--secondary bn-btn--sm" href="<?php echo esc_url( $bn_ar_edit ); ?>">
 								<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 							</a>
 						</div>

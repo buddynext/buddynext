@@ -454,7 +454,9 @@ class SpaceService {
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_spaces',
 			array(
-				'name'         => sanitize_text_field( $data['name'] ?? '' ),
+				// The column holds 100 characters (the form's own cap); cut here so a
+				// longer name from an importer or a bridge is stored, not refused.
+				'name'         => mb_substr( sanitize_text_field( $data['name'] ?? '' ), 0, 100 ),
 				'slug'         => $slug,
 				'description'  => isset( $data['description'] ) ? sanitize_textarea_field( $data['description'] ) : null,
 				'category_id'  => $category_id,
@@ -500,6 +502,7 @@ class SpaceService {
 		// likely to notice: they make a space and it is not in the directory.
 		self::flush_space_lists();
 
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
 		do_action( 'buddynext_space_created', $space_id, $owner_id );
 
 		return $space_id;
@@ -581,7 +584,7 @@ class SpaceService {
 		$format = array();
 
 		if ( isset( $data['name'] ) ) {
-			$fields['name'] = sanitize_text_field( $data['name'] );
+			$fields['name'] = mb_substr( sanitize_text_field( $data['name'] ), 0, 100 );
 			$format[]       = '%s';
 		}
 		if ( isset( $data['description'] ) ) {
@@ -689,6 +692,7 @@ class SpaceService {
 		 * @param int   $user_id  User who updated the space.
 		 * @param array $data     Fields that were updated.
 		 */
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
 		do_action( 'buddynext_space_updated', $space_id, $user_id, $fields );
 
 		return true;
@@ -1427,6 +1431,7 @@ class SpaceService {
 		 * @param int $space_id Deleted space ID.
 		 * @param int $user_id  User who deleted it.
 		 */
+		\BuddyNext\Core\PageRouter::forget_space_url( $space_id );
 		do_action( 'buddynext_space_deleted', $space_id, $user_id );
 
 		/**
@@ -1439,6 +1444,11 @@ class SpaceService {
 		 * @param int $user_id  User who deleted it.
 		 */
 		do_action( 'buddynext_purge_space_data', $space_id, $user_id );
+
+		// The space's avatar and cover are files, not rows.
+		$images = new \BuddyNext\Media\ImageStorageService();
+		$images->delete( 'avatar', 'space', $space_id );
+		$images->delete( 'cover', 'space', $space_id );
 
 		return true;
 	}

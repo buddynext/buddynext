@@ -125,7 +125,7 @@ final class ProfileNav {
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function primary_tabs(): array {
-		return array(
+		$tabs = array(
 			array(
 				'id'       => 'posts',
 				'surface'  => 'profile',
@@ -239,6 +239,15 @@ final class ProfileNav {
 				'render'   => fn( NavContext $c ) => $this->render_likes( $c ),
 			),
 		);
+
+		// With reactions switched off there is nothing to like, so there is no
+		// Likes tab either (the notifications page drops its Reactions filter on
+		// the same switch).
+		if ( ! buddynext_feature_enabled( 'reactions' ) ) {
+			$tabs = array_values( array_filter( $tabs, static fn( array $tab ): bool => 'likes' !== $tab['id'] ) );
+		}
+
+		return $tabs;
 	}
 
 	/**
@@ -358,7 +367,7 @@ final class ProfileNav {
 		if ( empty( $feed['private'] ) && null === $cursor ) {
 			$bn_pins = array_values(
 				array_filter(
-					(array) $feed_service->profile_pinned_posts( $c->subject_id, $c->viewer_id, 10 ),
+					(array) $feed_service->profile_pinned_posts( $c->subject_id, $c->viewer_id ),
 					'is_array'
 				)
 			);

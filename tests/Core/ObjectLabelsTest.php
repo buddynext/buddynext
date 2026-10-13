@@ -123,6 +123,9 @@ class ObjectLabelsTest extends \WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_unowned_type_is_never_claimed_deleted(): void {
+		// With no plugin answering for the type. On a site with WPMediaVerse the
+		// media bridge answers through this filter (ReportPartnerTargetTest).
+		remove_all_filters( 'buddynext_object_exists' );
 		$label = buddynext_object_label( 'message', 5 );
 
 		$this->assertSame( 'Message #5', $label );

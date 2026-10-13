@@ -835,14 +835,20 @@ class ProfileFieldsManager {
 	/**
 	 * Parse a textarea of options (one per line) into an array, or null if empty.
 	 *
-	 * Each non-blank line becomes one option value. Blank lines are ignored.
+	 * Each non-blank line becomes one option value. Blank lines are ignored. A box
+	 * holding any "value|Label" line is read as value/label pairs instead, so a
+	 * choice whose label differs from its stored value keeps both.
 	 *
 	 * @param string $raw Sanitized textarea content.
-	 * @return array<int,string>|null Array of option strings, or null when input is blank.
+	 * @return array<int,mixed>|null Option strings (or value/label pairs), or null when input is blank.
 	 */
 	private function parse_options_textarea( string $raw ): ?array {
 		if ( '' === trim( $raw ) ) {
 			return null;
+		}
+
+		if ( false !== strpos( $raw, '|' ) ) {
+			return $this->parse_choice_pairs( $raw );
 		}
 
 		$lines = array_values(
@@ -890,6 +896,12 @@ class ProfileFieldsManager {
 	private function options_to_textarea( array $options ): string {
 		$lines = array();
 
+		// A `choices` list (the shape 1.2.4 advanced fields saved) is what
+		// FieldType::choices() serves to members, so it is what the owner must see.
+		if ( ! empty( $options['choices'] ) && is_array( $options['choices'] ) ) {
+			$options = $options['choices'];
+		}
+
 		foreach ( $options as $key => $option ) {
 			// Pro's per-type configuration is string-keyed — skip it. Printing it
 			// here is what leaked "Array", the trigger value and the unit into the
@@ -903,12 +915,13 @@ class ProfileFieldsManager {
 				continue;
 			}
 
-			// Defensive: a legacy row storing value/label pairs in the integer
-			// range. Emit the VALUE only — parse_options_textarea() treats a whole
-			// line as the option string, so emitting "value|label" would store that
-			// literal text as the option and corrupt the field on the next save.
+			// A value/label pair. Emit "value|Label" only when the label differs, so
+			// members' stored answers (the value) and the label both survive an edit;
+			// parse_options_textarea() reads that line back as the same pair.
 			if ( is_array( $option ) && isset( $option['value'] ) && is_scalar( $option['value'] ) ) {
-				$lines[] = (string) $option['value'];
+				$value   = (string) $option['value'];
+				$label   = isset( $option['label'] ) && is_scalar( $option['label'] ) ? (string) $option['label'] : $value;
+				$lines[] = $label === $value ? $value : $value . '|' . $label;
 			}
 		}
 
@@ -1287,6 +1300,17 @@ class ProfileFieldsManager {
 			$parsed_opts = is_array( $parsed_opts )
 				? array_merge( $parsed_opts, $pro_opts )
 				: $pro_opts;
+		}
+
+		// An untouched Options box means "leave the choices alone". Parsing it back
+		// would flatten a stored `choices` list (and replace it with null when the
+		// box rendered blank), so keep the stored list and only merge the new per-type config.
+		$stored_opts = json_decode( (string) ( $stored_row['options'] ?? '' ), true );
+		$stored_opts = is_array( $stored_opts ) ? $stored_opts : array();
+		if ( ! empty( $stored_opts ) && in_array( $type, self::choice_types(), true )
+			&& $this->parse_options_textarea( sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) ) ) === $this->parse_options_textarea( $this->options_to_textarea( $stored_opts ) ) ) {
+			$kept        = array_filter( $stored_opts, static fn( $k ) => is_int( $k ) || 'choices' === $k, ARRAY_FILTER_USE_KEY );
+			$parsed_opts = array_merge( $kept, (array) $pro_opts );
 		}
 
 		$is_required = isset( $_POST['is_required'] ) ? 1 : 0;
@@ -2248,7 +2272,28 @@ class ProfileFieldsManager {
 						?>
 						<table class="bn-pf-hook-rows"><tbody>
 							<?php do_action( 'buddynext_profile_field_type_options', '', array() ); ?>
-						</tbody></table>
+						</tbody>
+						<?php
+						// A new field has no type until the owner picks one, so the call
+						// above (type '') could never draw a type's own settings: a Number
+						// (advanced) field got its unit, minimum and maximum only after it
+						// was saved once and opened again. Draw each type's rows now, hidden,
+						// and let the Field type select show the one that matches
+						// (profile-fields.js). Rows of the other types are disabled there, so
+						// they are not posted.
+						foreach ( self::field_types() as $bn_pf_type ) :
+							ob_start();
+							do_action( 'buddynext_profile_field_type_options', (string) $bn_pf_type, array() );
+							$bn_pf_type_rows = (string) ob_get_clean();
+							if ( '' === trim( $bn_pf_type_rows ) ) {
+								continue;
+							}
+							?>
+							<tbody data-bn-pf-type-options="<?php echo esc_attr( (string) $bn_pf_type ); ?>" hidden>
+								<?php echo $bn_pf_type_rows; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- hook output; handlers escape (see the hook's contract above). ?>
+							</tbody>
+						<?php endforeach; ?>
+						</table>
 						<?php
 						/** This action is documented in the edit panel above. An empty $field means a new field. */
 						do_action( 'buddynext_profile_field_settings', array(), $group );

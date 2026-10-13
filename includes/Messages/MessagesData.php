@@ -28,16 +28,6 @@ defined( 'ABSPATH' ) || exit;
 class MessagesData {
 
 	/**
-	 * Object-cache group.
-	 */
-	private const CACHE_GROUP = 'buddynext_nav';
-
-	/**
-	 * Cache lifetime, in seconds.
-	 */
-	private const CACHE_TTL = 60;
-
-	/**
 	 * Whether the messaging engine is available.
 	 *
 	 * @return bool
@@ -380,44 +370,23 @@ class MessagesData {
 	/**
 	 * Total unread direct-message count for a viewer.
 	 *
-	 * The single source for the rail/nav unread DM badge. Reaches the
-	 * WPMediaVerse messaging tables only when that engine is present
-	 * (class_exists guard), and caches the result for 60s in the
-	 * buddynext_nav group so the rail and any other entry point share one
-	 * query per request window instead of running parallel raw-SQL paths
-	 * from the template.
+	 * The single source for the rail, phone bar and header unread DM badge, and
+	 * it is MediaVerse's own number (MessagingService::get_total_unread): unread
+	 * MESSAGES, without muted, cleared or deleted conversations and without the
+	 * viewer's own messages. BuddyNext used to count conversations by timestamp
+	 * with its own query, so its badge and MediaVerse's disagreed. MediaVerse
+	 * caches the number and clears it when a message arrives or is read.
 	 *
 	 * @param int $uid Viewing user ID.
 	 * @return int Unread DM count (0 when messaging is unavailable).
 	 */
 	public static function unread_count( int $uid ): int {
-		if ( $uid <= 0 || ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
+		$messaging = $uid > 0 && \BuddyNext\Media\MediaClient::available() ? \BuddyNext\Media\MediaClient::messaging() : null;
+		if ( ! is_object( $messaging ) || ! method_exists( $messaging, 'get_total_unread' ) ) {
 			return 0;
 		}
 
-		$cache_key = "bn_unread_msgs_{$uid}";
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
-		if ( false !== $cached ) {
-			return (int) $cached;
-		}
-
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}mvs_conversations c
-				 INNER JOIN {$wpdb->prefix}mvs_conversation_participants cp
-				   ON cp.conversation_id = c.id AND cp.user_id = %d AND cp.status = 'active'
-				 WHERE c.last_activity_at > COALESCE(cp.last_read_at, '1970-01-01')",
-				$uid
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		// cache-ttl-only: the viewer's OWN unread count, 60s. Deliberate per this class's docblock — your badge may lag a minute; it is never another member's number.
-		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $count;
+		return (int) $messaging->get_total_unread( $uid );
 	}
 
 	/**
@@ -608,6 +577,11 @@ class MessagesData {
 		$is_group     = self::is_group( $conv );
 		$viewer_admin = $is_group && self::viewer_is_admin( $conv, $viewer );
 
+		// A block either way closes a 1:1 thread (sending is already refused); the
+		// viewer's own block is what lets them undo it from here.
+		$other_id = ( ! $is_group && $other ) ? (int) self::val( $other, 'id', 0 ) : 0;
+		$blocks   = $other_id > 0 ? buddynext_service( 'blocks' ) : null;
+
 		return array(
 			'conversation_id' => (int) self::val( $conv, 'id', 0 ),
 			'is_muted'        => (bool) self::val( $conv, 'is_muted', false ),
@@ -634,6 +608,8 @@ class MessagesData {
 				)
 				: '',
 			'is_request'      => $is_request,
+			'is_blocked'      => $blocks && $blocks->is_blocking_either( $viewer, $other_id ),
+			'viewer_blocked'  => $blocks && $blocks->has_blocked( $viewer, $other_id ),
 			'messages'        => $messages,
 		);
 	}

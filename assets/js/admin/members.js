@@ -70,7 +70,9 @@
 				suspendWrap.hidden = form.getAttribute( 'data-bn-confirm-suspend' ) !== '1';
 				if ( reasonField )   { reasonField.value = ''; }
 				if ( noteField )     { noteField.value = ''; }
-				if ( durationField ) { durationField.value = '0'; }
+				// One default wherever a member is suspended from: 7 days, posts stay
+				// visible. Indefinite and hiding posts are deliberate choices.
+				if ( durationField ) { durationField.value = '7'; }
 				if ( hideField )     { hideField.checked = false; }
 				if ( suspendError )  { suspendError.hidden = true; }
 			}

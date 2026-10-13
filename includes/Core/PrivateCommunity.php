@@ -49,6 +49,17 @@ final class PrivateCommunity {
 	}
 
 	/**
+	 * Learnomy's private-academy gate: on when Learnomy's own toggle is on OR
+	 * this community is private.
+	 *
+	 * @param bool $required Learnomy's own require-login setting.
+	 * @return bool
+	 */
+	public static function require_login_for_learnomy( $required ): bool {
+		return (bool) $required || self::is_enabled();
+	}
+
+	/**
 	 * Whether the current visitor may access the private community.
 	 *
 	 * The single access seam for membership plugins. Defaults to
@@ -139,8 +150,11 @@ final class PrivateCommunity {
 		// this reversible from either side: an owner who genuinely runs a public
 		// academy inside a private community returns false from
 		// learnomy_require_login_for_content, and standalone Learnomy never sees
-		// these filters at all.
-		add_filter( 'learnomy_require_login_for_content', array( self::class, 'is_enabled' ) );
+		// these filters at all. The filter ADDS this gate to Learnomy's own
+		// toggle, never replaces it: is_enabled() as the callback threw away the
+		// value Learnomy passed, so its private-academy toggle did nothing on any
+		// site running BuddyNext.
+		add_filter( 'learnomy_require_login_for_content', array( self::class, 'require_login_for_learnomy' ) );
 		add_filter( 'learnomy_content_can_access', array( self::class, 'can_access_user' ), 10, 2 );
 	}
 

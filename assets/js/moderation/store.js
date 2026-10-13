@@ -4,7 +4,7 @@
  * moderation panel (spaces/moderation.php) and the account-status appeal form.
  */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnReloadWithToast, bnSuspendDialog, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnPrompt, bnReloadWithToast, bnSuspendDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -33,6 +33,28 @@ function dropReportRow( reportId ) {
 	document.querySelectorAll( '[data-bn-open-reports]' ).forEach( ( el ) => {
 		el.textContent = String( Math.max( 0, ( parseInt( el.textContent, 10 ) || 0 ) - 1 ) );
 	} );
+}
+
+/**
+ * Ask a moderator to confirm an action against a member and give the reason
+ * the member will read. The box opens with the standard wording, so pressing
+ * Enter sends what one click used to send; editing it says why in plain words.
+ *
+ * @param {string} title        Dialog title.
+ * @param {string} body         What happens next, for the moderator.
+ * @param {string} defaultValue Standard wording.
+ * @param {string} confirmLabel Confirm button label.
+ * @return {Promise<string|null>} The reason, or null when cancelled.
+ */
+function askReason( title, body, defaultValue, confirmLabel ) {
+	return bnPrompt( {
+		title,
+		body,
+		defaultValue,
+		confirmLabel,
+		tone: 'danger',
+		validate: ( value ) => ( String( value || '' ).trim() ? '' : t( 'reasonRequired', 'Add a reason. The member will see it.' ) ),
+	} ).then( ( value ) => ( null === value ? null : String( value ).trim() ) );
 }
 
 const moderationStore = store( 'buddynext/moderation', {
@@ -213,6 +235,10 @@ const moderationStore = store( 'buddynext/moderation', {
 		* warnUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
+			// Ask first, with the reason the member will read. One click used to send
+			// a fixed sentence with no way to say what the warning was for.
+			const message = yield askReason( t( 'warnTitle', 'Warn this member?' ), t( 'warnBody', 'They are notified and can read this message on their Account status page.' ), t( 'warnPolicyReminder', 'Content policy reminder' ), t( 'warnConfirm', 'Send warning' ) );
+			if ( null === message ) { return; }
 			// Real route: POST /users/{id}/warn { message, space_id } — logs the
 			// warning and notifies the user (no strike penalty). space_id carries
 			// the space the report came from: a site admin does not need it, but a
@@ -222,7 +248,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { message: t( 'warnPolicyReminder', 'Content policy reminder' ), space_id: ctx.spaceId || 0 },
+				body: { message, space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
 			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnUserFailed', 'Could not warn the user.' ) ), { tone: res.ok ? 'success' : 'danger' } );
@@ -231,12 +257,15 @@ const moderationStore = store( 'buddynext/moderation', {
 		* strikeUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
+			// A strike counts toward automatic suspension, so it is never one click.
+			const reason = yield askReason( t( 'strikeTitle', 'Issue a strike?' ), t( 'strikeBody', 'They can read this reason on their Account status page. Strikes add up toward automatic suspension.' ), t( 'strikeReportedContent', 'Strike issued for reported content' ), t( 'strikeConfirm', 'Issue strike' ) );
+			if ( null === reason ) { return; }
 			// Real route: POST /users/{id}/strikes { reason }.
 			const res = yield restFetch( 'users/' + ctx.userId + '/strikes', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { reason: t( 'strikeReportedContent', 'Strike issued for reported content' ) },
+				body: { reason },
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
@@ -459,6 +488,8 @@ const moderationStore = store( 'buddynext/moderation', {
 		* warnMember() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
+			const message = yield askReason( t( 'warnTitle', 'Warn this member?' ), t( 'warnBody', 'They are notified and can read this message on their Account status page.' ), t( 'warnSpaceRule', 'Space rule violation' ), t( 'warnConfirm', 'Send warning' ) );
+			if ( null === message ) { return; }
 			// space_id scopes the warning to this space — it is what authorises a
 			// space moderator (who holds no site-wide moderation capability) to
 			// issue it.
@@ -466,7 +497,7 @@ const moderationStore = store( 'buddynext/moderation', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { message: t( 'warnSpaceRule', 'Space rule violation' ), space_id: ctx.spaceId || 0 },
+				body: { message, space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
 			bnToast( res.ok ? t( 'memberWarned', 'Warning sent.' ) : ( ( res.data && res.data.message ) || t( 'warnMemberFailed', 'Could not warn the member.' ) ), { tone: res.ok ? 'success' : 'danger' } );

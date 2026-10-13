@@ -973,20 +973,27 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'unlink_failed', __( 'Could not resolve the item owner.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
-		// Return the item to its owner's personal drive as private, via MediaVerse's
-		// own index writer (set_many writes drive_type/drive_id/privacy atomically
-		// and fires mvs_media_privacy_changed). The item was just confirmed to exist
-		// on this space's drive, so this is an update, never a partial insert. Keeps
-		// the member's copy; removes the space's. Item is on the space drive, so it
-		// exists — no new MediaVerse code, just its existing API.
-		$repo->set_many(
-			$media_id,
-			array(
-				'drive_type' => 'user',
-				'drive_id'   => $owner_id,
-				'privacy'    => 'private',
-			)
-		);
+		// Return the item to its owner's personal drive as private, through
+		// MediaVerse: move_to_drive() for the location, then its privacy setter, so
+		// the album and chat-file rules apply. Keeps the member's copy; removes the
+		// space's.
+		if ( method_exists( $repo, 'move_to_drive' ) ) {
+			if ( ! $repo->move_to_drive( $media_id, 'user', $owner_id ) ) {
+				return new WP_Error( 'unlink_failed', __( 'Could not move the item out of the space.', 'buddynext' ), array( 'status' => 500 ) );
+			}
+			\BuddyNext\Bridges\WPMediaVerseBridge::apply_media_privacy( $media_id, 'private' );
+		} else {
+			// A MediaVerse older than 2.6.2 has no drive move: its index writer is
+			// used, as before.
+			$repo->set_many(
+				$media_id,
+				array(
+					'drive_type' => 'user',
+					'drive_id'   => $owner_id,
+					'privacy'    => 'private',
+				)
+			);
+		}
 
 		// Tell the owner their item left the space (they keep it). Skipped when a
 		// moderator unlinks their own upload. A native BuddyNext event, so the pref
@@ -2511,6 +2518,36 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
+	 * The answer to a successful join: joined, and what the member will hear.
+	 *
+	 * The space's alert setting for this member rides along so the confirmation
+	 * can say it in words ("new posts will appear in your notifications") rather
+	 * than leave a new member guessing why a space is noisy or silent.
+	 *
+	 * @param int $space_id Space joined.
+	 * @param int $user_id  The member.
+	 * @return WP_REST_Response
+	 */
+	private function joined_response( int $space_id, int $user_id ): WP_REST_Response {
+		$pref    = ( new SpaceMemberService() )->get_notification_pref( $space_id, $user_id );
+		$message = __( 'You joined this space.', 'buddynext' );
+		if ( 'all' === $pref ) {
+			$message = __( 'You joined. New posts here will appear in your notifications. You can change this with the bell on the space page.', 'buddynext' );
+		} elseif ( 'mentions_only' === $pref ) {
+			$message = __( 'You joined. You will hear from this space when someone mentions you. You can change this with the bell on the space page.', 'buddynext' );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'joined'            => true,
+				'notification_pref' => $pref,
+				'message'           => $message,
+			),
+			200
+		);
+	}
+
+	/**
 	 * Join a space (or request to join for private, 403 for secret without invite).
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -2551,7 +2588,7 @@ class SpaceController extends BaseRestController {
 			// Already an active member — no-op, and crucially do not consume a use
 			// or set a "joined via link" marker for someone who was already in.
 			if ( 'active' === $members->get_status( $space_id, $user_id ) ) {
-				return new WP_REST_Response( array( 'joined' => true ), 200 );
+				return $this->joined_response( $space_id, $user_id );
 			}
 
 			$links = new SpaceInviteLinkService();
@@ -2600,7 +2637,7 @@ class SpaceController extends BaseRestController {
 			}
 			$links->mark_joined( $space_id, $user_id );
 
-			return new WP_REST_Response( array( 'joined' => true ), 200 );
+			return $this->joined_response( $space_id, $user_id );
 		}
 
 		// A standing invitation: accepting it joins directly, regardless of the
@@ -2613,7 +2650,7 @@ class SpaceController extends BaseRestController {
 			if ( is_wp_error( $result ) ) {
 				return $this->preserve_status( $result, 400 );
 			}
-			return new WP_REST_Response( array( 'joined' => true ), 200 );
+			return $this->joined_response( $space_id, $user_id );
 		}
 
 		// Role-map enforcement, applied only to non-invited joins. A standing
@@ -2658,7 +2695,7 @@ class SpaceController extends BaseRestController {
 
 			// If already an active member or has a pending request, treat as success.
 			if ( 'active' === $current_status ) {
-				return new WP_REST_Response( array( 'joined' => true ), 200 );
+				return $this->joined_response( $space_id, $user_id );
 			}
 
 			$result = $members->request_join( $space_id, $user_id );
@@ -2677,7 +2714,7 @@ class SpaceController extends BaseRestController {
 			return $this->preserve_status( $result, 400 );
 		}
 
-		return new WP_REST_Response( array( 'joined' => true ), 200 );
+		return $this->joined_response( $space_id, $user_id );
 	}
 
 	/**

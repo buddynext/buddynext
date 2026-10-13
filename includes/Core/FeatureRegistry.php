@@ -485,7 +485,7 @@ class FeatureRegistry {
 			),
 			'onboarding'      => array(
 				'label'       => __( 'Member onboarding flow', 'buddynext' ),
-				'description' => __( 'Multi-step welcome flow for new members (interests, suggested follows, first post).', 'buddynext' ),
+				'description' => __( 'Multi-step welcome flow for new members (interests, suggested follows).', 'buddynext' ),
 			),
 			'verification'    => array(
 				'label'       => __( 'Email verification', 'buddynext' ),
@@ -509,11 +509,11 @@ class FeatureRegistry {
 			),
 			'messages'        => array(
 				'label'       => __( 'Direct messages', 'buddynext' ),
-				'description' => __( 'Private messaging between members, run by WPMediaVerse. Turn it on or off in WPMediaVerse: Settings, Social, Messages.', 'buddynext' ),
+				'description' => __( 'Private messaging between members, run by WPMediaVerse. Turn it on or off in WPMediaVerse: Settings, Messages.', 'buddynext' ),
 			),
 			'pwa'             => array(
 				'label'       => __( 'Installable app (PWA)', 'buddynext' ),
-				'description' => __( 'Let members install the community as an app and use it offline (manifest + service worker).', 'buddynext' ),
+				'description' => __( 'Let members install the community as an app on their phone or computer. Without a connection it shows an offline notice.', 'buddynext' ),
 			),
 			'scheduled-posts' => array(
 				'label'       => __( 'Scheduled posts', 'buddynext' ),

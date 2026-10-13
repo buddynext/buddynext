@@ -101,6 +101,8 @@ final class CompanionRegistry {
 					),
 					'store_url' => 'https://wbcomdesigns.com/downloads/wp-career-board/',
 					'unlocks'   => __( 'Job posts as activity cards in the feed.', 'buddynext' ),
+					// The bridge that delivers this lives in BuddyNext Pro.
+					'needs_pro' => true,
 					// Where to send the admin after a one-click install so they can
 					// finish setup, instead of leaving them on the integrations screen.
 					'setup_url' => 'admin.php?page=wcb-settings',
@@ -116,6 +118,8 @@ final class CompanionRegistry {
 					),
 					'store_url' => 'https://wbcomdesigns.com/downloads/learnomy/',
 					'unlocks'   => __( 'Completed courses + certificates on member profiles.', 'buddynext' ),
+					// The bridge that delivers this lives in BuddyNext Pro.
+					'needs_pro' => true,
 				),
 				'wb-listora'             => array(
 					'label'     => 'Listora',
@@ -132,6 +136,8 @@ final class CompanionRegistry {
 					),
 					'store_url' => 'https://wbcomdesigns.com/downloads/wb-listora/',
 					'unlocks'   => __( 'Member listings surfaced in the feed + on profiles.', 'buddynext' ),
+					// The bridge that delivers this lives in BuddyNext Pro.
+					'needs_pro' => true,
 				),
 				'eventonomy'             => array(
 					'label'     => 'Eventonomy',
@@ -146,6 +152,8 @@ final class CompanionRegistry {
 					),
 					'store_url' => 'https://wbcomdesigns.com/downloads/eventonomy/',
 					'unlocks'   => __( 'Events as activity cards in the feed + attending events on member profiles.', 'buddynext' ),
+					// The bridge that delivers this lives in BuddyNext Pro.
+					'needs_pro' => true,
 				),
 				'buddypress-member-blog' => array(
 					'label'     => 'WB Member Blog',

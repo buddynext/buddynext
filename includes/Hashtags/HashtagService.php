@@ -418,22 +418,32 @@ class HashtagService {
 	 * @param string   $object_type Object type (e.g. 'post', 'comment').
 	 * @param int      $object_id   Object ID.
 	 * @param string[] $slugs       Tag slugs to set (empty array removes all tags).
+	 * @param string   $created_at  Optional UTC date to stamp every link with (the back-fill
+	 *                              passes the post's own date). Without it a tag the object
+	 *                              already carried keeps its stamp and a new tag is stamped now.
 	 */
-	public function sync( string $object_type, int $object_id, array $slugs ): void {
+	public function sync( string $object_type, int $object_id, array $slugs, string $created_at = '' ): void {
 		global $wpdb;
 
 		$object_type = sanitize_key( $object_type );
 
-		// Capture old hashtag IDs before deleting so counts can be recomputed.
+		// Capture old links (and when each tag first appeared on this object) before
+		// deleting, so counts can be recomputed and a re-sync does not re-date tags
+		// the object already carried: Trending and Latest read this stamp.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$old_hashtag_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT hashtag_id FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id = %d AND object_type = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$object_id,
-				$object_type
-			)
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$old_stamps = wp_list_pluck(
+			(array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT hashtag_id, created_at FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id = %d AND object_type = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$object_id,
+					$object_type
+				),
+				OBJECT_K
+			),
+			'created_at'
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$old_hashtag_ids = array_keys( $old_stamps );
 
 		// Remove all existing links for this object first.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -507,7 +517,7 @@ class HashtagService {
 					$object_id,
 					$object_type,
 					$hashtag_id,
-					current_time( 'mysql', true )
+					'' !== $created_at ? $created_at : ( $old_stamps[ $hashtag_id ] ?? current_time( 'mysql', true ) )
 				)
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
@@ -766,14 +776,24 @@ class HashtagService {
 		// the recent rows instead of a full pivot scan — do NOT drop that index.
 		// A wider window scans more of that range but uses the same index; it is
 		// still bounded, and the result is cached for 30 minutes either way.
+		//
+		// Only what a logged-out visitor could open is counted: public posts, in
+		// no space or an open one, not by a private account (public_listable_where).
+		// The count used to take every pivot row in the window, so it included
+		// posts in private spaces, "only me" posts and comments, and a card that
+		// said "14 posts" opened onto two. One number for the card, the block, the
+		// widget and REST, and one list shared by every reader of the cache.
+		$public_where = self::public_listable_where( 'p' );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT h.id, h.name, h.slug, h.post_count, h.follower_count, h.created_at,
 				        COUNT(ph.hashtag_id) AS recent_count
 				 FROM {$wpdb->prefix}bn_hashtags h
-				 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
+				 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id AND ph.object_type = 'post'
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
 				 WHERE ph.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d HOUR)
+				 {$public_where}
 				 GROUP BY h.id
 				 ORDER BY recent_count DESC, h.post_count DESC
 				 LIMIT %d",
@@ -981,10 +1001,18 @@ class HashtagService {
 		// stop — verified: a non-member's query returns 0 rows for such a post.
 		$member_of = " {$alias}.space_id IN ( SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active' )";
 
+		// A tag page is discovery: a private account's public post is listed for
+		// its approved followers only, the rule Explore applies.
+		$private_where = \BuddyNext\SocialGraph\FollowService::private_author_where( $viewer_id, "{$alias}.user_id" );
+
 		$sql = " AND {$alias}.status = 'published' AND ("
-			. " ( {$alias}.privacy = 'public' {$space_where} )"
+			. " ( {$alias}.privacy = 'public' {$space_where}{$private_where} )"
 			. " OR ( {$alias}.privacy = 'space_members' AND{$member_of} )"
 			. ' )';
+
+		// A hidden-suspended or shadow-banned author's posts stay off every tag
+		// surface for everyone but moderators and the author, as in every feed.
+		$sql .= ' ' . ( new \BuddyNext\Moderation\ModerationService() )->hidden_authors_where( "{$alias}.user_id", $viewer_id );
 
 		$params = array_merge( $space_params, array( $viewer_id ) );
 
@@ -1014,7 +1042,11 @@ class HashtagService {
 			. " AND {$alias}.privacy = 'public'"
 			. " AND ( {$alias}.space_id IS NULL"
 			. " OR {$alias}.space_id = 0"
-			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )";
+			. " OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' ) )"
+			. \BuddyNext\SocialGraph\FollowService::private_author_where( 0, "{$alias}.user_id" )
+			// And never a hidden-suspended or shadow-banned author's: the tag feed,
+			// its counts, its contributors and the trending list all read this.
+			. ' ' . ( new \BuddyNext\Moderation\ModerationService() )->hidden_authors_where( "{$alias}.user_id", 0 );
 	}
 
 	/**
@@ -1361,7 +1393,7 @@ class HashtagService {
 	 * @return array
 	 */
 	private function hydrate( array $row ): array {
-		return array(
+		$tag = array(
 			'id'             => (int) $row['id'],
 			'name'           => $row['name'],
 			'slug'           => $row['slug'],
@@ -1369,6 +1401,13 @@ class HashtagService {
 			'follower_count' => (int) $row['follower_count'],
 			'created_at'     => $row['created_at'],
 		);
+		// Only the trending query counts a window. Kept so a card that says "this
+		// week" can print this week's number; post_count is the all-time total.
+		if ( isset( $row['recent_count'] ) ) {
+			$tag['recent_count'] = (int) $row['recent_count'];
+		}
+
+		return $tag;
 	}
 
 	/**

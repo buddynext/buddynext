@@ -39,6 +39,10 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				title TEXT NULL,
 				content_plain LONGTEXT NULL,
 				is_private TINYINT(1) NOT NULL DEFAULT 0,
+				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+				reply_count INT NOT NULL DEFAULT 0,
+				vote_score INT NOT NULL DEFAULT 0,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
@@ -59,8 +63,18 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				author_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 				content LONGTEXT NULL,
 				content_plain LONGTEXT NULL,
+				is_private TINYINT(1) NOT NULL DEFAULT 0,
+				is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
 				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
+			) DEFAULT CHARSET=utf8mb4"
+		);
+		$wpdb->query(
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}jt_space_members (
+				space_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				user_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				source VARCHAR(20) NOT NULL DEFAULT 'manual',
+				PRIMARY KEY (space_id, user_id)
 			) DEFAULT CHARSET=utf8mb4"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -78,6 +92,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_posts" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_spaces" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_replies" );
+		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}jt_space_members" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		parent::tear_down();
 	}
@@ -278,6 +293,236 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Feed card rows the bridge published for a topic author.
+	 *
+	 * @param int    $author_id Topic author.
+	 * @param string $status    Card status.
+	 * @return int
+	 */
+	private function discussion_cards( int $author_id, string $status = 'published' ): int {
+		global $wpdb;
+
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = %s", $author_id, $status ) );
+	}
+
+	/**
+	 * An anonymous topic gets no feed card and no search row.
+	 *
+	 * @return void
+	 */
+	public function test_anonymous_topic_is_not_mirrored(): void {
+		global $wpdb;
+		$this->seed_jt_space( 21, 'anon' );
+		$this->seed_jt_post( 210, $this->author_id, 'Anonymous question', 'Body', 'anon-question' );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 210 ) );
+
+		$this->publish_jt_post( 210, 21 );
+		do_action( 'jetonomy_after_create_post', 210, 21 );
+
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'No feed card under the author.' );
+		$this->assertSame(
+			0,
+			(int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = 210" ),
+			'No search row.'
+		);
+	}
+
+	/**
+	 * Editing a signed topic to anonymous withdraws its card and search row.
+	 *
+	 * @return void
+	 */
+	public function test_topic_edited_to_anonymous_is_withdrawn(): void {
+		global $wpdb;
+		$this->seed_jt_space( 22, 'edit-anon' );
+		$this->seed_jt_post( 220, $this->author_id, 'Signed topic', 'Body', 'signed-topic' );
+		$this->publish_jt_post( 220, 22 );
+		$this->assertSame( 1, $this->discussion_cards( $this->author_id ), 'A signed topic is mirrored.' );
+
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 220 ) );
+		do_action( 'jetonomy_post_updated', 220, 22 );
+
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'The card is withdrawn.' );
+		$this->assertSame(
+			0,
+			(int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = 220" ),
+			'The search row is dropped.'
+		);
+	}
+
+	/**
+	 * Rows mirrored from anonymous content before the fix are cleared once.
+	 *
+	 * @return void
+	 */
+	public function test_repair_clears_previously_mirrored_anonymous_content(): void {
+		global $wpdb;
+		$this->seed_jt_space( 26, 'repair' );
+		$this->seed_jt_post( 260, $this->author_id, 'Was signed', 'Body', 'was-signed' );
+		$this->publish_jt_post( 260, 26 );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_replies',
+			array(
+				'id'            => 2601,
+				'post_id'       => 260,
+				'author_id'     => $this->user_id,
+				'content_plain' => 'A reply',
+			)
+		);
+		do_action( 'jetonomy_reply_publish_transition', 2601, 1, '' );
+		$search  = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id = 260" );
+		$comment = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = 2601 AND is_deleted = 0" );
+		$this->assertSame( 1, $search(), 'Fixture: mirrored while signed.' );
+		$this->assertSame( 1, $comment(), 'Fixture: reply mirrored while signed.' );
+
+		// The state an older version left behind: flagged in the forum, still mirrored here.
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 260 ) );
+		$wpdb->update( $wpdb->prefix . 'jt_replies', array( 'is_anonymous' => 1 ), array( 'id' => 2601 ) );
+		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
+
+		$hook   = \BuddyNext\Bridges\JetonomyBridge::REPAIR_ANONYMOUS_HOOK;
+		$queued = static function () use ( $hook ): bool {
+			return function_exists( 'as_has_scheduled_action' )
+				? (bool) as_has_scheduled_action( $hook, array(), 'buddynext' )
+				: false !== wp_next_scheduled( $hook );
+		};
+		$unqueue = static function () use ( $hook ): void {
+			if ( function_exists( 'as_unschedule_all_actions' ) ) {
+				as_unschedule_all_actions( $hook, array(), 'buddynext' );
+			}
+			wp_clear_scheduled_hook( $hook );
+		};
+		$unqueue();
+
+		// Nobody but an administrator on a dashboard screen asks for it.
+		wp_set_current_user( $this->user_id );
+		$this->bridge->queue_anonymous_repair();
+		$this->assertFalse( $queued(), 'A member cannot start the pass.' );
+		$this->assertFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ) );
+
+		// An administrator's page load only queues the job: nothing is repaired
+		// inside the request, and the day is marked so it is not queued twice.
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->bridge->queue_anonymous_repair();
+		$this->assertTrue( $queued(), 'The check is queued.' );
+		$this->assertSame( 1, $search(), 'The page load itself repaired nothing.' );
+		$this->assertNotFalse( get_transient( 'buddynext_jetonomy_anonymous_checked' ), 'Not queued again on the next page load.' );
+		$this->assertLessThanOrEqual( time() + HOUR_IN_SECONDS, (int) get_option( '_transient_timeout_buddynext_jetonomy_anonymous_checked' ), 'Held for an hour, not a day, until a run has finished clean.' );
+
+		// The background job does the work, and asks for another run while it found some.
+		$unqueue();
+		$this->bridge->repair_anonymous_mirrors();
+
+		$this->assertSame( 0, $search(), 'The search row is gone.' );
+		$this->assertSame( 0, $comment(), 'The signed comment is gone.' );
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'The card is withdrawn.' );
+		$this->assertTrue( $queued(), 'Runs again while it still found work.' );
+
+		$unqueue();
+		$this->bridge->repair_anonymous_mirrors();
+		$this->assertFalse( $queued(), 'Stops once nothing is left.' );
+		$this->assertGreaterThan( time() + HOUR_IN_SECONDS, (int) get_option( '_transient_timeout_buddynext_jetonomy_anonymous_checked' ), 'A clean run waits a day.' );
+	}
+
+	/**
+	 * A card with no search row behind it is still withdrawn.
+	 *
+	 * @return void
+	 */
+	public function test_repair_withdraws_a_card_that_has_no_search_row(): void {
+		global $wpdb;
+		$this->seed_jt_space( 27, 'card-only' );
+		$this->seed_jt_post( 270, $this->author_id, 'Card only', 'Body', 'card-only' );
+		$this->publish_jt_post( 270, 27 );
+		$wpdb->delete( $wpdb->prefix . 'bn_search_index', array( 'object_type' => 'discussion', 'object_id' => 270 ) );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 270 ) );
+		delete_transient( 'buddynext_jetonomy_anonymous_checked' );
+		$this->assertSame( 1, $this->discussion_cards( $this->author_id ), 'Fixture: a published card.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->bridge->repair_anonymous_mirrors();
+
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ) );
+	}
+
+	/**
+	 * Switching discussion search back on re-indexes topics without posting them again.
+	 *
+	 * @return void
+	 */
+	public function test_search_reindex_indexes_topics_and_creates_no_cards(): void {
+		global $wpdb;
+		$this->seed_jt_space( 28, 'reindex' );
+		// Topics that exist in the forum and are in neither the index nor the feed,
+		// as after search was switched off and time passed.
+		foreach ( array( 280, 281 ) as $topic_id ) {
+			$this->seed_jt_post( $topic_id, $this->author_id, 'Reindex topic ' . $topic_id, 'Body', 'reindex-' . $topic_id );
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => 28, 'status' => 'publish' ), array( 'id' => $topic_id ) );
+		}
+		$indexed = static fn() => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'discussion' AND object_id IN ( 280, 281 )" );
+		$this->assertSame( 0, $indexed(), 'Fixture: not indexed.' );
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'Fixture: no feed cards.' );
+
+		( new \BuddyNext\Search\SearchIndexListener() )->handle_integration_reindex( 'jetonomy', 0 );
+
+		$this->assertSame( 2, $indexed(), 'Both topics are back in search.' );
+		$this->assertSame( 0, $this->discussion_cards( $this->author_id ), 'No old topic was posted to the feed as new.' );
+	}
+
+	/**
+	 * An anonymous or private reply is not mirrored as a signed feed comment.
+	 *
+	 * @return void
+	 */
+	public function test_anonymous_and_private_replies_are_not_mirrored(): void {
+		global $wpdb;
+		$this->seed_jt_space( 23, 'anon-replies' );
+		$this->seed_jt_post( 230, $this->author_id, 'Thread', 'Body', 'anon-reply-thread' );
+		$this->publish_jt_post( 230, 23 );
+		foreach ( array( 2301 => 'is_anonymous', 2302 => 'is_private' ) as $reply_id => $flag ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'jt_replies',
+				array(
+					'id'            => $reply_id,
+					'post_id'       => 230,
+					'author_id'     => $this->user_id,
+					'content_plain' => 'A reply',
+					$flag           => 1,
+				)
+			);
+			do_action( 'jetonomy_reply_publish_transition', $reply_id, 1, '' );
+		}
+
+		$this->assertSame(
+			0,
+			(int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id IN ( 2301, 2302 )" )
+		);
+	}
+
+	/**
+	 * The profile list and count leave out anonymous, private and private-forum topics.
+	 *
+	 * @return void
+	 */
+	public function test_profile_discussions_list_only_public_signed_topics(): void {
+		global $wpdb;
+		$this->seed_jt_space( 24, 'public-forum' );
+		$this->seed_jt_space( 25, 'private-forum' );
+		$wpdb->update( $wpdb->prefix . 'jt_spaces', array( 'visibility' => 'private' ), array( 'id' => 25 ) );
+		foreach ( array( 240 => 24, 241 => 24, 242 => 24, 243 => 25 ) as $post_id => $forum_id ) {
+			$this->seed_jt_post( $post_id, $this->author_id, 'Topic ' . $post_id, 'Body', 'topic-' . $post_id );
+			$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'space_id' => $forum_id ), array( 'id' => $post_id ) );
+		}
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_anonymous' => 1 ), array( 'id' => 241 ) );
+		$wpdb->update( $wpdb->prefix . 'jt_posts', array( 'is_private' => 1 ), array( 'id' => 242 ) );
+
+		$listed = array_map( static fn( $row ) => (int) $row->id, $this->bridge->user_discussions( $this->author_id, 10 ) );
+
+		$this->assertSame( array( 240 ), $listed );
+		$this->assertSame( 1, $this->bridge->discussion_count( $this->author_id ) );
+	}
+
+	/**
 	 * A PERMANENT purge (Post::delete fires jetonomy_after_delete_post) removes the
 	 * card outright — the source discussion is gone for good — and cascades the
 	 * comments members left on it, rather than orphaning them. The card is found by
@@ -444,6 +689,58 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Linking an existing forum copies its self-joined members into an open space,
+	 * once. A banned member, a member held by a tier, and a private space are all
+	 * left alone, and a job for a space that is not linked does nothing.
+	 *
+	 * @return void
+	 */
+	public function test_forum_members_are_copied_into_the_linked_space(): void {
+		global $wpdb;
+		$owner   = self::factory()->user->create();
+		$members = self::factory()->user->create_many( 3 );
+		$banned  = self::factory()->user->create();
+		$by_tier = self::factory()->user->create();
+		$spaces  = new \BuddyNext\Spaces\SpaceMemberService();
+		$make    = static fn( string $type ): int => (int) ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Linked ' . $type,
+				'slug' => 'linked-' . $type . '-' . wp_rand( 1000, 9999 ),
+				'type' => $type,
+			)
+		);
+		$open    = $make( 'open' );
+		$private = $make( 'private' );
+		$spaces->ban_from_space( $open, $banned, $owner );
+
+		foreach ( array_merge( $members, array( $banned, 999999 ) ) as $user_id ) {
+			$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $user_id, 'source' => 'manual' ) );
+		}
+		$wpdb->insert( $wpdb->prefix . 'jt_space_members', array( 'space_id' => 7, 'user_id' => $by_tier, 'source' => 'tier' ) );
+
+		// Not linked to forum 7: nothing is copied.
+		$this->bridge->copy_forum_members( $open, 7, 0 );
+		$this->assertFalse( $spaces->is_member( $open, $members[0] ) );
+
+		update_space_meta( $open, 'jetonomy_forum_id', 7 );
+		update_space_meta( $private, 'jetonomy_forum_id', 7 );
+		$this->bridge->copy_forum_members( $open, 7, 0 );
+		$this->bridge->copy_forum_members( $private, 7, 0 );
+
+		foreach ( $members as $member ) {
+			$this->assertTrue( $spaces->is_member( $open, $member ) );
+			$this->assertFalse( $spaces->is_member( $private, $member ), 'A private space takes nobody without a request or an invitation.' );
+		}
+		$this->assertFalse( $spaces->is_member( $open, $banned ), 'A banned member stays out.' );
+		$this->assertFalse( $spaces->is_member( $open, $by_tier ), 'A member the forum holds through a paid tier is not copied.' );
+
+		// Continuing after the highest user id finds nobody left.
+		$this->bridge->copy_forum_members( $open, 7, 999999 );
+		$this->assertSame( 1 + count( $members ), $spaces->member_count( $open ) );
+	}
+
+	/**
 	 * Resolve the bridge's space-surface Discussions tab via the unified Nav
 	 * registry and return its resolved URL (or null when the tab is absent).
 	 *
@@ -524,4 +821,12 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 			return (int) $wpdb->insert_id;
 		}
 	}
+}
+
+if ( ! class_exists( __NAMESPACE__ . '\\Post' ) ) {
+	/**
+	 * Test stub for Jetonomy's Post model. The bridge only checks that the class
+	 * exists before it reads jt_posts; it never calls it.
+	 */
+	class Post {}
 }

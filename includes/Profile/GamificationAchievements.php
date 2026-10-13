@@ -68,8 +68,10 @@ class GamificationAchievements {
 						__( 'Kudos', 'buddynext' ) => '1.6.5',
 						__( 'Space leaderboards', 'buddynext' ) => '1.6.5',
 						__( 'Custom points name', 'buddynext' ) => '1.6.5',
+						__( 'Badge pages for visitors', 'buddynext' ) => '1.6.5',
 					),
 					'has_nav'          => true,
+					'nav_label'        => __( 'Achievements', 'buddynext' ),
 					'has_feed'         => true,
 
 					/*
@@ -600,7 +602,11 @@ class GamificationAchievements {
 			$is_cr     = ! empty( $badge['is_credential'] );
 			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? get_date_from_gmt( (string) $badge['earned_at'], $date_format ) : '';
 			// Only earned badges the viewer can open get a link; the rest are static.
-			$can_open = $is_earned && '' !== $id && ( $sees_all || ! $can_check || isset( $published_ids[ $id ] ) );
+			// When the partner cannot say which badges are published (WB Gamification
+			// older than 1.6.5), nobody but the member and site staff gets a link:
+			// "cannot tell" used to mean "link everything", and every one of those
+			// links sent a visitor to the login page.
+			$can_open = $is_earned && '' !== $id && ( $sees_all || ( $can_check && isset( $published_ids[ $id ] ) ) );
 			$url      = $can_open ? $this->badge_share_url( $id, $member_id ) : '';
 
 			$classes = 'bn-achievements__badge';

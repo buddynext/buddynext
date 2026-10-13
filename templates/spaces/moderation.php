@@ -340,18 +340,8 @@ $mod_privacy = array(
 
 									<?php if ( ! empty( $r_reason ) ) : ?>
 										<?php
-										// Translated label for the fixed report-reason vocabulary;
-										// unknown slugs fall back to a title-cased display.
-										$bn_mod_reason_labels = array(
-											'spam'       => __( 'Spam', 'buddynext' ),
-											'harassment' => __( 'Harassment', 'buddynext' ),
-											'misinformation' => __( 'Misinformation', 'buddynext' ),
-											'inappropriate' => __( 'Inappropriate', 'buddynext' ),
-											'fake'       => __( 'Fake / scam', 'buddynext' ),
-											'impersonation' => __( 'Impersonation', 'buddynext' ),
-											'other'      => __( 'Other', 'buddynext' ),
-										);
-										$bn_mod_reason_label  = $bn_mod_reason_labels[ $r_reason ] ?? ucfirst( (string) $r_reason );
+										// One list of report-reason labels, in ModerationService.
+										$bn_mod_reason_label = \BuddyNext\Moderation\ModerationService::reason_label( (string) $r_reason );
 										?>
 										<span class="bn-badge" data-tone="<?php echo esc_attr( $r_tone ); ?>"><?php echo esc_html( $bn_mod_reason_label ); ?></span>
 									<?php endif; ?>
@@ -428,7 +418,8 @@ $mod_privacy = array(
 												<?php if ( $r_can_warn ) : ?>
 													<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.warnMember" data-report-id="<?php echo esc_attr( (string) $r_id ); ?>" data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"><?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
 												<?php endif; ?>
-												<?php if ( 'post' === $r_obj_type ) : ?>
+												<?php // A content warning is a site moderator's call (the service and the REST route both require it), so the control is not offered to someone who only moderates this space. ?>
+												<?php if ( 'post' === $r_obj_type && buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' ) ) : ?>
 													<div class="bn-ca-more-menu-item bn-ca-more-menu-item--cw">
 														<?php
 														buddynext_get_template(

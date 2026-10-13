@@ -127,6 +127,8 @@ $bn_type_text     = (string) $args['member_type_text_color'];
 // Inline, exactly as profile-hero.php does. data-tone="accent" alone loses the
 // owner's colour pair to var(--bn-accent-700), which is a DARK ink - so a badge
 // configured dark-on-white rendered dark-on-light and could not be read.
+// The saved text colour is kept when it reads well on the badge colour.
+$bn_type_text   = '' !== $bn_type_color ? buddynext_readable_text_color( $bn_type_color, $bn_type_text ) : $bn_type_text;
 $bn_type_style  = ( '' !== $bn_type_color && '' !== $bn_type_text )
 	? sprintf( ' style="background:%s;color:%s;"', esc_attr( $bn_type_color ), esc_attr( $bn_type_text ) )
 	: '';

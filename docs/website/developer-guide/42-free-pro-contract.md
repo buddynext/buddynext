@@ -98,7 +98,7 @@ These are the Free-defined extension points Pro attaches to. They are public sea
 | `buddynext_search_filter_options` | filter | Provide the Pro filter options surfaced in the search UI. |
 | `buddynext_member_hold` | filter | "Paying members only": hold a member without an active paid plan on the plans page, on the web (`Auth\MemberHold`) and over REST (`Auth\RestHoldGate`), with account and billing left open. |
 | `buddynext_email_payload` | filter | Skip community activity emails to a member held for lack of a paid plan. |
-| `buddynext_post_pin_limit` | filter | Raise the pinned-post limit from Free's 1 to 10. |
+| `buddynext_post_pin_limit` | filter | Raise the pinned-post limit from Free's 1 (Free caps whatever is returned at 3). |
 | `buddynext_profile_labels` | filter | Inject custom member labels into profile responses. |
 | `buddynext_notification_prefs` | filter | Inject push-notification preferences. |
 | `cron_schedules` | filter | Add the custom cron interval used by scheduled posts. |

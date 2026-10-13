@@ -80,14 +80,14 @@ Current declared values (update the row when you re-verify a bridge against a ne
 
 | Integration | Partner constant | `min_version` | `tested_version` |
 |---|---|---|---|
-| `media` | `MVS_VERSION` | 2.4.0 | 2.5.0 |
-| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.6.4 |
-| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.6.0 |
-| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 1.9.5 |
-| `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.6.0 |
-| `jetonomy` | `JETONOMY_VERSION` | (none) | 1.9.7 |
-| `listora` | `WB_LISTORA_VERSION` | (none) | 1.8.0 |
-| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.1.0 |
+| `media` | `MVS_VERSION` | 2.6.2 | 2.6.2 |
+| `gamification` | `WB_GAM_VERSION` | 1.6.3 | 1.6.5 |
+| `careerboard` | `WCB_VERSION` | 1.4.3 | 1.8.0 |
+| `learnomy` | `LEARNOMY_VERSION` | 1.9.4 | 2.1.0 |
+| `eventonomy` | `EVENTONOMY_VERSION` | 1.6.0 | 1.8.0 |
+| `jetonomy` | `JETONOMY_VERSION` | (none) | 2.0.1 |
+| `listora` | `WB_LISTORA_VERSION` | (none) | 1.9.0 |
+| `blog` | `BUDDYPRESS_MEMBER_BLOG_VERSION` | (none) | 4.3.0 |
 
 ## Identity takeover (BuddyNext is master)
 
@@ -116,6 +116,12 @@ Routes Jetonomy forum events into BuddyNext search, the activity feed, the navig
 A reply's comment on the card follows the reply the same way: a new or approved reply is copied onto the card (as Jetonomy's plain-text copy, dated when the reply was written), a trashed or unapproved reply's comment is removed, and a restore brings back the same comment. Edits sync both ways.
 
 > **Note:** The privacy gate is strict. A private/secret space or a private topic never produces a public feed activity - only the search index entry, which respects its own visibility.
+
+> **Anonymous topics and replies are not mirrored.** A topic posted with Jetonomy's anonymous option gets no feed card and no search row, an anonymous or private reply is not copied to the card as a comment, and neither is listed on the author's profile or a hashtag page. A topic edited to anonymous has its card withdrawn. The space Discussions tab lists an anonymous topic as Anonymous. A daily check, run for an administrator in the dashboard, withdraws anything mirrored before the flag was set.
+
+> **Profile Discussions tab.** A member's profile lists their published, signed topics in public forums only. Topics in private or hidden forums stay inside the forum.
+
+> **Unverified authors.** A partner card is published even when its author has not verified their email, because the partner plugin has already published the content. Return `true` from `buddynext_partner_card_requires_verification` to hold it instead.
 
 ### Feed control
 
@@ -237,6 +243,7 @@ Authorization reuses the drive-access seam plus one new filter:
 | Filter | Answered by BuddyNext with | Governs |
 | --- | --- | --- |
 | `mvs_document_drive_access` | owner -> `own`, moderator/member -> `write`, viewer -> `read` (`space_drive_access`) | Who may **link** (needs `write` on the target space) and read the space drive. |
+| `mvs_document_readable_via_post` | true when the viewer may read a followers-only, connections-only or private-account post the document is shared on (`document_readable_via_post`) | Who may **open** a file whose post has an audience no document level describes. The file itself stays `private`; view only. Needs MediaVerse Pro 2.6.2. |
 | `mvs_document_can_moderate_space` | true for a space owner/moderator or site admin (`space_files_can_moderate`, fail-closed) | Who may **remove another member's** link. A member may always remove their own; the file owner may always remove their file. |
 
 Because both a member and a moderator resolve to drive `write`, moderation cannot be read off the drive level alone - the new filter is what separates them (the same reason Eventonomy added `evnm_user_can_unbind_space`).

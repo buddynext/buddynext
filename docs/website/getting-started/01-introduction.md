@@ -52,7 +52,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Admin site-wide announcement | Free | Free |
 | | Schedule a post for a future date, and reschedule it later | Free | Free |
 | | Scheduled-posts queue and the admin screen that manages every scheduled post | - | Pro |
-| | Multiple pinned posts (up to 10) | - | Pro |
+| | Multiple pinned posts (up to 3) | - | Pro |
 | | Custom reaction emoji set | - | Pro |
 | | Post reach stats for authors | - | Pro |
 | **Spaces** | Unlimited spaces | Free | Free |

@@ -201,8 +201,11 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					style="<?php echo esc_attr( $bn_pf_img_style ); ?>" />
 			<?php endif; ?>
 			<?php if ( $bn_pf_is_owner && $bn_pf_can_edit_own ) : ?>
+				<?php // One click opens the file picker here (actions.pickPhoto); without the script, or with a modified click, the link still goes to the edit page, where a cover can also be repositioned. ?>
 				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#cover' ); ?>"
 					class="bn-pf-cover__edit"
+					data-bn-photo="cover"
+					data-wp-on--click="actions.pickPhoto"
 					aria-label="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
 					<?php buddynext_icon( 'edit' ); ?>
 					<span><?php esc_html_e( 'Edit cover', 'buddynext' ); ?></span>
@@ -235,6 +238,8 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				</span>
 				<?php if ( $bn_pf_is_owner && $bn_pf_can_edit_own ) : ?>
 					<a class="bn-pf-avatar-edit"
+						data-bn-photo="avatar"
+						data-wp-on--click="actions.pickPhoto"
 						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#avatar' ); ?>"
 						aria-label="<?php esc_attr_e( 'Edit avatar', 'buddynext' ); ?>"
 						title="<?php esc_attr_e( 'Edit avatar', 'buddynext' ); ?>">
@@ -273,7 +278,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						<span
 							class="bn-badge bn-pf-type-badge"
 							data-tone="accent"
-							style="background:<?php echo esc_attr( $bn_pf_member_type['color'] ); ?>;color:<?php echo esc_attr( $bn_pf_member_type['text_color'] ); ?>;"
+							style="background:<?php echo esc_attr( $bn_pf_member_type['color'] ); ?>;color:<?php echo esc_attr( buddynext_readable_text_color( (string) $bn_pf_member_type['color'], (string) $bn_pf_member_type['text_color'] ) ); ?>;"
 						>
 						<?php
 						if ( '' !== $bn_pf_type_icon ) :

@@ -15,6 +15,7 @@
  *
  * WP root defaults to the buddynext-dev.local site; override with BN_WP_PATH.
  */
+import type { Page } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFileSync, unlinkSync } from 'node:fs';
@@ -228,4 +229,108 @@ export async function deletePage(id: number): Promise<void> {
     if (id > 0) {
         await wp(['post', 'delete', String(id), '--force']).catch(() => undefined);
     }
+}
+
+/**
+ * Keep fixed-bottom overlays off the save bars and composers.
+ *
+ * Two things sit over the bottom of every page on a fresh profile: BuddyNext's own
+ * cookie notice (dismissed by the `bn_cookie_consent` cookie, which J-810 covers on
+ * its own) and whatever consent plugin the local site runs (WPConsent on the model
+ * site: `#wpconsent-container` intercepted every click on the sticky save bar in
+ * the 2026-10-12 gate, 15 specs). Third-party banners are hidden by CSS because they
+ * are not the surface under test; ours is accepted through its real cookie.
+ */
+let _consentVersion: string | null = null;
+async function consentVersion(): Promise<string> {
+    if (_consentVersion === null) {
+        // The accepted value is the notice's policy version (a hash of the policy text).
+        _consentVersion = (
+            await wp([
+                'eval',
+                '$s = new \\BuddyNext\\Privacy\\CookieConsentService(); $m = new ReflectionMethod( $s, "version" ); $m->setAccessible( true ); echo $m->invoke( $s );',
+            ]).catch(() => '1')
+        ).trim() || '1';
+    }
+    return _consentVersion;
+}
+
+export async function settleOverlays(page: Page): Promise<void> {
+    const origin = new URL(page.url() || process.env.BN_BASE_URL || 'http://localhost').origin;
+    await page.context().addCookies([
+        { name: 'bn_cookie_consent', value: await consentVersion(), url: origin },
+    ]);
+    await page.addInitScript(() => {
+        const hide = () => {
+            if (document.getElementById('bn-e2e-overlay-css')) {
+                return;
+            }
+            const style = document.createElement('style');
+            style.id = 'bn-e2e-overlay-css';
+            style.textContent = '#wpconsent-container, .wpconsent-banner, .cmplz-cookiebanner { display: none !important; }';
+            (document.head || document.documentElement).appendChild(style);
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', hide, { once: true });
+        } else {
+            hide();
+        }
+    });
+}
+
+/**
+ * Run the Action Scheduler jobs the product queued for a hook, synchronously.
+ * Hashtag extraction, search indexing, notification fan-out and webhook delivery are
+ * deferred to Action Scheduler; on a local site the async runner is slow or absent,
+ * so a spec that asserts their effect drains the queue itself instead of sleeping.
+ */
+export async function drainQueue(hooks: string[], batches = 3): Promise<void> {
+    // Two specs draining at once race for the same claims; a pass that finds nothing
+    // because a sibling holds the claim must not end the drain. Three passes, a beat apart.
+    for (let pass = 0; pass < 3; pass++) {
+        await wp(['action-scheduler', 'run', `--hooks=${hooks.join(',')}`, `--batches=${batches}`, '--batch-size=50']).catch(() => undefined);
+        const pending = await wp([
+            'eval',
+            `global $wpdb; $h = array_map( 'esc_sql', explode( ',', '${hooks.join(',')}' ) ); echo (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}actionscheduler_actions WHERE status IN ('pending','in-progress') AND hook IN ('" . implode( "','", $h ) . "')" );`,
+        ]).catch(() => '0');
+        if (parseInt(pending.trim(), 10) === 0) {
+            return;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+    }
+}
+
+/**
+ * End every active site announcement so a spec that creates one is the only one.
+ * Home shows a single active announcement; the model site keeps one from its seed.
+ */
+export async function endActiveAnnouncements(): Promise<void> {
+    await wp([
+        'eval',
+        'foreach ( (array) buddynext_service( "feed" )->list_all_announcements( 100 ) as $a ) { buddynext_service( "feed" )->end_announcement_now( (int) ( (array) $a )["id"] ); } echo "ok";',
+    ]);
+}
+
+/**
+ * Give a member a value for every REQUIRED profile field so a full profile save can
+ * succeed. The model site marks Gender and Interested In required (dating fixture);
+ * since 1.2.5 a full-form save is validated before anything is written, so a member
+ * who never answered them cannot save a bio, a headline or a repeater at all. That is
+ * the product's rule for members; a journey about SOMETHING ELSE must start from a
+ * member who satisfies it. Values are the first option of each select, written through
+ * ProfileService::save_profile() (a partial write, enforced present-only).
+ */
+export async function satisfyRequiredFields(login: string | number): Promise<void> {
+    await wp([
+        'eval',
+        `$id = '${String(login).replace(/'/g, '')}'; $u = ctype_digit( $id ) ? get_userdata( (int) $id ) : get_user_by( 'login', $id ); if ( ! $u ) { echo 'no-user'; exit; }` +
+            ` $svc = buddynext_service( 'profiles' ); $data = array();` +
+            ` foreach ( (array) $svc->get_flat_fields() as $f ) { if ( empty( $f['is_required'] ) ) { continue; }` +
+            `   $key = (string) $f['field_key']; global $wpdb; $cur = $wpdb->get_var( $wpdb->prepare( "SELECT value FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id = %d LIMIT 1", $u->ID, (int) $f['id'] ) ); if ( '' !== (string) $cur && null !== $cur && '[]' !== $cur ) { continue; }` +
+            `   $opts = is_string( $f['options'] ?? '' ) ? json_decode( (string) $f['options'], true ) : (array) ( $f['options'] ?? array() );` +
+            `   $first = ''; foreach ( (array) $opts as $k => $o ) { $first = is_array( $o ) ? (string) ( $o['value'] ?? $o['key'] ?? $k ) : ( is_string( $k ) ? $k : (string) $o ); if ( '' !== $first ) { break; } }` +
+            `   $type = (string) ( $f['type'] ?? 'text' );` +
+            `   $data[ $key ] = str_contains( $type, 'multi' ) ? array( $first ) : ( in_array( $type, array( 'select', 'radio' ), true ) ? $first : 'e2e' ); }` +
+            ` if ( $data ) { $r = $svc->save_profile( $u->ID, $data ); echo is_wp_error( $r ) ? 'err:' . $r->get_error_message() : 'ok:' . implode( ',', array_keys( $data ) ); } else { echo 'none'; }`,
+    ]).catch(() => undefined);
 }

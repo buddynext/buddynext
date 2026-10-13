@@ -21,7 +21,7 @@ import { restFetch } from '@buddynext/rest-client';
 // Shared client-side thumbnail only — DM upload stays on MediaVerse's own
 // conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
 // small preview so a large attachment doesn't decode full-res into the chip.
-import { mediaPreview } from '../media/upload-core.js';
+import { mediaPreview } from '@buddynext/upload-core';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1240,15 +1240,36 @@ const messagesStore = store( 'buddynext/messages', {
 				if ( res.ok || res.status === 201 ) {
 					bnToast( fmt( t( 'blockSuccess', '%s blocked' ), name ), { tone: 'success' } );
 					ctx.infoPanelOpen = false;
-					// You can no longer message a blocked member — leave the thread.
-					if ( ctx.messagesUrl ) {
-						window.location.href = ctx.messagesUrl;
-					}
+					// Reload the thread: the server draws it read-only with an Unblock option.
+					window.location.reload();
 				} else {
 					bnToast( fmt( t( 'blockFailed', 'Could not block. Try again.' ), name ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
 				bnToast( fmt( t( 'blockFailed', 'Could not block. Try again.' ), name ), { tone: 'danger' } );
+			} finally {
+				ctx.infoBusy = false;
+			}
+		},
+		async unblockRecipient() {
+			const ctx = getContext();
+			const uid = parseInt( ctx.recipientId, 10 ) || 0;
+			if ( ctx.infoBusy || ! uid ) {
+				return;
+			}
+			const name = ctx.recipientName || t( 'thisMember', 'this member' );
+			ctx.infoBusy = true;
+			try {
+				const res = await restFetch( '/users/' + uid + '/block', { method: 'DELETE', toastOnError: false } );
+				if ( res.ok ) {
+					bnToast( fmt( t( 'unblockSuccess', '%s unblocked' ), name ), { tone: 'success' } );
+					// Reload the thread so the composer comes back.
+					window.location.reload();
+					return;
+				}
+				bnToast( fmt( t( 'unblockFailed', 'Could not unblock %s. Try again.' ), name ), { tone: 'danger' } );
+			} catch ( _e ) {
+				bnToast( fmt( t( 'unblockFailed', 'Could not unblock %s. Try again.' ), name ), { tone: 'danger' } );
 			} finally {
 				ctx.infoBusy = false;
 			}
@@ -1594,9 +1615,12 @@ const messagesStore = store( 'buddynext/messages', {
 			ctx.attachmentUploading = true;
 			ctx.attachmentPercent   = 0;
 
+			// MediaVerse's chat upload route locks the file to the conversation by
+			// itself. The value is still sent: if a route ever stopped setting it, an
+			// attachment would otherwise fall to the default and become public.
 			const fd = new FormData();
 			fd.append( 'file', file );
-			fd.append( 'privacy', 'dm' ); // Conversation-scoped MediaVerse media: visible only to the DM's participants, never on any public surface, activity feed, or wall.
+			fd.append( 'privacy', 'dm' );
 
 			// Undo the optimistic chip and tell the member why. toastOnError:false
 			// suppresses restFetch's own toast, so this handler owns the failure UX:
@@ -1609,8 +1633,11 @@ const messagesStore = store( 'buddynext/messages', {
 			};
 
 			try {
+				// The chat upload route, not the general media route: any member who
+				// may message may attach, where the media route needs the upload
+				// capability and answered 403 to a role without it, in chat only.
 				// FormData sets its own multipart Content-Type boundary — pass it through untouched.
-				const res = yield restFetch( '/media', {
+				const res = yield restFetch( '/messages/upload', {
 					base: ctx.mvsRest,
 					nonce: ctx.nonce,
 					method: 'POST',
@@ -2089,6 +2116,11 @@ const messagesStore = store( 'buddynext/messages', {
 				log.scrollTop = log.scrollHeight;
 			}
 			yield actions.markRead();
+
+			// A blocked thread is read-only and the poll is refused, so do not start it.
+			if ( ctx.threadBlocked ) {
+				return;
+			}
 
 			// The thread element this poll belongs to. When client-side nav swaps
 			// it out (back to the rail, or a different conversation) the ref goes

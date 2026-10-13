@@ -704,12 +704,16 @@ class ModerationQueue {
 								<td><?php echo esc_html( (string) $a['message'] ); ?></td>
 								<td><?php echo esc_html( $this->ago( (string) ( $a['created_at'] ?? '' ) ) ); ?></td>
 								<td>
-									<div class="bn-row-actions">
-										<?php
-										$this->appeal_button( (int) $a['id'], 'approved', __( 'Approve', 'buddynext' ), 'primary' );
-										$this->appeal_button( (int) $a['id'], 'denied', __( 'Deny', 'buddynext' ), 'secondary' );
-										?>
-									</div>
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-appeal-decision">
+										<input type="hidden" name="action" value="bn_mod_appeal_action">
+										<input type="hidden" name="appeal_id" value="<?php echo esc_attr( (string) (int) $a['id'] ); ?>">
+										<?php wp_nonce_field( 'bn_mod_appeal_action' ); ?>
+										<input type="text" class="bn-input" name="reviewer_note" maxlength="500"
+											placeholder="<?php esc_attr_e( 'Optional note', 'buddynext' ); ?>"
+											aria-label="<?php esc_attr_e( 'Note for the member (optional)', 'buddynext' ); ?>">
+										<button type="submit" name="decision" value="approved" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
+										<button type="submit" name="decision" value="denied" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Deny', 'buddynext' ); ?></button>
+									</form>
 								</td>
 							</tr>
 						<?php endforeach; ?>
@@ -948,7 +952,7 @@ class ModerationQueue {
 		);
 		?>
 		<div class="bn-toolbar bn-modlog-toolbar">
-			<form method="get" class="bn-modlog-filters">
+			<form method="get" class="bn-modlog-filters bn-filter-bar">
 				<?php // Preserve the admin page/tab routing so the filtered view stays on this tab. ?>
 				<?php // phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only routing params, sanitized here and escaped at output. ?>
 				<?php foreach ( array( 'page', 'tab' ) as $bn_keep ) : ?>
@@ -957,7 +961,10 @@ class ModerationQueue {
 					<?php endif; ?>
 				<?php endforeach; ?>
 				<?php // phpcs:enable WordPress.Security.NonceVerification.Recommended ?>
-				<select name="log_action" class="bn-select" aria-label="<?php esc_attr_e( 'Filter by action', 'buddynext' ); ?>">
+				<?php // Each filter has a visible label: placeholders vanish once typed into and clipped at narrow widths. ?>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Action', 'buddynext' ); ?></span>
+				<select name="log_action" class="bn-select">
 					<option value=""><?php esc_html_e( 'All actions', 'buddynext' ); ?></option>
 					<?php foreach ( $actions as $bn_slug => $bn_label ) : ?>
 						<?php if ( isset( $aliased_out[ $bn_slug ] ) ) : ?>
@@ -966,10 +973,23 @@ class ModerationQueue {
 						<option value="<?php echo esc_attr( $bn_slug ); ?>" <?php selected( $cur_action, $bn_slug ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>
 				</select>
-				<input type="number" name="log_actor" class="bn-input" min="0" value="<?php echo esc_attr( $cur_actor ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Moderator ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by moderator (actor) ID', 'buddynext' ); ?>">
-				<input type="number" name="log_target" class="bn-input" min="0" value="<?php echo esc_attr( $cur_target ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Target member ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by target member ID', 'buddynext' ); ?>">
-				<input type="number" name="log_space" class="bn-input" min="0" value="<?php echo esc_attr( $cur_space ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Space ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by space ID', 'buddynext' ); ?>">
-				<input type="date" name="log_since" class="bn-input" value="<?php echo esc_attr( $cur_since ); ?>" aria-label="<?php esc_attr_e( 'Show entries since', 'buddynext' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Moderator ID', 'buddynext' ); ?></span>
+					<input type="number" name="log_actor" class="bn-input" min="0" value="<?php echo esc_attr( $cur_actor ?: '' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Target member ID', 'buddynext' ); ?></span>
+					<input type="number" name="log_target" class="bn-input" min="0" value="<?php echo esc_attr( $cur_target ?: '' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Space ID', 'buddynext' ); ?></span>
+					<input type="number" name="log_space" class="bn-input" min="0" value="<?php echo esc_attr( $cur_space ?: '' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Show entries since', 'buddynext' ); ?></span>
+					<input type="date" name="log_since" class="bn-input" value="<?php echo esc_attr( $cur_since ); ?>">
+				</label>
 				<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Filter', 'buddynext' ); ?></button>
 			</form>
 			<div class="bn-modlog-actions">
@@ -1114,7 +1134,10 @@ class ModerationQueue {
 				$cw_post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
 				$cw_type    = isset( $_POST['cw_type'] ) ? sanitize_key( wp_unslash( (string) $_POST['cw_type'] ) ) : 'nsfw';
 				// phpcs:enable WordPress.Security.NonceVerification.Missing
-				$result = null !== $service->set_post_content_warning( $cw_post_id, 'cw_set' === $op, $cw_type, $actor );
+				// Success is true only. The service answers false for a refusal or a
+				// failed write and null for a missing post; counting anything but
+				// null as success reported "Content warning added" for both.
+				$result = true === $service->set_post_content_warning( $cw_post_id, 'cw_set' === $op, $cw_type, $actor );
 				break;
 		}
 
@@ -1180,11 +1203,12 @@ class ModerationQueue {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$appeal_id = isset( $_POST['appeal_id'] ) ? absint( wp_unslash( $_POST['appeal_id'] ) ) : 0;
 		$decision  = isset( $_POST['decision'] ) ? sanitize_key( wp_unslash( (string) $_POST['decision'] ) ) : '';
+		$note      = isset( $_POST['reviewer_note'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['reviewer_note'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		$actor = get_current_user_id();
 
 		$result = in_array( $decision, array( 'approved', 'denied' ), true )
-			? ( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision )
+			? ( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision, $note )
 			: new \WP_Error( 'bn_invalid_decision', __( 'Choose approve or deny.', 'buddynext' ) );
 
 		if ( ! is_wp_error( $result ) ) {
@@ -1458,28 +1482,6 @@ class ModerationQueue {
 			$variant,
 			$confirm,
 			$in_dropdown
-		);
-	}
-
-	/**
-	 * Render an appeal-decision button form.
-	 *
-	 * @param int    $appeal_id Appeal ID.
-	 * @param string $decision  approved|denied.
-	 * @param string $label     Button label.
-	 * @param string $variant   Button class hint.
-	 * @return void
-	 */
-	private function appeal_button( int $appeal_id, string $decision, string $label, string $variant ): void {
-		$this->action_form(
-			'bn_mod_appeal_action',
-			array(
-				'appeal_id' => $appeal_id,
-				'decision'  => $decision,
-			),
-			$label,
-			$variant,
-			''
 		);
 	}
 

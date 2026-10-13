@@ -31,11 +31,14 @@ $twofa_enabled = \BuddyNext\Auth\TwoFactorService::is_enabled( $user_id );
 //
 // Derived from state rather than a query arg on purpose: it survives a refresh,
 // shows however they reached the page, and cannot be spoofed by pasting a URL.
-$bn_user_obj  = wp_get_current_user();
-$bn_2fa_held  = ! $twofa_enabled
+$bn_user_obj = wp_get_current_user();
+$bn_2fa_held = ! $twofa_enabled
 	&& $bn_user_obj instanceof \WP_User
 	&& \BuddyNext\Auth\TwoFactorService::is_required_for( $bn_user_obj );
-$profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+// The handle the member actually has (their saved one, else the nicename), the
+// same value the field itself prints. The raw meta is empty for most members,
+// which left the @handle preview blank until the first keystroke.
+$profile_slug = \BuddyNext\Core\PageRouter::member_handle( $user_id );
 $profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 ?>
 <div class="bn-settings">

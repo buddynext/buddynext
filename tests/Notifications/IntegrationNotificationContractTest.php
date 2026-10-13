@@ -260,6 +260,32 @@ class IntegrationNotificationContractTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A bridge can regroup a payload so repeats refresh one row.
+	 *
+	 * The partner keys each event on its own object id (a certificate); the
+	 * bridge knows they are the same thing (one course) and says so.
+	 *
+	 * @return void
+	 */
+	public function test_bridge_can_regroup_a_payload_into_one_row(): void {
+		$regroup = static function ( array $payload, string $source ): array {
+			if ( 'jetonomy' === $source ) {
+				$payload['group_key'] = 'one_thing';
+				$payload['renotify']  = false;
+			}
+			return $payload;
+		};
+		add_filter( 'buddynext_integration_notification_payload', $regroup, 10, 2 );
+		$this->fire( array( 'group_key' => 'object_1', 'message' => 'First issue.' ) );
+		$this->fire( array( 'group_key' => 'object_2', 'message' => 'Second issue.' ) );
+		remove_filter( 'buddynext_integration_notification_payload', $regroup, 10 );
+
+		$rows = $this->rows();
+		$this->assertCount( 1, $rows, 'Two partner objects, one bell row.' );
+		$this->assertSame( 'Second issue.', json_decode( $rows[0]['data'], true )['message'] );
+	}
+
+	/**
 	 * @param array<string,mixed> $page list_for_user() result.
 	 * @return array<int,array<string,mixed>>
 	 */

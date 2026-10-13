@@ -215,7 +215,7 @@
 .bn-email-editor__token:hover {
 	background: var(--bn-accent-100);
 	border-color: var(--bn-accent);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 .bn-email-editor__token > :first-child {
 	min-width: 0;

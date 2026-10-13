@@ -444,6 +444,12 @@ py_gate bin/check-erasure.py "a user-keyed table is not registered for erasure o
 # there (bin/check-journey-coverage.py) reconciles both directions.
 section "Journey tags"
 py_gate bin/check-journey-tags.py "a Playwright spec declares no journey id — add it to the spec's docblock"
+# Report only (exit 0): how many journeys confirm their effect through REST or data, and
+# which still assert the DOM alone. The functional suite proves behaviour through the data
+# path; a journey that proves only pixels can pass while the behaviour is broken. Becomes a
+# gate (--strict) once the queue it prints is empty.
+section "Journey effects"
+python3 bin/check-journey-effects.py || true
 py_gate bin/check-ui-dashes.py "a translatable string contains an em-dash - use a hyphen or plain punctuation"
 
 # 3b-iii-b. Journey EXECUTION — BLOCKING when a site is reachable.

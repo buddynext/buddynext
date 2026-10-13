@@ -74,7 +74,7 @@
 
 .bn-notif-group__title { color: var(--bn-ink-3); }
 
-.bn-notif-group__meta { color: var(--bn-accent); }
+.bn-notif-group__meta { color: var(--bn-accent-text); }
 
 /* ── List wrapper ─────────────────────────────────────────────────────── */
 
@@ -154,7 +154,7 @@
 	align-items: center;
 	justify-content: center;
 	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 
 .bn-notif-row__avatar--system svg {
@@ -186,7 +186,7 @@
 .bn-notif-row--unread .bn-notif-row__type { border-color: var(--bn-accent-50); }
 
 /* Tone-mapped colour for the type pill - mirrors .bn-badge[data-tone]. */
-.bn-notif-row__type[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-700); }
+.bn-notif-row__type[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-text); }
 .bn-notif-row__type[data-tone="info"]     { background: var(--bn-info-bg);    color: var(--bn-info); }
 .bn-notif-row__type[data-tone="success"]  { background: var(--bn-success-bg); color: var(--bn-success); }
 .bn-notif-row__type[data-tone="warn"]     { background: var(--bn-warn-bg);    color: var(--bn-warn); }
@@ -358,10 +358,10 @@
 
 .bn-notif-sidecard__row.is-active {
 	background: var(--bn-accent-50);
-	color: var(--bn-accent-700);
+	color: var(--bn-accent-text);
 }
 
-.bn-notif-sidecard__row.is-active .bn-notif-sidecard__icon { color: var(--bn-accent); }
+.bn-notif-sidecard__row.is-active .bn-notif-sidecard__icon { color: var(--bn-accent-text); }
 
 .bn-notif-sidecard__icon {
 	display: inline-flex;
@@ -548,7 +548,7 @@
 	line-height: 1.2;
 }
 .bn-notif-sidecard__muted-name:hover {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
 }
 .bn-notif-sidecard__muted-handle {
 	color: var(--bn-ink-3);
@@ -571,5 +571,52 @@
 	text-decoration: none;
 }
 .bn-notif-sidecard__manage:hover {
-	color: var(--bn-accent);
+	color: var(--bn-accent-text);
+}
+
+/* ── Bulk delete (Select mode) ─────────────────────────────────────────── */
+.bn-notif-bulk {
+	display: flex;
+	justify-content: flex-end;
+	padding: var(--bn-s2) var(--bn-s4);
+}
+
+.bn-notif-bulk__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s3);
+	inline-size: 100%;
+}
+
+.bn-notif-bulk__bar[hidden] {
+	display: none;
+}
+
+.bn-notif-bulk__all {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	cursor: pointer;
+}
+
+.bn-notif-bulk__count {
+	margin-inline-end: auto;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+/* The tick box is a third column, only while selecting. */
+.bn-notif-row:has( > .bn-notif-row__select:not( [hidden] ) ) {
+	grid-template-columns: auto auto 1fr;
+}
+
+.bn-notif-row__select {
+	align-self: center;
+	inline-size: 18px;
+	block-size: 18px;
+	margin: 0;
+	cursor: pointer;
 }

@@ -132,11 +132,13 @@ async function assertMemberSeesTabContent(
 async function assertBridgeDegrade(
     page: Page,
     testInfo: import('@playwright/test').TestInfo,
-    optionKey: string,
+    optionKey: string | string[],
     tabSlug: string,
     absentReason: string
 ): Promise<void> {
-    await wp(['option', 'update', optionKey, '1']);
+    // A tab fed by several integrations (Portfolio) retires only when ALL of them are off.
+    const keys = Array.isArray(optionKey) ? optionKey : [optionKey];
+    for (const k of keys) await wp(['option', 'update', k, '1']);
     try {
         await loginAs(page, A_LOGIN);
         await page.goto(memberUrl(A_LOGIN));
@@ -152,7 +154,7 @@ async function assertBridgeDegrade(
         await expect(page.locator(tabFor(tabSlug)).first()).toBeVisible();
 
         // Owner turns the integration's nav off.
-        await wp(['option', 'update', optionKey, '0']);
+        for (const k of keys) await wp(['option', 'update', k, '0']);
         await page.goto(memberUrl(A_LOGIN));
 
         // Degrade, not error: hero still renders, the tab is gone, the bar survives.
@@ -166,7 +168,7 @@ async function assertBridgeDegrade(
             'the rest of the tab bar still renders'
         ).toBeGreaterThan(0);
     } finally {
-        await wp(['option', 'update', optionKey, '1']);
+        for (const k of keys) await wp(['option', 'update', k, '1']);
     }
 }
 
@@ -192,17 +194,19 @@ test.describe('profile / bridge-tab degrade (effect-based)', () => {
     });
 
     test('J-749 Portfolio (Pro suite) tab degrades to absent when its nav toggle is off', async ({ page }, testInfo) => {
-        // The Portfolio tab shows only when a suite integration contributes a
-        // VISIBLE panel for the member (SuiteProfile::visible_panels). On this
-        // harness the sole visible panel for user 1 is Career Board's Jobs shelf
-        // (Learnomy's are owner-only credential shelves that stay empty without
-        // enrolments), so the toggle that actually retires the tab is the
-        // careerboard nav integration — turning it off empties the panel set and
-        // the aggregate Portfolio tab retires with it.
+        // The Portfolio tab shows while ANY suite integration contributes a visible
+        // panel for the member (SuiteProfile::visible_panels). Three providers feed
+        // it (AbstractSuitePanelProvider: careerboard, listora, learnomy), and which
+        // of them has content depends on the site's data, so all three go off: the
+        // panel set empties and the aggregate Portfolio tab retires with it.
         await assertBridgeDegrade(
             page,
             testInfo,
-            'buddynext_integration_careerboard_nav',
+            [
+                'buddynext_integration_careerboard_nav',
+                'buddynext_integration_listora_nav',
+                'buddynext_integration_learnomy_nav',
+            ],
             'portfolio',
             'No suite integration contributes a visible Portfolio panel for this member on the harness (no Career-Board jobs/resume or Learnomy credentials), so the Portfolio tab is not registered — cannot assert its retire path here.'
         );

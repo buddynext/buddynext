@@ -272,9 +272,16 @@ class OnboardingController {
 	 * @return WP_REST_Response
 	 */
 	public function skip(): WP_REST_Response {
-		$this->service->skip( get_current_user_id() );
+		$user_id = get_current_user_id();
+		$this->service->skip( $user_id );
 		return new WP_REST_Response(
-			array( 'skipped' => true ),
+			array(
+				'skipped'     => true,
+				// Where Finish would send them: the page they signed up from, when
+				// there was one. Skipping used to drop them on the feed and leave the
+				// remembered page stored for good.
+				'redirect_to' => $this->completion_destination( $user_id ),
+			),
 			200
 		);
 	}
@@ -439,7 +446,11 @@ class OnboardingController {
 	private function completion_destination( int $user_id ): string {
 		return $this->pending_invite_redirect(
 			$user_id,
-			\BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::activity_url() )
+			// The page they signed up from, if there was one, is where they were going.
+			\BuddyNext\Auth\AuthController::take_signup_return(
+				$user_id,
+				\BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::activity_url() )
+			)
 		);
 	}
 

@@ -547,6 +547,57 @@ class SearchService {
 	}
 
 	/**
+	 * Load what a page of results needs to build its links, once per type.
+	 *
+	 * The single-row lookup (resolve_item_url) answers one row at a time. Asked cold for a page of
+	 * results it cost two queries per member, one per space and three per forum
+	 * topic, on every search (card 10393793823). Members are loaded together,
+	 * space addresses in one query, and a bridge loads its own on
+	 * `buddynext_search_prime_item_urls`.
+	 *
+	 * @param array<int, mixed> $rows         Result rows (object_type, object_id).
+	 * @param string            $default_type Type to assume for a row without one.
+	 * @return void
+	 */
+	public function prime_item_urls( array $rows, string $default_type = '' ): void {
+		$by_type = array();
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$type = (string) ( $row['object_type'] ?? $default_type );
+			$id   = (int) ( $row['object_id'] ?? 0 );
+			if ( '' !== $type && $id > 0 ) {
+				if ( in_array( $type, self::space_object_types(), true ) ) {
+					$type = 'space';
+				}
+				$by_type[ $type ][ $id ] = $id;
+			}
+		}
+
+		$members = array_values( ( $by_type['user'] ?? array() ) + ( $by_type['member'] ?? array() ) );
+		if ( $members ) {
+			cache_users( $members );
+		}
+		if ( ! empty( $by_type['space'] ) ) {
+			\BuddyNext\Core\PageRouter::prime_space_urls( array_values( $by_type['space'] ) );
+		}
+
+		/**
+		 * Fires before the links for a page of search results are built.
+		 *
+		 * A bridge whose results need a lookup per row (a forum topic, an event)
+		 * loads them all here, in one query, and answers
+		 * `buddynext_search_item_url` from what it loaded.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param array<string, int[]> $by_type Result ids, keyed by object type.
+		 */
+		do_action( 'buddynext_search_prime_item_urls', array_map( 'array_values', $by_type ) );
+	}
+
+	/**
 	 * Resolve the canonical front-end URL for an indexed object.
 	 *
 	 * Delegates entirely to PageRouter — the same helpers enrich_results() uses —
@@ -571,6 +622,25 @@ class SearchService {
 			case 'media':
 				return (string) \BuddyNext\Core\PageRouter::post_url( $object_id );
 			default:
+				/**
+				 * The link for a search result of a type BuddyNext does not route itself.
+				 *
+				 * A bridge whose content is not a WordPress post answers here: a forum
+				 * topic or an event has its own id space, so the post-permalink
+				 * fallback below gave it no link, or the link of whichever post
+				 * happened to share its id (card 10393225561).
+				 *
+				 * @since 1.2.5
+				 *
+				 * @param string $url       Result URL. Default '' (not answered).
+				 * @param string $type      Object-type slug, e.g. 'discussion', 'event'.
+				 * @param int    $object_id Object id within that type.
+				 */
+				$url = (string) apply_filters( 'buddynext_search_item_url', '', $type, $object_id );
+				if ( '' !== $url ) {
+					return $url;
+				}
+
 				// Addon/Pro content types (jobs, listings, courses, …) are WP
 				// posts with their own permalinks; fall back to the post permalink
 				// so indexed addon types still link somewhere real, not '#'.
@@ -848,8 +918,25 @@ class SearchService {
 		// Media-only join: restrict post results to those that have attachments.
 		// Static SQL — no user data — so it is safe to interpolate alongside the
 		// other fragment strings.
-		$media_join  = $media_only ? " INNER JOIN {$wpdb->prefix}bn_posts mp ON mp.id = si.object_id" : '';
+		//
+		// Every post search joins bn_posts, not only the media one: the date window
+		// and the "recent" sort below need the date the post was written, and the
+		// index row cannot give it. Its updated_at is reset to now by every
+		// re-index (and an upgrade runs one), so "past week" matched every post and
+		// "recent" returned re-index order; its created_at is the day the row was
+		// first indexed, which for bulk-indexed content is not the post's day.
+		// The media search needs the post row (INNER); a plain post search only
+		// borrows its date, so an index row whose post is gone still lists (LEFT).
+		$post_search = ( 'post' === $type );
+		$media_join  = '';
+		if ( $post_search ) {
+			$media_join = ( $media_only ? ' INNER' : ' LEFT' ) . " JOIN {$wpdb->prefix}bn_posts mp ON mp.id = si.object_id";
+		}
 		$media_where = $media_only ? " AND mp.media_ids IS NOT NULL AND mp.media_ids != ''" : '';
+
+		// The date a result is filtered and sorted by: the post's own date for
+		// posts, and for every other type the day it entered the index.
+		$date_col = $post_search ? 'COALESCE( mp.created_at, si.created_at )' : 'si.created_at';
 
 		// Exclude suspended + shadow-banned authors' content from all search results
 		// via the shared discovery gate (ANY active suspension — the discoverability
@@ -911,24 +998,27 @@ class SearchService {
 		// Optional date window + sort order. Sourced from the seam args so the
 		// web /search page (and any caller) can pass `date` / `sort` without a
 		// signature change. `date` accepts week|month|year (anything else = no
-		// window). `sort` accepts recent (updated_at DESC) — relevance is the
-		// default when the FULLTEXT path is active. All values map to literal
+		// window). `sort` accepts recent (newest content first, by $date_col) —
+		// relevance is the default when the FULLTEXT path is active. All values map to literal
 		// SQL fragments; no user data is interpolated.
 		// ------------------------------------------------------------------ //
 		$date_where = '';
 		$date_key   = isset( $search_args['date'] ) ? sanitize_key( (string) $search_args['date'] ) : '';
 		switch ( $date_key ) {
 			case 'week':
-				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )';
+				$date_where = " AND {$date_col} >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )";
 				break;
 			case 'month':
-				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 MONTH )';
+				$date_where = " AND {$date_col} >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 MONTH )";
 				break;
 			case 'year':
-				$date_where = ' AND si.updated_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 YEAR )';
+				$date_where = " AND {$date_col} >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL 1 YEAR )";
 				break;
 		}
 		$sort_recent = isset( $search_args['sort'] ) && 'recent' === sanitize_key( (string) $search_args['sort'] );
+
+		// Order for the path with no relevance score (short or LIKE-matched queries).
+		$fallback_order = ( $sort_recent ? $date_col : 'si.updated_at' ) . ' DESC, si.id DESC';
 
 		// ------------------------------------------------------------------ //
 		// Optional single-space scope, for searching inside one space rather
@@ -1129,7 +1219,7 @@ class SearchService {
 			// si.id last: rows that tie on every other key (bulk-imported members
 			// share updated_at) need a fixed order, or OFFSET pages repeat rows.
 			$order_clause = $sort_recent
-				? 'si.updated_at DESC, si.id DESC'
+				? $date_col . ' DESC, si.id DESC'
 				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC, si.id DESC';
 
 			// SCALE-CONTRACT §3: bound the COUNT so it never scans past the
@@ -1260,7 +1350,7 @@ class SearchService {
 					   {$advanced_where}
 					   {$date_where}
 					   {$space_where}
-					 ORDER BY si.updated_at DESC, si.id DESC
+					 ORDER BY {$fallback_order}
 					 LIMIT %d OFFSET %d",
 					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),

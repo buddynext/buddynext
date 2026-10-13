@@ -77,6 +77,35 @@ class WebhookLog {
 	}
 
 	/**
+	 * The latest access webhook requests, newest first, for the Webhooks screen.
+	 *
+	 * @param int $limit How many rows (1 to 50).
+	 * @return array<int,array<string,mixed>> Rows: id, source, action, requested (the action the
+	 *                                         caller sent, e.g. grant_plan), user_id, status, created_at (UTC).
+	 */
+	public static function recent( int $limit = 10 ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, source, action, user_id, status, payload, created_at FROM {$wpdb->prefix}bn_webhook_log ORDER BY id DESC LIMIT %d",
+				max( 1, min( 50, $limit ) )
+			),
+			ARRAY_A
+		);
+
+		foreach ( $rows as &$row ) {
+			$payload          = json_decode( (string) $row['payload'], true );
+			$row['requested'] = is_array( $payload ) && is_string( $payload['action'] ?? null ) ? sanitize_key( $payload['action'] ) : (string) $row['action'];
+			unset( $row['payload'] );
+		}
+		unset( $row );
+
+		return $rows;
+	}
+
+	/**
 	 * Record one access-management call.
 	 *
 	 * Pro and third-party bridges call this rather than touching the table:
@@ -93,13 +122,13 @@ class WebhookLog {
 	 *                                     A `source` key is lifted into its own column.
 	 * @param string              $status  self::STATUS_SUCCESS | self::STATUS_ERROR.
 	 * @param string              $signature Signature the call was accepted on; '' when there is none.
-	 * @return void
+	 * @return bool Whether the row was stored.
 	 */
-	public static function write( string $action, int $user_id, array $payload, string $status = self::STATUS_SUCCESS, string $signature = '' ): void {
+	public static function write( string $action, int $user_id, array $payload, string $status = self::STATUS_SUCCESS, string $signature = '' ): bool {
 		global $wpdb;
 
 		if ( ! $wpdb instanceof \wpdb ) {
-			return;
+			return false;
 		}
 
 		// created_at is written explicitly, in UTC.
@@ -111,11 +140,13 @@ class WebhookLog {
 		// database is not on UTC it was offset from everything it would be read
 		// beside. Observed at +5:30: a call at 16:57 UTC logged as 22:27.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert(
+		$stored = $wpdb->insert(
 			$wpdb->prefix . 'bn_webhook_log',
 			array(
-				'source'     => sanitize_key( (string) ( $payload['source'] ?? '' ) ),
-				'action'     => $action,
+				// Cut to the column widths: a value longer than its column makes the
+				// whole insert fail, and a row that is not stored cannot stop a replay.
+				'source'     => substr( sanitize_key( (string) ( $payload['source'] ?? '' ) ), 0, 100 ),
+				'action'     => substr( $action, 0, 100 ),
 				'user_id'    => $user_id,
 				'payload'    => wp_json_encode( $payload ),
 				'status'     => self::STATUS_ERROR === $status ? self::STATUS_ERROR : self::STATUS_SUCCESS,
@@ -128,5 +159,7 @@ class WebhookLog {
 			),
 			array( '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
+
+		return false !== $stored;
 	}
 }

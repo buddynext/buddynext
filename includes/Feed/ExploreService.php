@@ -215,10 +215,11 @@ class ExploreService {
 		);
 		// Count only the posts the deck would actually surface (same guard as
 		// FeedService::explore_feed) so the pulse stat matches the grid: no reshares,
-		// no authorless rows, nothing blank.
+		// no authorless rows, nothing blank. Counted as a logged-out visitor because
+		// the figure is cached for every viewer, so it must not depend on who built it.
 		$posts = (int) $wpdb->get_var(
 			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-			  WHERE " . $this->feed->explore_space_where() . " AND status = 'published'" . $this->feed->explore_renderable_where()
+			  WHERE " . $this->feed->explore_space_where( 0 ) . " AND status = 'published'" . $this->feed->explore_renderable_where()
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 

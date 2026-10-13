@@ -219,7 +219,9 @@ $user_badges = $current_user_id ? wb_gam_get_user_badges( $current_user_id ) : a
 if ( ! is_array( $user_badges ) ) {
 	$user_badges = array();
 }
-$user_badges = array_slice( $user_badges, 0, 8 );
+// Counted before the grid is cut to eight, so 12 badges read as 12.
+$user_badge_total = count( $user_badges );
+$user_badges      = array_slice( $user_badges, 0, 8 );
 
 // Current user's streak via the read API.
 // Shape: ['current_streak'=>int,'longest_streak'=>int,'last_active'=>string].
@@ -316,7 +318,6 @@ $period_tabs = array(
 	'week'    => __( 'This week', 'buddynext' ),
 );
 
-$updated_iso = gmdate( 'c' );
 ?>
 
 <div class="bn-lb-shell"
@@ -349,12 +350,6 @@ $updated_iso = gmdate( 'c' );
 			</span>
 		</div>
 		<p class="bn-lb-subtitle"><?php esc_html_e( 'Top contributors across this community.', 'buddynext' ); ?></p>
-		<div class="bn-lb-header__meta">
-			<span><?php esc_html_e( 'Last updated', 'buddynext' ); ?></span>
-			<time datetime="<?php echo esc_attr( $updated_iso ); ?>">
-				<?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?>
-			</time>
-		</div>
 		<?php endif; ?>
 	</header>
 
@@ -846,7 +841,7 @@ $updated_iso = gmdate( 'c' );
 				<div class="bn-lb-badge-hint">
 					<?php
 					// translators: %d: number of badges earned.
-					echo esc_html( sprintf( _n( '%d badge earned', '%d badges earned', count( $user_badges ), 'buddynext' ), count( $user_badges ) ) );
+					echo esc_html( sprintf( _n( '%d badge earned', '%d badges earned', $user_badge_total, 'buddynext' ), $user_badge_total ) );
 					?>
 				</div>
 			<?php else : ?>

@@ -590,6 +590,11 @@
 				json: { object_type: 'post', object_id: postId, emoji: type },
 			} ).then( function ( r ) {
 				if ( current === id ) { applyReactions( bnReactionShape( r ) ); }
+				// Tell the post card behind the lightbox, which used to read
+				// "React" and the old count until the page was reloaded.
+				document.dispatchEvent( new CustomEvent( 'bn:post-reaction', {
+					detail: { postId: postId, type: ( r && r.has_reacted ) ? ( r.emoji || null ) : null, body: r },
+				} ) );
 			} ).catch( function () {} );
 			return;
 		}

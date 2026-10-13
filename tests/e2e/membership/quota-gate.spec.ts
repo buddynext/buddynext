@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { settleOverlays, satisfyRequiredFields } from '../_fixtures/wp';
 import type { Page } from '@playwright/test';
 
 /**
@@ -44,6 +45,8 @@ const FIELDS: Array<[string, string]> = [
 
 async function login(page: Page, login: string): Promise<void> {
     await page.goto(`/?autologin=${login}`, { waitUntil: 'domcontentloaded' });
+    await settleOverlays(page);
+    await satisfyRequiredFields(login);
 }
 
 async function setOptionalFields(page: Page, value: string): Promise<number> {

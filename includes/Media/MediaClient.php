@@ -142,6 +142,15 @@ class MediaClient {
 	}
 
 	/**
+	 * The media-to-space link repository (which spaces a file is linked into).
+	 *
+	 * @return object|null
+	 */
+	public static function space_links() {
+		return self::service( 'media_space_repository' );
+	}
+
+	/**
 	 * The privacy service (per-viewer can_view checks on media/albums).
 	 *
 	 * @return object|null

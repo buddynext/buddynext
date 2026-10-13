@@ -106,6 +106,15 @@ class PageRouter {
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
 		add_filter( 'redirect_canonical', array( $this, 'keep_paged_query_without_page_route' ), 10, 2 );
 
+		// Any theme's or plugin's Log in / Register / Lost password link reaches the
+		// BuddyNext screens, with the page carried, instead of wp-login.php. Front
+		// end only; wp-admin and wp-login.php itself keep core's own addresses.
+		// Priority 30: themes that pointed these at BuddyNext themselves (BuddyX, at
+		// 20) did it without the return page, and BuddyNext owns sign-in.
+		add_filter( 'login_url', array( self::class, 'core_login_url' ), 30, 2 );
+		add_filter( 'register_url', array( self::class, 'core_register_url' ), 30 );
+		add_filter( 'lostpassword_url', array( self::class, 'core_lostpassword_url' ), 30 );
+
 		// Make a mapped hub page answer is_page()/is_singular() BEFORE
 		// template_redirect runs, so any code that keys on conditional tags at that
 		// point sees the real page. The critical consumer is a membership/access
@@ -1863,7 +1872,8 @@ class PageRouter {
 			return;
 		}
 
-		$post = ( new \BuddyNext\Feed\PostService() )->get( $post_id );
+		$posts = new \BuddyNext\Feed\PostService();
+		$post  = $posts->get( $post_id );
 		if ( null === $post ) {
 			return;
 		}
@@ -1871,50 +1881,14 @@ class PageRouter {
 		$viewer_id = get_current_user_id();
 		$author_id = (int) ( $post['user_id'] ?? 0 );
 
-		// Status gate: only published posts get OG previews (drafts and
-		// archived rows shouldn't deep-link into chat clients).
-		if ( isset( $post['status'] ) && 'published' !== $post['status'] && $viewer_id !== $author_id ) {
-			return;
-		}
-
-		// Block gate (bidirectional).
-		if ( $viewer_id > 0 && $author_id > 0 && $viewer_id !== $author_id ) {
-			$blocks = function_exists( 'buddynext_service' )
-				? buddynext_service( 'blocks' )
-				: new \BuddyNext\SocialGraph\BlockService();
-			if ( $blocks->is_blocking_either( $viewer_id, $author_id ) ) {
-				return;
-			}
-		}
-
-		/*
-		 * Space-content gate — the same SpaceVisibility decision point the REST
-		 * read path uses. This method emits the og:/twitter: description for a
-		 * post permalink, so the secret-only check it replaces published the body
-		 * of a PRIVATE space's post into crawler-readable meta tags for anyone
-		 * with the link.
-		 */
-		$space_id = (int) ( $post['space_id'] ?? 0 );
-		if ( $space_id > 0 ) {
-			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
-			if ( null !== $space && ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
-				return;
-			}
-		}
-
-		// Followers-only gate.
-		if ( 'followers' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer_id ) {
-			$follows     = function_exists( 'buddynext_service' )
-				? buddynext_service( 'follows' )
-				: new \BuddyNext\SocialGraph\FollowService();
-			$is_follower = $viewer_id > 0 && $follows->is_following( $viewer_id, $author_id );
-			if ( ! $is_follower ) {
-				return;
-			}
-		}
-
-		// Private gate.
-		if ( 'private' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer_id ) {
+		// Who may read the post is decided in ONE place, PostService::visibility_error(),
+		// the gate the page itself and the REST read use. This method used to keep
+		// its own copy (status, block, space, followers, private), and a copy goes
+		// stale: it never learned that a private account's posts are followers-only,
+		// nor about connections-only posts, so the page answered 404 while its head
+		// still printed the author's name and the full text in the description,
+		// og: and twitter: tags, for crawlers and anyone who views source.
+		if ( null !== $posts->visibility_error( $post_id, $viewer_id ) ) {
 			return;
 		}
 
@@ -3853,22 +3827,69 @@ class PageRouter {
 			return self::spaces_url();
 		}
 
-		global $wpdb;
+		if ( ! array_key_exists( $space_id, self::$space_slugs ) ) {
+			self::prime_space_urls( array( $space_id ) );
+		}
+		$slug = self::$space_slugs[ $space_id ] ?? '';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$slug = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT slug FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$space_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( null === $slug || '' === (string) $slug ) {
+		if ( '' === $slug ) {
 			return self::spaces_url();
 		}
 
-		return self::spaces_url() . rawurlencode( (string) $slug ) . '/';
+		return self::spaces_url() . rawurlencode( $slug ) . '/';
+	}
+
+	/**
+	 * Space id => slug, as read during this request ('' = no such space).
+	 *
+	 * @var array<int, string>
+	 */
+	private static array $space_slugs = array();
+
+	/**
+	 * Forget the remembered address of a space (or of all of them).
+	 *
+	 * Called when a space is created, renamed or deleted, so a link built later
+	 * in the same request (the redirect after a rename) uses the new address.
+	 *
+	 * @param int $space_id Space id, or 0 for all.
+	 * @return void
+	 */
+	public static function forget_space_url( int $space_id = 0 ): void {
+		if ( $space_id > 0 ) {
+			unset( self::$space_slugs[ $space_id ] );
+			return;
+		}
+		self::$space_slugs = array();
+	}
+
+	/**
+	 * Read the slugs of several spaces in one query, for space_url().
+	 *
+	 * A list that links many spaces (search results, a directory) calls this
+	 * once instead of paying one query per row. Remembered for the request only.
+	 *
+	 * @param int[] $space_ids Space ids.
+	 * @return void
+	 */
+	public static function prime_space_urls( array $space_ids ): void {
+		$space_ids = array_values( array_diff( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ), array_keys( self::$space_slugs ) ) );
+		if ( ! $space_ids ) {
+			return;
+		}
+
+		global $wpdb;
+		$in = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $in is a list of %d placeholders.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, slug FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$in})", $space_ids ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		foreach ( $space_ids as $space_id ) {
+			self::$space_slugs[ $space_id ] = '';
+		}
+		foreach ( (array) $rows as $row ) {
+			self::$space_slugs[ (int) $row->id ] = (string) $row->slug;
+		}
 	}
 
 	/**
@@ -4056,15 +4077,7 @@ class PageRouter {
 	 */
 	public static function login_url( ?string $destination = null ): string {
 		if ( null === $destination ) {
-			if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() ) {
-				$destination = '';
-			} elseif ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
-				// On login/signup the page being viewed is the auth screen itself: pass
-				// on where the visitor was going instead, or nothing.
-				$destination = isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only redirect target, validated.
-			} else {
-				$destination = self::current_url();
-			}
+			$destination = self::return_destination();
 		}
 		$auth = self::auth_url();
 		if ( '' === $auth ) {
@@ -4075,17 +4088,111 @@ class PageRouter {
 	}
 
 	/**
-	 * Return the registration (signup) URL — a sub-route of the auth hub.
+	 * Whether a core login / register / lost password address should be answered
+	 * with the BuddyNext screen: a front-end page view on a site that has an auth
+	 * page. wp-admin, wp-login.php, REST, AJAX and cron keep core's addresses, so
+	 * the dashboard login and anything that posts to wp-login.php still work.
+	 *
+	 * @return bool
+	 */
+	private static function owns_core_auth_links(): bool {
+		$takes_over = ! is_admin() && ! wp_doing_ajax() && ! wp_is_serving_rest_request() && ! wp_doing_cron()
+			&& 'wp-login.php' !== ( $GLOBALS['pagenow'] ?? '' )
+			&& '' !== self::auth_url();
+
+		/**
+		 * Filter whether BuddyNext answers core's login, register and lost password
+		 * addresses on the front end.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param bool $takes_over Default true on a front-end page view.
+		 */
+		return (bool) apply_filters( 'buddynext_owns_core_auth_links', $takes_over );
+	}
+
+	/**
+	 * Filter for core's `login_url`: BuddyNext's login page, with the return page.
+	 *
+	 * @param string $url      Core's login address.
+	 * @param string $redirect Return page the caller asked for, if any.
+	 * @return string
+	 */
+	public static function core_login_url( $url, $redirect = '' ): string {
+		if ( ! self::owns_core_auth_links() ) {
+			return (string) $url;
+		}
+
+		return self::login_url( '' !== (string) $redirect ? (string) $redirect : null );
+	}
+
+	/**
+	 * Filter for core's `register_url`: BuddyNext's signup page, with the page.
+	 *
+	 * @param string $url Core's registration address.
+	 * @return string
+	 */
+	public static function core_register_url( $url ): string {
+		return self::owns_core_auth_links() ? self::signup_url( null ) : (string) $url;
+	}
+
+	/**
+	 * Filter for core's `lostpassword_url`: BuddyNext's reset page.
+	 *
+	 * @param string $url Core's lost password address.
+	 * @return string
+	 */
+	public static function core_lostpassword_url( $url ): string {
+		return self::owns_core_auth_links() ? self::reset_url() : (string) $url;
+	}
+
+	/**
+	 * Where a "Log in" or "Register" link on this page should bring the visitor
+	 * back to: the page being viewed, or on a login/signup screen the page they
+	 * were already heading for. Empty outside the front end.
 	 *
 	 * @return string
 	 */
-	public static function signup_url(): string {
+	private static function return_destination(): string {
+		if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() || wp_doing_cron() ) {
+			return '';
+		}
+		if ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
+			// On login/signup the page being viewed is the auth screen itself: pass
+			// on where the visitor was going instead, or nothing.
+			return isset( $_GET['redirect_to'] ) ? wp_validate_redirect( sanitize_url( wp_unslash( $_GET['redirect_to'] ) ), '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only redirect target, validated.
+		}
+
+		return self::current_url();
+	}
+
+	/**
+	 * Return the registration (signup) URL — a sub-route of the auth hub.
+	 *
+	 * @param string|null $destination Where the new member should land once signed
+	 *                                 up. '' (default) = the plain signup address,
+	 *                                 for emails, invites and redirects. null = the
+	 *                                 page being viewed, for a "Register" link on a
+	 *                                 front-end page (never the front page or the
+	 *                                 onboarding wizard).
+	 * @return string
+	 */
+	public static function signup_url( ?string $destination = '' ): string {
 		/**
 		 * Filter the registration URL.
 		 *
 		 * @param string $url Default {auth}/signup/ URL.
 		 */
-		return (string) apply_filters( 'buddynext_signup_url', trailingslashit( self::auth_url() ) . 'signup/' );
+		$url = (string) apply_filters( 'buddynext_signup_url', trailingslashit( self::auth_url() ) . 'signup/' );
+
+		if ( null === $destination ) {
+			$destination = self::return_destination();
+			if ( trailingslashit( $destination ) === trailingslashit( home_url() ) || 'onboarding' === get_query_var( 'bn_hub', '' ) ) {
+				$destination = '';
+			}
+		}
+
+		return '' === $destination ? $url : add_query_arg( 'redirect_to', rawurlencode( $destination ), $url );
 	}
 
 	/**
@@ -4316,7 +4423,15 @@ class PageRouter {
 
 		// 3. user_nicename fallback.
 		$by_nicename = get_user_by( 'slug', $slug );
-		return $by_nicename instanceof WP_User ? $by_nicename : null;
+		if ( $by_nicename instanceof WP_User ) {
+			return $by_nicename;
+		}
+
+		// 4. A handle this member used before. Nobody else can take it
+		// (is_slug_available()), and mentions already resolve it (Handle::resolve()),
+		// so the old profile address keeps reaching the same person, as the Handle
+		// field promises.
+		return \BuddyNext\Profile\Handle::previous_owner( $slug );
 	}
 
 	/**

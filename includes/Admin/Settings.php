@@ -62,6 +62,43 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
+	 * Tell an owner whose site changed roles from outside that it is now off.
+	 *
+	 * From 1.2.5 the access webhook no longer changes roles unless the owner
+	 * allows it. A site that relied on it would otherwise find out from a failed
+	 * automation. Shown on BuddyNext screens until the owner saves the Webhooks
+	 * settings, either way.
+	 *
+	 * @return void
+	 */
+	public function maybe_render_role_switch_notice(): void {
+		$screen = get_current_screen();
+		if ( ! current_user_can( 'manage_options' ) || ! $screen || false === strpos( (string) $screen->id, 'buddynext' ) ) {
+			return;
+		}
+		if ( ! \BuddyNext\Outbound\AccessWebhookController::role_switch_needs_attention() ) {
+			return;
+		}
+
+		$url = add_query_arg(
+			array(
+				'page' => 'buddynext-platform',
+				'tab'  => 'webhooks',
+			),
+			admin_url( 'admin.php' )
+		);
+		?>
+		<div class="notice notice-warning">
+			<p>
+				<strong><?php esc_html_e( 'Role changes from outside services are now off.', 'buddynext' ); ?></strong>
+				<?php esc_html_e( 'A connected service has changed member roles on this site before. For safety this now needs your permission. Plans, abilities and credits are not affected.', 'buddynext' ); ?>
+				<a href="<?php echo esc_url( $url ); ?>"><?php esc_html_e( 'Review the Webhooks settings', 'buddynext' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Hook the admin menu and settings registration into WordPress.
 	 *
 	 * @return void
@@ -72,6 +109,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		SettingsRegistry::register( $this );
 
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_notices', array( $this, 'maybe_render_role_switch_notice' ) );
+		// Saving the Webhooks settings is the owner's answer, on or off. WordPress
+		// stores nothing when a switch is left at its default, so the answer is
+		// recorded here, where every save of that switch passes.
+		add_filter(
+			'pre_update_option_' . \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE,
+			static function ( $value ) {
+				update_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ROLE_REVIEWED, 1, false );
+
+				return $value;
+			}
+		);
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
 		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
@@ -297,6 +346,30 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * One sentence for the verification setting: what happens to an account that
+	 * never verifies. Empty when the purge is switched off by filter.
+	 *
+	 * @return string Sentence with a leading space, or ''.
+	 */
+	public static function unverified_purge_hint(): string {
+		$days = \BuddyNext\Core\CronService::unverified_purge_days();
+		if ( $days <= 0 ) {
+			return '';
+		}
+
+		return ' ' . sprintf(
+			/* translators: %s: number of days. */
+			_n(
+				'An account that never verifies is deleted after %s day, unless it has posted.',
+				'An account that never verifies is deleted after %s days, unless it has posted.',
+				$days,
+				'buddynext'
+			),
+			number_format_i18n( $days )
+		);
+	}
+
+	/**
 	 * Hint for the cookie notice's link label, naming the page it links to.
 	 *
 	 * The notice reuses the WordPress privacy policy page rather than asking for
@@ -485,7 +558,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			array( __( 'In-app bell + transactional email notifications', 'buddynext' ), true ),
 			array( __( 'Report queue, strikes, suspensions, appeals', 'buddynext' ), true ),
 			array( __( 'REST API, Gutenberg blocks, 1 outbound webhook', 'buddynext' ), true ),
-			array( __( 'Scheduled & recurring posts, up to 10 pinned posts', 'buddynext' ), false ),
+			array( __( 'Scheduled & recurring posts, up to 3 pinned posts', 'buddynext' ), false ),
 			array( __( 'Custom reaction emoji set (up to 20)', 'buddynext' ), false ),
 			array( __( 'Broadcast email campaigns + drip welcome sequences', 'buddynext' ), false ),
 			array( __( 'Group DM + real-time delivery, typing, read receipts', 'buddynext' ), false ),
@@ -891,7 +964,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Allow members to export their data', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Adds a "Download my data" option on member profile settings. Generates a JSON archive of posts, reactions, and profile fields.', 'buddynext' ),
+							'hint'    => __( 'Adds an "Export my data" option on member privacy settings. The member gets an archive of their posts, comments, profile fields and other records they created.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -900,7 +973,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Allow members to delete their account', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Adds a "Delete account" option on member profile settings. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
+							'hint'    => __( 'Adds a "Delete account" option to the member Settings > Privacy page. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
 						)
 					),
 				)
@@ -1247,7 +1320,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService emoji markup is wp_kses'd.
 						echo \BuddyNext\Core\IconService::render_emoji( $bn_reaction, 'bn-reaction-palette__emoji' );
 						?>
-						<span><?php echo esc_html( ucfirst( $bn_reaction ) ); ?></span>
+						<?php // The owner's own name for it (ReactionService::label), not the emoji slug: a custom reaction named "Ship it" read "Rocket" here. ?>
+						<span><?php echo esc_html( \BuddyNext\Reactions\ReactionService::label( (string) $bn_reaction ) ); ?></span>
 					</label>
 				<?php endforeach; ?>
 			</div>
@@ -1433,7 +1507,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'   => __( 'Strikes before warning', 'buddynext' ),
 							'default' => \BuddyNext\Core\RecommendedDefaults::value( 'buddynext_strike_warn_threshold' ),
 							'min'     => 1,
-							'hint'    => __( 'A warning email is sent to the member after this many active strikes.', 'buddynext' ),
+							'hint'    => __( 'From this many active strikes, the notice a member gets with each strike also warns that their account is at risk of suspension.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1823,7 +1897,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default' => false,
 							'type'    => 'toggle',
 							'label'   => __( 'Require email verification', 'buddynext' ),
-							'hint'    => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ),
+							'hint'    => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ) . self::unverified_purge_hint(),
 						)
 					),
 					new Field(
@@ -2027,7 +2101,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'     => 'url',
 							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
 							'label'    => __( 'After login', 'buddynext' ),
-							'hint'     => __( 'Where members go after logging in: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed.', 'buddynext' ),
+							'hint'     => __( 'Where members go after logging in: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed. A member who was sent to log in from a page goes back to that page instead.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -2047,7 +2121,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'     => 'url',
 							'sanitize' => array( \BuddyNext\Core\RedirectSettings::class, 'sanitize' ),
 							'label'    => __( 'After onboarding', 'buddynext' ),
-							'hint'     => __( 'Where new members go after onboarding: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed.', 'buddynext' ),
+							'hint'     => __( 'Where new members go after onboarding: a page on your site, for example /spaces/, or a full address. Leave empty for the activity feed. A member who signed up from a page goes back to that page instead.', 'buddynext' ),
 						)
 					),
 				)
@@ -2114,6 +2188,24 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Require replay-proof webhook signatures', 'buddynext' ),
 							'hint'    => __( 'On by default: only the timestamped signature scheme (with an X-BuddyNext-Timestamp header) is accepted and the older body-only scheme is rejected. The body-only scheme cannot be replay-checked, so a captured request stays valid indefinitely. Turn this OFF only while migrating a service that still sends body-only signatures, and re-enable it once every caller sends a timestamp.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE,
+							'default' => false,
+							'type'    => 'toggle',
+							'label'   => __( 'Allow role changes from outside', 'buddynext' ),
+							'hint'    => __( 'Off by default. When on, a signed request can set a member to community admin, moderator or member. Leave it off unless a service you run needs it: your shared secret authorises every action, and this is the most powerful one. Plans, abilities and credits work either way.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS,
+							'default' => false,
+							'type'    => 'toggle',
+							'label'   => __( 'Create an account for a new buyer', 'buddynext' ),
+							'hint'    => __( 'Off by default. When on, a signed request that gives a plan, an ability or credits to an email address with no account creates the member (as a new member, never an administrator) and emails them a link to set their password. Use it when you take payment in another tool and connect it with Make or Zapier. Accounts are only created from requests signed with your secret.', 'buddynext' ),
 						)
 					),
 				)
@@ -2750,7 +2842,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			$this->render_toggle_row(
 				'buddynext_email_verify',
 				__( 'Require email verification', 'buddynext' ),
-				__( 'Ask new members to confirm their email address.', 'buddynext' ),
+				__( 'Ask new members to confirm their email address.', 'buddynext' ) . self::unverified_purge_hint(),
 				(bool) get_option( 'buddynext_email_verify', false )
 			);
 
@@ -2976,28 +3068,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		$this->open_section( __( 'Redirects', 'buddynext' ) );
 
-		$this->render_text_row(
+		// The three rows read their label and hint from fields_registration(), the
+		// one definition option registration and the settings search also use, so
+		// the wording cannot drift from it again.
+		$bn_redirect_keys = array(
 			\BuddyNext\Core\RedirectSettings::OPT_LOGIN,
-			__( 'After login', 'buddynext' ),
-			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGIN, '' ),
-			__( 'Where members go after logging in. Leave blank for the activity feed (default). A link a member was sent to (for example a gated page) always takes priority.', 'buddynext' )
-		);
-
-		$this->render_text_row(
 			\BuddyNext\Core\RedirectSettings::OPT_LOGOUT,
-			__( 'After logout', 'buddynext' ),
-			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGOUT, '' ),
-			// RedirectSettings::filter_logout_redirect() defaults a blank value to
-			// PageRouter::auth_url() — the branded login screen, not the home page.
-			__( 'Where members go after logging out. Leave blank for the login page (default), ready to sign back in.', 'buddynext' )
-		);
-
-		$this->render_text_row(
 			\BuddyNext\Core\RedirectSettings::OPT_ONBOARDING,
-			__( 'After onboarding', 'buddynext' ),
-			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, '' ),
-			__( 'Where new members go after finishing onboarding. Leave blank for the activity feed (default).', 'buddynext' )
 		);
+		foreach ( $this->fields_registration() as $bn_section ) {
+			foreach ( $bn_section->fields as $bn_field ) {
+				if ( in_array( $bn_field->key, $bn_redirect_keys, true ) ) {
+					$this->render_text_row( $bn_field->key, $bn_field->label, (string) get_option( $bn_field->key, '' ), $bn_field->hint );
+				}
+			}
+		}
 
 		$this->close_section();
 
@@ -3226,7 +3311,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				$bn_basename = (string) ( $bn_c['free']['basename'] ?? '' );
 				$bn_logo     = $logo_base . sanitize_file_name( (string) $bn_slug ) . '.svg';
 
-				if ( 'active' === $bn_status ) {
+				// Four of these connect through a bridge that ships in BuddyNext Pro.
+				// Without Pro the plugin is installed but nothing is wired, so the
+				// card must not say "Connected" or tick off what it unlocks.
+				$bn_waits_for_pro = 'active' === $bn_status && ! empty( $bn_c['needs_pro'] ) && ! defined( 'BUDDYNEXTPRO_VERSION' );
+
+				if ( $bn_waits_for_pro ) {
+					$bn_badge_class = 'bn-companion-badge bn-companion-badge--warning';
+					$bn_badge_label = __( 'Installed', 'buddynext' );
+				} elseif ( 'active' === $bn_status ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--success';
 					$bn_badge_label = __( 'Connected', 'buddynext' );
 				} elseif ( 'inactive' === $bn_status ) {
@@ -3255,7 +3348,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					<p class="bn-companion-card__why"><?php echo esc_html( $bn_why ); ?></p>
 				<?php endif; ?>
 
-				<?php if ( 'active' === $bn_status && '' !== $bn_unlocks ) : ?>
+				<?php if ( $bn_waits_for_pro ) : ?>
+					<p class="bn-companion-card__unlocks">
+						<?php buddynext_icon( 'lock' ); ?>
+						<?php
+						/* translators: %s: what the integration adds, e.g. "Job posts as activity cards in the feed." */
+						echo esc_html( sprintf( __( 'Needs BuddyNext Pro to connect. With Pro: %s', 'buddynext' ), $bn_unlocks ) );
+						?>
+					</p>
+				<?php elseif ( 'active' === $bn_status && '' !== $bn_unlocks ) : ?>
 					<p class="bn-companion-card__unlocks">
 						<?php buddynext_icon( 'check' ); ?>
 						<?php echo esc_html( $bn_unlocks ); ?>
@@ -3447,6 +3548,96 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_STRICT_SIGNATURES, true )
 		);
 
+		$this->render_toggle_row(
+			\BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE,
+			__( 'Allow role changes from outside', 'buddynext' ),
+			__( 'Off by default. When on, a signed request can set a member to community admin, moderator or member. Leave it off unless a service you run needs it: your shared secret authorises every action, and this is the most powerful one. Plans, abilities and credits work either way.', 'buddynext' ),
+			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_ALLOW_SET_ROLE, false )
+		);
+
+		$this->render_toggle_row(
+			\BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS,
+			__( 'Create an account for a new buyer', 'buddynext' ),
+			__( 'Off by default. When on, a signed request that gives a plan, an ability or credits to an email address with no account creates the member (as a new member, never an administrator) and emails them a link to set their password. Use it when you take payment in another tool and connect it with Make or Zapier. Accounts are only created from requests signed with your secret.', 'buddynext' ),
+			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS, false )
+		);
+
+		// What an owner connecting Make, Zapier or n8n needs on one screen: where to
+		// send, a request to start from, and what arrived.
+		$bn_endpoint = rest_url( 'buddynext/v1/webhook/access' );
+		$bn_example  = '{
+  "action": "grant_plan",
+  "user_email": "member@example.com",
+  "plan": "pro",
+  "expires_at": "2026-12-31T23:59:59Z",
+  "reference": "order-1001",
+  "amount": 19.00,
+  "currency": "USD",
+  "source": "make",
+  "idempotency_key": "order-1001"
+}';
+		?>
+		<div class="bn-field">
+			<label for="bn-webhook-endpoint"><?php esc_html_e( 'Endpoint', 'buddynext' ); ?></label>
+			<div class="bn-copy-row">
+				<input type="text" id="bn-webhook-endpoint" class="bn-input" readonly value="<?php echo esc_attr( $bn_endpoint ); ?>">
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-copy="bn-webhook-endpoint"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+			</div>
+			<p class="bn-field-hint"><?php esc_html_e( 'POST JSON here. Sign "{timestamp}.{body}" with HMAC-SHA256 and the shared secret, then send the timestamp in X-BuddyNext-Timestamp and the hex signature in X-BuddyNext-Signature. Make and Zapier can do this with their built-in functions.', 'buddynext' ); ?></p>
+		</div>
+		<div class="bn-field">
+			<label for="bn-webhook-example"><?php esc_html_e( 'Example: give a plan after a payment', 'buddynext' ); ?></label>
+			<textarea id="bn-webhook-example" class="bn-input" rows="11" readonly spellcheck="false"><?php echo esc_textarea( $bn_example ); ?></textarea>
+			<div class="bn-copy-row">
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-copy="bn-webhook-example"><?php esc_html_e( 'Copy example', 'buddynext' ); ?></button>
+			</div>
+			<p class="bn-field-hint"><?php esc_html_e( 'Use extend_plan with a new expires_at when a renewal is paid, and cancel_plan when the buyer cancels (access lasts to the end of the period; send "at_period_end": false to end it now). reference, amount and currency are kept on the member\'s plan so you can match the payment; they are not counted as revenue. Plans need BuddyNext Pro.', 'buddynext' ); ?></p>
+		</div>
+		<?php
+		$bn_recent = \BuddyNext\Outbound\WebhookLog::recent( 10 );
+		cache_users( array_filter( array_map( static fn( $r ) => (int) $r['user_id'], $bn_recent ) ) );
+		?>
+		<div class="bn-field">
+			<span class="bn-label"><?php esc_html_e( 'Recent requests', 'buddynext' ); ?></span>
+			<?php if ( array() === $bn_recent ) : ?>
+				<p class="bn-field-hint"><?php esc_html_e( 'No requests yet. Requests show here as they arrive, newest first.', 'buddynext' ); ?></p>
+			<?php else : ?>
+				<?php // The admin table contract: column-primary first, data-colname on the rest, so phones get cards; the scroll wrapper keeps every column reachable on a tablet. ?>
+				<div class="bn-table-wrap__scroll">
+				<table class="bn-table">
+					<thead>
+						<tr>
+							<th scope="col" class="column-primary"><?php esc_html_e( 'When', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Action', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'From', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Result', 'buddynext' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $bn_recent as $bn_row ) : ?>
+							<?php $bn_member = get_userdata( (int) $bn_row['user_id'] ); ?>
+							<tr>
+								<td class="column-primary">
+									<?php echo esc_html( get_date_from_gmt( (string) $bn_row['created_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?>
+									<button type="button" class="toggle-row">
+										<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+										<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+									</button>
+								</td>
+								<td data-colname="<?php esc_attr_e( 'Action', 'buddynext' ); ?>"><code><?php echo esc_html( (string) $bn_row['requested'] ); ?></code></td>
+								<td data-colname="<?php esc_attr_e( 'Member', 'buddynext' ); ?>"><?php echo esc_html( (int) $bn_row['user_id'] <= 0 ? '-' : ( $bn_member ? $bn_member->display_name : __( 'Removed member', 'buddynext' ) ) ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'From', 'buddynext' ); ?>"><?php echo esc_html( '' !== (string) $bn_row['source'] ? (string) $bn_row['source'] : '-' ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'Result', 'buddynext' ); ?>"><span class="bn-badge" data-tone="<?php echo 'success' === (string) $bn_row['status'] ? 'success' : 'danger'; ?>"><?php echo 'success' === (string) $bn_row['status'] ? esc_html__( 'Done', 'buddynext' ) : esc_html__( 'Refused', 'buddynext' ); ?></span></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				</div>
+			<?php endif; ?>
+		</div>
+		<?php
+
 		$this->close_section();
 
 		$this->render_webhook_endpoints();
@@ -3581,6 +3772,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							<td data-colname="<?php esc_attr_e( 'Created', 'buddynext' ); ?>"><?php echo esc_html( (string) ( $hook['created_at'] ?? '' ) ); ?></td>
 							<td data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
 								<div class="bn-row-actions">
+									<?php if ( empty( $hook['is_active'] ) ) : ?>
+										<?php // The auto-disable email tells the owner to re-enable the endpoint here. ?>
+										<button type="button"
+											class="bn-btn"
+											data-variant="primary"
+											data-size="sm"
+											data-bn-webhook-enable="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+										><?php esc_html_e( 'Re-enable', 'buddynext' ); ?></button>
+									<?php endif; ?>
 									<button type="button"
 										class="bn-btn"
 										data-variant="secondary"

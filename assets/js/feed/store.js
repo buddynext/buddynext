@@ -1034,11 +1034,11 @@ function bnPillRender() {
 	const capped = n > BN_PILL_CAP;
 
 	if ( capped ) {
-		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts: refresh to view' ), BN_PILL_CAP );
+		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts: click to show' ), BN_PILL_CAP );
 	} else if ( n === 1 ) {
-		bnPill.pill.textContent = t( 'oneNewPost', '1 new post: refresh to view' );
+		bnPill.pill.textContent = t( 'oneNewPost', '1 new post: click to show' );
 	} else {
-		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts: refresh to view' ), n );
+		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts: click to show' ), n );
 	}
 }
 

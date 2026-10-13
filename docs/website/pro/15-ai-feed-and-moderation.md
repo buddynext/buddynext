@@ -69,7 +69,7 @@ Open **Campaigns > AI Feed**. This page covers ranking, semantic search, and sma
 
 ### Step 3: configure the AI Moderation page
 
-Open **Moderation > AI Moderation**. This page controls how the classifier scores and acts on content. It only appears when **AI moderation** is on.
+Open **Automation > AI Moderation**. This page controls how the classifier scores and acts on content. It only appears when **AI moderation** is on.
 
 | Setting | What it does | Default |
 |---|---|---|

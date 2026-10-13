@@ -153,12 +153,18 @@ $bn_explore_filters = array(
 			?>
 			<div class="bn-explore-hero__eyebrow">
 				<?php
+				$bn_pulse_members = (int) $bn_pulse['members'];
+				$bn_pulse_spaces  = (int) $bn_pulse['spaces'];
+				$bn_pulse_posts   = (int) $bn_pulse['posts'];
 				printf(
-					/* translators: 1: member count, 2: space count, 3: post count. */
-					esc_html__( 'Explore · %1$s members · %2$s spaces · %3$s posts', 'buddynext' ),
-					esc_html( number_format_i18n( (int) $bn_pulse['members'] ) ),
-					esc_html( number_format_i18n( (int) $bn_pulse['spaces'] ) ),
-					esc_html( number_format_i18n( (int) $bn_pulse['posts'] ) )
+					/* translators: 1: the member count phrase, 2: the space count phrase, 3: the post count phrase. */
+					esc_html__( 'Explore · %1$s · %2$s · %3$s', 'buddynext' ),
+					/* translators: %s: member count. */
+					esc_html( sprintf( _n( '%s member', '%s members', $bn_pulse_members, 'buddynext' ), number_format_i18n( $bn_pulse_members ) ) ),
+					/* translators: %s: space count. */
+					esc_html( sprintf( _n( '%s space', '%s spaces', $bn_pulse_spaces, 'buddynext' ), number_format_i18n( $bn_pulse_spaces ) ) ),
+					/* translators: %s: post count. */
+					esc_html( sprintf( _n( '%s post', '%s posts', $bn_pulse_posts, 'buddynext' ), number_format_i18n( $bn_pulse_posts ) ) )
 				);
 				?>
 			</div>

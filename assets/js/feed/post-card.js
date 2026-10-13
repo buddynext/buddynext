@@ -240,6 +240,52 @@ function siteDate( date ) {
 
 
 /**
+ * Mounted post cards, so a reaction made somewhere else on the page (the photo
+ * lightbox) can be shown on the card it belongs to.
+ *
+ * ponytail: entries are dropped only when a later event finds the card gone
+ * from the page; a WeakRef registry if a very long session ever shows up in a
+ * memory profile.
+ *
+ * @type {Array<{ctx: Object, el: Element|null}>}
+ */
+let bnMountedCards = [];
+
+/**
+ * Show a reaction change on one mounted card, when it is the card for that post.
+ *
+ * @param {{ctx: Object, el: Element|null}} card   Mounted card.
+ * @param {number}                          postId Post whose reaction changed.
+ * @param {Object}                          d      Event detail ({ type, body }).
+ * @return {void}
+ */
+function mirrorReaction( card, postId, d ) {
+	if ( Number( card.ctx.postId ) !== postId ) return;
+	const type   = d.type || null;
+	const option = type && card.el ? card.el.querySelector( '[data-reaction-type="' + CSS.escape( type ) + '"]' ) : null;
+	card.ctx.reactionType  = type;
+	card.ctx.reactionLabel = type
+		? ( option?.getAttribute( 'title' ) || option?.getAttribute( 'aria-label' ) || type )
+		: ( card.ctx.reactDefaultLabel || 'React' );
+	updateReactionSummary( card.el, d.body || {} );
+}
+
+/**
+ * A post's reaction changed outside its card: mirror it on the card.
+ *
+ * detail = { postId, type, body }, where type is the viewer's reaction slug (or
+ * null when removed) and body is the /reactions/toggle response.
+ */
+document.addEventListener( 'bn:post-reaction', ( event ) => {
+	const d      = event.detail || {};
+	const postId = Number( d.postId ) || 0;
+	if ( ! postId ) return;
+
+	bnMountedCards = bnMountedCards.filter( ( card ) => ! card.el || card.el.isConnected );
+	bnMountedCards.forEach( ( card ) => mirrorReaction( card, postId, d ) );
+} );
+
+/**
  * Rebuild a post card's reaction-summary chip strip after a toggle.
  *
  * The chip strip (templates/parts/post-reaction-summary.php) is SSR-only with no
@@ -1604,6 +1650,9 @@ store( 'buddynext/post-card', {
 		 */
 		* initPostCard() {
 			const ctx = getContext();
+			if ( ctx && ctx.postId ) {
+				bnMountedCards.push( { ctx, el: getElement()?.ref || null } );
+			}
 			if ( ! ctx || ! ctx.commentsOpen ) {
 				return;
 			}

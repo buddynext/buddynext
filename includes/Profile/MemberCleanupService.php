@@ -938,6 +938,12 @@ class MemberCleanupService {
 		// delegate rather than reach into bn_profile_values here.
 		( new ProfileService() )->delete_user_values( $user_id );
 
+		// Their photo and cover are files, not rows: left alone they stay on disk
+		// and reachable by URL after the account is gone.
+		$images = new \BuddyNext\Media\ImageStorageService();
+		$images->delete( 'avatar', 'user', $user_id );
+		$images->delete( 'cover', 'user', $user_id );
+
 		clean_user_cache( $user_id );
 
 		return $removed;

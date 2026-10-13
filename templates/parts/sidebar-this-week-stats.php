@@ -116,36 +116,40 @@ do_action( 'buddynext_part_sidebar_this_week_stats_before', $args );
 
 		<div class="bn-stat">
 			<div class="bn-stat__value">
-				<?php echo esc_html( $bn_format( $bn_notifs_7d ) ); ?>
+				<span data-bn-week-notifs="<?php echo esc_attr( (string) $bn_notifs_7d ); ?>"><?php echo esc_html( $bn_format( $bn_notifs_7d ) ); ?></span>
 				<?php if ( '' !== $bn_wow_delta_label ) : ?>
 					<span class="bn-stat__delta" data-trend="<?php echo esc_attr( $bn_wow_trend ); ?>">
 						<?php echo esc_html( $bn_wow_delta_label ); ?>
 					</span>
 				<?php endif; ?>
 			</div>
-			<div class="bn-stat__label"><?php esc_html_e( 'notifications', 'buddynext' ); ?></div>
+			<div class="bn-stat__label"><?php echo esc_html( _n( 'notification', 'notifications', $bn_notifs_7d, 'buddynext' ) ); ?></div>
 		</div>
 
 		<div class="bn-stat">
-			<div class="bn-stat__value">
-				<?php echo esc_html( $bn_format( $bn_notifs_read_7d ) ); ?>
-				<?php if ( '' !== $bn_read_rate_label ) : ?>
-					<span class="bn-stat__delta" data-trend="flat">
-						<?php echo esc_html( $bn_read_rate_label ); ?>
-					</span>
-				<?php endif; ?>
+			<div class="bn-stat__value"><?php echo esc_html( $bn_format( $bn_notifs_read_7d ) ); ?></div>
+			<div class="bn-stat__label">
+				<?php
+				// The rate qualifies the label ("read (46%)"); the delta slot is for a
+				// real week-over-week trend, as on the notifications tile.
+				echo esc_html(
+					'' !== $bn_read_rate_label
+						/* translators: %s: share of this week's notifications that were read, e.g. "46%". */
+						? sprintf( __( 'read (%s)', 'buddynext' ), $bn_read_rate_label )
+						: __( 'read', 'buddynext' )
+				);
+				?>
 			</div>
-			<div class="bn-stat__label"><?php esc_html_e( 'read', 'buddynext' ); ?></div>
 		</div>
 
 		<div class="bn-stat">
 			<div class="bn-stat__value"><?php echo esc_html( $bn_format( $bn_new_followers_7d ) ); ?></div>
-			<div class="bn-stat__label"><?php esc_html_e( 'new followers', 'buddynext' ); ?></div>
+			<div class="bn-stat__label"><?php echo esc_html( _n( 'new follower', 'new followers', $bn_new_followers_7d, 'buddynext' ) ); ?></div>
 		</div>
 
 		<div class="bn-stat">
 			<div class="bn-stat__value"><?php echo esc_html( $bn_format( $bn_engagement_in_7d ) ); ?></div>
-			<div class="bn-stat__label"><?php esc_html_e( 'reactions + comments', 'buddynext' ); ?></div>
+			<div class="bn-stat__label"><?php echo esc_html( buddynext_feature_enabled( 'reactions' ) ? __( 'reactions + comments', 'buddynext' ) : __( 'comments', 'buddynext' ) ); ?></div>
 		</div>
 
 	</div>

@@ -359,6 +359,48 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
 	}
 
+	/**
+	 * A shadow ban goes unnoticed: the banned member still sees their own posts
+	 * on their profile, on Explore and on a tag page, while another member and a
+	 * logged-out visitor see none of them.
+	 */
+	public function test_shadow_banned_member_still_sees_their_own_posts(): void {
+		$post_id = $this->posts->create(
+			$this->carol,
+			array(
+				'type'    => 'text',
+				'content' => 'Carol keeps posting',
+				'privacy' => 'public',
+			)
+		);
+		$tags = new \BuddyNext\Hashtags\HashtagService();
+		$tags->sync( 'post', (int) $post_id, array( 'quietban' ) );
+		update_user_meta( $this->carol, 'bn_shadow_banned', '1' );
+
+		$seen_by = function ( int $viewer ) use ( $post_id, $tags ): array {
+			wp_set_current_user( $viewer );
+			wp_cache_flush();
+
+			return array(
+				'profile' => in_array( $post_id, array_map( 'intval', array_column( $this->feed->profile_feed( $this->carol, $viewer )['items'], 'id' ) ), true ),
+				'explore' => in_array( $post_id, array_map( 'intval', array_column( $this->feed->explore_feed()['items'], 'id' ) ), true ),
+				'tag'     => in_array( $post_id, array_map( 'intval', array_column( $tags->get_feed( 'quietban', array( 'viewer_id' => $viewer ) )['items'], 'id' ) ), true ),
+			);
+		};
+
+		$all  = array(
+			'profile' => true,
+			'explore' => true,
+			'tag'     => true,
+		);
+		$none = array_map( '__return_false', $all );
+
+		$this->assertSame( $all, $seen_by( $this->carol ), 'The banned member notices nothing.' );
+		$this->assertSame( $none, $seen_by( $this->alice ), 'Another member sees none of it.' );
+		$this->assertSame( $none, $seen_by( 0 ), 'Nor does a visitor.' );
+		$this->assertSame( $all, $seen_by( $this->admin_id ), 'A moderator still reviews it.' );
+	}
+
 	// ── Home-feed filter tabs (F2) ─────────────────────────────────────────
 
 	/**
@@ -468,6 +510,49 @@ class FeedServiceTest extends \WP_UnitTestCase {
 
 		$this->assertContains( $in_id, $ids );
 		$this->assertNotContains( $out_id, $ids );
+	}
+
+	/**
+	 * A connection's post leads For you for a week, then ranks by date.
+	 *
+	 * @return void
+	 */
+	public function test_for_you_connection_priority_ends_after_the_window(): void {
+		global $wpdb;
+		$connections = new \BuddyNext\SocialGraph\ConnectionService();
+		$connections->send_request( $this->alice, $this->bob );
+		$connections->accept_request( $this->bob, $this->alice );
+
+		$make = function ( int $author, int $age_days ) use ( $wpdb ): int {
+			$id = (int) $this->posts->create(
+				$author,
+				array(
+					'type'    => 'text',
+					'content' => 'Post ' . $age_days,
+					'privacy' => 'public',
+				)
+			);
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array( 'created_at' => gmdate( 'Y-m-d H:i:s', time() - $age_days * DAY_IN_SECONDS - HOUR_IN_SECONDS ) ),
+				array( 'id' => $id )
+			);
+			return $id;
+		};
+		$bob_old   = $make( $this->bob, 10 );
+		$bob_fresh = $make( $this->bob, 2 );
+		$carol_new = $make( $this->carol, 1 );
+
+		$order = function (): array {
+			$this->feed->flush_home_cache( $this->alice );
+			return array_map( 'intval', array_column( $this->feed->home_feed( $this->alice, null, 20, 'for-you' )['items'], 'id' ) );
+		};
+
+		$this->assertSame( array( $bob_fresh, $carol_new, $bob_old ), $order(), 'Inside the window first, then by date.' );
+
+		add_filter( 'buddynext_for_you_priority_days', '__return_zero' );
+		$this->assertSame( array( $bob_fresh, $bob_old, $carol_new ), $order(), 'No window: every connection post leads.' );
+		remove_filter( 'buddynext_for_you_priority_days', '__return_zero' );
 	}
 
 	public function test_home_feed_network_filter_returns_only_connected_users(): void {

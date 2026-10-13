@@ -65,6 +65,22 @@ class HandleHistoryTest extends \WP_UnitTestCase {
 		$this->assertSame( array( $original ), Handle::history( $this->member ) );
 	}
 
+	/**
+	 * The profile address resolves an old handle too, not only mentions.
+	 *
+	 * @return void
+	 */
+	public function test_the_old_profile_address_still_reaches_the_member(): void {
+		$original = $this->nicename( $this->member );
+		Handle::set( $this->member, 'moved-on' );
+
+		$router  = ( new \ReflectionClass( PageRouter::class ) )->newInstanceWithoutConstructor();
+		$resolve = new \ReflectionMethod( PageRouter::class, 'resolve_user' );
+
+		$this->assertSame( $this->member, $resolve->invoke( $router, $original )?->ID );
+		$this->assertNull( $resolve->invoke( $router, 'nobody-ever-had-this' ) );
+	}
+
 	public function test_every_handle_a_member_has_used_still_resolves_to_them(): void {
 		$original = $this->nicename( $this->member );
 		Handle::set( $this->member, 'handle-two' );

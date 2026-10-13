@@ -244,7 +244,11 @@ class NotificationPrefCatalogue {
 				'description'        => __( 'Someone posted in a space you belong to.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
 				'default_on_site'    => true,
-				'default_email_freq' => 'daily',
+				// Bell only by default. Joining a space now means hearing about its
+				// new posts (card 10393846811), and that must not also mean email
+				// about every space a member is in. A member who wants them by
+				// email picks daily or weekly on their preferences screen.
+				'default_email_freq' => 'off',
 				'can_email'          => true,
 			),
 			'bn.space_media_unlinked'     => array(
@@ -421,6 +425,11 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => false,
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
+				// A switch, not a schedule: which digest a notification joins is set on
+				// that notification's own row, so this row only turns this digest on or
+				// off. email_only makes the settings screen and the app show On / Off
+				// (no In-app toggle, no Immediate / Daily / Weekly that changed nothing).
+				'email_only'         => true,
 			),
 			'bn.weekly_digest'            => array(
 				'label'              => __( 'Weekly digest', 'buddynext' ),
@@ -429,15 +438,21 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => false,
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
+				// A switch, not a schedule: which digest a notification joins is set on
+				// that notification's own row, so this row only turns this digest on or
+				// off. email_only makes the settings screen and the app show On / Off
+				// (no In-app toggle, no Immediate / Daily / Weekly that changed nothing).
+				'email_only'         => true,
 			),
 			// Master email-digest switch. The digest email's one-click unsubscribe
-			// writes (user, 'digest', email_freq='off'); CronService::get_digest_user_ids
-			// excludes anyone carrying that row from EVERY digest. It is a real
-			// catalogue entry (not an internal pseudo-type) so get_all_prefs() surfaces
-			// it and the settings UI + REST render an on/off control — otherwise the
-			// unsubscribe was a one-way door with no member-facing way back
-			// (card 10264293350). 'off' suppresses; 'daily'/'weekly' re-enrols on that
-			// cadence.
+			// writes (user, 'digest', email_freq='off'); CronService::
+			// fetch_unread_notifications() drops anyone carrying that row from EVERY
+			// digest. It is a real catalogue entry (not an internal pseudo-type) so
+			// get_all_prefs() surfaces it and the settings UI + REST render an on/off
+			// control — otherwise the unsubscribe was a one-way door with no
+			// member-facing way back (card 10264293350). 'off' suppresses; any other
+			// value means on. Which digest a notification goes into is decided by
+			// that notification type's own frequency, not by this row.
 			//
 			// can_email is FALSE: this switch does not itself SEND a mail. The actual
 			// digest sends are bn.daily_digest / bn.weekly_digest (their own templates);
@@ -451,7 +466,7 @@ class NotificationPrefCatalogue {
 			// template treats email_only OR can_email as "show the frequency").
 			'digest'                      => array(
 				'label'              => __( 'Email digests', 'buddynext' ),
-				'description'        => __( 'A periodic email roundup of your unread notifications. Set to Off to stop all digest emails; choose Daily or Weekly to resume.', 'buddynext' ),
+				'description'        => __( 'Email roundups of your unread notifications. Turn Off to stop all digest emails.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
 				'default_on_site'    => false,
 				'default_email_freq' => 'daily',

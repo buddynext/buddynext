@@ -407,13 +407,43 @@ abstract class BaseRestController {
 		// An id of 0 names no post. It is not "hidden", so it used to pass and a
 		// bookmark or share of nothing was stored.
 		if ( $object_id > 0 && ! $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
-			return null;
+			return $this->space_ban_error( $object_type, $object_id );
 		}
 
 		return new WP_Error(
 			'post_not_found',
 			__( 'Post not found.', 'buddynext' ),
 			array( 'status' => 404 )
+		);
+	}
+
+	/**
+	 * Refuse an engagement write from a member banned from the post's space.
+	 *
+	 * A ban keeps an open space readable (the post is not hidden) but ends taking
+	 * part in it: no comment, reaction, share, vote or bookmark. Read gates stay in
+	 * visibility_error(); this is write-only on purpose.
+	 *
+	 * @param string $object_type Engagement object type ('post', 'comment', …).
+	 * @param int    $object_id   Engagement object ID.
+	 * @return WP_Error|null 403 when the viewer is banned from the owning space.
+	 */
+	protected function space_ban_error( string $object_type, int $object_id ): ?WP_Error {
+		$posts = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : null;
+		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
+			return null;
+		}
+
+		$post     = $posts->get( $posts->resolve_post_id( $object_type, $object_id ) );
+		$space_id = (int) ( $post['space_id'] ?? 0 );
+		if ( $space_id <= 0 || ! buddynext_service( 'permissions' )->is_space_banned( get_current_user_id(), $space_id ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'space_banned',
+			__( 'You can no longer take part in this space.', 'buddynext' ),
+			array( 'status' => 403 )
 		);
 	}
 
