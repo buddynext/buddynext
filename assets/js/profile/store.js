@@ -627,6 +627,11 @@ function clearErrors( ctx ) {
 	document.querySelectorAll( '.bn-ep-injected-error' ).forEach( function ( el ) {
 		el.remove();
 	} );
+	document.querySelectorAll( '[data-bn-ep-invalid]' ).forEach( function ( el ) {
+		el.removeAttribute( 'aria-invalid' );
+		el.removeAttribute( 'aria-describedby' );
+		el.removeAttribute( 'data-bn-ep-invalid' );
+	} );
 }
 
 /* Surface a 422's per-field errors on their controls and bring the first
@@ -643,13 +648,20 @@ function surfaceFieldErrors( errors ) {
 		var control = document.querySelector( '[name="' + key + '"], [name="' + key + '[]"]' );
 		if ( ! control ) { return; }
 		if ( ! firstControl ) { firstControl = control; }
-		if ( document.getElementById( 'bn-ep-error-' + key ) ) {
+		// Screen readers hear which field failed and why, not just "Some fields need attention".
+		var errorId = 'bn-ep-error-' + key;
+		control.setAttribute( 'aria-invalid', 'true' );
+		control.setAttribute( 'data-bn-ep-invalid', '' );
+		if ( document.getElementById( errorId ) ) {
+			control.setAttribute( 'aria-describedby', errorId );
 			return; // The server-rendered slot renders this one reactively.
 		}
 		var span = document.createElement( 'span' );
 		span.className = 'bn-ep-field-error bn-ep-injected-error';
+		span.id = errorId.replace( /[^A-Za-z0-9_-]/g, '-' );
 		span.setAttribute( 'role', 'alert' );
 		span.textContent = String( errors[ key ] );
+		control.setAttribute( 'aria-describedby', span.id );
 		var wrap = control.closest( '.bn-ep-field, .bn-ep-hero-field' ) || control.parentElement;
 		wrap.appendChild( span );
 	} );

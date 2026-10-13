@@ -95,6 +95,10 @@ Plans you can sell through Make, Zapier or n8n, tighter blocks and space bans, r
 * Fix      - Notification counters follow deletes, and bulk Hide and Restore count real changes.
 * Fix      - The Registration and Login redirect hints show the current wording.
 * Fix      - The spaces table can be created on MyISAM and older InnoDB hosts.
+* Fix      - A member who blocked someone can unblock them from that member's Message link.
+* Fix      - The schedule tool shows only to members whose plan includes scheduling.
+* Fix      - A profile field that fails to save is announced to screen readers with its error.
+* Fix      - A fresh install no longer logs a database error on activation.
 * Security - Followers-only and connections-only media no longer open to every member, and a privacy sync never widens a file.
 * Security - A pending follow is not a follow, and a private account stays out of discovery.
 * Security - A member's moderation standing is shown to site staff only.

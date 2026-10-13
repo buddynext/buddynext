@@ -92,9 +92,10 @@ $convs        = MessagesData::conversations( $viewer, $active_tab, $bn_convs_cap
 
 // Resolve ?to AFTER the rail is loaded so an existing thread can be reused
 // without a lookup that creates one.
-$bn_blocked_recipient = 0;
-$bn_block_reason      = '';
-$bn_pending_recipient = 0;
+$bn_blocked_recipient        = 0;
+$bn_viewer_blocked_recipient = false;
+$bn_block_reason             = '';
+$bn_pending_recipient        = 0;
 if ( $active_conv_id <= 0 ) {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$bn_to = absint( $_GET['to'] ?? ( $_GET['recipient'] ?? ( $_GET['with'] ?? 0 ) ) );
@@ -105,6 +106,9 @@ if ( $active_conv_id <= 0 ) {
 			// self) — surface a reason-aware notice instead of a blank thread pane.
 			$bn_blocked_recipient = $bn_to;
 			$bn_block_reason      = (string) $bn_can['reason'];
+			// The viewer's own block: offer Unblock here too, as the open thread does,
+			// so the profile Message link is not a dead end for the member who blocked.
+			$bn_viewer_blocked_recipient = 'blocked' === $bn_block_reason && buddynext_service( 'blocks' )->has_blocked( $viewer, $bn_to );
 		} else {
 			// Reuse an existing thread with this member if the loaded rail has one
 			// (no new row). Otherwise stay in a compose-pending state: the FIRST
@@ -203,8 +207,8 @@ $bn_ctx = wp_json_encode(
 		'groupAddOpen'        => false,
 		// Conversation info panel (1:1) — recipient identity + safety actions.
 		'infoPanelOpen'       => false,
-		'recipientId'         => ( $thread && empty( $thread['is_group'] ) ) ? (int) $thread['other_user_id'] : ( $bn_pending ? (int) $bn_pending['id'] : 0 ),
-		'recipientName'       => $thread ? (string) $thread['display_name'] : ( $bn_pending ? (string) $bn_pending['display_name'] : '' ),
+		'recipientId'         => ( $thread && empty( $thread['is_group'] ) ) ? (int) $thread['other_user_id'] : ( $bn_pending ? (int) $bn_pending['id'] : ( $bn_viewer_blocked_recipient ? $bn_blocked_recipient : 0 ) ),
+		'recipientName'       => $thread ? (string) $thread['display_name'] : ( $bn_pending ? (string) $bn_pending['display_name'] : ( $bn_viewer_blocked_recipient ? (string) get_the_author_meta( 'display_name', $bn_blocked_recipient ) : '' ) ),
 		'recipientUrl'        => ( $thread && ! empty( $thread['other_user_id'] ) ) ? esc_url_raw( PageRouter::profile_url( (int) $thread['other_user_id'] ) ) : ( $bn_pending ? esc_url_raw( (string) $bn_pending['profile_url'] ) : '' ),
 		'infoBusy'            => false,
 		'replyToId'           => 0,
@@ -432,8 +436,21 @@ $bn_ctx = wp_json_encode(
 			?>
 			<div class="bn-dm-empty" role="status">
 				<span class="bn-dm-empty__icon" aria-hidden="true"><?php buddynext_icon( 'ban' ); ?></span>
-				<h2 class="bn-dm-empty__title"><?php esc_html_e( 'You can’t message this member', 'buddynext' ); ?></h2>
-				<p class="bn-dm-empty__body"><?php echo esc_html( $bn_block_message ); ?></p>
+				<?php if ( $bn_viewer_blocked_recipient ) : ?>
+					<h2 class="bn-dm-empty__title">
+						<?php
+						/* translators: %s: member display name. */
+						echo esc_html( sprintf( __( 'You blocked %s', 'buddynext' ), $bn_blocked_name ) );
+						?>
+					</h2>
+					<p class="bn-dm-empty__body"><?php esc_html_e( 'Unblock them to message each other again.', 'buddynext' ); ?></p>
+					<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-bind--disabled="context.infoBusy" data-wp-on--click="actions.unblockRecipient">
+						<?php esc_html_e( 'Unblock', 'buddynext' ); ?>
+					</button>
+				<?php else : ?>
+					<h2 class="bn-dm-empty__title"><?php esc_html_e( 'You can’t message this member', 'buddynext' ); ?></h2>
+					<p class="bn-dm-empty__body"><?php echo esc_html( $bn_block_message ); ?></p>
+				<?php endif; ?>
 				<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $messages_url ); ?>">
 					<?php esc_html_e( 'Back to messages', 'buddynext' ); ?>
 				</a>
