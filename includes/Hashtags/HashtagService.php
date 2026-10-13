@@ -418,22 +418,32 @@ class HashtagService {
 	 * @param string   $object_type Object type (e.g. 'post', 'comment').
 	 * @param int      $object_id   Object ID.
 	 * @param string[] $slugs       Tag slugs to set (empty array removes all tags).
+	 * @param string   $created_at  Optional UTC date to stamp every link with (the back-fill
+	 *                              passes the post's own date). Without it a tag the object
+	 *                              already carried keeps its stamp and a new tag is stamped now.
 	 */
-	public function sync( string $object_type, int $object_id, array $slugs ): void {
+	public function sync( string $object_type, int $object_id, array $slugs, string $created_at = '' ): void {
 		global $wpdb;
 
 		$object_type = sanitize_key( $object_type );
 
-		// Capture old hashtag IDs before deleting so counts can be recomputed.
+		// Capture old links (and when each tag first appeared on this object) before
+		// deleting, so counts can be recomputed and a re-sync does not re-date tags
+		// the object already carried: Trending and Latest read this stamp.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$old_hashtag_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT hashtag_id FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id = %d AND object_type = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$object_id,
-				$object_type
-			)
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$old_stamps = wp_list_pluck(
+			(array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT hashtag_id, created_at FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id = %d AND object_type = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$object_id,
+					$object_type
+				),
+				OBJECT_K
+			),
+			'created_at'
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$old_hashtag_ids = array_keys( $old_stamps );
 
 		// Remove all existing links for this object first.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -507,7 +517,7 @@ class HashtagService {
 					$object_id,
 					$object_type,
 					$hashtag_id,
-					current_time( 'mysql', true )
+					'' !== $created_at ? $created_at : ( $old_stamps[ $hashtag_id ] ?? current_time( 'mysql', true ) )
 				)
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);

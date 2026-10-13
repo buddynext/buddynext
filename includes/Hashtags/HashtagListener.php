@@ -266,7 +266,7 @@ class HashtagListener implements ListenerInterface {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, content FROM {$wpdb->prefix}bn_posts
+				"SELECT id, content, created_at FROM {$wpdb->prefix}bn_posts
 				 WHERE status = 'published' AND content LIKE %s
 				 ORDER BY id
 				 LIMIT %d OFFSET %d",
@@ -280,7 +280,8 @@ class HashtagListener implements ListenerInterface {
 
 		foreach ( (array) $rows as $row ) {
 			$slugs = $this->service->extract( (string) $row['content'] );
-			$this->service->sync( 'post', (int) $row['id'], $slugs );
+			// Stamp with the post's own date so a re-sync never makes old posts look new.
+			$this->service->sync( 'post', (int) $row['id'], $slugs, (string) $row['created_at'] );
 		}
 
 		if ( count( (array) $rows ) === $batch_size ) {
