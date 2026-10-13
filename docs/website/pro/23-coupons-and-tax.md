@@ -71,6 +71,7 @@ Tax is applied to the price after any coupon discount, so a member who uses a co
 ## Good to know
 
 - **One consistent result across gateways.** Because BuddyNext computes the discount and tax before the gateway is called, the same code and the same tax rate produce the same final charge on Stripe, PayPal, or any other gateway.
+- **PayPal and renewing plans are the exception.** PayPal bills a renewing plan from one fixed price shared by every subscriber, so it cannot take a coupon, or tax added on top, on a plan that renews. Since 1.2.5 the order summary says so as soon as the coupon is applied: the PayPal button is switched off with the reason under it, and removing the coupon gives it back. Card payment is not affected, and neither are one-time plans. While PayPal is switched on, the Coupons screen carries a one-line reminder of this.
 - **Coupons switch off without deleting.** Uncheck Active to pause a code and keep its redemption history; delete only when you want it gone for good.
 - **Redemption limits are total, not per member.** Max redemptions counts every use of the code across your whole community.
 - **Tax follows the discount.** Tax is always calculated on the post-discount price, never the list price.
