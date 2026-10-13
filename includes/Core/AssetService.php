@@ -1545,6 +1545,10 @@ class AssetService {
 					'blockSuccess'              => __( '%s blocked', 'buddynext' ),
 					/* translators: %s: member display name. */
 					'blockFailed'               => __( 'Could not block %s. Try again.', 'buddynext' ),
+					/* translators: %s: member display name. */
+					'unblockSuccess'            => __( '%s unblocked', 'buddynext' ),
+					/* translators: %s: member display name. */
+					'unblockFailed'             => __( 'Could not unblock %s. Try again.', 'buddynext' ),
 					'reportConversationTitle'   => __( 'Report this conversation', 'buddynext' ),
 					'reportConversationSuccess' => __( 'Reported. Our moderators will review it.', 'buddynext' ),
 					'reportConversationFailed'  => __( 'Could not submit the report. Try again.', 'buddynext' ),

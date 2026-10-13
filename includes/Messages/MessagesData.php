@@ -577,6 +577,11 @@ class MessagesData {
 		$is_group     = self::is_group( $conv );
 		$viewer_admin = $is_group && self::viewer_is_admin( $conv, $viewer );
 
+		// A block either way closes a 1:1 thread (sending is already refused); the
+		// viewer's own block is what lets them undo it from here.
+		$other_id = ( ! $is_group && $other ) ? (int) self::val( $other, 'id', 0 ) : 0;
+		$blocks   = $other_id > 0 ? buddynext_service( 'blocks' ) : null;
+
 		return array(
 			'conversation_id' => (int) self::val( $conv, 'id', 0 ),
 			'is_muted'        => (bool) self::val( $conv, 'is_muted', false ),
@@ -603,6 +608,8 @@ class MessagesData {
 				)
 				: '',
 			'is_request'      => $is_request,
+			'is_blocked'      => $blocks && $blocks->is_blocking_either( $viewer, $other_id ),
+			'viewer_blocked'  => $blocks && $blocks->has_blocked( $viewer, $other_id ),
 			'messages'        => $messages,
 		);
 	}

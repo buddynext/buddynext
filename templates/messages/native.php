@@ -191,6 +191,8 @@ $bn_ctx = wp_json_encode(
 		// Compose-pending: no thread yet; the first send creates it for this user.
 		'pendingRecipientId'  => $bn_pending ? (int) $bn_pending['id'] : 0,
 		'isMuted'             => $thread ? ! empty( $thread['is_muted'] ) : false,
+		'viewerBlocked'       => $thread ? ! empty( $thread['viewer_blocked'] ) : false,
+		'threadBlocked'       => $thread ? ! empty( $thread['is_blocked'] ) : false,
 		'searchOpen'          => false,
 		'activeIsGroup'       => $thread ? ! empty( $thread['is_group'] ) : false,
 		'activeIsAdmin'       => $thread ? ! empty( $thread['is_admin'] ) : false,
@@ -302,7 +304,35 @@ $bn_ctx = wp_json_encode(
 					)
 				);
 
-				if ( ! empty( $thread['is_request'] ) ) {
+				if ( ! empty( $thread['is_blocked'] ) ) {
+					// Blocked either way: the thread is read-only for both members.
+					// The member who blocked can undo it here; the other is not told
+					// they were blocked (same neutral wording Facebook uses).
+					?>
+					<div class="bn-dm-request" role="status">
+						<p class="bn-dm-request__text">
+							<?php
+							echo esc_html(
+								! empty( $thread['viewer_blocked'] )
+									? sprintf(
+										/* translators: %s: member display name. */
+										__( 'You blocked %s. Unblock them to message each other again.', 'buddynext' ),
+										$thread['display_name']
+									)
+									: __( 'You can’t reply to this conversation.', 'buddynext' )
+							);
+							?>
+						</p>
+						<?php if ( ! empty( $thread['viewer_blocked'] ) ) : ?>
+							<div class="bn-dm-request__actions">
+								<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-bind--disabled="context.infoBusy" data-wp-on--click="actions.unblockRecipient">
+									<?php esc_html_e( 'Unblock', 'buddynext' ); ?>
+								</button>
+							</div>
+						<?php endif; ?>
+					</div>
+					<?php
+				} elseif ( ! empty( $thread['is_request'] ) ) {
 					// Pending request: accept before replying.
 					buddynext_get_template(
 						'parts/dm-request-banner.php',
