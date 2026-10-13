@@ -84,7 +84,7 @@ Plans you can sell through Make, Zapier or n8n, tighter blocks and space bans, r
 * Improve  - The This week card reads its read rate as read (46%).
 * Fix      - Editing a Multi-select (advanced) field saved in 1.2.4 no longer empties or wipes its choices, and choice labels survive an edit.
 * Fix      - A member banned from a space can no longer comment, react, share, vote or bookmark there.
-* Fix      - A blocked conversation turns read-only for both members, and the member who blocked can unblock from it.
+* Fix      - A blocked conversation turns read-only for both members, and the member who blocked can unblock from it or from the other member's Message link.
 * Fix      - Editing a post no longer makes its old hashtags count as new in Trending, and updating repairs the dates an earlier update changed.
 * Fix      - People to follow keeps saying Request sent after a reload on sites with an object cache.
 * Fix      - Website and other address fields refuse a bare word on every screen.
@@ -95,10 +95,8 @@ Plans you can sell through Make, Zapier or n8n, tighter blocks and space bans, r
 * Fix      - Notification counters follow deletes, and bulk Hide and Restore count real changes.
 * Fix      - The Registration and Login redirect hints show the current wording.
 * Fix      - The spaces table can be created on MyISAM and older InnoDB hosts.
-* Fix      - A member who blocked someone can unblock them from that member's Message link.
 * Fix      - The schedule tool shows only to members whose plan includes scheduling.
 * Fix      - A profile field that fails to save is announced to screen readers with its error.
-* Fix      - A fresh install no longer logs a database error on activation.
 * Fix      - The Explore header says 1 space, 1 member and 1 post instead of a plural.
 * Security - Followers-only and connections-only media no longer open to every member, and a privacy sync never widens a file.
 * Security - A pending follow is not a follow, and a private account stays out of discovery.
