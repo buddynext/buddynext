@@ -141,7 +141,7 @@ class AdvancedChoiceFieldSurvivesLabelEditTest extends WP_UnitTestCase {
 		$render = new \ReflectionMethod( \BuddyNext\Admin\Members\ProfileFieldsManager::class, 'options_to_textarea' );
 		$render->setAccessible( true );
 
-		$this->assertSame( "en\nhi", $render->invoke( new \BuddyNext\Admin\Members\ProfileFieldsManager(), self::LEGACY ) );
+		$this->assertSame( "en|English\nhi|Hindi", $render->invoke( new \BuddyNext\Admin\Members\ProfileFieldsManager(), self::LEGACY ) );
 	}
 
 	/**
@@ -152,17 +152,45 @@ class AdvancedChoiceFieldSurvivesLabelEditTest extends WP_UnitTestCase {
 	public function test_a_label_only_save_keeps_the_stored_choices(): void {
 		$field_id = $this->seed_field();
 
-		$this->assertEquals( self::LEGACY, $this->save_edit( $field_id, "en\r\nhi" ), 'A label edit rewrote or wiped the choices.' );
+		$this->assertEquals( self::LEGACY, $this->save_edit( $field_id, "en|English\r\nhi|Hindi" ), 'A label edit rewrote or wiped the choices.' );
 	}
 
 	/**
-	 * Negative case: a real edit of the list wins, and the old `choices` key cannot shadow it.
+	 * Negative case: a real edit wins, keeps every label, and no stale `choices` key can shadow it.
 	 *
 	 * @return void
 	 */
-	public function test_an_edited_list_replaces_the_choices(): void {
+	public function test_an_edited_list_replaces_the_choices_and_keeps_labels(): void {
 		$field_id = $this->seed_field();
 
-		$this->assertSame( array( 'en', 'hi', 'fr' ), $this->save_edit( $field_id, "en\r\nhi\r\nfr" ) );
+		$this->assertEquals(
+			array(
+				array(
+					'value' => 'en',
+					'label' => 'English',
+				),
+				array(
+					'value' => 'hi',
+					'label' => 'Hindi',
+				),
+				array(
+					'value' => 'fr',
+					'label' => 'fr',
+				),
+			),
+			$this->save_edit( $field_id, "en|English\r\nhi|Hindi\r\nfr" )
+		);
+	}
+
+	/**
+	 * A plain list with no labels still saves as plain strings, byte-identical to before.
+	 *
+	 * @return void
+	 */
+	public function test_a_plain_list_still_saves_as_strings(): void {
+		$parse = new \ReflectionMethod( \BuddyNext\Admin\Members\ProfileFieldsManager::class, 'parse_options_textarea' );
+		$parse->setAccessible( true );
+
+		$this->assertSame( array( 'Red', 'Blue' ), $parse->invoke( new \BuddyNext\Admin\Members\ProfileFieldsManager(), "Red\r\nBlue" ) );
 	}
 }

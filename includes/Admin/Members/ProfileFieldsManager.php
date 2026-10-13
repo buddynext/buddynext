@@ -835,14 +835,20 @@ class ProfileFieldsManager {
 	/**
 	 * Parse a textarea of options (one per line) into an array, or null if empty.
 	 *
-	 * Each non-blank line becomes one option value. Blank lines are ignored.
+	 * Each non-blank line becomes one option value. Blank lines are ignored. A box
+	 * holding any "value|Label" line is read as value/label pairs instead, so a
+	 * choice whose label differs from its stored value keeps both.
 	 *
 	 * @param string $raw Sanitized textarea content.
-	 * @return array<int,string>|null Array of option strings, or null when input is blank.
+	 * @return array<int,mixed>|null Option strings (or value/label pairs), or null when input is blank.
 	 */
 	private function parse_options_textarea( string $raw ): ?array {
 		if ( '' === trim( $raw ) ) {
 			return null;
+		}
+
+		if ( false !== strpos( $raw, '|' ) ) {
+			return $this->parse_choice_pairs( $raw );
 		}
 
 		$lines = array_values(
@@ -909,12 +915,13 @@ class ProfileFieldsManager {
 				continue;
 			}
 
-			// Defensive: a legacy row storing value/label pairs in the integer
-			// range. Emit the VALUE only — parse_options_textarea() treats a whole
-			// line as the option string, so emitting "value|label" would store that
-			// literal text as the option and corrupt the field on the next save.
+			// A value/label pair. Emit "value|Label" only when the label differs, so
+			// members' stored answers (the value) and the label both survive an edit;
+			// parse_options_textarea() reads that line back as the same pair.
 			if ( is_array( $option ) && isset( $option['value'] ) && is_scalar( $option['value'] ) ) {
-				$lines[] = (string) $option['value'];
+				$value   = (string) $option['value'];
+				$label   = isset( $option['label'] ) && is_scalar( $option['label'] ) ? (string) $option['label'] : $value;
+				$lines[] = $label === $value ? $value : $value . '|' . $label;
 			}
 		}
 
@@ -1300,7 +1307,7 @@ class ProfileFieldsManager {
 		// box rendered blank), so keep the stored list and only merge the new per-type config.
 		$stored_opts = json_decode( (string) ( $stored_row['options'] ?? '' ), true );
 		$stored_opts = is_array( $stored_opts ) ? $stored_opts : array();
-		if ( ! empty( $stored_opts['choices'] ) && in_array( $type, self::choice_types(), true )
+		if ( ! empty( $stored_opts ) && in_array( $type, self::choice_types(), true )
 			&& $this->parse_options_textarea( sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) ) ) === $this->parse_options_textarea( $this->options_to_textarea( $stored_opts ) ) ) {
 			$kept        = array_filter( $stored_opts, static fn( $k ) => is_int( $k ) || 'choices' === $k, ARRAY_FILTER_USE_KEY );
 			$parsed_opts = array_merge( $kept, (array) $pro_opts );
