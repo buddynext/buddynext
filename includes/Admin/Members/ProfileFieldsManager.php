@@ -890,6 +890,12 @@ class ProfileFieldsManager {
 	private function options_to_textarea( array $options ): string {
 		$lines = array();
 
+		// A `choices` list (the shape 1.2.4 advanced fields saved) is what
+		// FieldType::choices() serves to members, so it is what the owner must see.
+		if ( ! empty( $options['choices'] ) && is_array( $options['choices'] ) ) {
+			$options = $options['choices'];
+		}
+
 		foreach ( $options as $key => $option ) {
 			// Pro's per-type configuration is string-keyed — skip it. Printing it
 			// here is what leaked "Array", the trigger value and the unit into the
@@ -1287,6 +1293,17 @@ class ProfileFieldsManager {
 			$parsed_opts = is_array( $parsed_opts )
 				? array_merge( $parsed_opts, $pro_opts )
 				: $pro_opts;
+		}
+
+		// An untouched Options box means "leave the choices alone". Parsing it back
+		// would flatten a stored `choices` list (and replace it with null when the
+		// box rendered blank), so keep the stored list and only merge the new per-type config.
+		$stored_opts = json_decode( (string) ( $stored_row['options'] ?? '' ), true );
+		$stored_opts = is_array( $stored_opts ) ? $stored_opts : array();
+		if ( ! empty( $stored_opts['choices'] ) && in_array( $type, self::choice_types(), true )
+			&& $this->parse_options_textarea( sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) ) ) === $this->parse_options_textarea( $this->options_to_textarea( $stored_opts ) ) ) {
+			$kept        = array_filter( $stored_opts, static fn( $k ) => is_int( $k ) || 'choices' === $k, ARRAY_FILTER_USE_KEY );
+			$parsed_opts = array_merge( $kept, (array) $pro_opts );
 		}
 
 		$is_required = isset( $_POST['is_required'] ) ? 1 : 0;
