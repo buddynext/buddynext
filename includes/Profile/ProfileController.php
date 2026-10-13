@@ -1530,15 +1530,7 @@ class ProfileController extends BaseRestController {
 			//
 			// wp_http_validate_url() stays where the server genuinely does the
 			// fetching (outbound webhooks, avatar-by-URL). Not here.
-			$parts  = wp_parse_url( $candidate );
-			$scheme = is_array( $parts ) ? strtolower( (string) ( $parts['scheme'] ?? '' ) ) : '';
-			$host   = is_array( $parts ) ? (string) ( $parts['host'] ?? '' ) : '';
-
-			if ( ! filter_var( $candidate, FILTER_VALIDATE_URL )
-				|| ! in_array( $scheme, array( 'http', 'https' ), true )
-				|| '' === $host
-				|| ! str_contains( $host, '.' )
-			) {
+			if ( ! \BuddyNext\Profile\FieldType::is_web_url( $candidate ) ) {
 				$errors[ $url_key ] = __( 'Enter a valid URL (https://example.com).', 'buddynext' );
 			}
 		}
