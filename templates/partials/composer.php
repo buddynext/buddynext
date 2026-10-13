@@ -81,6 +81,10 @@ if ( buddynext_feature_enabled( 'announcements' ) ) {
 // PostService::can_gate_post(): a site admin may paywall any post; a space
 // owner/moderator may paywall posts in their space. A plain author cannot, so
 // the toggle is hidden for them rather than offered and then ignored.
+// A member who may not schedule (a plan without it) never sees the control the
+// server would refuse.
+$composer_can_schedule = buddynext_feature_enabled( 'scheduled-posts' ) && buddynext_can( $composer_user_id, 'buddynext-feed/schedule-post' );
+
 $composer_can_gate = current_user_can( 'manage_options' );
 if ( ! $composer_can_gate && $composer_space && function_exists( 'buddynext_can' ) ) {
 	$composer_can_gate = (bool) buddynext_can(
@@ -384,6 +388,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				aria-label="<?php esc_attr_e( 'Poll end date and time', 'buddynext' ); ?>">
 		</div>
 
+		<?php if ( $composer_can_schedule ) : ?>
 		<div class="bn-composer__schedule"
 			hidden
 			data-wp-bind--hidden="state.isNotScheduled">
@@ -417,6 +422,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				<?php buddynext_icon( 'x' ); ?>
 			</button>
 		</div>
+		<?php endif; ?>
 
 		<?php if ( $composer_can_announce ) : ?>
 		<div class="bn-composer__schedule"
@@ -508,7 +514,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			</button>
 			<?php endif; ?>
 
-			<?php if ( buddynext_feature_enabled( 'scheduled-posts' ) ) : ?>
+			<?php if ( $composer_can_schedule ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-bind--aria-pressed="state.isScheduled"

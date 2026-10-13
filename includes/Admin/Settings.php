@@ -3602,7 +3602,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			<?php if ( array() === $bn_recent ) : ?>
 				<p class="bn-field-hint"><?php esc_html_e( 'No requests yet. Requests show here as they arrive, newest first.', 'buddynext' ); ?></p>
 			<?php else : ?>
-				<?php // The admin table contract: column-primary first, data-colname on the rest, so phones get cards. ?>
+				<?php // The admin table contract: column-primary first, data-colname on the rest, so phones get cards; the scroll wrapper keeps every column reachable on a tablet. ?>
+				<div class="bn-table-wrap__scroll">
 				<table class="bn-table">
 					<thead>
 						<tr>
@@ -3632,6 +3633,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+				</div>
 			<?php endif; ?>
 		</div>
 		<?php
