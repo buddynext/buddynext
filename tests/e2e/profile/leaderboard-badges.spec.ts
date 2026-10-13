@@ -77,8 +77,6 @@ test('J-814 the hero rank label names the selected period', async ({ page }) => 
 });
 
 test('J-815 a badge link lands on the badge, and tiles link only where they open', async ({ page }) => {
-    // Known defect: visitors get links to badge pages that redirect to login. Basecamp card 10393921605.
-    test.fail(true, 'card 10393921605: visitor badge links redirect to login');
     await loginAs(page, memberLogin);
     await page.goto(`${profilePath}achievements/#badge-${badgeId}`);
     const tile = page.locator(`li#badge-${badgeId}`);
