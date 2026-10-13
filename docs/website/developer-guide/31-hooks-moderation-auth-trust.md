@@ -278,6 +278,10 @@ Narrower hooks around report handling, the sign-up and login screens, and onboar
 
 ## Examples
 
+> **Runnable snippet:** a site that keeps its own or a third-party login and sign-up pages (`buddynext_owns_core_auth_links`, `buddynext_signup_url`) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `auth/use-your-own-login-and-signup-pages.php`. Its header says what to change and how it was checked.
+
+> **Runnable snippet:** keeping the spaces directory listing open to guests on a private community, and only that (`buddynext_private_community_public_hub`) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `private-community/open-a-page-to-guests.php`. Its header says what to change and how it was checked.
+
 ### Add a custom safeguard via `buddynext_safeguard_check`
 
 The example below blocks any post that contains more than two links, on top of BuddyNext's built-in checks. Because the filter runs on both create and edit, this rule applies to edited posts too.
