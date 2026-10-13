@@ -952,7 +952,7 @@ class ModerationQueue {
 		);
 		?>
 		<div class="bn-toolbar bn-modlog-toolbar">
-			<form method="get" class="bn-modlog-filters">
+			<form method="get" class="bn-modlog-filters bn-filter-bar">
 				<?php // Preserve the admin page/tab routing so the filtered view stays on this tab. ?>
 				<?php // phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only routing params, sanitized here and escaped at output. ?>
 				<?php foreach ( array( 'page', 'tab' ) as $bn_keep ) : ?>
@@ -961,7 +961,10 @@ class ModerationQueue {
 					<?php endif; ?>
 				<?php endforeach; ?>
 				<?php // phpcs:enable WordPress.Security.NonceVerification.Recommended ?>
-				<select name="log_action" class="bn-select" aria-label="<?php esc_attr_e( 'Filter by action', 'buddynext' ); ?>">
+				<?php // Each filter has a visible label: placeholders vanish once typed into and clipped at narrow widths. ?>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Action', 'buddynext' ); ?></span>
+				<select name="log_action" class="bn-select">
 					<option value=""><?php esc_html_e( 'All actions', 'buddynext' ); ?></option>
 					<?php foreach ( $actions as $bn_slug => $bn_label ) : ?>
 						<?php if ( isset( $aliased_out[ $bn_slug ] ) ) : ?>
@@ -970,10 +973,23 @@ class ModerationQueue {
 						<option value="<?php echo esc_attr( $bn_slug ); ?>" <?php selected( $cur_action, $bn_slug ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>
 				</select>
-				<input type="number" name="log_actor" class="bn-input" min="0" value="<?php echo esc_attr( $cur_actor ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Moderator ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by moderator (actor) ID', 'buddynext' ); ?>">
-				<input type="number" name="log_target" class="bn-input" min="0" value="<?php echo esc_attr( $cur_target ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Target member ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by target member ID', 'buddynext' ); ?>">
-				<input type="number" name="log_space" class="bn-input" min="0" value="<?php echo esc_attr( $cur_space ?: '' ); ?>" placeholder="<?php esc_attr_e( 'Space ID', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Filter by space ID', 'buddynext' ); ?>">
-				<input type="date" name="log_since" class="bn-input" value="<?php echo esc_attr( $cur_since ); ?>" aria-label="<?php esc_attr_e( 'Show entries since', 'buddynext' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Moderator ID', 'buddynext' ); ?></span>
+					<input type="number" name="log_actor" class="bn-input" min="0" value="<?php echo esc_attr( $cur_actor ?: '' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Target member ID', 'buddynext' ); ?></span>
+					<input type="number" name="log_target" class="bn-input" min="0" value="<?php echo esc_attr( $cur_target ?: '' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Space ID', 'buddynext' ); ?></span>
+					<input type="number" name="log_space" class="bn-input" min="0" value="<?php echo esc_attr( $cur_space ?: '' ); ?>">
+				</label>
+				<label class="bn-modlog-field">
+					<span class="bn-label"><?php esc_html_e( 'Show entries since', 'buddynext' ); ?></span>
+					<input type="date" name="log_since" class="bn-input" value="<?php echo esc_attr( $cur_since ); ?>">
+				</label>
 				<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Filter', 'buddynext' ); ?></button>
 			</form>
 			<div class="bn-modlog-actions">

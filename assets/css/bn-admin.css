@@ -658,6 +658,55 @@
 	}
 }
 
+/* Moderation Log toolbar: a filter-bar whose controls carry a visible label above
+   them, bottom-aligned with the Filter button, and Export / Run now pinned to the
+   right of the row instead of wrapping underneath it. */
+/* .bn-toolbar (later in this file, same specificity) sets display:flex; the
+   doubled class is what lets the grid win. */
+.bn-toolbar.bn-modlog-toolbar {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) auto;
+	align-items: end;
+	gap: var(--bn-a-s3);
+}
+
+.bn-modlog-toolbar .bn-filter-bar {
+	align-items: flex-end;
+	margin-bottom: 0;
+}
+
+.bn-modlog-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s1);
+}
+
+.bn-modlog-field .bn-label {
+	margin-bottom: 0;
+}
+
+.bn-modlog-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
+@media screen and ( max-width: 782px ) {
+
+	.bn-toolbar.bn-modlog-toolbar {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	/* Undo the desktop bottom-alignment, or each label shrink-wraps its control. */
+	.bn-modlog-toolbar .bn-filter-bar {
+		align-items: stretch;
+	}
+
+	.bn-ss-body .bn-filter-bar .bn-modlog-field input.bn-input {
+		width: 100%;
+	}
+}
+
 .bn-settings-section .bn-ss-body .bn-field-hint,
 .bn-settings-section .bn-ss-body p.description {
 	max-width: 72ch;
