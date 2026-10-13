@@ -125,6 +125,8 @@ Narrower hooks around announcements, members-only posts, the feed templates, and
 | `buddynext_reaction_choices` | filter | The Engagement settings build the list of reactions the owner can switch on: the built-in six plus any an extension adds. `buddynext_reaction_types` then receives the owner's pick. | `string[] $types` |
 | `buddynext_feed_viewer_state_primed` | action | Core viewer state has been primed for a page of feed items, so an add-on can batch-load its own per-author data in one query. | `array $items, int $viewer_id` |
 
+> **Runnable snippet:** letting another membership plugin decide who reads members-only posts (`buddynext_members_only_has_access`, `buddynext_members_only_cta`) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `membership/unlock-members-only-posts-with-another-plugin.php`. Its header says what to change and how it was checked.
+
 ### Feed templates
 
 | Hook | Type | Fired when | Parameters |
