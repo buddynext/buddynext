@@ -74,7 +74,13 @@ final class StateReset implements BeforeTestHook {
 		),
 		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
 		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
-		\BuddyNext\Core\PermissionService::class          => array( 'role_map_cache' => null ),
+		// The hard-ban memo, and its "forget on ban/unban" hooks: the suite resets hooks
+		// between tests, so the flag must reset too or later tests read a stale ban.
+		\BuddyNext\Core\PermissionService::class          => array(
+			'role_map_cache'  => null,
+			'hard_ban_memo'   => array(),
+			'ban_memo_hooked' => false,
+		),
 		// Image addresses resolved from disk, remembered for one request.
 		\BuddyNext\Media\ImageStorageService::class      => array( 'url_memo' => array() ),
 		// Both report-reason memos: the slug list and its labels. Each applies a

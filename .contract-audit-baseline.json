@@ -455,6 +455,31 @@
       "id": "option-read-never-written:buddynext_isolation_keep",
       "reason": "Advanced owner/host keep-alive allow-list merged into the front-end isolation whitelist (PluginIsolation::owner_keep_list, consumed at :461/:596/:628). Safe empty default — security plugins are always kept via active_security_kept(), so nothing breaks when unset. Sibling IsolationAdmin persists OPTION_STRIP/OPTION_ENABLED but has no keep-list field yet; set via update_option/wp-cli today. Known gap tracked on Basecamp for a keep-list admin control — not a wrong key or crash.",
       "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_integration_reindex",
+      "reason": "Background job: fired by Action Scheduler (as_enqueue_async_action) or WP-Cron through SearchIndexListener::INTEGRATION_REINDEX_HOOK; the scanner cannot follow the class constant. Verified 1.2.5 release gate. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_jetonomy_copy_forum_members",
+      "reason": "Background job: scheduled via JetonomyBridge::COPY_MEMBERS_HOOK (Action Scheduler, WP-Cron fallback); the scanner cannot follow the class constant. Verified 1.2.5 release gate. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_jetonomy_repair_anonymous",
+      "reason": "Background job: scheduled via JetonomyBridge::REPAIR_ANONYMOUS_HOOK (Action Scheduler, WP-Cron fallback); the scanner cannot follow the class constant. Verified 1.2.5 release gate. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_prune_replaced_image",
+      "reason": "Background job: scheduled via ImageStorageService::PRUNE_HOOK (as_schedule_single_action, WP-Cron fallback); the scanner cannot follow the class constant. Verified 1.2.5 release gate. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_reconcile_media_privacy",
+      "reason": "Background job: MediaPrivacyRepairCommand::HOOK, scheduled from WPMediaVerseBridge (as_enqueue_async_action, WP-Cron fallback); the scanner cannot follow the class constant. Verified 1.2.5 release gate. False positive.",
+      "severity": "error"
     }
   ]
 }
