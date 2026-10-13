@@ -66,7 +66,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Pin a post to a profile, or pin a comment on a post? | YES | `PostService::pin()`/`unpin()` (profile-only, capped by the `buddynext_post_pin_limit` filter, default 1); `CommentController::pin()`/`unpin()` caps one pinned top-level comment per object via `bn_pinned_comment_*` option |
 | Bookmark and reshare posts? | YES | `bn_bookmarks`, `bn_shares`. 1.1.7: Save in the media lightbox bookmarks the POST the photo belongs to, so it lands in the same saved list as Save on the feed card - it previously wrote a WPMediaVerse Pro collection, a different store behind an identical icon. Reactions left in the lightbox likewise apply to the post and are counted once |
 | Follow people, and connect mutually? | YES | `bn_follows` (follow) and `bn_connections` (request/accept) are separate graphs |
-| Block another member? | YES | `bn_blocks`; enforced on feed, comments and DM |
+| Block another member? | YES | `bn_blocks`; enforced on feed, comments and DM. A blocked DM turns read-only, and the member who blocked can Unblock from the thread, its info panel or the other member's Message link |
 | Mute a member's posts without blocking them? | YES | `SocialGraph\BlockService::mute()`/`unmute()`; same `bn_blocks` table as Block, distinct `type = 'mute'` row - silences content without notifying the muted member, and never downgrades an existing block |
 | Restrict a member without them knowing? | YES | `SocialGraph\BlockService::restrict()`; `type = 'restrict'` row in `bn_blocks` - the restricted member keeps seeing the restrictor's profile/posts, but the effect is one-way and silent |
 | Group content into spaces? | YES | 32 `/spaces` routes, `bn_spaces` + `bn_space_members` + `bn_space_meta` |
