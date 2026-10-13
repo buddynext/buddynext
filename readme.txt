@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.4
+Stable tag: 1.2.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -58,6 +58,52 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.5 - October 2026 =
+
+Plans you can sell through Make, Zapier or n8n, tighter blocks and space bans, readable colours on every theme, and a long list of fixes. Lockstep with BuddyNext Pro 1.2.5 - install and test both together.
+
+* New      - Select several notifications and delete them together.
+* New      - Linking an existing forum to a space brings its members across, once.
+* New      - Edit cover and Edit avatar are one click away on the profile.
+* New      - Signing up returns the visitor to the page they came from.
+* New      - The access webhook takes grant_plan, extend_plan and cancel_plan, so Make, Zapier or n8n can sell plans taken elsewhere (plans need BuddyNext Pro).
+* New      - The access webhook can create the account for a buyer who has none yet, off by default.
+* New      - The Webhooks screen shows the endpoint, a request to copy and the last ten inbound requests.
+* Improve  - Joining a space turns on notifications for its new posts by default.
+* Improve  - The new-follower email names the follower.
+* Improve  - Search Date and Sort filters work, results link where they should, and filters show only when applied.
+* Improve  - Trending Topics counts the posts in its window.
+* Improve  - Moderation holds the daily work and Automation holds what is set once.
+* Improve  - Warnings and strikes carry a reason, and administrators can resolve appeals.
+* Improve  - Badges, state labels, letter avatars and small text are readable on every theme, light and dark.
+* Improve  - Digests reach members on default preferences, follow each type's frequency and stop when switched off.
+* Improve  - A replaced avatar or cover gets a new file name, the old file is removed after a day, and deleting a member or space removes its images.
+* Improve  - Only a real page visit counts as a profile view.
+* Improve  - The Moderation Log filters have visible labels and fit on phones.
+* Improve  - The This week card reads its read rate as read (46%).
+* Fix      - Editing a Multi-select (advanced) field saved in 1.2.4 no longer empties or wipes its choices, and choice labels survive an edit.
+* Fix      - A member banned from a space can no longer comment, react, share, vote or bookmark there.
+* Fix      - A blocked conversation turns read-only for both members, and the member who blocked can unblock from it.
+* Fix      - Editing a post no longer makes its old hashtags count as new in Trending, and updating repairs the dates an earlier update changed.
+* Fix      - People to follow keeps saying Request sent after a reload on sites with an object cache.
+* Fix      - Website and other address fields refuse a bare word on every screen.
+* Fix      - Picking a space category no longer leaves All Spaces highlighted.
+* Fix      - A document on a post opens for whoever may read the post.
+* Fix      - Learnomy's private academy setting works again while BuddyNext is active.
+* Fix      - Old profile addresses keep working, and handles accept hyphens and underscores.
+* Fix      - Notification counters follow deletes, and bulk Hide and Restore count real changes.
+* Fix      - The Registration and Login redirect hints show the current wording.
+* Fix      - The spaces table can be created on MyISAM and older InnoDB hosts.
+* Security - Followers-only and connections-only media no longer open to every member, and a privacy sync never widens a file.
+* Security - A pending follow is not a follow, and a private account stays out of discovery.
+* Security - A member's moderation standing is shown to site staff only.
+* Security - The access webhook refuses a replayed or concurrent copy of a signed request, and role changes through it are off unless the owner allows them.
+* Security - Reports refuse a message or media id that does not exist.
+* Security - An account the access webhook creates is always a plain member, whatever the site's default role is set to.
+* Dev      - New filters buddynext_access_webhook_cancel_plan, buddynext_feed_image_variant, buddynext_integration_notification_payload and buddynext_trending_topics_hours, and the action buddynext_access_webhook_completed.
+* Dev      - The REST API reference is regenerated for 1.2.5.
+* Compat   - Tested with WPMediaVerse 2.6.2 and Jetonomy 2.0.1. Aligned with BuddyNext Pro 1.2.5. Install the updates together.
 
 = 1.2.4 - October 2026 =
 

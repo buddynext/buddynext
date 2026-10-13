@@ -236,11 +236,21 @@ class RegistrationService {
 			return $allowed;
 		}
 
+		// The site's default role, unless it carries staff powers: an account made
+		// from outside (the access webhook) is a member, never staff, whatever the
+		// default_role option was set to.
+		$role     = (string) get_option( 'default_role', 'subscriber' );
+		$role_obj = get_role( $role );
+		if ( ! $role_obj || $role_obj->has_cap( 'manage_options' ) || $role_obj->has_cap( 'edit_others_posts' )
+			|| $role_obj->has_cap( 'promote_users' ) || $role_obj->has_cap( 'edit_users' ) ) {
+			$role = 'subscriber';
+		}
+
 		$userdata = array(
 			'user_login' => wp_slash( self::unique_login( $email ) ),
 			'user_pass'  => wp_generate_password( 32, true, true ),
 			'user_email' => wp_slash( $email ),
-			'role'       => (string) get_option( 'default_role', 'subscriber' ),
+			'role'       => $role,
 			// Written before `user_register` fires, so the listeners see a
 			// confirmed address and send no "verify your email" on top of the
 			// set-password one.

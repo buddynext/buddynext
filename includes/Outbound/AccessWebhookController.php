@@ -524,7 +524,7 @@ class AccessWebhookController {
 	/**
 	 * Turn a plan action into the ability action it stands for.
 	 *
-	 * grant_plan and extend_plan are grant_ability "tier:<plan>" (extend_plan must
+	 * The grant_plan and extend_plan actions are grant_ability "tier:<plan>" (extend_plan must
 	 * say until when); cancel_plan "at_period_end": false is revoke_ability. A
 	 * period-end cancel stays cancel_plan, which needs the plan's own billing
 	 * period and is answered by Pro.
