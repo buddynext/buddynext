@@ -2512,6 +2512,10 @@ final class ResponseSchema {
 				'post_count'     => array(
 					'type' => 'integer',
 				),
+				'recent_count'   => array(
+					'type'        => 'integer',
+					'description' => 'Posts using the tag inside the trending window.',
+				),
 				'follower_count' => array(
 					'type' => 'integer',
 				),
