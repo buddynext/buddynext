@@ -2512,19 +2512,6 @@ class Installer {
 		// right; files already on the site are narrowed once, in the background.
 		\BuddyNext\Bridges\WPMediaVerseBridge::maybe_queue_privacy_repair();
 
-		// v68 also: the shipped Contributor badge moves to the readable shade on a
-		// site that still has the colour BuddyNext gave it. An owner's own colour
-		// is left alone (and its text is kept readable when it is printed).
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$wpdb->prefix . 'bn_member_types',
-			array( 'color' => '#1971c2' ),
-			array(
-				'slug'  => 'contributor',
-				'color' => '#1c7ed6',
-			)
-		);
-
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
 		//
@@ -2571,6 +2558,20 @@ class Installer {
 		// silently skip new columns — so we guard each add with an
 		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
 		self::maybe_alter_tables( $wpdb->prefix );
+
+		// v68 also: the shipped Contributor badge moves to the readable shade on a
+		// site that still has the colour BuddyNext gave it. An owner's own colour
+		// is left alone (and its text is kept readable when it is printed). After
+		// dbDelta, so a fresh install has the table before it is written to.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_member_types',
+			array( 'color' => '#1971c2' ),
+			array(
+				'slug'  => 'contributor',
+				'color' => '#1c7ed6',
+			)
+		);
 
 		// Widen indexes whose column set changed in a later schema. dbDelta only
 		// CREATES a missing index; it cannot alter one already present, so a widened
