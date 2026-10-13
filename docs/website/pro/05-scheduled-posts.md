@@ -55,7 +55,7 @@ The only switch is **Scheduled posts** in the Features catalogue (BuddyNext > Pl
 
 The queue is **paginated at 50 posts a page**, with a prev/next pager and the full count in the heading, so the screen stays usable on a community with thousands of posts waiting.
 
-> **Note:** Scheduling is a plan perk. If you have turned Memberships on **and** chosen a default plan, a member can schedule a post only if their plan grants Scheduled Posts (the shipped Free plan does not). With Memberships off (the default), every member can schedule. See Membership Plans.
+> **Note:** Scheduling is a plan perk. If you have turned Memberships on **and** chosen a default plan, a member can schedule a post only if their plan grants Scheduled Posts (the shipped Free plan does not). Members whose plan does not include it see no schedule clock in the composer. With Memberships off (the default), every member can schedule. See Membership Plans.
 
 ### How posts publish on time
 

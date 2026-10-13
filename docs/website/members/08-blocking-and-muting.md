@@ -30,7 +30,7 @@ Blocking is the strongest action. When you block someone:
 - Direct messages between the two of you are prevented.
 - They cannot follow you, and an existing follow relationship is cut off.
 
-Because blocking is a strong, hard-to-miss change, BuddyNext asks you to confirm in a short dialog before the block goes through. After you block someone, you can undo it later from your profile settings.
+Because blocking is a strong, hard-to-miss change, BuddyNext asks you to confirm in a short dialog before the block goes through. After you block someone, you can undo it later from your profile settings. A conversation with someone you blocked turns read-only for both of you and shows **You blocked** with an **Unblock** button, and the **Message** link on their profile opens that same screen, so you can unblock without leaving it.
 
 > **Note:** Blocking is mutual in effect - once you block a person, the wall sits between both of you, not just on your side.
 
