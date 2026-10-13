@@ -156,6 +156,9 @@ With it on, a request that names an email address with no account creates the me
 | `add_credits` | Add `amount` to the user's credit balance |
 | `set_credits` | Replace the user's credit balance with `amount` |
 | `deduct_credits` | Subtract `amount` (floors at 0) |
+| `grant_plan` | Give a membership plan: `plan` is the plan's slug. The same as `grant_ability` with `tier:<plan>`, with the same expiry rules (BuddyNext Pro) |
+| `extend_plan` | Move a plan's end date: `plan` and a new `expires_at` (required). A plan cancelled at period end becomes active again (BuddyNext Pro) |
+| `cancel_plan` | End a plan at the end of the period the member already has (default), or now with `"at_period_end": false` (BuddyNext Pro) |
 
 One secret authorises every action. A site that only sells plans can drop the rest:
 
@@ -183,6 +186,23 @@ Send an `idempotency_key` (the payment or order id is a good one) with any actio
 ### Plans (BuddyNext Pro)
 
 Grant a plan with the ability `tier:<plan slug>`. A repeat grant extends the member's existing plan instead of creating a second one. `revoke_ability` ends every live row of that plan; when the plan is billed by a gateway on this site (Stripe, PayPal) the gateway is asked to stop billing first, and a refusal raises a billing alert for the owner.
+
+#### Plan actions
+
+`grant_plan`, `extend_plan` and `cancel_plan` name what a payment tool does, so a Make or Zapier scenario does not have to build the `tier:<slug>` ability itself. They run through the same checks as the ability actions (signature, one request per member at a time, `idempotency_key`, member creation, the log), and a site that switched `grant_ability` off has switched `grant_plan` and `extend_plan` off too.
+
+- `grant_plan` and `extend_plan` answer like `grant_ability`, with `"action"` set to what you sent. `extend_plan` without `expires_at` answers 400 `missing_expires_at`; any plan action without `plan` answers 400 `missing_plan`.
+- `cancel_plan` keeps access until the plan's end date and stops it renewing: a plan billed by Stripe or PayPal on this site is cancelled with the provider first (as when the member cancels), a plan granted by your tool is simply set to end. It answers `{ "plan": "pro", "subscription_id": 318, "status": "cancelled", "access_until": "2027-01-31T23:59:59Z" }`. Repeating it changes nothing. A member without that plan answers 404 `no_plan`. With `"at_period_end": false` the plan ends now, exactly as `revoke_ability`.
+
+Send the payment with a grant and it is kept on the member's plan, shown on Monetization > Subscriptions (for example "Order order-1001 · $19.00"), so a payment can be matched to a member for support and refunds:
+
+| Field | Rule |
+|---|---|
+| `reference` | Your order or payment id, up to 191 characters |
+| `amount` | The amount paid, a number of 0 or more (400 `invalid_amount` otherwise) |
+| `currency` | Three-letter code such as `USD` (400 `invalid_currency` otherwise) |
+
+The latest grant's values are kept. They are not counted as revenue (BuddyNext did not take the money), and a plan billed here keeps its own provider's details.
 
 Send `"source": "make"`, `"zapier"` or `"n8n"` and the plan is recorded as coming from that tool. These are declared by default as non-billing sources, so the plan stays out of this site's revenue figures (the other system took the payment). Any other source must be declared through `buddynextpro_integration_subscription_sources`; an undeclared one is recorded as `manual`.
 
@@ -226,6 +246,11 @@ A credit action answers with the new balance: `{ "success": true, "action": "add
 | `buddynext_access_webhook_pre_action` | `WP_Error|null $refusal, string $action, int $user_id, array $body` | Return a `WP_Error` to refuse an action before anything is written |
 | `buddynext_access_webhook_default_expiry` | `int $expires_ts, string $ability, int $user_id, array $body` | When a grant with no `expires_at` ends (Unix time, 0 for never) |
 | `buddynext_access_webhook_response` | `array $response, string $action, int $user_id, array $body` | Add to the success response |
+| `buddynext_access_webhook_cancel_plan` | `array|WP_Error|null $result, int $user_id, string $ability, array $body` | Answer a period-end `cancel_plan` (BuddyNext Pro does); null means plans are not available (501) |
+
+Action `buddynext_access_webhook_completed( string $action, int $user_id, array $body, array $response )` fires after an action succeeded (not on a replayed retry); BuddyNext Pro uses it to keep the payment fields.
+
+The Webhooks screen shows the endpoint address, a request to copy as a starting point, and the last ten requests with what was asked, for whom, from which tool and whether it was done.
 
 ## Notes / gotchas
 

@@ -77,6 +77,35 @@ class WebhookLog {
 	}
 
 	/**
+	 * The latest access webhook requests, newest first, for the Webhooks screen.
+	 *
+	 * @param int $limit How many rows (1 to 50).
+	 * @return array<int,array<string,mixed>> Rows: id, source, action, requested (the action the
+	 *                                         caller sent, e.g. grant_plan), user_id, status, created_at (UTC).
+	 */
+	public static function recent( int $limit = 10 ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, source, action, user_id, status, payload, created_at FROM {$wpdb->prefix}bn_webhook_log ORDER BY id DESC LIMIT %d",
+				max( 1, min( 50, $limit ) )
+			),
+			ARRAY_A
+		);
+
+		foreach ( $rows as &$row ) {
+			$payload          = json_decode( (string) $row['payload'], true );
+			$row['requested'] = is_array( $payload ) && is_string( $payload['action'] ?? null ) ? sanitize_key( $payload['action'] ) : (string) $row['action'];
+			unset( $row['payload'] );
+		}
+		unset( $row );
+
+		return $rows;
+	}
+
+	/**
 	 * Record one access-management call.
 	 *
 	 * Pro and third-party bridges call this rather than touching the table:

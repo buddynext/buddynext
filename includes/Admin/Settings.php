@@ -3562,6 +3562,80 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			(bool) get_option( \BuddyNext\Outbound\AccessWebhookController::OPT_CREATE_MEMBERS, false )
 		);
 
+		// What an owner connecting Make, Zapier or n8n needs on one screen: where to
+		// send, a request to start from, and what arrived.
+		$bn_endpoint = rest_url( 'buddynext/v1/webhook/access' );
+		$bn_example  = '{
+  "action": "grant_plan",
+  "user_email": "member@example.com",
+  "plan": "pro",
+  "expires_at": "2026-12-31T23:59:59Z",
+  "reference": "order-1001",
+  "amount": 19.00,
+  "currency": "USD",
+  "source": "make",
+  "idempotency_key": "order-1001"
+}';
+		?>
+		<div class="bn-field">
+			<label for="bn-webhook-endpoint"><?php esc_html_e( 'Endpoint', 'buddynext' ); ?></label>
+			<div class="bn-copy-row">
+				<input type="text" id="bn-webhook-endpoint" class="bn-input" readonly value="<?php echo esc_attr( $bn_endpoint ); ?>">
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-copy="bn-webhook-endpoint"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+			</div>
+			<p class="bn-field-hint"><?php esc_html_e( 'POST JSON here. Sign "{timestamp}.{body}" with HMAC-SHA256 and the shared secret, then send the timestamp in X-BuddyNext-Timestamp and the hex signature in X-BuddyNext-Signature. Make and Zapier can do this with their built-in functions.', 'buddynext' ); ?></p>
+		</div>
+		<div class="bn-field">
+			<label for="bn-webhook-example"><?php esc_html_e( 'Example: give a plan after a payment', 'buddynext' ); ?></label>
+			<textarea id="bn-webhook-example" class="bn-input" rows="11" readonly spellcheck="false"><?php echo esc_textarea( $bn_example ); ?></textarea>
+			<div class="bn-copy-row">
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-copy="bn-webhook-example"><?php esc_html_e( 'Copy example', 'buddynext' ); ?></button>
+			</div>
+			<p class="bn-field-hint"><?php esc_html_e( 'Use extend_plan with a new expires_at when a renewal is paid, and cancel_plan when the buyer cancels (access lasts to the end of the period; send "at_period_end": false to end it now). reference, amount and currency are kept on the member\'s plan so you can match the payment; they are not counted as revenue. Plans need BuddyNext Pro.', 'buddynext' ); ?></p>
+		</div>
+		<?php
+		$bn_recent = \BuddyNext\Outbound\WebhookLog::recent( 10 );
+		cache_users( array_filter( array_map( static fn( $r ) => (int) $r['user_id'], $bn_recent ) ) );
+		?>
+		<div class="bn-field">
+			<span class="bn-label"><?php esc_html_e( 'Recent requests', 'buddynext' ); ?></span>
+			<?php if ( array() === $bn_recent ) : ?>
+				<p class="bn-field-hint"><?php esc_html_e( 'No requests yet. Requests show here as they arrive, newest first.', 'buddynext' ); ?></p>
+			<?php else : ?>
+				<?php // The admin table contract: column-primary first, data-colname on the rest, so phones get cards. ?>
+				<table class="bn-table">
+					<thead>
+						<tr>
+							<th scope="col" class="column-primary"><?php esc_html_e( 'When', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Action', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'From', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Result', 'buddynext' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $bn_recent as $bn_row ) : ?>
+							<?php $bn_member = get_userdata( (int) $bn_row['user_id'] ); ?>
+							<tr>
+								<td class="column-primary">
+									<?php echo esc_html( get_date_from_gmt( (string) $bn_row['created_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?>
+									<button type="button" class="toggle-row">
+										<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+										<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+									</button>
+								</td>
+								<td data-colname="<?php esc_attr_e( 'Action', 'buddynext' ); ?>"><code><?php echo esc_html( (string) $bn_row['requested'] ); ?></code></td>
+								<td data-colname="<?php esc_attr_e( 'Member', 'buddynext' ); ?>"><?php echo esc_html( (int) $bn_row['user_id'] <= 0 ? '-' : ( $bn_member ? $bn_member->display_name : __( 'Removed member', 'buddynext' ) ) ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'From', 'buddynext' ); ?>"><?php echo esc_html( '' !== (string) $bn_row['source'] ? (string) $bn_row['source'] : '-' ); ?></td>
+								<td data-colname="<?php esc_attr_e( 'Result', 'buddynext' ); ?>"><span class="bn-badge" data-tone="<?php echo 'success' === (string) $bn_row['status'] ? 'success' : 'danger'; ?>"><?php echo 'success' === (string) $bn_row['status'] ? esc_html__( 'Done', 'buddynext' ) : esc_html__( 'Refused', 'buddynext' ); ?></span></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
+		</div>
+		<?php
+
 		$this->close_section();
 
 		$this->render_webhook_endpoints();

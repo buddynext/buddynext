@@ -15,6 +15,10 @@
  *   add_credits    — Add to the user's credit balance.
  *   set_credits    — Replace the user's credit balance.
  *   deduct_credits — Subtract from the balance (floors at 0).
+ *   grant_plan     — Give a membership plan: shorthand for grant_ability "tier:<plan>".
+ *   extend_plan    — Move a plan's end date: grant_plan with a required expires_at.
+ *   cancel_plan    — End a plan at the end of its period (at_period_end, default),
+ *                    or at once with "at_period_end": false. Plans need BuddyNext Pro.
  *
  * Every call is written to bn_webhook_log for auditing.
  *
@@ -85,6 +89,15 @@ class AccessWebhookController {
 
 		$action = sanitize_key( $body['action'] ?? '' );
 
+		// Plan words for no-code tools, run through the ability actions underneath so
+		// every guard (lock, idempotency, member creation, logging) applies to them.
+		$requested    = $action;
+		$plan_request = self::plan_shorthand( $action, $body );
+		if ( $plan_request instanceof WP_Error ) {
+			return $plan_request;
+		}
+		list( $action, $body ) = $plan_request;
+
 		/**
 		 * Filters the actions the access webhook accepts.
 		 *
@@ -99,13 +112,16 @@ class AccessWebhookController {
 		$allowed = (array) apply_filters( 'buddynext_access_webhook_actions', self::default_actions() );
 
 		$this->role_changes_allowed = in_array( 'set_role', $allowed, true );
-		if ( in_array( $action, self::ACTIONS, true ) && ! in_array( $action, $allowed, true ) ) {
+		// Both the action asked for and the one it runs as must be allowed: a site
+		// that switched grant_ability off has switched plan grants off too.
+		$refused = ! in_array( $requested, $allowed, true ) ? $requested : ( ! in_array( $action, $allowed, true ) ? $action : '' );
+		if ( '' !== $refused && in_array( $refused, self::ACTIONS, true ) ) {
 			return new WP_Error(
 				'action_not_allowed',
-				'set_role' === $action
+				'set_role' === $refused
 					? __( 'Role changes from outside are switched off on this site. An administrator can allow them under Platform, Webhooks.', 'buddynext' )
 					/* translators: %s: action name */
-					: sprintf( __( 'The action "%s" is switched off on this site.', 'buddynext' ), $action ),
+					: sprintf( __( 'The action "%s" is switched off on this site.', 'buddynext' ), $refused ),
 				array( 'status' => 403 )
 			);
 		}
@@ -188,6 +204,11 @@ class AccessWebhookController {
 			}
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		}
+
+		if ( is_array( $response ) ) {
+			// Answer with the action the caller sent (grant_plan, not grant_ability).
+			$response['action'] = $requested;
 		}
 
 		return $response instanceof WP_Error ? $response : new WP_REST_Response( $response, 200 );
@@ -347,7 +368,7 @@ class AccessWebhookController {
 	/**
 	 * The actions this endpoint knows.
 	 */
-	private const ACTIONS = array( 'set_role', 'grant_ability', 'revoke_ability', 'add_credits', 'set_credits', 'deduct_credits' );
+	private const ACTIONS = array( 'set_role', 'grant_ability', 'revoke_ability', 'add_credits', 'set_credits', 'deduct_credits', 'grant_plan', 'extend_plan', 'cancel_plan' );
 
 	/**
 	 * How long an idempotency key is remembered.
@@ -375,7 +396,7 @@ class AccessWebhookController {
 		// adds per attempt. The same key with the same ask is a retry; the same key
 		// with a different ask is a mapping mistake in the sender and is refused,
 		// where it used to be answered as a retry and the new ask dropped.
-		$ask = md5( (string) wp_json_encode( array_intersect_key( $body, array_flip( array( 'role', 'ability', 'expires_at', 'lifetime', 'amount', 'source' ) ) ) ) );
+		$ask = md5( (string) wp_json_encode( array_intersect_key( $body, array_flip( array( 'role', 'ability', 'expires_at', 'lifetime', 'amount', 'source', 'at_period_end', 'currency', 'reference' ) ) ) ) );
 
 		if ( '' !== $transient ) {
 			$earlier = get_transient( $transient );
@@ -455,6 +476,20 @@ class AccessWebhookController {
 		 */
 		$response = (array) apply_filters( 'buddynext_access_webhook_response', $response, $action, $user_id, $body );
 
+		/**
+		 * Fires after an access webhook action succeeded (not on a replayed retry).
+		 *
+		 * Pro records the payment facts an outside tool sent with a plan grant.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param string              $action   Action slug, after plan shorthand.
+		 * @param int                 $user_id  Member the request was about.
+		 * @param array               $body     Decoded request body.
+		 * @param array<string,mixed> $response What the caller is answered.
+		 */
+		do_action( 'buddynext_access_webhook_completed', $action, $user_id, $body, $response );
+
 		if ( '' !== $transient ) {
 			set_transient( $transient, $response + array( '_ask' => $ask ), self::IDEMPOTENCY_TTL );
 		}
@@ -476,6 +511,7 @@ class AccessWebhookController {
 			'grant_ability'  => $this->action_grant_ability( $user_id, $body ),
 			'revoke_ability' => $this->action_revoke_ability( $user_id, $body ),
 			'add_credits', 'set_credits', 'deduct_credits' => $this->action_credits( $action, $user_id, $body ),
+			'cancel_plan'    => $this->action_cancel_plan( $user_id, $body ),
 			default          => new WP_Error(
 				'unknown_action',
 				/* translators: %s: action name */
@@ -483,6 +519,72 @@ class AccessWebhookController {
 				array( 'status' => 400 )
 			),
 		};
+	}
+
+	/**
+	 * Turn a plan action into the ability action it stands for.
+	 *
+	 * grant_plan and extend_plan are grant_ability "tier:<plan>" (extend_plan must
+	 * say until when); cancel_plan "at_period_end": false is revoke_ability. A
+	 * period-end cancel stays cancel_plan, which needs the plan's own billing
+	 * period and is answered by Pro.
+	 *
+	 * @param string $action Requested action.
+	 * @param array  $body   Request body.
+	 * @return array{0:string,1:array}|WP_Error The action and body to run.
+	 */
+	private static function plan_shorthand( string $action, array $body ): array|WP_Error {
+		if ( ! in_array( $action, array( 'grant_plan', 'extend_plan', 'cancel_plan' ), true ) ) {
+			return array( $action, $body );
+		}
+
+		$plan = is_string( $body['plan'] ?? null ) ? sanitize_key( $body['plan'] ) : '';
+		if ( '' === $plan ) {
+			return new WP_Error( 'missing_plan', __( 'Send "plan" with the plan\'s slug.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+		if ( 'extend_plan' === $action && empty( $body['expires_at'] ) ) {
+			return new WP_Error( 'missing_expires_at', __( 'extend_plan needs "expires_at", the new end date.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+
+		$body['ability'] = 'tier:' . $plan;
+
+		if ( 'cancel_plan' !== $action ) {
+			return array( 'grant_ability', $body );
+		}
+
+		$at_period_end = array_key_exists( 'at_period_end', $body ) ? filter_var( $body['at_period_end'], FILTER_VALIDATE_BOOLEAN ) : true;
+
+		return array( $at_period_end ? 'cancel_plan' : 'revoke_ability', $body );
+	}
+
+	/**
+	 * End a plan at the end of the period the member already has.
+	 *
+	 * @param int   $user_id Member.
+	 * @param array $body    Request body (ability "tier:<plan>").
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private function action_cancel_plan( int $user_id, array $body ): array|WP_Error {
+		/**
+		 * Cancels a member's plan at the end of its period.
+		 *
+		 * Pro answers with what changed (plan, subscription, access end) or a
+		 * WP_Error; without Pro there are no plans to cancel.
+		 *
+		 * @since 1.2.5
+		 *
+		 * @param array|WP_Error|null $result  Null until a handler answers.
+		 * @param int                 $user_id Member.
+		 * @param string              $ability "tier:<plan>".
+		 * @param array               $body    Request body.
+		 */
+		$result = apply_filters( 'buddynext_access_webhook_cancel_plan', null, $user_id, (string) $body['ability'], $body );
+
+		if ( null === $result ) {
+			return new WP_Error( 'plans_unavailable', __( 'Membership plans need BuddyNext Pro.', 'buddynext' ), array( 'status' => 501 ) );
+		}
+
+		return $result instanceof WP_Error ? $result : (array) $result;
 	}
 
 	/**
