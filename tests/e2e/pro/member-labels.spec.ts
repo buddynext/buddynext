@@ -24,7 +24,9 @@ test.describe.configure({ mode: 'serial' });
 const MEMBER = 'bn_e2e_label_member';
 const ADMIN = process.env.BN_TEST_USER ?? 'varundubey';
 const LABEL_SLUG = 'e2e-vip';
-const LABEL_NAME = 'VIP';
+// Distinct from any real label: a site that already has a 'VIP' label showed two
+// matching choices and the locator could not pick one.
+const LABEL_NAME = 'E2E VIP';
 
 /** Run PHP through wp-cli and return trimmed stdout. */
 async function php(code: string): Promise<string> {
