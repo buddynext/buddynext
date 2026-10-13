@@ -973,7 +973,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'    => 'toggle',
 							'label'   => __( 'Allow members to delete their account', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Adds a "Delete account" option on member profile settings. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
+							'hint'    => __( 'Adds a "Delete account" option to the member Settings > Privacy page. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
 						)
 					),
 				)
@@ -3068,28 +3068,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		$this->open_section( __( 'Redirects', 'buddynext' ) );
 
-		$this->render_text_row(
+		// The three rows read their label and hint from fields_registration(), the
+		// one definition option registration and the settings search also use, so
+		// the wording cannot drift from it again.
+		$bn_redirect_keys = array(
 			\BuddyNext\Core\RedirectSettings::OPT_LOGIN,
-			__( 'After login', 'buddynext' ),
-			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGIN, '' ),
-			__( 'Where members go after logging in. Leave blank for the activity feed (default). A link a member was sent to (for example a gated page) always takes priority.', 'buddynext' )
-		);
-
-		$this->render_text_row(
 			\BuddyNext\Core\RedirectSettings::OPT_LOGOUT,
-			__( 'After logout', 'buddynext' ),
-			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGOUT, '' ),
-			// RedirectSettings::filter_logout_redirect() defaults a blank value to
-			// PageRouter::auth_url() — the branded login screen, not the home page.
-			__( 'Where members go after logging out. Leave blank for the login page (default), ready to sign back in.', 'buddynext' )
-		);
-
-		$this->render_text_row(
 			\BuddyNext\Core\RedirectSettings::OPT_ONBOARDING,
-			__( 'After onboarding', 'buddynext' ),
-			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, '' ),
-			__( 'Where new members go after finishing onboarding. Leave blank for the activity feed (default).', 'buddynext' )
 		);
+		foreach ( $this->fields_registration() as $bn_section ) {
+			foreach ( $bn_section->fields as $bn_field ) {
+				if ( in_array( $bn_field->key, $bn_redirect_keys, true ) ) {
+					$this->render_text_row( $bn_field->key, $bn_field->label, (string) get_option( $bn_field->key, '' ), $bn_field->hint );
+				}
+			}
+		}
 
 		$this->close_section();
 
