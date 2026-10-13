@@ -127,6 +127,20 @@ class PermissionService {
 	private static ?array $role_map_cache = null;
 
 	/**
+	 * Hard-ban answers for this request, keyed "space_id:user_id".
+	 *
+	 * @var array<string,bool>
+	 */
+	private static array $hard_ban_memo = array();
+
+	/**
+	 * Whether the hooks that forget $hard_ban_memo are registered.
+	 *
+	 * @var bool
+	 */
+	private static bool $ban_memo_hooked = false;
+
+	/**
 	 * The capability → required-role map, filterable via buddynext_role_map.
 	 *
 	 * Composes with the layer-4 buddynext_user_can filter: this map sets the
@@ -460,21 +474,34 @@ class PermissionService {
 	public function is_space_banned( int $user_id, int $space_id ): bool {
 		global $wpdb;
 
-		// Hard ban (bn_space_bans) is left as a direct query on purpose: it is a
-		// security gate with no existing cache + invalidation, so correctness wins
-		// over shaving one query — there must be no window where a stale cache
-		// reports a banned user as allowed.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$ban_count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_bans
-				 WHERE space_id = %d AND user_id = %d",
-				$space_id,
-				$user_id
-			)
-		);
+		// Hard ban (bn_space_bans) is never put in the object cache: it is a
+		// security gate, and a persistent cache could report a banned user as
+		// allowed. It is remembered for this request only, so a feed of posts from
+		// one space asks once, and every ban/unban write (they all fire these
+		// hooks) forgets it at once.
+		if ( ! self::$ban_memo_hooked ) {
+			self::$ban_memo_hooked = true;
+			$forget                = static function (): void {
+				self::$hard_ban_memo = array();
+			};
+			add_action( 'buddynext_space_user_banned', $forget );
+			add_action( 'buddynext_space_user_unbanned', $forget );
+		}
 
-		if ( $ban_count > 0 ) {
+		$key = $space_id . ':' . $user_id;
+		if ( ! isset( self::$hard_ban_memo[ $key ] ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			self::$hard_ban_memo[ $key ] = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_bans
+					 WHERE space_id = %d AND user_id = %d",
+					$space_id,
+					$user_id
+				)
+			) > 0;
+		}
+
+		if ( self::$hard_ban_memo[ $key ] ) {
 			return true;
 		}
 

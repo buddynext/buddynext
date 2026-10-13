@@ -101,9 +101,9 @@ class BookmarkController extends BaseRestController {
 	 * Bookmark a post.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function bookmark( WP_REST_Request $request ): WP_REST_Response {
+	public function bookmark( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 
@@ -115,7 +115,7 @@ class BookmarkController extends BaseRestController {
 		// cannot see.
 		$hidden = $this->engagement_target_error( 'post', $post_id );
 		if ( $hidden instanceof WP_Error ) {
-			return new WP_REST_Response( array( 'code' => 'post_not_found' ), 404 );
+			return $hidden;
 		}
 
 		$this->bookmarks()->bookmark( $user_id, $post_id );
