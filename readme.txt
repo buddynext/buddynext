@@ -99,6 +99,7 @@ Plans you can sell through Make, Zapier or n8n, tighter blocks and space bans, r
 * Fix      - The schedule tool shows only to members whose plan includes scheduling.
 * Fix      - A profile field that fails to save is announced to screen readers with its error.
 * Fix      - A fresh install no longer logs a database error on activation.
+* Fix      - The Explore header says 1 space, 1 member and 1 post instead of a plural.
 * Security - Followers-only and connections-only media no longer open to every member, and a privacy sync never widens a file.
 * Security - A pending follow is not a follow, and a private account stays out of discovery.
 * Security - A member's moderation standing is shown to site staff only.
