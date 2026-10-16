@@ -240,22 +240,6 @@ test.describe('profile / edit', () => {
         }
     });
 
-    // J-36 asserts a brand-hue picker (`[data-field="brand-hue"]` / `bn_brand_hue`).
-    // Neither string exists anywhere in Free or Pro, and /settings/appearance/
-    // renders no form control at all - so this is an UNBUILT feature, not a stale
-    // selector. Left failing-by-declaration rather than deleted, so it stays
-    // visible: either build the picker or retire J-36 from the catalogue.
-    // NOTE the form: `test.fixme(...)` as a bare statement inside a describe
-    // marks EVERY test in the group as fixme, not the one that follows it. It
-    // was written that way here, so all eight profile/edit tests silently
-    // stopped running - the suite reported "8 skipped" and read as deliberate.
-    // Marking the single test is `test.fixme('name', fn)`.
-    test.fixme('J-36 theme picker (Pro) applies brand hue', async ({ authenticatedPage: page }) => {
-        await page.goto(urls.settingsAppearance);
-        const picker = page.locator('[data-field="brand-hue"], [name="bn_brand_hue"]').first();
-        await expect(picker).toBeVisible();
-    });
-
     /* B5 — Privacy section: audience selects + toggles render. */
     test('Privacy section renders audience selects + toggles', async ({ authenticatedPage: page }) => {
         // Privacy moved off profile-edit and onto the settings hub.

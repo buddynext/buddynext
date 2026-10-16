@@ -216,10 +216,4 @@ test.describe('feed / compose', () => {
         await expect(optionFields.first()).toBeVisible();
         expect(await optionFields.count()).toBeGreaterThanOrEqual(2);
     });
-
-    test.fixme('J-15 event  -  event mode composer (event surface lands v0.3)', async ({ authenticatedPage: page }) => {
-        await page.goto(urls.feed);
-        const eventBtn = page.locator(sel.composerModeEvent).first();
-        await expect(eventBtn).toBeVisible();
-    });
 });
