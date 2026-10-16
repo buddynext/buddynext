@@ -265,7 +265,6 @@ test.describe('feed / poll', () => {
      * visitor on the post's own page, against the poll route's tallies.
      */
     test('J-982 a logged-out visitor sees the real poll percentages after the page script runs', async ({ authenticatedPage: page, browser }) => {
-        test.fail(true, 'card 10405808074: options a visitor cannot vote on hydrate to 0%');
         const stamp = Date.now().toString().slice(-6);
         let createdId = 0;
         let nonce = '';

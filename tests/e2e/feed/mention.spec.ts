@@ -126,7 +126,6 @@ test.describe('feed / @mention', () => {
      * so the stored text, not just the field, is proven unchanged.
      */
     test('J-983 ending a word while suggestions load leaves the text exactly as typed', async ({ authenticatedPage: page }) => {
-        test.fail(true, 'card 10408199294: a late suggestion response reopens the dropdown and inserts "null"');
         let delay = 0;
         await page.route(/\/(members\?search=|hashtags\/autocomplete)/, async (route) => {
             if (delay) await new Promise((r) => setTimeout(r, delay));
@@ -178,11 +177,12 @@ test.describe('feed / @mention', () => {
             const input = host.locator(sel.commentInput).first();
             await expect(input).toBeVisible();
             await race(input, `reply ${stamp} @ali`);
-            await input.press('Enter');
+            // Enter adds a line in a comment box; the send button submits.
+            await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
             // EFFECT: the stored comment is the text as typed.
             await expect.poll(async () => {
-                const r = await restGet<{ items?: Array<{ content?: string }> }>(page.request, nonce, `/posts/${postId}/comments`);
-                return (r.body.items ?? []).map((c) => c.content ?? '').find((c) => c.includes(stamp)) ?? '';
+                const r = await restGet<{ items?: Array<{ content?: string }> }>(page.request, nonce, `/comments?object_type=post&object_id=${postId}`);
+                return ((r.body.items ?? []).map((c) => c.content ?? '').find((c) => c.includes(stamp)) ?? '').trim();
             }, { timeout: 8_000 }).toBe(`reply ${stamp} @ali`);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
