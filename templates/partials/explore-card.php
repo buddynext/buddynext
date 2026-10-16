@@ -423,6 +423,91 @@ if ( 'post-article' === $bn_kind ) :
 	return;
 endif;
 
+// ── post-integration: a typed bridge card (event, job, listing, course, badge, ─
+// media, document, open to work). Same data and label as its feed card, read
+// from IntegrationActivity::card_types(). Links out to the partner page, like the
+// feed card. A locked post falls through to the members-only text teaser.
+if ( 'post-integration' === $bn_kind && empty( $bn_post['is_locked'] ) ) :
+	$bn_ic_type = (string) ( $bn_post['type'] ?? '' );
+	$bn_ic_def  = \BuddyNext\Feed\IntegrationActivity::card_types()[ $bn_ic_type ] ?? array(
+		'label' => '',
+		'icon'  => 'link',
+	);
+	/**
+	 * Filter the stored card details an integration card shows on Explore, per
+	 * viewer. A bridge that resolves details at render time (WPMediaVerse resolves
+	 * the media's title and cover, gated by the viewer's access) answers here.
+	 *
+	 * @since 1.2.6
+	 *
+	 * @param array<string,mixed> $meta Stored link_meta (url, title, description, image, ...).
+	 * @param string              $type Post type, e.g. 'event'.
+	 */
+	$bn_ic_meta  = (array) apply_filters( 'buddynext_integration_card_preview', is_array( $bn_link_meta ) ? $bn_link_meta : array(), $bn_ic_type );
+	$bn_ic_cover = '';
+	foreach ( array( 'thumb', 'thumbnail', 'image' ) as $bn_ic_key ) {
+		$bn_ic_cover = trim( (string) ( $bn_ic_meta[ $bn_ic_key ] ?? '' ) );
+		if ( '' !== $bn_ic_cover ) {
+			break;
+		}
+	}
+	$bn_ic_href  = trim( (string) ( $bn_ic_meta['url'] ?? '' ) );
+	$bn_ic_href  = '' !== $bn_ic_href ? $bn_ic_href : $bn_purl;
+	$bn_ic_title = trim( (string) ( $bn_ic_meta['title'] ?? '' ) );
+	$bn_ic_title = '' !== $bn_ic_title ? $bn_ic_title : $bn_plain;
+	// The member's own words ("scheduled an event", "is open to work"), unless they
+	// are already the title.
+	$bn_ic_lead  = ( '' !== $bn_plain && $bn_plain !== $bn_ic_title ) ? $bn_plain : '';
+	$bn_ic_desc  = trim( (string) ( $bn_ic_meta['description'] ?? '' ) );
+	$bn_ic_month = trim( (string) ( $bn_ic_meta['month'] ?? '' ) );
+	$bn_ic_day   = trim( (string) ( $bn_ic_meta['day'] ?? '' ) );
+	// The calendar tile already says the date; the line under the title then
+	// only adds the place.
+	$bn_ic_facts = array_filter(
+		array(
+			( '' === $bn_ic_month || '' === $bn_ic_day ) ? trim( (string) ( $bn_ic_meta['date_label'] ?? '' ) ) : '',
+			trim( (string) ( $bn_ic_meta['city'] ?? '' ) ),
+		)
+	);
+	?>
+	<article class="ec-card is-integration<?php echo '' !== $bn_ic_cover ? ' has-cover' : ''; ?>" data-kind="post-integration" data-type="<?php echo esc_attr( $bn_ic_type ); ?>">
+		<?php if ( '' !== $bn_ic_cover ) : ?>
+			<a class="ec-img" href="<?php echo esc_url( $bn_ic_href ); ?>" tabindex="-1" aria-hidden="true">
+				<img src="<?php echo esc_url( $bn_ic_cover ); ?>" alt="" loading="lazy" decoding="async">
+			</a>
+		<?php endif; ?>
+		<div class="ec-body">
+			<div class="ec-kicker ec-kicker--integration">
+				<?php buddynext_icon( $bn_ic_def['icon'] ); ?>
+				<span><?php echo esc_html( '' !== $bn_ic_def['label'] ? $bn_ic_def['label'] : __( 'Post', 'buddynext' ) ); ?></span>
+			</div>
+			<?php if ( '' !== $bn_ic_lead ) : ?>
+				<p class="ec-lead"><?php echo esc_html( $bn_ic_lead ); ?></p>
+			<?php endif; ?>
+			<div class="ec-integration-head">
+				<?php if ( '' !== $bn_ic_month && '' !== $bn_ic_day ) : ?>
+					<span class="ec-date" aria-hidden="true">
+						<span class="ec-date__m"><?php echo esc_html( $bn_ic_month ); ?></span>
+						<span class="ec-date__d"><?php echo esc_html( $bn_ic_day ); ?></span>
+					</span>
+				<?php endif; ?>
+				<?php if ( '' !== $bn_ic_title ) : ?>
+					<a class="ec-title" href="<?php echo esc_url( $bn_ic_href ); ?>"><?php echo esc_html( wp_trim_words( $bn_ic_title, 14, '…' ) ); ?></a>
+				<?php endif; ?>
+			</div>
+			<?php if ( $bn_ic_facts ) : ?>
+				<p class="ec-facts"><?php echo esc_html( implode( ' · ', $bn_ic_facts ) ); ?></p>
+			<?php endif; ?>
+			<?php if ( '' !== $bn_ic_desc ) : ?>
+				<p class="ec-excerpt"><?php echo esc_html( wp_trim_words( $bn_ic_desc, 20, '…' ) ); ?></p>
+			<?php endif; ?>
+			<?php $bn_render_foot( $bn_av, $bn_atone, $bn_aname, $bn_aurl, $bn_reactions, $bn_comments ); ?>
+		</div>
+	</article>
+	<?php
+	return;
+endif;
+
 // ── post-media: image / video / audio card (typed cover + caption) ──────────
 if ( 'post-media' === $bn_kind ) :
 	$bn_cover = '';

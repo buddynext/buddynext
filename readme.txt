@@ -74,16 +74,19 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 Fixes for mentions, polls, Explore covers, linked forums and moderation reasons, plus a release gate that ties every change below to a test. Lockstep with BuddyNext Pro 1.2.6 - install and test both together.
 
 * New      - Developers can send every BuddyNext Log in link and guest gate to their own login page with the buddynext_login_url filter.
+* Improve  - Explore shows each integration activity as its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.
 * Improve  - The readme lists the minimum version of each integration plugin and what happens on an older one.
 * Fix      - Finishing a word while @mention or #hashtag suggestions are still loading no longer opens a stale list or inserts "null" into a post or comment.
 * Fix      - Logged-out visitors see the real poll percentages instead of 0% on every option.
 * Fix      - Explore space cards show the space cover, the same picture as the Spaces directory.
+* Fix      - A shared badge shows its artwork and what it was awarded for in the feed, including badges shared before this update.
 * Fix      - A space cover the owner repositioned shows the same part of the photo on Explore and in the Spaces directory as on the space page.
 * Fix      - Initials on the generated picture for members without a photo are readable on every colour.
 * Fix      - A private space's linked forum lets in members who joined the space before the forum was linked.
 * Fix      - Warnings and strikes sent from the app, an integration or the API need a reason, the same as in the moderation dialog.
 * Fix      - The Docs link on the Get Started, Automation and Integration Settings screens opens the matching help page.
 * Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
+* Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
 * Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.
 * Compat   - Tested with Jetonomy 2.0.2, WB Gamification 1.6.7 and BuddyPress Member Blog 4.4.0. Aligned with BuddyNext Pro 1.2.6. Install the updates together.
 

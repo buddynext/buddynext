@@ -109,3 +109,19 @@ namespace WPMediaVerse\Services {
 		}
 	}
 }
+
+namespace WBGam\Engine {
+	if ( ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) ) {
+		/**
+		 * Stub for WB Gamification's badge engine (signature copied from
+		 * src/Engine/BadgeEngine.php). GamificationBridge calls it only when the
+		 * class exists.
+		 */
+		class BadgeEngine { // phpcs:ignore
+			/** @return array{id: string, name: string, description: string, image_url: string|null, is_credential: bool}|null */
+			public static function get_badge_def( string $badge_id ): ?array { // phpcs:ignore
+				return null;
+			}
+		}
+	}
+}

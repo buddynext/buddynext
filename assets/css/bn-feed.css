@@ -1099,6 +1099,26 @@
 	}
 }
 
+/* Badge artwork is an emblem drawn for a light ground: a round light plate at
+   every width (never the full-width photo crop mobile gives other covers). */
+.bn-post-card__bridge-card--badge .bn-post-card__bridge-cover,
+.bn-post-card__bridge-card--badge.has-cover .bn-post-card__bridge-cover {
+	inline-size: 72px;
+	block-size: 72px;
+	aspect-ratio: 1;
+	order: 0;
+	padding: var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-badge-plate);
+	box-shadow: var(--bn-shadow-sm);
+}
+.bn-post-card__bridge-card--badge .bn-post-card__bridge-cover img {
+	object-fit: contain;
+}
+.bn-post-card__bridge-card--badge.has-cover {
+	flex-wrap: nowrap;
+}
+
 /* Event activity card — date pill + title + date/time + location. Mirrors the
    v2 "This week" event rows, sized up for the in-feed body. */
 .bn-post-card__event {

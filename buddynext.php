@@ -2099,5 +2099,15 @@ function buddynext_explore_card_kind( array $post ): string {
 		return 'post-forum';
 	}
 
+	// Every typed integration card (event, job, listing, course, badge, media,
+	// document, open to work) gets its own card with the partner's details. These
+	// used to fall through to the plain text teaser, which showed a bare title
+	// labelled "Post" and threw away the date, place, cover and description the
+	// bridge stored. A locked post keeps the text teaser and its members-only
+	// kicker.
+	if ( empty( $post['is_locked'] ) && isset( \BuddyNext\Feed\IntegrationActivity::card_types()[ $type ] ) ) {
+		return 'post-integration';
+	}
+
 	return 'post-text';
 }

@@ -50,7 +50,7 @@ A third-party bridge attaches the same way - hook `buddynext_load_bridges` and w
 |---|---|---|---|---|
 | `JetonomyBridge` | Jetonomy (forums) | `class_exists( 'Jetonomy\Jetonomy' )` | `jetonomy` | `jetonomy_after_create_post`, `jetonomy_after_delete_post`, `jetonomy_post_publish_transition`, `jetonomy_reply_publish_transition` (consume); `buddynext_rail_items`, `buddynext_register_nav`, `buddynext_context_nav`, `buddynext_hashtag_related_discussions` (provide); REST `POST /spaces/{id}/forum` |
 | `WPMediaVerseBridge` | WPMediaVerse (media + DM engine) | `class_exists( 'WPMediaVerse\Core\Plugin' )` | `wpmediaverse` | `mvs_buddynext_active`, `mvs_can_send_message`, `mvs_dm_denial_reason`, `mvs_user_profile_url`, `mvs_message_sent`, `mvs_favorite_toggled`, `mvs_comment_created`, `mvs_user_followed/unfollowed` (consume); fires `buddynext_dm_sent` / `buddynext_dm_received` |
-| `GamificationBridge` | wb-gamification | per-surface `function_exists( 'wb_gam_*' )` checks | `gamification` | Consumes `wb_gam_badge_awarded` to post a credential-badge feed activity. Point awards for BuddyNext activity are owned by the wb-gamification plugin's own `integrations/buddynext.php` manifest, not this bridge. |
+| `GamificationBridge` | wb-gamification | per-surface `function_exists( 'wb_gam_*' )` checks | `gamification` | Consumes `wb_gam_badge_shared` to post a credential-badge feed activity when the member shares the badge (with its artwork and description). Point awards for BuddyNext activity are owned by the wb-gamification plugin's own `integrations/buddynext.php` manifest, not this bridge. |
 | `CareerBoardBridge` (registered in Pro) | Career Board (`wp-career-board`) | `defined( 'WCB_VERSION' )` guard inside the bridge | `careerboard` | `wcb_job_created`, `wcb_job_expired`, `wcbp_resume_published`, `wcb_notification_created` (consume) -> `bn_search_index` (`object_type='job'`) + `bn_notifications`; pure inbound listener |
 | `ListoraBridge` (registered in Pro) | WB Listora (business listings) | `defined( 'WB_LISTORA_VERSION' )` guard inside the bridge | `listora` | `transition_post_status`, `before_delete_post` (consume) -> `bn_search_index` (`object_type='listing'`) + feed `listing` cards via `IntegrationActivity`; no notification mirror yet (Listora has no creation hook to mirror from) |
 | `MemberBlogBridge` | WB Member Blog (front-end publishing) | `defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' )`, checked lazily per surface, not at hook time | `blog` (shares the `feed` aspect Free's `BlogPostListener` already registers) | Merges the `nav` aspect onto the shared `blog` registry entry; adds an "Articles" profile tab + REST via `MemberBlogRestController`; consumes no companion hook - the feed side is generic site tracking, not this bridge |
@@ -58,6 +58,34 @@ A third-party bridge attaches the same way - hook `buddynext_load_bridges` and w
 | `EventonomyBridge` (registered in Pro) | Eventonomy | `defined( 'EVENTONOMY_VERSION' )` guard inside the bridge | `eventonomy` | `evnm_after_create_event`, `evnm_after_create_rsvp`, `evnm_event_status_changed` (consume) -> space-scoped feed cards + search |
 | `BuddyXBridge` | BuddyX theme | `'buddyx'` or `'buddyx-pro'` is the active template | always wired | `buddyx_is_full_width_page` (provide) so plugin pages escape the theme's `.container` wrapper |
 | `PwaService` (PWA, not a companion bridge) | none (first-party) | always wired | n/a | Serves the web-app manifest + service worker; opt-out filter `buddynext_pwa_register_sw` |
+
+### Typed cards on the feed and on Explore
+
+A bridge that publishes a feed activity (`IntegrationActivity::publish()` with its own `$type`) registers that type once, and the feed card and the Explore card both read it:
+
+```php
+add_filter(
+	'buddynext_integration_card_types',
+	static function ( array $types ): array {
+		$types['recipe'] = array( 'label' => __( 'Recipe', 'my-plugin' ), 'icon' => 'book-open' );
+		return $types;
+	}
+);
+
+add_filter(
+	'buddynext_render_post_body_recipe',
+	static function ( $html, $args ) {
+		return \BuddyNext\Feed\IntegrationActivity::render_bridge_card( (array) $args );
+	},
+	10,
+	2
+);
+```
+
+- **Since 1.2.6.** `render_bridge_card( $args, $icon = '', $label = '' )` takes the registered label and icon when you leave them out.
+- **Explore uses the stored card details.** A registered type gets an Explore card with the type label and icon, cover (`image`), title, description, and for events a date tile (`month`, `day`) and place (`city`). An unregistered type shows the plain text teaser.
+- **Details resolved at render time** (per viewer, or for cards stored before a field existed) come from `buddynext_integration_card_preview( array $meta, string $type )`. MediaVerse uses it for the viewer-gated title and cover, Gamification for the artwork and description of badges shared before 1.2.6.
+- **Check both surfaces when you add a type.** A new bridge activity is not done until its feed card and its Explore card are both reviewed.
 
 ## Version floors and the staleness gate
 

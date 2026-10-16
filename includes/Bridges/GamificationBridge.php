@@ -130,6 +130,15 @@ class GamificationBridge {
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
 		// the plain-text fallback — the same one job/listing/course use.
 		add_filter( 'buddynext_render_post_body_badge', array( $this, 'render_feed_card' ), 10, 2 );
+		add_filter( 'buddynext_integration_card_preview', array( $this, 'explore_card_preview' ), 10, 2 );
+		// Card label + icon, read by the feed card and the Explore card alike.
+		add_filter(
+			'buddynext_integration_card_types',
+			static function ( array $types ): array {
+				$types['badge'] = array( 'label' => __( 'Badge', 'buddynext' ), 'icon' => 'award' );
+				return $types;
+			}
+		);
 
 		// Points are a SILENT background reward in BuddyNext. wb-gamification's
 		// per-action cooldown is a transient anti-burst limit; surfacing it to the
@@ -597,7 +606,12 @@ class GamificationBridge {
 			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
 			$url,
 			$name,
-			'badge'
+			'badge',
+			// What the badge is for and its artwork, so the feed and Explore cards
+			// show the achievement rather than a bare name.
+			(string) ( $def['description'] ?? '' ),
+			0,
+			'' !== (string) ( $def['image_url'] ?? '' ) ? array( 'image' => esc_url_raw( (string) $def['image_url'] ) ) : array()
 		);
 	}
 
@@ -677,11 +691,68 @@ class GamificationBridge {
 	 * @return string Pre-escaped card HTML, or '' to fall back to plain text.
 	 */
 	public function render_feed_card( $html, $args ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		return IntegrationActivity::render_bridge_card(
-			is_array( $args ) ? $args : array(),
-			'award',
-			__( 'Badge', 'buddynext' )
-		);
+		$args = is_array( $args ) ? $args : array();
+		if ( isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ) {
+			$link                 = self::with_badge_details( $args['link_preview'] );
+			$link['thumb']        = (string) ( $link['thumb'] ?? '' ) !== '' ? $link['thumb'] : (string) ( $link['image'] ?? '' );
+			$link['desc']         = (string) ( $link['desc'] ?? '' ) !== '' ? $link['desc'] : (string) ( $link['description'] ?? '' );
+			$args['link_preview'] = $link;
+		}
+		return IntegrationActivity::render_bridge_card( $args );
+	}
+
+	/**
+	 * Explore's badge card: the same artwork and description as the feed card.
+	 *
+	 * @param array<string,mixed> $meta Stored link_meta.
+	 * @param string              $type Post type.
+	 * @return array<string,mixed>
+	 */
+	public function explore_card_preview( $meta, $type ): array {
+		$meta = is_array( $meta ) ? $meta : array();
+		return 'badge' === $type ? self::with_badge_details( $meta ) : $meta;
+	}
+
+	/**
+	 * Fill a badge card's artwork and description from the badge itself when the
+	 * card was stored without them (every card shared before 1.2.6).
+	 *
+	 * The badge id is the `#badge-<id>` fragment badge_activity_url() writes.
+	 * Cards that already carry both fields are returned untouched, so a card
+	 * shared from 1.2.6 on costs nothing here.
+	 *
+	 * ponytail: one primary-key lookup per distinct old badge per request (memoised);
+	 * a one-off backfill can replace this if old cards ever dominate a feed.
+	 *
+	 * @param array<string,mixed> $meta Card link data (url, image, description, ...).
+	 * @return array<string,mixed>
+	 */
+	private static function with_badge_details( array $meta ): array {
+		static $defs = array();
+
+		$image = (string) ( $meta['image'] ?? $meta['thumb'] ?? '' );
+		$desc  = (string) ( $meta['description'] ?? $meta['desc'] ?? '' );
+		if ( ( '' !== $image && '' !== $desc ) || ! class_exists( 'WBGam\Engine\BadgeEngine' ) ) {
+			return $meta;
+		}
+		if ( ! preg_match( '/#badge-([^#?\/]+)$/', (string) ( $meta['url'] ?? '' ), $m ) ) {
+			return $meta;
+		}
+		$badge_id = rawurldecode( $m[1] );
+		if ( ! array_key_exists( $badge_id, $defs ) ) {
+			$defs[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
+		}
+		$def = $defs[ $badge_id ];
+		if ( ! is_array( $def ) ) {
+			return $meta;
+		}
+		if ( '' === $image && '' !== (string) ( $def['image_url'] ?? '' ) ) {
+			$meta['image'] = esc_url_raw( (string) $def['image_url'] );
+		}
+		if ( '' === $desc && '' !== (string) ( $def['description'] ?? '' ) ) {
+			$meta['description'] = (string) $def['description'];
+		}
+		return $meta;
 	}
 
 	/**
