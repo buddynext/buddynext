@@ -77,8 +77,11 @@ test.describe('feed / comment delete', () => {
 
             const modal = page.locator('.bn-modal-backdrop').last();
             await expect(modal).toBeVisible({ timeout: 5_000 });
+            // The dialog closes before the server answers; reloading first would cancel the DELETE.
+            const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE' && r.url().includes(`/comments/${targetId}`));
             await modal.getByRole('button', { name: 'Delete', exact: true }).first().click();
             await expect(modal).toBeHidden({ timeout: 5_000 });
+            expect((await deleted).status(), 'DELETE /comments/{id}').toBeLessThan(300);
 
             // Round-trip: reload, reopen. Keeper present (thread loaded), target gone.
             await page.goto(urls.feed);

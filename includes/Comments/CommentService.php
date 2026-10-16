@@ -1325,8 +1325,10 @@ class CommentService {
 	 * @return int
 	 */
 	private function get_generation( string $object_type, int $object_id ): int {
-		$gen = wp_cache_get( "gen_{$object_type}_{$object_id}", self::CACHE_GROUP );
-		return is_int( $gen ) ? $gen : 0;
+		// (int), not is_int(): Redis and Memcached hand an integer back as a numeric
+		// string, and refusing it pinned the generation at 0, so new, deleted and pinned
+		// comments never reached the cached thread until it expired.
+		return (int) wp_cache_get( "gen_{$object_type}_{$object_id}", self::CACHE_GROUP );
 	}
 
 	/**
