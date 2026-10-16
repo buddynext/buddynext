@@ -122,7 +122,7 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
         expect(await termCards.count(), `${label}: a post from a DIFFERENT space leaked into this search`).toBe(1);
 
         expect(
-            await page.locator(sel.postCard).filter({ hasText: 'space search unrelated' }).count(),
+            await page.locator(sel.postCard).filter({ hasText: 'Anyone trading spare tackle boxes' }).count(),
             `${label}: non-matching post leaked into search results`
         ).toBe(0);
         // The result is the one post, nothing else rendered beside it.
@@ -132,8 +132,8 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
         // filter over the feed, it did not replace it), still without the decoy.
         // The explicit /feed/ tab: a non-member's bare space URL lands on About by design.
         await page.goto(`${urls.space(f.target.slug)}feed/`, { waitUntil: 'domcontentloaded' });
-        await expect(page.locator(sel.postCard).filter({ hasText: 'space search unrelated' }).first()).toBeVisible({ timeout: 10_000 });
-        await expect(page.locator(sel.postCard).filter({ hasText: 'decoy other space' })).toHaveCount(0);
+        await expect(page.locator(sel.postCard).filter({ hasText: 'Anyone trading spare tackle boxes' }).first()).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator(sel.postCard).filter({ hasText: 'Chalk and rope sale' })).toHaveCount(0);
     };
 
     test('J-693 the space owner searching inside a space sees only matches from that space', async ({
