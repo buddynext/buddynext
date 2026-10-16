@@ -1049,7 +1049,9 @@ class PostService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return null === $cached ? null : (array) $cached;
+			// The cached copy froze the source post's title and cover at the time it was
+			// stored; read them live again, as hydrate() does.
+			return null === $cached ? null : self::with_live_source( (array) $cached );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -4965,8 +4967,21 @@ class PostService {
 			$post['poll_options'] = $this->fetch_poll_options( (int) $row['id'] );
 		}
 
-		// A blog article card shows its source post as it is now, not as it was at publish.
-		if ( BlogPostListener::TYPE === $post['type'] && is_array( $post['link_meta'] ) ) {
+		return self::with_live_source( $post );
+	}
+
+	/**
+	 * A blog article card shows its source post as it is now, not as it was at publish.
+	 *
+	 * Applied on every read, cached or not: get() caches the hydrated post, and with a
+	 * persistent object cache that copy kept an edited title or a cover added after
+	 * publishing off the card until the cache expired.
+	 *
+	 * @param array $post Hydrated post.
+	 * @return array
+	 */
+	private static function with_live_source( array $post ): array {
+		if ( BlogPostListener::TYPE === ( $post['type'] ?? '' ) && is_array( $post['link_meta'] ?? null ) ) {
 			$post['link_meta'] = BlogPostListener::live_link_meta( $post['link_meta'] );
 		}
 
