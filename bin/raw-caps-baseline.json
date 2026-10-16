@@ -43,7 +43,7 @@
  "includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php": 3,
  "includes/SocialGraph/FollowService.php": 1,
  "includes/Spaces/SpaceCategoryController.php": 6,
- "includes/Spaces/SpaceController.php": 6,
+ "includes/Spaces/SpaceController.php": 5,
  "includes/Spaces/SpaceMemberService.php": 3,
  "includes/Spaces/SpacePostGuard.php": 1,
  "includes/Spaces/SpaceRoles.php": 1,
@@ -59,7 +59,6 @@
  "templates/partials/space-files-tab.php": 1,
  "templates/parts/settings-account-fields.php": 1,
  "templates/parts/space-members-body.php": 1,
- "templates/parts/space-no-access.php": 1,
  "templates/profile/view.php": 1,
  "templates/spaces/directory.php": 2
 }

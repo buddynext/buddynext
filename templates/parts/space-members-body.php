@@ -168,7 +168,7 @@ $bn_viewer_role   = $current_user_id > 0
 	? $bn_member_svc->get_role( $space_id, $current_user_id )
 	: '';
 $bn_is_site_admin = $current_user_id > 0 && user_can( $current_user_id, 'manage_options' );
-$bn_can_remove    = $current_user_id > 0 && ( in_array( $bn_viewer_role, array( 'owner', 'moderator' ), true ) || $bn_is_site_admin );
+$bn_can_remove    = $current_user_id > 0 && \BuddyNext\Spaces\SpaceRoles::can_moderate( $bn_viewer_role, $current_user_id );
 $bn_can_set_role  = $current_user_id > 0 && ( 'owner' === $bn_viewer_role || $bn_is_site_admin );
 
 // "Joined via invite link" markers are visible to owners/moderators/admins only.

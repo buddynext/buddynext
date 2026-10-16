@@ -83,7 +83,7 @@ The role map holds 28 generic capabilities:
 | `buddynext-spaces/join` | `member` |
 | `buddynext-spaces/join-gated` | none |
 | `buddynext-spaces/post` | `member` |
-| `buddynext-spaces/moderate` | `moderator` |
+| `buddynext-spaces/moderate` | `moderator` (without a `space_id`: the community moderation team, who open Community Admin and review reports from every space; with a `space_id`: the in-space owner or moderator only. Approving, banning and removing inside a space is never granted site-wide except to WordPress administrators) |
 | `buddynext-spaces/manage-settings` | `moderator` |
 | `buddynext-spaces/delete` | `moderator` |
 | `buddynext-connections/follow` | `member` |

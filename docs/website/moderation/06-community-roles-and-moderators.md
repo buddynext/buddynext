@@ -21,7 +21,7 @@ Each role can do everything the role below it can, plus more. The table lists th
 | Review the moderation queue | No | Yes | Yes |
 | Remove any post or comment, and pin posts | No | Yes | Yes |
 | Issue strikes and warnings | No | Yes | Yes |
-| Moderate, manage, and delete any space | No | Yes | Yes |
+| Review reports from every space in Community Admin | No | Yes | Yes |
 | Suspend a member for a set number of days | No | Yes | Yes |
 | See posts from suspended and shadow-banned members, to review them | No | Yes | Yes |
 | Suspend a member with no end date | No | No | Yes |
@@ -30,6 +30,8 @@ Each role can do everything the role below it can, plus more. The table lists th
 | Promote members to moderator | No | No | Yes |
 
 Above all three sits the **site administrator** - the WordPress admin who installed BuddyNext. The site administrator can do everything an admin can, and two things no one else can: grant the top **admin** role to someone, and change what each role is allowed to do (see [Settings, below](#tune-what-each-role-can-do)).
+
+Inside a space, membership (approving join requests, banning and removing members) is run by that space's own owner and moderators. A community moderator handles reports from every space but does not run a space they are not part of, the same way they do not see inside a private or secret space. WordPress site administrators can do both everywhere.
 
 > These are the defaults. If you have adjusted the **Roles & Capabilities** settings, your community's abilities may differ from the table above.
 

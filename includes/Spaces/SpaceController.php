@@ -2358,7 +2358,7 @@ class SpaceController extends BaseRestController {
 		do_action( 'buddynext_directory_members_primed', $ids, $viewer_id );
 
 		$role       = $viewer_id > 0 ? (string) ( new SpaceMemberService() )->get_role( $space_id, $viewer_id ) : '';
-		$manages    = in_array( $role, array( 'owner', 'moderator' ), true ) || ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) );
+		$manages    = SpaceRoles::can_moderate( $role, $viewer_id );
 		$via_link   = $manages ? ( new SpaceInviteLinkService() )->joined_via_link_map( $space_id ) : array();
 		$with_cover = function_exists( 'buddynext_user_cover_url' );
 
