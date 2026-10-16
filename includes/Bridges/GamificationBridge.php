@@ -47,6 +47,13 @@ class GamificationBridge {
 	private static ?string $points_label_memo = null;
 
 	/**
+	 * Badge definitions looked up for old badge cards this request, by badge id.
+	 *
+	 * @var array<string,mixed>
+	 */
+	private static array $badge_defs_memo = array();
+
+	/**
 	 * The site's name for points ("Points" unless the owner renamed the default
 	 * point type, e.g. "Coins"), so every BuddyNext surface says what the
 	 * gamification plugin says (card 10343975769).
@@ -135,7 +142,10 @@ class GamificationBridge {
 		add_filter(
 			'buddynext_integration_card_types',
 			static function ( array $types ): array {
-				$types['badge'] = array( 'label' => __( 'Badge', 'buddynext' ), 'icon' => 'award' );
+				$types['badge'] = array(
+					'label' => __( 'Badge', 'buddynext' ),
+					'icon'  => 'award',
+				);
 				return $types;
 			}
 		);
@@ -728,8 +738,6 @@ class GamificationBridge {
 	 * @return array<string,mixed>
 	 */
 	private static function with_badge_details( array $meta ): array {
-		static $defs = array();
-
 		$image = (string) ( $meta['image'] ?? $meta['thumb'] ?? '' );
 		$desc  = (string) ( $meta['description'] ?? $meta['desc'] ?? '' );
 		if ( ( '' !== $image && '' !== $desc ) || ! class_exists( 'WBGam\Engine\BadgeEngine' ) ) {
@@ -739,10 +747,10 @@ class GamificationBridge {
 			return $meta;
 		}
 		$badge_id = rawurldecode( $m[1] );
-		if ( ! array_key_exists( $badge_id, $defs ) ) {
-			$defs[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
+		if ( ! array_key_exists( $badge_id, self::$badge_defs_memo ) ) {
+			self::$badge_defs_memo[ $badge_id ] = \WBGam\Engine\BadgeEngine::get_badge_def( $badge_id );
 		}
-		$def = $defs[ $badge_id ];
+		$def = self::$badge_defs_memo[ $badge_id ];
 		if ( ! is_array( $def ) ) {
 			return $meta;
 		}
