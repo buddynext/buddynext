@@ -1,6 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
-import { getSpace, deleteSpaceApi, type SpaceRow } from '../_fixtures/spaces-rest';
+import { getSpace, deleteSpaceApi, bnApi, type SpaceRow } from '../_fixtures/spaces-rest';
 
 /**
  * J-600 — Create a space (Spaces wave-1 effect spec).
@@ -67,6 +67,21 @@ test.describe('spaces / create (J-600)', () => {
             expect(row.membership_role).toBe('owner');
             expect(row.membership_status).toBe('active');
             expect(row.can_manage).toBe(true);
+            expect(String(row.description ?? ''), 'typed description was not stored').toBe('created by J-600 e2e');
+            expect(Number(row.member_count), 'a new space counts its creator').toBe(1);
+
+            // EFFECT 3: the creator is the one row on the roster, as owner...
+            const roster = await bnApi(page, 'GET', `/spaces/${createdId}/members?per_page=100`);
+            expect(roster.status).toBe(200);
+            const rows = (roster.data as Array<{ user_id: number; role?: string }>) ?? [];
+            expect(rows.length).toBe(1);
+            expect(rows[0].role).toBe('owner');
+            expect(Number(rows[0].user_id)).toBe(Number(row.owner_id));
+
+            // ...and the directory route lists the new space (it is discoverable, not orphaned).
+            const list = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(name)}&per_page=50`);
+            expect(list.status).toBe(200);
+            expect(((list.data as SpaceRow[]) ?? []).map((r) => Number(r.id))).toContain(createdId);
         } finally {
             if (createdId > 0) {
                 await deleteSpaceApi(page, createdId);

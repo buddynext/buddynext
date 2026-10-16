@@ -82,6 +82,18 @@ test.describe('feed / @mention in comment', () => {
             // notification below can only fire once the comment exists.
             await expect(host.locator('.bn-comment-card', { hasText: commentBody }).first()).toBeVisible({ timeout: 15_000 });
 
+            // EFFECT: the comment is a stored row on the host post, and the mentioned member can read it.
+            const thread = await restGet<{ items?: Array<{ content?: string }> }>(
+                recipient.request,
+                recipient.nonce,
+                `/comments?object_type=post&object_id=${createdPostId}`
+            );
+            expect(thread.status, 'recipient GET /comments').toBe(200);
+            expect(
+                (thread.body.items ?? []).filter((c) => (c.content ?? '').includes(commentBody)).length,
+                'the mention comment as the recipient reads it'
+            ).toBe(1);
+
             // Recipient side (server truth): a NEW bn.mention from the author lands,
             // pointing at the host post.
             await expect(async () => {

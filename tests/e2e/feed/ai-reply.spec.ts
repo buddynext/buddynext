@@ -2,7 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { softSkip } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -76,6 +76,14 @@ test.describe('feed / AI smart-reply (Pro P2.4)', () => {
                 return;
             }
 
+            // EFFECT: capture the suggestions route the trigger calls, so the chips can be
+            // checked against what the server answered rather than against themselves.
+            const suggested = page
+                .waitForResponse(
+                    (r) => r.request().method() === 'POST' && r.url().includes('/ai/reply-suggestions'),
+                    { timeout: 15_000 },
+                )
+                .catch(() => null);
             await triggerBtn.click();
 
             const panel = card.locator(suggestionsPanel).first();
@@ -102,6 +110,22 @@ test.describe('feed / AI smart-reply (Pro P2.4)', () => {
             await expect
                 .poll(async () => (await input.inputValue().catch(() => input.innerText())).trim(), { timeout: 5_000 })
                 .toBe(chipText);
+
+            // EFFECT: the chip is one of the suggestions POST /ai/reply-suggestions returned.
+            const answer = await suggested;
+            expect(answer, 'the trigger must call the reply-suggestions route').not.toBeNull();
+            expect(answer!.status(), 'POST /ai/reply-suggestions').toBe(200);
+            const served = (((await answer!.json()) as { suggestions?: string[] }).suggestions ?? []).map((s) => s.trim());
+            expect(served, 'the picked chip is not a suggestion the route returned').toContain(chipText);
+
+            // EFFECT: picking a suggestion only fills the box. No comment exists until the member submits.
+            const thread = await restGet<{ items?: unknown[] }>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${createdId}`
+            );
+            expect(thread.status, 'GET /comments').toBe(200);
+            expect((thread.body.items ?? []).length, 'a suggestion was posted without the member submitting').toBe(0);
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
         }

@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 
 import { loginAs } from '../_fixtures/actor';
 import { wp, ensureUser, userId } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-978 admin assigns a member label (VIP) from the edit-member screen, and it
@@ -115,6 +117,14 @@ test('J-978 admin assigns the VIP label from the member edit screen', async ({ p
     `);
     expect(stored, 'the label is actually assigned to the member, server-side').toBe('1');
 
+    // EFFECT: the Pro labels route (what the app and the functional suite read) lists it.
+    const viaRest = await restJson(page, `/wp-json/buddynext-pro/v1/users/${memberId}/labels`);
+    expect(viaRest.status).toBe(200);
+    expect(
+        ((viaRest.data ?? []) as Array<{ slug?: string }>).map((l) => l.slug),
+        'GET /users/{id}/labels carries the assigned label'
+    ).toContain(LABEL_SLUG);
+
     // Reload confirms the checkbox reflects saved state rather than a stale form.
     await page.goto(`/wp-admin/admin.php?page=buddynext-members&view=edit-member&user_id=${memberId}`, {
         waitUntil: 'domcontentloaded',
@@ -141,6 +151,12 @@ test("J-978 the label shows as a badge on the member's own public profile", asyn
 
     const chip = page.locator('.bn-member-labels .bn-badge', { hasText: LABEL_NAME });
     await expect(chip, 'the assigned label renders as a badge in the profile hero').toBeVisible();
+
+    // EFFECT (parity): the chip is the same label the profile route returns, name and all.
+    const profile = await bnApi(page, 'GET', `/users/${memberId}/profile`);
+    expect(profile.status).toBe(200);
+    const labels = ((profile.data ?? {}) as { labels?: Array<{ slug?: string; name?: string }> }).labels ?? [];
+    expect(labels.find((l) => l.slug === LABEL_SLUG)?.name, 'profile route labels[] carries the label').toBe(LABEL_NAME);
 
     if (testInfo.project.name === 'mobile') {
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

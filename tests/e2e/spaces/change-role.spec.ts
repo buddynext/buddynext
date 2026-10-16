@@ -71,6 +71,8 @@ test.describe('spaces / change member role (J-633)', () => {
             expect(await roleInRoster(page, space.id, uid)).toBe('moderator');
             const asTarget = await getSpace(actor.page, space.id);
             expect((asTarget.data as SpaceRow).membership_role).toBe('moderator');
+            // The owner's own role is untouched by promoting someone else.
+            expect(((await getSpace(page, space.id)).data as SpaceRow).membership_role).toBe('owner');
 
             // ── DEMOTE (counterpart) ───────────────────────────────────────────
             const demote = await bnApi(page, 'PUT', `/spaces/${space.id}/members/${uid}/role`, {
@@ -78,6 +80,11 @@ test.describe('spaces / change member role (J-633)', () => {
             });
             expect(demote.status, `demote failed: ${JSON.stringify(demote.data)}`).toBe(200);
             expect(await roleInRoster(page, space.id, uid)).toBe('member');
+            // EFFECT: the target's own view is demoted too, and still an active member.
+            const demoted = await getSpace(actor.page, space.id);
+            expect((demoted.data as SpaceRow).membership_role).toBe('member');
+            expect((demoted.data as SpaceRow).membership_status).toBe('active');
+            expect((demoted.data as SpaceRow).can_manage, 'a demoted member can still manage the space').toBe(false);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);

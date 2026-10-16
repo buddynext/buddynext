@@ -118,21 +118,29 @@ export async function ensureUser(
     email: string,
     displayName: string
 ): Promise<number> {
-    const existing = await userId(login);
-    if (existing > 0) {
-        return existing;
+    let id = await userId(login);
+    if (id <= 0) {
+        const out = await wp([
+            'user',
+            'create',
+            login,
+            email,
+            `--display_name=${displayName}`,
+            '--role=subscriber',
+            '--user_pass=password',
+            '--porcelain',
+        ]);
+        id = parseInt(out.trim(), 10);
     }
-    const out = await wp([
-        'user',
-        'create',
-        login,
-        email,
-        `--display_name=${displayName}`,
-        '--role=subscriber',
-        '--user_pass=password',
-        '--porcelain',
+    // A journey member stands in for a real, settled member, who has confirmed
+    // their email. On a site that requires verification an unverified fixture is
+    // refused every write (403 email_unverified) and the journey fails for the
+    // wrong reason. Journeys that need an unverified member use seedVerifyToken().
+    await wp([
+        'eval',
+        `if ( ! get_user_meta( ${id}, 'buddynext_email_verified', true ) ) { buddynext_service( 'verification' )->mark_verified( ${id} ); }`,
     ]);
-    return parseInt(out.trim(), 10);
+    return id;
 }
 
 export async function getUserMeta(id: number, key: string): Promise<string> {

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-903 change payment method without contacting support.
@@ -79,6 +80,16 @@ test.describe('pro / change payment method without support', () => {
 
         const portalForm = panel.locator('form.bn-my-membership__portal').first();
         const buttonVisible = await portalForm.isVisible().catch(() => false);
+
+        // EFFECT (parity): the control is on screen exactly when the server says this
+        // member can update their payment method for that subscription row.
+        const mine = await restJson(page, '/wp-json/buddynext-pro/v1/me/subscriptions');
+        expect(mine.status).toBe(200);
+        const row = ((mine.data ?? []) as Array<{ tier_id?: string | number; source?: string; capabilities?: { can_update_payment?: boolean } }>).find(
+            (r) => Number(r.tier_id) === tierId
+        );
+        expect(row?.source, 'the gateway-billed subscription row').toBe('stripe');
+        expect(buttonVisible, 'portal control vs capabilities.can_update_payment').toBe(Boolean(row?.capabilities?.can_update_payment));
 
         if (!buttonVisible) {
             testInfo.skip(

@@ -12,6 +12,7 @@ import {
 } from '../_fixtures/wp';
 import { openMemberSession, restGet } from '../_fixtures/feed-wave1.helpers';
 import { sel } from '../_fixtures/selectors';
+import { bnApi } from '../_fixtures/spaces-rest';
 
 /**
  * Wave-4 PROFILE hero actions — EFFECT-BASED (J-740..J-746).
@@ -174,6 +175,19 @@ test.describe('profile / hero actions (effect-based)', () => {
             const storedFocal = await getUserMeta(A_ID, 'buddynext_cover_focal');
             expect(storedFocal, 'the reposition focal point must be stored').toContain('25');
             expect(storedFocal, 'the reposition focal point must be stored').toContain('75');
+
+            // EFFECT: the profile route a hero or an app renders from carries the
+            // new cover and the exact reposition, not only the write's own response.
+            const prof = await restGet<{ cover_url?: string; cover_focal?: { x?: number; y?: number; zoom?: number } | null }>(
+                sess.request,
+                sess.nonce,
+                '/me/profile'
+            );
+            expect(prof.status, 'GET /me/profile').toBe(200);
+            expect(String(prof.body.cover_url ?? ''), 'GET /me/profile cover_url').toMatch(/^https?:\/\//);
+            expect(Number(prof.body.cover_focal?.x), 'cover_focal.x').toBe(25);
+            expect(Number(prof.body.cover_focal?.y), 'cover_focal.y').toBe(75);
+            expect(Number(prof.body.cover_focal?.zoom), 'cover_focal.zoom').toBe(1.5);
         } finally {
             // Leave the account as found: drop the uploaded cover, restore prior meta.
             await sess.request
@@ -209,6 +223,14 @@ test.describe('profile / hero actions (effect-based)', () => {
                 hero.locator(CONNECT_BTN).first().click(),
             ]);
             expect(await pendingCount(A_ID, B_ID), 'precondition: an outgoing pending request exists').toBe(1);
+            // The inbox read below can only prove removal if it shows the request first.
+            const before = await openMemberSession(browser, B_LOGIN);
+            try {
+                const inbox = await restGet<{ ids?: unknown[] }>(before.request, before.nonce, '/me/connection-requests');
+                expect((inbox.body.ids ?? []).map(Number), "precondition: A is in B's incoming requests").toContain(A_ID);
+            } finally {
+                await before.ctx.close();
+            }
 
             // Reload — server truth now renders the "Pending" (withdraw) control.
             await page.reload();
@@ -230,19 +252,26 @@ test.describe('profile / hero actions (effect-based)', () => {
             // Target truth: B's incoming-requests list no longer names A.
             const bSess = await openMemberSession(browser, B_LOGIN);
             try {
-                const { status, body } = await restGet<Array<Record<string, unknown>>>(
+                // The route answers { ids: [...] } (requester ids), not a bare array:
+                // reading it as an array made this check pass on any response.
+                const { status, body } = await restGet<{ ids?: unknown[] }>(
                     bSess.request,
                     bSess.nonce,
                     '/me/connection-requests'
                 );
-                expect(status, "B's connection-requests must load").toBeLessThan(300);
-                const stillThere = (Array.isArray(body) ? body : []).some((row) =>
-                    Object.values(row).some((v) => String(v) === String(A_ID))
-                );
-                expect(stillThere, "the withdrawn request must not remain in B's inbox").toBe(false);
+                expect(status, "B's connection-requests must load").toBe(200);
+                expect(Array.isArray(body.ids), "B's connection-requests carries an ids list").toBe(true);
+                expect((body.ids ?? []).map(Number), "the withdrawn request must not remain in B's inbox").not.toContain(A_ID);
             } finally {
                 await bSess.ctx.close();
             }
+
+            // EFFECT: the status route the hero hydrates from is back to "none" for A.
+            const st = await bnApi(page, 'GET', `/users/${B_ID}/connection/status`);
+            expect(
+                ((st.data ?? {}) as { connection?: { state?: string } }).connection?.state,
+                'GET /users/{B}/connection/status after withdraw'
+            ).toBe('none');
 
             // Reload — the Connect CTA is back, proving the withdrawal persisted.
             await page.reload();
@@ -321,6 +350,14 @@ test.describe('profile / hero actions (effect-based)', () => {
                 card.locator(`a[href*="/members/${B_LOGIN}"]`).first(),
                 'the post must reference the shared profile'
             ).toBeVisible();
+
+            // EFFECT: the stored post (single-post route) holds the member's words
+            // and the mention of the shared profile.
+            const stored = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(stored.status, 'GET /posts/{id}').toBe(200);
+            const json = JSON.stringify(stored.data ?? null);
+            expect(json, 'the stored post carries the typed text').toContain(marker);
+            expect(json, 'the stored post references the shared member').toContain(B_LOGIN);
         } finally {
             // Delete the post so reruns start clean.
             const sess = await openMemberSession(browser, A_LOGIN);
@@ -353,6 +390,10 @@ test.describe('profile / hero actions (effect-based)', () => {
 
             // Effect: a restrict row exists in wp_bn_blocks (server truth).
             expect(await restrictCount(A_ID, B_ID), 'restrict must create a wp_bn_blocks(restrict) row').toBe(1);
+            // EFFECT: A's restricted list (the settings screen's route) names B.
+            const list = await bnApi(page, 'GET', '/me/restricted');
+            expect(list.status, 'GET /me/restricted').toBe(200);
+            expect((((list.data ?? {}) as { ids?: unknown[] }).ids ?? []).map(Number), 'B is in A\'s restricted list').toContain(B_ID);
 
             // Reload — server truth now labels the control "Unrestrict".
             await page.reload();
@@ -373,6 +414,8 @@ test.describe('profile / hero actions (effect-based)', () => {
     test('J-744-member a plain member restricts another member (mobile 390px)', async ({ page }) => {
         await resetPair(B_ID, P_ID);
         try {
+            const pfx = await tablePrefix();
+            const lastNotifId = await dbCount(`SELECT COALESCE(MAX(id), 0) FROM ${pfx}bn_notifications`);
             await page.setViewportSize({ width: 390, height: 844 });
             await loginAs(page, B_LOGIN);
             await page.goto(memberUrl(P_LOGIN));
@@ -398,6 +441,14 @@ test.describe('profile / hero actions (effect-based)', () => {
                 await restrictCount(B_ID, P_ID),
                 'a member restricting another member must write a wp_bn_blocks(restrict) row'
             ).toBe(1);
+            // EFFECT: B's restricted list names P, and nothing was sent to P about it.
+            const list = await bnApi(page, 'GET', '/me/restricted');
+            expect(list.status, 'GET /me/restricted').toBe(200);
+            expect((((list.data ?? {}) as { ids?: unknown[] }).ids ?? []).map(Number), 'P is in B\'s restricted list').toContain(P_ID);
+            expect(
+                await dbCount(`SELECT COUNT(*) FROM ${pfx}bn_notifications WHERE recipient_id=${P_ID} AND sender_id=${B_ID} AND id > ${lastNotifId}`),
+                'restricting is silent: the restricted member gets no notification from B'
+            ).toBe(0);
 
             // Reload — server truth now labels the control "Unrestrict".
             await page.reload();
@@ -413,6 +464,9 @@ test.describe('profile / hero actions (effect-based)', () => {
         const ctx = await browser.newContext();
         const page = await ctx.newPage();
         try {
+            const pfx = await tablePrefix();
+            const followerRows = () => dbCount(`SELECT COUNT(*) FROM ${pfx}bn_follows WHERE following_id=${B_ID}`);
+            const followersBefore = await followerRows();
             await page.goto(memberUrl(B_LOGIN));
             await expect(page.locator(HERO).first()).toBeVisible();
 
@@ -421,7 +475,8 @@ test.describe('profile / hero actions (effect-based)', () => {
             const cta = page.locator(`${PF_ACTIONS} a[href*="redirect_to"]`).first();
             await expect(cta, 'a logged-out visitor sees a login-routed Follow CTA').toBeVisible();
             await expect(cta).toHaveText(/follow/i);
-            const href = (await cta.getAttribute('href')) ?? '';
+            // redirect_to carries the profile URL-encoded (the shared login_url() builder).
+            const href = decodeURIComponent((await cta.getAttribute('href')) ?? '');
             expect(href, 'the CTA returns the guest to this profile after login').toContain(
                 `/members/${B_LOGIN}`
             );
@@ -432,6 +487,12 @@ test.describe('profile / hero actions (effect-based)', () => {
             await expect(page.locator(sel.loginUser).first(), 'the CTA opens the login screen').toBeVisible({
                 timeout: 10_000,
             });
+
+            // EFFECT: no follow happened for the guest: the write route refuses a
+            // session-less call and B's follower rows are unchanged.
+            const write = await page.request.post(`/wp-json/buddynext/v1/users/${B_ID}/follow`);
+            expect([401, 403], 'a guest follow is refused by the route').toContain(write.status());
+            expect(await followerRows(), 'no follow row was written for the guest').toBe(followersBefore);
         } finally {
             await ctx.close();
         }
@@ -464,6 +525,12 @@ test.describe('profile / hero actions (effect-based)', () => {
             await expect(privateCard, 'a non-permitted viewer sees the private card').toBeVisible();
             await expect(privateCard).toContainText(/this profile is private/i);
             await expect(page.locator(HERO), 'the hero must be withheld from a non-permitted viewer').toHaveCount(0);
+
+            // EFFECT: the REST read is gated too (ProfileController answers 404 so the
+            // member is not even confirmed to exist); no field data reaches B.
+            const rest = await bnApi(page, 'GET', `/users/${P_ID}/profile`);
+            expect(rest.status, 'a non-permitted viewer\'s GET /users/{P}/profile is refused').toBe(404);
+            expect(JSON.stringify(rest.data ?? null), 'the refusal carries no profile fields').not.toContain('"fields"');
         } finally {
             await deleteUserMeta(P_ID, 'bn_privacy_profile_visibility');
             await resetPair(P_ID, B_ID);

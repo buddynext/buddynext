@@ -4,7 +4,19 @@ import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 
-type FeedHome = { items?: Array<{ id: number; type?: string; link_url?: string }> };
+type FeedHome = { items?: Array<{ id: number; type?: string; link_url?: string; content?: string }> };
+type PostRow = { type?: string; status?: string; content?: string; author?: { id?: number } };
+
+/**
+ * The stored post carrying exactly this text, per the member's own profile feed route
+ * (0 while absent). The composer answers with an optimistic card, so the route is what
+ * proves the write. The profile feed is by recency, so the For you ranking cannot hide it.
+ */
+async function storedPostId(page: import('@playwright/test').Page, nonce: string, content: string): Promise<number> {
+    const me = Number((await restGet<{ user_id?: number }>(page.request, nonce, '/me/profile')).body.user_id);
+    const feed = await restGet<FeedHome>(page.request, nonce, `/users/${me}/feed?per_page=20`);
+    return (feed.body.items ?? []).find((it) => it.content === content)?.id ?? 0;
+}
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -22,6 +34,7 @@ test.describe('feed / compose', () => {
         await page.goto(urls.feed);
         const composer = page.locator(sel.composer).first();
         await expect(composer).toBeVisible();
+        const nonce = await readRestNonce(page);
 
         const stamp = Date.now().toString().slice(-6);
         const content = `e2e text ${stamp}`;
@@ -42,6 +55,22 @@ test.describe('feed / compose', () => {
             const after = await textarea.inputValue().catch(() => '');
             expect(after).toBe('');
         });
+
+        // EFFECT: a cleared composer or an optimistic card is not a post. My profile feed route
+        // serves a published text post with the text I typed.
+        let createdId = 0;
+        try {
+            await expect
+                .poll(async () => (createdId = await storedPostId(page, nonce, content)), { timeout: 10_000 })
+                .toBeGreaterThan(0);
+            const stored = await restGet<PostRow>(page.request, nonce, `/posts/${createdId}`);
+            expect(stored.status, 'GET /posts/{id}').toBe(200);
+            expect(stored.body.content, 'stored body').toBe(content);
+            expect(stored.body.type, 'stored type').toBe('text');
+            expect(stored.body.status, 'stored status').toBe('published');
+        } finally {
+            await deletePostRest(page.request, nonce, createdId).catch(() => {});
+        }
     });
 
     /**
@@ -57,6 +86,7 @@ test.describe('feed / compose', () => {
         await page.goto(urls.feed);
         const composer = page.locator(sel.composer).first();
         await expect(composer).toBeVisible();
+        const nonce = await readRestNonce(page);
 
         const stamp = Date.now().toString().slice(-6);
         const content = `e2e member text ${stamp}`;
@@ -77,6 +107,21 @@ test.describe('feed / compose', () => {
         await page.goto(urls.feed);
         await expect(page.locator(sel.postCard).filter({ hasText: content }).first())
             .toBeVisible({ timeout: 10_000 });
+
+        // EFFECT: the member's post is a published row authored by the member, per the routes.
+        const createdId = await postIdOfCard(page, content);
+        try {
+            expect(createdId, 'resolved server post id').toBeGreaterThan(0);
+            expect(await storedPostId(page, nonce, content), 'post id served by my profile feed route').toBe(createdId);
+            const me = Number((await restGet<{ user_id?: number }>(page.request, nonce, '/me/profile')).body.user_id);
+            const stored = await restGet<PostRow>(page.request, nonce, `/posts/${createdId}`);
+            expect(stored.status, 'GET /posts/{id}').toBe(200);
+            expect(stored.body.content, 'stored body').toBe(content);
+            expect(stored.body.status, 'stored status').toBe('published');
+            expect(Number(stored.body.author?.id), 'stored author is the member').toBe(me);
+        } finally {
+            await deletePostRest(page.request, nonce, createdId).catch(() => {});
+        }
     });
 
     /**
@@ -155,13 +200,18 @@ test.describe('feed / compose', () => {
         const composer = page.locator(sel.composer).first();
         await expect(composer).toBeVisible();
 
-        const pollBtn = page.locator(sel.composerModePoll).first();
+        // The poll tool is templates/partials/composer.php:492, bound to actions.togglePoll and
+        // rendered only while the polls feature is on. sel.composerModePoll looks for
+        // data-composer-mode="poll" / actions.openPoll, which no template emits, so this
+        // journey skipped on every run. Scoped to __tools so it is not the panel's Cancel.
+        const pollBtn = page.locator('.bn-composer__tools .bn-composer__tool[data-wp-on--click="actions.togglePoll"]').first();
         if (!(await pollBtn.isVisible().catch(() => false))) {
-            test.fixme(true, 'J-14: poll mode not yet wired in this build  -  fixme until the composer exposes data-composer-mode="poll".');
+            test.fixme(true, 'J-14: the polls feature is off on this site, so the composer renders no poll tool.');
             return;
         }
 
         await pollBtn.click();
+        await expect(pollBtn).toHaveAttribute('aria-pressed', 'true');
         const optionFields = page.locator('[data-poll-option], .bn-composer__poll-option');
         await expect(optionFields.first()).toBeVisible();
         expect(await optionFields.count()).toBeGreaterThanOrEqual(2);

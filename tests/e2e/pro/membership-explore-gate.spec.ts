@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
 
 /**
  * J-908 gate the Explore discovery feed behind a plan.
@@ -157,6 +158,11 @@ test.describe('pro / gate the Explore feed behind a plan', () => {
                 'bn_locked=social.explore'
             );
             await expect(page.locator('.bn-explore-grid')).toHaveCount(0);
+            // EFFECT: the gate is on the data too. The route the Explore deck and the app
+            // read refuses this member, so the page redirect is not the only lock.
+            const locked = await bnApi(page, 'GET', '/feed/explore');
+            expect(locked.status, 'GET /feed/explore for a restricted member').toBe(403);
+            expect((locked.data as { code?: string } | null)?.code).toBe('plan_explore_locked');
 
             await page.goto(`/?autologin=${MEMBER_INCLUDED}`, { waitUntil: 'domcontentloaded' });
             await page.goto(EXPLORE_URL, { waitUntil: 'domcontentloaded' });
@@ -166,6 +172,8 @@ test.describe('pro / gate the Explore feed behind a plan', () => {
             await expect(page.locator('.bn-explore-hero__title, .bn-explore-grid').first()).toBeVisible({
                 timeout: 10_000,
             });
+            // EFFECT: and it answers the included member.
+            expect((await bnApi(page, 'GET', '/feed/explore')).status, 'GET /feed/explore for an included member').toBe(200);
         });
     }
 });

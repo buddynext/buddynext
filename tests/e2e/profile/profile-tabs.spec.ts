@@ -11,6 +11,28 @@ import {
     wp,
     satisfyRequiredFields,
 } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
+
+/** A member's profile as the page's viewer reads it from REST (raw body + serialised). */
+async function profileOf(page: Page, uid: number): Promise<{ status: number; body: Record<string, unknown>; json: string }> {
+    const r = await bnApi(page, 'GET', `/users/${uid}/profile`);
+    return { status: r.status, body: (r.data ?? {}) as Record<string, unknown>, json: JSON.stringify(r.data ?? null) };
+}
+
+/** Ids of the profile tabs the route resolves for this viewer (what an app would draw). */
+async function navTabIds(page: Page, uid: number): Promise<string[]> {
+    const prof = await profileOf(page, uid);
+    expect(prof.status, `GET /users/${uid}/profile`).toBe(200);
+    const nav = (prof.body.nav ?? {}) as { tabs?: Array<{ id?: string }> };
+    return (nav.tabs ?? []).map((t) => String(t.id ?? ''));
+}
+
+/** The `ids` list of a social-graph route ({ ids: [...] }). */
+async function graphIds(page: Page, path: string): Promise<number[]> {
+    const r = await bnApi(page, 'GET', path);
+    expect(r.status, `GET ${path}`).toBe(200);
+    return (((r.data ?? {}) as { ids?: unknown[] }).ids ?? []).map(Number);
+}
 
 /**
  * Wave-2 PROFILE A3 tab + completion actions — EFFECT-BASED (J-720..J-725).
@@ -179,14 +201,26 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             // Fill one field through the real edit UI.
             await page.goto(editUrl(B_LOGIN));
             await expect(page.locator(APP)).toBeVisible();
-            await page.locator(LOCATION_INPUT).fill(`e2e City ${Date.now().toString().slice(-5)}`);
+            const filled = `e2e City ${Date.now().toString().slice(-5)}`;
+            await page.locator(LOCATION_INPUT).fill(filled);
             await saveProfile(page);
+            // EFFECT: the value the ring is computed from is on the profile route.
+            const own = await bnApi(page, 'GET', '/me/profile');
+            expect(own.status, 'GET /me/profile').toBe(200);
+            expect(JSON.stringify(own.data ?? null), 'the filled field is stored').toContain(filled);
 
             // Reload the profile — the strength ring reflects the new value.
             await page.goto(memberUrl(B_LOGIN));
             await expect(strengthLocator(page)).toBeVisible();
             const after = await ringPct(page);
             expect(after, 'filling a field must raise the strength ring').toBeGreaterThan(before);
+            // EFFECT: the sidebar ring is the route's strength percent, not its own maths
+            // (the phone chip shows completion instead, so parity is asserted on the ring).
+            if ((page.viewportSize()?.width ?? 1280) >= 1025) {
+                const me = await bnApi(page, 'GET', '/me/profile');
+                const strength = ((me.data ?? {}) as { strength?: { percent?: number } }).strength;
+                expect(Number(strength?.percent), 'GET /me/profile strength.percent equals the ring').toBe(after);
+            }
         } finally {
             await clearProfileValues(B_ID);
         }
@@ -219,6 +253,10 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 page.locator('.bn-pf-tab-content').getByText(company),
                 'a filled entry must render in the About tab for a viewer'
             ).toBeVisible();
+            // EFFECT: the viewer's REST read of A's profile carries the entry.
+            const asViewer = await profileOf(page, A_ID);
+            expect(asViewer.status, 'viewer GET /users/{A}/profile').toBe(200);
+            expect(asViewer.json, 'the saved entry is in the viewer\'s REST payload').toContain(company);
         } finally {
             await loginAs(page, A_LOGIN);
             await page.goto(editUrl(A_LOGIN));
@@ -261,6 +299,14 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 page.locator(`.bn-pf-tab-content a[href*="/members/${B_LOGIN}"]`).first(),
                 'the accepted peer must appear in the connections grid'
             ).toBeVisible();
+            // EFFECT: the connections route the grid is built from lists B, and the
+            // status route reads the pair as accepted.
+            expect(await graphIds(page, `/users/${A_ID}/connections?per_page=50`), 'B is in A\'s connections per the route').toContain(B_ID);
+            const st = await bnApi(page, 'GET', `/users/${B_ID}/connection/status`);
+            expect(
+                ((st.data ?? {}) as { connection?: { state?: string } }).connection?.state,
+                'GET /users/{B}/connection/status'
+            ).toBe('accepted');
         } finally {
             await resetPair(A_ID, B_ID);
         }
@@ -293,6 +339,8 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 page.locator(PENDING_NAME).filter({ hasText: await displayName(B_ID) }).first(),
                 'the incoming request must name the requester'
             ).toBeVisible();
+            // EFFECT: the inbox route lists B as a requester for A.
+            expect(await graphIds(page, '/me/connection-requests'), 'B is in A\'s incoming requests per the route').toContain(B_ID);
         } finally {
             await resetPair(A_ID, B_ID);
         }
@@ -309,6 +357,8 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 page.locator(MEDIA_TAB).first(),
                 'the Media tab is present while the integration is on'
             ).toBeVisible();
+            // EFFECT: the nav the profile route resolves carries the Media tab too.
+            expect(await navTabIds(page, A_ID), 'route nav while the integration is on').toContain('media');
 
             // Owner turns the media nav integration off.
             await wp(['option', 'update', MEDIA_NAV_OPTION, '0']);
@@ -319,6 +369,9 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 page.locator(MEDIA_TAB),
                 'the Media tab must retire when the integration is off'
             ).toHaveCount(0);
+            // EFFECT: the saved option is what retired it, and the route nav agrees.
+            expect((await wp(['option', 'get', MEDIA_NAV_OPTION])).trim(), 'the stored integration toggle').toBe('0');
+            expect(await navTabIds(page, A_ID), 'route nav while the integration is off').not.toContain('media');
             // Other tabs still render — proving the bar itself did not break.
             expect(await page.locator(TAB).count(), 'the tab bar still renders').toBeGreaterThan(0);
         } finally {
@@ -345,6 +398,9 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 page.locator(ABOUT_TAB).first(),
                 'a profile with about content shows the About tab'
             ).toBeVisible();
+            // EFFECT: the route nav and payload agree: A has about content and the tab.
+            expect(await navTabIds(page, A_ID), 'route nav for a profile with about content').toContain('about');
+            expect((await profileOf(page, A_ID)).json, 'the about content is in the REST payload').toContain('e2e skills');
 
             // B (emptied) has none → the About tab is absent, profile still renders.
             await page.goto(memberUrl(B_LOGIN));
@@ -353,6 +409,10 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
                 page.locator(ABOUT_TAB),
                 'a profile without about content must not show the About tab'
             ).toHaveCount(0);
+            // EFFECT: the route nav drops the tab for the emptied member, and no value row is left.
+            expect(await navTabIds(page, B_ID), 'route nav for a profile without about content').not.toContain('about');
+            const p = await tablePrefix();
+            expect(await dbCount(`SELECT COUNT(*) FROM ${p}bn_profile_values WHERE user_id=${B_ID}`), 'B holds no profile values').toBe(0);
         } finally {
             await satisfyRequiredFields(B_ID);
         }

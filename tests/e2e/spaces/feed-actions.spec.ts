@@ -57,6 +57,9 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
             expect((on.data as { has_reacted?: boolean }).has_reacted).toBe(true);
             expect(Number((on.data as { count?: number }).count)).toBe(1);
             expect(await reactionCount(page, postId)).toBe(1);
+            // EFFECT: the post row's own counter moved too (the number the card paints).
+            const reacted = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(Number((reacted.data as { reaction_count?: number }).reaction_count ?? 0)).toBe(1);
 
             // Un-react (counterpart) → back to 0.
             const off = await bnApi(page, 'POST', '/reactions/toggle', {
@@ -67,6 +70,8 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
             expect(off.status).toBe(200);
             expect((off.data as { has_reacted?: boolean }).has_reacted).toBe(false);
             expect(await reactionCount(page, postId)).toBe(0);
+            const unreacted = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(Number((unreacted.data as { reaction_count?: number }).reaction_count ?? 0)).toBe(0);
         } finally {
             await bnApi(page, 'DELETE', `/posts/${postId}`);
             await deleteSpaceApi(page, space.id);
@@ -112,6 +117,9 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
                 (items.items ?? []).some((c) => (c.content ?? '').includes(body)),
                 'new comment not found in the post comment list'
             ).toBe(true);
+            // EFFECT: the post's comment counter (what the card shows) grew by the same one.
+            const commented = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(Number((commented.data as { comment_count?: number }).comment_count ?? 0)).toBe(beforeTotal + 1);
         } finally {
             // Restore the throttle to exactly its prior state.
             if (prevRate !== null && prevRate !== '') {
@@ -142,6 +150,10 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
             const src = await bnApi(page, 'GET', `/posts/${postId}`);
             expect(src.status).toBe(200);
             expect(Number((src.data as { share_count?: number }).share_count ?? 0)).toBeGreaterThanOrEqual(1);
+            // EFFECT: the repost is a real post that points back at the source.
+            const repost = await bnApi(page, 'GET', `/posts/${sharePostId}`);
+            expect(repost.status, `GET repost failed: ${JSON.stringify(repost.data)}`).toBe(200);
+            expect(Number((repost.data as { shared_post_id?: number }).shared_post_id ?? 0)).toBe(postId);
         } finally {
             if (sharePostId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${sharePostId}`);
@@ -184,6 +196,14 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
                 items.some((i) => Number(i.id) === reportId && Number(i.object_id) === postId),
                 'reported space post not found in GET /reports/queue'
             ).toBe(true);
+
+            // Counterpart: dismissing it takes it out of the open queue again.
+            const dismiss = await bnApi(page, 'POST', `/reports/${reportId}/dismiss`);
+            expect(dismiss.status, `dismiss failed: ${JSON.stringify(dismiss.data)}`).toBeLessThan(300);
+            const after = await bnApi(page, 'GET', '/reports/queue?per_page=100&object_type=post');
+            const left = (after.data as { items?: Array<{ id: number }> }).items ?? [];
+            expect(left.some((i) => Number(i.id) === reportId), 'dismissed report still in the open queue').toBe(false);
+            reportId = 0;
         } finally {
             if (reportId > 0) {
                 await bnApi(page, 'POST', `/reports/${reportId}/dismiss`);

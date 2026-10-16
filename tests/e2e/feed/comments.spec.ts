@@ -1,7 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
+import { restList } from '../_fixtures/effects';
 
 /**
  * J-17-comment-on-post.
@@ -24,6 +25,15 @@ test.describe('feed / comments', () => {
 
         const input = page.locator(sel.commentInput).first();
         await expect(input).toBeVisible({ timeout: 5_000 });
+
+        // EFFECT: the opened thread shows comments exactly when the route the card calls has them.
+        const firstId = Number(await firstCard.getAttribute('data-post-id'));
+        expect(firstId, 'first card carries its post id').toBeGreaterThan(0);
+        const rest = await restList(page, `/comments?object_type=post&object_id=${firstId}&per_page=6&page=1`);
+        expect(rest.status, 'GET /comments').toBe(200);
+        await expect
+            .poll(async () => (await firstCard.locator('.bn-comment-card').count()) > 0, { timeout: 8_000 })
+            .toBe(rest.items.length > 0);
     });
 
     // HARDENED (Wave-4, 2026-08-10). This previously commented on
@@ -80,6 +90,20 @@ test.describe('feed / comments', () => {
             const newComment = card.locator(sel.commentList).filter({ hasText: body }).first();
             // Patient enough to absorb comment POST + render lag under full-suite load.
             await expect(newComment).toBeVisible({ timeout: 15_000 });
+
+            // EFFECT: the comment is one stored row on this post, written by me, and the post
+            // counts it. The node above renders client-side even when POST /comments fails.
+            const hostPost = await restGet<{ user_id?: number; comment_count?: number }>(page.request, nonce, `/posts/${createdPostId}`);
+            const thread = await restGet<{ items?: Array<{ content?: string; user_id?: number }> }>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${createdPostId}`
+            );
+            expect(thread.status, 'GET /comments').toBe(200);
+            const mine = (thread.body.items ?? []).filter((c) => c.content === body);
+            expect(mine.length, 'stored comments with the text I typed').toBe(1);
+            expect(Number(mine[0].user_id), 'comment author is the post author (me)').toBe(Number(hostPost.body.user_id));
+            expect(Number(hostPost.body.comment_count), 'comment_count on the host post').toBe(1);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }

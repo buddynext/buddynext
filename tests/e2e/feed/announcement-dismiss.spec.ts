@@ -104,6 +104,14 @@ test.describe('feed / dismiss announcement', () => {
                 (after.body.announcements ?? []).some((a) => a.id === annId),
                 'the dismissed announcement must not be served to the member after reload'
             ).toBe(false);
+
+            // EFFECT: a dismissal belongs to the member who made it. The admin is still served it.
+            const adminView = await restGet<AnnouncementList>(page.request, adminNonce, '/feed/announcements');
+            expect(adminView.status).toBe(200);
+            expect(
+                (adminView.body.announcements ?? []).some((a) => a.id === annId),
+                'one member dismissing the announcement must not end it for everyone'
+            ).toBe(true);
         } finally {
             await deletePostRest(page.request, adminNonce, annId).catch(() => {});
             if (member) {

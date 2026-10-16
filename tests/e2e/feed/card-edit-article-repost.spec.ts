@@ -3,6 +3,18 @@ import type { Page } from '@playwright/test';
 
 import { loginAs } from '../_fixtures/actor';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
+
+type PostRow = {
+    link_meta?: { title?: string; thumbnail?: string } | null;
+    viewer_state?: { can_edit?: boolean };
+};
+
+/** The post as the post route serves it to the member who owns the page. */
+async function postRow(page: Page, id: number): Promise<{ status: number; row: PostRow }> {
+    const r = await bnApi(page, 'GET', `/posts/${id}`);
+    return { status: r.status, row: (r.data ?? {}) as PostRow };
+}
 
 /**
  * J-811 Edit only where it works, J-812 blog article card follows its post,
@@ -105,6 +117,11 @@ test('J-811 Edit is offered only on cards whose text can be edited', async ({ pa
     await expect(page.locator('.bn-post-card__edit-input').first(), 'Edit opens the inline editor').toBeVisible();
     await expect(page.getByText('This post cannot be edited.')).toHaveCount(0);
 
+    // EFFECT: the menu follows the route. viewer_state.can_edit is the same rule an app reads.
+    expect((await postRow(page, articleCard)).row.viewer_state?.can_edit, 'article card can_edit').toBe(false);
+    expect((await postRow(page, shareCaptionless)).row.viewer_state?.can_edit, 'caption-less share can_edit').toBe(false);
+    expect((await postRow(page, textPost)).row.viewer_state?.can_edit, 'text post can_edit').toBe(true);
+
     // Leave no share behind for J-813.
     await php(`( new \\BuddyNext\\Feed\\ShareService() )->unshare( ${memberId}, ${original} ); echo 'ok';`);
 });
@@ -123,6 +140,12 @@ test('J-812 the article card shows an image and title set after publishing', asy
     await expect(card.locator('.bn-post-card__article-title'), 'edited title on the card').toHaveText('E2E article updated title');
     const expectedImage = await php(`echo get_the_post_thumbnail_url( ${wpPost}, 'medium_large' );`);
     await expect(card.locator('.bn-post-card__article-cover img'), 'image added after publish on the card').toHaveAttribute('src', expectedImage);
+
+    // EFFECT: the post route serves the same refreshed title and image the card shows.
+    const served = await postRow(page, articleCard);
+    expect(served.status, 'GET /posts/{article card}').toBe(200);
+    expect(served.row.link_meta?.title, 'title served by REST').toBe('E2E article updated title');
+    expect(served.row.link_meta?.thumbnail, 'image served by REST').toBe(expectedImage);
 });
 
 test('J-813 deleting a repost lowers the share count and allows sharing again', async ({ page }) => {
@@ -145,6 +168,11 @@ test('J-813 deleting a repost lowers the share count and allows sharing again', 
 
     await expect.poll(countOf, { message: 'original share count drops' }).toBe(0);
     expect(await recordOf(), 'share record removed').toBe(0);
+    // EFFECT: the repost itself is gone from the API, and the original no longer says I shared it.
+    expect((await postRow(page, repost)).status, 'GET the deleted repost').toBe(404);
+    const orig = await bnApi(page, 'GET', `/posts/${original}`);
+    expect((orig.data as { share_count?: number; viewer_state?: { my_share?: boolean } }).share_count, 'share_count served by REST').toBe(0);
+    expect((orig.data as { viewer_state?: { my_share?: boolean } }).viewer_state?.my_share, 'viewer_state.my_share after deleting the repost').toBe(false);
     const again = Number(await php(`$r = ( new \\BuddyNext\\Feed\\ShareService() )->share( ${memberId}, ${original}, '' ); echo is_wp_error( $r ) ? 0 : (int) $r;`));
     expect(again, 'the member can share it again').toBeGreaterThan(0);
 });

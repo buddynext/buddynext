@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { wp, ensureUser, createPage, deletePage } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-904 gate WP content behind membership.
@@ -78,6 +80,15 @@ test.describe('pro / gate content behind membership', () => {
         pageUrl = created.url;
     });
 
+    /** Whether the signed-in member holds an active row on the gating plan, per the route My Membership reads. */
+    async function holdsPlan(page: Page): Promise<boolean> {
+        const r = await restJson(page, '/wp-json/buddynext-pro/v1/me/subscriptions');
+        expect(r.status).toBe(200);
+        return ((r.data ?? []) as Array<{ tier_id?: string | number; status?: string }>).some(
+            (row) => row.status === 'active' && Number(row.tier_id) === tierId
+        );
+    }
+
     test.afterAll(async () => {
         await deletePage(pageId);
         await wp([
@@ -99,6 +110,8 @@ test.describe('pro / gate content behind membership', () => {
             const paywall = page.locator('.bn-paywall.bn-content-locked');
             await expect(paywall, 'a member without the plan should see the locked card').toBeVisible();
             await expect(page.getByText(SECRET)).toHaveCount(0);
+            // EFFECT (parity): the lock matches the data, this member holds no active row on the plan.
+            expect(await holdsPlan(page), 'locked member has no active subscription on the plan').toBe(false);
 
             const cta = paywall.locator('a.bn-paywall__cta');
             await expect(cta).toBeVisible();
@@ -111,6 +124,8 @@ test.describe('pro / gate content behind membership', () => {
 
             await expect(page.getByText(SECRET), 'a member holding the named plan should see the real content').toBeVisible();
             await expect(page.locator('.bn-paywall.bn-content-locked')).toHaveCount(0);
+            // EFFECT (parity): access comes from the subscription row, not from being signed in.
+            expect(await holdsPlan(page), 'unlocked member holds the active subscription').toBe(true);
         });
     }
 
@@ -121,5 +136,7 @@ test.describe('pro / gate content behind membership', () => {
 
         await expect(page.getByText(SECRET), 'the site admin must never be locked out of their own content').toBeVisible();
         await expect(page.locator('.bn-paywall.bn-content-locked')).toHaveCount(0);
+        // EFFECT: this is the admin bypass, not a plan the admin happens to hold.
+        expect(await holdsPlan(page), 'admin sees it without holding the plan').toBe(false);
     });
 });

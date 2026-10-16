@@ -222,5 +222,8 @@ export const urls = {
     adminSettings: '/wp-admin/admin.php?page=buddynext-settings',
     adminModeration: '/wp-admin/admin.php?page=buddynext-moderation&tab=reports',
     adminCustomDomains: '/wp-admin/admin.php?page=buddynext-domains',
-    adminEmailEditor: '/wp-admin/admin.php?page=buddynext-emails',
+    // The editor is the Notifications hub's Templates tab (EmailEditor::hub_url);
+    // `page=buddynext-emails` is not a registered page and answered 403.
+    adminEmailEditor: '/wp-admin/admin.php?page=buddynext-notifications&tab=templates',
+    adminFeatures: '/wp-admin/admin.php?page=buddynext-settings&tab=features',
 } as const;

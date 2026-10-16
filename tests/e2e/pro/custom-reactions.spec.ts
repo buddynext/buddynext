@@ -112,6 +112,16 @@ test.describe('pro / custom reactions', () => {
             await page.goto(reactionsAdminUrl.replace('tab=reactions', 'tab=social'));
             await expect(page.locator(`input[name="buddynext_enabled_reactions[]"][value="${slug}"]`)).toBeChecked();
 
+            // EFFECT: the service the reaction filter reads holds this slug with the
+            // typed label, and it is in the enabled set members are offered.
+            const stored = await wp([
+                'eval',
+                `$svc = new \\BuddyNextPro\\Reactions\\CustomReactionsService();` +
+                    ` $hit = ''; foreach ( $svc->get_custom_reactions() as $r ) { if ( (string) ( $r['slug'] ?? '' ) === '${slug}' ) { $hit = (string) ( $r['label'] ?? '' ); } }` +
+                    ` echo $hit . '|' . ( ( ! is_array( $p = get_option( 'buddynext_enabled_reactions', null ) ) || in_array( '${slug}', $p, true ) ) ? 'enabled' : 'off' );`,
+            ]);
+            expect(stored.trim(), 'stored custom reaction label|enabled').toBe(`${label}|enabled`);
+
             // ── Member: react to a fresh own post with the custom reaction ──
             await loginAs(page, MEMBER_LOGIN);
             const body = `j952 custom-reaction target ${stamp}`;

@@ -131,11 +131,24 @@ test.describe('blocks / member interactivity (J-802, J-803)', () => {
             test.skip(true, 'member-card subject has no Follow action (self or logged-out)');
         }
 
+        // The card names ONE member, so the row that moves must be the viewer -> that
+        // member pair, not just "some follow row".
+        const pairRows = async () => {
+            const p = await tablePrefix();
+            return dbCount(
+                `SELECT COUNT(*) FROM ${p}bn_follows WHERE follower_id=${selfId} AND following_id=${cardTargetId}`
+            );
+        };
+        const pairBase = await pairRows();
+
         const base = await followRowCount();
         await follow.click();
         const afterOne = await waitForFollowChange(base);
         expect(Math.abs(afterOne - base)).toBe(1);
+        // EFFECT: the changed row is the card subject's.
+        expect(await pairRows(), 'the follow row for the card member flipped').toBe(pairBase === 0 ? 1 : 0);
         await follow.click();
         expect(await waitForFollowCount(base)).toBe(base);
+        expect(await pairRows(), 'the pair row is back where it started').toBe(pairBase);
     });
 });

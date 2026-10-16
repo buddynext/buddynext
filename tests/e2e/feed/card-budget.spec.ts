@@ -1,5 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
+import { restList, idsOf } from '../_fixtures/effects';
 
 /**
  * J-981 post-card weight budget (feed rendering plan, Phase C).
@@ -56,6 +57,14 @@ test.describe('feed / post-card budget (J-981)', () => {
         });
 
         expect(m.cards, 'the feed has cards to measure').toBeGreaterThan(0);
+        // EFFECT: the cards being weighed are this member's real feed, the posts the home route serves.
+        const rendered = await page
+            .locator('article.bn-post-card[data-post-id]')
+            .evaluateAll((els) => els.map((e) => Number((e as HTMLElement).dataset.postId)).filter((n) => n > 0));
+        const rest = await restList(page, '/feed/home?per_page=50');
+        expect(rest.status, 'GET /feed/home').toBe(200);
+        const served = idsOf(rest.data);
+        expect(rendered.filter((id) => !served.includes(id)), 'cards on screen that the home feed route does not serve').toEqual([]);
         expect(m.avgBytes, `average card ${m.avgBytes} B (budget ${BUDGET.avgBytes})`).toBeLessThanOrEqual(BUDGET.avgBytes);
         expect(m.avgElements, `average card ${m.avgElements} elements (budget ${BUDGET.avgElements})`).toBeLessThanOrEqual(BUDGET.avgElements);
         expect(m.maxElements, `heaviest card ${m.maxElements} elements (ceiling ${BUDGET.maxElements})`).toBeLessThanOrEqual(BUDGET.maxElements);

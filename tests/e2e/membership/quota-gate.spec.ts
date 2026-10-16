@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { settleOverlays, satisfyRequiredFields } from '../_fixtures/wp';
+import { settleOverlays, satisfyRequiredFields, userId, tablePrefix, dbCount } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
 import type { Page } from '@playwright/test';
 
 /**
@@ -73,6 +74,14 @@ async function fillManyOptionalFields(page: Page): Promise<number> {
     return filled;
 }
 
+/** The viewer's own stored profile values by field key, per GET /me/profile (the route the app reads). */
+async function storedProfile(page: Page): Promise<Record<string, unknown>> {
+    const r = await bnApi(page, 'GET', '/me/profile');
+    expect(r.status, 'GET /me/profile').toBe(200);
+    const fields = ((r.data as { fields?: Array<{ field_key: string; value_raw?: unknown }> }).fields ?? []);
+    return Object.fromEntries(fields.map((f) => [f.field_key, f.value_raw]));
+}
+
 const saveProfile = (page: Page): Promise<void> =>
     page.getByRole('button', { name: /save changes/i }).first().click();
 
@@ -103,6 +112,17 @@ test.describe('membership / profile-field quota gate', () => {
         // message on screen (the honest-feedback the silent-422 bug violated).
         const planErrors = page.locator('.bn-ep-field-error, .bn-ep-injected-error').filter({ hasText: PLAN_MSG });
         await expect(planErrors.first()).toBeVisible({ timeout: 10_000 });
+        // EFFECT: the wall is enforced in the data, not only announced: the member holds no more
+        // non-empty optional values than the plan message says it allows.
+        const allowed = Number(((await planErrors.first().innerText()).match(/fill in (\d+)/i) ?? [])[1] ?? NaN);
+        expect(allowed, 'the plan message names the allowed count').toBeGreaterThan(0);
+        const uid = await userId(limited);
+        const p = await tablePrefix();
+        const stored = await dbCount(
+            `SELECT COUNT(*) FROM ${p}bn_profile_values v INNER JOIN ${p}bn_profile_fields f ON f.id = v.field_id ` +
+                `WHERE v.user_id = ${uid} AND f.is_required = 0 AND v.value <> '' AND v.value <> '[]'`
+        );
+        expect(stored, `plan allows ${allowed} optional fields, the member has ${stored} stored`).toBeLessThanOrEqual(allowed);
 
         // Idempotent: re-saving without adding a new field must NOT raise a fresh
         // wall for fields already filled (editing a filled unit is free — the
@@ -137,12 +157,53 @@ test.describe('membership / profile-field quota gate', () => {
             return;
         }
 
-        await fillManyOptionalFields(page);
-        await page.getByRole('button', { name: /save changes/i }).first().click();
+        // Snapshot what the admin has now, so the fill below can be undone exactly.
+        const original = await storedProfile(page);
+        const names: string[] = [];
+        for (const [name] of FIELDS) {
+            const el = page.locator(`[name="${name}"]`).first();
+            if (await el.count() && await el.isVisible().catch(() => false)) {
+                names.push(name);
+            }
+        }
 
-        // Admin is exempt: the plan-limit message must NOT appear on any control.
-        const planErrors = page.locator('.bn-ep-field-error, .bn-ep-injected-error').filter({ hasText: PLAN_MSG });
-        await page.waitForTimeout(2000);
-        expect(await planErrors.count()).toBe(0);
+        try {
+            await fillManyOptionalFields(page);
+            await page.getByRole('button', { name: /save changes/i }).first().click();
+
+            // Admin is exempt: the plan-limit message must NOT appear on any control.
+            const planErrors = page.locator('.bn-ep-field-error, .bn-ep-injected-error').filter({ hasText: PLAN_MSG });
+            await page.waitForTimeout(2000);
+            expect(await planErrors.count()).toBe(0);
+
+            // EFFECT: "no message" is only exemption if the values were actually kept. Every
+            // field the form exposed is stored non-empty, and the plain text ones hold exactly
+            // what was typed (a silent drop with no message would pass the check above).
+            const typed = Object.fromEntries(FIELDS);
+            await expect
+                .poll(async () => {
+                    const now = await storedProfile(page);
+                    return names.filter((n) => n in now && (now[n] === '' || now[n] === null || now[n] === undefined));
+                }, { timeout: 10_000, message: 'fields the admin filled were not stored' })
+                .toEqual([]);
+            const now = await storedProfile(page);
+            for (const key of ['bio', 'headline']) {
+                if (names.includes(key) && key in now) {
+                    expect(String(now[key]), `stored ${key} for the exempt admin`).toBe(typed[key]);
+                }
+            }
+        } finally {
+            // Leave the admin's profile as found.
+            const restore: Record<string, string> = {};
+            for (const n of names) {
+                const v = original[n];
+                if (n in original && (typeof v === 'string' || v === null)) {
+                    restore[n] = v ?? '';
+                }
+            }
+            if (Object.keys(restore).length > 0) {
+                await bnApi(page, 'PUT', '/me/profile', restore).catch(() => undefined);
+            }
+        }
     });
 });

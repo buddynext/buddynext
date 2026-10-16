@@ -2,6 +2,27 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
 import type { Page } from '@playwright/test';
+import { bnApi } from '../_fixtures/spaces-rest';
+
+type RepeaterField = { field_key?: string; value?: unknown };
+
+/**
+ * The member's stored Work Experience entries per GET /me/profile, one object of
+ * field_key -> value per entry. This is the server's list, independent of what the
+ * edit form repainted.
+ */
+async function storedWorkEntries(page: Page): Promise<Array<Record<string, string>>> {
+    const r = await bnApi(page, 'GET', '/me/profile');
+    expect(r.status, 'GET /me/profile').toBe(200);
+    const groups = (((r.data ?? {}) as { groups?: Array<{ group_key?: string; entries?: RepeaterField[][] }> }).groups ?? []);
+    const work = groups.find((g) => g.group_key === 'work_experience');
+    return (work?.entries ?? []).map((entry) =>
+        Object.fromEntries((entry ?? []).map((f) => [String(f.field_key ?? ''), String(f.value ?? '')]))
+    );
+}
+
+const storedCompanies = async (page: Page): Promise<string[]> =>
+    (await storedWorkEntries(page)).map((e) => e.work_company ?? '');
 
 /**
  * J-68 repeater day-30 lifecycle, J-69 emptied-group Add Entry.
@@ -114,6 +135,11 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
             idx = await indexOfCompany(page, companyA);
             await expect(page.locator(`${container} input[name="work_experience[${idx}][work_title]"]`)).toHaveValue('QA Trumpet');
             await expect(page.locator(`${container} input[name="work_experience[${idx}][work_start_date]"]`)).toHaveValue('2020-02-02');
+            // EFFECT: the stored entry (profile route) holds every typed sub-field.
+            const savedA = (await storedWorkEntries(page)).find((e) => e.work_company === companyA);
+            expect(savedA, 'entry A is stored on the profile route').toBeTruthy();
+            expect(savedA?.work_title, 'stored work_title').toBe('QA Trumpet');
+            expect(savedA?.work_start_date, 'stored work_start_date').toContain('2020-02');
 
             // Second entry keeps its OWN values (entries 2+ regression, #40911).
             await page.locator(addBtn).click();
@@ -122,6 +148,10 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
             await saveAndReload(page);
             await expectCompany(page, companyA, true);
             await expectCompany(page, companyB, true);
+            // EFFECT: both entries are stored, each with its own company.
+            const both = await storedCompanies(page);
+            expect(both, 'entry A is still stored after adding B').toContain(companyA);
+            expect(both, 'entry B is stored').toContain(companyB);
 
             // Delete A (a middle delete, since B renumbers under it): A must STAY
             // deleted after save + reload — the exact #40911 failure ("The entry
@@ -130,6 +160,10 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
             await expectCompany(page, companyA, false);
             await expectCompany(page, companyB, true);
             await expectEntryCount(page, baseCount + 1);
+            // EFFECT: the delete reached the server: A is gone from the route, B stays.
+            const afterDelete = await storedCompanies(page);
+            expect(afterDelete, 'the deleted entry is gone from the profile route').not.toContain(companyA);
+            expect(afterDelete, 'the surviving entry is still stored').toContain(companyB);
         } finally {
             // Leave the account exactly as found, even on a mid-test failure.
             await page.goto(urls.memberEdit(user));
@@ -138,6 +172,10 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
         }
 
         await expectEntryCount(page, baseCount);
+        // EFFECT: cleanup really removed both; nothing of this run is left stored.
+        const left = await storedCompanies(page);
+        expect(left, 'no e2e entry remains stored').not.toContain(companyA);
+        expect(left, 'no e2e entry remains stored').not.toContain(companyB);
     });
 
     test('J-69 Add Entry still works after the member empties the group', async ({ authenticatedPage: page }, testInfo) => {
@@ -153,6 +191,7 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
         // dead-button bug). NOTHING is saved: accept the beforeunload dialog and
         // reload to restore the member's real entries.
         page.on('dialog', (d) => void d.accept());
+        const storedBefore = await storedCompanies(page);
         const removeAll = page.locator(`${container} .bn-ep-repeater-remove`);
         while (await removeAll.count()) {
             await removeAll.first().click();
@@ -166,5 +205,7 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
 
         // Discard — the member's stored entries stay untouched.
         await page.goto(urls.memberEdit(user));
+        // EFFECT: nothing was saved; the stored entries are exactly what they were.
+        expect(await storedCompanies(page), 'client-side removal without Save changes nothing stored').toEqual(storedBefore);
     });
 });

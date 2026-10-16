@@ -64,6 +64,10 @@ test.describe('spaces / invite response (J-662/J-663)', () => {
             // EFFECT: the invitee is now an active member (their own view)...
             const g = await getSpace(invitee.page, space.id);
             expect((g.data as SpaceRow).membership_status).toBe('active');
+            expect((g.data as SpaceRow).membership_role).toBe('member');
+            // An accepted member can read the private space's content.
+            const feed = await bnApi(invitee.page, 'GET', `/spaces/${space.id}/feed`);
+            expect(feed.status, 'an accepted invitee cannot read the private space feed').toBe(200);
 
             // ...and the owner's roster now lists them.
             const rosterRes = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
@@ -108,6 +112,9 @@ test.describe('spaces / invite response (J-662/J-663)', () => {
             expect(rosterRes.status).toBe(200);
             const rows = (rosterRes.data as MemberRow[]) ?? [];
             expect(rows.some((r) => (r.user_nicename ?? r.user_login) === other)).toBe(false);
+            // Declining leaves the private space closed to them.
+            const feed = await bnApi(invitee.page, 'GET', `/spaces/${space.id}/feed`);
+            expect(feed.status, 'a declined invitee can read the private space feed').toBe(403);
         } finally {
             await invitee.ctx.close();
             await deleteSpaceApi(page, space.id);

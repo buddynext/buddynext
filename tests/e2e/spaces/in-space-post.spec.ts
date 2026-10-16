@@ -56,6 +56,18 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
 
             // EFFECT 2: the post is retrievable in that space's feed.
             expect(await spaceFeedIds(page, space.id)).toContain(postId);
+
+            // EFFECT 3: the stored post row carries the space and the typed body.
+            const got = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(got.status, `GET post failed: ${JSON.stringify(got.data)}`).toBe(200);
+            expect(Number((got.data as PostRow).space_id)).toBe(space.id);
+            expect(String((got.data as PostRow).content ?? '')).toContain(body);
+
+            // Counterpart: deleting it takes it out of the space feed.
+            const del = await bnApi(page, 'DELETE', `/posts/${postId}`);
+            expect(del.status, `delete failed: ${JSON.stringify(del.data)}`).toBeLessThan(300);
+            expect(await spaceFeedIds(page, space.id)).not.toContain(postId);
+            postId = 0;
         } finally {
             if (postId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${postId}`);
@@ -86,6 +98,10 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
             const pin = await bnApi(page, 'POST', `/posts/${postId}/pin`);
             expect(pin.status, `expected a rejection: ${JSON.stringify(pin.data)}`).toBe(403);
             expect((pin.data as { code?: string }).code).toBe('pin_not_allowed_in_space');
+            // EFFECT: the refusal wrote nothing: the post is still unpinned.
+            const got = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(got.status).toBe(200);
+            expect(Boolean(Number((got.data as PostRow).is_pinned ?? 0)), 'refused pin still pinned the post').toBe(false);
         } finally {
             if (postId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${postId}`);

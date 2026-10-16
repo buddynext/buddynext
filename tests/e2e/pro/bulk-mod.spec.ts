@@ -2,6 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { urls } from '../_fixtures/selectors';
 import { readRestNonce, restPost, openMemberSession, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { dbScalar, tablePrefix } from '../_fixtures/wp';
 
 /**
  * J-955 act on many reports at once (Pro).
@@ -104,6 +105,19 @@ test.describe('pro / bulk moderation actions', () => {
             await page.goto(bulkAdminUrl);
             await expect(page.locator(reportRow(reportIdA))).toHaveCount(0, { timeout: 10_000 });
             await expect(page.locator(reportRow(reportIdB))).toHaveCount(0);
+
+            // EFFECT: the rows themselves moved to 'dismissed' (ModerationService::dismiss),
+            // so a list that merely hid them, or a status other than dismiss, fails here.
+            const prefix = await tablePrefix();
+            await expect
+                .poll(
+                    async () =>
+                        dbScalar(
+                            `SELECT GROUP_CONCAT(status ORDER BY id) FROM ${prefix}bn_reports WHERE id IN (${reportIdA}, ${reportIdB})`
+                        ),
+                    { timeout: 10_000 }
+                )
+                .toBe('dismissed,dismissed');
         } finally {
             if (author) {
                 if (postIdA) {

@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 import type { Page } from '@playwright/test';
 
 /**
@@ -98,6 +98,25 @@ test.describe('feed / media lightbox', () => {
         return postIdOfCard(page, caption);
     }
 
+    /** Media ids on the post, per the post route (what any client is served). */
+    const storedMediaIds = async (page: Page, nonce: string, postId: number): Promise<number[]> =>
+        ((await restGet<{ media?: Array<{ id: number }> }>(page.request, nonce, `/posts/${postId}`)).body.media ?? []).map((m) => Number(m.id));
+
+    /** Media ids on the card's image tiles, in the order they render. */
+    const tileMediaIds = async (page: Page, caption: string): Promise<number[]> =>
+        page
+            .locator(sel.postCard)
+            .filter({ hasText: caption })
+            .first()
+            .locator(mediaTile)
+            .evaluateAll((els) => els.map((e) => Number((e as HTMLElement).dataset.bnMediaId)));
+
+    /** GET a WPMediaVerse engine route (mvs/v1), the namespace the lightbox panel reads. */
+    const mvsGet = async (page: Page, nonce: string, path: string): Promise<{ status: number; body: unknown }> => {
+        const res = await page.request.get(`/wp-json/mvs/v1${path}`, { headers: { 'X-WP-Nonce': nonce } });
+        return { status: res.status(), body: await res.json().catch(() => null) };
+    };
+
     const openFirstTile = async (page: Page, caption: string): Promise<void> => {
         const card = page.locator(sel.postCard).filter({ hasText: caption }).first();
         await card.locator(mediaTile).first().scrollIntoViewIfNeeded();
@@ -129,6 +148,11 @@ test.describe('feed / media lightbox', () => {
             await expect(media).toBeVisible();
             const src = await media.getAttribute('src');
             expect(src, 'lightbox media must have a source').toBeTruthy();
+
+            // EFFECT: the tile that opened is the one media item the post route serves for this post.
+            const stored = await storedMediaIds(page, nonce, postId);
+            expect(stored.length, 'media items stored on the post').toBe(1);
+            expect(await tileMediaIds(page, caption), 'tile media ids vs the post route').toEqual(stored);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }
@@ -157,6 +181,10 @@ test.describe('feed / media lightbox', () => {
             const card = page.locator(sel.postCard).filter({ hasText: caption }).first();
             const tileCount = await card.locator(mediaTile).count();
             expect(tileCount, 'need 2 image tiles to test prev/next').toBeGreaterThanOrEqual(2);
+            // EFFECT: the two tiles being paged are the two media items stored on the post, in order.
+            const stored = await storedMediaIds(page, nonce, postId);
+            expect(stored.length, 'media items stored on the post').toBe(2);
+            expect(await tileMediaIds(page, caption), 'tile media ids vs the post route').toEqual(stored);
 
             await openFirstTile(page, caption);
             const firstSrc = await page.locator(lbMedia).first().getAttribute('src');
@@ -227,6 +255,25 @@ test.describe('feed / media lightbox', () => {
             await expect(page.locator(lbFavorite).first()).toHaveAttribute('aria-pressed', 'true', { timeout: 8_000 });
             await expect(page.locator(lbComments).locator(lbComment, { hasText: commentText }).first())
                 .toBeVisible({ timeout: 8_000 });
+
+            // EFFECT: the three writes, read from the routes themselves rather than the reopened
+            // panel. A photo that is a feed post reacts as the POST (lightbox.js reactNow), so
+            // the reaction is the post's; favorite and comment belong to the media item.
+            const [mediaId] = await tileMediaIds(page, caption);
+            expect(mediaId, 'media id on the tile').toBeGreaterThan(0);
+            const rx = await restGet<{ has_reacted?: boolean; count?: number }>(
+                page.request,
+                nonce,
+                `/reactions?object_type=post&object_id=${postId}`
+            );
+            expect(rx.body.has_reacted, 'my reaction on the post behind the photo').toBe(true);
+            expect(rx.body.count, 'reaction count on the post').toBe(1);
+            const fav = await mvsGet(page, nonce, `/media/${mediaId}/favorite`);
+            expect(fav.status, 'GET mvs/v1 favorite').toBe(200);
+            expect((fav.body as { favorited?: boolean } | null)?.favorited, 'favorite stored on the media item').toBe(true);
+            const thread = await mvsGet(page, nonce, `/media/${mediaId}/comments`);
+            expect(thread.status, 'GET mvs/v1 comments').toBe(200);
+            expect(JSON.stringify(thread.body), 'comment stored on the media item').toContain(commentText);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }
@@ -270,6 +317,15 @@ test.describe('feed / media lightbox', () => {
                 await expect(guest.locator(lbReaction)).toHaveCount(0);
                 await expect(guest.locator(lbFavorite)).toHaveCount(0);
                 await expect(guest.locator(lbCommentForm)).toHaveCount(0);
+
+                // EFFECT: the missing controls are not the only gate. A guest write is refused
+                // by the route, and the post still has no reaction.
+                const attempt = await guestCtx.request.post('/wp-json/buddynext/v1/reactions/toggle', {
+                    data: { object_type: 'post', object_id: postId, emoji: 'like' },
+                });
+                expect([401, 403], `guest reaction POST -> ${attempt.status()}`).toContain(attempt.status());
+                const rx = await restGet<{ count?: number }>(page.request, nonce, `/reactions?object_type=post&object_id=${postId}`);
+                expect(rx.body.count, 'reactions on the post after the guest attempt').toBe(0);
             } finally {
                 await guestCtx.close().catch(() => {});
             }

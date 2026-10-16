@@ -7,6 +7,8 @@ import {
     TWO_FACTOR_PASSWORD,
     dbSeedingAvailable,
 } from '../_fixtures/db.fixture';
+import { sessionStatus } from '../_fixtures/effects';
+import { wp } from '../_fixtures/wp';
 
 /**
  * J-07-login + J-08-login-with-2fa + J-09-password-reset.
@@ -32,6 +34,8 @@ test.describe('auth / login', () => {
         // /activity/explore/ on a public one. The old assertion hardcoded `/auth/`,
         // a slug BuddyNext never uses, so it failed on every configuration.
         expect(/\/login\/|wp-login\.php|\/explore\//.test(url)).toBeTruthy();
+        // EFFECT: the server holds no session for this browser, not only a redirect.
+        expect(await sessionStatus(page), 'a guest must be refused by /me/profile').toBeGreaterThanOrEqual(401);
     });
 
     test('login form accepts valid credentials and sets cookie', async ({ page }) => {
@@ -58,11 +62,35 @@ test.describe('auth / login', () => {
 
         const cookies = await page.context().cookies();
         expect(cookies.some((c) => c.name.startsWith('wordpress_logged_in'))).toBeTruthy();
+        // EFFECT: the cookie is accepted by the REST layer, i.e. a real session exists.
+        expect(await sessionStatus(page), 'the new session must read its own profile').toBe(200);
     });
 
     test('lost-password form renders', async ({ page }) => {
         await page.goto(urls.lostPassword);
         await expect(page.locator(sel.lostPasswordForm).first()).toBeVisible();
+    });
+
+    test('requesting a password reset stores a reset key for the member', async ({ page }) => {
+        test.skip(!dbSeedingAvailable(), 'J-09 needs WP-CLI (BN_WP_PATH) to seed a member and read the reset key.');
+        const user = await seedLoginUser();
+        const key = async () =>
+            (await wp(['eval', `$u = get_user_by( 'login', '${user}' ); echo $u ? (string) $u->user_activation_key : '';`])).trim();
+        await wp(['eval', `global $wpdb; $wpdb->update( $wpdb->users, array( 'user_activation_key' => '' ), array( 'user_login' => '${user}' ) ); clean_user_cache( get_user_by( 'login', '${user}' ) );`]);
+        expect(await key(), 'no reset is pending before the request').toBe('');
+
+        await page.goto(urls.lostPassword);
+        const form = page.locator(sel.lostPasswordForm).first();
+        await form.locator('#user_login').fill(user);
+        await Promise.all([page.waitForLoadState('domcontentloaded'), form.locator('#wp-submit').click()]);
+
+        try {
+            // EFFECT: core stored a hashed reset key on the user row; the "check your
+            // email" screen alone would also render for a request that stored nothing.
+            expect(await key(), 'a reset key is stored for the member').not.toBe('');
+        } finally {
+            await wp(['eval', `global $wpdb; $wpdb->update( $wpdb->users, array( 'user_activation_key' => '' ), array( 'user_login' => '${user}' ) ); clean_user_cache( get_user_by( 'login', '${user}' ) );`]).catch(() => undefined);
+        }
     });
 
     test('login prompts for TOTP when 2FA enabled', async ({ page }) => {
@@ -90,5 +118,7 @@ test.describe('auth / login', () => {
         // account is not actually signed in until the code step verifies.
         const cookies = await page.context().cookies();
         expect(cookies.some((c) => c.name.startsWith('wordpress_logged_in'))).toBeFalsy();
+        // EFFECT: no session until the code is entered.
+        expect(await sessionStatus(page), 'no session before the TOTP step').toBeGreaterThanOrEqual(401);
     });
 });

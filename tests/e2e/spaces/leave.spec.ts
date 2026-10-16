@@ -73,6 +73,13 @@ test.describe('spaces / leave (J-605)', () => {
                 )
                 .not.toBe('active');
 
+            // EFFECT (owner's side): the member is off the roster and the head count is back
+            // to the owner alone.
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(roster.status).toBe(200);
+            expect(((roster.data as Array<{ role?: string }>) ?? []).map((r) => r.role)).toEqual(['owner']);
+            expect(Number(((await getSpace(page, space.id)).data as SpaceRow).member_count)).toBe(1);
+
             // ...and the reloaded hero offers the Join control again.
             await actor.page.goto(`/spaces/${space.slug}/`);
             await expect(actor.page.locator(joinBtn).first()).toBeVisible({ timeout: 10_000 });

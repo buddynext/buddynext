@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-902 admin oversight of a member's subscription.
@@ -80,6 +81,15 @@ test.describe('pro / admin subscription overview', () => {
 
         // EFFECT: a member with no row reads "Not on any plan", not a blank field.
         await expect(section).toContainText(/not on any plan/i);
+        // EFFECT (parity): the admin subscriptions route agrees there is no active row.
+        const activeRows = async () => {
+            const r = await restJson(page, `/wp-json/buddynext-pro/v1/users/${memberId}/subscriptions`);
+            expect(r.status).toBe(200);
+            return ((r.data ?? []) as Array<{ tier_id?: string | number; status?: string; expires_at?: string | null }>).filter(
+                (row) => row.status === 'active'
+            );
+        };
+        expect(await activeRows(), '"Not on any plan" means no active subscription row').toHaveLength(0);
 
         // EFFECT: no payments recorded is an honest empty state, not silence.
         await expect(section).toContainText(/no payments recorded for this member/i);
@@ -97,6 +107,11 @@ test.describe('pro / admin subscription overview', () => {
                 ` echo (int) ( $subs[0]['tier_id'] ?? 0 );`,
         ]);
         expect(Number(active)).toBe(tierId);
+        // EFFECT: the same route the app reads holds exactly one active row, on this
+        // plan, with no end date (the "Never expires" box that was ticked).
+        const rows = await activeRows();
+        expect(rows.map((row) => Number(row.tier_id))).toEqual([tierId]);
+        expect(rows[0].expires_at ?? null, 'never-expires is stored as no end date').toBeNull();
 
         // ...and the admin's own view of it, reloaded, agrees - the plan name and a
         // "never expires" reading, not the earlier empty state.

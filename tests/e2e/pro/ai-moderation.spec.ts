@@ -63,8 +63,31 @@ test.describe('pro / ai moderation', () => {
     });
 
     test('AI moderation toggle visible in settings', async ({ authenticatedPage: page }) => {
-        await page.goto('/wp-admin/admin.php?page=buddynext-moderation&tab=ai');
-        const toggle = page.locator('#bn-toggle-buddynextpro_ai_mod_scan_posts_enabled');
-        await expect(toggle).toBeVisible();
+        const OPTION = 'buddynextpro_ai_mod_scan_posts_enabled';
+        const readOption = async (): Promise<boolean> =>
+            (await wp(['eval', `echo get_option( '${OPTION}', false ) ? '1' : '0';`])).trim() === '1';
+        const before = await readOption();
+
+        try {
+            await page.goto('/wp-admin/admin.php?page=buddynext-moderation&tab=ai');
+            const toggle = page.locator(`#bn-toggle-${OPTION}`);
+            await expect(toggle).toBeVisible();
+
+            // EFFECT (parity): the switch renders the stored option, not a default.
+            if (before) {
+                await expect(toggle).toBeChecked();
+            } else {
+                await expect(toggle).not.toBeChecked();
+            }
+
+            // EFFECT: flipping the switch and saving writes the option (options.php),
+            // read back from the row, not from the "Settings saved" notice.
+            await page.locator('label.bn-toggle', { has: toggle }).click();
+            await page.locator('.bn-save-bar button[type="submit"]').first().click();
+            await page.waitForLoadState('domcontentloaded');
+            await expect.poll(readOption, { timeout: 10_000 }).toBe(!before);
+        } finally {
+            await wp(['eval', `update_option( '${OPTION}', ${before ? 'true' : 'false'} );`]).catch(() => undefined);
+        }
     });
 });

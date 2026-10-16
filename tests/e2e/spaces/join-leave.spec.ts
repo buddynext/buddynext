@@ -52,6 +52,15 @@ test.describe('spaces / join + request', () => {
             // EFFECT: the member's own view is now active.
             const after = await getSpace(actor.page, space.id);
             expect((after.data as SpaceRow).membership_status).toBe('active');
+            expect((after.data as SpaceRow).membership_role).toBe('member');
+
+            // EFFECT (owner's side): the member is on the roster as a plain member, and the
+            // head count went from the owner alone to two.
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(roster.status).toBe(200);
+            const rows = (roster.data as Array<{ role?: string }>) ?? [];
+            expect(rows.map((r) => r.role).sort()).toEqual(['member', 'owner']);
+            expect(Number(((await getSpace(page, space.id)).data as SpaceRow).member_count)).toBe(2);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);
@@ -87,6 +96,14 @@ test.describe('spaces / join + request', () => {
             expect(queue.status).toBe(200);
             const items = (queue.data as { items?: { user_id: number }[] }).items ?? [];
             expect(items.length, 'owner does not see the pending request').toBeGreaterThan(0);
+            // Exactly one request, and a pending requester is not a member yet: not on the
+            // roster, not counted, and the private feed stays closed to them.
+            expect(items.length).toBe(1);
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(((roster.data as unknown[]) ?? []).length, 'a pending requester is listed as a member').toBe(1);
+            expect(Number(((await getSpace(page, space.id)).data as SpaceRow).member_count)).toBe(1);
+            const feed = await bnApi(actor.page, 'GET', `/spaces/${space.id}/feed`);
+            expect(feed.status, 'a pending requester can read the private feed').toBe(403);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);

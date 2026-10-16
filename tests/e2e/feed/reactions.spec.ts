@@ -3,6 +3,7 @@ import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 
 type ReactionCount = { count: number; has_reacted?: boolean; emoji?: string };
+type PostRow = { reaction_count?: number; viewer_state?: { my_reaction?: string | null } };
 
 /**
  * J-16 react to a post (B2).
@@ -70,6 +71,14 @@ test.describe('feed / reactions', () => {
                 .poll(async () => (await readReaction(page, nonce, createdId)).has_reacted, { timeout: 8_000 })
                 .toBe(true);
             expect((await readReaction(page, nonce, createdId)).count).toBeGreaterThanOrEqual(1);
+            // EFFECT: one reaction, not "some": the count moved by exactly one, the post row's
+            // own counter moved with it, and the post route names my reaction.
+            const reacted = await readReaction(page, nonce, createdId);
+            expect(reacted.count, 'reactions on a fresh post after one reaction').toBe(1);
+            expect(reacted.emoji, 'the emoji stored for me').toBeTruthy();
+            const rowAfter = (await restGet<PostRow>(page.request, nonce, `/posts/${createdId}`)).body;
+            expect(Number(rowAfter.reaction_count), 'reaction_count on the post row').toBe(1);
+            expect(rowAfter.viewer_state?.my_reaction, 'viewer_state.my_reaction').toBe(reacted.emoji);
 
             // Persistence: the row survives a full reload (proves it is not an
             // optimistic in-memory flip that a reload would erase).
@@ -89,6 +98,9 @@ test.describe('feed / reactions', () => {
                 .poll(async () => (await readReaction(page, nonce, createdId)).has_reacted, { timeout: 8_000 })
                 .toBe(false);
             expect((await readReaction(page, nonce, createdId)).count).toBe(0);
+            const rowCleared = (await restGet<PostRow>(page.request, nonce, `/posts/${createdId}`)).body;
+            expect(Number(rowCleared.reaction_count), 'reaction_count after removing').toBe(0);
+            expect(rowCleared.viewer_state?.my_reaction ?? null, 'viewer_state.my_reaction after removing').toBeNull();
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
         }

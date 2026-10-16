@@ -1,6 +1,16 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, restPost, deletePostRest, openMemberSession, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, restPost, restGet, deletePostRest, openMemberSession, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import type { APIRequestContext } from '@playwright/test';
+
+type Warning = { has_warning?: boolean; warning_type?: string };
+
+/** The warning as the content-warning route serves it to whoever owns this request context. */
+async function warningOf(request: APIRequestContext, nonce: string, postId: number): Promise<Warning> {
+    const r = await restGet<Warning>(request, nonce, `/posts/${postId}/content-warning`);
+    expect(r.status, 'GET /posts/{id}/content-warning').toBe(200);
+    return r.body;
+}
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -54,6 +64,11 @@ test.describe('feed / content warning reveal', () => {
             // Covered: the overlay is shown before reveal.
             const overlay = card.locator(cwOverlay).first();
             await expect(overlay).toBeVisible();
+            // EFFECT: the overlay is there because the stored post carries the warning.
+            const stored = await restGet<{ content_warning?: boolean; content_warning_type?: string }>(page.request, nonce, `/posts/${postId}`);
+            expect(stored.body.content_warning, 'stored content_warning').toBe(true);
+            expect(stored.body.content_warning_type, 'stored content_warning_type').toBe('nsfw');
+            expect(await warningOf(page.request, nonce, postId)).toMatchObject({ has_warning: true, warning_type: 'nsfw' });
 
             const reveal = card.locator(cwReveal).first();
             await expect(reveal).toBeVisible();
@@ -61,6 +76,8 @@ test.describe('feed / content warning reveal', () => {
 
             // Revealed: the overlay is now hidden (state.showContent flipped true).
             await expect(overlay).toBeHidden({ timeout: 5_000 });
+            // EFFECT: revealing is this reader's choice only. The post keeps its warning.
+            expect((await warningOf(page.request, nonce, postId)).has_warning, 'warning after my reveal').toBe(true);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }
@@ -103,6 +120,8 @@ test.describe('feed / content warning reveal', () => {
             // Covered for this member reader too — the overlay is shown before reveal.
             const overlay = card.locator(cwOverlay).first();
             await expect(overlay).toBeVisible();
+            // EFFECT: the member is served the warning by the route, in her own session.
+            expect(await warningOf(reader.request, reader.nonce, postId)).toMatchObject({ has_warning: true, warning_type: 'nsfw' });
 
             const reveal = card.locator(cwReveal).first();
             await expect(reveal).toBeVisible();
@@ -110,6 +129,8 @@ test.describe('feed / content warning reveal', () => {
 
             // Revealed: the overlay is now hidden for the reader who clicked it.
             await expect(overlay).toBeHidden({ timeout: 5_000 });
+            // EFFECT: her reveal changed nothing on the server. The author still reads a warned post.
+            expect((await warningOf(page.request, nonce, postId)).has_warning, 'warning after the member reveal').toBe(true);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
             if (reader) {

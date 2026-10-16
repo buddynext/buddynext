@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 import { loginAs } from '../_fixtures/actor';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-976 the admin revenue tiles move with a real payment; J-977 a member's own
@@ -205,6 +206,17 @@ test.describe('J-977 per-member engagement', () => {
         await expect(row, 'the member appears as their own row in the per-member table').toBeVisible();
         await expect(row.locator('td').nth(1), "the row carries this member's real event count").toHaveText(
             expectedCount
+        );
+
+        // EFFECT (parity): the Pro analytics route (the app's and the functional suite's
+        // read of the same GROUP BY) ranks this member with the same count the card shows.
+        const top = await restJson(page, '/wp-json/buddynext-pro/v1/analytics/members/top');
+        expect(top.status).toBe(200);
+        const mine = ((top.data ?? []) as Array<{ actor_id?: number; event_count?: number }>).find(
+            (r) => Number(r.actor_id) === memberId
+        );
+        expect(Number(mine?.event_count), 'GET /analytics/members/top event_count for this member').toBe(
+            Number(expectedCount.replace(/\D/g, ''))
         );
     });
 });

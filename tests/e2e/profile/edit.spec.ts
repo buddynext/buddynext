@@ -4,6 +4,27 @@ import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
 import { userId, ensureUser, getUserMeta, setUserMeta, deleteUserMeta, displayName, wp } from '../_fixtures/wp';
 import { openMemberSession } from '../_fixtures/feed-wave1.helpers';
+import { bnApi } from '../_fixtures/spaces-rest';
+import type { Page } from '@playwright/test';
+
+type ProfileBody = {
+    display_name?: string;
+    fields?: Array<{ field_key?: string; value?: unknown }>;
+    privacy?: Record<string, unknown>;
+};
+
+/** GET /me/profile as the page's member: the read the edit form and the app both use. */
+async function meProfile(page: Page): Promise<ProfileBody> {
+    const r = await bnApi(page, 'GET', '/me/profile');
+    expect(r.status, 'GET /me/profile').toBe(200);
+    return (r.data ?? {}) as ProfileBody;
+}
+
+/** One field's stored value from a profile response, by field_key. */
+function fieldValue(body: ProfileBody, key: string): string {
+    const f = (body.fields ?? []).find((row) => row.field_key === key);
+    return f ? String(f.value ?? '') : '';
+}
 
 // A valid 4x4 PNG (correct IDAT CRC — ImageMagick rejects a malformed one),
 // small and well under the 4MB / 1024px avatar cap.
@@ -64,6 +85,8 @@ test.describe('profile / edit', () => {
         if (await reloaded.isVisible().catch(() => false)) {
             await expect(reloaded).toHaveValue(value);
         }
+        // EFFECT: the profile route returns the new bio, not only the edit form.
+        expect(fieldValue(await meProfile(page), 'bio'), 'GET /me/profile bio').toBe(value);
     });
 
     /**
@@ -106,6 +129,8 @@ test.describe('profile / edit', () => {
 
             await page.goto(urls.memberEdit(bLogin));
             await expect(page.locator('#bn-ep-name')).toHaveValue(value);
+            // EFFECT: the member's own profile route carries the new name.
+            expect((await meProfile(page)).display_name, 'GET /me/profile display_name').toBe(value);
         } finally {
             await wp(['user', 'update', String(bId), `--display_name=${original}`]);
         }
@@ -196,6 +221,8 @@ test.describe('profile / edit', () => {
             // Round-trip: reload and confirm the value stuck server-side.
             await page.goto(urls.memberEdit(user));
             await expect(page.locator('input[name="pronouns"]').first()).toHaveValue(value);
+            // EFFECT: the profile route returns the saved custom field value.
+            expect(fieldValue(await meProfile(page), 'pronouns'), 'GET /me/profile pronouns').toBe(value);
         } finally {
             // Leave the field exactly as found.
             await page.goto(urls.memberEdit(user));
@@ -251,6 +278,20 @@ test.describe('profile / edit', () => {
         // interactive-only data-pref, which would demand the toggle never disable.
         await expect(page.locator('#bn-ep-privacy-search-lbl')).toBeVisible();
         await expect(page.locator('[data-pref="bn_pro_hide_profile_views"]')).toBeVisible();
+
+        // EFFECT: each control shows the stored setting GET /me/profile returns (the
+        // same PrivacyService read enforcement uses), not a template default.
+        const privacy = (await meProfile(page)).privacy ?? {};
+        for (const key of ['bn_privacy_show_in_directory', 'bn_pro_hide_profile_views']) {
+            await expect(page.locator(`[data-pref="${key}"]`).first(), `${key} switch matches the stored value`).toHaveAttribute(
+                'aria-checked',
+                privacy[key] ? 'true' : 'false'
+            );
+        }
+        const mention = String(privacy.bn_privacy_mention ?? '');
+        await expect(page.locator('#bn-ep-privacy-mention'), 'mention audience matches the stored value').toHaveValue(
+            mention === 'members' ? 'everyone' : mention
+        );
     });
 
     /* B6 — Account section: change-password / change-email / sign-out-everywhere CTAs. */
@@ -299,6 +340,12 @@ test.describe('profile / edit', () => {
 
         if (count === 1) {
             await expect(page.locator('#bn-ep-member-type-title')).toHaveCount(1);
+            // EFFECT: the one select shows the type the member-type route holds.
+            const uid = await userId(user);
+            const r = await bnApi(page, 'GET', `/users/${uid}/member-type`);
+            expect(r.status, 'GET /users/{id}/member-type').toBe(200);
+            const slug = String(((r.data ?? {}) as { slug?: string }).slug ?? '');
+            await expect(select, 'the select shows the assigned member type').toHaveValue(slug);
         }
     });
 
@@ -353,6 +400,9 @@ test.describe('profile / edit', () => {
                 await getUserMeta(uid, 'bn_member_type'),
                 'the chosen member type must be written to usermeta'
             ).toBe(target);
+            // EFFECT: the member-type route other surfaces read returns the new slug.
+            const mt = await bnApi(page, 'GET', `/users/${uid}/member-type`);
+            expect(String(((mt.data ?? {}) as { slug?: string }).slug ?? ''), 'GET /users/{id}/member-type').toBe(target);
 
             // Hop 2 — change back to the original (a concrete non-empty slug when
             // the member started assigned); doubles as the restore.

@@ -78,6 +78,12 @@ test.describe('spaces / remove member (J-660)', () => {
             // EFFECT: the owner's roster no longer lists them.
             const after = await roster(page, space.id);
             expect(after.some((r) => Number(r.user_id) === uid)).toBe(false);
+            expect(Number(((await getSpace(page, space.id)).data as SpaceRow).member_count), 'member_count after removal').toBe(1);
+
+            // EFFECT: removal is not a ban: the same member can join again and is active.
+            const rejoin = await bnApi(actor.page, 'POST', `/spaces/${space.id}/join`);
+            expect(rejoin.status, `rejoin after removal failed: ${JSON.stringify(rejoin.data)}`).toBe(200);
+            expect(((await getSpace(actor.page, space.id)).data as SpaceRow).membership_status).toBe('active');
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);

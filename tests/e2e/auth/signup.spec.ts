@@ -1,6 +1,22 @@
 import { test, expect } from '@playwright/test';
 import { sel, urls } from '../_fixtures/selectors';
 import { setRegistrationMode, dbSeedingAvailable } from '../_fixtures/db.fixture';
+import { userId, wp, dbCount, tablePrefix } from '../_fixtures/wp';
+import { sessionStatus } from '../_fixtures/effects';
+
+const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+
+/** Answer RegistrationGuard's human check ("What is four plus two?"); null when unreadable. */
+function solveChallenge(question: string): number | null {
+    const toNum = (w: string): number => (/^\d+$/.test(w) ? Number(w) : NUMBER_WORDS.indexOf(w));
+    const m = question.toLowerCase().match(/(\w+)\s+(plus|minus|times)\s+(\w+)/);
+    if (!m) return null;
+    const a = toNum(m[1]);
+    const b = toNum(m[3]);
+    if (a < 0 || b < 0) return null;
+    return m[2] === 'plus' ? a + b : m[2] === 'minus' ? a - b : a * b;
+}
 
 /**
  * J-04-signup.
@@ -82,46 +98,89 @@ test.describe('auth / signup', () => {
         const login = `e2e_${stamp}`;
         const email = `${login}@e2e.test`;
 
+        // The register form (templates/auth/signup.php): email + name + password,
+        // an optional username (only when the owner sets ask_username), any custom
+        // registration fields (data-bn-reg-field), the human check and the terms
+        // box. The honeypot (#bn-signup-bn_website) is never touched. Scoped to the
+        // signup form: the theme also renders a login modal with its own checkbox.
+        const form = page.locator('form:has(#bn-signup-email)').first();
         const userField = page.locator(sel.signupUser).first();
-        const emailField = page.locator(sel.signupEmail).first();
-        const passField = page.locator(sel.signupPass).first();
-
         if (await userField.isVisible().catch(() => false)) {
             await userField.fill(login);
         }
-        if (await emailField.isVisible().catch(() => false)) {
-            await emailField.fill(email);
+        await page.locator(sel.signupEmail).first().fill(email);
+        const nameField = form.locator('#bn-signup-name');
+        if (await nameField.isVisible().catch(() => false)) {
+            await nameField.fill(`E2E Signup ${stamp}`);
         }
-        if (await passField.isVisible().catch(() => false)) {
-            await passField.fill('Playwright!Pass1');
+        await page.locator(sel.signupPass).first().fill('Playwright!Pass1');
+        // A member-type (or any radio) registration field: pick its first option.
+        const radio = form.locator('input[type="radio"][data-bn-reg-field]').first();
+        if (await radio.count()) {
+            await radio.check({ force: true });
         }
-
-        // Tick a Terms checkbox if present.
-        const terms = page.locator('input[type="checkbox"]').first();
+        const challenge = form.locator('#bn-signup-challenge');
+        if (await challenge.isVisible().catch(() => false)) {
+            const question = (await form.locator('label[for="bn-signup-challenge"]').innerText()).trim();
+            const answer = solveChallenge(question);
+            expect(answer, `could not read the human check "${question}"`).not.toBeNull();
+            await challenge.fill(String(answer));
+        }
+        const terms = form.locator('input[type="checkbox"][name="terms_agreed"]');
         if (await terms.isVisible().catch(() => false)) {
-            await terms.check().catch(() => undefined);
+            await terms.check();
         }
 
-        const submit = page.locator(sel.loginSubmit).first();
-        if (await submit.isVisible().catch(() => false)) {
-            await Promise.all([
-                page.waitForLoadState('domcontentloaded'),
-                submit.click(),
-            ]);
+        // A person takes more than RegistrationGuard::MIN_SECONDS (2 s) to fill the
+        // form; a script does not, and the time-trap rightly scores that as a bot.
+        await page.waitForTimeout(2_500);
+        const registered = page.waitForResponse(
+            (r) => r.url().includes('/auth/register') && r.request().method() === 'POST',
+            { timeout: 15_000 }
+        );
+        await form.locator('button[type="submit"]').click();
+        const res = await registered;
+        const body = (await res.json().catch(() => null)) as { success?: boolean; pending?: boolean; message?: string } | null;
+        expect(res.status(), `register was refused: ${JSON.stringify(body)}`).toBe(200);
+        expect(body?.success, `register was refused: ${JSON.stringify(body)}`).not.toBe(false);
+
+        // Screen: the member is sent on to the onboarding wizard or the verify page
+        // (AuthController::post_register_redirect), or held on an approval notice.
+        if (body?.pending) {
+            await expect(page.locator('.bn-auth-notice--pending')).toBeVisible();
+        } else {
+            await page.waitForURL(/\/onboarding|\/verify|\/activity/, { timeout: 15_000 });
         }
 
-        // Assert a real state change proving the form submitted: either we
-        // landed on onboarding (account created + signed in) or a notice is
-        // visible (a "check your email" pending message, or an error banner
-        // explaining why the email/challenge was rejected). Merely still being
-        // on an auth URL is NOT proof - the canonical signup route is
-        // /login/signup/, so a `url.includes('/login')` check would be true
-        // before any submit and make this test a tautology.
-        const url = page.url();
-        const onOnboarding = url.includes('/onboarding');
-        const hasNotice = await page
-            .locator('.bn-auth-field__msg, .bn-auth__notice, .message, .login .message')
-            .count();
-        expect(onOnboarding || hasNotice > 0).toBeTruthy();
+        // EFFECT: the registration is stored: either the user row exists (the password
+        // door creates it at once, AuthController::register ~1456), or the signup is
+        // parked for email verification (Auth\PendingSignup: a bn_pending_signup_*
+        // transient holding the profile until the link is clicked).
+        if (dbSeedingAvailable()) {
+            // No username field by default: the login is derived from the email, so look up by email.
+            const id = (await userId(email)) || (await userId(login));
+            const p = await tablePrefix();
+            const parked = await dbCount(
+                `SELECT COUNT(*) FROM ${p}options WHERE option_name LIKE '_transient_bn_pending_signup_%' AND option_value LIKE '%${email}%'`
+            );
+            try {
+                expect(id > 0 || parked > 0, `registration of "${email}" left neither a user row nor a pending signup`).toBe(true);
+                if (id > 0 && !body?.pending) {
+                    // A created, non-held account is signed in by the same request.
+                    expect(await sessionStatus(page), 'the new member holds a session').toBe(200);
+                }
+            } finally {
+                if (id > 0) {
+                    await wp(['user', 'delete', String(id), '--yes']).catch(() => undefined);
+                }
+                if (parked > 0) {
+                    await wp([
+                        'db',
+                        'query',
+                        `DELETE FROM ${p}options WHERE option_name LIKE '_transient%bn_pending_signup_%' AND option_value LIKE '%${email}%'`,
+                    ]).catch(() => undefined);
+                }
+            }
+        }
     });
 });

@@ -77,6 +77,14 @@ test.describe('spaces / settings + moderation', () => {
             const row = res.data as SpaceRow;
             expect(row.name).toBe(newName);
             expect(String(row.description ?? '')).toBe(newDesc);
+            // Renaming does not move the space: same slug, still the owner's.
+            expect(row.slug, 'a rename changed the space slug (links break)').toBe(space.slug);
+            expect(row.membership_role).toBe('owner');
+            // EFFECT 3: the directory route finds it under the NEW name and not the old one.
+            const byNew = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(newName)}&per_page=50`);
+            expect(((byNew.data as SpaceRow[]) ?? []).map((r) => Number(r.id))).toContain(space.id);
+            const byOld = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(`E2E Settings ${stamp}`)}&per_page=50`);
+            expect(((byOld.data as SpaceRow[]) ?? []).map((r) => Number(r.id)), 'directory still finds the space by its old name').not.toContain(space.id);
         } finally {
             await deleteSpaceApi(page, space.id);
         }
@@ -145,6 +153,16 @@ test.describe('spaces / settings + moderation', () => {
                 timeout: 10_000,
             });
             await expect(page.locator(emptyState)).toHaveCount(0);
+
+            // Counterpart: once dismissed it leaves the queue route and the space screen.
+            const dismiss = await bnApi(page, 'POST', `/reports/${reportId}/dismiss`);
+            expect(dismiss.status, `dismiss failed: ${JSON.stringify(dismiss.data)}`).toBeLessThan(300);
+            const after = await bnApi(page, 'GET', `/reports/queue?per_page=100&object_type=post`);
+            const left = (after.data as { items?: Array<{ id: number }> }).items ?? [];
+            expect(left.some((i) => Number(i.id) === reportId), 'dismissed report still in GET /reports/queue').toBe(false);
+            await page.goto(`/spaces/${space.slug}/moderation/?bn_mtab=reports`, { waitUntil: 'domcontentloaded' });
+            await expect(mine).toHaveCount(0);
+            reportId = 0;
         } finally {
             if (reportId > 0) {
                 await bnApi(page, 'POST', `/reports/${reportId}/dismiss`);

@@ -57,6 +57,23 @@ test.describe('spaces / sub-space create (J-623)', () => {
             expect(subs.status, `subspaces failed: ${JSON.stringify(subs.data)}`).toBe(200);
             const ids = ((subs.data as SubspacesResp).subspaces ?? []).map((s) => Number(s.id));
             expect(ids).toContain(childId);
+            expect(ids.length, 'a new parent should list exactly its one child').toBe(1);
+
+            // EFFECT 3: the parent's own row counts the child, and the two-level limit holds:
+            // a grandchild under the child is refused and nothing is created.
+            expect(Number(((await getSpace(page, parent.id)).data as SpaceRow).subspace_count)).toBe(1);
+            const grand = await bnApi(page, 'POST', '/spaces', {
+                name: `E2E Grandchild ${stamp}`,
+                type: 'open',
+                parent_id: childId,
+            });
+            const grandId = Number((grand.data as SpaceRow)?.id ?? 0);
+            if (grand.status === 201 && grandId > 0) {
+                await deleteSpaceApi(page, grandId);
+            }
+            expect(grand.status, 'a third nesting level was created').not.toBe(201);
+            const childSubs = await bnApi(page, 'GET', `/spaces/${childId}/subspaces`);
+            expect(((childSubs.data as SubspacesResp).subspaces ?? []).length).toBe(0);
         } finally {
             if (childId > 0) {
                 await deleteSpaceApi(page, childId);

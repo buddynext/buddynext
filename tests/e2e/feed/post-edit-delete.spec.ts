@@ -1,7 +1,15 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
+import { readRestNonce, postIdOfCard, restGet } from '../_fixtures/feed-wave1.helpers';
 import type { Page } from '@playwright/test';
+
+type PostRow = { content?: string; edited_at?: string | null };
+
+/** The post as the post route serves it to the member who owns the page. */
+async function storedPost(page: Page, nonce: string, postId: number): Promise<{ status: number; body: PostRow }> {
+    return restGet<PostRow>(page.request, nonce, `/posts/${postId}`);
+}
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -82,6 +90,14 @@ test.describe('feed / post edit + delete', () => {
 
         try {
             await composePost(page, original);
+            const nonce = await readRestNonce(page);
+            const postId = await postIdOfCard(page, original);
+            expect(postId, 'resolved server post id').toBeGreaterThan(0);
+            // EFFECT (baseline): the stored body is what I typed, and it has never been edited.
+            const created = await storedPost(page, nonce, postId);
+            expect(created.status, 'GET /posts/{id} after create').toBe(200);
+            expect(created.body.content, 'stored body after create').toBe(original);
+            expect(created.body.edited_at ?? null, 'edited_at on a fresh post').toBeNull();
 
             // Edit: change the text in the inline editor, save.
             await menuAction(page, original, /Edit/);
@@ -101,19 +117,24 @@ test.describe('feed / post edit + delete', () => {
             await expect(cardWith(page, edited).first()).toBeVisible({ timeout: 10_000 });
             await expect(cardWith(page, original)).toHaveCount(0);
 
-            // API truth: the edited body is what the REST feed serves.
-            const apiHasEdited = await page.evaluate(async (text) => {
-                const r = await fetch('/wp-json/buddynext/v1/feed/home?per_page=20', { headers: { 'X-WP-Nonce': (window as { wpApiSettings?: { nonce?: string } }).wpApiSettings?.nonce ?? '' } });
-                if (!r.ok) return null; // nonce not exposed in this context — screen assertions still hold
-                const body = await r.text();
-                return body.includes(text);
-            }, edited);
-            if (apiHasEdited !== null) expect(apiHasEdited).toBe(true);
+            // EFFECT: API truth. This used to read the feed with window.wpApiSettings.nonce,
+            // which the feed page does not define, so the request was a 401 and the check
+            // never ran. Read the post route with the page's real wp_rest nonce instead: the
+            // SAME post id now serves the edited body, flagged edited.
+            const afterEdit = await storedPost(page, nonce, postId);
+            expect(afterEdit.status, 'GET /posts/{id} after edit').toBe(200);
+            expect(afterEdit.body.content, 'stored body after edit').toBe(edited);
+            expect(afterEdit.body.edited_at, 'edited_at after edit').toBeTruthy();
+            const feed = await restGet<{ items?: Array<{ id: number; content?: string }> }>(page.request, nonce, '/feed/home?per_page=20');
+            expect(feed.status, 'GET /feed/home').toBe(200);
+            expect((feed.body.items ?? []).find((it) => Number(it.id) === postId)?.content, 'body the feed route serves').toBe(edited);
 
             // Delete: gone from the feed after reload.
             await deletePost(page, edited);
             await page.goto(urls.feed);
             await expect(cardWith(page, edited)).toHaveCount(0);
+            // EFFECT: gone from the API too, not only from my screen.
+            expect((await storedPost(page, nonce, postId)).status, 'GET /posts/{id} after delete').toBe(404);
         } finally {
             // Leave the feed as found — remove either title if anything survived.
             await page.goto(urls.feed);
@@ -138,6 +159,9 @@ test.describe('feed / post edit + delete', () => {
 
         try {
             await composePost(page, original);
+            const nonce = await readRestNonce(page);
+            const postId = await postIdOfCard(page, original);
+            expect(postId, 'resolved server post id').toBeGreaterThan(0);
 
             await menuAction(page, original, /Edit/);
             const input = page.locator(editInput).first();
@@ -155,11 +179,18 @@ test.describe('feed / post edit + delete', () => {
             await page.goto(urls.feed);
             await expect(cardWith(page, edited).first()).toBeVisible({ timeout: 10_000 });
             await expect(cardWith(page, original)).toHaveCount(0);
+            // EFFECT: the member's own row carries the edit, per the post route.
+            const afterEdit = await storedPost(page, nonce, postId);
+            expect(afterEdit.status, 'GET /posts/{id} after edit').toBe(200);
+            expect(afterEdit.body.content, 'stored body after edit').toBe(edited);
+            expect(afterEdit.body.edited_at, 'edited_at after edit').toBeTruthy();
 
             // Delete: gone from the feed after reload.
             await deletePost(page, edited);
             await page.goto(urls.feed);
             await expect(cardWith(page, edited)).toHaveCount(0);
+            // EFFECT: the member's delete removed the row; the API answers 404.
+            expect((await storedPost(page, nonce, postId)).status, 'GET /posts/{id} after delete').toBe(404);
         } finally {
             await page.goto(urls.feed);
             await deletePost(page, edited).catch(() => {});

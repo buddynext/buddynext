@@ -45,6 +45,11 @@ test.describe('spaces / avatar upload + remove (J-604)', () => {
             // EFFECT on the rendered hero: the emblem now renders an <img>.
             await page.goto(`/spaces/${space.slug}/`);
             await expect(page.locator(heroEmblemImg)).toBeVisible({ timeout: 10_000 });
+            // EFFECT: the emblem is THIS upload (the stored URL), not a default image.
+            const stored = String((res.data as SpaceRow).avatar_url ?? '');
+            const src = (await page.locator(heroEmblemImg).first().getAttribute('src')) ?? '';
+            const fileOf = (u: string) => (u.split('?')[0].split('/').pop() ?? '').replace(/-\d+x\d+(?=\.[a-z]+$)/i, '');
+            expect(fileOf(src), `hero emblem src "${src}" vs stored avatar_url "${stored}"`).toBe(fileOf(stored));
 
             // REMOVE (counterpart).
             const del = await bnApi(page, 'DELETE', `/spaces/${space.id}/avatar`);

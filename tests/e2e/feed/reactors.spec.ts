@@ -1,6 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 
 /**
  * J-504 see reactors (B2).
@@ -76,6 +76,20 @@ test.describe('feed / see reactors', () => {
 
             await expect(popover.locator(reactorName).filter({ hasText: selfDisplayName }).first())
                 .toBeVisible({ timeout: 8_000 });
+
+            // EFFECT: the reactors route lists exactly one reactor, and it is me. The post is
+            // mine, so its author id is my id.
+            expect(createdId, 'resolved server post id').toBeGreaterThan(0);
+            const meId = Number((await restGet<{ user_id?: number }>(page.request, nonce, `/posts/${createdId}`)).body.user_id);
+            const list = await restGet<{ items?: Array<{ user_id: number }>; total?: number }>(
+                page.request,
+                nonce,
+                `/reactions/list?object_type=post&object_id=${createdId}`
+            );
+            expect(list.status, 'GET /reactions/list').toBe(200);
+            expect(list.body.total, 'reactors on a post I alone reacted to').toBe(1);
+            expect((list.body.items ?? []).map((r) => Number(r.user_id)), 'reactor ids').toEqual([meId]);
+            expect(await popover.locator(reactorName).count(), 'names in the popover vs reactors served').toBe(1);
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
         }

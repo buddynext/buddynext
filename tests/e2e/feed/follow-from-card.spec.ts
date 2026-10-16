@@ -1,7 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel } from '../_fixtures/selectors';
-import { openMemberSession, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { openMemberSession, restPost, restGet, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { bnApi } from '../_fixtures/spaces-rest';
 import { userId, tablePrefix, dbCount, resetPair } from '../_fixtures/wp';
 
 /**
@@ -75,11 +76,21 @@ test.describe('feed / follow from card', () => {
 
             // Precondition truth: no follow yet.
             expect(await dbCount(followSql)).toBe(0);
+            const followState = async (): Promise<boolean | undefined> =>
+                ((await bnApi(page, 'GET', `/users/${authorId}/follow/status`)).data as { is_following?: boolean } | null)?.is_following;
+            expect(await followState(), 'follow status before the click').toBe(false);
 
             await pill.click();
 
             // Effect: the follow row is written. Poll to absorb the REST round-trip.
             await expect.poll(async () => dbCount(followSql), { timeout: 8_000 }).toBe(1);
+
+            // EFFECT: both members are told. My follow-status route says following, and the
+            // author's own followers route lists me.
+            expect(await followState(), 'follow status after the click').toBe(true);
+            const followers = await restGet<{ ids?: number[] }>(author.request, author.nonce, `/users/${authorId}/followers?per_page=50`);
+            expect(followers.status, 'author GET /users/{id}/followers').toBe(200);
+            expect((followers.body.ids ?? []).map(Number), 'author followers as the author reads them').toContain(meId);
         } finally {
             await resetPair(meId, authorId).catch(() => {});
             if (author && postId) {

@@ -8,6 +8,28 @@ import {
     tablePrefix,
     setUserMeta,
 } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
+
+/** Connection state between the page's member and `uid`, per the route the hero hydrates from. */
+async function connectionState(page: Page, uid: number): Promise<string> {
+    const r = await bnApi(page, 'GET', `/users/${uid}/connection/status`);
+    expect(r.status, `GET /users/${uid}/connection/status`).toBe(200);
+    return String(((r.data ?? {}) as { connection?: { state?: string } }).connection?.state ?? '');
+}
+
+/** Whether the page's member follows `uid`, per the follow status route. */
+async function isFollowing(page: Page, uid: number): Promise<boolean> {
+    const r = await bnApi(page, 'GET', `/users/${uid}/follow/status`);
+    expect(r.status, `GET /users/${uid}/follow/status`).toBe(200);
+    return Boolean(((r.data ?? {}) as { is_following?: boolean }).is_following);
+}
+
+/** The `ids` list of a relationship route (/me/blocked, /me/muted, /me/connections). */
+async function relationIds(page: Page, path: string): Promise<number[]> {
+    const r = await bnApi(page, 'GET', path);
+    expect(r.status, `GET ${path}`).toBe(200);
+    return (((r.data ?? {}) as { ids?: unknown[] }).ids ?? []).map(Number);
+}
 
 /**
  * Wave-1 PROFILE social-graph actions — EFFECT-BASED (J-700..J-706).
@@ -156,6 +178,9 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             follow.click(),
         ]);
         expect(await followCount(), 'follow must create a wp_bn_follows row').toBe(1);
+        // EFFECT: the follow status route and B's followers list both say A follows B.
+        expect(await isFollowing(page, B_ID), 'follow/status after follow').toBe(true);
+        expect(await relationIds(page, `/users/${B_ID}/followers?per_page=50`), 'A is in B\'s followers per the route').toContain(A_ID);
 
         // Reload — server truth now renders the "Following" state.
         await page.reload();
@@ -174,6 +199,9 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             following.click(),
         ]);
         expect(await followCount(), 'unfollow must remove the wp_bn_follows row').toBe(0);
+        // EFFECT: the routes agree the relationship is gone.
+        expect(await isFollowing(page, B_ID), 'follow/status after unfollow').toBe(false);
+        expect(await relationIds(page, `/users/${B_ID}/followers?per_page=50`), 'A is no longer in B\'s followers').not.toContain(A_ID);
 
         // Reload — Follow CTA is back, proving the removal persisted server-side.
         await page.reload();
@@ -196,6 +224,7 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             heroB.locator(CONNECT_BTN).first().click(),
         ]);
         expect(await connectionCount('pending', A_ID, B_ID), 'connect must create a pending row').toBe(1);
+        expect(await connectionState(page, B_ID), 'A reads the request as pending-sent').toBe('pending-sent');
 
         // B accepts.
         await loginAs(page, B_LOGIN);
@@ -215,6 +244,10 @@ test.describe('profile / social-graph actions (effect-based)', () => {
         ]);
         expect(await connectionCount('accepted', A_ID, B_ID), 'accept must flip the row to accepted').toBe(1);
         expect(await connectionCount('pending', A_ID, B_ID), 'no pending row should remain').toBe(0);
+        // EFFECT: both sides of the link read as accepted through REST: B's status for
+        // A, and A in B's connections list.
+        expect(await connectionState(page, A_ID), 'B reads the pair as accepted').toBe('accepted');
+        expect(await relationIds(page, '/me/connections?per_page=50'), 'A is in B\'s connections').toContain(A_ID);
 
         // Reload — B now sees the Connected/Disconnect control (server truth).
         await page.reload();
@@ -243,6 +276,7 @@ test.describe('profile / social-graph actions (effect-based)', () => {
         const heroA = page.locator(HERO).first();
         const decline = heroA.locator(DECLINE_BTN).first();
         await expect(decline).toBeVisible();
+        expect(await connectionState(page, A_ID), 'B reads the request as pending-received before declining').toBe('pending-received');
         await Promise.all([
             page.waitForResponse(
                 (r) =>
@@ -254,6 +288,10 @@ test.describe('profile / social-graph actions (effect-based)', () => {
         ]);
         expect(await connectionCount('accepted', A_ID, B_ID), 'decline must NOT connect').toBe(0);
         expect(await connectionCount('pending', A_ID, B_ID), 'decline must clear the pending row').toBe(0);
+        // EFFECT: B's inbox no longer holds the request and the pair is not connected.
+        expect(await relationIds(page, '/me/connection-requests'), 'the declined request left B\'s inbox').not.toContain(A_ID);
+        expect(await relationIds(page, '/me/connections?per_page=50'), 'decline did not connect the pair').not.toContain(A_ID);
+        expect(await connectionState(page, A_ID), 'B no longer reads a request waiting').not.toBe('pending-received');
     });
 
     test('J-703 disconnect reverts a connected pair to not-connected', async ({ page }) => {
@@ -299,6 +337,9 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             disconnect.click(),
         ]);
         expect(await connectionCount('accepted', A_ID, B_ID), 'disconnect must remove the accepted row').toBe(0);
+        // EFFECT: the status and connections routes read the pair as not connected.
+        expect(await connectionState(page, B_ID), 'connection/status after disconnect').toBe('none');
+        expect(await relationIds(page, '/me/connections?per_page=50'), 'B left A\'s connections').not.toContain(B_ID);
 
         // Reload — Connect CTA is back.
         await page.reload();
@@ -326,7 +367,12 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             page.locator(DIALOG_CONFIRM).click(),
         ]);
         expect(await blockTypeCount('block'), 'block must create a wp_bn_blocks row').toBe(1);
+        // EFFECT: the blocked-list route names B.
+        expect(await relationIds(page, '/me/blocked'), 'B is in A\'s blocked list per the route').toContain(B_ID);
 
+        // Blocking leaves the blocked profile for the directory (profile store,
+        // window.location to peopleUrl); let that land before navigating again.
+        await page.waitForURL(/\/members\/?(\?|$)/, { timeout: 10_000 });
         // The blocked member is now listed in Settings -> Privacy (server truth).
         await page.goto(SETTINGS_PRIVACY);
         const blockedRow = page.locator(
@@ -345,6 +391,7 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             blockedRow.locator('[data-bn-relation-remove]').first().click(),
         ]);
         expect(await blockTypeCount('block'), 'unblock must remove the wp_bn_blocks row').toBe(0);
+        expect(await relationIds(page, '/me/blocked'), 'B left A\'s blocked list per the route').not.toContain(B_ID);
 
         // Reload — the row is gone from the blocked list.
         await page.goto(SETTINGS_PRIVACY);
@@ -410,6 +457,8 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             muteItem.click(),
         ]);
         expect(await blockTypeCount('mute'), 'mute must create a wp_bn_blocks(mute) row').toBe(1);
+        // EFFECT: the muted-list route names B.
+        expect(await relationIds(page, '/me/muted'), 'B is in A\'s muted list per the route').toContain(B_ID);
 
         // Reload — server truth now labels the control "Unmute".
         await page.reload();
@@ -429,5 +478,6 @@ test.describe('profile / social-graph actions (effect-based)', () => {
             unmuteItem.click(),
         ]);
         expect(await blockTypeCount('mute'), 'unmute must remove the wp_bn_blocks(mute) row').toBe(0);
+        expect(await relationIds(page, '/me/muted'), 'B left A\'s muted list per the route').not.toContain(B_ID);
     });
 });

@@ -1,6 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet } from '../_fixtures/feed-wave1.helpers';
 import { dbScalar, tablePrefix } from '../_fixtures/wp';
 
 /**
@@ -64,6 +64,9 @@ test.describe('feed / comment delete', () => {
             targetId = target.body.id ?? 0;
             expect(keeperId).toBeGreaterThan(0);
             expect(targetId).toBeGreaterThan(0);
+            const countOf = async (): Promise<number> =>
+                Number((await restGet<{ comment_count?: number }>(page.request, nonce, `/posts/${postId}`)).body.comment_count);
+            expect(await countOf(), 'comment_count with both comments').toBe(2);
 
             // Open the thread and delete the target via its inline Delete + confirm.
             await page.goto(urls.feed);
@@ -87,6 +90,19 @@ test.describe('feed / comment delete', () => {
             const p = await tablePrefix();
             const flag = await dbScalar(`SELECT is_deleted FROM ${p}bn_comments WHERE id=${targetId};`);
             expect(flag, 'target comment is soft-deleted').toBe('1');
+
+            // EFFECT: the comments route serves the keeper and not the target, and the post's
+            // comment count dropped by exactly one.
+            const thread = await restGet<{ items?: Array<{ id: number }> }>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${postId}`
+            );
+            expect(thread.status, 'GET /comments').toBe(200);
+            const served = (thread.body.items ?? []).map((c) => Number(c.id));
+            expect(served, 'keeper still served').toContain(keeperId);
+            expect(served, 'deleted comment still served').not.toContain(targetId);
+            expect(await countOf(), 'comment_count after the delete').toBe(1);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

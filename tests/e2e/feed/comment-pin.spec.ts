@@ -2,10 +2,19 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet } from '../_fixtures/feed-wave1.helpers';
 import type { Page } from '@playwright/test';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
+
+type Thread = { items?: Array<{ id: number; is_pinned?: boolean }> };
+
+/** Whether the comments route serves this top-level comment as pinned (null when it is not served). */
+async function servedAsPinned(page: Page, nonce: string, postId: number, commentId: number): Promise<boolean | null> {
+    const r = await restGet<Thread>(page.request, nonce, `/comments?object_type=post&object_id=${postId}`);
+    const row = (r.body.items ?? []).find((c) => Number(c.id) === commentId);
+    return row ? row.is_pinned === true : null;
+}
 
 /**
  * J-551 pin a comment (B3).
@@ -97,6 +106,10 @@ test.describe('feed / pin comment', () => {
             await expect(reloaded).toBeVisible({ timeout: 8_000 });
             await expect(reloaded).toHaveClass(new RegExp(pinnedClass));
             await expect(reloaded.locator(pinnedBadge)).toBeVisible();
+
+            // EFFECT: the comments route serves the comment as pinned, which is what every
+            // other reader of the thread is told.
+            expect(await servedAsPinned(page, nonce, createdPostId, Number(commentId)), 'is_pinned served by GET /comments').toBe(true);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }
@@ -166,6 +179,8 @@ test.describe('feed / pin comment', () => {
             const reloaded = page.locator(`${commentCard}[data-comment-id="${commentId}"]`).first();
             await expect(reloaded).toBeVisible({ timeout: 8_000 });
             await expect(reloaded).not.toHaveClass(new RegExp(pinnedClass));
+            // EFFECT: the route agrees: the comment exists and is not pinned.
+            expect(await servedAsPinned(page, nonce, createdPostId, Number(commentId)), 'is_pinned served by GET /comments').toBe(false);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }

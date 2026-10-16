@@ -65,6 +65,15 @@ test.describe('spaces / join-request moderation (J-607/J-608)', () => {
             // EFFECT: the requester is now an active member (their own view).
             const g = await getSpace(actor.page, space.id);
             expect((g.data as SpaceRow).membership_status).toBe('active');
+            expect((g.data as SpaceRow).membership_role).toBe('member');
+
+            // EFFECT (owner's side): the request left the queue and became a roster row.
+            const queue = await bnApi(page, 'GET', `/spaces/${space.id}/pending-requests`);
+            expect(((queue.data as { items?: PendingItem[] }).items ?? []).some((i) => Number(i.user_id) === uid)).toBe(false);
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(((roster.data as Array<{ user_id: number }>) ?? []).some((r) => Number(r.user_id) === uid), 'approved requester missing from the roster').toBe(true);
+            // ...and the approved member can now read the private space.
+            expect((await bnApi(actor.page, 'GET', `/spaces/${space.id}/feed`)).status).toBe(200);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);
@@ -96,6 +105,13 @@ test.describe('spaces / join-request moderation (J-607/J-608)', () => {
             const after = await bnApi(page, 'GET', `/spaces/${space.id}/pending-requests`);
             const items = (after.data as { items?: { user_id: number }[] }).items ?? [];
             expect(items.some((i) => Number(i.user_id) === uid)).toBe(false);
+
+            // EFFECT: declined means no roster row, no head count change, content still closed.
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(((roster.data as Array<{ user_id: number }>) ?? []).some((r) => Number(r.user_id) === uid), 'declined requester is on the roster').toBe(false);
+            expect(Number(((await getSpace(page, space.id)).data as SpaceRow).member_count)).toBe(1);
+            expect((g.data as SpaceRow).membership_status ?? '', 'a declined request is still pending for the requester').not.toBe('pending');
+            expect((await bnApi(actor.page, 'GET', `/spaces/${space.id}/feed`)).status).toBe(403);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);

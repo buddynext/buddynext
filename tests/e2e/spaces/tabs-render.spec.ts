@@ -51,6 +51,20 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
     ]);
     const TAB_TYPES = new Set(['textarea', 'url']);
 
+    /** One registered space field's stored value, from the canonical GET /spaces/{id} payload. */
+    const fieldValue = async (
+        page: import('@playwright/test').Page,
+        spaceId: number,
+        key: string
+    ): Promise<unknown> => {
+        const res = await bnApi(page, 'GET', `/spaces/${spaceId}`);
+        expect(res.status, `getSpace failed: ${JSON.stringify(res.data)}`).toBe(200);
+        const fields = ((res.data as { fields?: Array<{ key: string; value: unknown }> }).fields ?? []);
+        const row = fields.find((f) => f.key === key);
+        expect(row, `field "${key}" not present in space fields payload`).toBeTruthy();
+        return row?.value;
+    };
+
     test('J-690 a promoted custom-field tab renders its panel', async ({
         authenticatedPage: page,
     }, testInfo) => {
@@ -83,6 +97,8 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
                 tabs: [candidate.key],
             });
             expect(save.status, `promote failed: ${JSON.stringify(save.data)}`).toBe(200);
+            // EFFECT: the value the tab will paint is the stored one.
+            expect(String(await fieldValue(page, space.id, candidate.key))).toBe(value);
 
             await page.goto(`/spaces/${space.slug}/field-${candidate.key}/`, {
                 waitUntil: 'domcontentloaded',
@@ -96,6 +112,9 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
             await expect(painted, 'custom-field tab did not render its value panel').toBeVisible({
                 timeout: 10_000,
             });
+            if (candidate.type !== 'url') {
+                await expect(painted, 'field tab painted something other than the stored value').toContainText(value);
+            }
         } finally {
             await deleteSpaceApi(page, space.id);
         }
@@ -118,6 +137,12 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
                 );
                 return;
             }
+
+            // EFFECT: the tab renders because the space stores that linked forum (the gate
+            // SpaceNav reads), not because the route happened to exist.
+            expect(Number(await fieldValue(page, space.id, 'jetonomy_forum_id'))).toBe(forumId);
+            const nav = ((await bnApi(page, 'GET', `/spaces/${space.id}`)).data as { nav?: unknown }).nav;
+            expect(JSON.stringify(nav ?? ''), 'space nav payload has no discussions tab after enabling it').toMatch(/discussion/i);
 
             await page.goto(`/spaces/${space.slug}/discussions/`, { waitUntil: 'domcontentloaded' });
 
@@ -144,11 +169,20 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
                 fields: { mvs_media_tab: '1' },
             });
             expect(save.status, `enable media tab failed: ${JSON.stringify(save.data)}`).toBe(200);
+            // EFFECT: the switch is stored on the space.
+            expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(true);
+            // The media route is the data path behind the tab: it decides whether the shell
+            // can render on this harness (200) or the WPMediaVerse engine is not resolvable.
+            const mediaRoute = await bnApi(page, 'GET', `/spaces/${space.id}/media`);
 
             await page.goto(`/spaces/${space.slug}/media/`, { waitUntil: 'domcontentloaded' });
 
             const shell = page.locator('.bn-media-shell').first();
-            const painted = await shell.isVisible({ timeout: 10_000 }).catch(() => false);
+            // isVisible() does not wait (its timeout option is ignored), so give the shell
+            // its ten seconds through an assertion before deciding it is absent.
+            const painted = await expect(shell).toBeVisible({ timeout: 10_000 }).then(() => true).catch(() => false);
+            // Screen and route must agree: a shell without data, or data without a shell, is a defect.
+            expect(painted, `media shell painted=${painted}, GET /spaces/{id}/media answered ${mediaRoute.status}`).toBe(mediaRoute.status === 200);
             if (!painted) {
                 // The tab gate also requires MediaClient::available() (WPMediaVerse
                 // engine + DI container). If the engine isn't resolvable here, the
@@ -161,6 +195,12 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
             }
             // EFFECT: the media shell is painted (tab is live, not absent/gated).
             await expect(shell).toBeVisible();
+
+            // Counterpart: switching the tab off closes the route again.
+            const off = await bnApi(page, 'POST', `/spaces/${space.id}/fields`, { fields: { mvs_media_tab: '0' } });
+            expect(off.status, `disable media tab failed: ${JSON.stringify(off.data)}`).toBe(200);
+            expect(await fieldValue(page, space.id, 'mvs_media_tab')).toBe(false);
+            expect((await bnApi(page, 'GET', `/spaces/${space.id}/media`)).status, 'media route still open with the tab off').not.toBe(200);
         } finally {
             await deleteSpaceApi(page, space.id);
         }
@@ -213,6 +253,7 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
             // EFFECT: the member's own view now carries the album/media payload
             // (per their membership) — not the 404 a non-member gets.
             expect((afterJoin.data as { items?: unknown[] }).items).toBeDefined();
+            expect(((await bnApi(actor.page, 'GET', `/spaces/${space.id}`)).data as { membership_status?: string }).membership_status).toBe('active');
 
             // Also confirm it PAINTS for the member, at phone width — a 200 that
             // never reaches the screen is not "sees" it.

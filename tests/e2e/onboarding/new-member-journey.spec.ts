@@ -12,6 +12,8 @@ import {
     resetRegistrationRateLimit,
     VERIFY_PASSWORD,
 } from '../_fixtures/db.fixture';
+import { userId } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
 
 /**
  * J-70-new-member-journey.
@@ -150,6 +152,11 @@ test.describe('onboarding / new member journey', () => {
         const landedOnVerify = /\/verify\/?/.test(new URL(page.url()).pathname);
         const landedOnOnboarding = /\/onboarding\/?/.test(new URL(page.url()).pathname);
         expect(landedOnVerify || landedOnOnboarding, `unexpected post-registration URL: ${page.url()}`).toBeTruthy();
+        // EFFECT: the account exists as a row, and it has not onboarded yet.
+        if (dbSeedingAvailable()) {
+            expect(await userId(login), `no wp_users row for "${login}" after registration`).toBeGreaterThan(0);
+            expect(await getUserMeta(login, 'bn_onboarding_complete')).not.toBe('1');
+        }
 
         // ── 2. Email verify ──────────────────────────────────────────────────
         if (landedOnVerify) {
@@ -194,6 +201,7 @@ test.describe('onboarding / new member journey', () => {
         // — it has no Skip button at all, only Back and Finish/Continue, since
         // its toggles already have sensible defaults — so the walk also drives
         // Continue (actions.nextStep) when Skip is not on the page.
+        let stalled = false;
         for (let i = 0; i < 8; i++) {
             if (/\/activity\/?/.test(new URL(page.url()).pathname)) {
                 break;
@@ -234,6 +242,7 @@ test.describe('onboarding / new member journey', () => {
             }
             // No known control on this step — stop rather than guess at fields.
             softSkip(testInfo, `Wizard step ${await activeStep.getAttribute('data-step')} has neither Skip nor Finish visible — stopping the auto-walk.`);
+            stalled = true;
             break;
         }
 
@@ -252,5 +261,17 @@ test.describe('onboarding / new member journey', () => {
         const landedOnFeed = /\/activity\/?/.test(finalPath);
         expect(landedOnProfile || landedOnFeed, `unexpected post-onboarding URL: ${page.url()}`).toBeTruthy();
         await expect(page.locator(sel.app)).toBeVisible({ timeout: 10_000 });
+
+        // EFFECT: finishing the wizard is stored, on the member's own route and in the flag
+        // behind it. A wizard that redirects without marking complete sends the member back
+        // into onboarding on their next visit.
+        if (!stalled) {
+            const status = await bnApi(page, 'GET', '/me/onboarding');
+            expect(status.status, 'GET /me/onboarding').toBe(200);
+            expect((status.data as { complete?: boolean }).complete, 'wizard finished but onboarding is not complete').toBe(true);
+            if (dbSeedingAvailable()) {
+                expect(await getUserMeta(login, 'bn_onboarding_complete')).toBe('1');
+            }
+        }
     });
 });

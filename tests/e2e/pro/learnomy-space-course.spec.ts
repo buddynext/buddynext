@@ -71,8 +71,10 @@ test.describe('pro / Learnomy course-to-space link', () => {
                 headers: { 'X-WP-Nonce': nonce },
             });
             expect(read.status(), `GET learnomy-link -> ${read.status()}`).toBe(200);
-            const linkedSpaces = (await read.json()) as Array<{ id?: number }>;
-            expect(linkedSpaces.some((s) => s.id === space!.id), 'linked space missing from GET /learnomy-link').toBe(true);
+            // The route answers { spaces: [{ id, name }] } (LearnomyLinkController::get_linked).
+            const linkedBody = (await read.json()) as { spaces?: Array<{ id?: number }> } | Array<{ id?: number }>;
+            const linkedSpaces = Array.isArray(linkedBody) ? linkedBody : linkedBody.spaces ?? [];
+            expect(linkedSpaces.some((s) => Number(s.id) === space!.id), 'linked space missing from GET /learnomy-link').toBe(true);
 
             // Member-side effect: the Space hero shows the "Community for <course>" banner.
             const memberPage = await (await browser.newContext()).newPage();
@@ -85,6 +87,10 @@ test.describe('pro / Learnomy course-to-space link', () => {
                 return;
             }
             await expect(banner.locator('.bn-sh-invite__actions a')).toBeVisible();
+            // EFFECT: the banner references a course that exists (a dead link is the defect).
+            const courseHref = (await banner.locator('.bn-sh-invite__actions a').first().getAttribute('href')) ?? '';
+            const courseRes = await memberPage.request.get(courseHref);
+            expect(courseRes.status(), `course link ${courseHref}`).toBeLessThan(400);
             await memberPage.context().close().catch(() => {});
         } finally {
             if (space) {

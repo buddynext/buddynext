@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import { wp, ensureUser } from '../_fixtures/wp';
-import { createSpaceApi, deleteSpaceApi, ensureOnboarded } from '../_fixtures/spaces-rest';
+import { bnApi, createSpaceApi, deleteSpaceApi, ensureOnboarded } from '../_fixtures/spaces-rest';
+import { restList, idsOf } from '../_fixtures/effects';
 
 /**
  * J-821 — one plan opens several spaces; a space is opened by several plans.
@@ -180,8 +181,23 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 
 	// ── Access follows: Basic enters A only; Premium enters both ────────────────
 	for (const width of [1280, 390]) {
-		test(`J-821b access follows the plan at ${width}px`, async ({ page }) => {
+		test(`J-821b access follows the plan at ${width}px`, async ({ page, browser }) => {
 			await page.setViewportSize({ width, height: 900 });
+
+			// A real post inside B, so the gate can be read from the data and not only
+			// from which template rendered.
+			const admin = await browser.newPage();
+			await login(admin);
+			const seeded = await bnApi(admin, 'POST', '/posts', {
+				content: `j821b gated post ${Date.now().toString().slice(-6)}`,
+				privacy: 'public',
+				space_id: spaceB.id,
+			});
+			const gatedPostId = Number((seeded.data as { id?: number } | null)?.id ?? 0);
+			expect(gatedPostId, `seed post in space B -> ${seeded.status}`).toBeGreaterThan(0);
+			const feedIdsOfB = async () => idsOf((await restList(page, `/spaces/${spaceB.id}/feed`)).data);
+
+			try {
 
 			// Premium set is done by J-821a; if this test runs alone, ensure it
 			// (rows + required_ability mirror, the way the admin screen writes it).
@@ -191,6 +207,8 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 			await page.goto(`/?autologin=${M_PREMIUM}`, { waitUntil: 'domcontentloaded' });
 			await expect(await gateOnSpace(page, spaceA.slug), 'Premium should enter A').toBe(false);
 			await expect(await gateOnSpace(page, spaceB.slug), 'Premium should enter B').toBe(false);
+			// EFFECT: the space feed route hands the Premium member B's post.
+			expect(await feedIdsOfB(), 'GET /spaces/{B}/feed for the Premium member').toContain(gatedPostId);
 
 			// Basic member enters A (Basic opens it) but is gated on B (Premium only),
 			// and the paywall names the plan that would let them in.
@@ -199,6 +217,13 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 			expect(await paywallText(page, spaceB.slug), 'Basic should see the Premium paywall on B').toContain(
 				'E2E Premium'
 			);
+			// EFFECT: and withholds it from the Basic member. A paywall drawn over a feed
+			// the route still serves would be a lock on the screen only.
+			expect(await feedIdsOfB(), 'GET /spaces/{B}/feed for the Basic member').not.toContain(gatedPostId);
+			} finally {
+				await bnApi(admin, 'DELETE', `/posts/${gatedPostId}`).catch(() => undefined);
+				await admin.close();
+			}
 		});
 	}
 });

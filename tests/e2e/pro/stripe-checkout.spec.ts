@@ -132,5 +132,13 @@ test.describe('pro / stripe checkout', () => {
             homeOrigin
         );
         expect(url).toMatch(/checkout\.stripe\.com/);
+
+        // EFFECT: reaching Stripe grants nothing yet. The plan is only the member's once
+        // the webhook confirms payment, so no active row on it exists at this point.
+        const granted = await wp([
+            'eval',
+            `global $wpdb; echo (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_subscriptions WHERE user_id = %d AND tier_id = %d AND status = 'active'", ${memberId}, ${tierId} ) );`,
+        ]);
+        expect(Number(granted), 'no active subscription before payment completes').toBe(0);
     });
 });

@@ -56,6 +56,10 @@ test.describe('spaces / cover upload + remove (J-603)', () => {
             await page.goto(`/spaces/${space.slug}/`);
             await expect(page.locator(heroCoverHasImage)).toBeVisible({ timeout: 10_000 });
             await expect(page.locator(heroCoverImg)).toHaveAttribute('src', /\S/, { timeout: 10_000 });
+            // EFFECT: the hero paints THIS upload (the stored URL), not any image.
+            const src = (await page.locator(heroCoverImg).first().getAttribute('src')) ?? '';
+            const fileOf = (u: string) => (u.split('?')[0].split('/').pop() ?? '').replace(/-\d+x\d+(?=\.[a-z]+$)/i, '');
+            expect(fileOf(src), `hero cover src "${src}" vs stored cover_image_url "${afterUpload}"`).toBe(fileOf(afterUpload));
 
             // REMOVE (counterpart).
             const del = await bnApi(page, 'DELETE', `/spaces/${space.id}/cover`);

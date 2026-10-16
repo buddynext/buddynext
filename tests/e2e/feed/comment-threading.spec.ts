@@ -15,6 +15,8 @@ type CommentNode = {
     parent_id: number | null;
     content?: string;
     is_edited?: boolean;
+    like_count?: number;
+    viewer_liked?: boolean;
     replies?: CommentNode[];
 };
 type CommentThread = { items: CommentNode[]; total: number };
@@ -105,6 +107,17 @@ test.describe('feed / comment threading', () => {
             // ...but the real assertion is server truth: the reaction row exists.
             await expect.poll(async () => (await readCount()).count, { timeout: 8_000 }).toBeGreaterThanOrEqual(1);
             expect((await readCount()).has_reacted).toBe(true);
+            // EFFECT: one like, not "some": the count moved by exactly one, and the thread
+            // route serves the comment as liked by me.
+            expect((await readCount()).count, 'like count on a fresh comment after one like').toBe(1);
+            const thread = await restGet<CommentThread>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${createdPostId}`
+            );
+            const liked = findComment(thread.body.items ?? [], (c) => Number(c.id) === commentId);
+            expect(liked?.like_count, 'like_count served by GET /comments').toBe(1);
+            expect(liked?.viewer_liked, 'viewer_liked served by GET /comments').toBe(true);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }
@@ -176,6 +189,9 @@ test.describe('feed / comment threading', () => {
                 persistedReply?.parent_id,
                 'the reply must persist as a child of its parent, not a top-level comment'
             ).toBe(parentCommentId);
+            // EFFECT: the post counts both comments: the parent and its reply.
+            const hostPost = await restGet<{ comment_count?: number }>(page.request, nonce, `/posts/${createdPostId}`);
+            expect(Number(hostPost.body.comment_count), 'comment_count after a comment and one reply').toBe(2);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }

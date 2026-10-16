@@ -71,6 +71,19 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
         // queue so the assertions below don't race it.
         await wp(['action-scheduler', 'run', '--group=buddynext']).catch(() => '');
 
+        // EFFECT (fixture truth): each post sits in the space feed it was written to, so the
+        // scoped search below is choosing between real rows, not passing on an empty decoy.
+        const feedIds = async (spaceId: number): Promise<number[]> => {
+            const res = await bnApi(page, 'GET', `/spaces/${spaceId}/feed?per_page=50`);
+            expect(res.status, `space feed failed: ${JSON.stringify(res.data)}`).toBe(200);
+            return ((res.data as { items?: Array<{ id: number }> }).items ?? []).map((i) => Number(i.id));
+        };
+        const matchPostId = Number((match.data as { id?: number }).id);
+        const otherPostId = Number((otherPost.data as { id?: number }).id);
+        const decoyPostId = Number((decoyPost.data as { id?: number }).id);
+        expect((await feedIds(target.id)).sort()).toEqual([matchPostId, otherPostId].sort());
+        expect(await feedIds(decoy.id)).toEqual([decoyPostId]);
+
         return {
             target,
             decoy,
@@ -112,6 +125,15 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
             await page.locator(sel.postCard).filter({ hasText: 'space search unrelated' }).count(),
             `${label}: non-matching post leaked into search results`
         ).toBe(0);
+        // The result is the one post, nothing else rendered beside it.
+        expect(await page.locator(sel.postCard).count(), `${label}: scoped search rendered extra cards`).toBe(1);
+
+        // EFFECT: clearing the search brings the whole space feed back (the scope is a
+        // filter over the feed, it did not replace it), still without the decoy.
+        // The explicit /feed/ tab: a non-member's bare space URL lands on About by design.
+        await page.goto(`${urls.space(f.target.slug)}feed/`, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator(sel.postCard).filter({ hasText: 'space search unrelated' }).first()).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator(sel.postCard).filter({ hasText: 'decoy other space' })).toHaveCount(0);
     };
 
     test('J-693 the space owner searching inside a space sees only matches from that space', async ({

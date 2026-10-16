@@ -75,6 +75,15 @@ test.describe('spaces / custom field value save + clear (J-630)', () => {
             const afterClear = await readFields(page, space.id);
             const clearedRow = afterClear.find((f) => f.key === key);
             expect(String(clearedRow?.value ?? '')).toBe('');
+
+            // An unknown key writes nothing and does not disturb the registered fields.
+            const bogus = await bnApi(page, 'POST', `/spaces/${space.id}/fields`, {
+                fields: { [`e2e_unknown_${stamp}`]: 'x' },
+            });
+            expect(bogus.status, 'unknown field key crashed the save').toBeLessThan(500);
+            const afterBogus = await readFields(page, space.id);
+            expect(afterBogus.some((f) => f.key === `e2e_unknown_${stamp}`), 'an unregistered key was stored').toBe(false);
+            expect(afterBogus.length).toBe(afterClear.length);
         } finally {
             await deleteSpaceApi(page, space.id);
         }

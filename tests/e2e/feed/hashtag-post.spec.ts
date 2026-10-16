@@ -1,7 +1,24 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
+import type { Page } from '@playwright/test';
+
+type TagFeed = { items?: Array<{ id: number }> };
+
+/**
+ * EFFECT: the tag page is drawn from the hashtag routes, so read them directly. The tag
+ * exists with exactly this one post counted, and its feed serves exactly this post.
+ */
+async function expectTagIndexed(page: Page, nonce: string, tag: string, postId: number): Promise<void> {
+    const row = await restGet<{ slug?: string; post_count?: number }>(page.request, nonce, `/hashtags/${tag}`);
+    expect(row.status, `GET /hashtags/${tag}`).toBe(200);
+    expect(row.body.slug, 'indexed tag slug').toBe(tag);
+    expect(Number(row.body.post_count), 'post_count of a tag used once').toBe(1);
+    const feed = await restGet<TagFeed>(page.request, nonce, `/hashtags/${tag}/feed`);
+    expect(feed.status, `GET /hashtags/${tag}/feed`).toBe(200);
+    expect((feed.body.items ?? []).map((it) => Number(it.id)), 'posts the tag feed route serves').toEqual([postId]);
+}
 import { drainQueue } from '../_fixtures/wp';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
@@ -37,6 +54,9 @@ test.describe('feed / composer hashtag', () => {
             await expect(page.locator(sel.composer).first()).toBeVisible();
             nonce = await readRestNonce(page);
 
+            // EFFECT (baseline): the tag is new, so the route does not know it yet.
+            expect((await restGet(page.request, nonce, `/hashtags/${tag}`)).status, 'a never-used tag before posting').toBe(404);
+
             await page.locator(sel.composerTextarea).first().fill(content);
             await page.locator(sel.composerSubmit).first().click();
             await expect(page.locator(sel.postCard).filter({ hasText: content }).first()).toBeVisible({ timeout: 10_000 });
@@ -49,6 +69,7 @@ test.describe('feed / composer hashtag', () => {
             // queued through Action Scheduler on create. Drain that group so the tag
             // is linked before we look — otherwise the assertion races the queue.
             await drainQueue(['buddynext_async_index_hashtags', 'buddynext_async_index_post']);
+            await expectTagIndexed(page, nonce, tag, postId);
 
             // The tag page is a fresh server render of every public post carrying
             // the tag. The post I just wrote must be one of them.
@@ -79,6 +100,9 @@ test.describe('feed / composer hashtag', () => {
             await expect(page.locator(sel.composer).first()).toBeVisible();
             nonce = await readRestNonce(page);
 
+            // EFFECT (baseline): the tag is new, so the route does not know it yet.
+            expect((await restGet(page.request, nonce, `/hashtags/${tag}`)).status, 'a never-used tag before posting').toBe(404);
+
             await page.locator(sel.composerTextarea).first().fill(content);
             await page.locator(sel.composerSubmit).first().click();
             await expect(page.locator(sel.postCard).filter({ hasText: content }).first()).toBeVisible({ timeout: 10_000 });
@@ -88,6 +112,7 @@ test.describe('feed / composer hashtag', () => {
             expect(postId, 'resolved server post id').toBeGreaterThan(0);
 
             await drainQueue(['buddynext_async_index_hashtags', 'buddynext_async_index_post']);
+            await expectTagIndexed(page, nonce, tag, postId);
 
             await page.goto(urls.hashtag(tag), { waitUntil: 'domcontentloaded' });
             await expect(

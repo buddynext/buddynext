@@ -149,6 +149,8 @@ test('J-808 dependent field shows and hides on the answer, is not required while
     res = await Promise.all([putProfile(), page.locator('.bn-ep-save-actions button[type="submit"]').first().click()]).then(([r]) => r);
     expect(res.status()).toBe(200);
     await expect.poll(() => storedValue(memberId, ids.beard), { message: 'hidden answer cleared on save' }).toBe('');
+    // EFFECT: the deciding answer that hid it is the one stored (choices store their slug).
+    expect(await storedValue(memberId, ids.gender), 'the deciding answer is saved').toBe('female');
 
     // Phone width: nothing in the profile form runs past the screen. Scoped to the
     // form, because the host theme's header is not BuddyNext's to assert.

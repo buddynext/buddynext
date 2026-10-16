@@ -1,7 +1,9 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, restPost, restGet, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+
+type ReportRow = { reporter_id?: number; object_type?: string; object_id?: number; reason?: string; status?: string };
 
 /**
  * J-518 report a comment (B3).
@@ -85,6 +87,23 @@ test.describe('feed / comment report', () => {
             await modal.locator('select.bn-input').first().selectOption('spam').catch(() => {});
             await modal.getByRole('button', { name: /submit report|report/i }).first().click();
             await expect(modal).toBeHidden({ timeout: 5_000 });
+
+            // EFFECT: the moderation route holds one pending report on this comment, filed by me
+            // with the reason I picked. (The actor is a moderator, so it can read the queue it feeds.)
+            const meId = Number((await restGet<{ user_id?: number }>(page.request, nonce, '/me/profile')).body.user_id);
+            expect(meId, 'my user id from /me/profile').toBeGreaterThan(0);
+            await expect(async () => {
+                const filed = await restGet<{ items?: ReportRow[] }>(
+                    page.request,
+                    nonce,
+                    `/reports?object_type=comment&object_id=${commentId}`
+                );
+                expect(filed.status, 'GET /reports').toBe(200);
+                const mine = (filed.body.items ?? []).filter((r) => Number(r.reporter_id) === meId);
+                expect(mine.length, 'my report rows on this comment').toBe(1);
+                expect(mine[0].reason, 'stored reason').toBe('spam');
+                expect(mine[0].status, 'stored status').toBe('pending');
+            }).toPass({ timeout: 8_000 });
 
             // Server truth: the same comment reported again is rejected 409.
             const repeat = await restPost<{ code?: string }>(page.request, nonce, '/reports', {

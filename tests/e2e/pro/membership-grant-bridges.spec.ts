@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { loginAs } from '../_fixtures/actor';
 import { wp, ensureUser } from '../_fixtures/wp';
 import { softSkip } from '../_fixtures/precondition';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-975 a WooCommerce order grants the mapped BuddyNext plan, attributes it to
@@ -170,6 +171,20 @@ test("J-975 admin sees the granted plan, its WooCommerce source, and the sale on
     await expect(billing, "this member's payment history renders the sale").toBeVisible();
     await expect(billing).toContainText('E2E Woo Grant Tier');
     await expect(billing).toContainText('9.99');
+
+    // EFFECT (parity): what the screen shows is the row the order wrote. One active
+    // subscription on the mapped plan with source 'woocommerce', and a paid invoice
+    // for the order total recorded against the same gateway.
+    const subs = await restJson(page, `/wp-json/buddynext-pro/v1/users/${fx.memberId}/subscriptions`);
+    expect(subs.status).toBe(200);
+    const active = ((subs.data ?? []) as Array<{ tier_id?: string | number; status?: string; source?: string }>).filter(
+        (row) => row.status === 'active' && Number(row.tier_id) === fx!.tierId
+    );
+    expect(active.map((row) => row.source), 'the granted subscription row and its source').toEqual(['woocommerce']);
+    const invoice = await php(
+        `global $wpdb; echo (string) $wpdb->get_var( $wpdb->prepare( "SELECT CONCAT_WS('|', gateway, status, total) FROM {$wpdb->prefix}bn_invoices WHERE user_id = %d AND plan_id = %d ORDER BY id DESC LIMIT 1", ${fx.memberId}, ${fx.tierId} ) );`
+    );
+    expect(invoice, 'the recorded invoice row (gateway|status|total)').toBe('woocommerce|paid|9.99');
 });
 
 test('J-975 the member sees their plan is billed through WooCommerce, with the same sale in their own history', async ({
@@ -195,6 +210,23 @@ test('J-975 the member sees their plan is billed through WooCommerce, with the s
     const invoices = page.locator('.bn-my-membership__invoices');
     await expect(invoices, 'the member also sees their own payment history, not only the admin').toBeVisible();
     await expect(invoices).toContainText('9.99');
+
+    // EFFECT (parity): the member's own routes say the same. The plan row is billed by
+    // WooCommerce and not cancellable here, and their invoice list holds the 9.99 sale.
+    const mine = await restJson(page, '/wp-json/buddynext-pro/v1/me/subscriptions');
+    expect(mine.status).toBe(200);
+    const row = ((mine.data ?? []) as Array<{ tier_id?: string | number; source?: string; capabilities?: { can_cancel?: boolean } }>).find(
+        (r) => Number(r.tier_id) === fx!.tierId
+    );
+    expect(row?.source, 'GET /me/subscriptions row for the granted plan').toBe('woocommerce');
+    expect(Boolean(row?.capabilities?.can_cancel), 'no Cancel on screen means the server would refuse it').toBe(false);
+    const inv = await restJson(page, '/wp-json/buddynext-pro/v1/me/invoices');
+    expect(inv.status).toBe(200);
+    const sale = (((inv.data ?? {}) as { items?: Array<{ plan_id?: number; total?: number; status?: string }> }).items ?? []).find(
+        (i) => Number(i.plan_id) === fx!.tierId
+    );
+    expect(Number(sale?.total), 'GET /me/invoices holds the same sale').toBeCloseTo(9.99, 2);
+    expect(sale?.status).toBe('paid');
 
     if (testInfo.project.name === 'mobile') {
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

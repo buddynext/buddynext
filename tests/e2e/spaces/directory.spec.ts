@@ -45,6 +45,14 @@ test.describe('spaces / directory', () => {
                 timeout: 10_000,
             });
             await expect(card.locator(CARD_NAME)).toContainText(name);
+
+            // EFFECT: the grid is the list route's answer for the same search: the seeded
+            // space, and exactly as many cards as the route returns rows.
+            const list = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(name)}&per_page=50`);
+            expect(list.status, `list spaces failed: ${JSON.stringify(list.data)}`).toBe(200);
+            const ids = ((list.data as SpaceRow[]) ?? []).map((r) => Number(r.id));
+            expect(ids).toContain(space.id);
+            expect(await page.locator(sel.spaceCard).count(), 'cards on screen vs rows from GET /spaces').toBe(ids.length);
         } finally {
             await deleteSpaceApi(page, space.id);
         }
@@ -84,6 +92,31 @@ test.describe('spaces / directory', () => {
         await expect
             .poll(async () => page.locator(`${sel.spaceFilter}[aria-selected="true"]`).count(), { timeout: 3_000 })
             .toBe(1);
+
+        // EFFECT: the grid under the lit chip is that category's answer from the list route:
+        // both empty or both populated, and when the route's rows fit one page, every card
+        // on screen is one of them.
+        const catId = Number((await target.getAttribute('data-bn-cat-id')) ?? 0);
+        if (catId > 0) {
+            const list = await bnApi(page, 'GET', `/spaces?category_id=${catId}&per_page=50`);
+            expect(list.status, `list by category failed: ${JSON.stringify(list.data)}`).toBe(200);
+            const rows = (list.data as SpaceRow[]) ?? [];
+            await expect
+                .poll(async () => (await page.locator(sel.spaceCard).count()) > 0, { timeout: 8_000 })
+                .toBe(rows.length > 0);
+            if (rows.length > 0 && rows.length < 50) {
+                const names = rows.map((r) => String(r.name));
+                await expect
+                    .poll(
+                        async () =>
+                            (await page.locator(`${sel.spaceCard} ${CARD_NAME}`).allInnerTexts())
+                                .map((t) => t.trim())
+                                .filter((t) => !names.some((n) => t.includes(n) || n.includes(t))),
+                        { timeout: 8_000, message: 'cards on screen outside the selected category' }
+                    )
+                    .toEqual([]);
+            }
+        }
     });
 
     test('J-39 search updates space list', async ({ authenticatedPage: page }, testInfo) => {
@@ -109,6 +142,10 @@ test.describe('spaces / directory', () => {
             await Promise.all([page.waitForLoadState('domcontentloaded'), box.press('Enter')]);
             await expect(page.locator(sel.spaceCard).filter({ hasText: needle }).first()).toBeVisible({ timeout: 10_000 });
             await expect.poll(async () => page.locator(sel.spaceCard).count(), { timeout: 5_000 }).toBe(1);
+            // EFFECT: the one card is the one row the list route answers for that search.
+            const list = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(needle)}&per_page=50`);
+            expect(list.status).toBe(200);
+            expect(((list.data as SpaceRow[]) ?? []).map((r) => Number(r.id))).toEqual([space.id]);
         } finally {
             await deleteSpaceApi(page, space.id);
         }
@@ -163,6 +200,16 @@ test.describe('spaces / directory', () => {
                 actor.page.locator(sel.spaceCard).filter({ hasText: outName }),
                 `directory filtered by category still showed "${outName}"`
             ).toHaveCount(0);
+
+            // EFFECT: the list route filtered by that category answers the same set to this
+            // member: the categorized space only (the category is new, so nothing else is in it).
+            const list = await bnApi(actor.page, 'GET', `/spaces?category_id=${category.id}&per_page=50`);
+            expect(list.status, `list by category failed: ${JSON.stringify(list.data)}`).toBe(200);
+            expect(((list.data as SpaceRow[]) ?? []).map((r) => Number(r.id))).toEqual([inCatId]);
+            await expect.poll(() => actor.page.locator(sel.spaceCard).count(), { timeout: 5_000 }).toBe(1);
+            // The space row itself carries the category the chip filtered by.
+            const row = (await bnApi(actor.page, 'GET', `/spaces/${inCatId}`)).data as SpaceRow;
+            expect(Number(row.category_id)).toBe(category.id);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, inCatId);

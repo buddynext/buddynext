@@ -73,6 +73,12 @@ test.describe('spaces / home', () => {
             await expect(card, 'seeded first post did not render in the space feed').toBeVisible({
                 timeout: 10_000,
             });
+
+            // EFFECT: the feed on screen is the space feed route's answer: this one post,
+            // and one card.
+            const items = await spaceFeedItems(page, space.id);
+            expect(items.map((i) => Number(i.id))).toEqual([postId]);
+            expect(await page.locator(sel.postCard).count(), 'cards on screen vs GET /spaces/{id}/feed').toBe(items.length);
         } finally {
             if (postId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${postId}`);
@@ -151,6 +157,15 @@ test.describe('spaces / home', () => {
                 named,
                 `members grid did not list the known owner "${ownerName}"`
             ).toBeVisible({ timeout: 10_000 });
+
+            // EFFECT: the grid is the roster route's answer: the owner, alone, as owner.
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(roster.status, `roster failed: ${JSON.stringify(roster.data)}`).toBe(200);
+            const rows = (roster.data as Array<{ user_id: number; role?: string; display_name?: string }>) ?? [];
+            expect(rows.length).toBe(1);
+            expect(rows[0].role).toBe('owner');
+            expect(String(rows[0].display_name ?? '')).toBe(ownerName);
+            expect(await page.locator(MEMBER_NAME).count(), 'member cards on screen vs roster rows').toBe(rows.length);
         } finally {
             await deleteSpaceApi(page, space.id);
         }

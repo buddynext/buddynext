@@ -2,6 +2,19 @@ import { test, expect, type Page } from '@playwright/test';
 import { loginAs } from '../_fixtures/actor';
 import { userId, wp, ensureUser, setUserMeta } from '../_fixtures/wp';
 import { softSkip } from '../_fixtures/precondition';
+import { bnApi } from '../_fixtures/spaces-rest';
+
+/**
+ * Whether the nav that GET /users/{A}/profile resolves for the page's viewer has a
+ * top-level tab ending in /{slug}/. This is the same NavRegistry result an app draws
+ * its tabs from, so screen and route must agree on a tab being there or retired.
+ */
+async function routeHasTab(page: Page, slug: string): Promise<boolean> {
+    const r = await bnApi(page, 'GET', `/users/${A_ID}/profile`);
+    expect(r.status, 'GET /users/{A}/profile').toBe(200);
+    const tabs = ((r.data ?? {}) as { nav?: { tabs?: Array<{ url?: string }> } }).nav?.tabs ?? [];
+    return tabs.some((t) => String(t.url ?? '').replace(/\/?$/, '/').endsWith(`/${slug}/`));
+}
 
 /**
  * Wave-4 PROFILE bridge-tab degrade-to-absent — EFFECT-BASED (J-747..J-749),
@@ -112,6 +125,9 @@ async function assertMemberSeesTabContent(
         await page.goto(`${memberUrl(A_LOGIN)}${tabSlug}/`);
         await expect(page.locator(HERO).first()).toBeVisible();
 
+        // EFFECT: the profile route resolves the same tab for this plain member.
+        expect(await routeHasTab(page, tabSlug), `route nav lists the ${tabSlug} tab for a member viewer`).toBe(true);
+
         // Effect: the tab body actually rendered the integration's content
         // contract for this non-owner, non-admin viewer - not a blank panel.
         const rendered = page.locator(`${contentSelector}, ${EMPTY_STATE}`).first();
@@ -152,9 +168,16 @@ async function assertBridgeDegrade(
 
         // ON: the tab is present.
         await expect(page.locator(tabFor(tabSlug)).first()).toBeVisible();
+        expect(await routeHasTab(page, tabSlug), `route nav lists the ${tabSlug} tab while the integration is on`).toBe(true);
 
         // Owner turns the integration's nav off.
         for (const k of keys) await wp(['option', 'update', k, '0']);
+        // EFFECT: the single gate every bridge surface asks now answers off for each aspect.
+        for (const k of keys) {
+            const key = k.replace(/^buddynext_integration_/, '').replace(/_nav$/, '');
+            const gate = (await wp(['eval', `echo buddynext_integration_enabled('${key}', 'nav') ? '1' : '0';`])).trim();
+            expect(gate, `buddynext_integration_enabled('${key}', 'nav') after the toggle`).toBe('0');
+        }
         await page.goto(memberUrl(A_LOGIN));
 
         // Degrade, not error: hero still renders, the tab is gone, the bar survives.
@@ -167,6 +190,8 @@ async function assertBridgeDegrade(
             await page.locator(ANY_TAB).count(),
             'the rest of the tab bar still renders'
         ).toBeGreaterThan(0);
+        // EFFECT: the route nav retired the tab too (an app would stop drawing it).
+        expect(await routeHasTab(page, tabSlug), `route nav drops the ${tabSlug} tab while the integration is off`).toBe(false);
     } finally {
         for (const k of keys) await wp(['option', 'update', k, '1']);
     }

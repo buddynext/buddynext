@@ -2,6 +2,26 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
 import { postIdOfCard } from '../_fixtures/feed-wave1.helpers';
+import { restList, idsOf } from '../_fixtures/effects';
+import type { Page } from '@playwright/test';
+
+/** Post ids the home feed route serves this member, walking the cursor until `want` are in hand. */
+async function homeFeedIds(page: Page, want: number): Promise<number[]> {
+    const ids: number[] = [];
+    let cursor = '';
+    for (let i = 0; i < 6 && ids.length < want; i++) {
+        const r = await restList(page, `/feed/home?per_page=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+        if (r.status !== 200) {
+            break;
+        }
+        ids.push(...idsOf(r.data));
+        cursor = String((r.data as { next_cursor?: string | null } | null)?.next_cursor ?? '');
+        if (!cursor) {
+            break;
+        }
+    }
+    return ids;
+}
 
 /**
  * J-11-feed-home-loads, plus the pagination assertions that were missing.
@@ -41,6 +61,10 @@ test.describe('feed / home', () => {
         const text = (await firstCard.innerText().catch(() => '')).trim();
         const id = await postIdOfCard(page, text.split('\n')[0] ?? '');
         expect(id, 'a rendered feed card must carry a resolvable server post id').toBeGreaterThan(0);
+        // EFFECT: the card the shell rendered is a post the home feed route serves this member.
+        const rest = await restList(page, '/feed/home?per_page=20');
+        expect(rest.status, 'GET /feed/home').toBe(200);
+        expect(idsOf(rest.data), `post ${id} rendered first on screen is not in the first REST page`).toContain(id);
     });
 
     /**
@@ -57,6 +81,13 @@ test.describe('feed / home', () => {
     test('J-11 an empty feed filter renders its specific empty-state card', async ({ authenticatedPage: page }, testInfo) => {
         await page.goto(`${urls.feed}?filter=network`, { waitUntil: 'domcontentloaded' });
         await expect(page.locator(sel.app)).toBeVisible();
+
+        // EFFECT: the screen and the route agree on whether the Network feed has posts, so the
+        // empty-state card below is shown for a feed that really is empty.
+        const rest = await restList(page, '/feed/home?filter=network&per_page=20');
+        expect(rest.status, 'GET /feed/home?filter=network').toBe(200);
+        const onScreen = await page.locator(sel.postCard).count();
+        expect(onScreen > 0, `screen cards ${onScreen}, REST items ${rest.items.length}`).toBe(rest.items.length > 0);
 
         if ((await page.locator(sel.postCard).count()) > 0) {
             softSkip(testInfo, 'Actor has network posts — the empty precondition for the Network filter is not met.');
@@ -117,6 +148,12 @@ test.describe('feed / home', () => {
         // drop what the member was reading.
         const missing = before.filter((id) => !after.includes(id));
         expect(missing, `posts disappeared after Load more: ${missing.join(', ')}`).toHaveLength(0);
+
+        // EFFECT: the appended cards are posts the home feed route serves this member, not
+        // strays from another scope. Ten ids of slack absorb posts published mid-run.
+        const servedIds = await homeFeedIds(page, after.length + 10);
+        const stray = after.filter((id) => !servedIds.includes(Number(id)));
+        expect(stray, `cards after Load more that the home feed route does not serve: ${stray.join(', ')}`).toHaveLength(0);
 
         // The control either offers another page or retires. Still showing a
         // control that yields nothing is the failure this guards.

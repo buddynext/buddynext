@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { loginAs } from '../_fixtures/actor';
 import {
     userId,
@@ -9,6 +9,7 @@ import {
     displayName,
     wp,
 } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
 
 /**
  * Wave-1 PROFILE identity/media actions — EFFECT-BASED (J-707..J-709).
@@ -65,6 +66,13 @@ const CONFIRM_REMOVE = '.bn-modal-backdrop [role="dialog"] button:has-text("Remo
 let A_ID = 0;
 let B_ID = 0;
 
+/** GET /me/profile for the page's member: what the hero and the app render from. */
+async function meProfile(page: Page): Promise<{ display_name?: string; avatar_url?: string; cover_url?: string }> {
+    const r = await bnApi(page, 'GET', '/me/profile');
+    expect(r.status, 'GET /me/profile').toBe(200);
+    return (r.data ?? {}) as { display_name?: string; avatar_url?: string; cover_url?: string };
+}
+
 test.beforeAll(async () => {
     A_ID = await userId(A_LOGIN);
     B_ID = await ensureUser(B_LOGIN, B_EMAIL, B_NAME);
@@ -101,6 +109,8 @@ test.describe('profile / identity + media actions (effect-based)', () => {
                 await getUserMeta(A_ID, 'bn_avatar'),
                 'remove avatar must clear the bn_avatar meta'
             ).toBe('');
+            // EFFECT: the profile route stops serving the removed image (back to the generated default).
+            expect(String((await meProfile(page)).avatar_url ?? ''), 'GET /me/profile avatar_url').not.toContain(SEED_AVATAR);
 
             // UI: the Remove control retires (no custom avatar left).
             await expect(page.locator(AVATAR_REMOVE).first()).toBeHidden();
@@ -147,6 +157,8 @@ test.describe('profile / identity + media actions (effect-based)', () => {
                 await getUserMeta(A_ID, 'buddynext_cover_url'),
                 'remove cover must clear the buddynext_cover_url meta'
             ).toBe('');
+            // EFFECT: the profile route reports no cover at all.
+            expect(String((await meProfile(page)).cover_url ?? ''), 'GET /me/profile cover_url').toBe('');
 
             // UI: the Remove control retires.
             await expect(page.locator(COVER_REMOVE).first()).toBeHidden();
@@ -183,6 +195,8 @@ test.describe('profile / identity + media actions (effect-based)', () => {
                 await displayName(A_ID),
                 'empty name must not overwrite the stored display name'
             ).toBe(original);
+            // EFFECT: the profile route still names the member as before.
+            expect((await meProfile(page)).display_name, 'GET /me/profile display_name').toBe(original);
 
             // Reload — the field still shows the original name (nothing persisted).
             await page.goto(editUrl(A_LOGIN));
@@ -225,6 +239,8 @@ test.describe('profile / identity + media actions (effect-based)', () => {
                 await getUserMeta(B_ID, 'bn_avatar'),
                 'remove avatar must clear the bn_avatar meta for a plain member'
             ).toBe('');
+            // EFFECT: the profile route stops serving the removed image (back to the generated default).
+            expect(String((await meProfile(page)).avatar_url ?? ''), 'GET /me/profile avatar_url').not.toContain(SEED_AVATAR);
 
             await expect(page.locator(AVATAR_REMOVE).first()).toBeHidden();
             await page.reload();
@@ -269,6 +285,8 @@ test.describe('profile / identity + media actions (effect-based)', () => {
                 await getUserMeta(B_ID, 'buddynext_cover_url'),
                 'remove cover must clear the buddynext_cover_url meta for a plain member'
             ).toBe('');
+            // EFFECT: the profile route reports no cover at all.
+            expect(String((await meProfile(page)).cover_url ?? ''), 'GET /me/profile cover_url').toBe('');
 
             await expect(page.locator(COVER_REMOVE).first()).toBeHidden();
             await page.goto(memberUrl(B_LOGIN));

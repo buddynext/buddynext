@@ -1,5 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
+import { sessionStatus } from '../_fixtures/effects';
 
 /**
  * J-10-logout.
@@ -41,5 +42,7 @@ test.describe('auth / logout', () => {
         await page.goto(urls.feed, { waitUntil: 'domcontentloaded' });
         const adminBarVisible = await page.locator(sel.wpAdminBar).count();
         expect(adminBarVisible).toBe(0);
+        // EFFECT: the server session is gone too, not only the admin bar.
+        expect(await sessionStatus(page), 'the REST layer must refuse the logged-out browser').toBeGreaterThanOrEqual(401);
     });
 });

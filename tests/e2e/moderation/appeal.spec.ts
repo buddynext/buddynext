@@ -2,6 +2,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { urls } from '../_fixtures/selectors';
 import { readRestNonce, openMemberSession, restGet, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { dbCount, tablePrefix } from '../_fixtures/wp';
 import type { Page } from '@playwright/test';
 
 /**
@@ -87,6 +88,10 @@ test.describe('moderation / appeal (J-61)', () => {
                 return;
             }
             expect(susp.body.suspension_id ?? 0).toBeGreaterThan(0);
+            // EFFECT: the suspension is a live row for THIS member, not just a 2xx.
+            const p = await tablePrefix();
+            const activeSuspension = `SELECT COUNT(*) FROM ${p}bn_user_suspensions WHERE user_id = ${targetUserId} AND lifted_at IS NULL`;
+            expect(await dbCount(activeSuspension), 'no active suspension row after the suspend route').toBe(1);
 
             // MEMBER role, real UI: the account-status page renders the suspension
             // banner + appeal form, and submitting it is a real browser
@@ -124,6 +129,33 @@ test.describe('moderation / appeal (J-61)', () => {
             await page.goto('/wp-admin/admin.php?page=buddynext-moderation&tab=appeals', { waitUntil: 'domcontentloaded' });
             const row = page.locator('table.widefat tbody tr', { hasText: appealMessage });
             await expect(row).toBeVisible({ timeout: 10_000 });
+
+            // EFFECT: the team's queue route lists the same appeal the table shows. The route
+            // pages oldest-first, so the newest appeal sits on the last page.
+            type AppealPage = { items?: Array<{ id: number | string }>; total?: number };
+            const first = await restGet<AppealPage>(page.request, adminNonce, '/appeals?per_page=50');
+            expect(first.status, 'GET /appeals').toBe(200);
+            const lastPage = Math.max(1, Math.ceil(Number(first.body.total ?? 0) / 50));
+            const last = lastPage > 1
+                ? await restGet<AppealPage>(page.request, adminNonce, `/appeals?per_page=50&page=${lastPage}`)
+                : first;
+            expect(
+                (last.body.items ?? []).some((a) => Number(a.id) === appealId),
+                'appeal missing from GET /appeals'
+            ).toBe(true);
+
+            // Approving an appeal is the other half of the promise: it lifts the suspension.
+            const resolved = await restPost(page.request, adminNonce, `/appeals/${appealId}/resolve`, {
+                decision: 'approved',
+                reviewer_note: 'e2e approve',
+            });
+            expect(resolved.status, `resolve failed: ${JSON.stringify(resolved.body)}`).toBeLessThan(300);
+            // EFFECT: the appealed suspension is lifted and the appeal left the pending state.
+            expect(await dbCount(activeSuspension), 'suspension still active after the appeal was approved').toBe(0);
+            expect(
+                await dbCount(`SELECT COUNT(*) FROM ${p}bn_appeals WHERE id = ${appealId} AND status = 'pending'`),
+                'appeal still pending after resolve'
+            ).toBe(0);
         } finally {
             // Approving lifts the exact appealed suspension (ModerationService::
             // resolve_appeal()), so this one call cleans up both the appeal and

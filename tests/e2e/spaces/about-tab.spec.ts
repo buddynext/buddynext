@@ -1,5 +1,5 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
+import { createSpaceApi, deleteSpaceApi, getSpace, bnApi, type SpaceRow } from '../_fixtures/spaces-rest';
 
 /**
  * J-664 — Space About tab RENDER (C4).
@@ -47,6 +47,16 @@ test.describe('spaces / About tab render (J-664)', () => {
             const desc = page.locator(DESC_SELECTOR).first();
             await expect(desc).toBeVisible({ timeout: 10_000 });
             await expect(desc).toContainText(description, { timeout: 10_000 });
+
+            // EFFECT: the panel paints the stored description, per the routes web and app
+            // both read (by id and by slug), not a cached or neighbouring space's copy.
+            const byId = await getSpace(page, space.id);
+            expect(byId.status).toBe(200);
+            expect(String((byId.data as SpaceRow).description ?? '')).toBe(description);
+            const bySlug = await bnApi(page, 'GET', `/spaces/slug/${space.slug}`);
+            expect(bySlug.status, `GET /spaces/slug/${space.slug}`).toBe(200);
+            expect(Number((bySlug.data as SpaceRow).id)).toBe(space.id);
+            expect(String((bySlug.data as SpaceRow).description ?? '')).toBe(description);
         } finally {
             await deleteSpaceApi(page, space.id);
         }

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { test as adminTest } from '../_fixtures/auth.fixture';
 import { seedVerifyToken, getUserMeta, dbSeedingAvailable, VERIFY_PASSWORD, getOption, setOption, deleteOption } from '../_fixtures/db.fixture';
 import { readRestNonce, restPost } from '../_fixtures/feed-wave1.helpers';
+import { sessionStatus } from '../_fixtures/effects';
 import type { Browser, BrowserContext, APIRequestContext } from '@playwright/test';
 
 /**
@@ -47,6 +48,8 @@ test.describe('auth / verify (J-05-email-verify)', () => {
             page.click('#wp-submit'),
         ]);
         await expect(page).not.toHaveURL(/wp-login\.php/);
+        // EFFECT: the login produced a real session the REST layer accepts.
+        expect(await sessionStatus(page), 'the verified member holds a session').toBe(200);
     });
 
     test('reusing a consumed token is refused, without a 500 or a second flip', async ({ page }) => {
@@ -55,6 +58,8 @@ test.describe('auth / verify (J-05-email-verify)', () => {
         // Consume it once.
         await page.goto(`/?bn_verify=${token}`);
         await expect(page).toHaveURL(/bn_verified=1/);
+        // EFFECT: the first visit is what verified the member.
+        expect(await getUserMeta(MEMBER, 'buddynext_email_verified')).toBe('1');
 
         // Reuse: the used/expired path, no server error, and the flag is unchanged.
         const resp = await page.goto(`/?bn_verify=${token}`);
