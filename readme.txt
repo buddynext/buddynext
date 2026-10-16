@@ -85,6 +85,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Fix      - A private space's linked forum lets in members who joined the space before the forum was linked.
 * Fix      - Warnings and strikes sent from the app, an integration or the API need a reason, the same as in the moderation dialog.
 * Fix      - The Docs link on the Get Started, Automation and Integration Settings screens opens the matching help page.
+* Fix      - On phones the Spaces directory shows featured spaces once, in the strip at the top, instead of again at the bottom of the page.
 * Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
 * Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
 * Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.
