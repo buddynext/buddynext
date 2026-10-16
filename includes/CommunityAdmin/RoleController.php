@@ -74,12 +74,7 @@ class RoleController extends BaseRestController {
 	 * @return bool|WP_Error
 	 */
 	public function require_role_manager(): bool|WP_Error {
-		$user_id = get_current_user_id();
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
-		}
-		$roles = buddynext_service( 'roles' );
-		if ( is_object( $roles ) && method_exists( $roles, 'is_admin' ) && $roles->is_admin( $user_id ) ) {
+		if ( buddynext_can( get_current_user_id(), 'buddynext-community/assign-roles' ) ) {
 			return true;
 		}
 		return new WP_Error(

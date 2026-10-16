@@ -422,6 +422,12 @@ py_gate bin/check-tab-url.py "an AdminHub::tab_url() call points at a tab that i
 section "Interactivity directive paths"
 py_gate bin/check-directive-paths.py "a directive is bound to an expression — move the comparison into a computed getter"
 
+# 3b-i-a. Raw manage_options checks outside the settings screens only go down
+# (permissions program, card 10322714806): a power belongs to an ability so a site
+# can give it to a moderator without making them a WordPress administrator.
+section "Raw capability checks (ratchet)"
+py_gate bin/check-raw-caps.py "a raw manage_options check changed outside the settings screens - see above"
+
 # 3b-ii. Erasure completeness — BLOCKING, and green as of this commit.
 #
 # Every bn_* table with a user-bearing column must be on MemberCleanupService::erase_map()

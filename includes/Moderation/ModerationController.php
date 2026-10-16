@@ -1551,10 +1551,6 @@ class ModerationController extends BaseRestController {
 			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
 		}
 
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
-		}
-
 		// Route through the canonical gate rather than re-deriving the role set.
 		// This hand-rolled in_array( ..., [ 'owner', 'moderator' ] ) is exactly
 		// buddynext-moderate-space, and duplicating it meant a change to the

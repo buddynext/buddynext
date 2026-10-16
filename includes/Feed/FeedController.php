@@ -611,7 +611,7 @@ class FeedController extends BaseRestController {
 				// moderators (safe direction: never offers an edit the API rejects).
 				'can_edit' => $viewer > 0 && $editable_text && (
 					( $viewer === $aid && PostService::within_edit_window( (string) ( $item['created_at'] ?? '' ), (string) ( $item['status'] ?? 'published' ), $viewer ) )
-					|| user_can( $viewer, 'manage_options' )
+					|| buddynext_can( $viewer, 'buddynext-feed/edit-any-post' )
 				),
 			);
 

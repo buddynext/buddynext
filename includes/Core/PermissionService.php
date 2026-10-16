@@ -59,6 +59,11 @@ class PermissionService {
 		'buddynext-comments/create'         => 'member',
 		'buddynext-feed/delete-own-post'    => 'member',
 		'buddynext-feed/delete-any-post'    => 'moderator',
+		// Editing someone else's post or comment, and hiding a post: a site
+		// administrator's correction power, delegable to the community admin role
+		// rather than tied to manage_options. Distinct from delete-any-post on
+		// purpose: a moderator removes, they do not rewrite what a member said.
+		'buddynext-feed/edit-any-post'      => 'admin',
 		'buddynext-feed/schedule-post'      => 'member',
 		'buddynext-spaces/create'           => 'member',
 		'buddynext-spaces/join'             => 'member',
@@ -83,6 +88,16 @@ class PermissionService {
 		// suspend is a moderator power, not admin-only. Space-scoped suspension is
 		// still resolved separately per space.
 		'buddynext-moderation/suspend-user' => 'moderator',
+		// A suspension with no end date stays with the admins (card 10264294189);
+		// moderators suspend for a set number of days.
+		'buddynext-moderation/suspend-indefinitely' => 'admin',
+		// Reading and deciding appeals reviews a moderator's own decision, so it
+		// sits one level above them by default. buddynext_can_resolve_appeals
+		// still filters the answer.
+		'buddynext-moderation/resolve-appeals'      => 'admin',
+		// Changing members' community roles on the Community Admin panel. Granting
+		// the Admin role itself stays with site administrators (RoleController).
+		'buddynext-community/assign-roles'          => 'admin',
 		// Space-scoped capabilities — resolved by can_moderate_space() /
 		// can_manage_space() / can_own_space().
 		'buddynext-moderate-space'          => null,
@@ -108,6 +123,7 @@ class PermissionService {
 		'buddynext-moderate-space'         => 'Space-scoped: decided by the space role.',
 		'buddynext-manage-space'           => 'Space-scoped: decided by the space role.',
 		'buddynext-own-space'              => 'Space-scoped: decided by the space role.',
+		'buddynext-community/assign-roles' => 'Role changes stay with community admins, so a moderator can never promote themselves.',
 	);
 
 	/**

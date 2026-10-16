@@ -47,7 +47,8 @@ class RolesTab extends AdminPageBase {
 				'buddynext-comments/create'      => __( 'Comment on posts', 'buddynext' ),
 				'buddynext-feed/interact'        => __( 'React, share, bookmark and vote', 'buddynext' ),
 				'buddynext-feed/schedule-post'   => __( 'Schedule posts', 'buddynext' ),
-				'buddynext-feed/delete-any-post' => __( "Delete anyone's post", 'buddynext' ),
+				'buddynext-feed/delete-any-post' => __( "Delete anyone's post or comment", 'buddynext' ),
+				'buddynext-feed/edit-any-post'   => __( "Edit anyone's post or comment", 'buddynext' ),
 			),
 			// 'buddynext-spaces/manage-settings' and '…/delete' are intentionally
 			// omitted: they are inherently owner-scoped (SpaceService::update()/
@@ -72,6 +73,8 @@ class RolesTab extends AdminPageBase {
 				'buddynext-moderation/dismiss'      => __( 'Resolve reports', 'buddynext' ),
 				'buddynext-moderation/issue-strike' => __( 'Issue strikes', 'buddynext' ),
 				'buddynext-moderation/suspend-user' => __( 'Suspend members', 'buddynext' ),
+				'buddynext-moderation/suspend-indefinitely' => __( 'Suspend members with no end date', 'buddynext' ),
+				'buddynext-moderation/resolve-appeals'      => __( 'Decide appeals', 'buddynext' ),
 			),
 		);
 	}

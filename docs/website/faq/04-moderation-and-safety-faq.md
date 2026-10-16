@@ -35,7 +35,7 @@ See [Moderating a Member](../moderation/03-user-moderation.md).
 
 ## Can a suspended member dispute the decision?
 
-Yes, through an appeal. The member submits a written explanation tied to the specific suspension, and a moderator approves it (which lifts that exact suspension immediately) or denies it. Appeals are private between the member and moderators. See [Appeals](../moderation/04-appeals.md).
+Yes, through an appeal. The member submits a written explanation tied to the specific suspension, and an administrator approves it (which lifts that exact suspension immediately) or denies it. Appeals are private between the member and the people who decide them: administrators by default, or moderators if you give them "Decide appeals" under Roles & Capabilities. See [Appeals](../moderation/04-appeals.md).
 
 ## Does BuddyNext use a third-party captcha to stop spam sign-ups?
 

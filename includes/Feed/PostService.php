@@ -1530,7 +1530,7 @@ class PostService {
 	 */
 	public static function within_edit_window( string $created_at, string $status, int $user_id ): bool {
 		$window = (int) get_option( 'buddynext_post_edit_window', 60 );
-		if ( $window <= 0 || self::is_pre_publication( $status ) || user_can( $user_id, 'manage_options' ) ) {
+		if ( $window <= 0 || self::is_pre_publication( $status ) || buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
 			return true;
 		}
 		$created = (int) strtotime( $created_at . ' UTC' );
@@ -4700,10 +4700,10 @@ class PostService {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		// The post owner may manage their own post; a site admin
-		// (manage_options) may manage any member's post — same admin escape
-		// hatch already used for announcement creation and the edit window.
-		if ( (int) $post['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		// The post owner may manage their own post; "Edit anyone's post or
+		// comment" (site administrators and community admins by default) may
+		// manage any member's post, the same power that lifts the edit window.
+		if ( (int) $post['user_id'] !== $user_id && ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
 			return new WP_Error(
 				'not_post_owner',
 				__( 'You are not the owner of this post.', 'buddynext' )
@@ -4731,7 +4731,7 @@ class PostService {
 			return false;
 		}
 
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
 			return true;
 		}
 

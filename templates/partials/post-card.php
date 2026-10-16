@@ -240,7 +240,7 @@ $is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_option
 // same mistake, so a post held for moderation lost its Edit control while it waited.
 $bn_is_unpublished  = \BuddyNext\Feed\PostService::is_pre_publication( (string) ( $bn_post['status'] ?? 'published' ) );
 $within_edit_window = \BuddyNext\Feed\PostService::within_edit_window( (string) $created_at, (string) ( $bn_post['status'] ?? 'published' ), $current_user_id );
-$can_edit           = ( ( $is_own_post && $within_edit_window ) || $is_admin )
+$can_edit           = ( ( $is_own_post && $within_edit_window ) || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/edit-any-post' ) ) )
 	&& \BuddyNext\Feed\PostService::has_editable_text( (string) $bn_post_type, (string) ( $bn_post['content'] ?? '' ) );
 // Mirror the server (PostController::delete_post): deleting your own post is
 // always allowed; deleting anyone else's requires buddynext-feed/delete-any-post.

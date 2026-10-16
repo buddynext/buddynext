@@ -456,7 +456,7 @@ class CommentService {
 			return new WP_Error( 'comment_deleted', __( 'This comment has been deleted and can no longer be edited.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( $comment['user_id'] !== $user_id && ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
 			return new WP_Error( 'forbidden', __( 'You cannot edit this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -535,7 +535,7 @@ class CommentService {
 			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( $comment['user_id'] !== $user_id && ! buddynext_can( $user_id, 'buddynext-feed/delete-any-post' ) ) {
 			return new WP_Error( 'forbidden', __( 'You cannot delete this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

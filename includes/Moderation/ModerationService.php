@@ -2264,7 +2264,7 @@ class ModerationService {
 		// permanently — the heaviest, open-ended sanction stays with the admin
 		// (card 10264294189). $opts['duration_days'] null/0 means "no expiry".
 		$bn_duration_opt = isset( $opts['duration_days'] ) ? absint( $opts['duration_days'] ) : 0;
-		if ( $actor_id > 0 && $bn_duration_opt <= 0 && ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( $actor_id > 0 && $bn_duration_opt <= 0 && ! buddynext_can( $actor_id, 'buddynext-moderation/suspend-indefinitely' ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only an administrator can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
@@ -2720,7 +2720,7 @@ class ModerationService {
 	 * @return string SQL fragment starting with AND, or '' for a moderator.
 	 */
 	public function hidden_authors_where( string $column, int $viewer_id ): string {
-		if ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) ) {
+		if ( $this->is_site_moderator( $viewer_id ) ) {
 			return '';
 		}
 
@@ -2798,7 +2798,7 @@ class ModerationService {
 		// viewer handles their own space's reports and has no business reading the
 		// record of a member who was never in it (owner decision 2026-10-11).
 		$can_moderate = $viewer_id > 0
-			&& ( user_can( $viewer_id, 'manage_options' ) || $this->is_site_moderator( $viewer_id ) );
+			&& $this->is_site_moderator( $viewer_id );
 
 		// Privileged — regular members never receive it.
 		if ( ! $is_self && ! $can_moderate ) {
@@ -3226,10 +3226,11 @@ class ModerationService {
 		 *
 		 * @since 1.2.5
 		 *
-		 * @param bool $allowed Whether the user may. Default: administrators.
+		 * @param bool $allowed Whether the user may. Default: the "Decide appeals"
+		 *                      ability (site administrators and community admins).
 		 * @param int  $user_id User being checked.
 		 */
-		return (bool) apply_filters( 'buddynext_can_resolve_appeals', $user_id > 0 && user_can( $user_id, 'manage_options' ), $user_id );
+		return (bool) apply_filters( 'buddynext_can_resolve_appeals', $user_id > 0 && buddynext_can( $user_id, 'buddynext-moderation/resolve-appeals' ), $user_id );
 	}
 
 	/**
