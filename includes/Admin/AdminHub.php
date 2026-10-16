@@ -1710,6 +1710,17 @@ class AdminHub {
 			$active_slug      = '' !== $bn_owner ? $bn_owner : (string) array_key_first( $tabs );
 			$bn_tab_misrouted = ( '' === $bn_owner && '' !== $bn_requested_tab );
 		}
+		// A tab the placement map knows for this section but nobody registered belongs
+		// to a feature that is off (or a plugin that is inactive), not to a moved setting.
+		$bn_tab_unavailable = false;
+		if ( $bn_tab_misrouted ) {
+			foreach ( self::TAB_PLACEMENT as $bn_key => $bn_place ) {
+				if ( str_ends_with( (string) $bn_key, ':' . $bn_requested_tab ) && $bn_place['section'] === $section_key ) {
+					$bn_tab_unavailable = true;
+					break;
+				}
+			}
+		}
 		$active = $tabs[ $active_slug ];
 
 		if ( ! current_user_can( $active['cap'] ) ) {
@@ -1734,7 +1745,20 @@ class AdminHub {
 
 		// Tell the owner when they were misrouted, instead of silently swapping the
 		// destination (card 10264294727).
-		if ( $bn_tab_misrouted ) {
+		if ( $bn_tab_unavailable ) {
+			printf(
+				'<div class="notice notice-info"><p>%s <a href="%s">%s</a></p></div>',
+				esc_html(
+					sprintf(
+						/* translators: %s: the tab actually shown. */
+						__( 'The screen you asked for belongs to a feature that is turned off, or to a plugin that is not active. Showing “%s” instead.', 'buddynext' ),
+						(string) $active['label']
+					)
+				),
+				esc_url( self::tab_url( 'settings', 'features' ) ),
+				esc_html__( 'Turn features on or off', 'buddynext' )
+			);
+		} elseif ( $bn_tab_misrouted ) {
 			printf(
 				'<div class="notice notice-warning"><p>%s</p></div>',
 				esc_html(
