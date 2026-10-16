@@ -56,7 +56,7 @@ if ( '1' === $bn_email_changed_param ) {
 	// Guest who just signed up — they have an email hint but no session.
 	$bn_verify_state = 'pending';
 } else {
-	wp_safe_redirect( \BuddyNext\Core\PageRouter::auth_url() );
+	wp_safe_redirect( \BuddyNext\Core\PageRouter::login_url( '' ) );
 	exit;
 }
 
@@ -79,7 +79,7 @@ $bn_onboarding_url = \BuddyNext\Core\PageRouter::onboarding_url();
 if ( 'success' === $bn_verify_state && ! buddynext_feature_enabled( 'onboarding' ) ) {
 	$bn_onboarding_url = \BuddyNext\Auth\AuthController::take_signup_return( get_current_user_id(), $bn_onboarding_url );
 }
-$bn_auth_url     = \BuddyNext\Core\PageRouter::auth_url();
+$bn_auth_url     = \BuddyNext\Core\PageRouter::login_url( '' );
 $bn_rest_root    = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $bn_resend_nonce = wp_create_nonce( 'wp_rest' );
 

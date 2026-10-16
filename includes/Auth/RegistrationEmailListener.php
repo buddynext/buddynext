@@ -216,7 +216,7 @@ class RegistrationEmailListener {
 			__( 'Good news, %1$s: your account at %2$s has been approved. You can now sign in: %3$s', 'buddynext' ),
 			$user->display_name,
 			$site,
-			PageRouter::auth_url()
+			PageRouter::login_url( '' )
 		);
 		$this->mail( (string) $user->user_email, $subject, $body );
 

@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
 
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
-$login_url  = \BuddyNext\Core\PageRouter::auth_url();
+$login_url  = \BuddyNext\Core\PageRouter::login_url( '' );
 
 // Resolve mode: a key+login in the URL means we are on the set-new-password
 // step. Validate the key with WP core up front so an expired/forged link shows

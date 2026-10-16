@@ -230,7 +230,7 @@ class RedirectSettings {
 		$is_wp_default = '' === $requested
 			|| false !== strpos( $requested, 'wp-login.php' )
 			|| false !== strpos( $requested, '/wp-admin' );
-		$fallback      = $is_wp_default ? \BuddyNext\Core\PageRouter::auth_url() : $requested;
+		$fallback      = $is_wp_default ? \BuddyNext\Core\PageRouter::login_url( '' ) : $requested;
 		return self::allow_saved_off_site( self::resolve( self::OPT_LOGOUT, $fallback ), self::OPT_LOGOUT );
 	}
 

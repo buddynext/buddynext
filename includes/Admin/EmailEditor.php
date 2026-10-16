@@ -636,7 +636,7 @@ class EmailEditor {
 			'{{actor_name}}'           => __( 'Test Member', 'buddynext' ),
 			'{{action_url}}'           => home_url( '/' ),
 			'{{notification_message}}' => __( 'This is a sample notification message.', 'buddynext' ),
-			'{{login_url}}'            => ( '' !== \BuddyNext\Core\PageRouter::auth_url() ? \BuddyNext\Core\PageRouter::auth_url() : wp_login_url() ),
+			'{{login_url}}'            => \BuddyNext\Core\PageRouter::login_url( '' ),
 			'{{unsubscribe_url}}'      => \BuddyNext\Core\PageRouter::notification_prefs_url(),
 			'{{current_year}}'         => gmdate( 'Y' ),
 			'{{site_name}}'            => get_bloginfo( 'name' ),

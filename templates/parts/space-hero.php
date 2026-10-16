@@ -196,7 +196,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 				<?php // An archived space takes no new members, so there is nothing to log in to join. ?>
 			<?php elseif ( $bn_is_guest ) : ?>
 				<a
-					href="<?php echo esc_url( PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $bn_space->slug ) ) ); ?>"
+					href="<?php echo esc_url( PageRouter::login_url( buddynext_space_url( $bn_space->slug ) ) ); ?>"
 					class="bn-btn"
 					data-variant="primary"
 					data-size="sm"

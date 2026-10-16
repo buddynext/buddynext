@@ -205,7 +205,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 				<?php // Archived: no Join for anyone, so no "Log in to join" either. ?>
 			<?php elseif ( 0 === $bn_dc_uid ) : ?>
 				<a
-					href="<?php echo esc_url( PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space_slug ) ) ); ?>"
+					href="<?php echo esc_url( PageRouter::login_url( buddynext_space_url( $space_slug ) ) ); ?>"
 					class="bn-btn"
 					data-variant="primary"
 					data-size="sm"

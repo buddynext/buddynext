@@ -353,7 +353,7 @@ class AssetService {
 						'reactor_name'    => __( 'Jordan Lee', 'buddynext' ),
 						'commenter_name'  => __( 'Jordan Lee', 'buddynext' ),
 						'sharer_name'     => __( 'Jordan Lee', 'buddynext' ),
-						'login_url'       => class_exists( \BuddyNext\Core\PageRouter::class ) ? \BuddyNext\Core\PageRouter::auth_url() : home_url( '/' ),
+						'login_url'       => class_exists( \BuddyNext\Core\PageRouter::class ) ? \BuddyNext\Core\PageRouter::login_url( '' ) : home_url( '/' ),
 						'action_url'      => home_url( '/' ),
 						'unsubscribe_url' => '#',
 						'current_year'    => gmdate( 'Y' ),

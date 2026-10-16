@@ -150,6 +150,14 @@ class PageRouter {
 	private static bool $search_note_printed = false;
 
 	/**
+	 * Auth URL filters currently running (buddynext_login_url and friends), so a
+	 * nested call during one returns the plain address instead of looping.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static array $resolving_auth_url = array();
+
+	/**
 	 * The "community results" link for the theme's own search results page.
 	 *
 	 * Members, spaces and posts live in BuddyNext's tables, so a core search
@@ -655,7 +663,7 @@ class PageRouter {
 		) {
 			global $wp;
 			$return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
-			wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $return ), self::auth_url() ) );
+			wp_safe_redirect( self::login_url( $return ) );
 			exit;
 		}
 
@@ -703,7 +711,7 @@ class PageRouter {
 			// (card 10281747733).
 			global $wp;
 			$bn_return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
-			wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $bn_return ), self::auth_url() ) );
+			wp_safe_redirect( self::login_url( $bn_return ) );
 			exit;
 		}
 
@@ -939,7 +947,7 @@ class PageRouter {
 				// capture the private-community gate above uses.
 				global $wp;
 				$bn_return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
-				wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $bn_return ), self::auth_url() ) );
+				wp_safe_redirect( self::login_url( $bn_return ) );
 				exit;
 			}
 		}
@@ -4070,6 +4078,9 @@ class PageRouter {
 	 * Referer header, which a browser may strip and which never counts from the
 	 * signup page, so a "Sign in" there lost the visitor's destination.
 	 *
+	 * Every BuddyNext "Log in" link, the guest gates and the sign-in link in emails
+	 * come through here, so `buddynext_login_url` moves all of them at once.
+	 *
 	 * @param string|null $destination Where to land after login. null = the page being
 	 *                            viewed (front-end only); '' = no redirect_to, so
 	 *                            login uses its own default.
@@ -4079,9 +4090,30 @@ class PageRouter {
 		if ( null === $destination ) {
 			$destination = self::return_destination();
 		}
-		$auth = self::auth_url();
+
+		/**
+		 * Filter the login page BuddyNext sends visitors to.
+		 *
+		 * Return the address of another login page (a membership plugin's, a custom
+		 * page) and every BuddyNext Log in link and guest gate goes there instead;
+		 * the BuddyNext login screen itself keeps working. redirect_to is appended
+		 * after this filter, so return the bare page. Return '' to use WordPress's
+		 * own login (wp-login.php).
+		 *
+		 * @since 1.2.6
+		 *
+		 * @param string $url         BuddyNext login page, or '' when none is set up.
+		 * @param string $destination Where the visitor goes after login; '' for the default.
+		 */
+		$auth = self::filter_auth_url( 'buddynext_login_url', self::auth_url(), $destination );
 		if ( '' === $auth ) {
-			return wp_login_url( $destination );
+			// Core's address, without BuddyNext answering it (that would land back here).
+			self::$resolving_auth_url['core'] = true;
+			try {
+				return wp_login_url( $destination );
+			} finally {
+				unset( self::$resolving_auth_url['core'] );
+			}
 		}
 
 		return '' === $destination ? $auth : add_query_arg( 'redirect_to', rawurlencode( $destination ), $auth );
@@ -4119,11 +4151,7 @@ class PageRouter {
 	 * @return string
 	 */
 	public static function core_login_url( $url, $redirect = '' ): string {
-		if ( ! self::owns_core_auth_links() ) {
-			return (string) $url;
-		}
-
-		return self::login_url( '' !== (string) $redirect ? (string) $redirect : null );
+		return self::answer_core( $url, static fn() => self::login_url( '' !== (string) $redirect ? (string) $redirect : null ) );
 	}
 
 	/**
@@ -4133,7 +4161,7 @@ class PageRouter {
 	 * @return string
 	 */
 	public static function core_register_url( $url ): string {
-		return self::owns_core_auth_links() ? self::signup_url( null ) : (string) $url;
+		return self::answer_core( $url, static fn() => self::signup_url( null ) );
 	}
 
 	/**
@@ -4143,7 +4171,47 @@ class PageRouter {
 	 * @return string
 	 */
 	public static function core_lostpassword_url( $url ): string {
-		return self::owns_core_auth_links() ? self::reset_url() : (string) $url;
+		return self::answer_core( $url, static fn() => self::reset_url() );
+	}
+
+	/**
+	 * Answer one of core's auth addresses with the BuddyNext one, unless one of
+	 * BuddyNext's auth URL filters is running: a snippet that returns
+	 * wp_login_url() from buddynext_login_url means "WordPress's login page".
+	 *
+	 * @param string   $url    Core's address.
+	 * @param callable $answer Builds the BuddyNext address.
+	 * @return string
+	 */
+	private static function answer_core( $url, callable $answer ): string {
+		if ( self::$resolving_auth_url || ! self::owns_core_auth_links() ) {
+			return (string) $url;
+		}
+
+		return (string) $answer();
+	}
+
+	/**
+	 * Run a login / signup / reset URL filter once. A callback that ends up back
+	 * here - its own wp_login_url() call, or a theme's login_url filter that calls
+	 * PageRouter (BuddyX and Reign do) - gets the unfiltered address instead of
+	 * recursing until PHP runs out of stack.
+	 *
+	 * @param string $hook    Filter name.
+	 * @param string $url     Unfiltered address.
+	 * @param mixed  ...$args Extra filter arguments.
+	 * @return string
+	 */
+	private static function filter_auth_url( string $hook, string $url, ...$args ): string {
+		if ( isset( self::$resolving_auth_url[ $hook ] ) ) {
+			return $url;
+		}
+		self::$resolving_auth_url[ $hook ] = true;
+		try {
+			return (string) apply_filters( $hook, $url, ...$args );
+		} finally {
+			unset( self::$resolving_auth_url[ $hook ] );
+		}
 	}
 
 	/**
@@ -4183,7 +4251,7 @@ class PageRouter {
 		 *
 		 * @param string $url Default {auth}/signup/ URL.
 		 */
-		$url = (string) apply_filters( 'buddynext_signup_url', trailingslashit( self::auth_url() ) . 'signup/' );
+		$url = self::filter_auth_url( 'buddynext_signup_url', trailingslashit( self::auth_url() ) . 'signup/' );
 
 		if ( null === $destination ) {
 			$destination = self::return_destination();
@@ -4223,11 +4291,24 @@ class PageRouter {
 	 */
 	public static function reset_url(): string {
 		/**
-		 * Filter the password-reset URL.
+		 * Filter the "Forgot password?" page BuddyNext links to.
+		 *
+		 * The link in the reset email always opens the BuddyNext reset screen
+		 * (reset_screen_url()), because only that screen reads its key.
 		 *
 		 * @param string $url Default {auth}/reset/ URL.
 		 */
-		return (string) apply_filters( 'buddynext_reset_url', trailingslashit( self::auth_url() ) . 'reset/' );
+		return self::filter_auth_url( 'buddynext_reset_url', self::reset_screen_url() );
+	}
+
+	/**
+	 * The BuddyNext reset screen itself, never filtered: the set-new-password step
+	 * (?key=...&login=... from the email) only works there.
+	 *
+	 * @return string
+	 */
+	public static function reset_screen_url(): string {
+		return trailingslashit( self::auth_url() ) . 'reset/';
 	}
 
 	/**

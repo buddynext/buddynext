@@ -73,6 +73,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 Fixes for mentions, polls, Explore covers, linked forums and moderation reasons, plus a release gate that ties every change below to a test. Lockstep with BuddyNext Pro 1.2.6 - install and test both together.
 
+* New      - Developers can send every BuddyNext Log in link and guest gate to their own login page with the buddynext_login_url filter.
 * Improve  - The readme lists the minimum version of each integration plugin and what happens on an older one.
 * Fix      - Finishing a word while @mention or #hashtag suggestions are still loading no longer opens a stale list or inserts "null" into a post or comment.
 * Fix      - Logged-out visitors see the real poll percentages instead of 0% on every option.
@@ -83,6 +84,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Fix      - Warnings and strikes sent from the app, an integration or the API need a reason, the same as in the moderation dialog.
 * Fix      - The Docs link on the Get Started, Automation and Integration Settings screens opens the matching help page.
 * Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
+* Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.
 * Compat   - Tested with Jetonomy 2.0.2, WB Gamification 1.6.7 and BuddyPress Member Blog 4.4.0. Aligned with BuddyNext Pro 1.2.6. Install the updates together.
 
 = 1.2.5 - October 2026 =

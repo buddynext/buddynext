@@ -283,7 +283,7 @@ printf(
 			<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Sign in to post, react, and reply in this space.', 'buddynext' ); ?></p>
 		</div>
 		<a
-			href="<?php echo esc_url( PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $bn_space->slug ) ) ); ?>"
+			href="<?php echo esc_url( PageRouter::login_url( buddynext_space_url( $bn_space->slug ) ) ); ?>"
 			class="bn-btn"
 			data-variant="primary"
 			data-size="md"

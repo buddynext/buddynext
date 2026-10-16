@@ -825,7 +825,7 @@ class EmailSender {
 		$tokens = array(
 			'{{site_name}}'            => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 			'{{site_url}}'             => esc_url( home_url( '/' ) ),
-			'{{login_url}}'            => esc_url( \BuddyNext\Core\PageRouter::auth_url() ),
+			'{{login_url}}'            => esc_url( \BuddyNext\Core\PageRouter::login_url( '' ) ),
 			'{{action_url}}'           => esc_url( $action_url ),
 			'{{user_name}}'            => $display_name,
 			'{{first_name}}'           => '' !== $first_name ? $first_name : $display_name,
