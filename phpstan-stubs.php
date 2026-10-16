@@ -53,6 +53,30 @@ namespace Jetonomy {
 	}
 }
 
+namespace Jetonomy\Models {
+	if ( ! class_exists( 'Jetonomy\\Models\\SpaceMember' ) ) {
+		/**
+		 * Stub for Jetonomy's forum roster model (signatures copied from Jetonomy 2.0.2
+		 * includes/models/class-space-member.php). JetonomyBridge registers the hooks that
+		 * call it only when the class exists.
+		 */
+		class SpaceMember { // phpcs:ignore
+			public static function add( int $space_id, int $user_id, string $role = 'member', string $source = 'manual' ): \WP_Error|bool { // phpcs:ignore
+				return true;
+			}
+			public static function remove( int $space_id, int $user_id, bool $keep_last_admin = false ): \WP_Error|bool { // phpcs:ignore
+				return true;
+			}
+			public static function set_role( int $space_id, int $user_id, string $role, bool $keep_last_admin = false ): \WP_Error|bool { // phpcs:ignore
+				return true;
+			}
+			public static function is_member( int $space_id, int $user_id ): bool { // phpcs:ignore
+				return false;
+			}
+		}
+	}
+}
+
 namespace WPMediaVerse\Services {
 	if ( ! class_exists( 'WPMediaVerse\\Services\\ProfileService' ) ) {
 		/**
