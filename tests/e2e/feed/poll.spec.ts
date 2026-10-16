@@ -1,8 +1,33 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet } from '../_fixtures/feed-wave1.helpers';
 import type { Page } from '@playwright/test';
+
+type PollOption = { id: number; option_text: string; vote_count: number };
+
+/** The poll's options and tallies, per the poll route (the same rows the card totals from). */
+async function pollResults(page: Page, nonce: string, postId: number): Promise<PollOption[]> {
+    const r = await restGet<{ results?: PollOption[] }>(page.request, nonce, `/posts/${postId}/poll`);
+    expect(r.status, 'GET /posts/{id}/poll').toBe(200);
+    return r.body.results ?? [];
+}
+
+/** The option this member voted for, per the my-vote route (0 when none). */
+async function myVote(page: Page, nonce: string, postId: number): Promise<number> {
+    return Number((await restGet<{ option_id?: number | null }>(page.request, nonce, `/posts/${postId}/my-vote`)).body.option_id ?? 0);
+}
+
+/**
+ * EFFECT: one vote, on the option clicked, and nowhere else. The is-voted class and the
+ * "1 vote" label are painted client-side; these are the rows behind them.
+ */
+async function expectSingleVote(page: Page, nonce: string, postId: number, optionId: number): Promise<void> {
+    await expect.poll(() => myVote(page, nonce, postId), { timeout: 8_000 }).toBe(optionId);
+    const results = await pollResults(page, nonce, postId);
+    expect(results.find((o) => o.id === optionId)?.vote_count, 'votes on the option I picked').toBe(1);
+    expect(results.reduce((sum, o) => sum + Number(o.vote_count), 0), 'votes across the whole poll').toBe(1);
+}
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -78,11 +103,19 @@ test.describe('feed / poll', () => {
             for (const label of opts) {
                 await expect(poll.locator(pollOption).filter({ hasText: label })).toHaveCount(1);
             }
+            // EFFECT: the poll route holds the options I typed, in order, with no votes yet.
+            const fresh = await pollResults(page, nonce, createdId);
+            expect(fresh.map((o) => o.option_text), 'stored options').toEqual(opts);
+            expect(fresh.map((o) => Number(o.vote_count)), 'votes on a fresh poll').toEqual([0, 0, 0]);
+            expect(await myVote(page, nonce, createdId), 'my vote before voting').toBe(0);
 
             // Vote the first option; the store rebinds is-voted + the running total.
             const firstOption = poll.locator(pollOption).first();
+            const votedOptionId = Number(await firstOption.getAttribute('data-option-id'));
+            expect(votedOptionId, 'option id on the first option').toBeGreaterThan(0);
             await firstOption.click();
             await expect(poll.locator(`${pollOption}.is-voted`)).toHaveCount(1, { timeout: 8_000 });
+            await expectSingleVote(page, nonce, createdId, votedOptionId);
 
             // Persistence: after a full reload the vote is still mine (server sends
             // my_voted_option_id -> is-voted) and the total reflects the one vote.
@@ -140,10 +173,17 @@ test.describe('feed / poll', () => {
             for (const label of opts) {
                 await expect(poll.locator(pollOption).filter({ hasText: label })).toHaveCount(1);
             }
+            // EFFECT: the poll route holds the member's options, in order, with no votes yet.
+            const fresh = await pollResults(page, nonce, createdId);
+            expect(fresh.map((o) => o.option_text), 'stored options').toEqual(opts);
+            expect(fresh.map((o) => Number(o.vote_count)), 'votes on a fresh poll').toEqual([0, 0, 0]);
 
             const firstOption = poll.locator(pollOption).first();
+            const votedOptionId = Number(await firstOption.getAttribute('data-option-id'));
+            expect(votedOptionId, 'option id on the first option').toBeGreaterThan(0);
             await firstOption.click();
             await expect(poll.locator(`${pollOption}.is-voted`)).toHaveCount(1, { timeout: 8_000 });
+            await expectSingleVote(page, nonce, createdId, votedOptionId);
 
             await page.goto(urls.feed);
             const cardAfter = cardWith(page, question).first();
@@ -204,6 +244,66 @@ test.describe('feed / poll', () => {
                 option_id: Number(optionId),
             });
             expect(vote.status, `vote on closed poll -> ${vote.status}`).toBeGreaterThanOrEqual(400);
+
+            // EFFECT: the refusal left no trace. No vote row for me, no tally moved.
+            expect(await myVote(page, nonce, createdId), 'my vote on the closed poll').toBe(0);
+            const tallies = await pollResults(page, nonce, createdId);
+            expect(tallies.length, 'options on the closed poll').toBe(2);
+            expect(tallies.reduce((sum, o) => sum + Number(o.vote_count), 0), 'votes on the closed poll').toBe(0);
+        } finally {
+            await deletePostRest(page.request, nonce, createdId).catch(() => {});
+        }
+    });
+
+    /**
+     * J-982 a visitor who cannot vote still sees the real results (card 10405808074).
+     *
+     * The server paints the right percentages; the page script then redraws each option
+     * from its own context. An option rendered without that context (every option a
+     * visitor sees) was redrawn as 0% with an empty bar while the total still read
+     * "N votes". So this reads the numbers AFTER the script has run, as a logged-out
+     * visitor on the post's own page, against the poll route's tallies.
+     */
+    test('J-982 a logged-out visitor sees the real poll percentages after the page script runs', async ({ authenticatedPage: page, browser }) => {
+        test.fail(true, 'card 10405808074: options a visitor cannot vote on hydrate to 0%');
+        const stamp = Date.now().toString().slice(-6);
+        let createdId = 0;
+        let nonce = '';
+        try {
+            await page.goto(urls.feed);
+            nonce = await readRestNonce(page);
+            const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', {
+                content: `j982 visitor poll ${stamp}`,
+                type: 'poll',
+                privacy: 'public',
+                options: [`Yes ${stamp}`, `No ${stamp}`],
+            });
+            expect(created.status, `create poll -> ${created.status}`).toBeLessThan(300);
+            createdId = created.body.id ?? 0;
+            const options = await pollResults(page, nonce, createdId);
+            const yes = options.find((o) => o.option_text === `Yes ${stamp}`)?.id ?? 0;
+            const vote = await restPost(page.request, nonce, `/posts/${createdId}/vote`, { option_id: yes });
+            expect(vote.status, 'vote').toBe(200);
+            // EFFECT the visitor must see: one vote, all on Yes.
+            expect((await pollResults(page, nonce, createdId)).find((o) => o.id === yes)?.vote_count).toBe(1);
+
+            const guest = await browser.newContext();
+            try {
+                const visitor = await guest.newPage();
+                await visitor.goto(`/p/${createdId}/`);
+                const poll = visitor.locator('.bn-post-card__poll').first();
+                await expect(poll).toBeVisible({ timeout: 10_000 });
+                await visitor.waitForLoadState('networkidle');
+                const yesOption = poll.locator(pollOption).filter({ hasText: `Yes ${stamp}` });
+                // Read what is on screen after hydration, not the server's first paint.
+                await expect(yesOption.locator('.bn-post-card__poll-pct')).toHaveText('100%');
+                const width = await yesOption.locator('.bn-post-card__poll-fill').evaluate((el) => (el as HTMLElement).style.width);
+                expect(width, 'the Yes bar is drawn full width').toBe('100%');
+                // Negative twin: the option nobody chose stays at 0%.
+                await expect(poll.locator(pollOption).filter({ hasText: `No ${stamp}` }).locator('.bn-post-card__poll-pct')).toHaveText('0%');
+            } finally {
+                await guest.close();
+            }
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
         }

@@ -7,6 +7,7 @@ import {
     deletePostRest,
     openMemberSession,
     restGet,
+    restPost,
     type MemberSession,
 } from '../_fixtures/feed-wave1.helpers';
 
@@ -78,6 +79,18 @@ test.describe('feed / @mention', () => {
             await expect(anchor).toBeVisible();
             await expect(anchor).toHaveAttribute('href', new RegExp(`/members/${handle}/?$|/${handle}/?$`));
 
+            // EFFECT: the stored post keeps the @handle, and the post route serves it to the
+            // mentioned member, linked, in her own session.
+            expect(createdId, 'resolved server post id').toBeGreaterThan(0);
+            const stored = await restGet<{ content?: string; content_html?: string }>(
+                recipient.request,
+                recipient.nonce,
+                `/posts/${createdId}`
+            );
+            expect(stored.status, 'recipient GET /posts/{id}').toBe(200);
+            expect(stored.body.content ?? '', 'stored body').toContain(`@${handle}`);
+            expect(stored.body.content_html ?? '', 'served body links the mention').toContain(`class="bn-mention">@${handle}</a>`);
+
             // Recipient side (server truth): a NEW bn.mention from the author lands.
             // Poll briefly — the mention fan-out is synchronous on publish but the
             // read is a separate session, so allow the row to settle.
@@ -97,6 +110,82 @@ test.describe('feed / @mention', () => {
             if (recipient) {
                 await recipient.ctx.close().catch(() => {});
             }
+        }
+    });
+
+    /**
+     * J-983 a slow suggestion lookup never rewrites what the member already typed (card 10408199294).
+     *
+     * The @ / # typeahead fetches suggestions 200 ms after the last key. When the member
+     * ends the word (space) before that lookup answers, the box must stay closed: the old
+     * answer opened a dropdown for a word that no longer exists, and picking from it wrote
+     * "@alenull<handle>" into the post. Every typeahead box shares one helper, so the
+     * journey covers the composer (@ and #) and a comment box (@).
+     *
+     * Effect read-back: the comment is submitted and read from the post's comments route,
+     * so the stored text, not just the field, is proven unchanged.
+     */
+    test('J-983 ending a word while suggestions load leaves the text exactly as typed', async ({ authenticatedPage: page }) => {
+        test.fail(true, 'card 10408199294: a late suggestion response reopens the dropdown and inserts "null"');
+        let delay = 0;
+        await page.route(/\/(members\?search=|hashtags\/autocomplete)/, async (route) => {
+            if (delay) await new Promise((r) => setTimeout(r, delay));
+            await route.continue();
+        });
+        const dropdownItems = page.locator('.bn-composer__typeahead-item');
+
+        /** Type `text`, end the word while the lookup is in flight, then let it land. */
+        async function race(box: import('@playwright/test').Locator, text: string): Promise<void> {
+            delay = 1_200;
+            await box.fill('');
+            await box.pressSequentially(text, { delay: 30 });
+            await page.waitForTimeout(400); // debounce passed, lookup in flight
+            await box.press('Space');
+            await page.waitForTimeout(1_600); // the late answer lands
+            await expect(dropdownItems, `no suggestions open after "${text} "`).toHaveCount(0);
+            // A member who clicks where the box would have been must not change the text.
+            if (await dropdownItems.count()) await dropdownItems.first().click();
+            await expect(box).toHaveValue(`${text} `);
+            delay = 0;
+        }
+
+        await page.goto(urls.feed);
+        const nonce = await readRestNonce(page);
+        const composer = page.locator(sel.composerTextarea).first();
+        await composer.click();
+
+        // Positive control: with no delay the typeahead works and inserts the pick.
+        await composer.pressSequentially('hi @ali', { delay: 60 });
+        await expect(dropdownItems.first()).toBeVisible({ timeout: 5_000 });
+        await dropdownItems.first().click();
+        await expect(composer).not.toHaveValue(/null/);
+        await expect(composer).toHaveValue(/^hi @\S+ ?$/);
+
+        await race(composer, 'hi @ali');
+        await race(composer, 'see #e');
+        await composer.fill('');
+
+        // Comment box on a post of our own.
+        const stamp = Date.now().toString().slice(-6);
+        const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', { content: `j983 host ${stamp}`, privacy: 'public' });
+        const postId = created.body.id ?? 0;
+        expect(postId, 'host post created').toBeGreaterThan(0);
+        try {
+            await page.goto(urls.feed);
+            const host = page.locator(sel.postCard).filter({ hasText: `j983 host ${stamp}` }).first();
+            await expect(host).toBeVisible({ timeout: 10_000 });
+            await host.locator(sel.postComment).first().click();
+            const input = host.locator(sel.commentInput).first();
+            await expect(input).toBeVisible();
+            await race(input, `reply ${stamp} @ali`);
+            await input.press('Enter');
+            // EFFECT: the stored comment is the text as typed.
+            await expect.poll(async () => {
+                const r = await restGet<{ items?: Array<{ content?: string }> }>(page.request, nonce, `/posts/${postId}/comments`);
+                return (r.body.items ?? []).map((c) => c.content ?? '').find((c) => c.includes(stamp)) ?? '';
+            }, { timeout: 8_000 }).toBe(`reply ${stamp} @ali`);
+        } finally {
+            await deletePostRest(page.request, nonce, postId).catch(() => {});
         }
     });
 });

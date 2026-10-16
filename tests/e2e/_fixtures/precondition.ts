@@ -75,7 +75,10 @@ export async function resolveOtherMemberSlug(page: Page, selfLogin: string): Pro
             .filter(Boolean)
     );
 
-    const candidates = [...new Set(slugs)].filter((slug) => slug !== selfLogin);
+    // The session is the gate's BN_TEST_USER when set, whatever login the caller names:
+    // offering it back as "another member" made the journey mention or report itself.
+    const self = new Set([selfLogin, process.env.BN_TEST_USER ?? selfLogin]);
+    const candidates = [...new Set(slugs)].filter((slug) => !self.has(slug));
 
     // Bounded: a site whose whole directory is half-onboarded is a seeding
     // problem, and the caller's softSkip reports it better than a long walk.
