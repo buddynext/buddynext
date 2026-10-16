@@ -1821,16 +1821,19 @@ class AdminHub {
 	 */
 	private function docs_url_for( string $section, string $tab ): string {
 		$section_defaults = array(
-			'settings'      => 'getting-started/04-admin-overview/',
-			'platform'      => 'getting-started/04-admin-overview/',
-			'members'       => 'members/',
-			'spaces'        => 'spaces/',
-			'engagement'    => 'engagement/',
-			'notifications' => 'messaging-notifications/',
-			'realtime'      => 'engagement/03-realtime-updates/',
-			'campaigns'     => 'pro/',
-			'moderation'    => 'moderation/',
-			'monetization'  => 'pro/01-membership-plans/',
+			'settings'             => 'getting-started/04-admin-overview/',
+			'platform'             => 'getting-started/04-admin-overview/',
+			'members'              => 'members/',
+			'spaces'               => 'spaces/',
+			'engagement'           => 'engagement/',
+			'notifications'        => 'messaging-notifications/',
+			'realtime'             => 'engagement/03-realtime-updates/',
+			'campaigns'            => 'pro/',
+			'moderation'           => 'moderation/',
+			'monetization'         => 'pro/01-membership-plans/',
+			'get-started'          => 'getting-started/00-start-here/',
+			'automation'           => 'moderation/05-content-safeguards/',
+			'integration-settings' => 'integrations/01-overview/',
 		);
 		$tab_overrides    = array(
 			'members'       => array(
@@ -1855,7 +1858,12 @@ class AdminHub {
 				'reports' => 'moderation/01-reporting-content/',
 			),
 			'automation'    => array(
-				'bulk' => 'pro/16-bulk-moderation/',
+				'bulk'  => 'pro/16-bulk-moderation/',
+				'rules' => 'pro/14-auto-moderation/',
+				'ai'    => 'pro/15-ai-feed-and-moderation/',
+			),
+			'get-started'   => array(
+				'license' => 'getting-started/02-installation/',
 			),
 			'realtime'      => array(
 				'push'       => 'pro/17-push-notifications/',

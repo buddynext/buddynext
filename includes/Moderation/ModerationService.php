@@ -1216,6 +1216,25 @@ class ModerationService {
 	}
 
 	/**
+	 * Refuse a warning or strike without a reason.
+	 *
+	 * The member is told why they were sanctioned; the dialog required a reason but
+	 * the server did not, so the app, integrations and the API could send a blank one.
+	 * Every warn and strike writer routes through here.
+	 *
+	 * @param string $reason  Reason as supplied.
+	 * @param string $message Error shown when it is empty.
+	 * @return string|WP_Error Trimmed reason, or a 400 error.
+	 */
+	private static function require_sanction_reason( string $reason, string $message ): string|WP_Error {
+		$reason = trim( sanitize_textarea_field( $reason ) );
+		if ( '' === $reason ) {
+			return new WP_Error( 'bn_reason_required', $message, array( 'status' => 400 ) );
+		}
+		return $reason;
+	}
+
+	/**
 	 * Issue a formal strike against a user.
 	 *
 	 * @param int    $user_id   User receiving the strike.
@@ -1226,6 +1245,11 @@ class ModerationService {
 	public function issue_strike( int $user_id, int $actor_id, string $reason = '' ): int|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/issue-strike' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$reason = self::require_sanction_reason( $reason, __( 'Add a reason for the strike. The member sees it on their account page.', 'buddynext' ) );
+		if ( is_wp_error( $reason ) ) {
+			return $reason;
 		}
 
 		global $wpdb;
@@ -1312,6 +1336,11 @@ class ModerationService {
 				__( 'You can only warn members of a space you moderate.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
+		}
+
+		$reason = self::require_sanction_reason( $reason, __( 'Add a message for the warning. The member sees it in their notice.', 'buddynext' ) );
+		if ( is_wp_error( $reason ) ) {
+			return $reason;
 		}
 
 		// Route through the single audited writer (which records space_id + a UTC

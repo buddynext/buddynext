@@ -33,6 +33,16 @@ Everything is REST-first, so the same data powers the web experience and the nat
 
 BuddyNext is the free community OS. Three core integrations ship as companion plugins - WPMediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) - and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
 
+= Integration requirements =
+
+Each integration needs its plugin at or above the version below. On an older version the parts that need the newer release stay off, and BuddyNext > Integration Settings marks the plugin "Update needed".
+
+* WPMediaVerse 2.6.2 or later - media, files and direct messages.
+* WB Gamification 1.6.3 or later - points, badges, kudos and leaderboards.
+* WP Career Board 1.4.3 or later - jobs on profiles and in the feed (BuddyNext Pro).
+* Learnomy 1.9.4 or later - courses and certificates (BuddyNext Pro).
+* Eventonomy 1.6.0 or later - events and attendees (BuddyNext Pro).
+
 == Installation ==
 
 1. Upload the `buddynext` folder to `/wp-content/plugins/`, or install the plugin zip through Plugins > Add New.
