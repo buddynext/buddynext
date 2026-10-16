@@ -183,6 +183,21 @@ class JetonomyBridge {
 		// One-time copy of an existing forum's members into the space it was linked to.
 		add_action( self::COPY_MEMBERS_HOOK, array( $this, 'copy_forum_members' ), 10, 3 );
 
+		// The space decides who is in its linked forum: every active member is on the
+		// forum roster, and leaving, removal or a ban takes them off it. Linking is
+		// caught at the meta write, so every link path (provision, adopt, link an
+		// existing forum, a third party) backfills the members already there.
+		if ( class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
+			add_action( 'added_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
+			add_action( 'updated_bn_space_meta', array( $this, 'on_forum_linked' ), 10, 4 );
+			add_action( self::GRANT_MEMBERS_HOOK, array( $this, 'grant_space_members' ), 10, 3 );
+			add_action( 'buddynext_space_member_joined', array( $this, 'grant_forum_access' ), 10, 2 );
+			add_action( 'buddynext_space_role_changed', array( $this, 'grant_forum_access' ), 10, 2 );
+			add_action( 'buddynext_space_member_left', array( $this, 'revoke_forum_access' ), 10, 2 );
+			add_action( 'buddynext_space_member_removed', array( $this, 'revoke_forum_access' ), 10, 2 );
+			add_action( 'buddynext_space_user_banned', array( $this, 'revoke_forum_access' ), 10, 2 );
+		}
+
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 
 		// Owner controls: register on the integration registry so the site owner can
@@ -1213,6 +1228,161 @@ class JetonomyBridge {
 		if ( count( $rows ) >= self::COPY_MEMBERS_BATCH ) {
 			self::queue_member_copy( $space_id, $forum_id, $last_id );
 		}
+	}
+
+	/**
+	 * Background job: put a space's existing members on its newly linked forum.
+	 *
+	 * @var string
+	 */
+	public const GRANT_MEMBERS_HOOK = 'buddynext_jetonomy_grant_space_members';
+
+	/**
+	 * User meta (one row per forum, non-unique key) marking a forum roster row the
+	 * bridge created. Jetonomy stores only manual/invite/rule/tier as a row's
+	 * source, so the bridge keeps its own record: leaving the space removes only
+	 * the rows the space gave, never someone who joined the forum themselves.
+	 *
+	 * @var string
+	 */
+	private const GRANTED_META = 'buddynext_jt_granted_forum';
+
+	/**
+	 * Queue the backfill when a space is linked to a forum.
+	 *
+	 * @param int    $meta_id  Meta row id (unused).
+	 * @param int    $space_id BuddyNext space.
+	 * @param string $key      Meta key written.
+	 * @param mixed  $value    Value written.
+	 * @return void
+	 */
+	public function on_forum_linked( $meta_id, $space_id, $key, $value ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- metadata hook signature.
+		if ( 'jetonomy_forum_id' === $key && (int) $value > 0 ) {
+			self::queue_grant( (int) $space_id, (int) $value, 0 );
+		}
+	}
+
+	/**
+	 * Queue one batch of the space-to-forum roster backfill.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $forum_id Linked Jetonomy forum.
+	 * @param int $after_id Space member user id to continue after.
+	 * @return void
+	 */
+	private static function queue_grant( int $space_id, int $forum_id, int $after_id ): void {
+		$args = array( $space_id, $forum_id, $after_id );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::GRANT_MEMBERS_HOOK, $args, 'buddynext' );
+		} elseif ( ! wp_next_scheduled( self::GRANT_MEMBERS_HOOK, $args ) ) {
+			wp_schedule_single_event( time() + 1, self::GRANT_MEMBERS_HOOK, $args );
+		}
+	}
+
+	/**
+	 * Put one batch of a space's active members on its linked forum, then queue the next.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $forum_id Linked Jetonomy forum.
+	 * @param int $after_id Space member user id the last batch ended on.
+	 * @return void
+	 */
+	public function grant_space_members( int $space_id, int $forum_id, int $after_id = 0 ): void {
+		if ( $forum_id <= 0 || $this->forum_id_for_space( $space_id ) !== $forum_id ) {
+			return; // Unlinked or relinked since the job was queued.
+		}
+
+		global $wpdb;
+		// Keyset on user_id: one index range per batch however large the space is.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, role FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND status = 'active' AND user_id > %d
+				 ORDER BY user_id ASC
+				 LIMIT %d",
+				$space_id,
+				max( 0, $after_id ),
+				self::COPY_MEMBERS_BATCH
+			)
+		);
+
+		$last_id = $after_id;
+		foreach ( $rows as $row ) {
+			$last_id = max( $last_id, (int) $row->user_id );
+			$this->put_on_forum( $forum_id, (int) $row->user_id, (string) $row->role );
+		}
+
+		if ( count( $rows ) >= self::COPY_MEMBERS_BATCH ) {
+			self::queue_grant( $space_id, $forum_id, $last_id );
+		}
+	}
+
+	/**
+	 * A member joined the space or changed role: match the linked forum roster.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $user_id  Member.
+	 * @return void
+	 */
+	public function grant_forum_access( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		if ( $forum_id <= 0 ) {
+			return;
+		}
+		$members = new \BuddyNext\Spaces\SpaceMemberService();
+		if ( 'active' === $members->get_status( (int) $space_id, (int) $user_id ) ) {
+			$this->put_on_forum( $forum_id, (int) $user_id, (string) $members->get_role( (int) $space_id, (int) $user_id ) );
+		}
+	}
+
+	/**
+	 * A member left, was removed or was banned: take off the roster row the space gave.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @param int $user_id  Former member.
+	 * @return void
+	 */
+	public function revoke_forum_access( $space_id, $user_id ): void {
+		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		$user_id  = (int) $user_id;
+		if ( $forum_id <= 0 || ! in_array( (string) $forum_id, (array) get_user_meta( $user_id, self::GRANTED_META, false ), true ) ) {
+			return;
+		}
+		\Jetonomy\Models\SpaceMember::remove( $forum_id, $user_id );
+		delete_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
+		$this->invalidate_member_caches( $user_id );
+	}
+
+	/**
+	 * Add or update one member's forum roster row from their space role.
+	 *
+	 * A row the space created follows the space role both ways. A row the member
+	 * already had is never lowered (Jetonomy's add() only raises) and never marked,
+	 * so leaving the space leaves it alone.
+	 *
+	 * @param int    $forum_id Jetonomy forum.
+	 * @param int    $user_id  Member.
+	 * @param string $bn_role  BuddyNext space role.
+	 * @return void
+	 */
+	private function put_on_forum( int $forum_id, int $user_id, string $bn_role ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		$role    = in_array( $bn_role, array( 'owner', 'admin' ), true ) ? 'admin' : ( 'moderator' === $bn_role ? 'moderator' : 'member' );
+		$granted = in_array( (string) $forum_id, (array) get_user_meta( $user_id, self::GRANTED_META, false ), true );
+
+		if ( \Jetonomy\Models\SpaceMember::is_member( $forum_id, $user_id ) ) {
+			if ( $granted ) {
+				\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $role );
+			} else {
+				\Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ); // Raise only.
+			}
+		} elseif ( true === \Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ) ) {
+			add_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
+		}
+		$this->invalidate_member_caches( $user_id );
 	}
 
 	/**

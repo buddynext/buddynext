@@ -265,17 +265,21 @@ tests_add_filter(
 	'muplugins_loaded',
 	function (): void {
 		require_once dirname( __DIR__ ) . '/buddynext.php';
+
+		// Create the bn_* custom tables in the test DB. The WP test bootstrap does not
+		// run plugin activation, so without this every test that touches a custom table
+		// (member types, moderation, onboarding, social graph, spaces, ...) errors on a
+		// missing table. Schema only - no seeds - so per-test fixtures start clean.
+		// Here, not after the WP bootstrap: that bootstrap deletes every post on a
+		// fresh database, and the plugin's before_delete_post listener queries
+		// bn_posts, which did not exist yet.
+		// Forced: this is the one call that must actually build/converge the schema. It
+		// runs before any test transaction, so its DDL is safe here - and doing it here is
+		// what lets install_schema() no-op inside tests, where CREATE TABLE would be
+		// rewritten to CREATE TEMPORARY TABLE and shadow the real tables mid-transaction.
+		\BuddyNext\Core\Installer::install_schema( true );
 	}
 );
 
 require_once $wp_tests_dir . '/includes/bootstrap.php';
 
-// Create the bn_* custom tables in the test DB. The WP test bootstrap does not
-// run plugin activation, so without this every test that touches a custom table
-// (member types, moderation, onboarding, social graph, spaces, …) errors on a
-// missing table. Schema only — no seeds — so per-test fixtures start clean.
-// Forced: this is the one call that must actually build/converge the schema. It
-// runs before any test transaction, so its DDL is safe here - and doing it here is
-// what lets install_schema() no-op inside tests, where CREATE TABLE would be
-// rewritten to CREATE TEMPORARY TABLE and shadow the real tables mid-transaction.
-\BuddyNext\Core\Installer::install_schema( true );

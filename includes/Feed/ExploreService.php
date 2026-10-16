@@ -444,7 +444,7 @@ class ExploreService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, name, slug, description, avatar_url, member_count, type, created_at
+				"SELECT id, name, slug, description, avatar_url, cover_image_url, member_count, type, created_at
 				   FROM {$wpdb->prefix}bn_spaces
 				  WHERE type IN ('open','private')
 				    AND is_archived = 0
@@ -463,21 +463,10 @@ class ExploreService {
 			array_pop( $rows );
 		}
 
+		\BuddyNext\Spaces\SpaceService::prime_cover_focal( $rows );
 		$items = array();
 		foreach ( $rows as $row ) {
-			$items[] = array(
-				'kind'  => 'space',
-				'space' => array(
-					'id'           => (int) $row['id'],
-					'name'         => (string) $row['name'],
-					'slug'         => (string) $row['slug'],
-					'description'  => (string) ( $row['description'] ?? '' ),
-					'avatar_url'   => (string) ( $row['avatar_url'] ?? '' ),
-					'member_count' => (int) ( $row['member_count'] ?? 0 ),
-					'type'         => (string) ( $row['type'] ?? 'open' ),
-					'created_at'   => (string) ( $row['created_at'] ?? '' ),
-				),
-			);
+			$items[] = self::space_card( $row );
 		}
 
 		return array(
@@ -521,7 +510,7 @@ class ExploreService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, name, slug, description, avatar_url, member_count, type, created_at
+				"SELECT id, name, slug, description, avatar_url, cover_image_url, member_count, type, created_at
 				   FROM {$wpdb->prefix}bn_spaces
 				  WHERE type = 'open'
 				    AND is_archived = 0
@@ -539,21 +528,10 @@ class ExploreService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
+		\BuddyNext\Spaces\SpaceService::prime_cover_focal( (array) $rows );
 		$items = array();
 		foreach ( (array) $rows as $row ) {
-			$items[] = array(
-				'kind'  => 'space',
-				'space' => array(
-					'id'           => (int) $row['id'],
-					'name'         => (string) $row['name'],
-					'slug'         => (string) $row['slug'],
-					'description'  => (string) ( $row['description'] ?? '' ),
-					'avatar_url'   => (string) ( $row['avatar_url'] ?? '' ),
-					'member_count' => (int) ( $row['member_count'] ?? 0 ),
-					'type'         => (string) ( $row['type'] ?? 'open' ),
-					'created_at'   => (string) ( $row['created_at'] ?? '' ),
-				),
-			);
+			$items[] = self::space_card( $row );
 		}
 
 		return $items;
@@ -773,5 +751,31 @@ class ExploreService {
 			return 0;
 		}
 		return max( 0, (int) substr( $raw, 4 ) );
+	}
+
+	/**
+	 * One Explore space card payload from a bn_spaces row. Both the space deck and
+	 * the mixed deck build cards here, so the image band always gets the cover.
+	 *
+	 * @param array<string,mixed> $row bn_spaces row (id, name, slug, description, avatar_url, cover_image_url, member_count, type, created_at).
+	 * @return array<string,mixed>
+	 */
+	private static function space_card( array $row ): array {
+		return array(
+			'kind'  => 'space',
+			'space' => array(
+				'id'              => (int) $row['id'],
+				'name'            => (string) $row['name'],
+				'slug'            => (string) $row['slug'],
+				'description'     => (string) ( $row['description'] ?? '' ),
+				'avatar_url'      => (string) ( $row['avatar_url'] ?? '' ),
+				'cover_image_url' => (string) ( $row['cover_image_url'] ?? '' ),
+				// The owner's framing, as on GET /spaces/{id}, so every client shows the same part of the cover.
+				'cover_focal'     => empty( $row['cover_image_url'] ) ? null : \BuddyNext\Spaces\SpaceService::cover_focal( (int) $row['id'] ),
+				'member_count'    => (int) ( $row['member_count'] ?? 0 ),
+				'type'            => (string) ( $row['type'] ?? 'open' ),
+				'created_at'      => (string) ( $row['created_at'] ?? '' ),
+			),
+		);
 	}
 }

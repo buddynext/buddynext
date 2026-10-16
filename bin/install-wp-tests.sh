@@ -50,7 +50,16 @@ download() {
 # ---------------------------------------------------------------------------
 
 if [ "$WP_VERSION" = "latest" ]; then
-	WP_TESTS_TAG="trunk"
+	# The test library must match the core it boots. "latest" downloads the newest
+	# RELEASE of core, so take the tests from that release's tag, never trunk:
+	# trunk's bootstrap requires classes only unreleased core has (WP_Secrets_Store
+	# broke CI this way).
+	LATEST_WP="$(curl -s https://api.wordpress.org/core/version-check/1.7/ | grep -oE '"version":"[0-9.]+"' | head -1 | cut -d'"' -f4)"
+	if [ -z "$LATEST_WP" ]; then
+		echo "Could not resolve the latest WordPress release from api.wordpress.org." >&2
+		exit 1
+	fi
+	WP_TESTS_TAG="tags/${LATEST_WP}"
 else
 	# Convert "6.5" → "tags/6.5"
 	WP_TESTS_TAG="tags/${WP_VERSION}"

@@ -37,16 +37,18 @@ class AvatarService {
 	// Brand-safe initials-avatar tones — the same blue → green → warm sweep the
 	// space covers use, with a neutral slate. Purple/violet/pink/rose are
 	// deliberately excluded (BN reads those as the synthetic "AI" palette).
-	// White initials read cleanly on each.
+	// Each tone is deep enough that the white 16px initials reach 4.5:1 (5.0:1 or
+	// better), so a member without a photo stays readable. The lighter 1.2.5 tones
+	// fell to 2.5-4.4:1 on seven of the eight.
 	private const COLOURS = array(
-		'#1c7ed6',
-		'#0c8599',
-		'#099268',
-		'#2f9e44',
-		'#66a80f',
-		'#f08c00',
-		'#e8590c',
-		'#495057',
+		'#1971c2', // blue    5.02:1.
+		'#0c7a8e', // cyan    5.01:1.
+		'#087f5b', // teal    5.00:1.
+		'#237032', // green   6.11:1.
+		'#4d7c0f', // lime    4.99:1.
+		'#9a5b00', // amber   5.43:1.
+		'#c2410c', // orange  5.18:1.
+		'#495057', // slate   8.18:1.
 	);
 
 	/**

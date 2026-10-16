@@ -149,7 +149,7 @@ if ( 'space' === $bn_kind ) {
 	$bn_sdesc  = trim( wp_strip_all_tags( (string) ( $bn_space['description'] ?? '' ) ) );
 	$bn_scount = (int) ( $bn_space['member_count'] ?? 0 );
 	$bn_stype  = (string) ( $bn_space['type'] ?? 'open' );
-	$bn_scover = (string) ( $bn_space['avatar_url'] ?? '' );
+	$bn_scover = (string) ( $bn_space['cover_image_url'] ?? '' ); // The band is the space's cover, as in the Spaces directory; no cover keeps the icon tile.
 	$bn_surl   = PageRouter::space_url( $bn_sid );
 	$bn_stone  = bn_explore_tone( $bn_sid, $bn_palette );
 	// Route non-public types through the registry's translated label map so the
@@ -161,7 +161,7 @@ if ( 'space' === $bn_kind ) {
 	<article class="ec-card ec-card--space" data-kind="space">
 		<a class="ec-img" href="<?php echo esc_url( $bn_surl ); ?>" data-tone="<?php echo esc_attr( $bn_stone ); ?>" aria-hidden="true" tabindex="-1">
 			<?php if ( '' !== $bn_scover ) : ?>
-				<img src="<?php echo esc_url( $bn_scover ); ?>" alt="" loading="lazy" decoding="async">
+				<img src="<?php echo esc_url( $bn_scover ); ?>" alt="" loading="lazy" decoding="async" style="<?php echo esc_attr( \BuddyNext\Spaces\SpaceService::cover_frame_style( $bn_sid, false ) ); ?>">
 			<?php else : ?>
 				<span class="ec-img-glyph" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></span>
 			<?php endif; ?>

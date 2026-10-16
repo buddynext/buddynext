@@ -701,7 +701,14 @@ function attachMentionHashtagTypeahead( textarea ) {
 	let suggestTimer = null;
 	const SUGGEST_DEBOUNCE_MS = 200;
 
+	// Closing also cancels the pending lookup: the token it was for is gone, so a
+	// late answer must not reopen the list (a pick from it inserted "null").
 	const closeDropdown = () => {
+		clearTimeout( suggestTimer );
+		if ( fetchAbort ) {
+			fetchAbort.abort();
+			fetchAbort = null;
+		}
 		if ( dropdown ) {
 			dropdown.remove();
 			dropdown = null;
@@ -863,7 +870,7 @@ function attachMentionHashtagTypeahead( textarea ) {
 
 	const selectSuggestion = ( idx ) => {
 		const s = suggestions[ idx ];
-		if ( ! s ) { return; }
+		if ( ! s || ! activeKind ) { return; }
 		const value = textarea.value;
 		const cursorPos = textarea.selectionStart;
 		const before = value.slice( 0, activeStart );
@@ -925,7 +932,7 @@ function attachMentionHashtagTypeahead( textarea ) {
 		while ( i >= 0 && handleChars.test( value[ i ] ) ) { i--; }
 		// Token-detection runs synchronously so the dropdown closes instantly when
 		// there is no active token; only the network search is debounced.
-		const bail = () => { clearTimeout( suggestTimer ); closeDropdown(); };
+		const bail = closeDropdown;
 		if ( i < 0 ) { bail(); return; }
 		const trigger = value[ i ];
 		if ( trigger !== '@' && trigger !== '#' ) { bail(); return; }
@@ -942,6 +949,8 @@ function attachMentionHashtagTypeahead( textarea ) {
 		clearTimeout( suggestTimer );
 		suggestTimer = setTimeout( async () => {
 			const results = await fetchSuggestions( trigger, token );
+			// Answer for a token the member has since changed or ended: drop it.
+			if ( activeKind !== trigger || activeStart !== i || activeToken !== token ) { return; }
 			if ( results.length === 0 ) { closeDropdown(); return; }
 			suggestions = results;
 			activeIndex = 0;

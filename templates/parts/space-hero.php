@@ -113,20 +113,11 @@ do_action( 'buddynext_part_space_hero_before', $args );
 <section class="<?php echo esc_attr( $bn_class ); ?>" data-join-method="<?php echo esc_attr( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $bn_space->type ?? 'open' ) ) ); ?>"<?php echo '' !== $bn_brand_color ? ' style="--bn-space-brand:' . esc_attr( $bn_brand_color ) . ';"' : ''; ?>>
 	<?php
 	// Cover framing. The image is rendered as an <img> (not a background) so the
-	// owner's focal point pans and zooms it exactly the way a member cover does -
-	// object-position for the pan, transform:scale for the zoom. Values re-clamped
-	// here (defence in depth) and mirror templates/parts/profile-hero.php. The
-	// gradient on .bn-sh-hero__cover remains the fallback when no image is set.
-	$bn_sh_cover_style = '';
-	if ( ! empty( $bn_space->cover_image_url ) ) {
-		$bn_sh_focal       = \BuddyNext\Spaces\SpaceService::cover_focal( (int) $bn_space_id );
-		$bn_sh_cover_style = sprintf(
-			'object-position:%s%% %s%%;transform:scale(%s);',
-			esc_attr( (string) $bn_sh_focal['x'] ),
-			esc_attr( (string) $bn_sh_focal['y'] ),
-			esc_attr( (string) $bn_sh_focal['zoom'] )
-		);
-	}
+	// owner's focal point pans and zooms it the way a member cover does. The
+	// directory and Explore cards apply the same pan, so all three keep the same
+	// subject in view. The gradient on .bn-sh-hero__cover remains the fallback when no
+	// image is set.
+	$bn_sh_cover_style = empty( $bn_space->cover_image_url ) ? '' : \BuddyNext\Spaces\SpaceService::cover_frame_style( (int) $bn_space_id );
 	?>
 	<div class="bn-sh-hero__cover<?php echo empty( $bn_space->cover_image_url ) ? '' : ' bn-sh-hero__cover--has-image'; ?>">
 		<?php if ( ! empty( $bn_space->cover_image_url ) ) : ?>

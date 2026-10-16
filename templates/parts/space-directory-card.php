@@ -117,7 +117,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 	<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__cover-link">
 		<div class="bn-sd-card__cover" data-tone="<?php echo esc_attr( $cover_tone ); ?>">
 			<?php if ( ! empty( $bn_dc_space['cover_image_url'] ) ) : ?>
-				<img src="<?php echo esc_url( (string) $bn_dc_space['cover_image_url'] ); ?>" alt="" loading="lazy">
+				<img src="<?php echo esc_url( (string) $bn_dc_space['cover_image_url'] ); ?>" alt="" loading="lazy" style="<?php echo esc_attr( \BuddyNext\Spaces\SpaceService::cover_frame_style( $space_id, false ) ); ?>">
 			<?php endif; ?>
 			<div class="bn-sd-card__emblem" aria-hidden="true"><?php echo $bn_card_emblem; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- branches above each escape their content. ?></div>
 		</div>
