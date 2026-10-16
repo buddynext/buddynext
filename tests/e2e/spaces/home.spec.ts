@@ -106,7 +106,12 @@ test.describe('spaces / home', () => {
             // added after first paint cannot hydrate; see prependFeedCard()), so
             // wait that reload out before polling through the page, or the poll's
             // evaluate dies with "Execution context was destroyed".
-            const reloaded = page.waitForEvent('load', { timeout: 10_000 }).catch(() => null);
+            // Wait for the main frame to commit that reload, then for it to load (a bare
+            // 'load' can resolve first, and the goto below then collided with the reload on iPad).
+            const reloaded = page
+                .waitForEvent('framenavigated', { predicate: (f) => f === page.mainFrame(), timeout: 10_000 })
+                .then(() => page.waitForLoadState('load'))
+                .catch(() => null);
             await page.locator(sel.composerSubmit).first().click();
             await reloaded;
 
