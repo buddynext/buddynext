@@ -67,7 +67,7 @@ test.describe('profile / headline blur-autosave (effect-based)', () => {
         await expect(headline).toBeVisible();
 
         const original = await headline.inputValue();
-        const value = `e2e headline ${Date.now().toString().slice(-6)}`;
+        const value = `Trail runner and coffee enthusiast ${Date.now().toString().slice(-6)}`;
 
         const waitAutosave = () =>
             page.waitForResponse(
@@ -118,7 +118,7 @@ test.describe('profile / headline blur-autosave (effect-based)', () => {
         await expect(headline).toBeVisible();
 
         const original = await headline.inputValue();
-        const value = `e2e member headline ${Date.now().toString().slice(-6)}`;
+        const value = `Community gardener from the east side ${Date.now().toString().slice(-6)}`;
 
         const waitAutosave = () =>
             page.waitForResponse(

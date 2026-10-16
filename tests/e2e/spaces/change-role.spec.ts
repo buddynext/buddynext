@@ -46,7 +46,7 @@ test.describe('spaces / change member role (J-633)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Role ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Community Garden Helpers ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

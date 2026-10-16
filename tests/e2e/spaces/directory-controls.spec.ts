@@ -37,7 +37,7 @@ test.describe('spaces / directory controls (J-670..J-672)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Retry ${stamp}`;
+        const name = `Farmers Market Regulars ${stamp}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
 
         try {
@@ -89,7 +89,7 @@ test.describe('spaces / directory controls (J-670..J-672)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Manage ${stamp}`;
+        const name = `Open Mic Night ${stamp}`;
         // Admin creates it → is the owner (active) → the card shows "Manage".
         const space = await createSpaceApi(page, { name, type: 'open' });
 
@@ -125,7 +125,7 @@ test.describe('spaces / directory controls (J-670..J-672)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Guest ${stamp}`;
+        const name = `Street Food Explorers ${stamp}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
 
         // A fresh context with NO autologin cookie = a genuine guest.

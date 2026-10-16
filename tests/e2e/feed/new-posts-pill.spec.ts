@@ -42,7 +42,7 @@ test.describe('feed / new-posts pill', () => {
         let author: MemberSession | null = null;
         let postId = 0;
         const stamp = Date.now().toString().slice(-6);
-        const body = `j541 newer post ${stamp}`;
+        const body = `Just spotted a heron by the footbridge ${stamp}`;
 
         try {
             // Actor is reading the feed. Capture the watermark exactly as the pill

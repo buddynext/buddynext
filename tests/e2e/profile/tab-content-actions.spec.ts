@@ -129,7 +129,7 @@ async function withOwnerSession(
 test.describe('profile / A3 tab content (effect-based)', () => {
     test('J-730 Posts tab renders the owner\'s own post to a viewer', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e post ${stamp}`;
+        const content = `Fresh tomatoes from the garden this morning ${stamp}`;
         await withOwnerSession(browser, async (owner) => {
             const post = await createPost(owner, content);
             try {
@@ -153,8 +153,8 @@ test.describe('profile / A3 tab content (effect-based)', () => {
 
     test('J-731 Replies tab renders a reply the owner posted, to a viewer', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `e2e host post ${stamp}`;
-        const replyBody = `e2e reply ${stamp}`;
+        const postBody = `Anyone have a good recipe for plum jam ${stamp}`;
+        const replyBody = `Try adding a little lemon zest ${stamp}`;
         await withOwnerSession(browser, async (owner) => {
             const post = await createPost(owner, postBody);
             // The owner replies on their own activity (real /comments write path).
@@ -196,7 +196,7 @@ test.describe('profile / A3 tab content (effect-based)', () => {
 
     test('J-732 Likes tab renders a post the owner reacted to, to a viewer', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e liked ${stamp}`;
+        const content = `Sunrise from the top of the ridge today ${stamp}`;
         await withOwnerSession(browser, async (owner) => {
             const post = await createPost(owner, content);
             // The owner reacts to the post (real /reactions/toggle write path).
@@ -232,7 +232,7 @@ test.describe('profile / A3 tab content (effect-based)', () => {
 
     test('J-733 Scheduled tab is owner-only and gates its content from other viewers', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e scheduled ${stamp}`;
+        const content = `Reminder: the farmers market opens at eight tomorrow ${stamp}`;
         // 7 days out, UTC Y-m-d H:i:s (the format the scheduler expects).
         const future = new Date(Date.now() + 7 * 24 * 3600 * 1000)
             .toISOString()

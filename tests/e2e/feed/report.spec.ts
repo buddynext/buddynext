@@ -39,7 +39,7 @@ test.describe('feed / report post', () => {
             // Seed a public post owned by the OTHER member (so Report is offered).
             author = await openMemberSession(browser, authorLogin);
             const created = await restPost<{ id?: number }>(author.request, author.nonce, '/posts', {
-                content: `j506 please review ${stamp}`,
+                content: `Buy cheap followers and watch your page grow fast ${stamp}`,
                 privacy: 'public',
             });
             expect(created.status, `seed post -> ${created.status}`).toBeLessThan(300);
@@ -53,7 +53,7 @@ test.describe('feed / report post', () => {
             await page.goto(urls.feed);
             viewerNonce = await readRestNonce(page);
             await page.goto(`/p/${postId}/`);
-            const card = page.locator(sel.postCard).filter({ hasText: `j506 please review ${stamp}` }).first();
+            const card = page.locator(sel.postCard).filter({ hasText: `Buy cheap followers and watch your page grow fast ${stamp}` }).first();
             await expect(card).toBeVisible({ timeout: 10_000 });
 
             // Open the ⋯ menu and the Report item (present only because it isn't ours).

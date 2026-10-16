@@ -47,7 +47,7 @@ test.describe('spaces / remove member (J-660)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Remove ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Theatre Backstage Crew ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

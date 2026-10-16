@@ -111,7 +111,7 @@ test.describe('auth / signup', () => {
         await page.locator(sel.signupEmail).first().fill(email);
         const nameField = form.locator('#bn-signup-name');
         if (await nameField.isVisible().catch(() => false)) {
-            await nameField.fill(`E2E Signup ${stamp}`);
+            await nameField.fill(`Jordan Ellis ${stamp}`);
         }
         await page.locator(sel.signupPass).first().fill('Playwright!Pass1');
         // A member-type (or any radio) registration field: pick its first option.

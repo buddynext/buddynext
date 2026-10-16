@@ -37,7 +37,7 @@ test.describe('feed / compose', () => {
         const nonce = await readRestNonce(page);
 
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e text ${stamp}`;
+        const content = `Beautiful morning for a walk by the lake ${stamp}`;
 
         const textarea = page.locator(sel.composerTextarea).first();
         await expect(textarea).toBeVisible();
@@ -89,7 +89,7 @@ test.describe('feed / compose', () => {
         const nonce = await readRestNonce(page);
 
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e member text ${stamp}`;
+        const content = `Trying out the new bakery on Main Street today ${stamp}`;
 
         const textarea = page.locator(sel.composerTextarea).first();
         await expect(textarea).toBeVisible();
@@ -143,7 +143,7 @@ test.describe('feed / compose', () => {
     test('J-13 link post  -  a posted URL renders a link-preview node and stores as type=link', async ({ authenticatedPage: page }, testInfo) => {
         const stamp = Date.now().toString().slice(-6);
         const host = 'wordpress.org';
-        const body = `j13 link ${stamp} https://${host}/`;
+        const body = `Found a great little bakery worth a visit ${stamp} https://${host}/`;
         let createdId = 0;
         let nonce = '';
 
@@ -169,14 +169,14 @@ test.describe('feed / compose', () => {
             // the pendingUrl path still marks type=link even if it does not.
             await page.waitForTimeout(1_500);
             await page.locator(sel.composerSubmit).first().click();
-            await expect(page.locator(sel.postCard).filter({ hasText: `j13 link ${stamp}` }).first())
+            await expect(page.locator(sel.postCard).filter({ hasText: `Found a great little bakery worth a visit ${stamp}` }).first())
                 .toBeVisible({ timeout: 10_000 });
 
             // Reload so the card is server-rendered from the stored link post.
             await page.goto(urls.feed);
-            const card = page.locator(sel.postCard).filter({ hasText: `j13 link ${stamp}` }).first();
+            const card = page.locator(sel.postCard).filter({ hasText: `Found a great little bakery worth a visit ${stamp}` }).first();
             await expect(card).toBeVisible({ timeout: 10_000 });
-            createdId = await postIdOfCard(page, `j13 link ${stamp}`);
+            createdId = await postIdOfCard(page, `Found a great little bakery worth a visit ${stamp}`);
             expect(createdId).toBeGreaterThan(0);
 
             // The card renders a real link-preview node (preview card or oEmbed

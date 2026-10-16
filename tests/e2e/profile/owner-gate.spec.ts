@@ -125,12 +125,12 @@ test.describe('profile / owner gate', () => {
         await expect(page.locator('.bn-pf-actions a[href*="/edit/"]')).toHaveCount(0);
         const ownerId = await userId(owner);
         if (ownerId > 0) {
-            const write = await bnApi(page, 'PUT', `/users/${ownerId}/profile`, { headline: 'owner-gate probe' });
+            const write = await bnApi(page, 'PUT', `/users/${ownerId}/profile`, { headline: 'Photographer and traveler' });
             expect(write.status, 'a plain member\'s write to another profile must be refused').toBeGreaterThanOrEqual(403);
             // EFFECT: the refusal was real; the owner's stored profile does not hold the probe.
             const after = await bnApi(page, 'GET', `/users/${ownerId}/profile`);
             expect(after.status, 'GET /users/{owner}/profile as the member').toBe(200);
-            expect(JSON.stringify(after.data ?? null), 'the refused write changed nothing').not.toContain('owner-gate probe');
+            expect(JSON.stringify(after.data ?? null), 'the refused write changed nothing').not.toContain('Photographer and traveler');
         }
         expect(ownerId, `owner "${owner}" must resolve so the write refusal is exercised`).toBeGreaterThan(0);
     });

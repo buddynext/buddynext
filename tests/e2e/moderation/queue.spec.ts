@@ -60,7 +60,7 @@ test.describe('moderation / queue', () => {
         try {
             // Setup: the admin posts, a second member reports it (nobody can report their own).
             await page.goto(urls.feed, { waitUntil: 'domcontentloaded' });
-            const created = await bnApi(page, 'POST', '/posts', { type: 'text', content: `queue journey post ${stamp}` });
+            const created = await bnApi(page, 'POST', '/posts', { type: 'text', content: `Selling concert tickets, DM me for details ${stamp}` });
             expect(created.status, `seed post failed: ${JSON.stringify(created.data)}`).toBe(201);
             postId = Number((created.data as { id?: number }).id);
             reporter = await loginContextAs(browser, baseURL, other);

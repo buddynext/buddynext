@@ -42,8 +42,8 @@ test.describe('spaces / directory listing controls (J-640..J-643)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const spaceA = await createSpaceApi(page, { name: `E2E ScopeA ${stamp}`, type: 'open' });
-        const spaceB = await createSpaceApi(page, { name: `E2E ScopeB ${stamp}`, type: 'open' });
+        const spaceA = await createSpaceApi(page, { name: `Salsa Dance Beginners ${stamp}`, type: 'open' });
+        const spaceB = await createSpaceApi(page, { name: `Chess in the Park ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -117,12 +117,12 @@ test.describe('spaces / directory listing controls (J-640..J-643)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const parent = await createSpaceApi(page, { name: `E2E SubDir ${stamp}`, type: 'open' });
+        const parent = await createSpaceApi(page, { name: `Indie Game Makers ${stamp}`, type: 'open' });
         let childId = 0;
 
         try {
             const create = await bnApi(page, 'POST', '/spaces', {
-                name: `E2E SubDirChild ${stamp}`,
+                name: `Indie Game Playtesters ${stamp}`,
                 type: 'open',
                 parent_id: parent.id,
             });

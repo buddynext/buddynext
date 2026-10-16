@@ -37,9 +37,9 @@ test.describe('spaces / settings + moderation', () => {
         const savedNotice = '.bn-space-settings__notice[data-tone="success"]';
 
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Settings ${stamp}`, type: 'open' });
-        const newName = `Renamed Space ${stamp}`;
-        const newDesc = `Rewritten description ${stamp} — persisted by J-52.`;
+        const space = await createSpaceApi(page, { name: `Urban Sketching Group ${stamp}`, type: 'open' });
+        const newName = `Urban Sketchers of the Bay ${stamp}`;
+        const newDesc = `We meet most Saturdays to sketch the city together ${stamp} - all skill levels welcome.`;
 
         try {
             await page.goto(`/spaces/${space.slug}/settings/?bn_stab=general`, {
@@ -83,7 +83,7 @@ test.describe('spaces / settings + moderation', () => {
             // EFFECT 3: the directory route finds it under the NEW name and not the old one.
             const byNew = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(newName)}&per_page=50`);
             expect(((byNew.data as SpaceRow[]) ?? []).map((r) => Number(r.id))).toContain(space.id);
-            const byOld = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(`E2E Settings ${stamp}`)}&per_page=50`);
+            const byOld = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(`Urban Sketching Group ${stamp}`)}&per_page=50`);
             expect(((byOld.data as SpaceRow[]) ?? []).map((r) => Number(r.id)), 'directory still finds the space by its old name').not.toContain(space.id);
         } finally {
             await deleteSpaceApi(page, space.id);
@@ -101,7 +101,7 @@ test.describe('spaces / settings + moderation', () => {
         const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Mod ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Camping Gear Trading ${stamp}`, type: 'open' });
         let postId = 0;
         let reportId = 0;
         // A member cannot report their own content (cannot_report_own), so a SECOND
@@ -113,7 +113,7 @@ test.describe('spaces / settings + moderation', () => {
             // Owner seeds a real post in the space.
             const created = await bnApi(page, 'POST', '/posts', {
                 type: 'text',
-                content: `reportable post ${stamp}`,
+                content: `Selling a barely used tent, message me ${stamp}`,
                 space_id: space.id,
             });
             expect(created.status, `seed post failed: ${JSON.stringify(created.data)}`).toBe(201);

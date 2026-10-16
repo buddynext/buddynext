@@ -61,7 +61,7 @@ test.describe('pro / custom reactions', () => {
         let nonce = '';
         let tierId = 0;
         const stamp = Date.now().toString().slice(-6);
-        const label = `J952 Reaction ${stamp}`;
+        const label = `Cheers Round ${stamp}`;
 
         try {
             const out = await wp([
@@ -72,7 +72,7 @@ test.describe('pro / custom reactions', () => {
                     ` $tsvc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_membership_tiers WHERE slug = %s", '${TIER_SLUG}' ) );` +
                     ` if ( $existing ) { $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'tier_id' => (int) $existing ) ); $tsvc->delete_tier( (int) $existing ); }` +
-                    ` $tier_id = (int) $tsvc->create_tier( '${TIER_SLUG}', 'E2E Custom Reactions Tier', '', 0,` +
+                    ` $tier_id = (int) $tsvc->create_tier( '${TIER_SLUG}', 'Supporter Tier', '', 0,` +
                     `   array( 'status' => 'active', 'price' => 2.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
                     `     'entitlements' => array( 'limits.reactions_set' => 0 ) ) );` +
                     ` ( new \\BuddyNextPro\\Membership\\SubscriptionService() )->create_subscription(` +
@@ -124,7 +124,7 @@ test.describe('pro / custom reactions', () => {
 
             // ── Member: react to a fresh own post with the custom reaction ──
             await loginAs(page, MEMBER_LOGIN);
-            const body = `j952 custom-reaction target ${stamp}`;
+            const body = `Just baked my first loaf of focaccia ${stamp}`;
             await page.goto(urls.feed);
             await expect(page.locator(sel.composer).first()).toBeVisible();
             nonce = await readRestNonce(page);
@@ -173,7 +173,7 @@ test.describe('pro / custom reactions', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Reactions\\CustomReactionsService();` +
                     ` foreach ( $svc->get_custom_reactions() as $r ) {` +
-                    `   if ( 0 === strpos( (string) ( $r['label'] ?? '' ), 'J952 Reaction' ) ) {` +
+                    `   if ( 0 === strpos( (string) ( $r['label'] ?? '' ), 'Cheers Round' ) ) {` +
                     `     $svc->remove_reaction( (string) $r['slug'] );` +
                     `   }` +
                     ` }`,

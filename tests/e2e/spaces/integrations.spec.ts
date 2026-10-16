@@ -56,7 +56,7 @@ test.describe('spaces / integration toggles (J-673..J-675)', () => {
 
     test('J-673 push_to_feed toggle persists (both directions)', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E PushFeed ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Coffee Roasting Hobby ${stamp}`, type: 'open' });
 
         try {
             // Default on.
@@ -76,7 +76,7 @@ test.describe('spaces / integration toggles (J-673..J-675)', () => {
 
     test('J-674 mvs_media_tab toggle persists (both directions)', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E MediaTab ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Street Photography Club ${stamp}`, type: 'open' });
 
         try {
             // Default off.
@@ -102,7 +102,7 @@ test.describe('spaces / integration toggles (J-673..J-675)', () => {
         authenticatedPage: page,
     }, testInfo) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Discuss ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Home Brewing Talk ${stamp}`, type: 'open' });
 
         try {
             // Baseline: no linked forum.

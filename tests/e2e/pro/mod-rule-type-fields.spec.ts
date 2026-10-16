@@ -31,7 +31,7 @@ test.describe('pro / moderation rule type fields', () => {
     test('J-988 each rule type shows only its own fields, and a Link block rule saves its domain', async ({ authenticatedPage: page }, testInfo) => {
         test.skip(testInfo.project.name !== 'desktop', 'Desktop journey.');
         const stamp = Date.now().toString().slice(-6);
-        const name = `J988 Link ${stamp}`;
+        const name = `Block shortened links ${stamp}`;
         const domain = `j988-${stamp}.example`;
 
         await page.goto(RULES);

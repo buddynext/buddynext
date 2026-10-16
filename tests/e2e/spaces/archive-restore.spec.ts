@@ -47,7 +47,7 @@ test.describe('spaces / archive + restore (J-631)', () => {
 
     test('J-631 archive sets is_archived; restore clears it', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Archive ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Retired Book Swap ${stamp}`, type: 'open' });
 
         try {
             // Baseline: a fresh space is not archived.
@@ -75,7 +75,7 @@ test.describe('spaces / archive + restore (J-631)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E ArchiveMember ${stamp}`;
+        const name = `Old Town Film Club ${stamp}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
@@ -120,7 +120,7 @@ test.describe('spaces / archive + restore (J-631)', () => {
             // merely delisted.
             const post = await bnApi(actor.page, 'POST', '/posts', {
                 type: 'text',
-                content: `archived member post ${stamp}`,
+                content: `Anyone still around to catch the Friday screening? ${stamp}`,
                 space_id: space.id,
             });
             expect(post.status, 'a member should not be able to post into an archived space').toBe(403);
@@ -130,7 +130,7 @@ test.describe('spaces / archive + restore (J-631)', () => {
             expect(feed.status).toBe(200);
             expect(
                 ((feed.data as { items?: Array<{ content?: string }> }).items ?? []).some((i) =>
-                    (i.content ?? '').includes(`archived member post ${stamp}`)
+                    (i.content ?? '').includes(`Anyone still around to catch the Friday screening? ${stamp}`)
                 ),
                 'a refused post still landed in the archived space feed'
             ).toBe(false);

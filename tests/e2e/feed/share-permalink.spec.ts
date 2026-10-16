@@ -27,7 +27,7 @@ test.describe('feed / share modal permalink', () => {
 
     test('J-514 the share modal yields the permalink and it opens the single post', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j514 share me ${stamp}`;
+        const content = `Sharing our favorite trail snacks recipe ${stamp}`;
         let postId = 0;
         let nonce = '';
 

@@ -41,7 +41,7 @@ test.describe('pro / moderation rules', () => {
 
     test('J-954 a keyword_block rule (severity=block) rejects a matching post over REST', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const ruleName = `J906 Rule ${stamp}`;
+        const ruleName = `Block spam keyword ${stamp}`;
         const keyword = `j954forbidden${stamp}`;
         let nonce = '';
 
@@ -99,7 +99,7 @@ test.describe('pro / moderation rules', () => {
 
             // Control: a post WITHOUT the keyword is unaffected by this rule.
             const allowed = await restPost<{ id?: number }>(page.request, nonce, '/posts', {
-                content: `j954 control post, no forbidden term, ${stamp}`,
+                content: `Great turnout at the river cleanup this morning ${stamp}`,
                 privacy: 'public',
             });
             expect(allowed.status, `control post -> ${allowed.status}`).toBeLessThan(300);

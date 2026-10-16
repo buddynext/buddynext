@@ -29,7 +29,7 @@ test.describe('feed / composer announcement', () => {
 
     test('J-513 admin announcement renders as an announcement; a non-admin has no control', async ({ authenticatedPage: page, browser }, testInfo) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j513 announcement ${stamp}`;
+        const content = `Community meetup moved to Saturday at the town hall ${stamp}`;
         let postId = 0;
         let nonce = '';
         let member: MemberSession | null = null;

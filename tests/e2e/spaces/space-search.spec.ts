@@ -43,26 +43,26 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
         const stamp = Date.now().toString().slice(-8);
         const rand = Math.random().toString(36).slice(2, 8);
         const term = `zzsfterm${stamp}`;
-        const target = await createSpaceApi(page, { name: `E2E SFTarget ${label} ${stamp}`, type: 'open' });
-        const decoy = await createSpaceApi(page, { name: `E2E SFDecoy ${label} ${stamp}`, type: 'open' });
+        const target = await createSpaceApi(page, { name: `Lakeside Anglers ${stamp}`, type: 'open' });
+        const decoy = await createSpaceApi(page, { name: `Mountain Climbers ${stamp}`, type: 'open' });
 
         const match = await bnApi(page, 'POST', '/posts', {
             type: 'text',
-            content: `space search match ${term}`,
+            content: `Best bait for early morning bass ${term}`,
             space_id: target.id,
         });
         expect(match.status, `seed matching post failed: ${JSON.stringify(match.data)}`).toBe(201);
 
         const otherPost = await bnApi(page, 'POST', '/posts', {
             type: 'text',
-            content: `space search unrelated ${rand} ${stamp}`,
+            content: `Anyone trading spare tackle boxes ${rand} ${stamp}`,
             space_id: target.id,
         });
         expect(otherPost.status, `seed non-matching post failed: ${JSON.stringify(otherPost.data)}`).toBe(201);
 
         const decoyPost = await bnApi(page, 'POST', '/posts', {
             type: 'text',
-            content: `decoy other space ${term}`,
+            content: `Chalk and rope sale this Friday ${term}`,
             space_id: decoy.id,
         });
         expect(decoyPost.status, `seed decoy post failed: ${JSON.stringify(decoyPost.data)}`).toBe(201);

@@ -116,8 +116,8 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
         }
 
         const stamp = Date.now().toString().slice(-6);
-        const companyA = `e2e Alpha ${stamp}`;
-        const companyB = `e2e Beta ${stamp}`;
+        const companyA = `Blue Door Cafe ${stamp}`;
+        const companyB = `Orchard Street Books ${stamp}`;
         const baseCount = await page.locator(entrySel).count();
 
         try {
@@ -126,19 +126,19 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
             await page.locator(addBtn).click();
             let idx = (await page.locator(entrySel).count()) - 1;
             await page.locator(`${container} input[name="work_experience[${idx}][work_company]"]`).fill(companyA);
-            await page.locator(`${container} input[name="work_experience[${idx}][work_title]"]`).fill('QA Trumpet');
+            await page.locator(`${container} input[name="work_experience[${idx}][work_title]"]`).fill('Barista');
             await page.locator(`${container} input[name="work_experience[${idx}][work_start_date]"]`).fill('2020-02-02');
             await saveAndReload(page);
 
             // Round-trip truth: auto-waited comparison against what was TYPED.
             await expectCompany(page, companyA, true);
             idx = await indexOfCompany(page, companyA);
-            await expect(page.locator(`${container} input[name="work_experience[${idx}][work_title]"]`)).toHaveValue('QA Trumpet');
+            await expect(page.locator(`${container} input[name="work_experience[${idx}][work_title]"]`)).toHaveValue('Barista');
             await expect(page.locator(`${container} input[name="work_experience[${idx}][work_start_date]"]`)).toHaveValue('2020-02-02');
             // EFFECT: the stored entry (profile route) holds every typed sub-field.
             const savedA = (await storedWorkEntries(page)).find((e) => e.work_company === companyA);
             expect(savedA, 'entry A is stored on the profile route').toBeTruthy();
-            expect(savedA?.work_title, 'stored work_title').toBe('QA Trumpet');
+            expect(savedA?.work_title, 'stored work_title').toBe('Barista');
             expect(savedA?.work_start_date, 'stored work_start_date').toContain('2020-02');
 
             // Second entry keeps its OWN values (entries 2+ regression, #40911).
@@ -174,8 +174,8 @@ test.describe('profile / repeater lifecycle (Work Experience)', () => {
         await expectEntryCount(page, baseCount);
         // EFFECT: cleanup really removed both; nothing of this run is left stored.
         const left = await storedCompanies(page);
-        expect(left, 'no e2e entry remains stored').not.toContain(companyA);
-        expect(left, 'no e2e entry remains stored').not.toContain(companyB);
+        expect(left, 'no work entry remains stored').not.toContain(companyA);
+        expect(left, 'no work entry remains stored').not.toContain(companyB);
     });
 
     test('J-69 Add Entry still works after the member empties the group', async ({ authenticatedPage: page }, testInfo) => {

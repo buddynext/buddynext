@@ -29,7 +29,7 @@ test.describe('feed / composer drafts', () => {
         await page.goto(urls.feed);
 
         const stamp   = Date.now().toString().slice(-6);
-        const content = `draft ${stamp}`;
+        const content = `Half-written thoughts about the weekend market ${stamp}`;
 
         const textarea = page.locator('.bn-composer__prompt').first();
         await expect(textarea).toBeVisible();
@@ -57,7 +57,7 @@ test.describe('feed / composer drafts', () => {
         await page.goto(urls.feed);
 
         const stamp    = Date.now().toString().slice(-6);
-        const content  = `discard ${stamp}`;
+        const content  = `Changed my mind about posting this ${stamp}`;
 
         const textarea = page.locator('.bn-composer__prompt').first();
         await textarea.click();
@@ -88,7 +88,7 @@ test.describe('feed / composer drafts', () => {
         await page.goto(urls.feed);
 
         const stamp   = Date.now().toString().slice(-6);
-        const content = `member draft ${stamp}`;
+        const content = `Still deciding what to share from the hike ${stamp}`;
 
         const textarea = page.locator('.bn-composer__prompt').first();
         await expect(textarea).toBeVisible();

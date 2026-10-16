@@ -42,8 +42,8 @@ test.describe('feed / @mention in comment', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j552 mention-host ${stamp}`;
-        const commentBody = `j552 hey @${handle} see this ${stamp}`;
+        const postBody = `Potluck at the park next Sunday, bring a dish ${stamp}`;
+        const commentBody = `hey @${handle} you would love this one ${stamp}`;
 
         try {
             // Recipient baseline: her existing bn.mention notifications.

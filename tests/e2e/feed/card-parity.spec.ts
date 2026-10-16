@@ -32,8 +32,8 @@ type Reaction = { has_reacted?: boolean };
 
 const stamp = Date.now().toString().slice(-7);
 const tag = `parity${stamp}`;
-const homeText = `card parity home ${stamp} #${tag}`;
-const spaceText = `card parity space ${stamp}`;
+const homeText = `Morning coffee at the corner cafe was perfect ${stamp} #${tag}`;
+const spaceText = `Trail conditions are great this weekend ${stamp}`;
 
 let nonce = '';
 let homeId = 0;
@@ -99,10 +99,10 @@ async function checkCard(page: Page, card: Locator, id: number): Promise<void> {
         await commentBtn.click();
         const input = card.locator(sel.commentInput).first();
         await expect(input).toBeVisible({ timeout: 5_000 });
-        await input.fill(`draft ${stamp}`);
+        await input.fill(`Thanks for sharing this ${stamp}`);
         await other.locator('button.bn-post-card__menu').first().click();
         await page.keyboard.press('Escape');
-        await expect(input, 'the draft survives another card opening its menu').toHaveValue(`draft ${stamp}`);
+        await expect(input, 'the draft survives another card opening its menu').toHaveValue(`Thanks for sharing this ${stamp}`);
         await input.fill('');
     }
 
@@ -125,7 +125,7 @@ test.describe('feed / card parity across surfaces (J-980)', () => {
         expect(uid, 'test member exists').toBeGreaterThan(0);
         homeId = Number(await php(uid, `echo buddynext_service('post_service')->create(${uid}, array('type' => 'text', 'content' => '${homeText}'));`));
         const space = JSON.parse(
-            await php(uid, `$id = ( new \\BuddyNext\\Spaces\\SpaceService() )->create(${uid}, array('name' => 'Parity ${stamp}', 'slug' => 'parity-${stamp}', 'type' => 'open')); echo wp_json_encode(array('id' => (int) $id, 'slug' => 'parity-${stamp}'));`)
+            await php(uid, `$id = ( new \\BuddyNext\\Spaces\\SpaceService() )->create(${uid}, array('name' => 'Riverside Joggers ${stamp}', 'slug' => 'parity-${stamp}', 'type' => 'open')); echo wp_json_encode(array('id' => (int) $id, 'slug' => 'parity-${stamp}'));`)
         ) as { id: number; slug: string };
         spaceId = space.id;
         spaceSlug = space.slug;
@@ -136,7 +136,7 @@ test.describe('feed / card parity across surfaces (J-980)', () => {
         await php(uid, `$t = buddynext_service('hashtags'); $t->sync('post', ${homeId}, $t->extract('${homeText}'));`);
 
         blockPage = await createPage('<!-- wp:buddynext/activity-feed /-->', {
-            title: `E2E Card Parity ${stamp}`,
+            title: `Community Highlights ${stamp}`,
             slug: `e2e-card-parity-${stamp}`,
         });
     });

@@ -54,7 +54,7 @@ test.describe('feed / bookmarks + share', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j18 bookmark-target ${stamp}`;
+        const body = `Great hiking route guide worth saving for later ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -126,8 +126,8 @@ test.describe('feed / bookmarks + share', () => {
         let origId = 0;
         let myNonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const origBody = `j19 original by ${authorSlug} ${stamp}`;
-        const quote = `j19 my take ${stamp}`;
+        const origBody = `Honest ramen review from ${authorSlug} ${stamp}`;
+        const quote = `Agreed, the broth is the best part ${stamp}`;
 
         try {
             // Seed a public post owned by the OTHER member.

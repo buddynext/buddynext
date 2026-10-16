@@ -69,8 +69,8 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
 
     test.beforeAll(async () => {
         const stamp = Date.now().toString().slice(-6);
-        tierA.name = `E2E Plan Change A ${stamp}`;
-        tierB.name = `E2E Plan Change B ${stamp}`;
+        tierA.name = `Neighbor Plan ${stamp}`;
+        tierB.name = `Champion Plan ${stamp}`;
 
         for (const [slug, ref] of [
             [SLUG_A, tierA],

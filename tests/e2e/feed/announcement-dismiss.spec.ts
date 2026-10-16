@@ -50,7 +50,7 @@ test.describe('feed / dismiss announcement', () => {
         let annId = 0;
         let member: MemberSession | null = null;
         const stamp = Date.now().toString().slice(-6);
-        const content = `j550 site announcement ${stamp}`;
+        const content = `Scheduled maintenance on Sunday night, back by morning ${stamp}`;
 
         try {
             // One site announcement is active at a time; retire the model site's own first.

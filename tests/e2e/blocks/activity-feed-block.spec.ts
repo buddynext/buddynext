@@ -22,7 +22,7 @@ test.describe('blocks / activity-feed spacing (J-806)', () => {
         authenticatedPage: page,
     }) => {
         const rec = await createPage('<!-- wp:buddynext/activity-feed /-->', {
-            title: 'E2E Activity Feed Block',
+            title: 'Community Activity',
             slug: 'e2e-activity-feed-block',
         });
         try {

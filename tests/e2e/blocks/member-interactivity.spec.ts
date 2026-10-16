@@ -46,7 +46,7 @@ test.describe('blocks / member interactivity (J-802, J-803)', () => {
                 '<!-- wp:buddynext/member-directory {"perPage":12} /-->',
                 `<!-- wp:buddynext/member-card {"userId":${cardTargetId},"showFollowAction":true} /-->`,
             ].join('\n'),
-            { title: 'E2E Member Blocks', slug: 'e2e-member-blocks' }
+            { title: 'Meet Our Members', slug: 'e2e-member-blocks' }
         );
         pageId = rec.id;
         pageUrl = rec.url;

@@ -71,9 +71,9 @@ test.beforeAll(async () => {
     const ids = JSON.parse(
         await php(`
             $ps = new \\BuddyNext\\Feed\\PostService();
-            $text = $ps->create( ${memberId}, array( 'type' => 'text', 'content' => 'E2E cards text post' ) );
-            $orig = $ps->create( 1, array( 'type' => 'text', 'content' => 'E2E cards original to share' ) );
-            $wp_post = wp_insert_post( array( 'post_title' => 'E2E article first title', 'post_content' => 'Body.', 'post_status' => 'publish', 'post_author' => ${memberId} ) );
+            $text = $ps->create( ${memberId}, array( 'type' => 'text', 'content' => 'Fresh sourdough starter day three, bubbling nicely' ) );
+            $orig = $ps->create( 1, array( 'type' => 'text', 'content' => 'Sunset ride along the river trail was unreal tonight' ) );
+            $wp_post = wp_insert_post( array( 'post_title' => 'Five Easy Weeknight Dinners', 'post_content' => 'Body.', 'post_status' => 'publish', 'post_author' => ${memberId} ) );
             $card = \\BuddyNext\\Feed\\BlogPostListener::card_id_for_post( (int) $wp_post );
             echo wp_json_encode( array( 'text' => $text, 'orig' => $orig, 'wp' => $wp_post, 'card' => $card ) );
         `)
@@ -132,24 +132,24 @@ test('J-812 the article card shows an image and title set after publishing', asy
 
     const attachment = await php(`echo (int) get_posts( array( 'post_type' => 'attachment', 'post_mime_type' => 'image', 'numberposts' => 1, 'fields' => 'ids' ) )[0];`);
     test.skip(Number(attachment) <= 0, 'No image attachment on this site.');
-    await php(`set_post_thumbnail( ${wpPost}, ${attachment} ); wp_update_post( array( 'ID' => ${wpPost}, 'post_title' => 'E2E article updated title' ) ); echo 'ok';`);
+    await php(`set_post_thumbnail( ${wpPost}, ${attachment} ); wp_update_post( array( 'ID' => ${wpPost}, 'post_title' => 'Five Easy Weeknight Dinners for Busy Families' ) ); echo 'ok';`);
 
     await loginAs(page, MEMBER);
     await page.goto(`/p/${articleCard}/`);
     const card = page.locator('.bn-post-card').first();
-    await expect(card.locator('.bn-post-card__article-title'), 'edited title on the card').toHaveText('E2E article updated title');
+    await expect(card.locator('.bn-post-card__article-title'), 'edited title on the card').toHaveText('Five Easy Weeknight Dinners for Busy Families');
     const expectedImage = await php(`echo get_the_post_thumbnail_url( ${wpPost}, 'medium_large' );`);
     await expect(card.locator('.bn-post-card__article-cover img'), 'image added after publish on the card').toHaveAttribute('src', expectedImage);
 
     // EFFECT: the post route serves the same refreshed title and image the card shows.
     const served = await postRow(page, articleCard);
     expect(served.status, 'GET /posts/{article card}').toBe(200);
-    expect(served.row.link_meta?.title, 'title served by REST').toBe('E2E article updated title');
+    expect(served.row.link_meta?.title, 'title served by REST').toBe('Five Easy Weeknight Dinners for Busy Families');
     expect(served.row.link_meta?.thumbnail, 'image served by REST').toBe(expectedImage);
 });
 
 test('J-813 deleting a repost lowers the share count and allows sharing again', async ({ page }) => {
-    const repost = Number(await php(`echo (int) ( new \\BuddyNext\\Feed\\ShareService() )->share( ${memberId}, ${original}, 'E2E repost with a comment' );`));
+    const repost = Number(await php(`echo (int) ( new \\BuddyNext\\Feed\\ShareService() )->share( ${memberId}, ${original}, 'Totally agree with this one' );`));
     expect(repost).toBeGreaterThan(0);
     const countOf = async () => Number(await php(`global $wpdb; echo (int) $wpdb->get_var( "SELECT share_count FROM {$wpdb->prefix}bn_posts WHERE id = ${original}" );`));
     const recordOf = async () => Number(await php(`global $wpdb; echo (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_shares WHERE user_id = ${memberId} AND post_id = ${original}" );`));

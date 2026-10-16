@@ -57,7 +57,7 @@ test.describe('profile / edit', () => {
             return;
         }
         const stamp = Date.now().toString().slice(-6);
-        const value = `e2e bio ${stamp}`;
+        const value = `Weekend hiker and amateur baker, always up for a coffee ${stamp}`;
         await bio.fill(value);
 
         const save = page.locator('button[type="submit"], .bn-btn[data-action="save"]').first();
@@ -101,7 +101,7 @@ test.describe('profile / edit', () => {
         await setUserMeta(bId, 'bn_onboarding_complete', '1');
 
         const original = await displayName(bId);
-        const value = `E2E Member ${Date.now().toString().slice(-6)}`;
+        const value = `Alex Rivera ${Date.now().toString().slice(-6)}`;
 
         try {
             await page.setViewportSize({ width: 390, height: 844 });
@@ -205,7 +205,7 @@ test.describe('profile / edit', () => {
         }
 
         const original = await field.inputValue();
-        const value = `e2e ${Date.now().toString().slice(-5)}`;
+        const value = `Riverside Gardens ${Date.now().toString().slice(-5)}`;
         const save = page.locator('button[type="submit"]').first();
 
         try {

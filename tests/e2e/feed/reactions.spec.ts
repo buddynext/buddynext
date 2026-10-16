@@ -38,7 +38,7 @@ test.describe('feed / reactions', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j16 react-target ${stamp}`;
+        const body = `Just got back from an amazing weekend camping trip ${stamp}`;
 
         try {
             // Fresh own post starts at zero reactions, so 0->1->0 is exercised end-to-end.

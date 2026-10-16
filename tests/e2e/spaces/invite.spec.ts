@@ -32,7 +32,7 @@ test.describe('spaces / invite (J-606)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Invite ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Board Game Evenings ${stamp}`, type: 'private' });
         const invitee = await loginContextAs(browser, baseURL, other);
 
         try {

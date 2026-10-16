@@ -30,9 +30,9 @@ test.describe('feed / comment delete', () => {
 
     test('J-517 deleting my own comment removes it from the thread after reload', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const postText = `j517 host post ${stamp}`;
-        const targetText = `j517 delete me ${stamp}`;
-        const keeperText = `j517 keep me ${stamp}`;
+        const postText = `Thinking about starting a Saturday running group downtown ${stamp}`;
+        const targetText = `Sorry, wrong thread, ignore this one ${stamp}`;
+        const keeperText = `I am in, what pace are we thinking ${stamp}`;
         let postId = 0;
         let targetId = 0;
         let keeperId = 0;

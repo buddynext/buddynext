@@ -51,11 +51,11 @@ test.describe('pro / bulk moderation actions', () => {
         try {
             author = await openMemberSession(page.context().browser()!, authorLogin);
             const postA = await restPost<{ id?: number }>(author.request, author.nonce, '/posts', {
-                content: `j955a bulk-mod target ${stamp}`,
+                content: `Cheap watches for sale, visit my page for the link ${stamp}`,
                 privacy: 'public',
             });
             const postB = await restPost<{ id?: number }>(author.request, author.nonce, '/posts', {
-                content: `j955b bulk-mod target ${stamp}`,
+                content: `Win a free phone, just share this post with ten friends ${stamp}`,
                 privacy: 'public',
             });
             postIdA = postA.body.id ?? 0;

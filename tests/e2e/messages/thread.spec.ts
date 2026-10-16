@@ -26,7 +26,7 @@ test.describe('messages / thread', () => {
         expect(me, 'test member must exist').toBeGreaterThan(0);
         expect(other, 'recipient member must exist').toBeGreaterThan(0);
         const p = await tablePrefix();
-        const text = `hi from playwright ${Date.now().toString().slice(-8)}`;
+        const text = `Hey, are we still on for the farmers market on Saturday ${Date.now().toString().slice(-8)}`;
         const mine = `FROM ${p}mvs_messages WHERE sender_id = ${me} AND content LIKE '%${text}%'`;
 
         try {

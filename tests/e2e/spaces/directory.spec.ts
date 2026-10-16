@@ -31,7 +31,7 @@ test.describe('spaces / directory', () => {
         // to the unique name pins the assertion to the seeded row regardless of
         // how many spaces already exist or how the default page paginates.
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Dir Card ${stamp}`;
+        const name = `Bike Commuters Downtown ${stamp}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
 
         try {
@@ -133,7 +133,7 @@ test.describe('spaces / directory', () => {
         // proved nothing.
         const stamp = Date.now().toString().slice(-8);
         const needle = `Needle${stamp}`;
-        const space = await createSpaceApi(page, { name: `E2E ${needle} space`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Quiet Reading Nook ${needle}`, type: 'open' });
         try {
             await page.goto(urls.spaces);
             const box = page.locator(sel.spaceSearch).first();
@@ -160,13 +160,13 @@ test.describe('spaces / directory', () => {
 
         // Setup (owner-only: category CRUD needs manage_options) — not the action
         // under test. The category is fresh, so it starts with exactly one space.
-        const catRes = await bnApi(page, 'POST', '/space-categories', { name: `E2E Cat ${stamp}` });
+        const catRes = await bnApi(page, 'POST', '/space-categories', { name: `Outdoor Hobbies ${stamp}` });
         expect(catRes.status, `create category failed: ${JSON.stringify(catRes.data)}`).toBe(201);
         const category = catRes.data as { id: number; slug: string };
         expect(category.id, 'created category carried no id').toBeGreaterThan(0);
 
-        const inName = `E2E Dir InCat ${stamp}`;
-        const outName = `E2E Dir OutCat ${stamp}`;
+        const inName = `Sourdough Bakers Guild ${stamp}`;
+        const outName = `Vintage Synth Collectors ${stamp}`;
         const inCat = await bnApi(page, 'POST', '/spaces', { name: inName, type: 'open', category_id: category.id });
         expect(inCat.status, `create categorized space failed: ${JSON.stringify(inCat.data)}`).toBe(201);
         const inCatId = Number((inCat.data as SpaceRow).id);

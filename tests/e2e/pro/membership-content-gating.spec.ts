@@ -47,7 +47,7 @@ test.describe('pro / gate content behind membership', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG}', 'E2E Content Gate Plan', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG}', 'Insider Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 6.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])
@@ -73,7 +73,7 @@ test.describe('pro / gate content behind membership', () => {
 
         const stamp = Date.now().toString().slice(-8);
         const created = await createPage(`[buddynext_members_only plan="${SLUG}"]${SECRET}[/buddynext_members_only]`, {
-            title: `E2E Content Gate ${stamp}`,
+            title: `Members Only Guides ${stamp}`,
             slug: `bn-e2e-content-gate-${stamp}`,
         });
         pageId = created.id;

@@ -46,7 +46,7 @@ test.describe('pro / pricing page lists real plans', () => {
         await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Pricing Member');
 
         const stamp = Date.now().toString().slice(-6);
-        tierName = `E2E Pricing Plan ${stamp}`;
+        tierName = `Supporter Plan ${stamp}`;
 
         tierId = Number(
             await wp([

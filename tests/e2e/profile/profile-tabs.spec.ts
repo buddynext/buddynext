@@ -201,7 +201,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             // Fill one field through the real edit UI.
             await page.goto(editUrl(B_LOGIN));
             await expect(page.locator(APP)).toBeVisible();
-            const filled = `e2e City ${Date.now().toString().slice(-5)}`;
+            const filled = `Portland ${Date.now().toString().slice(-5)}`;
             await page.locator(LOCATION_INPUT).fill(filled);
             await saveProfile(page);
             // EFFECT: the value the ring is computed from is on the profile route.
@@ -238,7 +238,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             return;
         }
 
-        const company = `e2e About ${Date.now().toString().slice(-6)}`;
+        const company = `Harbor Bakery ${Date.now().toString().slice(-6)}`;
         try {
             await page.locator(WORK_ADD).click();
             const idx = (await page.locator(WORK_ENTRY).count()) - 1;
@@ -390,7 +390,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             // configured test member starts empty.
             await wp([
                 'eval',
-                `buddynext_service( 'profiles' )->save_profile( ${A_ID}, array( 'skills' => 'e2e skills', 'about_me' => 'e2e about', 'work_company' => 'E2E Co', 'work_title' => 'Tester' ) ); echo 'ok';`,
+                `buddynext_service( 'profiles' )->save_profile( ${A_ID}, array( 'skills' => 'Trail photography and bread baking', 'about_me' => 'I run a small weekend bakery', 'work_company' => 'Harbor Bakery Co', 'work_title' => 'Head Baker' ) ); echo 'ok';`,
             ]);
             await page.goto(memberUrl(A_LOGIN));
             await expect(page.locator(HERO).first()).toBeVisible();
@@ -400,7 +400,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             ).toBeVisible();
             // EFFECT: the route nav and payload agree: A has about content and the tab.
             expect(await navTabIds(page, A_ID), 'route nav for a profile with about content').toContain('about');
-            expect((await profileOf(page, A_ID)).json, 'the about content is in the REST payload').toContain('e2e skills');
+            expect((await profileOf(page, A_ID)).json, 'the about content is in the REST payload').toContain('Trail photography and bread baking');
 
             // B (emptied) has none → the About tab is absent, profile still renders.
             await page.goto(memberUrl(B_LOGIN));

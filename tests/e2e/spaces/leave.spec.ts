@@ -35,7 +35,7 @@ test.describe('spaces / leave (J-605)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Leave ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Photo Walk Wednesdays ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

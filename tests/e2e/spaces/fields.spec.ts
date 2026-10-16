@@ -33,7 +33,7 @@ test.describe('spaces / custom field value save + clear (J-630)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Fields ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Climbing Gym Buddies ${stamp}`, type: 'open' });
 
         try {
             // Pick a writable, text-capable field from THIS space's payload

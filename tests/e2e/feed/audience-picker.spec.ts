@@ -41,7 +41,7 @@ test.describe('feed / composer audience picker', () => {
         expect(themId, 'viewer id').toBeGreaterThan(0);
 
         const stamp = Date.now().toString().slice(-6);
-        const content = `j510 followers only ${stamp}`;
+        const content = `Sharing the full trip photos with followers only ${stamp}`;
         let postId = 0;
         let nonce = '';
         let viewer: MemberSession | null = null;

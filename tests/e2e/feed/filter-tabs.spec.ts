@@ -39,7 +39,7 @@ test.describe('feed / filter tabs', () => {
         expect(authorId).toBeGreaterThan(0);
 
         const stamp = Date.now().toString().slice(-6);
-        const content = `j521 discovery ${stamp}`;
+        const content = `New to the neighborhood and looking for a good bakery ${stamp}`;
         let viewer: MemberSession | null = null;
         let postId = 0;
         let nonce = '';

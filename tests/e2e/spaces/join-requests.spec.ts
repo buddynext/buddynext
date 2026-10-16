@@ -47,7 +47,7 @@ test.describe('spaces / join-request moderation (J-607/J-608)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Approve ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Climate Action Neighbors ${stamp}`, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -86,7 +86,7 @@ test.describe('spaces / join-request moderation (J-607/J-608)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Decline ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Wine Tasting Society ${stamp}`, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

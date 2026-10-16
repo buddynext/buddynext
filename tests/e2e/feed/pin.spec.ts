@@ -58,7 +58,7 @@ test.describe('feed / pin + unpin', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j505 pin-me ${stamp}`;
+        const body = `Welcome to my page, I post about gardening and local hikes ${stamp}`;
 
         try {
             // The composer lives on the activity hub; the profile only lists posts.
@@ -115,7 +115,7 @@ test.describe('feed / pin + unpin', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j505m member pin-me ${stamp}`;
+        const body = `Pinned note: open house at the studio next month ${stamp}`;
 
         try {
             await page.goto(urls.member(MEMBER_LOGIN));

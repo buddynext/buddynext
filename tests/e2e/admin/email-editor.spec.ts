@@ -78,7 +78,7 @@ test.describe('admin / email editor', () => {
             return;
         }
         const before = await rowSnapshot(SLUG);
-        const subject = `E2E subject ${Date.now().toString().slice(-6)} on {{site_name}}`;
+        const subject = `Welcome to the neighborhood ${Date.now().toString().slice(-6)} on {{site_name}}`;
         try {
             await page.locator('#bn-subject').fill(subject);
             await page.locator('button[type="submit"][form="bn-email-save-form"]').click();

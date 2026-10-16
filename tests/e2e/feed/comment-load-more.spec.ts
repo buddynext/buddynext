@@ -31,7 +31,7 @@ test.describe('feed / comment load-more', () => {
 
     test('J-519 a thread past one page loads older comments on demand', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const postText = `j519 busy thread ${stamp}`;
+        const postText = `Volunteers needed for the Saturday park cleanup ${stamp}`;
         let postId = 0;
         let nonce = '';
 
@@ -51,7 +51,7 @@ test.describe('feed / comment load-more', () => {
                 const c = await restPost<{ id?: number }>(page.request, nonce, '/comments', {
                     object_type: 'post',
                     object_id: postId,
-                    content: `j519 c${i} ${stamp}`,
+                    content: `Count me in, reply number ${i} ${stamp}`,
                 });
                 expect(c.status, `seed comment ${i} -> ${c.status}`).toBeLessThan(300);
             }

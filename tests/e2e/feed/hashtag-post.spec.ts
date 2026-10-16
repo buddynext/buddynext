@@ -45,7 +45,7 @@ test.describe('feed / composer hashtag', () => {
     test('J-511 a post with #hashtag is listed on that hashtag feed', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
         const tag = `e2etag${stamp}`;
-        const content = `j511 tagging #${tag} here`;
+        const content = `Trying out a new recipe tonight #${tag} for dinner`;
         let postId = 0;
         let nonce = '';
 
@@ -91,7 +91,7 @@ test.describe('feed / composer hashtag', () => {
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
         const tag = `e2etagm${stamp}`;
-        const content = `j511m member tagging #${tag} here`;
+        const content = `Weekend market haul looks great #${tag} this week`;
         let postId = 0;
         let nonce = '';
 

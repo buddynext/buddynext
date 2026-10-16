@@ -27,7 +27,7 @@ test.describe('spaces / avatar upload + remove (J-604)', () => {
 
     test('J-604 avatar upload shows on the hero; remove reverts it', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Avatar ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Harbor Kayak Crew ${stamp}`, type: 'open' });
 
         try {
             // Baseline: no avatar.

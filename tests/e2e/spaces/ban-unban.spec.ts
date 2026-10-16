@@ -42,7 +42,7 @@ test.describe('spaces / ban + unban (J-609)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Ban ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Neighborhood Garage Sales ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

@@ -66,8 +66,8 @@ test.describe('feed / poll', () => {
 
     test('J-500 poll created via composer renders its options; a vote persists after reload', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const question = `j500 favourite build tool ${stamp}`;
-        const opts = [`Webpack ${stamp}`, `Vite ${stamp}`, `esbuild ${stamp}`];
+        const question = `Which trail should we hike this weekend ${stamp}`;
+        const opts = [`Ridge Loop ${stamp}`, `Lakeshore Path ${stamp}`, `Canyon Falls ${stamp}`];
         let createdId = 0;
         let nonce = '';
 
@@ -138,8 +138,8 @@ test.describe('feed / poll', () => {
     test('J-500 member  -  a member-created poll renders its options; a member vote persists after reload', async ({ page }) => {
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
-        const question = `j500m member poll ${stamp}`;
-        const opts = [`Red ${stamp}`, `Blue ${stamp}`, `Green ${stamp}`];
+        const question = `Best pizza topping for the block party ${stamp}`;
+        const opts = [`Mushroom ${stamp}`, `Pepperoni ${stamp}`, `Pineapple ${stamp}`];
         let createdId = 0;
         let nonce = '';
 
@@ -197,7 +197,7 @@ test.describe('feed / poll', () => {
 
     test('J-501 a closed poll disables its options and rejects a fresh vote', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const question = `j501 closed poll ${stamp}`;
+        const question = `Which day works for the book club ${stamp}`;
         let createdId = 0;
         let nonce = '';
 
@@ -272,7 +272,7 @@ test.describe('feed / poll', () => {
             await page.goto(urls.feed);
             nonce = await readRestNonce(page);
             const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', {
-                content: `j982 visitor poll ${stamp}`,
+                content: `Vote for the next community garden theme ${stamp}`,
                 type: 'poll',
                 privacy: 'public',
                 options: [`Yes ${stamp}`, `No ${stamp}`],

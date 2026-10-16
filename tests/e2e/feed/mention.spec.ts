@@ -62,7 +62,7 @@ test.describe('feed / @mention', () => {
 
             // Author the mention post through the composer (the real member action).
             const stamp = Date.now().toString().slice(-6);
-            const body = `j502 hey @${handle} take a look ${stamp}`;
+            const body = `hey @${handle} take a look at this view ${stamp}`;
             await page.goto(urls.feed);
             await expect(page.locator(sel.composer).first()).toBeVisible();
             authorNonce = await readRestNonce(page);
@@ -166,24 +166,24 @@ test.describe('feed / @mention', () => {
 
         // Comment box on a post of our own.
         const stamp = Date.now().toString().slice(-6);
-        const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', { content: `j983 host ${stamp}`, privacy: 'public' });
+        const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', { content: `Quick update from the garden club meeting ${stamp}`, privacy: 'public' });
         const postId = created.body.id ?? 0;
         expect(postId, 'host post created').toBeGreaterThan(0);
         try {
             await page.goto(urls.feed);
-            const host = page.locator(sel.postCard).filter({ hasText: `j983 host ${stamp}` }).first();
+            const host = page.locator(sel.postCard).filter({ hasText: `Quick update from the garden club meeting ${stamp}` }).first();
             await expect(host).toBeVisible({ timeout: 10_000 });
             await host.locator(sel.postComment).first().click();
             const input = host.locator(sel.commentInput).first();
             await expect(input).toBeVisible();
-            await race(input, `reply ${stamp} @ali`);
+            await race(input, `Thanks for the tip ${stamp} @ali`);
             // Enter adds a line in a comment box; the send button submits.
             await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
             // EFFECT: the stored comment is the text as typed.
             await expect.poll(async () => {
                 const r = await restGet<{ items?: Array<{ content?: string }> }>(page.request, nonce, `/comments?object_type=post&object_id=${postId}`);
                 return ((r.body.items ?? []).map((c) => c.content ?? '').find((c) => c.includes(stamp)) ?? '').trim();
-            }, { timeout: 8_000 }).toBe(`reply ${stamp} @ali`);
+            }, { timeout: 8_000 }).toBe(`Thanks for the tip ${stamp} @ali`);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

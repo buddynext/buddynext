@@ -57,7 +57,7 @@ test.describe('feed / media upload', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j503 photo post ${stamp}`;
+        const caption = `Fresh snow on the mountain this morning ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -111,7 +111,7 @@ test.describe('feed / media upload', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j503m member photo ${stamp}`;
+        const caption = `Our tomato harvest is finally coming in ${stamp}`;
 
         try {
             await page.goto(urls.feed);

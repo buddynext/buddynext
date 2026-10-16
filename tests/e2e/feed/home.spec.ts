@@ -47,7 +47,7 @@ test.describe('feed / home', () => {
         // The composer is not just present — it is editable.
         const ta = page.locator(sel.composerTextarea).first();
         await expect(ta).toBeVisible();
-        const probe = `shell-probe ${Date.now().toString().slice(-6)}`;
+        const probe = `Morning from the farmers market ${Date.now().toString().slice(-6)}`;
         await ta.fill(probe);
         await expect(ta).toHaveValue(probe);
         await ta.fill(''); // leave the composer as found (do not publish).

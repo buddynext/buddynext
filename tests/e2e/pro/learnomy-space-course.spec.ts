@@ -53,7 +53,7 @@ test.describe('pro / Learnomy course-to-space link', () => {
         let space: { id: number; slug: string } | null = null;
 
         try {
-            space = await createSpaceApi(page, { name: `J957 Learnomy space ${stamp}`, type: 'open' });
+            space = await createSpaceApi(page, { name: `Beginner Sourdough Course Group ${stamp}`, type: 'open' });
 
             const nonce = await bnNonce(page);
             const link = await page.request.post(`${LEARNOMY_NS}/learnomy-link`, {

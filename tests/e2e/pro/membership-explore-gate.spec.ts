@@ -52,7 +52,7 @@ test.describe('pro / gate the Explore feed behind a plan', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG_RESTRICTED}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG_RESTRICTED}', 'E2E Explore Restricted', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG_RESTRICTED}', 'Insider Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 2.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])
@@ -62,7 +62,7 @@ test.describe('pro / gate the Explore feed behind a plan', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG_INCLUDED}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG_INCLUDED}', 'E2E Explore Included', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG_INCLUDED}', 'Open Explorer Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 2.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
                     `   'entitlements' => array( 'social.explore' => true )` +
                     ` ) );`,

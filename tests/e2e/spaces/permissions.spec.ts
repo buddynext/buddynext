@@ -36,7 +36,7 @@ test.describe('spaces / edit permissions (J-602)', () => {
     test('J-602 changing who-can-post/invite persists across reload', async ({ authenticatedPage: page, browser, baseURL }) => {
         const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Perms ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Local History Buffs ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
         let memberPostId = 0;
 
@@ -77,7 +77,7 @@ test.describe('spaces / edit permissions (J-602)', () => {
             expect(join.status, `member join failed: ${JSON.stringify(join.data)}`).toBe(200);
             const post = await bnApi(actor.page, 'POST', '/posts', {
                 type: 'text',
-                content: `perms member post ${stamp}`,
+                content: `Does anyone know when the museum reopens? ${stamp}`,
                 space_id: space.id,
             });
             memberPostId = Number((post.data as { id?: number })?.id ?? 0);

@@ -40,7 +40,7 @@ test.describe('spaces / invite link (J-611)', () => {
 		await ensureOnboarded(page);
 
 		const stamp = Date.now().toString().slice(-8);
-		const space = await createSpaceApi(page, { name: `E2E Invite ${stamp}`, type: 'private' });
+		const space = await createSpaceApi(page, { name: `Sunday Hikers Collective ${stamp}`, type: 'private' });
 		let otherCtx: import('@playwright/test').BrowserContext | null = null;
 
 		try {

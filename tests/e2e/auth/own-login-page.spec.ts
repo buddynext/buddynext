@@ -33,7 +33,7 @@ test.describe('auth / own login page', () => {
     let pageId = 0;
 
     test.beforeAll(async () => {
-        pageId = (await createPage('<p>QA own login page</p>', { title: 'QA own login', slug })).id;
+        pageId = (await createPage('<p>Sign in to join the neighborhood</p>', { title: 'Neighborhood Sign In', slug })).id;
         writeFileSync(
             mu,
             [
@@ -80,7 +80,7 @@ test.describe('auth / own login page', () => {
             await join.click();
             await expect(page).toHaveURL(own);
             expect(decodeURIComponent(new URL(page.url()).searchParams.get('redirect_to') ?? ''), 'returns to the space').toBe(spaceUrl);
-            await expect(page.getByText('QA own login page')).toBeVisible();
+            await expect(page.getByText('Sign in to join the neighborhood')).toBeVisible();
 
             // 2. A guest opens a members-only page: the gate sends them to the same place.
             await page.goto(urls.explore);

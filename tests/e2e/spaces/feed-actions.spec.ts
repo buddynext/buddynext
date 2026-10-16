@@ -22,10 +22,10 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
     /** Create a throwaway open space with one post; returns ids + cleanup. */
     const seedSpacePost = async (page: import('@playwright/test').Page, label: string) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E ${label} ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Neighborhood Social Club ${stamp}`, type: 'open' });
         const create = await bnApi(page, 'POST', '/posts', {
             type: 'text',
-            content: `${label} target ${stamp}`,
+            content: `Anyone up for a weekend meetup? ${stamp}`,
             space_id: space.id,
         });
         expect(create.status, `seed post failed: ${JSON.stringify(create.data)}`).toBe(201);
@@ -82,7 +82,7 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
         authenticatedPage: page,
     }) => {
         const { space, postId, stamp } = await seedSpacePost(page, 'Comment');
-        const body = `space comment ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
+        const body = `Count me in for Saturday ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
         // Neutralise the per-user comment throttle (buddynext_comment_rate_limit,
         // 30/min) for the test window: it is anti-spam behaviour UNRELATED to the
         // effect under test (a comment appearing in the post's list), and back-to-
@@ -139,7 +139,7 @@ test.describe('spaces / feed actions in space context (J-680..J-683)', () => {
         let sharePostId = 0;
         try {
             const share = await bnApi(page, 'POST', `/posts/${postId}/share`, {
-                content: `reshare ${stamp}`,
+                content: `Sharing this one with the crew ${stamp}`,
             });
             expect(share.status, `share failed: ${JSON.stringify(share.data)}`).toBe(200);
             expect((share.data as { shared?: boolean }).shared).toBe(true);

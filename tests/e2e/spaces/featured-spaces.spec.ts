@@ -26,8 +26,8 @@ test.describe('spaces / featured (J-621)', () => {
 		await ensureOnboarded(page);
 
 		const stamp = Date.now().toString().slice(-8);
-		const a = await createSpaceApi(page, { name: `E2E Feat A ${stamp}`, type: 'open' });
-		const b = await createSpaceApi(page, { name: `E2E Feat B ${stamp}`, type: 'open' });
+		const a = await createSpaceApi(page, { name: `Rooftop Gardeners ${stamp}`, type: 'open' });
+		const b = await createSpaceApi(page, { name: `Night Market Foodies ${stamp}`, type: 'open' });
 
 		const setFeatured = (ids: number[]) =>
 			bnApi(page, 'POST', '/settings/featured-spaces', { ids });
@@ -64,15 +64,15 @@ test.describe('spaces / featured (J-621)', () => {
 			await page.goto('/spaces/', { waitUntil: 'domcontentloaded' });
 			const featuredCard = page.locator('.bn-sidebar-card', { hasText: 'Featured' }).first();
 			await expect(featuredCard).toBeVisible({ timeout: 10_000 });
-			await expect(featuredCard).toContainText(`E2E Feat A ${stamp}`);
-			await expect(featuredCard).toContainText(`E2E Feat B ${stamp}`);
+			await expect(featuredCard).toContainText(`Rooftop Gardeners ${stamp}`);
+			await expect(featuredCard).toContainText(`Night Market Foodies ${stamp}`);
 
 			// 3. Phone (390): the Featured strip is present, the sidebar is not.
 			await page.setViewportSize({ width: 390, height: 840 });
 			await page.goto('/spaces/', { waitUntil: 'domcontentloaded' });
 			const strip = page.locator('.bn-sd-featured-strip');
 			await expect(strip).toBeVisible({ timeout: 10_000 });
-			await expect(strip).toContainText(`E2E Feat A ${stamp}`);
+			await expect(strip).toContainText(`Rooftop Gardeners ${stamp}`);
 			// The right sidebar is `aside.bn-app__right` (shell/right-sidebar.php:49). The old
 			// `.bn-hub-sidebar` exists nowhere, so `toHaveCount(0)` passed whatever rendered.
 			await expect(page.locator('.bn-app__right .bn-sidebar-card', { hasText: 'Featured' }).first()).toBeHidden();
@@ -93,8 +93,8 @@ test.describe('spaces / featured (J-621)', () => {
 				.first()
 				.locator('.bn-sd-side-row')
 				.allInnerTexts();
-			const idxA = names.findIndex((t) => t.includes(`E2E Feat A ${stamp}`));
-			const idxB = names.findIndex((t) => t.includes(`E2E Feat B ${stamp}`));
+			const idxA = names.findIndex((t) => t.includes(`Rooftop Gardeners ${stamp}`));
+			const idxB = names.findIndex((t) => t.includes(`Night Market Foodies ${stamp}`));
 			expect(idxB, 'B should now precede A').toBeLessThan(idxA);
 
 			// 5. Unfeature everything → the Featured card is gone.

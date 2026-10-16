@@ -54,7 +54,7 @@ test.describe('feed / follow from card', () => {
             // Seed a public post authored by the OTHER member.
             author = await openMemberSession(browser, authorSlug);
             const created = await restPost<{ id?: number }>(author.request, author.nonce, '/posts', {
-                content: `j515 follow me ${stamp}`,
+                content: `Posting weekly trail photos from the coast path ${stamp}`,
                 privacy: 'public',
             });
             expect(created.status, `seed post -> ${created.status}`).toBeLessThan(300);
@@ -64,7 +64,7 @@ test.describe('feed / follow from card', () => {
             // View the post on its permalink; the byline Follow pill renders because
             // the viewer does not yet follow this author.
             await page.goto(`/p/${postId}/`, { waitUntil: 'domcontentloaded' });
-            const card = page.locator(sel.postCard).filter({ hasText: `j515 follow me ${stamp}` }).first();
+            const card = page.locator(sel.postCard).filter({ hasText: `Posting weekly trail photos from the coast path ${stamp}` }).first();
             await expect(card).toBeVisible({ timeout: 10_000 });
 
             const pill = card.locator(followPill).first();

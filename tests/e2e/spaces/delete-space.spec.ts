@@ -28,7 +28,7 @@ test.describe('spaces / delete (J-610)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Delete ${stamp}`;
+        const name = `Lost Pet Alerts ${stamp}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
         let deleted = false;
 

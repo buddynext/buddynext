@@ -35,8 +35,8 @@ test.describe('feed / comment report', () => {
         }
 
         const stamp = Date.now().toString().slice(-6);
-        const postText = `j518 host ${stamp}`;
-        const commentText = `j518 flag me ${stamp}`;
+        const postText = `Garage sale this Saturday on Maple Avenue ${stamp}`;
+        const commentText = `Everything must go, cash only, no returns ${stamp}`;
         let postId = 0;
         let commentId = 0;
         let nonce = '';

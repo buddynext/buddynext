@@ -60,7 +60,7 @@ test.describe('J-976 revenue report', () => {
             $tiers   = new \\BuddyNextPro\\Membership\\MembershipTierService();
             $tier_id = $tiers->create_tier(
                 '${REVENUE_TIER_SLUG}',
-                'E2E Revenue Tier',
+                'Supporter Plan',
                 '',
                 0,
                 array( 'status' => 'active', 'billing_type' => 'one_time', 'price' => 42.42, 'currency' => 'USD' )

@@ -45,7 +45,7 @@ test.describe('spaces / invite response (J-662/J-663)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E InvAccept ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Dog Park Regulars ${stamp}`, type: 'private' });
         const invitee = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -86,7 +86,7 @@ test.describe('spaces / invite response (J-662/J-663)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E InvDecline ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Slow Cooking Club ${stamp}`, type: 'private' });
         const invitee = await loginContextAs(browser, baseURL, other);
 
         try {

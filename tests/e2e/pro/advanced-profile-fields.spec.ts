@@ -31,7 +31,7 @@ test.describe.configure({ mode: 'serial' });
 const MEMBER = 'bn_e2e_advfield_member';
 const ADMIN = process.env.BN_TEST_USER ?? 'varundubey';
 const FIELD_KEY = 'e2e_adv_height';
-const FIELD_LABEL = 'E2E Height';
+const FIELD_LABEL = 'Height in cm';
 const GROUP_KEY = 'e2e_adv';
 
 /** Run PHP through wp-cli and return trimmed stdout. */
@@ -69,7 +69,7 @@ test.beforeAll(async () => {
             ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->delete_tier( (int) $existing_tier );
         }
         $tier_id = (int) ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->create_tier(
-            '${TIER_SLUG}', 'E2E Adv Field Tier', '', 0,
+            '${TIER_SLUG}', 'Supporter Plan', '', 0,
             array( 'status' => 'active', 'price' => 2.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',
                 'entitlements' => array( 'profile.advanced_fields' => true ) )
         );
@@ -93,7 +93,7 @@ test.beforeAll(async () => {
 
         $group = $ps->create_group( array(
             'group_key'  => '${GROUP_KEY}',
-            'label'      => 'E2E Advanced',
+            'label'      => 'Personal Details',
             'type'       => 'flat',
             'visibility' => 'public',
             'sort_order' => 1,

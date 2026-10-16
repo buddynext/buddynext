@@ -45,7 +45,7 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 		await wp([
 			'eval',
 			`$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
-				` foreach ( array( array( '${BASIC}', 'E2E Basic', 5.0 ), array( '${PREMIUM}', 'E2E Premium', 10.0 ) ) as $p ) {` +
+				` foreach ( array( array( '${BASIC}', 'Basic Supporter', 5.0 ), array( '${PREMIUM}', 'Premium Supporter', 10.0 ) ) as $p ) {` +
 				`   if ( ! $svc->get_tier_by_slug( $p[0] ) ) {` +
 				`     $svc->create_tier( $p[0], $p[1], '', 0, array( 'status' => 'active', 'price' => $p[2], 'billing_type' => 'recurring', 'billing_interval' => 'month' ) );` +
 				`   }` +
@@ -81,8 +81,8 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 		await login(admin);
 		await ensureOnboarded(admin);
 		const stamp = Date.now().toString().slice(-8);
-		const nameA = `E2E Plan A ${stamp}`;
-		const nameB = `E2E Plan B ${stamp}`;
+		const nameA = `Trail Club Starter ${stamp}`;
+		const nameB = `Trail Club Plus ${stamp}`;
 		spaceA = { ...(await createSpaceApi(admin, { name: nameA, type: 'open' })), name: nameA };
 		spaceB = { ...(await createSpaceApi(admin, { name: nameB, type: 'open' })), name: nameB };
 
@@ -170,12 +170,12 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 		// The other screen (Paywall > Per-Space Overrides) reads the same rows: B is
 		// opened by Premium only, A by Basic and Premium.
 		await page.goto(
-			`/wp-admin/admin.php?page=buddynext-monetization&tab=paywall&space_q=${encodeURIComponent('E2E Plan')}`,
+			`/wp-admin/admin.php?page=buddynext-monetization&tab=paywall&space_q=${encodeURIComponent('Trail Club')}`,
 			{ waitUntil: 'domcontentloaded' }
 		);
 		const overrides = page.locator('.bnpro-paywall-overrides');
 		if (await overrides.count()) {
-			await expect(overrides).toContainText('E2E Premium');
+			await expect(overrides).toContainText('Premium Supporter');
 		}
 	});
 
@@ -189,7 +189,7 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 			const admin = await browser.newPage();
 			await login(admin);
 			const seeded = await bnApi(admin, 'POST', '/posts', {
-				content: `j821b gated post ${Date.now().toString().slice(-6)}`,
+				content: `Members only trail map for this weekend ${Date.now().toString().slice(-6)}`,
 				privacy: 'public',
 				space_id: spaceB.id,
 			});
@@ -215,7 +215,7 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 			await page.goto(`/?autologin=${M_BASIC}`, { waitUntil: 'domcontentloaded' });
 			await expect(await gateOnSpace(page, spaceA.slug), 'Basic should enter A').toBe(false);
 			expect(await paywallText(page, spaceB.slug), 'Basic should see the Premium paywall on B').toContain(
-				'E2E Premium'
+				'Premium Supporter'
 			);
 			// EFFECT: and withholds it from the Basic member. A paywall drawn over a feed
 			// the route still serves would be a lock on the screen only.

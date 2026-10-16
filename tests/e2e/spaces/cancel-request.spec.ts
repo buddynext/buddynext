@@ -47,7 +47,7 @@ test.describe('spaces / cancel own join request (J-661)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Cancel ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Pottery Studio Friends ${stamp}`, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

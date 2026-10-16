@@ -36,7 +36,7 @@ test.describe('spaces / cover upload + remove (J-603)', () => {
 
     test('J-603 cover upload shows on the hero; remove reverts it', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Cover ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Mountain Light Photographers ${stamp}`, type: 'open' });
 
         try {
             // Baseline: no cover.

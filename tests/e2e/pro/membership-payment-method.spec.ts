@@ -40,7 +40,7 @@ test.describe('pro / change payment method without support', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG}', 'E2E Portal Plan', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG}', 'Supporter Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 8.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])

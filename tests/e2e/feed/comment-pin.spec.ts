@@ -53,8 +53,8 @@ test.describe('feed / pin comment', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j551 pin-host ${stamp}`;
-        const commentBody = `j551 pin this comment ${stamp}`;
+        const postBody = `Trail closure update for the north loop ${stamp}`;
+        const commentBody = `Please check the ranger page before heading out ${stamp}`;
 
         try {
             // Seed an own post to host the comment.
@@ -133,8 +133,8 @@ test.describe('feed / pin comment', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j551m member pin-host ${stamp}`;
-        const commentBody = `j551m member comment ${stamp}`;
+        const postBody = `Book club picks for next month are open for ideas ${stamp}`;
+        const commentBody = `Voting closes on Friday evening ${stamp}`;
 
         try {
             await page.goto(urls.feed);

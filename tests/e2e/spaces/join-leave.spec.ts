@@ -34,7 +34,7 @@ test.describe('spaces / join + request', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Join ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Open Water Swimmers ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -73,7 +73,7 @@ test.describe('spaces / join + request', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Request ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Private Poetry Circle ${stamp}`, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

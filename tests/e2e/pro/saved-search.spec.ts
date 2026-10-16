@@ -47,7 +47,7 @@ test.describe('pro / saved search', () => {
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
         const term = `j953term${stamp}`;
-        const name = `J905 saved ${stamp}`;
+        const name = `Weekend hikes near me ${stamp}`;
 
         await page.goto(`/activity/search/?q=${term}`);
         const card = page.locator(savedCard).first();

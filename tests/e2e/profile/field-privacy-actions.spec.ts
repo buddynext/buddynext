@@ -161,7 +161,7 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
         page,
     }) => {
         const stamp = Date.now().toString().slice(-6);
-        const secretLoc = `e2e-loc-${stamp}`;
+        const secretLoc = `Cedar Falls ${stamp}`;
 
         // Capture the owner's current location + visibility so we can restore it.
         await loginAs(page, A_LOGIN);
@@ -232,8 +232,8 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
         }
 
         const stamp = Date.now().toString().slice(-6);
-        const companyPublic = `e2e Public ${stamp}`;
-        const companyPrivate = `e2e Connections ${stamp}`;
+        const companyPublic = `Northwind Bakery ${stamp}`;
+        const companyPrivate = `Lakeside Studio ${stamp}`;
 
         try {
             // Entry 1 → public.
@@ -314,7 +314,7 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
         // Edit → the guard arms and now cancels the unload.
         const loc = page.locator(LOCATION_INPUT);
         await loc.click();
-        await loc.fill(`e2e-dirty-${Date.now().toString().slice(-5)}`);
+        await loc.fill(`Maple Grove ${Date.now().toString().slice(-5)}`);
         await expect(
             page.locator(FORM_SHELL),
             'editing must arm the dirty guard'

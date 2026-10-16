@@ -47,7 +47,7 @@ test.describe('feed / composer schedule', () => {
 
     test('J-512 a scheduled post is held (status=scheduled) and stays out of the feed now', async ({ authenticatedPage: page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j512 scheduled ${stamp}`;
+        const content = `Reminder: community picnic starts at noon on Saturday ${stamp}`;
         let postId = 0;
         let other: MemberSession | null = null;
 
@@ -141,7 +141,7 @@ test.describe('feed / composer schedule', () => {
                     `if ( ! class_exists( '\\\\BuddyNextPro\\\\Membership\\\\MembershipTierService' ) ) { echo 0; exit; }` +
                         ` $svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                         ` $existing = $svc->get_tier_by_slug( '${TIER_SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                        ` echo (int) $svc->create_tier( '${TIER_SLUG}', 'E2E Schedule Post Plan', '', 99, array(` +
+                        ` echo (int) $svc->create_tier( '${TIER_SLUG}', 'Supporter Plan', '', 99, array(` +
                         // effective_subscription() ranks paid over free and dearer over cheaper: this plan must outrank every other active plan the member holds.
                         `   'status' => 'active', 'price' => 999.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
                         `   'entitlements' => array( 'content.scheduled_posts' => true )` +
@@ -162,7 +162,7 @@ test.describe('feed / composer schedule', () => {
 
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
-        const content = `j512m member scheduled ${stamp}`;
+        const content = `Tomorrow we open registration for the autumn fun run ${stamp}`;
         let postId = 0;
 
         try {

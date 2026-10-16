@@ -54,7 +54,7 @@ test.describe('pro / sell a plan during onboarding', () => {
 
     test.beforeAll(async () => {
         const stamp = Date.now().toString().slice(-6);
-        tierName = `E2E Onboard Plan ${stamp}`;
+        tierName = `Welcome Plan ${stamp}`;
 
         tierId = Number(
             await wp([
@@ -166,7 +166,7 @@ test.describe('pro / sell a plan during onboarding', () => {
         }
 
         if (await nameField.isVisible().catch(() => false)) {
-            await nameField.fill('E2E Plan Buyer');
+            await nameField.fill('Taylor Morgan');
         }
         if (await userField.isVisible().catch(() => false)) {
             await userField.fill(login);

@@ -37,7 +37,7 @@ test.describe('pro / admin subscription overview', () => {
 
     test.beforeAll(async () => {
         const stamp = Date.now().toString().slice(-6);
-        tierName = `E2E Overview Plan ${stamp}`;
+        tierName = `Community Plan ${stamp}`;
 
         tierId = Number(
             await wp([

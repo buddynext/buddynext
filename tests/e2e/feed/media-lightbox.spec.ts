@@ -129,7 +129,7 @@ test.describe('feed / media lightbox', () => {
         let postId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j560 lightbox open ${stamp}`;
+        const caption = `Golden hour at Ocean Beach tonight ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -162,7 +162,7 @@ test.describe('feed / media lightbox', () => {
         let postId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j561 lightbox nav ${stamp}`;
+        const caption = `Two shots from the ridge walk this morning ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -211,8 +211,8 @@ test.describe('feed / media lightbox', () => {
         let postId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j562 lightbox actions ${stamp}`;
-        const commentText = `j562 nice shot ${stamp}`;
+        const caption = `Autumn colors in the old orchard ${stamp}`;
+        const commentText = `Love this shot, what lens did you use ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -283,7 +283,7 @@ test.describe('feed / media lightbox', () => {
         let postId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j563 guest lightbox ${stamp}`;
+        const caption = `Street art found on the way to work ${stamp}`;
 
         try {
             await page.goto(urls.feed);

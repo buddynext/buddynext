@@ -24,8 +24,8 @@ const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 test.describe('feed / single-post permalink', () => {
     test('J-520 each permalink renders its own post standalone', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const textA = `j520 alpha ${stamp}`;
-        const textB = `j520 bravo ${stamp}`;
+        const textA = `Quiet Sunday morning at the library ${stamp}`;
+        const textB = `Anyone want to join a pickup soccer game ${stamp}`;
         let idA = 0;
         let idB = 0;
         let nonce = '';
@@ -75,8 +75,8 @@ test.describe('feed / single-post permalink', () => {
     test('J-520 member  -  a member opens a post permalink and its reply is visible', async ({ page }) => {
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
-        const postText = `j520m member host ${stamp}`;
-        const replyText = `j520m member reply ${stamp}`;
+        const postText = `Weekend plans: farmers market then a long hike ${stamp}`;
+        const replyText = `Sounds like a perfect Saturday ${stamp}`;
         let postId = 0;
         let nonce = '';
 

@@ -47,7 +47,7 @@ test.describe('feed / AI smart-reply (Pro P2.4)', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `${tag} ai-reply target ${stamp}`;
+        const body = `${tag} hike plans, anyone joining us ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -132,11 +132,11 @@ test.describe('feed / AI smart-reply (Pro P2.4)', () => {
     }
 
     test('J-20 admin: a smart-reply suggestion fills the comment box', async ({ authenticatedPage: page }, testInfo) => {
-        await walkSuggestReply(page, testInfo, 'j20a');
+        await walkSuggestReply(page, testInfo, 'Saturday');
     });
 
     test('J-20 member: a smart-reply suggestion fills the comment box', async ({ page }, testInfo) => {
         await loginAs(page, MEMBER_LOGIN);
-        await walkSuggestReply(page, testInfo, 'j20m');
+        await walkSuggestReply(page, testInfo, 'Sunday');
     });
 });

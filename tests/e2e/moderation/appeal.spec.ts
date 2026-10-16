@@ -65,7 +65,7 @@ test.describe('moderation / appeal (J-61)', () => {
         let targetUserId = 0;
         let appealId = 0;
         const stamp = Date.now().toString().slice(-8);
-        const appealMessage = `j61 this suspension was a mistake, please review ${stamp}`;
+        const appealMessage = `I think this was a mistake, I was quoting the rules, not breaking them ${stamp}`;
 
         try {
             member = await openMemberSession(browser, target);
@@ -79,7 +79,7 @@ test.describe('moderation / appeal (J-61)', () => {
             // the admin's own moderation UI calls (assets/js/moderation/store.js
             // suspendUser()) — require_moderator, so the admin's nonce clears it.
             const susp = await restPost<{ suspension_id?: number }>(page.request, adminNonce, `/users/${targetUserId}/suspend`, {
-                reason: `E2E appeal journey ${stamp}`,
+                reason: `Repeated off-topic posting after a warning ${stamp}`,
                 duration_days: 1,
                 hide_posts: false,
             });
@@ -147,7 +147,7 @@ test.describe('moderation / appeal (J-61)', () => {
             // Approving an appeal is the other half of the promise: it lifts the suspension.
             const resolved = await restPost(page.request, adminNonce, `/appeals/${appealId}/resolve`, {
                 decision: 'approved',
-                reviewer_note: 'e2e approve',
+                reviewer_note: 'Context checked, the quote was from the community guidelines',
             });
             expect(resolved.status, `resolve failed: ${JSON.stringify(resolved.body)}`).toBeLessThan(300);
             // EFFECT: the appealed suspension is lifted and the appeal left the pending state.
@@ -164,7 +164,7 @@ test.describe('moderation / appeal (J-61)', () => {
             if (appealId) {
                 await restPost(page.request, adminNonce, `/appeals/${appealId}/resolve`, {
                     decision: 'approved',
-                    reviewer_note: 'e2e cleanup',
+                    reviewer_note: 'Closing out after review',
                 }).catch(() => undefined);
             }
             if (targetUserId && adminNonce) {

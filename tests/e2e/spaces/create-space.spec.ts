@@ -31,7 +31,7 @@ test.describe('spaces / create (J-600)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Create ${stamp}`;
+        const name = `Weekend Trail Runners ${stamp}`;
         let createdId = 0;
 
         try {
@@ -45,11 +45,11 @@ test.describe('spaces / create (J-600)', () => {
 
             await dialog.locator(nameInput).fill(name);
             await dialog.locator(typeSelect).selectOption('open');
-            await dialog.locator(descInput).fill('created by J-600 e2e');
+            await dialog.locator(descInput).fill('Early morning runs on the ridge trails, every pace welcome');
             await dialog.locator(submit).click();
 
             // EFFECT 1: the store redirects to the new space's home on success.
-            await page.waitForURL(/\/spaces\/e2e-create-\d+\/?$/, { timeout: 15_000 });
+            await page.waitForURL(/\/spaces\/weekend-trail-runners-\d+\/?$/, { timeout: 15_000 });
 
             // The hero action cluster carries the canonical space id.
             const actions = page.locator(heroActions).first();
@@ -67,7 +67,7 @@ test.describe('spaces / create (J-600)', () => {
             expect(row.membership_role).toBe('owner');
             expect(row.membership_status).toBe('active');
             expect(row.can_manage).toBe(true);
-            expect(String(row.description ?? ''), 'typed description was not stored').toBe('created by J-600 e2e');
+            expect(String(row.description ?? ''), 'typed description was not stored').toBe('Early morning runs on the ridge trails, every pace welcome');
             expect(Number(row.member_count), 'a new space counts its creator').toBe(1);
 
             // EFFECT 3: the creator is the one row on the roster, as owner...

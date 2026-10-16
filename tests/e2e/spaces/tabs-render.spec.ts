@@ -85,11 +85,11 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
         }
 
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E FieldTab ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Pet Photography Corner ${stamp}`, type: 'open' });
         const value =
             candidate.type === 'url'
-                ? `https://example.com/e2e-${stamp}`
-                : `field tab body ${stamp} — rendered by J-690.`;
+                ? `https://example.com/field-guide-${stamp}`
+                : `Tips for photographing pets in low light ${stamp} - patience and treats help.`;
         try {
             // Set the value AND promote the field to a tab in one owner-only save.
             const save = await bnApi(page, 'POST', `/spaces/${space.id}/fields`, {
@@ -124,7 +124,7 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
         authenticatedPage: page,
     }, testInfo) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E DiscTab ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Gardening Q and A ${stamp}`, type: 'open' });
         try {
             // Enable discussions by provisioning/linking a forum (owner path).
             const prov = await bnApi(page, 'POST', `/spaces/${space.id}/forum`);
@@ -162,7 +162,7 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
         authenticatedPage: page,
     }, testInfo) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E MediaTab ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Travel Snapshots ${stamp}`, type: 'open' });
         try {
             // Turn the per-space Media tab on (the gate SpaceNav checks).
             const save = await bnApi(page, 'POST', `/spaces/${space.id}/fields`, {
@@ -212,7 +212,7 @@ test.describe('spaces / tab render (J-690..J-692)', () => {
         baseURL,
     }, testInfo) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E MediaTabMember ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Family Photo Albums ${stamp}`, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

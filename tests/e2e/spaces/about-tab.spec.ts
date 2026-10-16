@@ -33,9 +33,9 @@ test.describe('spaces / About tab render (J-664)', () => {
         const stamp = Date.now().toString().slice(-8);
         // A distinctive, unmistakable description string so the assertion cannot
         // pass on boilerplate or another space's copy.
-        const description = `About-tab effect marker ${stamp} — this exact sentence must render.`;
+        const description = `Gentle morning flow on the lawn, all levels welcome ${stamp} - bring a mat and a friend.`;
         const space = await createSpaceApi(page, {
-            name: `E2E About ${stamp}`,
+            name: `Sunrise Yoga Circle ${stamp}`,
             type: 'open',
             description,
         });

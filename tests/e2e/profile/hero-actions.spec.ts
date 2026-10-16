@@ -305,7 +305,7 @@ test.describe('profile / hero actions (effect-based)', () => {
 
     test('J-743 Share → Share to feed creates a post referencing the profile', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const marker = `e2e share ${stamp}`;
+        const marker = `Worth a look, this profile has great trail photos ${stamp}`;
 
         await loginAs(page, A_LOGIN);
         await page.goto(memberUrl(B_LOGIN));

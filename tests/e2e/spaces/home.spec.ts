@@ -47,8 +47,8 @@ test.describe('spaces / home', () => {
 
     test('J-42 space home renders the seeded name + first post', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Home ${stamp}`;
-        const first = `first post marker ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
+        const name = `Coastal Cleanup Volunteers ${stamp}`;
+        const first = `Meeting at the pier at nine, gloves provided ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
         let postId = 0;
 
@@ -89,8 +89,8 @@ test.describe('spaces / home', () => {
 
     test('J-43 composing in a space persists to the space feed', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Compose ${stamp}`, type: 'open' });
-        const content = `e2e composed ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
+        const space = await createSpaceApi(page, { name: `Local Bookworms ${stamp}`, type: 'open' });
+        const content = `Just finished the new Le Guin, thoughts? ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
         let postId = 0;
 
         try {
@@ -141,7 +141,7 @@ test.describe('spaces / home', () => {
 
     test('J-44 member list shows a known member', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Members ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Parents of Toddlers ${stamp}`, type: 'open' });
 
         try {
             // The owner is always an active member; resolve their canonical

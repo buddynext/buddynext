@@ -58,7 +58,7 @@ test.describe('spaces / edit privacy (J-601)', () => {
 
     test('J-601 changing visibility persists across reload and in REST', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Privacy ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Language Exchange Cafe ${stamp}`, type: 'open' });
 
         try {
             const settingsUrl = `/spaces/${space.slug}/settings/?bn_stab=privacy`;
@@ -91,8 +91,8 @@ test.describe('spaces / edit privacy (J-601)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const secretName = `E2E Privacy Secret ${stamp}`;
-        const privateName = `E2E Privacy Private ${stamp}`;
+        const secretName = `Surprise Party Planners ${stamp}`;
+        const privateName = `Founders Coffee Hour ${stamp}`;
         const secretSpace = await createSpaceApi(page, { name: secretName, type: 'secret' });
         const privateSpace = await createSpaceApi(page, { name: privateName, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);

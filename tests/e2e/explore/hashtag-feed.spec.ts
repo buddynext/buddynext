@@ -37,8 +37,8 @@ test.describe('explore / hashtag feed', () => {
         // Seed a post under a tag only this run knows, plus an untagged control.
         const stamp = Date.now().toString().slice(-6);
         const tag = `e2ehf${stamp}`;
-        const tagged = `hashtag feed marker ${stamp} #${tag}`;
-        const control = `hashtag feed control ${stamp} no tag`;
+        const tagged = `Sunday market haul, the peaches were perfect ${stamp} #${tag}`;
+        const control = `Quiet evening reading by the window ${stamp}`;
         let taggedId = 0;
         let controlId = 0;
 

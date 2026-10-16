@@ -72,7 +72,7 @@ test.describe('explore / trending', () => {
 
         try {
             await page.goto(urls.explore, { waitUntil: 'domcontentloaded' });
-            const seed = await bnApi(page, 'POST', '/posts', { type: 'text', content: `follow journey ${stamp} #${tag}` });
+            const seed = await bnApi(page, 'POST', '/posts', { type: 'text', content: `Early run along the waterfront this morning ${stamp} #${tag}` });
             expect(seed.status, `seed tagged post failed: ${JSON.stringify(seed.data)}`).toBe(201);
             postId = Number((seed.data as { id?: number }).id);
             await drainQueue(['buddynext_async_index_hashtags', 'buddynext_async_index_post']);

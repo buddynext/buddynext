@@ -43,7 +43,7 @@ test.describe.configure({ mode: 'serial' });
 const MEMBER = 'bn_e2e_woo_grant_member';
 const ADMIN = process.env.BN_TEST_USER ?? 'varundubey';
 const TIER_SLUG = 'e2e-woo-grant-tier';
-const PRODUCT_TITLE = 'E2E Woo Grant Product';
+const PRODUCT_TITLE = 'Annual Supporter Pass';
 
 type Fixture = {
     memberId: number;
@@ -85,7 +85,7 @@ test.beforeAll(async () => {
         $tiers   = new \\BuddyNextPro\\Membership\\MembershipTierService();
         $tier_id = $tiers->create_tier(
             '${TIER_SLUG}',
-            'E2E Woo Grant Tier',
+            'Supporter Plan',
             '',
             0,
             array( 'status' => 'active', 'billing_type' => 'one_time', 'price' => 9.99, 'currency' => 'USD' )
@@ -162,14 +162,14 @@ test("J-975 admin sees the granted plan, its WooCommerce source, and the sale on
     });
 
     const currentPlan = page.locator('.bn-member-membership-list');
-    await expect(currentPlan, 'the WooCommerce order granted the mapped plan').toContainText('E2E Woo Grant Tier');
+    await expect(currentPlan, 'the WooCommerce order granted the mapped plan').toContainText('Supporter Plan');
     await expect(currentPlan, 'the plan is attributed to WooCommerce, not silently read as an admin comp').toContainText(
         'WooCommerce'
     );
 
     const billing = page.locator('.bn-member-billing-table');
     await expect(billing, "this member's payment history renders the sale").toBeVisible();
-    await expect(billing).toContainText('E2E Woo Grant Tier');
+    await expect(billing).toContainText('Supporter Plan');
     await expect(billing).toContainText('9.99');
 
     // EFFECT (parity): what the screen shows is the row the order wrote. One active

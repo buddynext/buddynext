@@ -85,8 +85,8 @@ test.describe('feed / post edit + delete', () => {
 
     test('J-77 edit persists after reload; delete removes it from feed and API', async ({ authenticatedPage: page }, testInfo) => {
         const stamp = Date.now().toString().slice(-6);
-        const original = `j77 original ${stamp}`;
-        const edited = `j77 EDITED ${stamp}`;
+        const original = `Does anyone know a good plumber near Elm Street ${stamp}`;
+        const edited = `Update: found a plumber, thanks everyone for the tips ${stamp}`;
 
         try {
             await composePost(page, original);
@@ -154,8 +154,8 @@ test.describe('feed / post edit + delete', () => {
     test('J-77 member  -  a member edits their own post and deletes it, both persisting after reload', async ({ page }) => {
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
-        const original = `j77m member original ${stamp}`;
-        const edited = `j77m member EDITED ${stamp}`;
+        const original = `Selling a lightly used bike, make me an offer ${stamp}`;
+        const edited = `Bike sold, thanks for all the messages ${stamp}`;
 
         try {
             await composePost(page, original);

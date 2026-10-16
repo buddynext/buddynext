@@ -38,7 +38,7 @@ test.describe('feed / content warning reveal', () => {
 
     test('J-516 a content-warning post reveals its content on click', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j516 sensitive ${stamp}`;
+        const content = `Long hospital recovery story, read only if you want to ${stamp}`;
         let postId = 0;
         let nonce = '';
 
@@ -92,7 +92,7 @@ test.describe('feed / content warning reveal', () => {
      */
     test('J-516 member  -  a member reader reveals a content-warning post', async ({ authenticatedPage: page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j516m member-reveal ${stamp}`;
+        const content = `Hard week after losing our old dog, sharing for support ${stamp}`;
         let postId = 0;
         let nonce = '';
         let reader: MemberSession | null = null;

@@ -35,7 +35,7 @@ test.describe('spaces / notification pref (J-622)', () => {
         const stamp = Date.now().toString().slice(-8);
         // Owner is an active member on create, so the membership row that stores
         // the pref exists.
-        const space = await createSpaceApi(page, { name: `E2E Notif ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Baking Swap Meet ${stamp}`, type: 'open' });
 
         try {
             // Set to a non-default value.
@@ -70,7 +70,7 @@ test.describe('spaces / notification pref (J-622)', () => {
     }) => {
         const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E NotifMember ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Cycling Touring Group ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {

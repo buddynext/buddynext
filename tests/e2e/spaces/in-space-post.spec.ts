@@ -36,8 +36,8 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E InPost ${stamp}`, type: 'open' });
-        const body = `space post ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
+        const space = await createSpaceApi(page, { name: `Amateur Astronomers ${stamp}`, type: 'open' });
+        const body = `Clear skies tonight, telescopes out at the park ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
         let postId = 0;
 
         try {
@@ -80,13 +80,13 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Pin ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Vinyl Record Hunters ${stamp}`, type: 'open' });
         let postId = 0;
 
         try {
             const create = await bnApi(page, 'POST', '/posts', {
                 type: 'text',
-                content: `no pin ${stamp}`,
+                content: `Found a great record shop downtown ${stamp}`,
                 space_id: space.id,
             });
             expect(create.status, `create failed: ${JSON.stringify(create.data)}`).toBe(201);

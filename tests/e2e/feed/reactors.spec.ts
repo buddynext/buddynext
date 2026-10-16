@@ -24,7 +24,7 @@ test.describe('feed / see reactors', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j504 react-to-me ${stamp}`;
+        const body = `Finished my first half marathon today ${stamp}`;
 
         try {
             // A fresh own post starts at zero reactions, so the summary strip is

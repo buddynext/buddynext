@@ -147,7 +147,7 @@ export async function createSpaceApi(
     const res = await bnApi(page, 'POST', '/spaces', {
         name: opts.name,
         type: opts.type ?? 'open',
-        description: opts.description ?? 'e2e throwaway space',
+        description: opts.description ?? 'A friendly place for neighbors to share tips and meet up',
     });
     expect(res.status, `create space failed: ${JSON.stringify(res.data)}`).toBe(201);
     const row = res.data as SpaceRow;

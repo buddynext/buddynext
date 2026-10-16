@@ -56,7 +56,7 @@ test.describe('spaces / space analytics (J-820)', () => {
 		expect(await storedSetting(), 'toggle shows on but the option is not stored').toBe(true);
 
 		const stamp = Date.now().toString().slice(-8);
-		const space = await createSpaceApi(page, { name: `E2E Analytics ${stamp}`, type: 'open' });
+		const space = await createSpaceApi(page, { name: `Neighborhood Watch Updates ${stamp}`, type: 'open' });
 		const adminUrl = `/spaces/${space.slug}/admin/`;
 
 		try {

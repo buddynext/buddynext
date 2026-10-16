@@ -49,8 +49,8 @@ test.describe('feed / comments', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j17 comment-host ${stamp}`;
-        const body = `e2e comment ${stamp}`;
+        const postBody = `Just adopted a rescue puppy and she is already running the house ${stamp}`;
+        const body = `Congratulations, she looks adorable ${stamp}`;
 
         try {
             await page.goto(urls.feed);
