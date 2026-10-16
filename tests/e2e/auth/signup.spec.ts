@@ -117,7 +117,8 @@ test.describe('auth / signup', () => {
         // A member-type (or any radio) registration field: pick its first option.
         const radio = form.locator('input[type="radio"][data-bn-reg-field]').first();
         if (await radio.count()) {
-            await radio.check({ force: true });
+            // click, not check: WebKit reports a styled-hidden radio as unchanged after check().
+            await radio.click({ force: true });
         }
         const challenge = form.locator('#bn-signup-challenge');
         if (await challenge.isVisible().catch(() => false)) {

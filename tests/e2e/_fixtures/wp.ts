@@ -279,7 +279,7 @@ export async function settleOverlays(page: Page): Promise<void> {
             }
             const style = document.createElement('style');
             style.id = 'bn-e2e-overlay-css';
-            style.textContent = '#wpconsent-container, .wpconsent-banner, .cmplz-cookiebanner { display: none !important; }';
+            style.textContent = '#wpconsent-container, .wpconsent-banner, .cmplz-cookiebanner, .wb-gam-moment { display: none !important; }';
             (document.head || document.documentElement).appendChild(style);
         };
         if (document.readyState === 'loading') {

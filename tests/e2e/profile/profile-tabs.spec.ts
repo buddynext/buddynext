@@ -145,6 +145,8 @@ async function clearProfileValues(uid: number): Promise<void> {
 async function clearProfileValuesHard(uid: number): Promise<void> {
     const p = await tablePrefix();
     await wp(['db', 'query', `DELETE FROM ${p}bn_profile_values WHERE user_id=${uid}`]);
+    // Raw SQL skips the profile cache; on a site with an object cache the old values would still render.
+    await wp(['cache', 'flush']);
 }
 
 async function connectionCount(status: string): Promise<number> {

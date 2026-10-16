@@ -1,8 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
+import { softSkip } from '../_fixtures/precondition';
 import { urls } from '../_fixtures/selectors';
 import { readRestNonce, openMemberSession, restGet, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
-import { dbCount, tablePrefix } from '../_fixtures/wp';
+import { dbCount, ensureUser, tablePrefix, wp } from '../_fixtures/wp';
 import type { Page } from '@playwright/test';
 
 /**
@@ -29,6 +29,9 @@ import type { Page } from '@playwright/test';
  * wp-admin Appeals tab TABLE (not a REST list).
  */
 const ADMIN_LOGIN = 'varundubey';
+// A member of its own: suspending a shared seeded member (alice) left her suspended
+// for every later journey whenever this test timed out before its finally block ran.
+const APPELLANT = 'bn_e2e_appellant';
 
 /** Read the current user's id off the post-composer's Interactivity context. */
 async function readComposerUserId(page: Page): Promise<number> {
@@ -47,6 +50,19 @@ async function readComposerUserId(page: Page): Promise<number> {
 }
 
 test.describe('moderation / appeal (J-61)', () => {
+    test.beforeAll(async () => {
+        const id = await ensureUser(APPELLANT, `${APPELLANT}@example.com`, 'Theo Marsh');
+        await wp(['user', 'meta', 'update', String(id), 'bn_onboarding_complete', '1']);
+    });
+
+    // Runs even after a timeout tore the page down, unlike the REST call in the test's finally.
+    test.afterAll(async () => {
+        await wp([
+            'eval',
+            `$u = get_user_by( 'login', '${APPELLANT}' ); $a = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) ); if ( $u ) { ( new \\BuddyNext\\Moderation\\ModerationService() )->unsuspend_user( $u->ID, (int) $a[0] ); }`,
+        ]).catch(() => undefined);
+    });
+
     test('a suspended member can appeal, and the admin appeals queue shows it', async ({ authenticatedPage: page, browser }, testInfo) => {
         await page.goto(urls.feed, { waitUntil: 'domcontentloaded' });
         const adminNonce = await readRestNonce(page).catch(() => '');
@@ -55,11 +71,7 @@ test.describe('moderation / appeal (J-61)', () => {
             return;
         }
 
-        const target = await resolveOtherMemberSlug(page, ADMIN_LOGIN);
-        if (!target) {
-            softSkip(testInfo, 'No other usable member found to suspend for the appeal journey.');
-            return;
-        }
+        const target = APPELLANT;
 
         let member: MemberSession | null = null;
         let targetUserId = 0;
