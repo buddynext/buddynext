@@ -91,8 +91,8 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
         expect(tierA.id, 'Plan A should be created').toBeGreaterThan(0);
         expect(tierB.id, 'Plan B should be created').toBeGreaterThan(0);
 
-        selfMemberId = await ensureUser(MEMBER_SELF, `${MEMBER_SELF}@example.test`, 'E2E Plan Change Member');
-        adminTargetId = await ensureUser(MEMBER_ADMIN, `${MEMBER_ADMIN}@example.test`, 'E2E Plan Change Admin Target');
+        selfMemberId = await ensureUser(MEMBER_SELF, `${MEMBER_SELF}@example.test`, 'Noah Patel');
+        adminTargetId = await ensureUser(MEMBER_ADMIN, `${MEMBER_ADMIN}@example.test`, 'Emma Collins');
 
         await wp([
             'eval',

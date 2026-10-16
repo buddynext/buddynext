@@ -54,7 +54,7 @@ let memberId = 0;
 test.beforeAll(async () => {
     test.skip(process.env.BN_PRO !== '1', 'Conditional logic ships in BuddyNext Pro.');
 
-    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Cond Member');
+    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Aiden Ross');
     // A fresh member is routed to onboarding first; this journey is about the edit form.
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
     const out = await php(`

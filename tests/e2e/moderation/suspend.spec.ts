@@ -16,7 +16,7 @@ import { dbSeedingAvailable } from '../_fixtures/db.fixture';
  * moderation/appeal.spec.ts.
  */
 const TARGET_LOGIN = 'bn_e2e_suspendee';
-const TARGET_NAME = 'BN E2E Suspendee';
+const TARGET_NAME = 'Marcus Hale';
 const MEMBERS_ADMIN = '/wp-admin/admin.php?page=buddynext-members';
 
 /** Active (not lifted, not expired) suspension rows for one member, or for the site when uid is 0. */

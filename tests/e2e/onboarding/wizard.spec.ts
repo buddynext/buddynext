@@ -72,7 +72,7 @@ test.describe('onboarding / wizard', () => {
         // selectors match no markup: the wizard is `.bn-ob-step` + actions.skipStep/nextStep,
         // templates/onboarding/index.php). Walk a throwaway member who has NOT onboarded.
         const login = 'bn_e2e_onboardee';
-        const uid = await ensureUser(login, `${login}@example.com`, 'BN E2E Onboardee');
+        const uid = await ensureUser(login, `${login}@example.com`, 'Sofia Reyes');
         expect(uid, `member "${login}" must exist`).toBeGreaterThan(0);
         const reset = async (): Promise<void> => {
             await deleteUserMeta(uid, 'bn_onboarding_complete');

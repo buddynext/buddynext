@@ -101,7 +101,7 @@ test.describe('profile / owner gate', () => {
     test('Edit Profile / cover pencil do NOT render on a non-owner profile for a plain MEMBER viewer (mobile 390px)', async ({ page }) => {
         const owner = process.env.BN_TEST_USER ?? 'varundubey';
         const viewerLogin = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
-        const viewerId = await ensureUser(viewerLogin, 'bn_e2e_target@example.com', 'BN E2E Target');
+        const viewerId = await ensureUser(viewerLogin, 'bn_e2e_target@example.com', 'Jordan Ellis');
         expect(viewerId, `member "${viewerLogin}" must exist`).toBeGreaterThan(0);
         await setUserMeta(viewerId, 'bn_onboarding_complete', '1');
 

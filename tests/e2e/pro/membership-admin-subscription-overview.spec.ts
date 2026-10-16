@@ -51,7 +51,7 @@ test.describe('pro / admin subscription overview', () => {
         );
         expect(tierId, 'the E2E overview test tier should be created').toBeGreaterThan(0);
 
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Overview Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Lucas Moreau');
         await wp([
             'eval',
             `global $wpdb; $wpdb->delete( $wpdb->prefix . 'bn_subscriptions', array( 'user_id' => ${memberId} ) );` +

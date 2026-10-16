@@ -43,7 +43,7 @@ test.describe('pro / pricing page lists real plans', () => {
     let pricingUrl = '';
 
     test.beforeAll(async () => {
-        await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Pricing Member');
+        await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Olivia Grant');
 
         const stamp = Date.now().toString().slice(-6);
         tierName = `Supporter Plan ${stamp}`;

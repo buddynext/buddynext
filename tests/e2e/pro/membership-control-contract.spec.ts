@@ -67,7 +67,7 @@ test.describe('pro / membership control contract', () => {
     let memberId = 0;
 
     test.beforeAll(async () => {
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'T19 Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Sam Okafor');
 
         // Finish onboarding, or every hub 302s to /onboarding/ and the panel is
         // never reached. A fresh user is exactly the state a "no subscription"

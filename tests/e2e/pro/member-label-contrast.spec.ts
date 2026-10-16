@@ -96,7 +96,7 @@ let memberId = 0;
 
 test.beforeAll(async () => {
     test.skip(process.env.BN_PRO !== '1', 'Member labels ship in BuddyNext Pro.');
-    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Label Contrast');
+    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Ruby Hughes');
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
 });
 

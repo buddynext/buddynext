@@ -63,7 +63,7 @@ test.describe('pro / renewal reminder sweep warns a member', () => {
         );
         expect(tierId, 'the E2E renewal test tier should be created').toBeGreaterThan(0);
 
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Renewal Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Daniel Kim');
 
         // A comp (source 'manual') expiring inside the smallest default offset
         // (1 day) with reminder_sent_days NULL, so the sweep is guaranteed to find

@@ -96,7 +96,7 @@ test.describe('profile / edit', () => {
      */
     test('J-34-member a plain member sets their own display name (mobile 390px)', async ({ page }) => {
         const bLogin = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
-        const bId = await ensureUser(bLogin, 'bn_e2e_target@example.com', 'BN E2E Target');
+        const bId = await ensureUser(bLogin, 'bn_e2e_target@example.com', 'Jordan Ellis');
         expect(bId, `member "${bLogin}" must exist`).toBeGreaterThan(0);
         await setUserMeta(bId, 'bn_onboarding_complete', '1');
 

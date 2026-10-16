@@ -131,6 +131,10 @@ export async function ensureUser(
             '--porcelain',
         ]);
         id = parseInt(out.trim(), 10);
+    } else {
+        // Keep the name the journey asks for: members seeded under an older
+        // name would otherwise keep it on every card and in every thread.
+        await wp(['user', 'update', String(id), `--display_name=${displayName}`]).catch(() => undefined);
     }
     // A journey member stands in for a real, settled member, who has confirmed
     // their email. On a site that requires verification an unverified fixture is

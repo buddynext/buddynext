@@ -70,12 +70,12 @@ import { bnApi } from '../_fixtures/spaces-rest';
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 
 // A dedicated private member for J-746 (must be a non-admin so the gate bites).
 const P_LOGIN = 'bn_e2e_private';
 const P_EMAIL = 'bn_e2e_private@example.com';
-const P_NAME = 'BN E2E Private';
+const P_NAME = 'Priya Nair';
 
 const memberUrl = (login: string) => `/members/${login}/`;
 

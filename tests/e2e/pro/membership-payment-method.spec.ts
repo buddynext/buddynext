@@ -47,7 +47,7 @@ test.describe('pro / change payment method without support', () => {
         );
         expect(tierId, 'the E2E portal test tier should be created').toBeGreaterThan(0);
 
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Portal Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Grace Liu');
         await wp([
             'eval',
             `( new \\BuddyNext\\Onboarding\\OnboardingService() )->finish( ${memberId} );` +

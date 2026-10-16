@@ -54,11 +54,11 @@ test.describe('pro / gate content behind membership', () => {
         );
         expect(tierId, 'the E2E content-gate test tier should be created').toBeGreaterThan(0);
 
-        lockedId = await ensureUser(MEMBER_LOCKED, `${MEMBER_LOCKED}@example.test`, 'E2E Content Locked Member');
+        lockedId = await ensureUser(MEMBER_LOCKED, `${MEMBER_LOCKED}@example.test`, 'Chloe Adams');
         unlockedId = await ensureUser(
             MEMBER_UNLOCKED,
             `${MEMBER_UNLOCKED}@example.test`,
-            'E2E Content Unlocked Member'
+            'Isaac Bennett'
         );
 
         await wp([

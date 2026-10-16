@@ -65,7 +65,7 @@ test.beforeAll(async () => {
     const wcActive = (await php("echo defined('WC_VERSION') ? '1' : '0';")) === '1';
     test.skip(!wcActive, 'WooCommerce is not active on this harness — there is nothing to grant a plan from.');
 
-    const memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Woo Grant Member');
+    const memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Laura Mendes');
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
 
     const out = await php(`

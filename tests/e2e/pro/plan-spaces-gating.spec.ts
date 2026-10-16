@@ -57,8 +57,8 @@ test.describe('pro / one plan many spaces (J-821)', () => {
 		// Pro's subscription-backed capability resolution). Then finish onboarding, or
 		// /spaces/{slug}/ 302s them to the wizard and the access checks test the
 		// redirect instead of the gate.
-		await ensureUser(M_BASIC, `${M_BASIC}@example.test`, 'E2E Basic Member');
-		await ensureUser(M_PREMIUM, `${M_PREMIUM}@example.test`, 'E2E Premium Member');
+		await ensureUser(M_BASIC, `${M_BASIC}@example.test`, 'Zoe Turner');
+		await ensureUser(M_PREMIUM, `${M_PREMIUM}@example.test`, 'Ethan Walsh');
 		// Resolve the members BY LOGIN inside PHP (never interpolate a JS id, which
 		// can arrive NaN and silently subscribe user 0 — the member then exists but
 		// holds no plan and is denied everywhere).

@@ -54,7 +54,7 @@ import { restList, idsOf } from '../_fixtures/effects';
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 
 const memberUrl = (login: string) => `/members/${login}/`;
 const repliesUrl = (login: string) => `/members/${login}/replies/`;

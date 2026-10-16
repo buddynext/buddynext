@@ -49,7 +49,7 @@ const TIER_SLUG = 'bn-e2e-advfield-tier';
 test.beforeAll(async () => {
     test.skip(process.env.BN_PRO !== '1', 'Advanced profile field types ship in BuddyNext Pro.');
 
-    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Adv Field Member');
+    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Tara Singh');
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
 
     // Advanced field TYPES (number_advanced, date_extended, location,

@@ -42,7 +42,7 @@ test.describe('pro / stripe checkout', () => {
     let pricingUrl = '';
 
     test.beforeAll(async () => {
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Stripe Checkout Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Hannah Brooks');
 
         tierId = Number(
             await wp([

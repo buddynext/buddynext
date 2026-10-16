@@ -47,7 +47,7 @@ import { bnApi } from '../_fixtures/spaces-rest';
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 const SEED_AVATAR = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-avatar.png';
 const SEED_COVER = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-cover.jpg';
 

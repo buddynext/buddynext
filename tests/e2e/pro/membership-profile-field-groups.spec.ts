@@ -70,9 +70,9 @@ test.describe('pro / gate profile field groups behind a plan', () => {
         restrictedId = await ensureUser(
             MEMBER_RESTRICTED,
             `${MEMBER_RESTRICTED}@example.test`,
-            'E2E Groups Restricted Member'
+            'Leo Fischer'
         );
-        defaultId = await ensureUser(MEMBER_DEFAULT, `${MEMBER_DEFAULT}@example.test`, 'E2E Groups Default Member');
+        defaultId = await ensureUser(MEMBER_DEFAULT, `${MEMBER_DEFAULT}@example.test`, 'Ava Thompson');
 
         await wp([
             'eval',

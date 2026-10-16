@@ -71,8 +71,8 @@ test.describe('pro / gate the Explore feed behind a plan', () => {
         expect(restrictedTierId, 'the restricted tier should be created').toBeGreaterThan(0);
         expect(includedTierId, 'the included tier should be created').toBeGreaterThan(0);
 
-        restrictedId = await ensureUser(MEMBER_RESTRICTED, `${MEMBER_RESTRICTED}@example.test`, 'E2E Explore Restricted Member');
-        includedId = await ensureUser(MEMBER_INCLUDED, `${MEMBER_INCLUDED}@example.test`, 'E2E Explore Included Member');
+        restrictedId = await ensureUser(MEMBER_RESTRICTED, `${MEMBER_RESTRICTED}@example.test`, 'Mia Santos');
+        includedId = await ensureUser(MEMBER_INCLUDED, `${MEMBER_INCLUDED}@example.test`, 'Ryan Cole');
 
         await wp([
             'eval',

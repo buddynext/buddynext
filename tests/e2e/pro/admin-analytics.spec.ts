@@ -47,7 +47,7 @@ test.describe('J-976 revenue report', () => {
     test.beforeAll(async () => {
         test.skip(process.env.BN_PRO !== '1', 'Billing screen ships in BuddyNext Pro.');
 
-        const memberId = await ensureUser(`${ENGAGEMENT_MEMBER}_rev`, `${ENGAGEMENT_MEMBER}_rev@example.test`, 'Revenue Payer');
+        const memberId = await ensureUser(`${ENGAGEMENT_MEMBER}_rev`, `${ENGAGEMENT_MEMBER}_rev@example.test`, 'Nina Volkova');
 
         const out = await php(`
             global $wpdb;
@@ -140,7 +140,7 @@ test.describe('J-977 per-member engagement', () => {
     test.beforeAll(async () => {
         test.skip(process.env.BN_PRO !== '1', 'The Insights admin screen ships in BuddyNext Pro.');
 
-        displayName = 'E2E Engagement Member';
+        displayName = 'Owen Price';
         memberId = await ensureUser(ENGAGEMENT_MEMBER, `${ENGAGEMENT_MEMBER}@example.test`, displayName);
 
         // top_members() ranks by raw event COUNT across every actor on the site, so

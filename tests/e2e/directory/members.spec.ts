@@ -70,7 +70,7 @@ test.describe('directory / members', () => {
     const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 
     test.beforeAll(async () => {
-        const bId = await ensureUser(B_LOGIN, 'bn_e2e_target@example.com', 'BN E2E Target');
+        const bId = await ensureUser(B_LOGIN, 'bn_e2e_target@example.com', 'Jordan Ellis');
         expect(bId, `member "${B_LOGIN}" must exist`).toBeGreaterThan(0);
         await setUserMeta(bId, 'bn_onboarding_complete', '1');
     });

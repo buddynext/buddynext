@@ -62,7 +62,7 @@ async function menuItems(page: Page, postId: number): Promise<string[]> {
 }
 
 test.beforeAll(async () => {
-    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Cards Member');
+    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Maya Lopez');
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
     await wp(['user', 'set-role', String(memberId), 'author']);
     // Sites that require email verification hold unverified members' posts.
