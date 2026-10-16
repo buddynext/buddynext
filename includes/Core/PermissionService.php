@@ -64,6 +64,9 @@ class PermissionService {
 		// rather than tied to manage_options. Distinct from delete-any-post on
 		// purpose: a moderator removes, they do not rewrite what a member said.
 		'buddynext-feed/edit-any-post'      => 'admin',
+		// Post and end site-wide announcements. A space announcement follows the
+		// space role instead (buddynext-moderate-space).
+		'buddynext-feed/announce'           => 'admin',
 		'buddynext-feed/schedule-post'      => 'member',
 		'buddynext-spaces/create'           => 'member',
 		'buddynext-spaces/join'             => 'member',

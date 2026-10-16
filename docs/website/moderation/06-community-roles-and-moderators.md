@@ -27,6 +27,7 @@ Each role can do everything the role below it can, plus more. The table lists th
 | Suspend a member with no end date | No | No | Yes |
 | Decide appeals | No | No | Yes |
 | Edit any member's post, comment or profile | No | No | Yes |
+| Post and end site-wide announcements | No | No | Yes |
 | Promote members to moderator | No | No | Yes |
 
 Above all three sits the **site administrator** - the WordPress admin who installed BuddyNext. The site administrator can do everything an admin can, and two things no one else can: grant the top **admin** role to someone, and change what each role is allowed to do (see [Settings, below](#tune-what-each-role-can-do)).

@@ -108,7 +108,7 @@ Narrower hooks around announcements, members-only posts, the feed templates, and
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_can_create_announcement` | filter | A user tries to create an announcement. Default: a site admin, or a moderator of the target space. | `bool $can_announce, int $user_id, int $space_id` (`$space_id` is `0` for a site-wide announcement) |
+| `buddynext_can_create_announcement` | filter | A user tries to create an announcement. Default: the `buddynext-feed/announce` ability for a site-wide announcement (community admins), or a moderator of the target space. | `bool $can_announce, int $user_id, int $space_id` (`$space_id` is `0` for a site-wide announcement) |
 | `buddynext_announcement_published` | action | An announcement goes live, after the cached home feeds have been flushed so it shows on screens now. | `int $post_id, int $user_id, int $space_id` (`0` = site-wide) |
 | `buddynext_post_publicly_shareable` | filter | BuddyNext decides whether a post may be shared outside the community (the share modal and public link). | `bool $shareable, array $post` |
 | `buddynext_members_only_has_access` | filter | A members-only post is rendered for a viewer who is not its author. Default: any logged-in viewer has access. Return `false` to lock it for plan-limited members. | `bool $has_access, int $viewer_id, array $post_ctx` (`id`, `user_id`, `space_id`, `members_only`) |

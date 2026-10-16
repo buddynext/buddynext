@@ -89,6 +89,23 @@ class ModeratorPowersTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Site-wide announcements are a community admin power; moderators and
+	 * members are refused.
+	 *
+	 * @return void
+	 */
+	public function test_site_wide_announcements_follow_the_announce_ability(): void {
+		$posts = new \BuddyNext\Feed\PostService();
+		$data  = array(
+			'type'    => 'announcement',
+			'content' => 'The community garden opens for spring planting this Saturday at 9am.',
+		);
+		$this->assertWPError( $posts->create( $this->member( 'moderator' ), $data ) );
+		$this->assertWPError( $posts->create( $this->member( 'member' ), $data ) );
+		$this->assertNotWPError( $posts->create( $this->member( 'admin' ), $data ) );
+	}
+
+	/**
 	 * An owner can hand appeals to moderators through the role map.
 	 *
 	 * @return void

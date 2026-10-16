@@ -49,6 +49,7 @@ class RolesTab extends AdminPageBase {
 				'buddynext-feed/schedule-post'   => __( 'Schedule posts', 'buddynext' ),
 				'buddynext-feed/delete-any-post' => __( "Delete anyone's post or comment", 'buddynext' ),
 				'buddynext-feed/edit-any-post'   => __( "Edit anyone's post or comment", 'buddynext' ),
+				'buddynext-feed/announce'        => __( 'Post site-wide announcements', 'buddynext' ),
 			),
 			// 'buddynext-spaces/manage-settings' and '…/delete' are intentionally
 			// omitted: they are inherently owner-scoped (SpaceService::update()/

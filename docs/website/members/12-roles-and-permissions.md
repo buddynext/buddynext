@@ -33,7 +33,7 @@ Pick the level you want for each row and save. The change takes effect immediate
 
 The actions are grouped so related controls sit together:
 
-- **Posts and activity** - create posts, comment on posts, react, share and vote, schedule posts, delete anyone's post or comment, and edit anyone's post or comment.
+- **Posts and activity** - create posts, comment on posts, react, share and vote, schedule posts, delete anyone's post or comment, edit anyone's post or comment, and post site-wide announcements.
 - **Spaces** - create spaces, join spaces, post inside spaces, and moderate spaces.
 - **Connections** - follow members and send connection requests.
 - **Profiles** - edit anyone's profile.

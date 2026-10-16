@@ -65,7 +65,7 @@ There are **three** lists in code and they are not the same list. Know which one
 
 Enforcement is the list that matters for `buddynext_can()`. The other two only decide whether an owner gets a control for it.
 
-The role map holds 28 generic capabilities:
+The role map holds 29 generic capabilities:
 
 | Capability | Default required role |
 |------------|----------------------|
@@ -75,6 +75,7 @@ The role map holds 28 generic capabilities:
 | `buddynext-feed/create-post` | `member` |
 | `buddynext-feed/delete-own-post` | `member` |
 | `buddynext-feed/delete-any-post` | `moderator` (any post or comment; on the Roles tab as "Delete anyone's post or comment") |
+| `buddynext-feed/announce` | `admin` (post and end site-wide announcements; "Post site-wide announcements"; a space announcement follows the space role) |
 | `buddynext-feed/edit-any-post` | `admin` (edit any post or comment, hide a post, edit past the edit window; "Edit anyone's post or comment") |
 | `buddynext-feed/schedule-post` | `member` |
 | `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes; not in `Abilities::CATALOG`) |
@@ -97,7 +98,7 @@ The role map holds 28 generic capabilities:
 | `buddynext-moderation/resolve-appeals` | `admin` (read and decide appeals; "Decide appeals"; still passed through `buddynext_can_resolve_appeals`) |
 | `buddynext-community/assign-roles` | `admin` (change members' community roles on the Community Admin panel; fixed, not on the Roles tab) |
 
-> **A site-wide moderator holds day-to-day moderation authority without being a WordPress administrator.** Clearing the queue, removing any post or comment, issuing strikes and warnings, suspending for a set time, shadow-banning, bulk moderation, and seeing posts from suspended or shadow-banned members are all moderator powers. Open-ended suspensions, appeals, editing other members' content and role changes default to the community `admin` role; an owner can move the first three on the Roles tab. Granting the community Admin role itself, and site configuration in wp-admin, stay with WordPress administrators (`manage_options`).
+> **A site-wide moderator holds day-to-day moderation authority without being a WordPress administrator.** Clearing the queue, removing any post or comment, issuing strikes and warnings, suspending for a set time, shadow-banning, bulk moderation, and seeing posts from suspended or shadow-banned members are all moderator powers. Open-ended suspensions, appeals, editing other members' content, site-wide announcements and role changes default to the community `admin` role; an owner can move all but role changes on the Roles tab. Granting the community Admin role itself, and site configuration in wp-admin, stay with WordPress administrators (`manage_options`).
 
 > **`buddynext-spaces/create` has one option that overrides its default.** The legacy Spaces-tab "who can create spaces" setting is folded into the role map: when `get_option( 'buddynext_space_creation_role' )` is `'admin'`, the map default flips from `member` to `admin`. The default (`'member'`) leaves the map untouched. It is applied inside `role_map()` so it composes with the Roles and Capabilities tab instead of fighting it.
 

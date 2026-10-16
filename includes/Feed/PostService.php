@@ -393,21 +393,16 @@ class PostService {
 				);
 			}
 
-			// Site admins may announce site-wide; a space owner/moderator may announce
-			// to their OWN space. The whole decision is filterable so a site can
-			// delegate the capability differently.
-			$can_announce = user_can( $user_id, 'manage_options' )
-				|| ( $ann_space_id > 0 && function_exists( 'buddynext_service' )
-					&& (bool) buddynext_service( 'permissions' )->can(
-						$user_id,
-						'buddynext-moderate-space',
-						array( 'space_id' => $ann_space_id )
-					) );
+			// Site-wide needs the announce ability (community admins by default); a
+			// space announcement needs the space owner/moderator role. Filterable below.
+			$can_announce = $ann_space_id > 0
+				? buddynext_can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $ann_space_id ) )
+				: buddynext_can( $user_id, 'buddynext-feed/announce' );
 
 			/**
 			 * Filter whether a user may create an announcement.
 			 *
-			 * @param bool $can_announce Default: site admin, or a moderator of the target space.
+			 * @param bool $can_announce Default: the buddynext-feed/announce ability site-wide, or a moderator of the target space.
 			 * @param int  $user_id      Author.
 			 * @param int  $ann_space_id Target space (0 = site-wide).
 			 */

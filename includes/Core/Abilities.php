@@ -29,6 +29,7 @@ class Abilities {
 		'buddynext-feed/delete-own-post',
 		'buddynext-feed/delete-any-post',
 		'buddynext-feed/edit-any-post',
+		'buddynext-feed/announce',
 		'buddynext-feed/schedule-post',
 		// Enforced by PermissionService::ROLE_MAP but registered nowhere, so it could not be
 		// granted or revoked through the Abilities API or the Roles tab, and RolesTab::handle_save()
