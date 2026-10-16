@@ -78,6 +78,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Improve  - The readme lists the minimum version of each integration plugin and what happens on an older one.
 * Fix      - Finishing a word while @mention or #hashtag suggestions are still loading no longer opens a stale list or inserts "null" into a post or comment.
 * Fix      - Logged-out visitors see the real poll percentages instead of 0% on every option.
+* Fix      - On sites with an object cache, a member who votes, comments, reacts or edits a post sees the change straight away after reloading the feed, a space or a profile.
 * Fix      - On sites with an object cache (Redis, Memcached), a blog post's card shows its edited title and a featured image added after publishing straight away, not hours later.
 * Fix      - Explore space cards show the space cover, the same picture as the Spaces directory.
 * Fix      - A shared badge shows its artwork and what it was awarded for in the feed, including badges shared before this update.

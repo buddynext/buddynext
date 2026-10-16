@@ -56,6 +56,18 @@ class FeedListener implements ListenerInterface {
 		// 30s page-1 TTL expires: navigate away and back inside that window and the post the
 		// member just reported is sitting there again, which reads as the report not working.
 		add_action( 'buddynext_report_created', array( $this, 'bust_reporter' ), 10, 4 );
+
+		// The member who votes, comments, reacts or edits reloads and must see it. Their
+		// page-1 feeds (home, space, profile: all carry their version) were served from
+		// the 30s cache, so a vote read "0 votes" and a deleted comment came back.
+		// Other viewers still catch up within the TTL, as for any count.
+		add_action( 'buddynext_poll_voted', fn( $post_id, $option_id, $user_id ) => $this->cache->invalidate_writer( (int) $user_id ), 10, 3 );
+		add_action( 'buddynext_comment_created', fn( $comment_id, $object_type, $object_id, $user_id ) => $this->cache->invalidate_writer( (int) $user_id ), 10, 4 );
+		add_action( 'buddynext_reaction_added', fn( $object_type, $object_id, $user_id ) => $this->cache->invalidate_writer( (int) $user_id ), 10, 3 );
+		add_action( 'buddynext_reaction_removed', fn( $object_type, $object_id, $user_id ) => $this->cache->invalidate_writer( (int) $user_id ), 10, 3 );
+		foreach ( array( 'buddynext_comment_deleted', 'buddynext_comment_updated', 'buddynext_comment_restored', 'buddynext_post_updated' ) as $hook ) {
+			add_action( $hook, array( $this, 'bust_writer' ), 10, 2 );
+		}
 	}
 
 	/**

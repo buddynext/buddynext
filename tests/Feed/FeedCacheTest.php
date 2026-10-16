@@ -102,4 +102,45 @@ class FeedCacheTest extends \WP_UnitTestCase {
 		$this->assertNotSame( $a, $b );
 		$this->assertNotSame( $a, $c );
 	}
+
+	/**
+	 * The member who votes, comments, reacts or edits sees it on reload: every one of
+	 * their page-1 feeds (home, space, profile) is rebuilt, not served from the 30s cache.
+	 *
+	 * @return void
+	 */
+	public function test_actor_page_1_feeds_rebuild_after_their_interaction(): void {
+		$actor = 11;
+		$hooks = array(
+			'buddynext_poll_voted'        => array( 5, 2, $actor ),
+			'buddynext_comment_created'   => array( 9, 'post', 5, $actor ),
+			'buddynext_comment_deleted'   => array( 9, $actor ),
+			'buddynext_comment_updated'   => array( 9, $actor ),
+			'buddynext_comment_restored'  => array( 9, $actor ),
+			'buddynext_reaction_added'    => array( 'post', 5, $actor, 'like' ),
+			'buddynext_reaction_removed'  => array( 'post', 5, $actor, 'like' ),
+			'buddynext_post_updated'      => array( 5, $actor, array() ),
+		);
+		( new FeedListener( $this->cache ) )->register();
+
+		foreach ( $hooks as $hook => $args ) {
+			$keys = array(
+				$this->cache->home_page_1_key( $actor, 20 ),
+				$this->cache->space_page_1_key( 3, $actor, 20 ),
+				$this->cache->profile_page_1_key( 4, $actor, 20 ),
+			);
+			do_action( $hook, ...$args );
+			$this->assertNotSame( $keys[0], $this->cache->home_page_1_key( $actor, 20 ), "$hook: home feed" );
+			$this->assertNotSame( $keys[1], $this->cache->space_page_1_key( 3, $actor, 20 ), "$hook: space feed" );
+			$this->assertNotSame( $keys[2], $this->cache->profile_page_1_key( 4, $actor, 20 ), "$hook: profile feed" );
+		}
+
+		foreach ( array_keys( $hooks ) as $hook ) {
+			remove_all_actions( $hook );
+		}
+		remove_all_actions( 'buddynext_post_created' );
+		remove_all_actions( 'buddynext_post_deleted' );
+		remove_all_actions( 'buddynext_space_posts_changed' );
+		remove_all_actions( 'buddynext_report_created' );
+	}
 }
