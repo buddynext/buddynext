@@ -24,6 +24,10 @@ import { createSpaceApi, deleteSpaceApi, bnApi, getSpace, type SpaceRow } from '
  * server-side `bn_search`) and deletes it in `finally`.
  */
 test.describe('spaces / directory controls (J-670..J-672)', () => {
+    // The PWA service worker answers REST fetches on WebKit, and requests it handles
+    // never reach page.route(): the forced failure below would not be forced.
+    test.use({ serviceWorkers: 'block' });
+
     // Per-spec selectors (not the shared dict).
     const search = 'input[name="bn_search"]';
     const errorBlock = '[data-bn-error]';
@@ -31,7 +35,7 @@ test.describe('spaces / directory controls (J-670..J-672)', () => {
     const grid = '[data-bn-sd-grid]';
     const card = '.bn-sd-card';
     const cardFoot = '.bn-sd-card__foot';
-    const listReq = '**/buddynext/v1/spaces?**'; // directory list fetch (has a query string)
+    const listReq = /\/buddynext\/v1\/spaces\?/; // directory list fetch (has a query string); a glob's ? is not a literal ?
 
     test('J-670 a failed directory load shows the error block; Retry recovers it', async ({
         authenticatedPage: page,
