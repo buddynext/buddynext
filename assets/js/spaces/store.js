@@ -1581,6 +1581,29 @@ var storeInstance = store( 'buddynext/spaces', {
 		 *
 		 * @param {Event} event input/focus on the search box.
 		 */
+		/**
+		 * Unlink the space's discussion (DELETE /spaces/{id}/discussion). The forum,
+		 * its posts and the space's members stay; new forum activity stops arriving.
+		 */
+		unlinkDiscussion: async function ( event ) {
+			var btn     = event && event.target && event.target.closest( 'button' );
+			var spaceId = btn && btn.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+			var ok = await bnConfirmDialog( {
+				title:   t( 'unlinkDiscussionTitle', 'Unlink this discussion?' ),
+				message: t( 'unlinkDiscussionBody', 'The discussion and its posts stay where they are, and everyone who is a member of this space stays a member. New discussion posts stop appearing in this space. You can turn Discussion on again later to create or link one.' ),
+				ok:      t( 'unlinkDiscussionOk', 'Unlink' ),
+			} );
+			if ( ! ok ) { return; }
+			btn.disabled = true;
+			var res = await restFetch( '/spaces/' + spaceId + '/discussion', { method: 'DELETE', nonce: resolveNonce() } );
+			if ( res.ok ) {
+				bnReloadWithToast( t( 'discussionUnlinked', 'Discussion unlinked.' ), 'success' );
+				return;
+			}
+			btn.disabled = false;
+		},
+
 		discussionSearch: function ( event ) {
 			var input = event && event.target && event.target.closest( '[data-bn-discussion-search]' );
 			if ( ! input ) { return; }

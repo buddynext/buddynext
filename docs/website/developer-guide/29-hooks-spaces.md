@@ -135,6 +135,7 @@ Narrower hooks around space rendering, fields, limits, and cleanup. Same table s
 |---|---|---|---|
 | `buddynext_prepare_space` | filter | A space is hydrated for any payload (single-space REST responses and list rows), so add-ons can attach computed fields on every surface. | `array $space, array $row` (`$row` is the raw `bn_spaces` row) |
 | `buddynext_space_fields_saved` | action | Space custom fields are saved, for any field. Unlike `buddynext_space_updated`, which only fires when a searchable public field changed. | `int $space_id, array $saved` (field key => REST value) |
+| `buddynext_space_discussion_unlinked` | action | A space owner unlinks the space discussion (Jetonomy active). The forum and the space members are kept; only the link is cleared. Since 1.2.6. | `int $space_id, int $forum_id` |
 | `buddynext_sanitize_space_required_ability` | filter | A space's required ability is about to be saved. Return the validated slug, `''` to clear, or `null` to ignore. | `string\|null $ability, mixed $raw, int $space_id, int $user_id` |
 | `buddynext_plan_limit_error` | filter | A pinned-post or space-creation cap is reached and the `WP_Error` is built. Listeners must return a `WP_Error`. | `WP_Error $error, string $limit_key, int $limit, int $user_id` (`$limit_key` is `pinned_posts` or `spaces_created`) |
 | `buddynext_membership_count` | filter | A member's active-membership count (the "My spaces" badge) is read. Keep it consistent with `buddynext_membership_rows`. | `int $count, int $user_id` |

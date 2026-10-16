@@ -668,6 +668,35 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Unlink removes the link only: the forum and its people stay, the space keeps
+	 * its members, the tab turns off, and the next enable offers a fresh choice.
+	 *
+	 * @return void
+	 */
+	public function test_unlink_keeps_forum_and_members_and_reopens_the_choice(): void {
+		global $wpdb;
+		$owner    = self::factory()->user->create();
+		$member   = self::factory()->user->create();
+		$space_id = (int) ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Trail runners', 'slug' => 'trail-' . wp_rand( 1000, 9999 ), 'type' => 'open' ) );
+		buddynext_service( 'space_members' )->join( $space_id, $member );
+		$this->bridge->apply_discussion_choice( $space_id, true, 0, $owner );
+		$forum_id = $this->bridge->space_discussion_status( $space_id )['forum_id'];
+
+		wp_set_current_user( $owner );
+		$request = new \WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $space_id . '/discussion' );
+		$request->set_url_params( array( 'id' => $space_id ) );
+		$status = $this->bridge->rest_unlink_discussion( $request )->get_data();
+
+		$this->assertFalse( $status['has_discussion'] );
+		$this->assertFalse( $this->bridge->space_discussion_enabled( $space_id ), 'The Discussion tab turns off.' );
+		$this->assertSame( $forum_id, (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE id = %d", $forum_id ) ), 'The forum is kept.' );
+		$this->assertTrue( buddynext_service( 'space_members' )->is_member( $space_id, $member ), 'Space members stay.' );
+
+		$this->bridge->apply_discussion_choice( $space_id, true, 0, $owner );
+		$this->assertNotSame( $forum_id, $this->bridge->space_discussion_status( $space_id )['forum_id'], 'Enabling again creates or links afresh, not the old link.' );
+	}
+
+	/**
 	 * Only someone who can manage the space's settings may read or change it.
 	 *
 	 * @return void

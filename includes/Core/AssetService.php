@@ -1469,6 +1469,10 @@ class AssetService {
 					// Space feed search + join request. Read by spaces/store.js via
 					// t() but never injected, so they always rendered English.
 					'discussionSearchFailed'          => __( 'Could not search discussions. Check your connection and try again.', 'buddynext' ),
+					'unlinkDiscussionTitle'           => __( 'Unlink this discussion?', 'buddynext' ),
+					'unlinkDiscussionBody'            => __( 'The discussion and its posts stay where they are, and everyone who is a member of this space stays a member. New discussion posts stop appearing in this space. You can turn Discussion on again later to create or link one.', 'buddynext' ),
+					'unlinkDiscussionOk'              => __( 'Unlink', 'buddynext' ),
+					'discussionUnlinked'              => __( 'Discussion unlinked.', 'buddynext' ),
 					'joinRequested'                   => __( 'Request sent: you’ll be notified when it’s approved.', 'buddynext' ),
 				),
 				// Parent-picker page size, injected so the JS "keep typing to narrow"

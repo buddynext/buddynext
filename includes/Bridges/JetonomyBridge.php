@@ -1632,15 +1632,36 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Unlink a space's Discussion (owner opt-out). Clears the link only; the
-	 * Jetonomy discussion and all its content are preserved and can be re-linked
-	 * later. Never deletes anyone's posts.
+	 * Unlink a space's Discussion (owner opt-out). Clears the link only: the
+	 * Jetonomy discussion, its posts and its members stay as they are, and the
+	 * space keeps every member it has, including those copied in from the forum
+	 * (members joined a community; dropping them silently is worse than keeping
+	 * them). New forum activity and members stop reaching the space, and queued
+	 * copy/grant batches stop on their own link check. Turning Discussion back on
+	 * offers the create-or-link choice again.
 	 *
 	 * @param int $space_id BuddyNext space ID.
 	 * @return void
 	 */
 	public function unlink_space_discussion( int $space_id ): void {
-		update_space_meta( absint( $space_id ), 'jetonomy_forum_id', 0 );
+		$space_id = absint( $space_id );
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 ) {
+			return;
+		}
+		update_space_meta( $space_id, 'jetonomy_forum_id', 0 );
+		unset( self::$forum_space_memo[ $forum_id ] );
+		$this->invalidate_space_caches( $forum_id );
+
+		/**
+		 * Fires after a space's Discussion is unlinked from its Jetonomy forum.
+		 *
+		 * @since 1.2.6
+		 *
+		 * @param int $space_id BuddyNext space ID.
+		 * @param int $forum_id Jetonomy forum that was linked.
+		 */
+		do_action( 'buddynext_space_discussion_unlinked', $space_id, $forum_id );
 	}
 
 	/**
@@ -2433,6 +2454,11 @@ class JetonomyBridge {
 						),
 					),
 				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'rest_unlink_discussion' ),
+					'permission_callback' => array( $this, 'rest_discussion_manage_permission' ),
+				),
 			)
 		);
 
@@ -2604,6 +2630,18 @@ class JetonomyBridge {
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
+		return new \WP_REST_Response( $this->space_discussion_status( $space_id ), 200 );
+	}
+
+	/**
+	 * DELETE /spaces/{id}/discussion - unlink the space's discussion, return the new status.
+	 *
+	 * @param \WP_REST_Request $request Request (id).
+	 * @return \WP_REST_Response
+	 */
+	public function rest_unlink_discussion( \WP_REST_Request $request ): \WP_REST_Response {
+		$space_id = (int) $request['id'];
+		$this->unlink_space_discussion( $space_id );
 		return new \WP_REST_Response( $this->space_discussion_status( $space_id ), 200 );
 	}
 

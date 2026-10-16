@@ -74,6 +74,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 Fixes for mentions, polls, Explore covers, linked forums and moderation reasons, plus a release gate that ties every change below to a test. Lockstep with BuddyNext Pro 1.2.6 - install and test both together.
 
 * New      - Developers can send every BuddyNext Log in link and guest gate to their own login page with the buddynext_login_url filter.
+* New      - Space owners can unlink a space's discussion; the forum and every space member stay, and Discussion can be turned on again later.
 * Improve  - Explore shows each integration activity as its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.
 * Improve  - The readme lists the minimum version of each integration plugin and what happens on an older one.
 * Fix      - Finishing a word while @mention or #hashtag suggestions are still loading no longer opens a stale list or inserts "null" into a post or comment.
