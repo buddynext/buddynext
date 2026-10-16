@@ -15,11 +15,12 @@
  *
  * WP root defaults to the buddynext-dev.local site; override with BN_WP_PATH.
  */
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { resolveBaseUrl } from './resolve-base-url.cjs';
 import { join } from 'node:path';
 
 const execFileAsync = promisify(execFile);
@@ -250,7 +251,8 @@ export async function deletePage(id: number): Promise<void> {
  * cookie notice (dismissed by the `bn_cookie_consent` cookie, which J-810 covers on
  * its own) and whatever consent plugin the local site runs (WPConsent on the model
  * site: `#wpconsent-container` intercepted every click on the sticky save bar in
- * the 2026-10-12 gate, 15 specs). Third-party banners are hidden by CSS because they
+ * the 2026-10-12 gate, 15 specs; it renders in a shadow root, so the host
+ * `#wpconsent-root` is what CSS can hide). Third-party banners are hidden by CSS because they
  * are not the surface under test; ours is accepted through its real cookie.
  */
 let _consentVersion: string | null = null;
@@ -268,7 +270,9 @@ async function consentVersion(): Promise<string> {
 }
 
 export async function settleOverlays(page: Page): Promise<void> {
-    const origin = new URL(page.url() || process.env.BN_BASE_URL || 'http://localhost').origin;
+    // A fresh page is about:blank, whose origin is "null": fall back to the site.
+    const here = page.url();
+    const origin = new URL(here.startsWith('http') ? here : resolveBaseUrl() ?? 'http://localhost').origin;
     await page.context().addCookies([
         { name: 'bn_cookie_consent', value: await consentVersion(), url: origin },
     ]);
@@ -279,7 +283,7 @@ export async function settleOverlays(page: Page): Promise<void> {
             }
             const style = document.createElement('style');
             style.id = 'bn-e2e-overlay-css';
-            style.textContent = '#wpconsent-container, .wpconsent-banner, .cmplz-cookiebanner, .wb-gam-moment { display: none !important; }';
+            style.textContent = '#wpconsent-root, #wpconsent-container, .wpconsent-banner, .cmplz-cookiebanner, .wb-gam-moment { display: none !important; }';
             (document.head || document.documentElement).appendChild(style);
         };
         if (document.readyState === 'loading') {
@@ -345,4 +349,16 @@ export async function satisfyRequiredFields(login: string | number): Promise<voi
             `   $data[ $key ] = str_contains( $type, 'multi' ) ? array( $first ) : ( in_array( $type, array( 'select', 'radio' ), true ) ? $first : 'e2e' ); }` +
             ` if ( $data ) { $r = $svc->save_profile( $u->ID, $data ); echo is_wp_error( $r ) ? 'err:' . $r->get_error_message() : 'ok:' . implode( ',', array_keys( $data ) ); } else { echo 'none'; }`,
     ]).catch(() => undefined);
+}
+
+/**
+ * Open a wp-admin list-table row that WordPress folded on a narrow screen.
+ * Below 782px core hides every cell after the primary one behind its "Show more
+ * details" button (`.toggle-row`), the owner taps it, and so must the journey.
+ */
+export async function expandRow(row: Locator): Promise<void> {
+    const toggle = row.locator('.toggle-row').first();
+    if ((await toggle.isVisible().catch(() => false)) && !(await row.evaluate((r) => r.classList.contains('is-expanded')))) {
+        await toggle.click();
+    }
 }

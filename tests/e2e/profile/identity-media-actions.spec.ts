@@ -10,6 +10,7 @@ import {
     wp,
 } from '../_fixtures/wp';
 import { bnApi } from '../_fixtures/spaces-rest';
+import { resolveBaseUrl } from '../_fixtures/resolve-base-url.cjs';
 
 /**
  * Wave-1 PROFILE identity/media actions — EFFECT-BASED (J-707..J-709).
@@ -48,8 +49,11 @@ const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
 const B_NAME = 'Jordan Ellis';
-const SEED_AVATAR = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-avatar.png';
-const SEED_COVER = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-cover.jpg';
+// Real images the plugin ships, served by the site under test. A URL on a host that does
+// not resolve kept WebKit's load event waiting forever (every iPhone/iPad run timed out).
+const SITE = new URL(resolveBaseUrl() ?? 'http://localhost').origin;
+const SEED_AVATAR = `${SITE}/wp-content/plugins/buddynext/assets/images/pwa/icon-192.png`;
+const SEED_COVER = `${SITE}/wp-content/plugins/buddynext/assets/demo/covers/cover-01.png`;
 
 const editUrl = (login: string) => `/members/${login}/edit/`;
 const memberUrl = (login: string) => `/members/${login}/`;

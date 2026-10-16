@@ -34,6 +34,24 @@ export default defineConfig({
     reporter: [['html', { outputFolder: 'tests/e2e/_report', open: 'never' }], ['list']],
     use: {
         baseURL: resolveBaseUrl(),
+        // A third-party cookie banner (WPConsent on the model site) is not under test. On a
+        // phone it covers the bottom third of the screen and takes every click there, so each
+        // browser starts with the choice already made (all categories declined).
+        storageState: {
+            cookies: [
+                {
+                    name: 'wpconsent_preferences',
+                    value: JSON.stringify({ essential: true, statistics: false, marketing: false }), // raw JSON, as WPConsent writes it
+                    domain: new URL(resolveBaseUrl() ?? 'http://localhost').hostname,
+                    path: '/',
+                    expires: -1,
+                    httpOnly: false,
+                    secure: false,
+                    sameSite: 'Lax',
+                },
+            ],
+            origins: [],
+        },
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',

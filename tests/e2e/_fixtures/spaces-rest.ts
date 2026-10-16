@@ -19,6 +19,7 @@
  */
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { expect } from './auth.fixture';
+import { settleOverlays } from './wp';
 
 const NS = '/wp-json/buddynext/v1';
 
@@ -187,6 +188,7 @@ export async function loginContextAs(
 ): Promise<{ ctx: BrowserContext; page: Page }> {
     const ctx = await browser.newContext({ baseURL });
     const page = await ctx.newPage();
+    await settleOverlays(page);
     await page.goto(`/?autologin=${encodeURIComponent(login)}`, { waitUntil: 'domcontentloaded' });
     const cookies = await ctx.cookies();
     expect(

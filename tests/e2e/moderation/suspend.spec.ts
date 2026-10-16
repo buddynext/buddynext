@@ -1,6 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from "../_fixtures/precondition";
-import { dbCount, ensureUser, tablePrefix, wp } from '../_fixtures/wp';
+import { dbCount, ensureUser, expandRow, tablePrefix, wp } from '../_fixtures/wp';
 import type { Locator, Page } from '@playwright/test';
 import { dbSeedingAvailable } from '../_fixtures/db.fixture';
 
@@ -43,6 +43,7 @@ async function liftTarget(uid: number): Promise<void> {
  * soft-skipped on every run.
  */
 async function openRowMenu(page: Page, row: Locator): Promise<Locator> {
+    await expandRow(row);
     await row.locator('.bn-more-btn').click();
     // more-menu.js moves the open dropdown to <body> (so the table cannot clip it): look
     // for it on the page, not inside the row.
@@ -107,6 +108,7 @@ test.describe('moderation / suspend + restore', () => {
 
         // EFFECT: the list agrees: the row now reads Suspended and offers Unsuspend.
         await page.goto(`${MEMBERS_ADMIN}&status=suspended&s=${TARGET_LOGIN}`, { waitUntil: 'domcontentloaded' });
+        await expandRow(targetRow(page));
         await expect(targetRow(page).locator('.bn-badge', { hasText: 'Suspended' }).first()).toBeVisible({ timeout: 10_000 });
     });
 
@@ -121,6 +123,7 @@ test.describe('moderation / suspend + restore', () => {
         // label matched nothing, so this journey soft-skipped on every run.
         const firstRow = page.locator('tbody tr').first();
         let visible = false;
+        await expandRow(firstRow);
         if (await firstRow.locator('.bn-more-btn').isVisible().catch(() => false)) {
             const firstMenu = await openRowMenu(page, firstRow);
             visible = await firstMenu.getByRole('menuitem', { name: 'Unsuspend', exact: true }).isVisible().catch(() => false);
@@ -162,6 +165,7 @@ test.describe('moderation / suspend + restore', () => {
 
         // EFFECT: the member is back in the default list as Active.
         await page.goto(`${MEMBERS_ADMIN}&s=${TARGET_LOGIN}`, { waitUntil: 'domcontentloaded' });
+        await expandRow(targetRow(page));
         await expect(targetRow(page).locator('.bn-badge', { hasText: 'Active' }).first()).toBeVisible({ timeout: 10_000 });
     });
 });

@@ -6,6 +6,7 @@ import { userId, ensureUser, setUserMeta, getUserMeta, deleteUserMeta, tablePref
 import { bnApi } from '../_fixtures/spaces-rest';
 import { listOf, restList } from '../_fixtures/effects';
 import type { Page } from '@playwright/test';
+import { resolveBaseUrl } from '../_fixtures/resolve-base-url.cjs';
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 
@@ -257,7 +258,8 @@ test.describe('directory / members', () => {
         const targetLogin = A_LOGIN;
         const targetId = await userId(targetLogin);
         expect(targetId, `target "${targetLogin}" must exist`).toBeGreaterThan(0);
-        const seedCover = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-directory-cover.jpg';
+        // A shipped image on the site under test; an unresolvable host hangs WebKit's load.
+        const seedCover = `${new URL(resolveBaseUrl() ?? 'http://localhost').origin}/wp-content/plugins/buddynext/assets/demo/covers/cover-02.png`;
         const origCover = await getUserMeta(targetId, 'buddynext_cover_url');
         await setUserMeta(targetId, 'buddynext_cover_url', seedCover);
 

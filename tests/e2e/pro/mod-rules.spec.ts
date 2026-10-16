@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, restPost } from '../_fixtures/feed-wave1.helpers';
-import { dbCount, dbScalar, tablePrefix } from '../_fixtures/wp';
+import { dbCount, dbScalar, expandRow, tablePrefix } from '../_fixtures/wp';
 import { restJson } from '../_fixtures/effects';
 
 /**
@@ -58,6 +58,7 @@ test.describe('pro / moderation rules', () => {
             await page.goto(rulesAdminUrl);
             const row = page.locator(ruleRow(ruleName));
             await expect(row).toBeVisible({ timeout: 10_000 });
+            await expandRow(row);
             await expect(row.locator('.bn-badge[data-tone="success"]')).toBeVisible();
 
             // EFFECT: the bn_mod_rules row carries exactly what the form named (type,
