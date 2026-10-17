@@ -70,7 +70,7 @@ The role map holds 29 generic capabilities:
 | Capability | Default required role |
 |------------|----------------------|
 | `buddynext-profile/edit-own` | `member` |
-| `buddynext-profile/edit-any` | `admin` |
+| `buddynext-profile/edit-any` | `admin` (the edit-profile page, `PUT /users/{id}/profile`, and a member's self-select member type; types with self-select off stay with site admins) |
 | `buddynext-profile/view` | none (public) |
 | `buddynext-feed/create-post` | `member` |
 | `buddynext-feed/delete-own-post` | `member` |

@@ -77,6 +77,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * New      - Space owners can unlink a space's discussion; the forum and every space member stay, and Discussion can be turned on again later.
 * Improve  - Community moderators can remove any comment, bulk-moderate and review posts from suspended or shadow-banned members without being WordPress administrators.
 * Improve  - Open-ended suspensions, appeals, editing other members' posts and comments, site-wide announcements and role changes are now permissions you can hand to community admins or moderators under Roles & Capabilities.
+* Improve  - Anyone you give "Edit anyone's profile" can now also change a member's self-chosen member type and open the profile editor from a page using the members shortcode.
 * Improve  - Explore shows each integration activity as its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.
 * Improve  - The readme lists the minimum version of each integration plugin and what happens on an older one.
 * Fix      - Finishing a word while @mention or #hashtag suggestions are still loading no longer opens a stale list or inserts "null" into a post or comment.
@@ -93,6 +94,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Fix      - Warnings and strikes sent from the app, an integration or the API need a reason, the same as in the moderation dialog.
 * Fix      - The Docs link on the Get Started, Automation and Integration Settings screens opens the matching help page.
 * Fix      - On phones the Spaces directory shows featured spaces once, in the strip at the top, instead of again at the bottom of the page.
+* Fix      - Changing your member type on the edit profile page no longer warns about unsaved changes when you leave; the type already saved.
 * Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
 * Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
 * Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.

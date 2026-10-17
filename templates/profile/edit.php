@@ -737,8 +737,8 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				);
 			}
 
-			// Member-type self-select — only when self-select types exist (own
-			// profile only; this template renders for the owner). Wired to the
+			// Member-type self-select — only when self-select types exist (the owner,
+			// or an "Edit anyone's profile" holder acting for them). Wired to the
 			// buddynext/profile store's setMemberType action, which PUTs to
 			// /users/{id}/member-type; the endpoint enforces the self_select gate.
 			$bn_mt_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
@@ -783,7 +783,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					);
 				} elseif ( ! empty( $bn_self_types ) ) {
 					$bn_mt_html  = '<label class="bn-ep-label bn-sr-only" for="bn-ep-member-type">' . esc_html__( 'Member type', 'buddynext' ) . '</label>';
-					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-user-id="' . esc_attr( (string) $user_id ) . '" data-wp-on--change="actions.setMemberType">';
+					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-bn-autosave data-user-id="' . esc_attr( (string) $user_id ) . '" data-wp-on--change="actions.setMemberType">';
 					$bn_mt_html .= '<option value="">' . esc_html__( 'None', 'buddynext' ) . '</option>';
 					foreach ( $bn_self_types as $bn_t ) {
 						$bn_mt_html .= sprintf(

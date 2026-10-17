@@ -98,7 +98,7 @@ class ShortcodeService {
 	 *
 	 * When no user slug is present, shows the member directory.
 	 * When a slug is resolved, routes by bn_profile_action:
-	 *   edit        → profile/edit.php  (owner or admin only; others redirected)
+	 *   edit        → profile/edit.php  (owner or edit-any holder; others redirected)
 	 *   connections → profile/connections.php
 	 *   (default)   → profile/view.php
 	 *
@@ -134,13 +134,14 @@ class ShortcodeService {
 					return $this->login_required_html();
 				}
 
-				// Only the profile owner or an admin may access the edit page.
-				if ( get_current_user_id() !== $user_id && ! current_user_can( 'manage_options' ) ) {
+				// The profile owner, or someone holding "Edit anyone's profile" (the
+				// same gate as profile/edit.php and the REST route).
+				if ( get_current_user_id() !== $user_id && ! buddynext_can( get_current_user_id(), 'buddynext-profile/edit-any' ) ) {
 					wp_safe_redirect( PageRouter::profile_url( $user_id ) );
 					exit;
 				}
 
-				return $this->capture( 'profile/edit.php', array( 'user_id' => get_current_user_id() ) );
+				return $this->capture( 'profile/edit.php', array( 'user_id' => $user_id ) );
 
 			case 'connections':
 				return $this->capture( 'profile/connections.php', array( 'user_id' => $user_id ) );

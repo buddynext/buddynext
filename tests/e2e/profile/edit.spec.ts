@@ -346,7 +346,7 @@ test.describe('profile / edit', () => {
      * (usermeta bn_member_type). A round-trip to a second option and back proves
      * the assign path writes a concrete slug; the second hop restores the account.
      */
-    test('C2 member-type self-select assigns and persists (DB confirm)', async ({ authenticatedPage: page }, testInfo) => {
+    test('J-992 member-type self-select assigns, persists and leaves no unsaved-changes warning (DB confirm)', async ({ authenticatedPage: page }, testInfo) => {
         await page.goto(urls.memberEdit(user));
         await expect(page.locator(sel.app)).toBeVisible();
 
@@ -378,6 +378,8 @@ test.describe('profile / edit', () => {
         try {
             // Hop 1 — change to a DIFFERENT option; the change auto-saves.
             await Promise.all([waitAssign(), select.selectOption(target)]);
+            // The select saved itself, so leaving must not warn about unsaved changes.
+            await expect(page.locator('.bn-ep-form-shell')).not.toHaveAttribute('data-bn-dirty', '1');
             await page.goto(urls.memberEdit(user));
             await expect(page.locator('#bn-ep-member-type')).toHaveValue(target);
             expect(

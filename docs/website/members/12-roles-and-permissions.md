@@ -36,7 +36,7 @@ The actions are grouped so related controls sit together:
 - **Posts and activity** - create posts, comment on posts, react, share and vote, schedule posts, delete anyone's post or comment, edit anyone's post or comment, and post site-wide announcements.
 - **Spaces** - create spaces, join spaces, post inside spaces, and moderate spaces.
 - **Connections** - follow members and send connection requests.
-- **Profiles** - edit anyone's profile.
+- **Profiles** - edit anyone's profile, including the member type they could pick for themselves. Types you hand out (self-select off) stay with WordPress administrators.
 - **Moderation** - report content, review the report queue, resolve reports, issue strikes, suspend members, suspend members with no end date, and decide appeals.
 
 Grouping them this way means you can, for example, open up posting and commenting to all members while keeping every moderation power to your trusted team.

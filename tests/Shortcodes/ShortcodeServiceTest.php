@@ -101,4 +101,27 @@ class ShortcodeServiceTest extends \WP_UnitTestCase {
 		$output = do_shortcode( '[buddynext_feed limit="5"]' );
 		$this->assertNotEmpty( $output );
 	}
+
+	/**
+	 * A community admin holding "Edit anyone's profile" opening another
+	 * member's edit page through [buddynext_people] edits THAT member, not
+	 * their own profile (card 10322714806, permissions program phase 4).
+	 */
+	public function test_people_shortcode_edit_opens_the_member_being_edited(): void {
+		\BuddyNext\Core\Installer::run();
+		( new \BuddyNext\MemberTypes\MemberTypeService( new \BuddyNext\Core\CacheService() ) )->create( array( 'slug' => 'beekeeper', 'name' => 'Beekeeper', 'self_select' => 1 ) );
+		$member = self::factory()->user->create( array( 'role' => 'subscriber', 'user_login' => 'ruth_hives' ) );
+		$editor = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		update_user_meta( $editor, 'bn_community_role', 'admin' );
+		update_user_meta( $editor, 'bn_email_verified', '1' );
+		wp_set_current_user( $editor );
+		set_query_var( 'bn_user_slug', 'ruth_hives' );
+		set_query_var( 'bn_resolved_user_id', $member );
+		set_query_var( 'bn_profile_action', 'edit' );
+
+		$html = do_shortcode( '[buddynext_people]' );
+
+		$this->assertStringContainsString( 'data-user-id="' . $member . '"', $html );
+		$this->assertStringNotContainsString( 'data-user-id="' . $editor . '"', $html );
+	}
 }
