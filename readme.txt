@@ -96,6 +96,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Fix      - On phones the Spaces directory shows featured spaces once, in the strip at the top, instead of again at the bottom of the page.
 * Fix      - Changing your member type on the edit profile page no longer warns about unsaved changes when you leave; the type already saved.
 * Fix      - With email verification on, a site administrator now reads as verified in the app and the verification status check, matching every page that already let them through.
+* Fix      - Search no longer shows deleted members, including ones removed by another plugin, and the update clears search entries for members, posts and spaces deleted before this version.
 * Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
 * Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
 * Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.

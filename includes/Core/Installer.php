@@ -460,8 +460,10 @@ class Installer {
 	 *      the table was never created on such hosts and spaces could not be made
 	 *      (card 10384673862). 100 characters is the cap the space form has always
 	 *      enforced; the full column stays indexed, so A-Z sort stays filesort-free.
+	 *  69: drop bn_search_index rows whose member, post or space no longer exists
+	 *      (card 10415529534). Data only; no table change.
 	 */
-	private const SCHEMA_VERSION = 68;
+	private const SCHEMA_VERSION = 69;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1135,6 +1137,10 @@ class Installer {
 		// purge like maybe_purge_orphan_interest_meta above — not a schema change
 		// (card 10264292715).
 		self::maybe_purge_orphan_reactions();
+
+		// v69: drop search rows for members, posts and spaces deleted before
+		// deletes cleaned the index (card 10415529534).
+		self::maybe_purge_orphan_search_rows();
 
 		// v22: backfill bn_spaces.last_active_at from each space's newest post
 		// (one grouped query). New activity keeps it current via PostService.
@@ -2111,6 +2117,52 @@ class Installer {
 	private static function maybe_purge_orphan_interest_meta(): void {
 		delete_metadata( 'user', 0, 'bn_interests', '', true );
 		delete_metadata( 'user', 0, 'bn_onboarding_interests', '', true );
+	}
+
+	/**
+	 * One-time cleanup: delete bn_search_index rows whose member, post or space no
+	 * longer exists.
+	 *
+	 * Sites that removed members (or posts, spaces) before deletes cleaned the index
+	 * kept those rows, so search linked to deleted things and paid one user lookup
+	 * per missing member. Today's deletes remove their row; this drains the old
+	 * ones. Partner types (discussion, job, ...) are left to their bridge. Batched
+	 * select-then-delete by primary key so a large index is never locked long.
+	 * Idempotent. Version-gated DATA purge (card 10415529534).
+	 *
+	 * @return void
+	 */
+	private static function maybe_purge_orphan_search_rows(): void {
+		global $wpdb;
+
+		$index   = $wpdb->prefix . 'bn_search_index';
+		$targets = array(
+			'user'  => array( $wpdb->users, 'ID' ),
+			'post'  => array( $wpdb->prefix . 'bn_posts', 'id' ),
+			'space' => array( $wpdb->prefix . 'bn_spaces', 'id' ),
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- table names are core; $id_ph is a counted "%d,..." list; every value is bound.
+		foreach ( $targets as $type => list( $table, $key ) ) {
+			do {
+				$ids   = array_map(
+					'intval',
+					$wpdb->get_col(
+						$wpdb->prepare(
+							"SELECT s.id FROM {$index} s LEFT JOIN {$table} t ON t.{$key} = s.object_id
+							 WHERE s.object_type = %s AND t.{$key} IS NULL LIMIT 1000",
+							$type
+						)
+					)
+				);
+				$found = count( $ids );
+				if ( $found ) {
+					$id_ph = implode( ',', array_fill( 0, $found, '%d' ) );
+					$wpdb->query( $wpdb->prepare( "DELETE FROM {$index} WHERE id IN ({$id_ph})", $ids ) );
+				}
+			} while ( $found >= 1000 );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**

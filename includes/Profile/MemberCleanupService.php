@@ -242,7 +242,7 @@ class MemberCleanupService {
 
 			// The member's own row plus everything they authored.
 			'bn_search_index'            => array(
-				'where' => "author_id = %d OR ( object_type = 'member' AND object_id = %d )",
+				'where' => "author_id = %d OR ( object_type = 'user' AND object_id = %d )",
 				'sweep' => true,
 			),
 
