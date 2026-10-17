@@ -225,7 +225,7 @@ Type definitions are public to read and admin to write. Assignment to a user is 
 | PUT | `/member-types/{slug}` | require_admin | Update a member type; `{slug}` matches `[a-z0-9-]+` |
 | DELETE | `/member-types/{slug}` | require_admin | Delete a member type |
 | GET | `/users/{id}/member-type` | public | Read a user's assigned type |
-| PUT | `/users/{id}/member-type` | can_set_user_type | Assign a type to a user (`type_slug`; fires `buddynext_member_type_assigned`) |
+| PUT | `/users/{id}/member-type` | can_set_user_type | Assign a type to a user (`type_slug`; fires `buddynext_member_type_assigned`). The member, or a holder of `buddynext-profile/edit-any` acting for them, may pick a self-select type; only a site admin assigns a type with self-select off |
 | DELETE | `/users/{id}/member-type` | require_admin | Remove a user's type (fires `buddynext_member_type_removed`) |
 
 ## Profile-slug check and member directory

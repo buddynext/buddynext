@@ -11,6 +11,8 @@ import {
     setUserMeta,
     wp,
 } from '../_fixtures/wp';
+import { restList } from '../_fixtures/effects';
+import { openMemberSession, restGet } from '../_fixtures/feed-wave1.helpers';
 
 /**
  * J-31 profile connection request + J-32 profile message button.
@@ -45,7 +47,7 @@ import {
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 
 const memberUrl = (login: string) => `/members/${login}/`;
 
@@ -99,7 +101,7 @@ test.describe('profile / connections + messages (effect-based)', () => {
         await resetPair(A_ID, B_ID);
     });
 
-    test('J-31 connection request writes a pending row', async ({ page }) => {
+    test('J-31 connection request writes a pending row', async ({ page, browser }) => {
         await loginAs(page, A_LOGIN);
         await page.goto(memberUrl(B_LOGIN));
         const hero = page.locator(HERO).first();
@@ -118,6 +120,25 @@ test.describe('profile / connections + messages (effect-based)', () => {
 
         // Effect: a pending connection row exists (server truth).
         expect(await pendingCount(), 'connect must create a pending wp_bn_connections row').toBe(1);
+
+        // EFFECT: the same status route the hero hydrates from says "pending-sent" for A.
+        const status = await restList(page, `/users/${B_ID}/connection/status`);
+        expect(status.status, 'GET /users/{B}/connection/status').toBe(200);
+        expect(
+            ((status.data ?? {}) as { connection?: { state?: string } }).connection?.state,
+            'A reads the request as sent and pending'
+        ).toBe('pending-sent');
+
+        // EFFECT: the OTHER member sees it as a request waiting for them, not just A's button.
+        const b = await openMemberSession(browser, B_LOGIN);
+        try {
+            const inbox = await restGet<{ ids?: unknown[] }>(b.request, b.nonce, '/me/connection-requests');
+            expect(inbox.status, 'GET /me/connection-requests as B').toBe(200);
+            const ids = (inbox.body.ids ?? []).map(Number);
+            expect(ids, 'A appears in B\'s incoming connection requests').toContain(A_ID);
+        } finally {
+            await b.ctx.close();
+        }
 
         // Reload — the server-truth "Pending" state renders and Connect is gone.
         await page.reload();
@@ -175,6 +196,28 @@ test.describe('profile / connections + messages (effect-based)', () => {
                 page.getByText(await displayName(B_ID), { exact: false }).first(),
                 'the opened thread names the member'
             ).toBeVisible();
+
+            const p = await tablePrefix();
+            const pairThreads = () =>
+                dbCount(
+                    `SELECT COUNT(*) FROM (SELECT conversation_id FROM ${p}mvs_conversation_participants ` +
+                        `WHERE user_id IN (${A_ID}, ${B_ID}) GROUP BY conversation_id ` +
+                        `HAVING COUNT(DISTINCT user_id) = 2) t JOIN ${p}mvs_conversations c ON c.id = t.conversation_id AND c.type = 'direct'`
+                );
+            // Opening the composer must not drop an empty thread into B's inbox
+            // (MessagesData::can_message_result); the first send creates it.
+            await purgeDirectConversation();
+            expect(await pairThreads(), 'opening Message alone creates no thread').toBe(0);
+
+            const input = page.locator('.bn-dm-composer__input').first();
+            await expect(input, 'the composer is ready for the first message').toBeVisible();
+            const text = `Hi! Are you joining the photo walk on Saturday? ${Date.now().toString().slice(-5)}`;
+            await input.fill(text);
+            await input.press('Enter');
+            await expect(page.locator(DM_THREAD).first()).toContainText(text, { timeout: 10_000 });
+
+            // EFFECT: the first send created exactly one 1:1 conversation with A and B.
+            await expect.poll(pairThreads, { timeout: 10_000 }).toBe(1);
         } finally {
             // A freshly opened empty 1:1 is transient state — remove it so reruns
             // start from a clean inbox.

@@ -224,7 +224,7 @@ if (
 	// Show the button only when NOT already following.
 	$byline_show_follow = ! $GLOBALS['bn_byline_follow_memo'][ $bn_follow_key ];
 }
-$is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_options' ) );
+$bn_can_end_announcement = $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/announce' );
 
 // The Edit affordance must respect the same window the REST update path enforces
 // (PostService::update): a non-admin author may only edit within
@@ -240,7 +240,7 @@ $is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_option
 // same mistake, so a post held for moderation lost its Edit control while it waited.
 $bn_is_unpublished  = \BuddyNext\Feed\PostService::is_pre_publication( (string) ( $bn_post['status'] ?? 'published' ) );
 $within_edit_window = \BuddyNext\Feed\PostService::within_edit_window( (string) $created_at, (string) ( $bn_post['status'] ?? 'published' ), $current_user_id );
-$can_edit           = ( ( $is_own_post && $within_edit_window ) || $is_admin )
+$can_edit           = ( ( $is_own_post && $within_edit_window ) || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/edit-any-post' ) ) )
 	&& \BuddyNext\Feed\PostService::has_editable_text( (string) $bn_post_type, (string) ( $bn_post['content'] ?? '' ) );
 // Mirror the server (PostController::delete_post): deleting your own post is
 // always allowed; deleting anyone else's requires buddynext-feed/delete-any-post.
@@ -648,7 +648,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			<span class="bn-post-card__ann-badge">
 				<?php buddynext_icon( 'megaphone' ); ?> <?php esc_html_e( 'Announcement', 'buddynext' ); ?>
 			</span>
-			<?php if ( $is_admin ) : ?>
+			<?php if ( $bn_can_end_announcement ) : ?>
 			<button
 				type="button"
 				class="bn-post-card__ann-end bn-btn"

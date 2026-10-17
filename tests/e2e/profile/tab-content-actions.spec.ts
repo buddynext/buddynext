@@ -6,6 +6,7 @@ import {
     restPost,
     type MemberSession,
 } from '../_fixtures/feed-wave1.helpers';
+import { restList, idsOf } from '../_fixtures/effects';
 
 /**
  * Wave-3 PROFILE A3 tab CONTENT — EFFECT-BASED (J-730..J-734).
@@ -53,7 +54,7 @@ import {
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 
 const memberUrl = (login: string) => `/members/${login}/`;
 const repliesUrl = (login: string) => `/members/${login}/replies/`;
@@ -128,7 +129,7 @@ async function withOwnerSession(
 test.describe('profile / A3 tab content (effect-based)', () => {
     test('J-730 Posts tab renders the owner\'s own post to a viewer', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e post ${stamp}`;
+        const content = `Fresh tomatoes from the garden this morning ${stamp}`;
         await withOwnerSession(browser, async (owner) => {
             const post = await createPost(owner, content);
             try {
@@ -140,6 +141,10 @@ test.describe('profile / A3 tab content (effect-based)', () => {
                     page.locator(`${TAB_CONTENT} ${POST_CARD}`).filter({ hasText: content }).first(),
                     'the authored post must render as a card in the Posts tab for a viewer'
                 ).toBeVisible();
+                // EFFECT: the viewer's read of the owner's feed route carries the post.
+                const feed = await restList(page, `/users/${A_ID}/feed`);
+                expect(feed.status, 'viewer GET /users/{A}/feed').toBe(200);
+                expect(idsOf(feed.data), 'the post is in the owner\'s feed route for the viewer').toContain(post.id);
             } finally {
                 await deletePost(owner, post.id);
             }
@@ -148,8 +153,8 @@ test.describe('profile / A3 tab content (effect-based)', () => {
 
     test('J-731 Replies tab renders a reply the owner posted, to a viewer', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `e2e host post ${stamp}`;
-        const replyBody = `e2e reply ${stamp}`;
+        const postBody = `Anyone have a good recipe for plum jam ${stamp}`;
+        const replyBody = `Try adding a little lemon zest ${stamp}`;
         await withOwnerSession(browser, async (owner) => {
             const post = await createPost(owner, postBody);
             // The owner replies on their own activity (real /comments write path).
@@ -169,6 +174,13 @@ test.describe('profile / A3 tab content (effect-based)', () => {
                     page.locator(`${TAB_CONTENT} ${REPLY_CARD}`).filter({ hasText: replyBody }).first(),
                     'the owner\'s reply must render in the Replies tab for a viewer'
                 ).toBeVisible();
+                // EFFECT: the replies route lists that reply, attached to that post.
+                const replies = await restList(page, `/users/${A_ID}/replies`);
+                expect(replies.status, 'viewer GET /users/{A}/replies').toBe(200);
+                const row = replies.items.find((r) => Number(r.id) === commentId);
+                expect(row, 'the reply is in the owner\'s replies route for the viewer').toBeTruthy();
+                expect(Number(row?.post_id), 'the reply row points at its post').toBe(post.id);
+                expect(String(row?.content ?? ''), 'the reply row carries the typed text').toContain(replyBody);
             } finally {
                 if (commentId) {
                     await owner.request
@@ -184,7 +196,7 @@ test.describe('profile / A3 tab content (effect-based)', () => {
 
     test('J-732 Likes tab renders a post the owner reacted to, to a viewer', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e liked ${stamp}`;
+        const content = `Sunrise from the top of the ridge today ${stamp}`;
         await withOwnerSession(browser, async (owner) => {
             const post = await createPost(owner, content);
             // The owner reacts to the post (real /reactions/toggle write path).
@@ -202,6 +214,10 @@ test.describe('profile / A3 tab content (effect-based)', () => {
                     page.locator(`${TAB_CONTENT} ${POST_CARD}`).filter({ hasText: content }).first(),
                     'a post the owner liked must render in the Likes tab for a viewer'
                 ).toBeVisible();
+                // EFFECT: the likes route lists the post the owner reacted to.
+                const likes = await restList(page, `/users/${A_ID}/likes`);
+                expect(likes.status, 'viewer GET /users/{A}/likes').toBe(200);
+                expect(idsOf(likes.data), 'the liked post is in the owner\'s likes route').toContain(post.id);
             } finally {
                 // Un-react so the like row does not leak into later runs, then delete.
                 await restPost(owner.request, owner.nonce, '/reactions/toggle', {
@@ -216,7 +232,7 @@ test.describe('profile / A3 tab content (effect-based)', () => {
 
     test('J-733 Scheduled tab is owner-only and gates its content from other viewers', async ({ page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `e2e scheduled ${stamp}`;
+        const content = `Reminder: the farmers market opens at eight tomorrow ${stamp}`;
         // 7 days out, UTC Y-m-d H:i:s (the format the scheduler expects).
         const future = new Date(Date.now() + 7 * 24 * 3600 * 1000)
             .toISOString()
@@ -239,6 +255,12 @@ test.describe('profile / A3 tab content (effect-based)', () => {
                     page.locator(`${TAB_CONTENT} ${POST_CARD}`).filter({ hasText: content }).first(),
                     'the owner\'s Scheduled tab lists the queued post'
                 ).toBeVisible();
+                // EFFECT: the owner's scheduled-posts route holds it, and the public
+                // feed route does not (queued, not published).
+                const queued = await restList(page, '/me/scheduled-posts');
+                expect(queued.status, 'owner GET /me/scheduled-posts').toBe(200);
+                expect(idsOf(queued.data), 'the queued post is in the owner\'s scheduled route').toContain(post.id);
+                expect(idsOf((await restList(page, `/users/${A_ID}/feed`)).data), 'a scheduled post is not in the feed yet').not.toContain(post.id);
 
                 // A different viewer: the Scheduled tab is absent from the nav...
                 await loginAs(page, B_LOGIN);
@@ -257,6 +279,13 @@ test.describe('profile / A3 tab content (effect-based)', () => {
                     page.locator(TAB_CONTENT).getByText(content),
                     'a viewer must never see the owner\'s scheduled post'
                 ).toHaveCount(0);
+                // EFFECT: REST is gated the same way for the other member: not in the
+                // owner's feed, not in the viewer's own queue, and not readable by id.
+                expect(idsOf((await restList(page, `/users/${A_ID}/feed`)).data), 'viewer feed read omits the scheduled post').not.toContain(post.id);
+                expect(idsOf((await restList(page, '/me/scheduled-posts')).data), 'the viewer\'s own queue omits it').not.toContain(post.id);
+                const single = await restList(page, `/posts/${post.id}`);
+                expect(single.status, 'a viewer cannot read the scheduled post by id').toBeGreaterThanOrEqual(400);
+                expect(JSON.stringify(single.data ?? null), 'the refusal does not leak the text').not.toContain(content);
             } finally {
                 await deletePost(owner, post.id);
             }
@@ -279,6 +308,12 @@ test.describe('profile / A3 tab content (effect-based)', () => {
             page.locator(`${TAB_CONTENT} ${MEDIA_SHELL}`).first(),
             'the Media panel must actually render (not a broken tab body)'
         ).toBeVisible();
+        // EFFECT: the nav the profile route resolves carries the Media tab too, so
+        // the panel is there because the integration is on, not by template accident.
+        const prof = await restList(page, `/users/${A_ID}/profile`);
+        expect(prof.status, 'GET /users/{A}/profile').toBe(200);
+        const tabs = (((prof.data ?? {}) as { nav?: { tabs?: Array<{ id?: string }> } }).nav?.tabs ?? []).map((t) => String(t.id ?? ''));
+        expect(tabs, 'route nav lists the Media tab').toContain('media');
         // Sanity: the tab bar rendered more than just Media.
         expect(await page.locator(ANY_TAB).count(), 'the profile tab bar renders').toBeGreaterThan(1);
     });

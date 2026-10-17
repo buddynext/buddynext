@@ -1342,8 +1342,11 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
-		/* Mark form as dirty on any user input. */
-		markDirty() {
+		/* Mark form as dirty on any user input. Controls that save themselves
+		 * (data-bn-autosave) never do: a select fires `input` as well as
+		 * `change`, so stopping the change alone still left the page "unsaved". */
+		markDirty( event ) {
+			if ( event && event.target && event.target.closest && event.target.closest( '[data-bn-autosave]' ) ) { return; }
 			var ctx = getContext();
 			if ( ! ctx.isDirty ) {
 				ctx.isDirty = true;

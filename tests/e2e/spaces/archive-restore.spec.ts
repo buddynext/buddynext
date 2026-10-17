@@ -38,9 +38,16 @@ test.describe('spaces / archive + restore (J-631)', () => {
         return Boolean((res.data as SpaceRow).is_archived);
     };
 
+    /** Whether the directory list route answers this space to the viewer for a search by name. */
+    const listed = async (page: import('@playwright/test').Page, name: string, id: number): Promise<boolean> => {
+        const res = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(name)}&per_page=50`);
+        expect(res.status, `list spaces failed: ${JSON.stringify(res.data)}`).toBe(200);
+        return ((res.data as SpaceRow[]) ?? []).some((r) => Number(r.id) === id);
+    };
+
     test('J-631 archive sets is_archived; restore clears it', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Archive ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Retired Book Swap ${stamp}`, type: 'open' });
 
         try {
             // Baseline: a fresh space is not archived.
@@ -68,7 +75,7 @@ test.describe('spaces / archive + restore (J-631)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E ArchiveMember ${stamp}`;
+        const name = `Old Town Film Club ${stamp}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
@@ -101,20 +108,37 @@ test.describe('spaces / archive + restore (J-631)', () => {
                 actor.page.locator(sel.spaceCard).filter({ hasText: name }),
                 'an active member should not find an archived space in their own directory search'
             ).toHaveCount(0);
+            // EFFECT: the list route the directory reads agrees with the screen for the member,
+            // while the space is still reachable by id and says it is archived.
+            expect(await listed(actor.page, name, space.id), 'archived space still in the member\'s GET /spaces').toBe(false);
+            const asMember = await getSpace(actor.page, space.id);
+            expect(asMember.status, 'an archived space stays reachable by URL for its member').toBe(200);
+            expect(Boolean((asMember.data as SpaceRow).is_archived)).toBe(true);
+            expect((asMember.data as SpaceRow).membership_status, 'archiving must not drop memberships').toBe('active');
 
             // EFFECT 2: the member cannot post to it — archived is read-only, not
             // merely delisted.
             const post = await bnApi(actor.page, 'POST', '/posts', {
                 type: 'text',
-                content: `archived member post ${stamp}`,
+                content: `Anyone still around to catch the Friday screening? ${stamp}`,
                 space_id: space.id,
             });
             expect(post.status, 'a member should not be able to post into an archived space').toBe(403);
             expect((post.data as { code?: string }).code).toBe('space_archived');
+            // ...and nothing was written: the space feed holds no post from the refused write.
+            const feed = await bnApi(page, 'GET', `/spaces/${space.id}/feed?per_page=50`);
+            expect(feed.status).toBe(200);
+            expect(
+                ((feed.data as { items?: Array<{ content?: string }> }).items ?? []).some((i) =>
+                    (i.content ?? '').includes(`Anyone still around to catch the Friday screening? ${stamp}`)
+                ),
+                'a refused post still landed in the archived space feed'
+            ).toBe(false);
 
             // Restore (counterpart) — both effects reverse for the member.
             const restore = await bnApi(page, 'DELETE', `/spaces/${space.id}/archive`);
             expect(restore.status, `restore failed: ${JSON.stringify(restore.data)}`).toBe(200);
+            expect(await listed(actor.page, name, space.id), 'restored space missing from the member\'s GET /spaces').toBe(true);
 
             await actor.page.goto(`${urls.spaces}?bn_search=${encodeURIComponent(name)}`, {
                 waitUntil: 'domcontentloaded',

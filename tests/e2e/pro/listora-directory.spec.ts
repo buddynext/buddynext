@@ -1,6 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { urls } from '../_fixtures/selectors';
+import { dbCount, tablePrefix } from '../_fixtures/wp';
 
 /**
  * J-956 surface directory listings (WB Listora bridge, Pro).
@@ -54,5 +55,18 @@ test.describe('pro / Listora directory listings bridge', () => {
         const link = listingCard.locator('.bn-post-card__bridge-title').first();
         await expect(link).toBeVisible();
         await expect(link).toHaveAttribute('href', /.+/);
+        // EFFECT: the referenced listing exists (the card is a reference, so a dead link is the defect).
+        const href = (await link.getAttribute('href')) ?? '';
+        const res = await page.request.get(href);
+        expect(res.status(), `listing link ${href}`).toBeLessThan(400);
+        // EFFECT (parity): the card is backed by a published 'listing' feed row pointing
+        // at that same URL (what ListoraBridge writes), not markup with no row behind it.
+        const prefix = await tablePrefix();
+        expect(
+            await dbCount(
+                `SELECT COUNT(*) FROM ${prefix}bn_posts WHERE type = 'listing' AND status = 'published' AND link_url = '${href.replace(/'/g, "''")}'`
+            ),
+            `a published listing feed row for ${href}`
+        ).toBeGreaterThan(0);
     });
 });

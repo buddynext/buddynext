@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.2.5
+ * Version:     1.2.6
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.2.5' );
+define( 'BUDDYNEXT_VERSION', '1.2.6' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -2097,6 +2097,16 @@ function buddynext_explore_card_kind( array $post ): string {
 	// threads as type 'discussion') get the tinted thread treatment.
 	if ( 'discussion' === $type || 'forum_post' === $type || 'forum' === $type ) {
 		return 'post-forum';
+	}
+
+	// Every typed integration card (event, job, listing, course, badge, media,
+	// document, open to work) gets its own card with the partner's details. These
+	// used to fall through to the plain text teaser, which showed a bare title
+	// labelled "Post" and threw away the date, place, cover and description the
+	// bridge stored. A locked post keeps the text teaser and its members-only
+	// kicker.
+	if ( empty( $post['is_locked'] ) && isset( \BuddyNext\Feed\IntegrationActivity::card_types()[ $type ] ) ) {
+		return 'post-integration';
 	}
 
 	return 'post-text';

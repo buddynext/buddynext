@@ -1,6 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 
 /**
  * J-514 share modal → copy-link permalink opens the single post (B2).
@@ -27,7 +27,7 @@ test.describe('feed / share modal permalink', () => {
 
     test('J-514 the share modal yields the permalink and it opens the single post', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j514 share me ${stamp}`;
+        const content = `Sharing our favorite trail snacks recipe ${stamp}`;
         let postId = 0;
         let nonce = '';
 
@@ -64,6 +64,19 @@ test.describe('feed / share modal permalink', () => {
             await expect(
                 page.locator(sel.postCard).filter({ hasText: content }).first()
             ).toBeVisible({ timeout: 10_000 });
+
+            // EFFECT: the page at that link is this post by server id, the post route serves the
+            // same body, and opening the share sheet shared nothing.
+            expect(await postIdOfCard(page, content), 'server id of the card at the permalink').toBe(postId);
+            const stored = await restGet<{ content?: string; share_count?: number; viewer_state?: { my_share?: boolean } }>(
+                page.request,
+                nonce,
+                `/posts/${postId}`
+            );
+            expect(stored.status, 'GET /posts/{id}').toBe(200);
+            expect(stored.body.content, 'body the route serves').toBe(content);
+            expect(Number(stored.body.share_count), 'share_count after only opening the sheet').toBe(0);
+            expect(stored.body.viewer_state?.my_share, 'viewer_state.my_share after only opening the sheet').toBe(false);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

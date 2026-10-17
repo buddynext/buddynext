@@ -611,7 +611,7 @@ class FeedController extends BaseRestController {
 				// moderators (safe direction: never offers an edit the API rejects).
 				'can_edit' => $viewer > 0 && $editable_text && (
 					( $viewer === $aid && PostService::within_edit_window( (string) ( $item['created_at'] ?? '' ), (string) ( $item['status'] ?? 'published' ), $viewer ) )
-					|| user_can( $viewer, 'manage_options' )
+					|| buddynext_can( $viewer, 'buddynext-feed/edit-any-post' )
 				),
 			);
 
@@ -1172,14 +1172,14 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
-	 * End a site-wide announcement (admin only) by expiring its pin now, so
-	 * active_announcement() stops surfacing it for everyone.
+	 * End a site-wide announcement (the buddynext-feed/announce ability) by
+	 * expiring its pin now, so active_announcement() stops surfacing it for everyone.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function end_announcement( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! buddynext_can( get_current_user_id(), 'buddynext-feed/announce' ) ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'You do not have permission to do this.', 'buddynext' ),

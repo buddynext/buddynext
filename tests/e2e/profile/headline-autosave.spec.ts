@@ -1,6 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { loginAs } from '../_fixtures/actor';
 import { userId, ensureUser, setUserMeta } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
+import type { Page } from '@playwright/test';
+
+/** The stored headline per GET /me/profile for the page's member. */
+async function storedHeadline(page: Page): Promise<string> {
+    const r = await bnApi(page, 'GET', '/me/profile');
+    expect(r.status, 'GET /me/profile').toBe(200);
+    const fields = ((r.data ?? {}) as { fields?: Array<{ field_key?: string; value?: unknown }> }).fields ?? [];
+    return String(fields.find((f) => f.field_key === 'headline')?.value ?? '');
+}
 
 /**
  * Wave-3 PROFILE A1 hero — headline blur-autosave — EFFECT-BASED (J-735).
@@ -32,7 +42,7 @@ import { userId, ensureUser, setUserMeta } from '../_fixtures/wp';
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 const editUrl = (login: string) => `/members/${login}/edit/`;
 
 const HEADLINE = '#bn-ep-headline';
@@ -57,7 +67,7 @@ test.describe('profile / headline blur-autosave (effect-based)', () => {
         await expect(headline).toBeVisible();
 
         const original = await headline.inputValue();
-        const value = `e2e headline ${Date.now().toString().slice(-6)}`;
+        const value = `Trail runner and coffee enthusiast ${Date.now().toString().slice(-6)}`;
 
         const waitAutosave = () =>
             page.waitForResponse(
@@ -80,6 +90,8 @@ test.describe('profile / headline blur-autosave (effect-based)', () => {
                 page.locator(HEADLINE),
                 'the autosaved headline must survive a reload'
             ).toHaveValue(value);
+            // EFFECT: the profile route returns the autosaved headline.
+            expect(await storedHeadline(page), 'GET /me/profile headline').toBe(value);
         } finally {
             // Restore the original headline through the same blur-autosave path.
             await page.goto(editUrl(A_LOGIN));
@@ -106,7 +118,7 @@ test.describe('profile / headline blur-autosave (effect-based)', () => {
         await expect(headline).toBeVisible();
 
         const original = await headline.inputValue();
-        const value = `e2e member headline ${Date.now().toString().slice(-6)}`;
+        const value = `Community gardener from the east side ${Date.now().toString().slice(-6)}`;
 
         const waitAutosave = () =>
             page.waitForResponse(
@@ -126,6 +138,8 @@ test.describe('profile / headline blur-autosave (effect-based)', () => {
                 page.locator(HEADLINE),
                 'a member\'s own autosaved headline must survive a reload'
             ).toHaveValue(value);
+            // EFFECT: the member's own profile route returns the autosaved headline.
+            expect(await storedHeadline(page), 'GET /me/profile headline').toBe(value);
         } finally {
             await page.goto(editUrl(B_LOGIN));
             const restore = page.locator(HEADLINE);

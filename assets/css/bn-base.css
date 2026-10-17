@@ -70,6 +70,9 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
 	   white label needs (see the @supports block below). */
 	--bn-accent-solid: var(--bn-accent-solid-auto, var(--bn-accent-600));
+	/* Ground behind badge artwork, which is drawn for a light background. Not
+	   flipped in dark mode: the badge sits on it like a sticker. */
+	--bn-badge-plate: oklch(97% 0 0);
 
 	/* Surfaces (three-layer system) */
 	--bn-canvas:   oklch(99% 0.002 var(--bn-hue));

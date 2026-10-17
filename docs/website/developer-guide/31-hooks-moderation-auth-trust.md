@@ -43,7 +43,7 @@ Because it runs on both, the filter is passed a final `$context` argument - `'cr
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
 | `buddynext_moderation_auto_actions` | filter | A report has just been inserted, deciding which automated actions to apply (Free returns empty; Pro stacks actions here) | `array $actions, array $report` |
 | `buddynext_suspension_reasons` | filter | Building the reason list moderators pick from when suspending a member. Keep `other`: it is the free-text fallback and requires a note. Since 1.2.4. | `array $reasons` (code => member-facing label) |
-| `buddynext_can_resolve_appeals` | filter | Deciding who may read and decide appeals (wp-admin, Community Admin and REST). Default is site administrators; return `true` for a dedicated trust team. Since 1.2.5. | `bool $allowed, int $user_id` |
+| `buddynext_can_resolve_appeals` | filter | Deciding who may read and decide appeals (wp-admin, Community Admin and REST). Default is the `buddynext-moderation/resolve-appeals` ability (site administrators and the community `admin` role, remappable on the Roles tab); return `true` for a dedicated trust team. Since 1.2.5. | `bool $allowed, int $user_id` |
 
 > **Note:** `$result` is `true` when every built-in check passed. To block content, return a `WP_Error`. To allow it, return `$result` unchanged. Returning a non-`WP_Error`, non-`true` value is treated as allow. The `pending_review` error code is intentionally non-fatal upstream - callers save the post with a pending status rather than discarding it - so reserve `WP_Error` returns from your filter for content you genuinely want rejected.
 
@@ -267,7 +267,8 @@ Narrower hooks around report handling, the sign-up and login screens, and onboar
 | `buddynext_owns_core_auth_links` | filter | Core's `login_url`, `register_url` or `lostpassword_url` is being answered on the front end. BuddyNext returns its own login, signup and reset pages (with the page the visitor is on carried as `redirect_to`). Return `false` to leave core's addresses alone. Since 1.2.5. | `bool $takes_over` |
 | `buddynext_unverified_account_keep` | filter | The cron purge is about to delete a never-verified account past the grace period. Return `true` to keep it. Default keeps an account that has posted; BuddyNext Pro keeps paying members. Since 1.2.5. | `bool $keep, int $user_id` |
 | `buddynext_auth_show_form_logo` | filter | The auth card decides whether to repeat the logo above the form (default `false`; the theme header already shows it). | `bool $show` |
-| `buddynext_signup_url` / `buddynext_reset_url` / `buddynext_verify_url` | filter | The sign-up, password-reset, and email-verification screen URLs are resolved. Defaults are `{auth}/signup/`, `{auth}/reset/`, and `{auth}/verify/`. | `string $url` |
+| `buddynext_login_url` | filter | Every BuddyNext Log in link, guest gate and email sign-in link is built. Return another login page; `redirect_to` is added afterwards. Since 1.2.6. See [Use Your Own Login, Sign-up or Reset Page](57-your-own-login-page.md). | `string $url, string $destination` |
+| `buddynext_signup_url` / `buddynext_reset_url` / `buddynext_verify_url` | filter | The sign-up, Forgot password, and email-verification screen URLs are resolved. Defaults are `{auth}/signup/`, `{auth}/reset/`, and `{auth}/verify/`. The link inside the reset email always opens the BuddyNext reset screen. | `string $url` |
 
 ### Onboarding
 

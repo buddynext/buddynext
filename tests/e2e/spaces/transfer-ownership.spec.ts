@@ -36,7 +36,7 @@ test.describe('spaces / transfer ownership (J-632)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Transfer ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Community Radio Volunteers ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -70,6 +70,15 @@ test.describe('spaces / transfer ownership (J-632)', () => {
 
             // EFFECT 3: the previous owner is no longer owner.
             expect((g.data as SpaceRow).membership_role ?? '').not.toBe('owner');
+            // ...but is still an active member (transfer demotes, it does not remove).
+            expect((g.data as SpaceRow).membership_status).toBe('active');
+
+            // EFFECT 4: the roster holds exactly one owner, and it is the new one.
+            const after = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(after.status).toBe(200);
+            const owners = ((after.data as Array<{ user_id: number; role?: string }>) ?? []).filter((r) => r.role === 'owner');
+            expect(owners.map((r) => Number(r.user_id))).toEqual([uid]);
+            expect(((after.data as unknown[]) ?? []).length, 'transfer changed the head count').toBe(2);
         } finally {
             await actor.ctx.close();
             // The admin still holds manage_options, so cleanup succeeds even though

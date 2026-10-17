@@ -11,6 +11,12 @@ import {
 } from '../_fixtures/feed-wave1.helpers';
 
 type BookmarkIds = { ids: number[] };
+type PostRow = {
+    content?: string;
+    shared_post_id?: number | null;
+    share_count?: number;
+    viewer_state?: { is_bookmarked?: boolean; my_share?: boolean };
+};
 
 /**
  * J-18 bookmark a post (B2) + J-19 share (B2).
@@ -48,7 +54,7 @@ test.describe('feed / bookmarks + share', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j18 bookmark-target ${stamp}`;
+        const body = `Great hiking route guide worth saving for later ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -79,6 +85,9 @@ test.describe('feed / bookmarks + share', () => {
             await expect
                 .poll(async () => (await bookmarksOf(page, nonce)).includes(createdId), { timeout: 8_000 })
                 .toBe(true);
+            // EFFECT: the post route agrees with the list, since the card paints from viewer_state.
+            const saved = await restGet<PostRow>(page.request, nonce, `/posts/${createdId}`);
+            expect(saved.body.viewer_state?.is_bookmarked, 'viewer_state.is_bookmarked after bookmarking').toBe(true);
 
             // Persistence across reload, then un-bookmark.
             await page.goto(urls.feed);
@@ -90,6 +99,8 @@ test.describe('feed / bookmarks + share', () => {
             await expect
                 .poll(async () => (await bookmarksOf(page, nonce)).includes(createdId), { timeout: 8_000 })
                 .toBe(false);
+            const cleared = await restGet<PostRow>(page.request, nonce, `/posts/${createdId}`);
+            expect(cleared.body.viewer_state?.is_bookmarked, 'viewer_state.is_bookmarked after un-bookmarking').toBe(false);
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
         }
@@ -115,8 +126,8 @@ test.describe('feed / bookmarks + share', () => {
         let origId = 0;
         let myNonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const origBody = `j19 original by ${authorSlug} ${stamp}`;
-        const quote = `j19 my take ${stamp}`;
+        const origBody = `Honest ramen review from ${authorSlug} ${stamp}`;
+        const quote = `Agreed, the broth is the best part ${stamp}`;
 
         try {
             // Seed a public post owned by the OTHER member.
@@ -145,15 +156,32 @@ test.describe('feed / bookmarks + share', () => {
 
             // Quote + repost (the modal's POST /posts/{id}/share with the note).
             await page.locator(shareNote).first().fill(quote);
+            const sharesBefore = Number(
+                (await restGet<PostRow>(author.request, author.nonce, `/posts/${origId}`)).body.share_count ?? 0
+            );
             // Wait for the write to finish before leaving the page: navigating at once
             // races the POST, and the feed can render before the reshare exists.
-            await Promise.all([
+            const [shareRes] = await Promise.all([
                 page.waitForResponse(
                     (r) => r.request().method() === 'POST' && /\/posts\/\d+\/share/.test(r.url()),
                     { timeout: 15_000 },
                 ),
                 page.locator(shareRepost).first().click(),
             ]);
+
+            // EFFECT: the reshare is a stored post that points at the original and carries my quote.
+            expect(shareRes.status(), 'POST /posts/{id}/share').toBe(200);
+            const reshareId = Number(((await shareRes.json()) as { post_id?: number }).post_id ?? 0);
+            expect(reshareId, 'share response names the reshare post').toBeGreaterThan(0);
+            const stored = await restGet<PostRow>(page.request, myNonce, `/posts/${reshareId}`);
+            expect(stored.status, 'GET the reshare post').toBe(200);
+            expect(Number(stored.body.shared_post_id), 'reshare points at the original').toBe(origId);
+            expect(stored.body.content, 'reshare carries the quote').toBe(quote);
+            // EFFECT: I am recorded as having shared it, and the AUTHOR sees the count go up by exactly one.
+            const mineOfOrig = await restGet<PostRow>(page.request, myNonce, `/posts/${origId}`);
+            expect(mineOfOrig.body.viewer_state?.my_share, 'viewer_state.my_share on the original').toBe(true);
+            const authorView = await restGet<PostRow>(author.request, author.nonce, `/posts/${origId}`);
+            expect(Number(authorView.body.share_count), 'share_count as the author reads it').toBe(sharesBefore + 1);
 
             // The reshare is my own public post — it surfaces at the top of my feed.
             await page.goto(urls.feed);

@@ -56,14 +56,14 @@ test.describe('pro / renewal reminder sweep warns a member', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG}', 'E2E Renewal Plan', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG}', 'Supporter Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 3.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])
         );
         expect(tierId, 'the E2E renewal test tier should be created').toBeGreaterThan(0);
 
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Renewal Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Daniel Kim');
 
         // A comp (source 'manual') expiring inside the smallest default offset
         // (1 day) with reminder_sent_days NULL, so the sweep is guaranteed to find

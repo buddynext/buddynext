@@ -61,8 +61,7 @@ class CommentService {
 
 		// Email-verification gate — an unverified member cannot comment until they
 		// confirm their address (admins exempt; no-op when verification is off).
-		if ( ! user_can( $user_id, 'manage_options' )
-			&& function_exists( 'buddynext_service' )
+		if ( function_exists( 'buddynext_service' )
 			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
 			return new WP_Error(
 				'email_unverified',
@@ -456,7 +455,7 @@ class CommentService {
 			return new WP_Error( 'comment_deleted', __( 'This comment has been deleted and can no longer be edited.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( $comment['user_id'] !== $user_id && ! $this->may_edit_others( $comment_id, $user_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You cannot edit this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -522,6 +521,26 @@ class CommentService {
 	}
 
 	/**
+	 * Whether a user may edit another member's comment.
+	 *
+	 * The comment's post decides, through PostService::may_edit_others(): a
+	 * delegated editor may only rewrite a comment on a post they can read. A
+	 * comment on an object with no owning post keeps the plain capability.
+	 *
+	 * @param int $comment_id Comment ID.
+	 * @param int $user_id    Acting user ID.
+	 * @return bool
+	 */
+	private function may_edit_others( int $comment_id, int $user_id ): bool {
+		$posts   = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : null;
+		$post_id = $posts instanceof \BuddyNext\Feed\PostService ? $posts->resolve_post_id( 'comment', $comment_id ) : 0;
+		if ( $post_id > 0 ) {
+			return $posts->may_edit_others( $post_id, $user_id );
+		}
+		return buddynext_can( $user_id, 'buddynext-feed/edit-any-post' );
+	}
+
+	/**
 	 * Delete a comment.
 	 *
 	 * @param int $comment_id Comment to delete.
@@ -535,7 +554,7 @@ class CommentService {
 			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( $comment['user_id'] !== $user_id && ! buddynext_can( $user_id, 'buddynext-feed/delete-any-post' ) ) {
 			return new WP_Error( 'forbidden', __( 'You cannot delete this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -1325,8 +1344,10 @@ class CommentService {
 	 * @return int
 	 */
 	private function get_generation( string $object_type, int $object_id ): int {
-		$gen = wp_cache_get( "gen_{$object_type}_{$object_id}", self::CACHE_GROUP );
-		return is_int( $gen ) ? $gen : 0;
+		// (int), not is_int(): Redis and Memcached hand an integer back as a numeric
+		// string, and refusing it pinned the generation at 0, so new, deleted and pinned
+		// comments never reached the cached thread until it expired.
+		return (int) wp_cache_get( "gen_{$object_type}_{$object_id}", self::CACHE_GROUP );
 	}
 
 	/**

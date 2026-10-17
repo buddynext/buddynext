@@ -3,7 +3,10 @@ import { loginAs } from '../_fixtures/actor';
 import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
 import { userId, ensureUser, setUserMeta, getUserMeta, deleteUserMeta, tablePrefix, dbCount, wp } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
+import { listOf, restList } from '../_fixtures/effects';
 import type { Page } from '@playwright/test';
+import { resolveBaseUrl } from '../_fixtures/resolve-base-url.cjs';
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 
@@ -29,6 +32,11 @@ const FOLLOWABLE_CARD = '.bn-md-card:has(.bn-md-card__follow[data-state="unfollo
 // test.describe below. A JSDoc block here shadowed the real journey docblock
 // and its tags, so this whole file read as unpinned even though the tags do
 // exist, below, on the journey docblock that actually proves them.
+// Member rows are keyed `user_id` on GET /members (effects.idsOf reads id / ID / post_id).
+function memberIds(data: unknown): number[] {
+    return listOf(data).map((row) => Number(row.user_id ?? row.id ?? 0)).filter((n) => n > 0);
+}
+
 async function countMemberCards(page: Page): Promise<number> {
     const cards = await page.locator(sel.memberCard).count();
     if (cards === 0) {
@@ -63,7 +71,7 @@ test.describe('directory / members', () => {
     const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 
     test.beforeAll(async () => {
-        const bId = await ensureUser(B_LOGIN, 'bn_e2e_target@example.com', 'BN E2E Target');
+        const bId = await ensureUser(B_LOGIN, 'bn_e2e_target@example.com', 'Jordan Ellis');
         expect(bId, `member "${B_LOGIN}" must exist`).toBeGreaterThan(0);
         await setUserMeta(bId, 'bn_onboarding_complete', '1');
     });
@@ -82,6 +90,19 @@ test.describe('directory / members', () => {
             cards > 0 || empty,
             'members directory rendered neither member cards nor an empty state'
         ).toBeTruthy();
+
+        // EFFECT: the grid is the directory route's answer for the same (default) query:
+        // both empty or both populated, and no card for a member the route does not list.
+        const rest = await restList(page, '/members?per_page=50');
+        expect(rest.status, 'GET /members').toBe(200);
+        const routeIds = memberIds(rest.data);
+        expect(cards > 0, `screen shows ${cards} cards, route answers ${routeIds.length} members`).toBe(routeIds.length > 0);
+        const shown = (await page.locator('.bn-md-card[data-user-id]').evaluateAll((els) =>
+            els.map((el) => Number(el.getAttribute('data-user-id')))
+        )) as number[];
+        if (shown.length > 0 && shown.length <= 24) {
+            expect(shown.filter((id) => !routeIds.includes(id)), 'cards on screen that GET /members does not list').toEqual([]);
+        }
     });
 
     /**
@@ -144,6 +165,18 @@ test.describe('directory / members', () => {
                 await dbCount(rowSql),
                 'following from the card must create a wp_bn_follows row'
             ).toBe(1);
+
+            // EFFECT: the follow-status route agrees with the row...
+            const status = await bnApi(page, 'GET', `/users/${targetId}/follow/status`);
+            expect(status.status, 'GET follow/status').toBe(200);
+            expect((status.data as { is_following?: boolean }).is_following, 'follow/status after following from the card').toBe(true);
+
+            // ...and a reload paints that member's card as followed (server-rendered state).
+            await page.goto(urls.members);
+            const reloaded = page.locator(`.bn-md-card[data-user-id="${targetId}"] ${sel.memberCardFollow}`).first();
+            if (await reloaded.count()) {
+                await expect(reloaded).toHaveAttribute('data-state', 'following');
+            }
         } finally {
             await wp(['db', 'query', clearSql]);
         }
@@ -151,21 +184,66 @@ test.describe('directory / members', () => {
 
     test('J-28 mute from card via more menu', async ({ authenticatedPage: page }, testInfo) => {
         await page.goto(urls.members);
-        const firstCard = page.locator(sel.memberCard).first();
         if ((await countMemberCards(page)) === 0) {
             softSkip(testInfo, 'Directory is genuinely empty (empty state shown).');
             return;
         }
 
-        const more = firstCard.locator(sel.memberCardMenu).first();
-        if (!(await more.isVisible().catch(() => false))) {
-            softSkip(testInfo, 'No more-actions menu in card markup yet.');
-            return;
-        }
-        await more.click();
+        // The viewer's own card has no kebab (member-card.php:207), so take the first card
+        // that has one instead of soft-skipping whenever the viewer happens to sort first.
+        const firstWithMenu = page.locator(`.bn-md-card:has(${sel.memberCardMenu})`).first();
+        await expect(firstWithMenu, 'no directory card exposes the more-actions menu').toBeVisible({ timeout: 10_000 });
+        const targetId = Number(await firstWithMenu.getAttribute('data-user-id'));
+        expect(targetId, 'the card must carry a numeric data-user-id').toBeGreaterThan(0);
+        // Pin the card by member id so a reload cannot re-target another member.
+        const card = page.locator(`.bn-md-card[data-user-id="${targetId}"]`).first();
 
-        const mute = page.locator(`${sel.memberCardMute}, [role="menuitem"]:has-text("Mute")`).first();
-        await expect(mute).toBeVisible({ timeout: 3_000 });
+        /** Whether the viewer's muted list (the route the settings page reads) holds the target. */
+        const isMuted = async (): Promise<boolean> => {
+            const r = await bnApi(page, 'GET', '/me/muted');
+            expect(r.status, 'GET /me/muted').toBe(200);
+            return ((r.data as { ids?: Array<number | string> }).ids ?? []).map(Number).includes(targetId);
+        };
+        // The mute item is the menu button bound to actions.toggleMute (member-card.php:232-237);
+        // the shared `.bn-md-card__mute` class does not exist in the markup.
+        const muteItem = card.locator('[role="menuitem"][data-wp-on--click="actions.toggleMute"]');
+        const clickMute = async (method: 'POST' | 'DELETE'): Promise<void> => {
+            if (!(await muteItem.isVisible().catch(() => false))) {
+                await card.locator(sel.memberCardMenu).first().click();
+            }
+            await expect(muteItem).toBeVisible({ timeout: 3_000 });
+            const [res] = await Promise.all([
+                page.waitForResponse(
+                    (r) => r.url().includes(`/users/${targetId}/mute`) && r.request().method() === method,
+                    { timeout: 10_000 }
+                ),
+                muteItem.click(),
+            ]);
+            expect(res.status(), `${method} /users/${targetId}/mute`).toBeLessThan(300);
+        };
+
+        // Deterministic precondition: not muted.
+        await bnApi(page, 'DELETE', `/users/${targetId}/mute`);
+        expect(await isMuted()).toBe(false);
+        await page.goto(urls.members);
+
+        try {
+            await card.locator(sel.memberCardMenu).first().click();
+            await expect(muteItem).toBeVisible({ timeout: 3_000 });
+            await expect(muteItem).toHaveText(/^\s*Mute\s*$/);
+
+            // Action under test: Mute from the card menu.
+            await clickMute('POST');
+            // EFFECT: the member is on the viewer's muted list, and the item now offers Unmute.
+            await expect.poll(isMuted, { timeout: 5_000 }).toBe(true);
+            await expect(muteItem).toHaveText(/Unmute/);
+
+            // Counterpart: Unmute from the same menu.
+            await clickMute('DELETE');
+            await expect.poll(isMuted, { timeout: 5_000 }).toBe(false);
+        } finally {
+            await bnApi(page, 'DELETE', `/users/${targetId}/mute`).catch(() => undefined);
+        }
     });
 
     /**
@@ -180,7 +258,8 @@ test.describe('directory / members', () => {
         const targetLogin = A_LOGIN;
         const targetId = await userId(targetLogin);
         expect(targetId, `target "${targetLogin}" must exist`).toBeGreaterThan(0);
-        const seedCover = 'http://buddynext-dev.local/wp-content/uploads/bn-e2e-directory-cover.jpg';
+        // A shipped image on the site under test; an unresolvable host hangs WebKit's load.
+        const seedCover = `${new URL(resolveBaseUrl() ?? 'http://localhost').origin}/wp-content/plugins/buddynext/assets/demo/covers/cover-02.png`;
         const origCover = await getUserMeta(targetId, 'buddynext_cover_url');
         await setUserMeta(targetId, 'buddynext_cover_url', seedCover);
 
@@ -229,6 +308,14 @@ test.describe('directory / members', () => {
                 style,
                 'the seeded cover photo must render as the card background-image'
             ).toContain(seedCover);
+
+            // EFFECT: the card paints what the directory route sends this viewer for that member.
+            const shownName = (await wp(['user', 'get', String(targetId), '--field=display_name'])).trim();
+            const rest = await restList(page, `/members?search=${encodeURIComponent(shownName || targetLogin)}&per_page=50`);
+            expect(rest.status, 'GET /members?search=').toBe(200);
+            const row = rest.items.find((r) => Number(r.user_id) === targetId);
+            expect(row, `GET /members does not list "${targetLogin}" for a member viewer`).toBeTruthy();
+            expect(String(row?.cover_url ?? ''), 'route cover_url vs the seeded cover').toBe(seedCover);
         } finally {
             if (origCover) {
                 await setUserMeta(targetId, 'buddynext_cover_url', origCover);

@@ -33,13 +33,15 @@ Pick the level you want for each row and save. The change takes effect immediate
 
 The actions are grouped so related controls sit together:
 
-- **Posts and activity** - create posts, comment on posts, schedule posts, pin posts, and delete anyone's post.
+- **Posts and activity** - create posts, comment on posts, react, share and vote, schedule posts, delete anyone's post or comment, edit anyone's post or comment, and post site-wide announcements.
 - **Spaces** - create spaces, join spaces, post inside spaces, and moderate spaces.
 - **Connections** - follow members and send connection requests.
-- **Profiles** - edit anyone's profile.
-- **Moderation** - report content, review the report queue, issue strikes, and suspend members.
+- **Profiles** - edit anyone's profile, including the member type they could pick for themselves. Types you hand out (self-select off) stay with WordPress administrators.
+- **Moderation** - report content, review the report queue, resolve reports, issue strikes, suspend members, suspend members with no end date, and decide appeals.
 
 Grouping them this way means you can, for example, open up posting and commenting to all members while keeping every moderation power to your trusted team.
+
+Out of the box, Moderators remove posts and comments, work the report queue, issue strikes and suspend members for a set number of days, all without being WordPress administrators. Suspending with no end date, deciding appeals and editing other members' posts start at Admins only; move any of them down to Moderators here if your team works that way. Changing members' community roles stays with community Admins, and only a WordPress site administrator can make someone a community Admin.
 
 ## How this relates to space roles
 

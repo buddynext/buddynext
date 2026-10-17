@@ -2,7 +2,9 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, openMemberSession, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, openMemberSession, restPost, restGet, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+
+type ReportRow = { reporter_id?: number; reason?: string; status?: string };
 
 /**
  * J-506 report a post (B2).
@@ -37,7 +39,7 @@ test.describe('feed / report post', () => {
             // Seed a public post owned by the OTHER member (so Report is offered).
             author = await openMemberSession(browser, authorLogin);
             const created = await restPost<{ id?: number }>(author.request, author.nonce, '/posts', {
-                content: `j506 please review ${stamp}`,
+                content: `Buy cheap followers and watch your page grow fast ${stamp}`,
                 privacy: 'public',
             });
             expect(created.status, `seed post -> ${created.status}`).toBeLessThan(300);
@@ -51,7 +53,7 @@ test.describe('feed / report post', () => {
             await page.goto(urls.feed);
             viewerNonce = await readRestNonce(page);
             await page.goto(`/p/${postId}/`);
-            const card = page.locator(sel.postCard).filter({ hasText: `j506 please review ${stamp}` }).first();
+            const card = page.locator(sel.postCard).filter({ hasText: `Buy cheap followers and watch your page grow fast ${stamp}` }).first();
             await expect(card).toBeVisible({ timeout: 10_000 });
 
             // Open the ⋯ menu and the Report item (present only because it isn't ours).
@@ -79,6 +81,26 @@ test.describe('feed / report post', () => {
                 // The post may drop from the reporter's feed on report — that's also
                 // a valid success signal; the REST assertion below is the hard proof.
             });
+
+            // EFFECT: the moderation route holds one pending report on this post, filed by me
+            // with the reason I picked, and the post route tells me I have reported it. (The
+            // actor is a moderator, so it can read the queue its own report feeds.)
+            const meId = Number((await restGet<{ user_id?: number }>(page.request, viewerNonce, '/me/profile')).body.user_id);
+            expect(meId, 'my user id from /me/profile').toBeGreaterThan(0);
+            await expect(async () => {
+                const filed = await restGet<{ items?: ReportRow[] }>(
+                    page.request,
+                    viewerNonce,
+                    `/reports?object_type=post&object_id=${postId}`
+                );
+                expect(filed.status, 'GET /reports').toBe(200);
+                const mine = (filed.body.items ?? []).filter((r) => Number(r.reporter_id) === meId);
+                expect(mine.length, 'my report rows on this post').toBe(1);
+                expect(mine[0].reason, 'stored reason').toBe('spam');
+                expect(mine[0].status, 'stored status').toBe('pending');
+            }).toPass({ timeout: 8_000 });
+            const reported = await restGet<{ viewer_state?: { has_reported?: boolean } }>(page.request, viewerNonce, `/posts/${postId}`);
+            expect(reported.body.viewer_state?.has_reported, 'viewer_state.has_reported').toBe(true);
 
             // Server truth: the same report again is rejected as already-reported.
             const repeat = await restPost<{ code?: string }>(page.request, viewerNonce, '/reports', {

@@ -213,6 +213,20 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 		exit 1
 	fi
 
+	# Release QA gate (private shelf): functional suite, changelog -> test map, capability
+	# coverage, bridge status. A SKIP is declared, never silent.
+	if [ "${SKIP_QA_GATE:-0}" = 1 ]; then
+		echo "release gate: QA gate BYPASSED (SKIP_QA_GATE=1)" >&2
+	elif [ -x "$BN_PRO_PATH/bin/release-qa-gate.sh" ]; then
+		if ! BN_WP="${BN_WP_PATH:-${BN_WP:-}}" "$BN_PRO_PATH/bin/release-qa-gate.sh" "$VERSION"; then
+			echo "release gate FAILED: release QA gate - see above ($BN_PRO_PATH/bin/release-qa-gate.sh $VERSION)" >&2
+			exit 1
+		fi
+	else
+		echo "release gate FAILED: release QA gate missing at $BN_PRO_PATH/bin/release-qa-gate.sh, or SKIP_QA_GATE=1 to bypass deliberately." >&2
+		exit 1
+	fi
+
 	# Journey suite. Unlike the gates above, a SKIP here is FATAL: cutting a zip
 	# without having run the customer journeys once is exactly how a suite failing
 	# 24 of 95 specs went unnoticed while the coverage gate reported green. Point

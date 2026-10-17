@@ -187,6 +187,8 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 						<?php if ( '' !== $bn_disc_url ) : ?>
 							&middot; <a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View discussion', 'buddynext' ); ?></a>
 						<?php endif; ?>
+						&middot;
+						<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>" data-wp-on--click="actions.unlinkDiscussion"><?php esc_html_e( 'Unlink', 'buddynext' ); ?></button>
 					</p>
 				<?php else : ?>
 					<?php

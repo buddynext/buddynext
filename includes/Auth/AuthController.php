@@ -1895,7 +1895,7 @@ class AuthController {
 				'key'   => rawurlencode( $key ),
 				'login' => rawurlencode( $user_login ),
 			),
-			\BuddyNext\Core\PageRouter::reset_url()
+			\BuddyNext\Core\PageRouter::reset_screen_url()
 		);
 
 		$body = sprintf(
@@ -1963,7 +1963,7 @@ class AuthController {
 				'key'   => rawurlencode( $key ),
 				'login' => rawurlencode( $user->user_login ),
 			),
-			\BuddyNext\Core\PageRouter::reset_url()
+			\BuddyNext\Core\PageRouter::reset_screen_url()
 		);
 		$subject   = sprintf(
 			/* translators: %s: site name. */
@@ -2029,7 +2029,7 @@ class AuthController {
 			array(
 				'success'     => true,
 				'message'     => __( 'Your password has been reset. You can now sign in.', 'buddynext' ),
-				'redirect_to' => \BuddyNext\Core\PageRouter::auth_url(),
+				'redirect_to' => \BuddyNext\Core\PageRouter::login_url( '' ),
 			),
 			200
 		);

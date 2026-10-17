@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 import { loginAs } from '../_fixtures/actor';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { bnApi, loginContextAs } from '../_fixtures/spaces-rest';
 
 /**
  * J-979 admin defines a "Number (advanced)" profile field with a unit and
@@ -30,7 +31,7 @@ test.describe.configure({ mode: 'serial' });
 const MEMBER = 'bn_e2e_advfield_member';
 const ADMIN = process.env.BN_TEST_USER ?? 'varundubey';
 const FIELD_KEY = 'e2e_adv_height';
-const FIELD_LABEL = 'E2E Height';
+const FIELD_LABEL = 'Height in cm';
 const GROUP_KEY = 'e2e_adv';
 
 /** Run PHP through wp-cli and return trimmed stdout. */
@@ -48,7 +49,7 @@ const TIER_SLUG = 'bn-e2e-advfield-tier';
 test.beforeAll(async () => {
     test.skip(process.env.BN_PRO !== '1', 'Advanced profile field types ship in BuddyNext Pro.');
 
-    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Adv Field Member');
+    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Tara Singh');
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
 
     // Advanced field TYPES (number_advanced, date_extended, location,
@@ -68,7 +69,7 @@ test.beforeAll(async () => {
             ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->delete_tier( (int) $existing_tier );
         }
         $tier_id = (int) ( new \\BuddyNextPro\\Membership\\MembershipTierService() )->create_tier(
-            '${TIER_SLUG}', 'E2E Adv Field Tier', '', 0,
+            '${TIER_SLUG}', 'Supporter Plan', '', 0,
             array( 'status' => 'active', 'price' => 2.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',
                 'entitlements' => array( 'profile.advanced_fields' => true ) )
         );
@@ -92,7 +93,7 @@ test.beforeAll(async () => {
 
         $group = $ps->create_group( array(
             'group_key'  => '${GROUP_KEY}',
-            'label'      => 'E2E Advanced',
+            'label'      => 'Personal Details',
             'type'       => 'flat',
             'visibility' => 'public',
             'sort_order' => 1,
@@ -169,6 +170,8 @@ test('J-979 the Profile Fields admin screen offers and applies the advanced type
 
 test('J-979 a member fills the advanced field and it renders with its unit on their profile', async ({
     page,
+    browser,
+    baseURL,
 }, testInfo) => {
     if (!ids) {
         return;
@@ -210,6 +213,20 @@ test('J-979 a member fills the advanced field and it renders with its unit on th
         `global $wpdb; echo (string) $wpdb->get_var( $wpdb->prepare( "SELECT value FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id = %d", ${memberId}, ${ids.field} ) );`
     );
     expect(stored, 'the raw value is stored without the unit baked in').toBe('175');
+
+    // EFFECT: another member reading this profile over REST (the route the About tab
+    // and the app both read) gets the same stored number for this public field.
+    const viewer = await loginContextAs(browser, baseURL, ADMIN);
+    try {
+        const other = await bnApi(viewer.page, 'GET', `/users/${memberId}/profile`);
+        expect(other.status).toBe(200);
+        const fields = ((other.data ?? {}) as { fields?: Array<{ field_key?: string; value?: unknown }> }).fields ?? [];
+        const field = fields.find((f) => f.field_key === FIELD_KEY);
+        expect(field, 'the public advanced field is in another member\'s read of the profile').toBeTruthy();
+        expect(String(field?.value ?? '')).toBe('175');
+    } finally {
+        await viewer.ctx.close();
+    }
 
     // The public "About" panel renders the value WITH its configured unit.
     await page.goto(`/members/${MEMBER}/about/`, { waitUntil: 'domcontentloaded' });

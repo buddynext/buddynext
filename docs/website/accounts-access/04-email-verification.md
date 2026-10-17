@@ -29,6 +29,8 @@ This depends entirely on **how strictly** you choose to enforce verification, an
 
 **Full.** The member cannot use the community at all. They land on a verification screen instead of the feed and stay there until they confirm.
 
+**Who is never held.** WordPress administrators are always treated as verified, so switching verification on can never lock you out of your own site. Community moderators and community admins are members like anyone else: they verify their address before posting.
+
 > **Note:** The confirmation link is single-use. Once it has been clicked successfully, clicking it again does nothing - the account is already verified, and that state stays set.
 
 ### Members can verify themselves from their profile

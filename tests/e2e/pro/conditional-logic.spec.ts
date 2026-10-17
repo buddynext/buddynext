@@ -54,7 +54,7 @@ let memberId = 0;
 test.beforeAll(async () => {
     test.skip(process.env.BN_PRO !== '1', 'Conditional logic ships in BuddyNext Pro.');
 
-    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Cond Member');
+    memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Aiden Ross');
     // A fresh member is routed to onboarding first; this journey is about the edit form.
     await wp(['user', 'meta', 'update', String(memberId), 'bn_onboarding_complete', '1']);
     const out = await php(`
@@ -66,15 +66,15 @@ test.beforeAll(async () => {
         }
         $old = (int) $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}bn_profile_groups WHERE group_key = 'e2e_cond'" );
         if ( $old ) { $ps->delete_group( $old ); }
-        $g = $ps->create_group( array( 'group_key' => 'e2e_cond', 'label' => 'E2E Conditional', 'type' => 'flat', 'visibility' => 'public', 'sort_order' => 1 ) );
-        $gender = $ps->create_field( array( 'group_id' => $g, 'field_key' => 'e2e_cond_gender', 'label' => 'E2E Gender', 'type' => 'select', 'options' => array( 'Male', 'Female' ), 'visibility' => 'public', 'sort_order' => 1 ) );
-        $beard = $ps->create_field( array( 'group_id' => $g, 'field_key' => 'e2e_cond_beard', 'label' => 'E2E Beard style', 'type' => 'text', 'is_required' => 1, 'visibility' => 'public', 'sort_order' => 2 ) );
+        $g = $ps->create_group( array( 'group_key' => 'e2e_cond', 'label' => 'About You', 'type' => 'flat', 'visibility' => 'public', 'sort_order' => 1 ) );
+        $gender = $ps->create_field( array( 'group_id' => $g, 'field_key' => 'e2e_cond_gender', 'label' => 'Preferred pronouns', 'type' => 'select', 'options' => array( 'Male', 'Female' ), 'visibility' => 'public', 'sort_order' => 1 ) );
+        $beard = $ps->create_field( array( 'group_id' => $g, 'field_key' => 'e2e_cond_beard', 'label' => 'Beard grooming style', 'type' => 'text', 'is_required' => 1, 'visibility' => 'public', 'sort_order' => 2 ) );
         $ps->update_field( $beard, array( 'options' => array( 'conditions' => array( 'field_id' => $gender, 'op' => 'in', 'values' => array( 'male' ) ) ) ) );
         // Other required fields on the site are not under test and would block the
         // member's save; relax them for the run (restored in afterAll).
         $relaxed = array_map( 'intval', $wpdb->get_col( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE is_required = 1 AND field_key NOT LIKE 'e2e_cond_%'" ) );
         if ( $relaxed ) { $wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET is_required = 0 WHERE id IN (" . implode( ',', $relaxed ) . ')' ); }
-        $empty = $ps->create_field( array( 'group_id' => $g, 'field_key' => 'e2e_cond_empty', 'label' => 'E2E Empty choice', 'type' => 'select', 'options' => null, 'visibility' => 'public', 'sort_order' => 3 ) );
+        $empty = $ps->create_field( array( 'group_id' => $g, 'field_key' => 'e2e_cond_empty', 'label' => 'Favourite hobby', 'type' => 'select', 'options' => null, 'visibility' => 'public', 'sort_order' => 3 ) );
         \\BuddyNext\\Profile\\ProfileService::flush_definition_cache();
         wp_cache_flush();
         echo wp_json_encode( array( 'group' => $g, 'gender' => $gender, 'beard' => $beard, 'empty' => $empty, 'relaxed' => $relaxed ) );
@@ -149,6 +149,8 @@ test('J-808 dependent field shows and hides on the answer, is not required while
     res = await Promise.all([putProfile(), page.locator('.bn-ep-save-actions button[type="submit"]').first().click()]).then(([r]) => r);
     expect(res.status()).toBe(200);
     await expect.poll(() => storedValue(memberId, ids.beard), { message: 'hidden answer cleared on save' }).toBe('');
+    // EFFECT: the deciding answer that hid it is the one stored (choices store their slug).
+    expect(await storedValue(memberId, ids.gender), 'the deciding answer is saved').toBe('female');
 
     // Phone width: nothing in the profile form runs past the screen. Scoped to the
     // form, because the host theme's header is not BuddyNext's to assert.
@@ -178,7 +180,7 @@ test('J-809 builder blocks an unreachable registration setup and the screen flag
     // Setup notice lists the choice field with no options; Fix opens it.
     const notice = page.locator('.bn-pf-setup-issues');
     await expect(notice, 'owner is told about the half-set-up field').toBeVisible();
-    await expect(notice).toContainText('E2E Empty choice');
+    await expect(notice).toContainText('Favourite hobby');
     await notice.locator(`[data-bn-pf-toggle-edit="bn-ef-row-${ids.empty}"]`).click();
     await expect(page.locator(`#bn-ef-row-${ids.empty}`), 'Fix opens the field panel').toBeVisible();
 
@@ -190,7 +192,7 @@ test('J-809 builder blocks an unreachable registration setup and the screen flag
     await row.locator('button[type="submit"]').first().click();
     const error = row.locator('.bnpro-cond__error');
     await expect(error, 'save is blocked with a message at the form').toBeVisible();
-    await expect(error).toContainText('E2E Gender');
+    await expect(error).toContainText('Preferred pronouns');
 
     // Nothing was written.
     expect(

@@ -105,6 +105,7 @@ class FeedCache {
 	public function space_page_1_key( int $space_id, int $viewer_id, int $per_page ): string {
 		return 'space:p1:' . $space_id . ':' . $viewer_id . ':' . $per_page
 			. ':s' . $this->space_version( $space_id )
+			. ':v' . $this->user_version( $viewer_id )
 			. ':g' . $this->global_version();
 	}
 
@@ -129,6 +130,7 @@ class FeedCache {
 	public function profile_page_1_key( int $profile_id, int $viewer_id, int $per_page ): string {
 		return 'prof:p1:' . $profile_id . ':' . $viewer_id . ':' . $per_page
 			. ':o' . $this->user_version( $profile_id )
+			. ':v' . $this->user_version( $viewer_id )
 			. ':g' . $this->global_version();
 	}
 

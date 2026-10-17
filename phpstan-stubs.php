@@ -53,6 +53,30 @@ namespace Jetonomy {
 	}
 }
 
+namespace Jetonomy\Models {
+	if ( ! class_exists( 'Jetonomy\\Models\\SpaceMember' ) ) {
+		/**
+		 * Stub for Jetonomy's forum roster model (signatures copied from Jetonomy 2.0.2
+		 * includes/models/class-space-member.php). JetonomyBridge registers the hooks that
+		 * call it only when the class exists.
+		 */
+		class SpaceMember { // phpcs:ignore
+			public static function add( int $space_id, int $user_id, string $role = 'member', string $source = 'manual' ): \WP_Error|bool { // phpcs:ignore
+				return true;
+			}
+			public static function remove( int $space_id, int $user_id, bool $keep_last_admin = false ): \WP_Error|bool { // phpcs:ignore
+				return true;
+			}
+			public static function set_role( int $space_id, int $user_id, string $role, bool $keep_last_admin = false ): \WP_Error|bool { // phpcs:ignore
+				return true;
+			}
+			public static function is_member( int $space_id, int $user_id ): bool { // phpcs:ignore
+				return false;
+			}
+		}
+	}
+}
+
 namespace WPMediaVerse\Services {
 	if ( ! class_exists( 'WPMediaVerse\\Services\\ProfileService' ) ) {
 		/**
@@ -81,6 +105,22 @@ namespace WPMediaVerse\Services {
 			 */
 			public function update_profile( int $user_id, array $fields ) { // phpcs:ignore
 				return true;
+			}
+		}
+	}
+}
+
+namespace WBGam\Engine {
+	if ( ! class_exists( 'WBGam\\Engine\\BadgeEngine' ) ) {
+		/**
+		 * Stub for WB Gamification's badge engine (signature copied from
+		 * src/Engine/BadgeEngine.php). GamificationBridge calls it only when the
+		 * class exists.
+		 */
+		class BadgeEngine { // phpcs:ignore
+			/** @return array{id: string, name: string, description: string, image_url: string|null, is_credential: bool}|null */
+			public static function get_badge_def( string $badge_id ): ?array { // phpcs:ignore
+				return null;
 			}
 		}
 	}

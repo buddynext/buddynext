@@ -1010,7 +1010,7 @@ class NotificationMessageService {
 						return add_query_arg( 'bn_mtab', 'reports', $report_space_link . 'moderation/' );
 					}
 				}
-				return PageRouter::community_admin_url();
+				return PageRouter::community_admin_moderation_url();
 
 			case 'bn.onboarding_nudge':
 				return PageRouter::onboarding_url();

@@ -36,7 +36,10 @@ async function globalTeardown(): Promise<void> {
     }
 
     try {
-        await wp(['buddynext', 'qa-reset', '--yes']);
+        // The gate's own account: its posts and spaces are swept whatever they say,
+        // because journey content is written to read like a real community.
+        const author = process.env.BN_TEST_USER;
+        await wp(['buddynext', 'qa-reset', '--yes', ...(author ? [`--author=${author}`] : [])]);
     } catch {
         /* WP-CLI unavailable or the command errored — never fail the run on cleanup. */
     }

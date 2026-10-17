@@ -69,8 +69,8 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
 
     test.beforeAll(async () => {
         const stamp = Date.now().toString().slice(-6);
-        tierA.name = `E2E Plan Change A ${stamp}`;
-        tierB.name = `E2E Plan Change B ${stamp}`;
+        tierA.name = `Neighbor Plan ${stamp}`;
+        tierB.name = `Champion Plan ${stamp}`;
 
         for (const [slug, ref] of [
             [SLUG_A, tierA],
@@ -91,8 +91,8 @@ test.describe('pro / plan change (upgrade or downgrade)', () => {
         expect(tierA.id, 'Plan A should be created').toBeGreaterThan(0);
         expect(tierB.id, 'Plan B should be created').toBeGreaterThan(0);
 
-        selfMemberId = await ensureUser(MEMBER_SELF, `${MEMBER_SELF}@example.test`, 'E2E Plan Change Member');
-        adminTargetId = await ensureUser(MEMBER_ADMIN, `${MEMBER_ADMIN}@example.test`, 'E2E Plan Change Admin Target');
+        selfMemberId = await ensureUser(MEMBER_SELF, `${MEMBER_SELF}@example.test`, 'Noah Patel');
+        adminTargetId = await ensureUser(MEMBER_ADMIN, `${MEMBER_ADMIN}@example.test`, 'Emma Collins');
 
         await wp([
             'eval',

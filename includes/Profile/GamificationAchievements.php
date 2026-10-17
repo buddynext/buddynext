@@ -60,7 +60,7 @@ class GamificationAchievements {
 					// Floor: 1.6.3 introduced the toast skip-reason behaviour the
 					// bridge relies on. Tested against 1.6.5: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
 					'min_version'      => '1.6.3',
-					'tested_version'   => '1.6.5',
+					'tested_version'   => '1.6.7',
 					// Kept on below these; each feature detects the API it needs
 					// (wb_gam_send_kudos, LeaderboardEngine::get_leaderboard_page,
 					// wb_gam_get_point_type_label) and the owner is told what to update.

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 import { loginAs } from '../_fixtures/actor';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-976 the admin revenue tiles move with a real payment; J-977 a member's own
@@ -46,7 +47,7 @@ test.describe('J-976 revenue report', () => {
     test.beforeAll(async () => {
         test.skip(process.env.BN_PRO !== '1', 'Billing screen ships in BuddyNext Pro.');
 
-        const memberId = await ensureUser(`${ENGAGEMENT_MEMBER}_rev`, `${ENGAGEMENT_MEMBER}_rev@example.test`, 'Revenue Payer');
+        const memberId = await ensureUser(`${ENGAGEMENT_MEMBER}_rev`, `${ENGAGEMENT_MEMBER}_rev@example.test`, 'Nina Volkova');
 
         const out = await php(`
             global $wpdb;
@@ -59,7 +60,7 @@ test.describe('J-976 revenue report', () => {
             $tiers   = new \\BuddyNextPro\\Membership\\MembershipTierService();
             $tier_id = $tiers->create_tier(
                 '${REVENUE_TIER_SLUG}',
-                'E2E Revenue Tier',
+                'Supporter Plan',
                 '',
                 0,
                 array( 'status' => 'active', 'billing_type' => 'one_time', 'price' => 42.42, 'currency' => 'USD' )
@@ -139,7 +140,7 @@ test.describe('J-977 per-member engagement', () => {
     test.beforeAll(async () => {
         test.skip(process.env.BN_PRO !== '1', 'The Insights admin screen ships in BuddyNext Pro.');
 
-        displayName = 'E2E Engagement Member';
+        displayName = 'Owen Price';
         memberId = await ensureUser(ENGAGEMENT_MEMBER, `${ENGAGEMENT_MEMBER}@example.test`, displayName);
 
         // top_members() ranks by raw event COUNT across every actor on the site, so
@@ -205,6 +206,17 @@ test.describe('J-977 per-member engagement', () => {
         await expect(row, 'the member appears as their own row in the per-member table').toBeVisible();
         await expect(row.locator('td').nth(1), "the row carries this member's real event count").toHaveText(
             expectedCount
+        );
+
+        // EFFECT (parity): the Pro analytics route (the app's and the functional suite's
+        // read of the same GROUP BY) ranks this member with the same count the card shows.
+        const top = await restJson(page, '/wp-json/buddynext-pro/v1/analytics/members/top');
+        expect(top.status).toBe(200);
+        const mine = ((top.data ?? []) as Array<{ actor_id?: number; event_count?: number }>).find(
+            (r) => Number(r.actor_id) === memberId
+        );
+        expect(Number(mine?.event_count), 'GET /analytics/members/top event_count for this member').toBe(
+            Number(expectedCount.replace(/\D/g, ''))
         );
     });
 });

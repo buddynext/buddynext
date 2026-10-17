@@ -1,5 +1,5 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { createSpaceApi, deleteSpaceApi, ensureOnboarded, getSpace, loginContextAs } from '../_fixtures/spaces-rest';
+import { createSpaceApi, deleteSpaceApi, ensureOnboarded, getSpace, loginContextAs, bnApi, type SpaceRow } from '../_fixtures/spaces-rest';
 import { resolveOtherMemberSlug } from '../_fixtures/precondition';
 
 /**
@@ -40,7 +40,7 @@ test.describe('spaces / invite link (J-611)', () => {
 		await ensureOnboarded(page);
 
 		const stamp = Date.now().toString().slice(-8);
-		const space = await createSpaceApi(page, { name: `E2E Invite ${stamp}`, type: 'private' });
+		const space = await createSpaceApi(page, { name: `Sunday Hikers Collective ${stamp}`, type: 'private' });
 		let otherCtx: import('@playwright/test').BrowserContext | null = null;
 
 		try {
@@ -54,6 +54,15 @@ test.describe('spaces / invite link (J-611)', () => {
 			await expect(field).toBeVisible({ timeout: 15_000 });
 			const inviteUrl = await field.inputValue();
 			expect(inviteUrl, 'invite URL field was empty').toContain('invite=');
+			// EFFECT: the link on screen is the stored one (same token the route holds).
+			const linkToken = async (): Promise<string> => {
+				const r = await bnApi(page, 'GET', `/spaces/${space.id}/invite-link`);
+				expect(r.status, `GET invite-link: ${JSON.stringify(r.data)}`).toBe(200);
+				return String(((r.data as { invite_link?: { token?: string } | null }).invite_link ?? {}).token ?? '');
+			};
+			const token = await linkToken();
+			expect(token, 'no invite link stored after "Create invite link"').not.toBe('');
+			expect(inviteUrl).toContain(`invite=${token}`);
 
 			// 2. A second, onboarded member opens the link.
 			const otherLogin = await resolveOtherMemberSlug(page, process.env.BN_TEST_USER ?? 'varundubey');
@@ -62,6 +71,10 @@ test.describe('spaces / invite link (J-611)', () => {
 			const second = await loginContextAs(browser, testInfo.project.use.baseURL, otherLogin as string);
 			otherCtx = second.ctx;
 			await ensureOnboarded(second.page);
+
+			// Baseline: no relationship to the private space before using the link.
+			const beforeJoin = await getSpace(second.page, space.id);
+			expect((beforeJoin.data as SpaceRow).membership_status ?? '').toBe('');
 
 			await second.page.goto(inviteUrl, { waitUntil: 'domcontentloaded' });
 
@@ -78,6 +91,22 @@ test.describe('spaces / invite link (J-611)', () => {
 			const asMember = await getSpace(second.page, space.id);
 			const role = (asMember.data as { membership_role?: string }).membership_role ?? '';
 			expect(role, 'invite-link join did not make the visitor an active member').not.toBe('');
+			// A private space joined by link is ACTIVE at once (no pending step), as a plain member.
+			await expect
+				.poll(async () => ((await getSpace(second.page, space.id)).data as SpaceRow).membership_status, { timeout: 10_000 })
+				.toBe('active');
+			expect(((await getSpace(second.page, space.id)).data as SpaceRow).membership_role).toBe('member');
+			// EFFECT (owner's side): on the roster, flagged as joined via the link, and nothing
+			// is waiting in the approval queue.
+			const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+			expect(roster.status).toBe(200);
+			const others = ((roster.data as Array<{ role?: string; joined_via_link?: boolean }>) ?? []).filter(
+				(r) => r.role !== 'owner'
+			);
+			expect(others.length, `"${otherLogin}" missing from the roster after joining by link`).toBe(1);
+			expect(others[0].joined_via_link, 'roster row is not flagged joined_via_link').toBe(true);
+			const queue = await bnApi(page, 'GET', `/spaces/${space.id}/pending-requests`);
+			expect(((queue.data as { items?: unknown[] }).items ?? []).length, 'a link join left a pending request').toBe(0);
 
 			// 4. The owner sees the "Via invite link" marker on the roster (wording since 707f6e67).
 			await page.goto(`/spaces/${space.slug}/members/`, { waitUntil: 'domcontentloaded' });
@@ -102,6 +131,11 @@ test.describe('spaces / invite link (J-611)', () => {
 			await expect(page.locator(urlField)).toBeVisible({ timeout: 15_000 });
 			const resetUrl = await page.locator(urlField).inputValue();
 			expect(resetUrl, 'reset did not issue a new token').not.toBe(inviteUrl);
+			// EFFECT: the stored token changed and the screen shows the new one.
+			const newToken = await linkToken();
+			expect(newToken).not.toBe('');
+			expect(newToken, 'reset kept the old token in the store').not.toBe(token);
+			expect(resetUrl).toContain(`invite=${newToken}`);
 		} finally {
 			await deleteSpaceApi(page, space.id);
 			if (otherCtx) {

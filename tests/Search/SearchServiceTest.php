@@ -51,7 +51,7 @@ class SearchServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_type_filter_accepts_plural_and_singular(): void {
-		$this->service->index( 'user', 501, 'Zephyrine Searchable', 'bio', $this->author_id );
+		$this->service->index( 'user', $this->author_id, 'Zephyrine Searchable', 'bio', $this->author_id );
 		$this->service->index( 'post', 601, 'Zephyrine Article', 'body', $this->author_id );
 
 		$singular = $this->service->search( 'Zephyrine', 'user' );
@@ -59,7 +59,7 @@ class SearchServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 1, $singular['total'] );
 		$this->assertSame( $singular['total'], $plural['total'], 'Plural type must match singular' );
-		$this->assertSame( 501, $plural['items'][0]['object_id'] );
+		$this->assertSame( $this->author_id, $plural['items'][0]['object_id'] );
 
 		// Plural for posts resolves too, and does not bleed the user record.
 		$posts = $this->service->search( 'Zephyrine', 'posts' );
@@ -206,5 +206,25 @@ class SearchServiceTest extends \WP_UnitTestCase {
 
 		$object_ids = array_column( $results['items'], 'object_id' );
 		$this->assertNotContains( 88, $object_ids );
+	}
+
+	/**
+	 * A member deleted outside BuddyNext's delete path is not shown, and leaves the index.
+	 *
+	 * @return void
+	 */
+	public function test_search_drops_and_deindexes_missing_members(): void {
+		global $wpdb;
+		$live = self::factory()->user->create( array( 'display_name' => 'Marigold Fenwick' ) );
+		$gone = 9000001;
+		$this->service->index( 'user', $live, 'Marigold Fenwick', '', $live );
+		$this->service->index( 'user', $gone, 'Marigold Ashby', '', $gone );
+
+		$ids = array_map( 'intval', array_column( $this->service->search( 'Marigold', 'user' )['items'], 'object_id' ) );
+
+		$this->assertContains( $live, $ids );
+		$this->assertNotContains( $gone, $ids );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- test read-back.
+		$this->assertSame( '0', $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index WHERE object_type = 'user' AND object_id = %d", $gone ) ) );
 	}
 }

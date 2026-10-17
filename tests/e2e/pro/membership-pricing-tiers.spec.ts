@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-900 member sees the real pricing page.
@@ -42,10 +43,10 @@ test.describe('pro / pricing page lists real plans', () => {
     let pricingUrl = '';
 
     test.beforeAll(async () => {
-        await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Pricing Member');
+        await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Olivia Grant');
 
         const stamp = Date.now().toString().slice(-6);
-        tierName = `E2E Pricing Plan ${stamp}`;
+        tierName = `Supporter Plan ${stamp}`;
 
         tierId = Number(
             await wp([
@@ -84,6 +85,16 @@ test.describe('pro / pricing page lists real plans', () => {
             await expect(card, 'the seeded paid plan should render as a card').toBeVisible({ timeout: 10_000 });
             await expect(card).toContainText(tierName);
             await expect(card.locator('.bn-plan-card__price')).toContainText('9');
+
+            // EFFECT (parity): the card is the plan the public plans route sells (the one
+            // checkout and the app read), same name and price. (Other specs add and remove
+            // plans while this runs, so only this spec's own plan is compared.)
+            const plans = await restJson(page, '/wp-json/buddynext-pro/v1/membership/plans');
+            expect(plans.status).toBe(200);
+            const list = (plans.data ?? []) as Array<{ id?: number; name?: string; price?: number }>;
+            const plan = list.find((pl) => Number(pl.id) === tierId);
+            expect(plan?.name, 'GET /membership/plans lists the plan').toBe(tierName);
+            expect(Number(plan?.price)).toBe(9);
 
             // A member should be offered a real way to buy it, not a dead end -
             // either a live buy button/form, or an honest "no gateway" notice, but

@@ -9,6 +9,22 @@ import {
     dbCount,
     tablePrefix,
 } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
+
+/**
+ * A's profile exactly as the page's current viewer gets it from REST, serialised.
+ * A privacy gate that only hides markup still leaks here, so absence is asserted
+ * on the whole payload rather than on one field path. Works signed out too
+ * (cookie-less page.request), which is the anonymous app/API reader.
+ */
+async function profileJsonFor(page: Page, signedIn: boolean): Promise<{ status: number; json: string }> {
+    if (signedIn) {
+        const r = await bnApi(page, 'GET', `/users/${A_ID}/profile`);
+        return { status: r.status, json: JSON.stringify(r.data ?? null) };
+    }
+    const res = await page.request.get(`/wp-json/buddynext/v1/users/${A_ID}/profile`);
+    return { status: res.status(), json: await res.text() };
+}
 
 /**
  * Wave-2 PROFILE A2 field actions — EFFECT-BASED (J-710..J-713).
@@ -48,7 +64,7 @@ import {
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 
 const editUrl = (login: string) => `/members/${login}/edit/`;
 const memberUrl = (login: string) => `/members/${login}/`;
@@ -145,7 +161,7 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
         page,
     }) => {
         const stamp = Date.now().toString().slice(-6);
-        const secretLoc = `e2e-loc-${stamp}`;
+        const secretLoc = `Cedar Falls ${stamp}`;
 
         // Capture the owner's current location + visibility so we can restore it.
         await loginAs(page, A_LOGIN);
@@ -175,6 +191,10 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
                 page.locator(HERO_META).getByText(secretLoc),
                 'members-only location must be absent to an anonymous viewer'
             ).toHaveCount(0);
+            // EFFECT: the anonymous REST read of the same profile does not carry it either.
+            const anon = await profileJsonFor(page, false);
+            expect(anon.status, 'anonymous GET /users/{A}/profile').toBe(200);
+            expect(anon.json, 'a members-only value must not be in the anonymous REST payload').not.toContain(secretLoc);
 
             // Logged-in member B: same field is now visible (allowed viewer).
             await loginAs(page, B_LOGIN);
@@ -184,6 +204,10 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
                 page.locator(HERO_META).getByText(secretLoc),
                 'members-only location must be visible to a logged-in member'
             ).toBeVisible();
+            // EFFECT: the member's REST read of A's profile carries the value.
+            const asMember = await profileJsonFor(page, true);
+            expect(asMember.status, 'member GET /users/{A}/profile').toBe(200);
+            expect(asMember.json, 'a members-only value is in a member\'s REST payload').toContain(secretLoc);
         } finally {
             await loginAs(page, A_LOGIN);
             await page.goto(editUrl(A_LOGIN));
@@ -208,8 +232,8 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
         }
 
         const stamp = Date.now().toString().slice(-6);
-        const companyPublic = `e2e Public ${stamp}`;
-        const companyPrivate = `e2e Connections ${stamp}`;
+        const companyPublic = `Northwind Bakery ${stamp}`;
+        const companyPrivate = `Lakeside Studio ${stamp}`;
 
         try {
             // Entry 1 → public.
@@ -240,6 +264,18 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
                 about.getByText(companyPrivate),
                 'connections-only entry must be hidden from a non-connection member'
             ).toHaveCount(0);
+
+            // EFFECT: B's REST read of A's profile carries the public entry and NOT
+            // the connections-only one (hidden on screen is not enough).
+            const asB = await profileJsonFor(page, true);
+            expect(asB.status, 'non-connection GET /users/{A}/profile').toBe(200);
+            expect(asB.json, 'the public entry is in the non-connection\'s REST payload').toContain(companyPublic);
+            expect(asB.json, 'a connections-only entry must not be in a non-connection\'s REST payload').not.toContain(companyPrivate);
+
+            // EFFECT: the entry is stored, not dropped: the owner's own read has both.
+            await loginAs(page, A_LOGIN);
+            const own = await bnApi(page, 'GET', '/me/profile');
+            expect(JSON.stringify(own.data ?? null), 'the owner still reads the connections-only entry').toContain(companyPrivate);
         } finally {
             await loginAs(page, A_LOGIN);
             await page.goto(editUrl(A_LOGIN));
@@ -278,7 +314,7 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
         // Edit → the guard arms and now cancels the unload.
         const loc = page.locator(LOCATION_INPUT);
         await loc.click();
-        await loc.fill(`e2e-dirty-${Date.now().toString().slice(-5)}`);
+        await loc.fill(`Maple Grove ${Date.now().toString().slice(-5)}`);
         await expect(
             page.locator(FORM_SHELL),
             'editing must arm the dirty guard'
@@ -287,6 +323,13 @@ test.describe('profile / field-level privacy + save hygiene (effect-based)', () 
             await dispatchBeforeUnload(),
             'a dirty form must cancel the unload (unsaved-changes guard fires)'
         ).toBe(true);
+
+        // EFFECT: the guarded edit is still unsaved server-side (that is what the
+        // guard protects); the typed value has not reached the profile route.
+        const typed = await loc.inputValue();
+        const stored = await bnApi(page, 'GET', '/me/profile');
+        expect(stored.status, 'GET /me/profile').toBe(200);
+        expect(JSON.stringify(stored.data ?? null), 'an unsaved edit must not be on the server').not.toContain(typed);
     });
 
     test('J-713 repeated blank save is idempotent — no duplicate value rows', async ({ page }) => {

@@ -1299,8 +1299,8 @@ class FollowService {
 	 */
 	private function interests_field_id(): int {
 		$cached = wp_cache_get( 'interests_field_id', self::SUGGEST_CACHE_GROUP );
-		if ( is_int( $cached ) ) {
-			return $cached;
+		if ( false !== $cached ) {
+			return (int) $cached; // A persistent cache returns the int as a numeric string.
 		}
 
 		global $wpdb;

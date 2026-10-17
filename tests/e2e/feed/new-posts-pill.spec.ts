@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { openMemberSession, restPost, restGet, readRestNonce, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { openMemberSession, restPost, restGet, readRestNonce, postIdOfCard, type MemberSession } from '../_fixtures/feed-wave1.helpers';
 
 type NewCount = { count: number; newest_id: number };
 
@@ -42,7 +42,7 @@ test.describe('feed / new-posts pill', () => {
         let author: MemberSession | null = null;
         let postId = 0;
         const stamp = Date.now().toString().slice(-6);
-        const body = `j541 newer post ${stamp}`;
+        const body = `Just spotted a heron by the footbridge ${stamp}`;
 
         try {
             // Actor is reading the feed. Capture the watermark exactly as the pill
@@ -93,6 +93,10 @@ test.describe('feed / new-posts pill', () => {
             await page.locator(pill).click();
             await expect(page.locator(sel.postCard).filter({ hasText: body }).first())
                 .toBeVisible({ timeout: 10_000 });
+
+            // EFFECT: the card the pill brought in is the seeded post itself (same server id
+            // the new-count route reported above), not a look-alike.
+            expect(await postIdOfCard(page, body), 'post id of the card the pill loaded').toBe(postId);
         } finally {
             if (author && postId) {
                 await author.request

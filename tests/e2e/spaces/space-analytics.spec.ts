@@ -1,5 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { createSpaceApi, deleteSpaceApi, ensureOnboarded } from '../_fixtures/spaces-rest';
+import { wp } from '../_fixtures/wp';
 
 /**
  * J-820 — Space-owner "Last 30 days" analytics row.
@@ -40,6 +41,10 @@ test.describe('spaces / space analytics (J-820)', () => {
 		return true;
 	}
 
+	// The stored setting the toggle writes (SpaceOwnerStats::OPTION), '1' when on.
+	const storedSetting = async (): Promise<boolean> =>
+		['1', 'true', 'yes', 'on'].includes((await wp(['option', 'get', 'buddynextpro_space_owner_stats']).catch(() => '')).trim());
+
 	test('J-820 the Last 30 days row follows the setting on a managed space', async ({
 		authenticatedPage: page,
 	}) => {
@@ -47,9 +52,11 @@ test.describe('spaces / space analytics (J-820)', () => {
 
 		const canToggle = await setToggle(page, true);
 		test.skip(!canToggle, 'needs a site admin with Pro + Analytics active');
+		// EFFECT: the admin form really wrote the option the space page reads.
+		expect(await storedSetting(), 'toggle shows on but the option is not stored').toBe(true);
 
 		const stamp = Date.now().toString().slice(-8);
-		const space = await createSpaceApi(page, { name: `E2E Analytics ${stamp}`, type: 'open' });
+		const space = await createSpaceApi(page, { name: `Neighborhood Watch Updates ${stamp}`, type: 'open' });
 		const adminUrl = `/spaces/${space.slug}/admin/`;
 
 		try {
@@ -69,6 +76,7 @@ test.describe('spaces / space analytics (J-820)', () => {
 
 			// Setting OFF (the default) → the section is gone entirely.
 			expect(await setToggle(page, false)).toBe(true);
+			expect(await storedSetting(), 'toggle shows off but the option is still on').toBe(false);
 			await page.setViewportSize({ width: 1280, height: 900 });
 			await page.goto(adminUrl, { waitUntil: 'domcontentloaded' });
 			await expect(page.locator(SECTION)).toHaveCount(0);

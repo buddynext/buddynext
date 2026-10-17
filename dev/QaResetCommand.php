@@ -126,6 +126,12 @@ class QaResetCommand {
 	 * : Report only. Implied when --yes is absent; accepted so an explicit dry run
 	 * reads clearly in a script.
 	 *
+	 * [--author=<login>]
+	 * : Also remove every post and space created by this dedicated harness account
+	 * (the journey gate passes its own login). Journey content reads like a real
+	 * community, so it cannot be found by its text; who wrote it is the marker.
+	 * Refused for user 1.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp buddynext qa-reset
@@ -138,13 +144,15 @@ class QaResetCommand {
 	public function __invoke( array $args, array $assoc_args ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- WP-CLI signature.
 		$dry_run = ! isset( $assoc_args['yes'] ) || isset( $assoc_args['dry-run'] );
 
-		$posts   = $this->harness_posts();
+		$author  = $this->harness_author( (string) ( $assoc_args['author'] ?? '' ) );
+		$posts   = $this->harness_posts( $author );
+		$spaces  = $this->harness_spaces( $author );
 		$users   = $this->harness_users();
 		$fields  = $this->harness_fields();
 		$primed  = $this->primary_account_residue();
 		$orphans = $this->orphan_counts();
 
-		if ( empty( $posts ) && empty( $users ) && empty( $fields ) && empty( $primed ) && 0 === array_sum( $orphans ) ) {
+		if ( empty( $posts ) && empty( $spaces ) && empty( $users ) && empty( $fields ) && empty( $primed ) && 0 === array_sum( $orphans ) ) {
 			WP_CLI::success( 'No harness residue found. The site is at baseline.' );
 			return;
 		}
@@ -165,6 +173,7 @@ class QaResetCommand {
 		$users = array_values( $users );
 
 		WP_CLI::log( sprintf( '%s posts:          %d', $dry_run ? 'Would remove' : 'Removed', count( $posts ) ) );
+		WP_CLI::log( sprintf( '%s spaces:         %d', $dry_run ? 'Would remove' : 'Removed', count( $spaces ) ) );
 		WP_CLI::log( sprintf( '%s accounts:       %d', $dry_run ? 'Would remove' : 'Removed', count( $users ) ) );
 		WP_CLI::log( sprintf( '%s profile fields: %d', $dry_run ? 'Would remove' : 'Removed', count( $fields ) ) );
 
@@ -213,6 +222,9 @@ class QaResetCommand {
 		}
 
 		$this->remove_posts( wp_list_pluck( $posts, 'id' ) );
+		foreach ( $spaces as $space_id ) {
+			buddynext_service( 'spaces' )->delete( $space_id, $author );
+		}
 		$this->remove_users( wp_list_pluck( $users, 'ID' ) );
 		$this->remove_fields( wp_list_pluck( $fields, 'id' ) );
 
@@ -251,14 +263,18 @@ class QaResetCommand {
 	}
 
 	/**
-	 * Posts whose content begins with a harness prefix.
+	 * Posts whose content begins with a harness prefix, or written by the harness author.
 	 *
+	 * @param int $author Harness account id, or 0.
 	 * @return array<int,array{id:int}>
 	 */
-	private function harness_posts(): array {
+	private function harness_posts( int $author = 0 ): array {
 		global $wpdb;
 
 		$clauses = array( $this->prefix_clause( 'content', self::POST_PREFIXES ) );
+		if ( $author > 0 ) {
+			$clauses[] = $wpdb->prepare( 'user_id = %d', $author );
+		}
 
 		foreach ( self::POST_PATTERNS as $pattern ) {
 			$clauses[] = $wpdb->prepare( 'content REGEXP %s', $pattern );
@@ -269,6 +285,45 @@ class QaResetCommand {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		return (array) $wpdb->get_results( $sql, ARRAY_A );
+	}
+
+	/**
+	 * The dedicated harness account named by --author, or 0.
+	 *
+	 * User 1 is the site's real owner: its content is never swept by authorship.
+	 *
+	 * @param string $login Login passed to --author.
+	 * @return int
+	 */
+	private function harness_author( string $login ): int {
+		if ( '' === $login ) {
+			return 0;
+		}
+		$user = get_user_by( 'login', $login );
+		if ( ! $user ) {
+			WP_CLI::warning( sprintf( '--author=%s: no such account, nothing swept by author.', $login ) );
+			return 0;
+		}
+		if ( 1 === (int) $user->ID ) {
+			WP_CLI::error( '--author refuses user 1: that is the site owner, not a harness account.' );
+		}
+		return (int) $user->ID;
+	}
+
+	/**
+	 * Spaces owned by the harness author.
+	 *
+	 * @param int $author Harness account id, or 0.
+	 * @return int[]
+	 */
+	private function harness_spaces( int $author ): array {
+		global $wpdb;
+
+		if ( $author <= 0 ) {
+			return array();
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_spaces WHERE owner_id = %d", $author ) ) );
 	}
 
 	/**

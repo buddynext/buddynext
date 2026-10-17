@@ -1,6 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { softSkip } from '../_fixtures/precondition';
+import { restJson } from '../_fixtures/effects';
+import { dbScalar, tablePrefix } from '../_fixtures/wp';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -45,7 +47,7 @@ test.describe('pro / saved search', () => {
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
         const term = `j953term${stamp}`;
-        const name = `J905 saved ${stamp}`;
+        const name = `Weekend hikes near me ${stamp}`;
 
         await page.goto(`/activity/search/?q=${term}`);
         const card = page.locator(savedCard).first();
@@ -68,6 +70,13 @@ test.describe('pro / saved search', () => {
         // Persistence: revisit the search hub on a DIFFERENT query — the saved
         // list is fetched independently of the current query string, so this
         // proves the row survived a reload rather than living only in memory.
+        // EFFECT: the saved search is in the member's Pro collection.
+        const saved = async () => JSON.stringify((await restJson(page, '/wp-json/buddynext-pro/v1/me/saved-searches')).data ?? '').includes(name);
+        await expect.poll(saved, { timeout: 5_000 }).toBe(true);
+        // EFFECT: the stored row carries the ORIGINAL query, which is what a later run replays.
+        const prefix = await tablePrefix();
+        const storedArgs = () => dbScalar(`SELECT query_args FROM ${prefix}bn_saved_searches WHERE name = '${name}' LIMIT 1`);
+        expect(await storedArgs(), 'saved row keeps the searched term').toContain(term);
         await page.goto('/activity/search/?q=unrelated');
         const row = page.locator(item(name)).first();
         await expect(row).toBeVisible({ timeout: 8_000 });
@@ -81,5 +90,7 @@ test.describe('pro / saved search', () => {
         // Cleanup, verified: delete removes it from the list (not just from the DB).
         await row.locator('button[data-wp-on--click="actions.deleteSaved"]').first().click();
         await expect(page.locator(item(name))).toHaveCount(0, { timeout: 5_000 });
+        await expect.poll(saved, { timeout: 5_000 }).toBe(false);
+        expect(await storedArgs(), 'the row is gone after delete').toBe('');
     });
 });

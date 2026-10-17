@@ -1,6 +1,6 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet } from '../_fixtures/feed-wave1.helpers';
 import { dbScalar, tablePrefix } from '../_fixtures/wp';
 
 /**
@@ -30,9 +30,9 @@ test.describe('feed / comment delete', () => {
 
     test('J-517 deleting my own comment removes it from the thread after reload', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const postText = `j517 host post ${stamp}`;
-        const targetText = `j517 delete me ${stamp}`;
-        const keeperText = `j517 keep me ${stamp}`;
+        const postText = `Thinking about starting a Saturday running group downtown ${stamp}`;
+        const targetText = `Sorry, wrong thread, ignore this one ${stamp}`;
+        const keeperText = `I am in, what pace are we thinking ${stamp}`;
         let postId = 0;
         let targetId = 0;
         let keeperId = 0;
@@ -64,6 +64,9 @@ test.describe('feed / comment delete', () => {
             targetId = target.body.id ?? 0;
             expect(keeperId).toBeGreaterThan(0);
             expect(targetId).toBeGreaterThan(0);
+            const countOf = async (): Promise<number> =>
+                Number((await restGet<{ comment_count?: number }>(page.request, nonce, `/posts/${postId}`)).body.comment_count);
+            expect(await countOf(), 'comment_count with both comments').toBe(2);
 
             // Open the thread and delete the target via its inline Delete + confirm.
             await page.goto(urls.feed);
@@ -74,8 +77,11 @@ test.describe('feed / comment delete', () => {
 
             const modal = page.locator('.bn-modal-backdrop').last();
             await expect(modal).toBeVisible({ timeout: 5_000 });
+            // The dialog closes before the server answers; reloading first would cancel the DELETE.
+            const deleted = page.waitForResponse((r) => r.request().method() === 'DELETE' && r.url().includes(`/comments/${targetId}`));
             await modal.getByRole('button', { name: 'Delete', exact: true }).first().click();
             await expect(modal).toBeHidden({ timeout: 5_000 });
+            expect((await deleted).status(), 'DELETE /comments/{id}').toBeLessThan(300);
 
             // Round-trip: reload, reopen. Keeper present (thread loaded), target gone.
             await page.goto(urls.feed);
@@ -87,6 +93,19 @@ test.describe('feed / comment delete', () => {
             const p = await tablePrefix();
             const flag = await dbScalar(`SELECT is_deleted FROM ${p}bn_comments WHERE id=${targetId};`);
             expect(flag, 'target comment is soft-deleted').toBe('1');
+
+            // EFFECT: the comments route serves the keeper and not the target, and the post's
+            // comment count dropped by exactly one.
+            const thread = await restGet<{ items?: Array<{ id: number }> }>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${postId}`
+            );
+            expect(thread.status, 'GET /comments').toBe(200);
+            const served = (thread.body.items ?? []).map((c) => Number(c.id));
+            expect(served, 'keeper still served').toContain(keeperId);
+            expect(served, 'deleted comment still served').not.toContain(targetId);
+            expect(await countOf(), 'comment_count after the delete').toBe(1);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

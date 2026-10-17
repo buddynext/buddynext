@@ -43,7 +43,7 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 		$this->assertGreaterThan( 0, $card_id, 'publishing a post creates an article card' );
 
 		$service = new PostService();
-		$before  = $service->hydrate( (array) $service->get( $card_id ) );
+		$before  = (array) $service->get( $card_id ); // Primes get()'s cache, as a page view does.
 		$this->assertSame( '', (string) ( $before['link_meta']['thumbnail'] ?? '' ), 'no image yet' );
 
 		$attachment = self::factory()->attachment->create_upload_object( DIR_TESTDATA . '/images/canola.jpg', (int) $post_id );
@@ -55,7 +55,8 @@ class BlogPostListenerTest extends \WP_UnitTestCase {
 			)
 		);
 
-		$after = $service->hydrate( (array) $service->get( $card_id ) );
+		// What every reader receives: get() itself, served from its cache this time.
+		$after = (array) $service->get( $card_id );
 		$this->assertSame( (string) get_the_post_thumbnail_url( (int) $post_id, 'medium_large' ), $after['link_meta']['thumbnail'], 'image added after publish shows on the card' );
 		$this->assertNotSame( '', $after['link_meta']['thumbnail'] );
 		$this->assertSame( 'Updated title', $after['link_meta']['title'], 'edited title shows on the card' );

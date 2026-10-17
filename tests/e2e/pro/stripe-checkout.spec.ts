@@ -42,14 +42,14 @@ test.describe('pro / stripe checkout', () => {
     let pricingUrl = '';
 
     test.beforeAll(async () => {
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Stripe Checkout Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Hannah Brooks');
 
         tierId = Number(
             await wp([
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG}', 'E2E Stripe Checkout Plan', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG}', 'Supporter Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 7.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])
@@ -132,5 +132,13 @@ test.describe('pro / stripe checkout', () => {
             homeOrigin
         );
         expect(url).toMatch(/checkout\.stripe\.com/);
+
+        // EFFECT: reaching Stripe grants nothing yet. The plan is only the member's once
+        // the webhook confirms payment, so no active row on it exists at this point.
+        const granted = await wp([
+            'eval',
+            `global $wpdb; echo (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_subscriptions WHERE user_id = %d AND tier_id = %d AND status = 'active'", ${memberId}, ${tierId} ) );`,
+        ]);
+        expect(Number(granted), 'no active subscription before payment completes').toBe(0);
     });
 });

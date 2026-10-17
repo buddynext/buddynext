@@ -47,8 +47,8 @@ test.describe('spaces / home', () => {
 
     test('J-42 space home renders the seeded name + first post', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Home ${stamp}`;
-        const first = `first post marker ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
+        const name = `Coastal Cleanup Volunteers ${stamp}`;
+        const first = `Meeting at the pier at nine, gloves provided ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
         let postId = 0;
 
@@ -73,6 +73,12 @@ test.describe('spaces / home', () => {
             await expect(card, 'seeded first post did not render in the space feed').toBeVisible({
                 timeout: 10_000,
             });
+
+            // EFFECT: the feed on screen is the space feed route's answer: this one post,
+            // and one card.
+            const items = await spaceFeedItems(page, space.id);
+            expect(items.map((i) => Number(i.id))).toEqual([postId]);
+            expect(await page.locator(sel.postCard).count(), 'cards on screen vs GET /spaces/{id}/feed').toBe(items.length);
         } finally {
             if (postId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${postId}`);
@@ -83,8 +89,8 @@ test.describe('spaces / home', () => {
 
     test('J-43 composing in a space persists to the space feed', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Compose ${stamp}`, type: 'open' });
-        const content = `e2e composed ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
+        const space = await createSpaceApi(page, { name: `Local Bookworms ${stamp}`, type: 'open' });
+        const content = `Just finished the new Le Guin, thoughts? ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
         let postId = 0;
 
         try {
@@ -100,7 +106,12 @@ test.describe('spaces / home', () => {
             // added after first paint cannot hydrate; see prependFeedCard()), so
             // wait that reload out before polling through the page, or the poll's
             // evaluate dies with "Execution context was destroyed".
-            const reloaded = page.waitForEvent('load', { timeout: 10_000 }).catch(() => null);
+            // Wait for the main frame to commit that reload, then for it to load (a bare
+            // 'load' can resolve first, and the goto below then collided with the reload on iPad).
+            const reloaded = page
+                .waitForEvent('framenavigated', { predicate: (f) => f === page.mainFrame(), timeout: 10_000 })
+                .then(() => page.waitForLoadState('load'))
+                .catch(() => null);
             await page.locator(sel.composerSubmit).first().click();
             await reloaded;
 
@@ -135,7 +146,7 @@ test.describe('spaces / home', () => {
 
     test('J-44 member list shows a known member', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Members ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Parents of Toddlers ${stamp}`, type: 'open' });
 
         try {
             // The owner is always an active member; resolve their canonical
@@ -151,6 +162,15 @@ test.describe('spaces / home', () => {
                 named,
                 `members grid did not list the known owner "${ownerName}"`
             ).toBeVisible({ timeout: 10_000 });
+
+            // EFFECT: the grid is the roster route's answer: the owner, alone, as owner.
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(roster.status, `roster failed: ${JSON.stringify(roster.data)}`).toBe(200);
+            const rows = (roster.data as Array<{ user_id: number; role?: string; display_name?: string }>) ?? [];
+            expect(rows.length).toBe(1);
+            expect(rows[0].role).toBe('owner');
+            expect(String(rows[0].display_name ?? '')).toBe(ownerName);
+            expect(await page.locator(MEMBER_NAME).count(), 'member cards on screen vs roster rows').toBe(rows.length);
         } finally {
             await deleteSpaceApi(page, space.id);
         }

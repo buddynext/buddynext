@@ -345,7 +345,6 @@ class PostService {
 		}
 
 		if ( ! $is_partner_card
-			&& ! user_can( $user_id, 'manage_options' )
 			&& function_exists( 'buddynext_service' )
 			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
 			return new WP_Error(
@@ -393,21 +392,16 @@ class PostService {
 				);
 			}
 
-			// Site admins may announce site-wide; a space owner/moderator may announce
-			// to their OWN space. The whole decision is filterable so a site can
-			// delegate the capability differently.
-			$can_announce = user_can( $user_id, 'manage_options' )
-				|| ( $ann_space_id > 0 && function_exists( 'buddynext_service' )
-					&& (bool) buddynext_service( 'permissions' )->can(
-						$user_id,
-						'buddynext-moderate-space',
-						array( 'space_id' => $ann_space_id )
-					) );
+			// Site-wide needs the announce ability (community admins by default); a
+			// space announcement needs the space owner/moderator role. Filterable below.
+			$can_announce = $ann_space_id > 0
+				? buddynext_can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $ann_space_id ) )
+				: buddynext_can( $user_id, 'buddynext-feed/announce' );
 
 			/**
 			 * Filter whether a user may create an announcement.
 			 *
-			 * @param bool $can_announce Default: site admin, or a moderator of the target space.
+			 * @param bool $can_announce Default: the buddynext-feed/announce ability site-wide, or a moderator of the target space.
 			 * @param int  $user_id      Author.
 			 * @param int  $ann_space_id Target space (0 = site-wide).
 			 */
@@ -1049,7 +1043,9 @@ class PostService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return null === $cached ? null : (array) $cached;
+			// The cached copy froze the source post's title and cover at the time it was
+			// stored; read them live again, as hydrate() does.
+			return null === $cached ? null : self::with_live_source( (array) $cached );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1528,7 +1524,7 @@ class PostService {
 	 */
 	public static function within_edit_window( string $created_at, string $status, int $user_id ): bool {
 		$window = (int) get_option( 'buddynext_post_edit_window', 60 );
-		if ( $window <= 0 || self::is_pre_publication( $status ) || user_can( $user_id, 'manage_options' ) ) {
+		if ( $window <= 0 || self::is_pre_publication( $status ) || buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
 			return true;
 		}
 		$created = (int) strtotime( $created_at . ' UTC' );
@@ -1904,6 +1900,19 @@ class PostService {
 			);
 		}
 
+		// Gate 6 — author hidden by a hide_posts suspension or a shadow ban, the
+		// same rule as the feed SQL. 404 like gates 1, 2 and 5.
+		$moderation = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new \BuddyNext\Moderation\ModerationService();
+		if ( $moderation->hides_author_from( $author_id, $viewer_id ) ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		return null;
 	}
 
@@ -2100,17 +2109,9 @@ class PostService {
 				continue;
 			}
 
-			// Gate 5 — author's content hidden by a hide_posts suspension, or
-			// shadow-banned (admins and the author bypass). Reads the canonical
-			// bn_user_suspensions table via hides_posts() — the same hide_posts=1
-			// predicate the feed uses — NOT the retired bn_suspended usermeta,
-			// which only the admin panel set (the split-brain this fixes).
-			if ( ! $is_admin && ! $is_author ) {
-				$suspended = $moderation->hides_posts( $author_id );
-				$shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
-				if ( $suspended || $shadow ) {
-					continue;
-				}
+			// Gate 5 — author hidden by a hide_posts suspension or a shadow ban.
+			if ( $moderation->hides_author_from( $author_id, $viewer ) ) {
+				continue;
 			}
 
 			$visible[] = $post_id;
@@ -2348,7 +2349,9 @@ class PostService {
 			);
 		}
 
-		if ( isset( $data['privacy'] ) ) {
+		// The audience is the author's choice: an edit by anyone else never
+		// widens (or narrows) who can see the post.
+		if ( isset( $data['privacy'] ) && (int) ( $this->get( $post_id )['user_id'] ?? 0 ) === $user_id ) {
 			$fields['privacy'] = self::normalize_privacy( (string) $data['privacy'] );
 			$formats[]         = '%s';
 		}
@@ -4698,10 +4701,10 @@ class PostService {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		// The post owner may manage their own post; a site admin
-		// (manage_options) may manage any member's post — same admin escape
-		// hatch already used for announcement creation and the edit window.
-		if ( (int) $post['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		// The post owner may manage their own post; "Edit anyone's post or
+		// comment" (site administrators and community admins by default) may
+		// manage any member's post they can read - see may_edit_others().
+		if ( (int) $post['user_id'] !== $user_id && ! $this->may_edit_others( $post_id, $user_id ) ) {
 			return new WP_Error(
 				'not_post_owner',
 				__( 'You are not the owner of this post.', 'buddynext' )
@@ -4709,6 +4712,25 @@ class PostService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether a user may edit or hide another member's post.
+	 *
+	 * "Edit anyone's post or comment" is delegable, but seeing private content
+	 * stays a site-administrator power: anyone else holding it may act only on a
+	 * post visibility_error() already lets them read. Without this, an edit
+	 * request (whose response returns the full row) read any post by id.
+	 *
+	 * @param int $post_id Post ID.
+	 * @param int $user_id Acting user ID.
+	 * @return bool
+	 */
+	public function may_edit_others( int $post_id, int $user_id ): bool {
+		if ( $user_id <= 0 || ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
+			return false;
+		}
+		return user_can( $user_id, 'manage_options' ) || null === $this->visibility_error( $post_id, $user_id );
 	}
 
 	/**
@@ -4729,7 +4751,7 @@ class PostService {
 			return false;
 		}
 
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( $this->may_edit_others( $post_id, $user_id ) ) {
 			return true;
 		}
 
@@ -4965,8 +4987,21 @@ class PostService {
 			$post['poll_options'] = $this->fetch_poll_options( (int) $row['id'] );
 		}
 
-		// A blog article card shows its source post as it is now, not as it was at publish.
-		if ( BlogPostListener::TYPE === $post['type'] && is_array( $post['link_meta'] ) ) {
+		return self::with_live_source( $post );
+	}
+
+	/**
+	 * A blog article card shows its source post as it is now, not as it was at publish.
+	 *
+	 * Applied on every read, cached or not: get() caches the hydrated post, and with a
+	 * persistent object cache that copy kept an edited title or a cover added after
+	 * publishing off the card until the cache expired.
+	 *
+	 * @param array $post Hydrated post.
+	 * @return array
+	 */
+	private static function with_live_source( array $post ): array {
+		if ( BlogPostListener::TYPE === ( $post['type'] ?? '' ) && is_array( $post['link_meta'] ?? null ) ) {
 			$post['link_meta'] = BlogPostListener::live_link_meta( $post['link_meta'] );
 		}
 

@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { bnApi } from '../_fixtures/spaces-rest';
 
 /**
  * J-905 gate profile field groups behind a plan/tier.
@@ -58,7 +60,7 @@ test.describe('pro / gate profile field groups behind a plan', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG}', 'E2E Groups Plan', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG}', 'Insider Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 4.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])
@@ -68,9 +70,9 @@ test.describe('pro / gate profile field groups behind a plan', () => {
         restrictedId = await ensureUser(
             MEMBER_RESTRICTED,
             `${MEMBER_RESTRICTED}@example.test`,
-            'E2E Groups Restricted Member'
+            'Leo Fischer'
         );
-        defaultId = await ensureUser(MEMBER_DEFAULT, `${MEMBER_DEFAULT}@example.test`, 'E2E Groups Default Member');
+        defaultId = await ensureUser(MEMBER_DEFAULT, `${MEMBER_DEFAULT}@example.test`, 'Ava Thompson');
 
         await wp([
             'eval',
@@ -92,6 +94,14 @@ test.describe('pro / gate profile field groups behind a plan', () => {
                 ` foreach ( array( '${MEMBER_RESTRICTED}', '${MEMBER_DEFAULT}' ) as $login ) { $u = get_user_by( 'login', $login ); if ( $u ) { wp_delete_user( (int) $u->ID ); } }`,
         ]).catch(() => undefined);
     });
+
+    /** group_key => locked, from a profile route read made with the page's own cookie. */
+    async function groupLocks(page: Page, path: string): Promise<Record<string, boolean>> {
+        const r = await bnApi(page, 'GET', path);
+        expect(r.status, `GET ${path}`).toBe(200);
+        const groups = ((r.data ?? {}) as { groups?: Array<{ group_key?: string; locked?: boolean }> }).groups ?? [];
+        return Object.fromEntries(groups.map((g) => [String(g.group_key ?? ''), Boolean(g.locked)]));
+    }
 
     test('admin locks a profile group on a plan from the tier editor', async ({ page }) => {
         await page.setViewportSize({ width: 1280, height: 900 });
@@ -152,6 +162,9 @@ test.describe('pro / gate profile field groups behind a plan', () => {
             });
             await expect(lockedSection.locator('.bn-ep-locked-badge')).toHaveText(/upgrade/i);
             await expect(lockedSection.locator('input, textarea, select')).toHaveCount(0);
+            // EFFECT (parity): the owner's own profile route marks exactly that group locked.
+            const own = await groupLocks(page, '/me/profile');
+            expect(own[groupKey], `GET /me/profile groups[${groupKey}].locked for the restricted member`).toBe(true);
 
             await page.goto(`/?autologin=${MEMBER_DEFAULT}`, { waitUntil: 'domcontentloaded' });
             await page.goto(`/members/${MEMBER_DEFAULT}/edit/`, { waitUntil: 'domcontentloaded' });
@@ -169,6 +182,15 @@ test.describe('pro / gate profile field groups behind a plan', () => {
                 page.locator('.bn-ep-group--locked'),
                 `a member on the default plan sees exactly the groups that plan locks (${defaultLocked})`
             ).toHaveCount(defaultLocked);
+
+            // EFFECT (parity): the default member's route carries the same number of locks...
+            const mine = await groupLocks(page, '/me/profile');
+            expect(Object.values(mine).filter(Boolean).length, 'locked groups on GET /me/profile').toBe(defaultLocked);
+            // ...and ANOTHER member reading the restricted profile never receives the locked
+            // group at all (ProfileService drops it for non-owners), so nobody can tell from
+            // the data which plan that member is on.
+            const theirs = await groupLocks(page, `/users/${restrictedId}/profile`);
+            expect(groupKey in theirs, 'a locked group must not reach another member\'s read').toBe(false);
         });
     }
 });

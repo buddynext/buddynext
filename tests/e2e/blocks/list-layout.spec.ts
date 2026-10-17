@@ -52,7 +52,7 @@ test.describe('blocks / list layout (J-800, J-801)', () => {
         const slug = 'e2e-space-directory-list';
         const pageRec = await createPage(
             '<!-- wp:buddynext/space-directory {"layout":"list"} /-->',
-            { title: 'E2E Space Directory List', slug }
+            { title: 'Browse Our Spaces', slug }
         );
         try {
             await page.goto(pageRec.url, { waitUntil: 'domcontentloaded' });
@@ -69,7 +69,7 @@ test.describe('blocks / list layout (J-800, J-801)', () => {
         const slug = 'e2e-spaces-showcase-list';
         const pageRec = await createPage(
             '<!-- wp:buddynext/spaces-showcase {"layout":"list","count":6} /-->',
-            { title: 'E2E Spaces Showcase List', slug }
+            { title: 'Featured Spaces', slug }
         );
         try {
             await page.goto(pageRec.url, { waitUntil: 'domcontentloaded' });

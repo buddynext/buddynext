@@ -2,7 +2,25 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip } from '../_fixtures/precondition';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
+import type { Page } from '@playwright/test';
+
+type MediaPost = { media_ids?: number[] | null; media?: Array<{ id: number; type?: string; url?: string }> };
+
+/**
+ * EFFECT: the stored post carries exactly the uploaded media id, and the post route resolves
+ * it to an image with a URL a client can load. A tile on the card proves the render only.
+ */
+async function expectStoredMedia(page: Page, nonce: string, postId: number, mediaId: number): Promise<void> {
+    expect(postId, 'resolved server post id').toBeGreaterThan(0);
+    const stored = await restGet<MediaPost>(page.request, nonce, `/posts/${postId}`);
+    expect(stored.status, 'GET /posts/{id}').toBe(200);
+    expect((stored.body.media_ids ?? []).map(Number), 'stored media_ids').toEqual([mediaId]);
+    const media = stored.body.media ?? [];
+    expect(media.map((m) => Number(m.id)), 'media resolved by the route').toEqual([mediaId]);
+    expect(media[0].type, 'resolved media type').toBe('image');
+    expect(media[0].url, 'resolved media url').toBeTruthy();
+}
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -39,7 +57,7 @@ test.describe('feed / media upload', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j503 photo post ${stamp}`;
+        const caption = `Fresh snow on the mountain this morning ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -63,6 +81,8 @@ test.describe('feed / media upload', () => {
 
             // Upload landed when the tile carries a real media id (is-uploading cleared).
             await expect(page.locator(mediaThumbReady).first()).toBeVisible({ timeout: 20_000 });
+            const mediaId = Number(await page.locator(mediaThumbReady).first().getAttribute('data-media-id'));
+            expect(mediaId, 'uploaded media id on the composer tile').toBeGreaterThan(0);
 
             await page.locator(sel.composerSubmit).first().click();
             await expect(page.locator(sel.postCard).filter({ hasText: caption }).first()).toBeVisible({ timeout: 10_000 });
@@ -75,6 +95,7 @@ test.describe('feed / media upload', () => {
             await expect(card.locator(cardMedia).first()).toBeVisible({ timeout: 10_000 });
             // And a real <img> tile, not just an empty media wrapper.
             await expect(card.locator('.bn-media-tile__img, .bn-post-card__media img').first()).toBeVisible();
+            await expectStoredMedia(page, nonce, createdId, mediaId);
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
         }
@@ -90,7 +111,7 @@ test.describe('feed / media upload', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const caption = `j503m member photo ${stamp}`;
+        const caption = `Our tomato harvest is finally coming in ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -112,6 +133,8 @@ test.describe('feed / media upload', () => {
             await chooser.setFiles({ name: `j503m-${stamp}.png`, mimeType: 'image/png', buffer: pngBuffer });
 
             await expect(page.locator(mediaThumbReady).first()).toBeVisible({ timeout: 20_000 });
+            const mediaId = Number(await page.locator(mediaThumbReady).first().getAttribute('data-media-id'));
+            expect(mediaId, 'uploaded media id on the composer tile').toBeGreaterThan(0);
 
             await page.locator(sel.composerSubmit).first().click();
             await expect(page.locator(sel.postCard).filter({ hasText: caption }).first()).toBeVisible({ timeout: 10_000 });
@@ -122,6 +145,7 @@ test.describe('feed / media upload', () => {
             createdId = await postIdOfCard(page, caption);
             await expect(card.locator(cardMedia).first()).toBeVisible({ timeout: 10_000 });
             await expect(card.locator('.bn-media-tile__img, .bn-post-card__media img').first()).toBeVisible();
+            await expectStoredMedia(page, nonce, createdId, mediaId);
         } finally {
             await deletePostRest(page.request, nonce, createdId).catch(() => {});
         }

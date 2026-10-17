@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { wp } from '../_fixtures/wp';
+import { wp, dbCount, tablePrefix } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 import { setRegistrationMode, dbSeedingAvailable } from '../_fixtures/db.fixture';
 import { urls } from '../_fixtures/selectors';
 
@@ -53,7 +54,7 @@ test.describe('pro / sell a plan during onboarding', () => {
 
     test.beforeAll(async () => {
         const stamp = Date.now().toString().slice(-6);
-        tierName = `E2E Onboard Plan ${stamp}`;
+        tierName = `Welcome Plan ${stamp}`;
 
         tierId = Number(
             await wp([
@@ -100,6 +101,20 @@ test.describe('pro / sell a plan during onboarding', () => {
         const row = page.locator('.bnpro-plan-row', { hasText: tierName });
         await expect(row.first(), 'the plan created for signup should be listed').toBeVisible({ timeout: 10_000 });
         await expect(row.first()).toContainText(/active/i);
+
+        // EFFECT (parity): the row on screen is the tier the public plans route sells,
+        // active in the admin tiers route and listed for an anonymous buyer.
+        const tiers = await restJson(page, '/wp-json/buddynext-pro/v1/tiers');
+        expect(tiers.status).toBe(200);
+        const tier = ((tiers.data ?? []) as Array<{ id?: number; status?: string; name?: string }>).find((t) => Number(t.id) === tierId);
+        expect(tier?.status, 'GET /tiers status for the plan').toBe('active');
+        expect(tier?.name).toBe(tierName);
+        const plans = await page.request.get('/wp-json/buddynext-pro/v1/membership/plans');
+        expect(plans.status()).toBe(200);
+        expect(
+            ((await plans.json()) as Array<{ id?: number }>).some((pl) => Number(pl.id) === tierId),
+            'GET /membership/plans offers the plan publicly'
+        ).toBe(true);
     });
 
     test('anonymous visitor picks the plan, is carried into signup, and registration resumes checkout', async ({
@@ -151,7 +166,7 @@ test.describe('pro / sell a plan during onboarding', () => {
         }
 
         if (await nameField.isVisible().catch(() => false)) {
-            await nameField.fill('E2E Plan Buyer');
+            await nameField.fill('Taylor Morgan');
         }
         if (await userField.isVisible().catch(() => false)) {
             await userField.fill(login);
@@ -186,11 +201,22 @@ test.describe('pro / sell a plan during onboarding', () => {
         ]);
         expect(request.url()).toMatch(/checkout\.stripe\.com|bn_membership_resume|bn_membership=thankyou/);
 
-        // Cleanup: the account this test created.
-        await wp([
-            'eval',
-            `require_once ABSPATH . 'wp-admin/includes/user.php';` +
-                ` $u = get_user_by( 'email', '${email}' ); if ( $u ) { wp_delete_user( (int) $u->ID ); }`,
-        ]).catch(() => undefined);
+        try {
+            // EFFECT: the account behind that checkout handoff exists. A resume URL with
+            // no user row would send a stranger to pay for nobody.
+            const prefix = await tablePrefix();
+            await expect
+                .poll(async () => dbCount(`SELECT COUNT(*) FROM ${prefix}users WHERE user_email = '${email}'`), {
+                    timeout: 10_000,
+                })
+                .toBe(1);
+        } finally {
+            // Cleanup: the account this test created.
+            await wp([
+                'eval',
+                `require_once ABSPATH . 'wp-admin/includes/user.php';` +
+                    ` $u = get_user_by( 'email', '${email}' ); if ( $u ) { wp_delete_user( (int) $u->ID ); }`,
+            ]).catch(() => undefined);
+        }
     });
 });

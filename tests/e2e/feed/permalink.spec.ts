@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, restPost, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, restPost, restGet, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -24,8 +24,8 @@ const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 test.describe('feed / single-post permalink', () => {
     test('J-520 each permalink renders its own post standalone', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const textA = `j520 alpha ${stamp}`;
-        const textB = `j520 bravo ${stamp}`;
+        const textA = `Quiet Sunday morning at the library ${stamp}`;
+        const textB = `Anyone want to join a pickup soccer game ${stamp}`;
         let idA = 0;
         let idB = 0;
         let nonce = '';
@@ -46,11 +46,20 @@ test.describe('feed / single-post permalink', () => {
             await page.goto(`/p/${idA}/`, { waitUntil: 'domcontentloaded' });
             await expect(page.locator(sel.postCard).filter({ hasText: textA }).first()).toBeVisible({ timeout: 10_000 });
             await expect(page.locator(sel.postCard).filter({ hasText: textB })).toHaveCount(0);
+            // EFFECT: the card on /p/{A}/ is post A by server id, and the post route serves the same body.
+            expect(await postIdOfCard(page, textA), 'server id of the card on permalink A').toBe(idA);
+            const storedA = await restGet<{ content?: string }>(page.request, nonce, `/posts/${idA}`);
+            expect(storedA.status, 'GET /posts/{A}').toBe(200);
+            expect(storedA.body.content, 'body of A as the route serves it').toBe(textA);
 
             // Permalink B shows B, not A.
             await page.goto(`/p/${idB}/`, { waitUntil: 'domcontentloaded' });
             await expect(page.locator(sel.postCard).filter({ hasText: textB }).first()).toBeVisible({ timeout: 10_000 });
             await expect(page.locator(sel.postCard).filter({ hasText: textA })).toHaveCount(0);
+            expect(await postIdOfCard(page, textB), 'server id of the card on permalink B').toBe(idB);
+            const storedB = await restGet<{ content?: string }>(page.request, nonce, `/posts/${idB}`);
+            expect(storedB.status, 'GET /posts/{B}').toBe(200);
+            expect(storedB.body.content, 'body of B as the route serves it').toBe(textB);
         } finally {
             await deletePostRest(page.request, nonce, idA).catch(() => {});
             await deletePostRest(page.request, nonce, idB).catch(() => {});
@@ -66,8 +75,8 @@ test.describe('feed / single-post permalink', () => {
     test('J-520 member  -  a member opens a post permalink and its reply is visible', async ({ page }) => {
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
-        const postText = `j520m member host ${stamp}`;
-        const replyText = `j520m member reply ${stamp}`;
+        const postText = `Weekend plans: farmers market then a long hike ${stamp}`;
+        const replyText = `Sounds like a perfect Saturday ${stamp}`;
         let postId = 0;
         let nonce = '';
 
@@ -86,10 +95,25 @@ test.describe('feed / single-post permalink', () => {
                 content: replyText,
             });
             expect(comment.status, `seed reply -> ${comment.status}`).toBeLessThan(300);
+            const commentId = comment.body.id ?? 0;
+            expect(commentId, 'seeded reply id').toBeGreaterThan(0);
 
             await page.goto(`/p/${postId}/`, { waitUntil: 'domcontentloaded' });
             await expect(page.locator(sel.postCard).filter({ hasText: postText }).first()).toBeVisible({ timeout: 10_000 });
             await expect(page.locator('.bn-comment-card', { hasText: replyText }).first()).toBeVisible({ timeout: 10_000 });
+
+            // EFFECT: the reply on the page is the one reply the comments route serves for this post.
+            const thread = await restGet<{ items?: Array<{ id: number }> }>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${postId}`
+            );
+            expect(thread.status, 'GET /comments').toBe(200);
+            expect((thread.body.items ?? []).map((c) => Number(c.id)), 'replies the route serves').toEqual([commentId]);
+            const shown = await page
+                .locator('.bn-comment-card')
+                .evaluateAll((els) => els.map((e) => Number((e as HTMLElement).dataset.commentId)));
+            expect(shown, 'replies on the permalink page').toEqual([commentId]);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

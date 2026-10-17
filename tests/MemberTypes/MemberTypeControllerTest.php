@@ -300,4 +300,32 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 
 		$this->assertSame( $slug, $response->get_data()['slug'] ?? null );
 	}
+
+	/**
+	 * A community admin holding "Edit anyone's profile" sets a member's
+	 * self-selectable type for them; an ordinary member cannot, and the
+	 * editor still cannot hand out a type only a site admin assigns.
+	 */
+	public function test_profile_editor_sets_a_members_self_select_type(): void {
+		$this->service->create( array( 'slug' => 'gardener', 'name' => 'Gardener', 'self_select' => 1 ) );
+		$this->service->create( array( 'slug' => 'staff', 'name' => 'Staff', 'self_select' => 0 ) );
+		$editor = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		update_user_meta( $editor, 'bn_community_role', 'admin' );
+		$put = function ( string $slug ): int {
+			$request = new WP_REST_Request( 'PUT', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' );
+			$request->set_param( 'type_slug', $slug );
+			return rest_do_request( $request )->get_status();
+		};
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->assertSame( 403, $put( 'gardener' ), 'Another member cannot set it.' );
+
+		wp_set_current_user( $editor );
+		$this->assertSame( 200, $put( 'gardener' ) );
+		$this->assertSame( 'gardener', $this->service->get_user_type( $this->regular_user_id )['slug'] ?? '' );
+		$this->assertSame( 403, $put( 'staff' ), 'Admin-assigned types stay with site admins.' );
+
+		wp_set_current_user( 0 );
+		$this->assertSame( 401, $put( 'gardener' ) );
+	}
 }

@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.5
+Stable tag: 1.2.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,16 @@ Everything is REST-first, so the same data powers the web experience and the nat
 
 BuddyNext is the free community OS. Three core integrations ship as companion plugins - WPMediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) - and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
 
+= Integration requirements =
+
+Each integration needs its plugin at or above the version below. On an older version the parts that need the newer release stay off, and BuddyNext > Integration Settings marks the plugin "Update needed".
+
+* WPMediaVerse 2.6.2 or later - media, files and direct messages.
+* WB Gamification 1.6.3 or later - points, badges, kudos and leaderboards.
+* WP Career Board 1.4.3 or later - jobs on profiles and in the feed (BuddyNext Pro).
+* Learnomy 1.9.4 or later - courses and certificates (BuddyNext Pro).
+* Eventonomy 1.6.0 or later - events and attendees (BuddyNext Pro).
+
 == Installation ==
 
 1. Upload the `buddynext` folder to `/wp-content/plugins/`, or install the plugin zip through Plugins > Add New.
@@ -58,6 +68,43 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.6 - October 2026 =
+
+Fixes for mentions, polls, Explore covers, linked forums and moderation reasons, plus a release gate that ties every change below to a test. Lockstep with BuddyNext Pro 1.2.6 - install and test both together.
+
+* New      - Developers can send every BuddyNext Log in link and guest gate to their own login page with the buddynext_login_url filter.
+* New      - Space owners can unlink a space's discussion; the forum and every space member stay, and Discussion can be turned on again later.
+* Improve  - Community moderators can remove any comment, bulk-moderate and review posts from suspended or shadow-banned members without being WordPress administrators.
+* Improve  - Open-ended suspensions, appeals, editing other members' posts and comments, site-wide announcements and role changes are now permissions you can hand to community admins or moderators under Roles & Capabilities.
+* Improve  - Anyone you give "Edit anyone's profile" can now also change a member's self-chosen member type and open the profile editor from a page using the members shortcode.
+* Improve  - Explore shows each integration activity as its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.
+* Improve  - The readme lists the minimum version of each integration plugin and what happens on an older one.
+* Fix      - Finishing a word while @mention or #hashtag suggestions are still loading no longer opens a stale list or inserts "null" into a post or comment.
+* Fix      - Logged-out visitors see the real poll percentages instead of 0% on every option.
+* Fix      - Opening an admin screen whose feature is switched off, such as AI Moderation, now says the feature is off and links to Features, instead of claiming the setting moved.
+* Fix      - On sites using Redis or Memcached, new, deleted and pinned comments show in the comment thread right away instead of after several minutes.
+* Fix      - On sites with an object cache, a member who votes, comments, reacts or edits a post sees the change straight away after reloading the feed, a space or a profile.
+* Fix      - On sites with an object cache (Redis, Memcached), a blog post's card shows its edited title and a featured image added after publishing straight away, not hours later.
+* Fix      - Explore space cards show the space cover, the same picture as the Spaces directory.
+* Fix      - A shared badge shows its artwork and what it was awarded for in the feed, including badges shared before this update.
+* Fix      - A space cover the owner repositioned shows the same part of the photo on Explore and in the Spaces directory as on the space page.
+* Fix      - Initials on the generated picture for members without a photo are readable on every colour.
+* Fix      - A private space's linked forum lets in members who joined the space before the forum was linked.
+* Fix      - Warnings and strikes sent from the app, an integration or the API need a reason, the same as in the moderation dialog.
+* Fix      - The Docs link on the Get Started, Automation and Integration Settings screens opens the matching help page.
+* Fix      - On phones the Spaces directory shows featured spaces once, in the strip at the top, instead of again at the bottom of the page.
+* Fix      - Changing your member type on the edit profile page no longer warns about unsaved changes when you leave; the type already saved.
+* Fix      - With email verification on, a site administrator now reads as verified in the app and the verification status check, matching every page that already let them through.
+* Fix      - Search no longer shows deleted members, including ones removed by another plugin, and the update clears search entries for members, posts and spaces deleted before this version.
+* Fix      - Community moderators are told about new reports, and the notification opens the front-end moderation queue instead of a wp-admin screen they cannot open.
+* Fix      - A post from a shadow-banned member, or a suspended member whose posts are hidden, no longer opens for other members by direct link or through the app.
+* Fix      - Community admins are offered an open-ended suspension in the suspend dialog, as their role allows.
+* Fix      - Space owners and moderators see the new-report setting in their notification preferences.
+* Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
+* Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
+* Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.
+* Compat   - Tested with Jetonomy 2.0.2, WB Gamification 1.6.7 and BuddyPress Member Blog 4.4.0. Aligned with BuddyNext Pro 1.2.6. Install the updates together.
 
 = 1.2.5 - October 2026 =
 

@@ -429,20 +429,22 @@ class MemberTypeController extends BaseRestController {
 	/**
 	 * Permission check for PUT /users/{id}/member-type.
 	 *
-	 * Admin: always allowed.
-	 * Self: allowed only when the requested type has self_select = 1.
+	 * Self, or someone holding "Edit anyone's profile" acting for the member
+	 * (site admins always pass). The handler then applies the self_select
+	 * rules, which only a site admin bypasses.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return bool|WP_Error
 	 */
 	public function can_set_user_type( WP_REST_Request $request ): bool|WP_Error {
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
+		$auth = $this->require_auth();
+		if ( true !== $auth ) {
+			return $auth;
 		}
 
 		$user_id = absint( $request->get_param( 'id' ) );
 
-		if ( get_current_user_id() !== $user_id ) {
+		if ( get_current_user_id() !== $user_id && ! buddynext_can( get_current_user_id(), 'buddynext-profile/edit-any' ) ) {
 			return new WP_Error( 'forbidden', __( 'You cannot set a member type for another member.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

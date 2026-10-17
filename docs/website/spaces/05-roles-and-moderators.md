@@ -27,7 +27,7 @@ A few rules sit behind that table:
 - There is exactly one owner per space at a time. The owner is the only role that can change permissions, manage moderators, and transfer the space.
 - Moderators handle membership: they review the pending-requests queue, send invites, and remove members. They can also change the space's moderation settings: **Require approval to join**, the space's **Banned words**, and the default notification level for new members. They cannot change anything else in the space settings or touch the owner.
 - Members take part - they post (when permissions allow), react, and comment. They can invite only when the owner has opened invites to all members.
-- Site administrators can manage any space regardless of their space role.
+- WordPress site administrators can manage any space regardless of their space role. Community moderators review reports from every space in Community Admin, but a space's membership stays with its own owner and moderators.
 
 ### Promoting and demoting moderators
 

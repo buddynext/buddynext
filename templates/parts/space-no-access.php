@@ -20,7 +20,7 @@ $bn_na_moderate = isset( $surface ) && 'moderate' === $surface;
 $bn_na_uid      = get_current_user_id();
 $bn_na_back     = \BuddyNext\Core\PageRouter::space_url( $bn_na_space );
 
-if ( $bn_na_moderate && ( current_user_can( 'manage_options' ) || buddynext_can( $bn_na_uid, 'buddynext-spaces/moderate' ) ) ) {
+if ( $bn_na_moderate && buddynext_can( $bn_na_uid, 'buddynext-spaces/moderate' ) ) {
 	$bn_na = array(
 		__( 'Reports from this space are in Community Admin', 'buddynext' ),
 		__( 'You review reports for the whole community there, including this space.', 'buddynext' ),

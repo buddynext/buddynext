@@ -33,7 +33,7 @@ test.describe('blocks / notification-bell shortcode (J-804)', () => {
         authenticatedPage: page,
     }) => {
         const rec = await createPage('[buddynext_user_menu]', {
-            title: 'E2E User Menu Shortcode',
+            title: 'Member Menu',
             slug: 'e2e-user-menu-shortcode',
         });
         try {
@@ -81,7 +81,7 @@ test.describe('blocks / notification-bell shortcode (J-804)', () => {
         authenticatedPage: page,
     }) => {
         const rec = await createPage('<!-- wp:buddynext/notification-bell /-->', {
-            title: 'E2E Notification Bell Block',
+            title: 'Alerts and Updates',
             slug: 'e2e-notification-bell-block',
         });
         try {

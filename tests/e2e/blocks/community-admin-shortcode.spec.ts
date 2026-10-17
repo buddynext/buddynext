@@ -24,7 +24,7 @@ test.describe('blocks / community-admin shortcode tabs (J-805)', () => {
     }) => {
         const slug = 'e2e-community-admin';
         const rec = await createPage('[buddynext_community_admin]', {
-            title: 'E2E Community Admin',
+            title: 'Community Admin Hub',
             slug,
         });
         try {

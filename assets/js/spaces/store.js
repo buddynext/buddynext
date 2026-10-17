@@ -1581,6 +1581,29 @@ var storeInstance = store( 'buddynext/spaces', {
 		 *
 		 * @param {Event} event input/focus on the search box.
 		 */
+		/**
+		 * Unlink the space's discussion (DELETE /spaces/{id}/discussion). The forum,
+		 * its posts and the space's members stay; new forum activity stops arriving.
+		 */
+		unlinkDiscussion: async function ( event ) {
+			var btn     = event && event.target && event.target.closest( 'button' );
+			var spaceId = btn && btn.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+			var ok = await bnConfirmDialog( {
+				title:   t( 'unlinkDiscussionTitle', 'Unlink this discussion?' ),
+				message: t( 'unlinkDiscussionBody', 'The discussion and its posts stay where they are, and everyone who is a member of this space stays a member. New discussion posts stop appearing in this space. You can turn Discussion on again later to create or link one.' ),
+				ok:      t( 'unlinkDiscussionOk', 'Unlink' ),
+			} );
+			if ( ! ok ) { return; }
+			btn.disabled = true;
+			var res = await restFetch( '/spaces/' + spaceId + '/discussion', { method: 'DELETE', nonce: resolveNonce() } );
+			if ( res.ok ) {
+				bnReloadWithToast( t( 'discussionUnlinked', 'Discussion unlinked.' ), 'success' );
+				return;
+			}
+			btn.disabled = false;
+		},
+
 		discussionSearch: function ( event ) {
 			var input = event && event.target && event.target.closest( '[data-bn-discussion-search]' );
 			if ( ! input ) { return; }
@@ -2327,6 +2350,12 @@ function buildSpaceCard( row ) {
 		coverImg.src     = row.cover_image_url;
 		coverImg.alt     = '';
 		coverImg.loading = 'lazy';
+		// The owner's framing, as SpaceService::cover_frame_style( $id, false ) draws it.
+		if ( row.cover_focal ) {
+			var focalX = Number( row.cover_focal.x );
+			var focalY = Number( row.cover_focal.y );
+			coverImg.style.objectPosition = ( isFinite( focalX ) ? focalX : 50 ) + '% ' + ( isFinite( focalY ) ? focalY : 50 ) + '%';
+		}
 		cover.appendChild( coverImg );
 	}
 

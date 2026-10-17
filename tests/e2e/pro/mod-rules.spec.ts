@@ -1,6 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
 import { readRestNonce, restPost } from '../_fixtures/feed-wave1.helpers';
+import { dbCount, dbScalar, expandRow, tablePrefix } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-954 automate moderation with rules (Pro).
@@ -39,7 +41,7 @@ test.describe('pro / moderation rules', () => {
 
     test('J-954 a keyword_block rule (severity=block) rejects a matching post over REST', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const ruleName = `J906 Rule ${stamp}`;
+        const ruleName = `Block spam keyword ${stamp}`;
         const keyword = `j954forbidden${stamp}`;
         let nonce = '';
 
@@ -56,7 +58,29 @@ test.describe('pro / moderation rules', () => {
             await page.goto(rulesAdminUrl);
             const row = page.locator(ruleRow(ruleName));
             await expect(row).toBeVisible({ timeout: 10_000 });
+            await expandRow(row);
             await expect(row.locator('.bn-badge[data-tone="success"]')).toBeVisible();
+
+            // EFFECT: the bn_mod_rules row carries exactly what the form named (type,
+            // keyword, severity) and is enabled, not only a table row with the name.
+            const prefix = await tablePrefix();
+            const ruleRowDb = await dbScalar(
+                `SELECT CONCAT_WS('|', rule_type, enabled, config) FROM ${prefix}bn_mod_rules WHERE name = '${ruleName}' ORDER BY id DESC LIMIT 1`
+            );
+            const [ruleType, enabled, ...configParts] = ruleRowDb.split('|');
+            expect(ruleType, `persisted rule row: ${ruleRowDb}`).toBe('keyword_block');
+            expect(enabled).toBe('1');
+            const config = JSON.parse(configParts.join('|') || '{}') as { keywords?: string[]; severity?: string };
+            expect(config.keywords ?? []).toContain(keyword);
+            expect(config.severity).toBe('block');
+            // ...and the Pro rules route (the functional suite's read) lists it enabled.
+            const viaRest = await restJson(page, '/wp-json/buddynext-pro/v1/mod-rules');
+            expect(viaRest.status).toBe(200);
+            const listed = ((viaRest.data ?? []) as Array<{ name?: string; enabled?: boolean; rule_type?: string }>).find(
+                (r) => r.name === ruleName
+            );
+            expect(listed?.rule_type, 'GET /mod-rules lists the new rule').toBe('keyword_block');
+            expect(listed?.enabled).toBe(true);
 
             // ── Enforcement: the SAME safeguard gate every post create uses ──
             await page.goto(urls.feed);
@@ -68,10 +92,15 @@ test.describe('pro / moderation rules', () => {
                 privacy: 'public',
             });
             expect(blocked.status, `keyword-matching post -> ${blocked.status} (expected 422)`).toBe(422);
+            // EFFECT: the rejected post left no row behind (a 422 that still wrote the post is no block).
+            expect(
+                await dbCount(`SELECT COUNT(*) FROM ${prefix}bn_posts WHERE content LIKE '%${keyword}%'`),
+                'a blocked post must not be stored'
+            ).toBe(0);
 
             // Control: a post WITHOUT the keyword is unaffected by this rule.
             const allowed = await restPost<{ id?: number }>(page.request, nonce, '/posts', {
-                content: `j954 control post, no forbidden term, ${stamp}`,
+                content: `Great turnout at the river cleanup this morning ${stamp}`,
                 privacy: 'public',
             });
             expect(allowed.status, `control post -> ${allowed.status}`).toBeLessThan(300);

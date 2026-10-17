@@ -19,6 +19,7 @@
  */
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { expect } from './auth.fixture';
+import { settleOverlays } from './wp';
 
 const NS = '/wp-json/buddynext/v1';
 
@@ -147,7 +148,7 @@ export async function createSpaceApi(
     const res = await bnApi(page, 'POST', '/spaces', {
         name: opts.name,
         type: opts.type ?? 'open',
-        description: opts.description ?? 'e2e throwaway space',
+        description: opts.description ?? 'A friendly place for neighbors to share tips and meet up',
     });
     expect(res.status, `create space failed: ${JSON.stringify(res.data)}`).toBe(201);
     const row = res.data as SpaceRow;
@@ -187,6 +188,7 @@ export async function loginContextAs(
 ): Promise<{ ctx: BrowserContext; page: Page }> {
     const ctx = await browser.newContext({ baseURL });
     const page = await ctx.newPage();
+    await settleOverlays(page);
     await page.goto(`/?autologin=${encodeURIComponent(login)}`, { waitUntil: 'domcontentloaded' });
     const cookies = await ctx.cookies();
     expect(

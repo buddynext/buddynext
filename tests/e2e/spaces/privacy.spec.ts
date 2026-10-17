@@ -58,7 +58,7 @@ test.describe('spaces / edit privacy (J-601)', () => {
 
     test('J-601 changing visibility persists across reload and in REST', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Privacy ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Language Exchange Cafe ${stamp}`, type: 'open' });
 
         try {
             const settingsUrl = `/spaces/${space.slug}/settings/?bn_stab=privacy`;
@@ -71,12 +71,15 @@ test.describe('spaces / edit privacy (J-601)', () => {
             let res = await getSpace(page, space.id);
             expect(res.status).toBe(200);
             expect((res.data as SpaceRow).type).toBe('private');
+            // The type drives how people get in: a private space is request-to-join.
+            expect((res.data as SpaceRow).join_method).toBe('request');
 
             // private → back to open (counterpart direction).
             await saveVisibility(page, 'open');
             await expect(page.locator(typeSelect)).toHaveValue('open');
             res = await getSpace(page, space.id);
             expect((res.data as SpaceRow).type).toBe('open');
+            expect((res.data as SpaceRow).join_method).toBe('direct');
         } finally {
             await deleteSpaceApi(page, space.id);
         }
@@ -88,8 +91,8 @@ test.describe('spaces / edit privacy (J-601)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const secretName = `E2E Privacy Secret ${stamp}`;
-        const privateName = `E2E Privacy Private ${stamp}`;
+        const secretName = `Surprise Party Planners ${stamp}`;
+        const privateName = `Founders Coffee Hour ${stamp}`;
         const secretSpace = await createSpaceApi(page, { name: secretName, type: 'secret' });
         const privateSpace = await createSpaceApi(page, { name: privateName, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
@@ -109,10 +112,21 @@ test.describe('spaces / edit privacy (J-601)', () => {
                 actor.page.locator(sel.spaceCard).filter({ hasText: secretName }),
                 'a secret space must not appear in directory search for a non-member'
             ).toHaveCount(0);
+            // EFFECT: the list route the directory reads does not answer it either, while the
+            // owner's own list does (it exists; it is hidden from this viewer).
+            const q = `/spaces?search=${encodeURIComponent(secretName)}&per_page=50`;
+            const asActor = await bnApi(actor.page, 'GET', q);
+            expect(asActor.status).toBe(200);
+            expect(((asActor.data as SpaceRow[]) ?? []).map((r) => Number(r.id)), 'secret space in a non-member\'s GET /spaces').not.toContain(secretSpace.id);
+            const asOwner = await bnApi(page, 'GET', q);
+            expect(((asOwner.data as SpaceRow[]) ?? []).map((r) => Number(r.id)), 'owner cannot find their own secret space').toContain(secretSpace.id);
 
             // ── PRIVATE: listed, but content is refused until the viewer joins ──
             const privBefore = await getSpace(actor.page, privateSpace.id);
             expect(privBefore.status, 'a private space must still be listed to a non-member').toBe(200);
+            expect((privBefore.data as SpaceRow).membership_status ?? '').toBe('');
+            const members = await bnApi(actor.page, 'GET', `/spaces/${privateSpace.id}/members`);
+            expect(members.status, 'a non-member must not read a private space roster').not.toBe(200);
 
             const feedBefore = await bnApi(actor.page, 'GET', `/spaces/${privateSpace.id}/feed`);
             expect(feedBefore.status, 'a non-member must not read a private space feed').toBe(403);
@@ -144,6 +158,7 @@ test.describe('spaces / edit privacy (J-601)', () => {
             // EFFECT: the joined member now reads the space's content.
             const feedAfter = await bnApi(actor.page, 'GET', `/spaces/${privateSpace.id}/feed`);
             expect(feedAfter.status, 'a joined member must read the private space feed').toBe(200);
+            expect(((await getSpace(actor.page, privateSpace.id)).data as SpaceRow).membership_status).toBe('active');
 
             await actor.page.goto(`/spaces/${privateSpace.slug}/feed/`, { waitUntil: 'domcontentloaded' });
             await expect(

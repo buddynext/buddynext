@@ -62,6 +62,13 @@ export async function resolveOtherMemberSlug(page: Page, selfLogin: string): Pro
     if (pinned) {
         return pinned;
     }
+    // bin/seed-e2e.sh seeds and verifies this member for exactly this role. The
+    // directory's newest members are whatever other suites just created (on a
+    // shared site, half-made or unverified accounts), so prefer the seeded one.
+    const seeded = 'alice';
+    if (seeded !== selfLogin && seeded !== process.env.BN_TEST_USER && (await canReachFeed(page, seeded))) {
+        return seeded;
+    }
 
     await page.goto('/members/', { waitUntil: 'domcontentloaded' });
 
@@ -75,7 +82,10 @@ export async function resolveOtherMemberSlug(page: Page, selfLogin: string): Pro
             .filter(Boolean)
     );
 
-    const candidates = [...new Set(slugs)].filter((slug) => slug !== selfLogin);
+    // The session is the gate's BN_TEST_USER when set, whatever login the caller names:
+    // offering it back as "another member" made the journey mention or report itself.
+    const self = new Set([selfLogin, process.env.BN_TEST_USER ?? selfLogin]);
+    const candidates = [...new Set(slugs)].filter((slug) => !self.has(slug));
 
     // Bounded: a site whose whole directory is half-onboarded is a seeding
     // problem, and the caller's softSkip reports it better than a long walk.

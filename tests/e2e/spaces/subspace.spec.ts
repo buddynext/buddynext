@@ -32,15 +32,15 @@ test.describe('spaces / sub-space create (J-623)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const parent = await createSpaceApi(page, { name: `E2E Parent ${stamp}`, type: 'open' });
+        const parent = await createSpaceApi(page, { name: `Regional Choir Network ${stamp}`, type: 'open' });
         let childId = 0;
 
         try {
             const res = await bnApi(page, 'POST', '/spaces', {
-                name: `E2E Child ${stamp}`,
+                name: `Tenor Section ${stamp}`,
                 type: 'open',
                 parent_id: parent.id,
-                description: 'e2e sub-space',
+                description: 'Rehearsals and sheet music for the section',
             });
             expect(res.status, `create sub-space failed: ${JSON.stringify(res.data)}`).toBe(201);
             const child = res.data as SpaceRow;
@@ -57,6 +57,23 @@ test.describe('spaces / sub-space create (J-623)', () => {
             expect(subs.status, `subspaces failed: ${JSON.stringify(subs.data)}`).toBe(200);
             const ids = ((subs.data as SubspacesResp).subspaces ?? []).map((s) => Number(s.id));
             expect(ids).toContain(childId);
+            expect(ids.length, 'a new parent should list exactly its one child').toBe(1);
+
+            // EFFECT 3: the parent's own row counts the child, and the two-level limit holds:
+            // a grandchild under the child is refused and nothing is created.
+            expect(Number(((await getSpace(page, parent.id)).data as SpaceRow).subspace_count)).toBe(1);
+            const grand = await bnApi(page, 'POST', '/spaces', {
+                name: `Tenor Warmup Group ${stamp}`,
+                type: 'open',
+                parent_id: childId,
+            });
+            const grandId = Number((grand.data as SpaceRow)?.id ?? 0);
+            if (grand.status === 201 && grandId > 0) {
+                await deleteSpaceApi(page, grandId);
+            }
+            expect(grand.status, 'a third nesting level was created').not.toBe(201);
+            const childSubs = await bnApi(page, 'GET', `/spaces/${childId}/subspaces`);
+            expect(((childSubs.data as SubspacesResp).subspaces ?? []).length).toBe(0);
         } finally {
             if (childId > 0) {
                 await deleteSpaceApi(page, childId);
@@ -71,7 +88,7 @@ test.describe('spaces / sub-space create (J-623)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const parent = await createSpaceApi(page, { name: `E2E ParentMember ${stamp}`, type: 'private' });
+        const parent = await createSpaceApi(page, { name: `Private Film Society ${stamp}`, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
         let childId = 0;
 
@@ -79,10 +96,10 @@ test.describe('spaces / sub-space create (J-623)', () => {
             await ensureOnboarded(actor.page);
 
             const child = await bnApi(page, 'POST', '/spaces', {
-                name: `E2E ChildMember ${stamp}`,
+                name: `Documentary Nights ${stamp}`,
                 type: 'open',
                 parent_id: parent.id,
-                description: 'e2e sub-space (member leg)',
+                description: 'Monthly screenings and discussion',
             });
             expect(child.status, `create sub-space failed: ${JSON.stringify(child.data)}`).toBe(201);
             childId = Number((child.data as SpaceRow).id);

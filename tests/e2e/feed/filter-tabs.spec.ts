@@ -1,7 +1,9 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { openMemberSession, restPost, readRestNonce, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { openMemberSession, restPost, restGet, readRestNonce, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+
+type Feed = { items?: Array<{ id: number }> };
 import { userId, resetPair } from '../_fixtures/wp';
 
 /**
@@ -37,7 +39,7 @@ test.describe('feed / filter tabs', () => {
         expect(authorId).toBeGreaterThan(0);
 
         const stamp = Date.now().toString().slice(-6);
-        const content = `j521 discovery ${stamp}`;
+        const content = `New to the neighborhood and looking for a good bakery ${stamp}`;
         let viewer: MemberSession | null = null;
         let postId = 0;
         let nonce = '';
@@ -72,6 +74,22 @@ test.describe('feed / filter tabs', () => {
             await viewer.page.goto(`${urls.feed}?filter=following`, { waitUntil: 'domcontentloaded' });
             await expect(viewer.page.locator(`${tab('following')}[aria-current="true"]`)).toHaveCount(1);
             await expect(viewer.page.locator(sel.postCard).filter({ hasText: content })).toHaveCount(0);
+
+            // EFFECT: each tab is the home feed route under that filter. The route serves the
+            // post to For you and withholds it from Following, and the Following tab shows
+            // nothing the route does not serve.
+            const served = async (filter: string): Promise<number[]> => {
+                const r = await restGet<Feed>(viewer!.request, viewer!.nonce, `/feed/home?filter=${filter}&per_page=50`);
+                expect(r.status, `GET /feed/home?filter=${filter}`).toBe(200);
+                return (r.body.items ?? []).map((it) => Number(it.id));
+            };
+            expect(await served('for-you'), 'For you route serves the discovery post').toContain(postId);
+            const following = await served('following');
+            expect(following, 'Following route serves a non-followed author').not.toContain(postId);
+            const onScreen = await viewer.page
+                .locator('article.bn-post-card[data-post-id]')
+                .evaluateAll((els) => els.map((e) => Number((e as HTMLElement).dataset.postId)));
+            expect(onScreen.filter((id) => !following.includes(id)), 'Following tab cards the route does not serve').toEqual([]);
         } finally {
             if (postId) {
                 await page.request

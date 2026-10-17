@@ -1,7 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, restGet, type MemberSession } from '../_fixtures/feed-wave1.helpers';
 import { userId, dbScalar, tablePrefix, resetPair } from '../_fixtures/wp';
 
 /**
@@ -41,7 +41,7 @@ test.describe('feed / composer audience picker', () => {
         expect(themId, 'viewer id').toBeGreaterThan(0);
 
         const stamp = Date.now().toString().slice(-6);
-        const content = `j510 followers only ${stamp}`;
+        const content = `Sharing the full trip photos with followers only ${stamp}`;
         let postId = 0;
         let nonce = '';
         let viewer: MemberSession | null = null;
@@ -79,6 +79,10 @@ test.describe('feed / composer audience picker', () => {
             const p = await tablePrefix();
             const privacy = await dbScalar(`SELECT privacy FROM ${p}bn_posts WHERE id=${postId};`);
             expect(privacy, 'stored audience').toBe('followers');
+            // EFFECT: the post route answers the author with the same audience the row holds.
+            const mine = await restGet<{ privacy?: string }>(page.request, nonce, `/posts/${postId}`);
+            expect(mine.status, 'author GET /posts/{id}').toBe(200);
+            expect(mine.body.privacy, 'audience served to the author').toBe('followers');
 
             // Effect 2 — a non-follower cannot see the post on its permalink.
             viewer = await openMemberSession(browser, otherSlug);
@@ -87,6 +91,14 @@ test.describe('feed / composer audience picker', () => {
             await expect(
                 viewer.page.locator(sel.postCard).filter({ hasText: content })
             ).toHaveCount(0);
+
+            // EFFECT: the non-follower is refused on the data path too, not only on the page.
+            const theirs = await restGet<Record<string, unknown>>(viewer.request, viewer.nonce, `/posts/${postId}`);
+            expect([403, 404], `non-follower GET /posts/${postId} -> ${theirs.status}`).toContain(theirs.status);
+            expect(JSON.stringify(theirs.body), 'the refusal must not carry the post body').not.toContain(content);
+            const theirFeed = await restGet<{ items?: Array<{ id: number }> }>(viewer.request, viewer.nonce, '/feed/home?per_page=50');
+            expect(theirFeed.status, 'non-follower GET /feed/home').toBe(200);
+            expect((theirFeed.body.items ?? []).map((it) => Number(it.id)), 'followers-only post leaked into a non-follower feed').not.toContain(postId);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
             await resetPair(meId, themId).catch(() => {});

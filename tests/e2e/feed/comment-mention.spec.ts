@@ -42,8 +42,8 @@ test.describe('feed / @mention in comment', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j552 mention-host ${stamp}`;
-        const commentBody = `j552 hey @${handle} see this ${stamp}`;
+        const postBody = `Potluck at the park next Sunday, bring a dish ${stamp}`;
+        const commentBody = `hey @${handle} you would love this one ${stamp}`;
 
         try {
             // Recipient baseline: her existing bn.mention notifications.
@@ -81,6 +81,18 @@ test.describe('feed / @mention in comment', () => {
             // enough to absorb comment-render lag under full-suite load) — the
             // notification below can only fire once the comment exists.
             await expect(host.locator('.bn-comment-card', { hasText: commentBody }).first()).toBeVisible({ timeout: 15_000 });
+
+            // EFFECT: the comment is a stored row on the host post, and the mentioned member can read it.
+            const thread = await restGet<{ items?: Array<{ content?: string }> }>(
+                recipient.request,
+                recipient.nonce,
+                `/comments?object_type=post&object_id=${createdPostId}`
+            );
+            expect(thread.status, 'recipient GET /comments').toBe(200);
+            expect(
+                (thread.body.items ?? []).filter((c) => (c.content ?? '').includes(commentBody)).length,
+                'the mention comment as the recipient reads it'
+            ).toBe(1);
 
             // Recipient side (server truth): a NEW bn.mention from the author lands,
             // pointing at the host post.

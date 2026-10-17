@@ -27,7 +27,7 @@ Each action below is a deliberate step a moderator or admin takes against a memb
 | Warn | Sends the member a formal warning with a reason. Nothing is restricted - it is a recorded notice that they crossed a line and a chance to correct course. |
 | Issue a strike | Records a counted strike against the member with a reason. Strikes accumulate, and reaching a threshold automatically escalates to a warning, a suspension, or a ban. |
 | Reverse a strike | Cancels a previously issued strike. Use this when a strike was applied in error or after a successful appeal. A reversed strike no longer counts toward any threshold. |
-| Suspend (temporary) | Blocks the member from posting for a set number of days, or indefinitely. Their existing content stays visible unless you choose to hide it. The suspension lifts automatically when the duration expires. |
+| Suspend (temporary) | Blocks the member from posting for a set number of days, or indefinitely (indefinite is an administrator power by default; moderators pick a length). Their existing content stays visible unless you choose to hide it. The suspension lifts automatically when the duration expires. |
 | Shadow-ban | Available to site moderators and administrators through the REST API only (`POST /wp-json/buddynext/v1/users/{id}/shadow-ban`); there is no button for it in any screen. Silently hides the member's content from everyone else. The member still sees their own posts as normal and gets no error - they simply stop reaching anyone. Useful for persistent low-grade spammers who would just make a new account if openly banned. |
 
 > **Note:** Warning, strike, and suspension each take a reason. Write it for the record - it is what you will rely on if the member appeals.

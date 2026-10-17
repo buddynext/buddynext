@@ -260,7 +260,7 @@ class BlogPostListener implements ListenerInterface {
 		// Checked here because the post service no longer refuses a bridge-driven
 		// card: that exemption is for partner plugins, which apply their own rules
 		// before content is published, and site tracking is BuddyNext's own.
-		if ( ! user_can( $author, 'manage_options' ) && ! buddynext_service( 'verification' )->is_verified( $author ) ) {
+		if ( ! buddynext_service( 'verification' )->is_verified( $author ) ) {
 			return;
 		}
 

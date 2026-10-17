@@ -38,7 +38,7 @@ The feed controller serves the home, explore, profile, and space timelines, plus
 | GET | `/spaces/(?P<id>[\d]+)/feed` | public | A space's timeline. Secret spaces are gated to members server-side. |
 | GET | `/feed/announcements` | auth | The active announcements the viewer should see: the site-wide announcement plus one per space the viewer belongs to, each respecting the viewer's dismissals and expiry. |
 | POST | `/feed/announcements/(?P<id>[\d]+)/dismiss` | auth | Dismiss a pinned announcement for the current user only. |
-| POST | `/feed/announcements/(?P<id>[\d]+)/end` | auth | End an announcement for everyone. The handler requires `manage_options` (admin action). |
+| POST | `/feed/announcements/(?P<id>[\d]+)/end` | auth | End an announcement for everyone. The handler requires the `buddynext-feed/announce` ability (community admins and site administrators by default). |
 
 `*` The explore routes use the `require_public_explore` gate: logged-in members always pass; guests pass only when `buddynext_public_explore` (default on) is enabled, otherwise they receive `401 rest_explore_members_only`.
 

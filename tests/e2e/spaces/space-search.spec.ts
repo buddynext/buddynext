@@ -43,26 +43,26 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
         const stamp = Date.now().toString().slice(-8);
         const rand = Math.random().toString(36).slice(2, 8);
         const term = `zzsfterm${stamp}`;
-        const target = await createSpaceApi(page, { name: `E2E SFTarget ${label} ${stamp}`, type: 'open' });
-        const decoy = await createSpaceApi(page, { name: `E2E SFDecoy ${label} ${stamp}`, type: 'open' });
+        const target = await createSpaceApi(page, { name: `Lakeside Anglers ${stamp}`, type: 'open' });
+        const decoy = await createSpaceApi(page, { name: `Mountain Climbers ${stamp}`, type: 'open' });
 
         const match = await bnApi(page, 'POST', '/posts', {
             type: 'text',
-            content: `space search match ${term}`,
+            content: `Best bait for early morning bass ${term}`,
             space_id: target.id,
         });
         expect(match.status, `seed matching post failed: ${JSON.stringify(match.data)}`).toBe(201);
 
         const otherPost = await bnApi(page, 'POST', '/posts', {
             type: 'text',
-            content: `space search unrelated ${rand} ${stamp}`,
+            content: `Anyone trading spare tackle boxes ${rand} ${stamp}`,
             space_id: target.id,
         });
         expect(otherPost.status, `seed non-matching post failed: ${JSON.stringify(otherPost.data)}`).toBe(201);
 
         const decoyPost = await bnApi(page, 'POST', '/posts', {
             type: 'text',
-            content: `decoy other space ${term}`,
+            content: `Chalk and rope sale this Friday ${term}`,
             space_id: decoy.id,
         });
         expect(decoyPost.status, `seed decoy post failed: ${JSON.stringify(decoyPost.data)}`).toBe(201);
@@ -70,6 +70,19 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
         // Indexing runs via Action Scheduler (SearchIndexListener::dispatch); drain the
         // queue so the assertions below don't race it.
         await wp(['action-scheduler', 'run', '--group=buddynext']).catch(() => '');
+
+        // EFFECT (fixture truth): each post sits in the space feed it was written to, so the
+        // scoped search below is choosing between real rows, not passing on an empty decoy.
+        const feedIds = async (spaceId: number): Promise<number[]> => {
+            const res = await bnApi(page, 'GET', `/spaces/${spaceId}/feed?per_page=50`);
+            expect(res.status, `space feed failed: ${JSON.stringify(res.data)}`).toBe(200);
+            return ((res.data as { items?: Array<{ id: number }> }).items ?? []).map((i) => Number(i.id));
+        };
+        const matchPostId = Number((match.data as { id?: number }).id);
+        const otherPostId = Number((otherPost.data as { id?: number }).id);
+        const decoyPostId = Number((decoyPost.data as { id?: number }).id);
+        expect((await feedIds(target.id)).sort()).toEqual([matchPostId, otherPostId].sort());
+        expect(await feedIds(decoy.id)).toEqual([decoyPostId]);
 
         return {
             target,
@@ -109,9 +122,18 @@ test.describe('spaces / scoped search inside one space (J-693)', () => {
         expect(await termCards.count(), `${label}: a post from a DIFFERENT space leaked into this search`).toBe(1);
 
         expect(
-            await page.locator(sel.postCard).filter({ hasText: 'space search unrelated' }).count(),
+            await page.locator(sel.postCard).filter({ hasText: 'Anyone trading spare tackle boxes' }).count(),
             `${label}: non-matching post leaked into search results`
         ).toBe(0);
+        // The result is the one post, nothing else rendered beside it.
+        expect(await page.locator(sel.postCard).count(), `${label}: scoped search rendered extra cards`).toBe(1);
+
+        // EFFECT: clearing the search brings the whole space feed back (the scope is a
+        // filter over the feed, it did not replace it), still without the decoy.
+        // The explicit /feed/ tab: a non-member's bare space URL lands on About by design.
+        await page.goto(`${urls.space(f.target.slug)}feed/`, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator(sel.postCard).filter({ hasText: 'Anyone trading spare tackle boxes' }).first()).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator(sel.postCard).filter({ hasText: 'Chalk and rope sale' })).toHaveCount(0);
     };
 
     test('J-693 the space owner searching inside a space sees only matches from that space', async ({

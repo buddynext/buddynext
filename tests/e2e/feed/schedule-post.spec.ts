@@ -1,8 +1,25 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, openMemberSession, restGet, type MemberSession } from '../_fixtures/feed-wave1.helpers';
 import { wp, dbScalar, tablePrefix, userId } from '../_fixtures/wp';
+import { restList, idsOf } from '../_fixtures/effects';
+import type { Page } from '@playwright/test';
+
+/**
+ * EFFECT: what the member's own app would be told. Their scheduled-posts route lists the
+ * post as scheduled, and the home feed route does not serve it.
+ */
+async function expectHeldByRoutes(page: Page, postId: number): Promise<void> {
+    const mine = await restList(page, '/me/scheduled-posts?per_page=50');
+    expect(mine.status, 'GET /me/scheduled-posts').toBe(200);
+    const row = mine.items.find((it) => Number(it.id) === postId);
+    expect(row, 'the post in my scheduled-posts route').toBeTruthy();
+    expect(row?.status, 'status served by the route').toBe('scheduled');
+    const feed = await restList(page, '/feed/home?per_page=50');
+    expect(feed.status, 'GET /feed/home').toBe(200);
+    expect(idsOf(feed.data), 'a scheduled post served by the home feed route').not.toContain(postId);
+}
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -28,10 +45,11 @@ test.describe('feed / composer schedule', () => {
     const scheduleTool = 'button.bn-composer__tool[aria-label="Schedule for later"]';
     const scheduleInput = '#bn-composer-schedule-at';
 
-    test('J-512 a scheduled post is held (status=scheduled) and stays out of the feed now', async ({ authenticatedPage: page }) => {
+    test('J-512 a scheduled post is held (status=scheduled) and stays out of the feed now', async ({ authenticatedPage: page, browser }) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j512 scheduled ${stamp}`;
+        const content = `Reminder: community picnic starts at noon on Saturday ${stamp}`;
         let postId = 0;
+        let other: MemberSession | null = null;
 
         try {
             await page.goto(urls.feed);
@@ -71,10 +89,21 @@ test.describe('feed / composer schedule', () => {
             // Effect 2 — it is NOT in the live home feed right now.
             await page.goto(urls.feed);
             await expect(page.locator(sel.postCard).filter({ hasText: content })).toHaveCount(0);
+            await expectHeldByRoutes(page, postId);
+
+            // EFFECT: another member cannot read it by id either. An unpublished post is the
+            // author's business until it goes live.
+            other = await openMemberSession(browser, MEMBER_LOGIN);
+            const theirs = await restGet<Record<string, unknown>>(other.request, other.nonce, `/posts/${postId}`);
+            expect(theirs.status, `another member GET /posts/${postId}`).toBe(404);
+            expect(JSON.stringify(theirs.body), 'the refusal must not carry the scheduled body').not.toContain(content);
         } finally {
             if (postId > 0) {
                 const p = await tablePrefix();
                 await wp(['db', 'query', `DELETE FROM ${p}bn_posts WHERE id=${postId};`]).catch(() => '');
+            }
+            if (other) {
+                await other.ctx.close().catch(() => {});
             }
         }
     });
@@ -112,7 +141,7 @@ test.describe('feed / composer schedule', () => {
                     `if ( ! class_exists( '\\\\BuddyNextPro\\\\Membership\\\\MembershipTierService' ) ) { echo 0; exit; }` +
                         ` $svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                         ` $existing = $svc->get_tier_by_slug( '${TIER_SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                        ` echo (int) $svc->create_tier( '${TIER_SLUG}', 'E2E Schedule Post Plan', '', 99, array(` +
+                        ` echo (int) $svc->create_tier( '${TIER_SLUG}', 'Supporter Plan', '', 99, array(` +
                         // effective_subscription() ranks paid over free and dearer over cheaper: this plan must outrank every other active plan the member holds.
                         `   'status' => 'active', 'price' => 999.0, 'billing_type' => 'recurring', 'billing_interval' => 'month',` +
                         `   'entitlements' => array( 'content.scheduled_posts' => true )` +
@@ -133,7 +162,7 @@ test.describe('feed / composer schedule', () => {
 
         await loginAs(page, MEMBER_LOGIN);
         const stamp = Date.now().toString().slice(-6);
-        const content = `j512m member scheduled ${stamp}`;
+        const content = `Tomorrow we open registration for the autumn fun run ${stamp}`;
         let postId = 0;
 
         try {
@@ -166,6 +195,7 @@ test.describe('feed / composer schedule', () => {
 
             await page.goto(urls.feed);
             await expect(page.locator(sel.postCard).filter({ hasText: content })).toHaveCount(0);
+            await expectHeldByRoutes(page, postId);
         } finally {
             if (postId > 0) {
                 const p = await tablePrefix();

@@ -15,6 +15,8 @@ type CommentNode = {
     parent_id: number | null;
     content?: string;
     is_edited?: boolean;
+    like_count?: number;
+    viewer_liked?: boolean;
     replies?: CommentNode[];
 };
 type CommentThread = { items: CommentNode[]; total: number };
@@ -60,7 +62,7 @@ test.describe('feed / comment threading', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j121 like-host ${stamp}`;
+        const postBody = `Sunset over the harbor tonight was unreal ${stamp}`;
 
         try {
             // Seed an own post to host the comment.
@@ -82,10 +84,10 @@ test.describe('feed / comment threading', () => {
                 softSkip(testInfo, 'Comment input not exposed.');
                 return;
             }
-            await input.fill(`like target ${stamp}`);
+            await input.fill(`Totally agree with this ${stamp}`);
             await hostCard.locator('[data-wp-on--click="actions.submitComment"]').first().click();
 
-            const card = page.locator('.bn-comment-card', { hasText: `like target ${stamp}` }).first();
+            const card = page.locator('.bn-comment-card', { hasText: `Totally agree with this ${stamp}` }).first();
             await expect(card).toBeVisible({ timeout: 8_000 });
             const commentId = Number(await card.getAttribute('data-comment-id'));
             expect(commentId).toBeGreaterThan(0);
@@ -105,6 +107,17 @@ test.describe('feed / comment threading', () => {
             // ...but the real assertion is server truth: the reaction row exists.
             await expect.poll(async () => (await readCount()).count, { timeout: 8_000 }).toBeGreaterThanOrEqual(1);
             expect((await readCount()).has_reacted).toBe(true);
+            // EFFECT: one like, not "some": the count moved by exactly one, and the thread
+            // route serves the comment as liked by me.
+            expect((await readCount()).count, 'like count on a fresh comment after one like').toBe(1);
+            const thread = await restGet<CommentThread>(
+                page.request,
+                nonce,
+                `/comments?object_type=post&object_id=${createdPostId}`
+            );
+            const liked = findComment(thread.body.items ?? [], (c) => Number(c.id) === commentId);
+            expect(liked?.like_count, 'like_count served by GET /comments').toBe(1);
+            expect(liked?.viewer_liked, 'viewer_liked served by GET /comments').toBe(true);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }
@@ -119,7 +132,7 @@ test.describe('feed / comment threading', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j121 reply-host ${stamp}`;
+        const postBody = `Where is the best place to buy fresh bread nearby ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -139,11 +152,11 @@ test.describe('feed / comment threading', () => {
                 softSkip(testInfo, 'Comment input not exposed.');
                 return;
             }
-            await input.fill(`reply parent ${stamp}`);
+            await input.fill(`Which bakery do you recommend ${stamp}`);
             await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
 
             // Scoped to the host card + patient for comment-render lag under load.
-            const parent = host.locator('.bn-comment-card', { hasText: `reply parent ${stamp}` }).first();
+            const parent = host.locator('.bn-comment-card', { hasText: `Which bakery do you recommend ${stamp}` }).first();
             await expect(parent).toBeVisible({ timeout: 15_000 });
 
             // Pin the parent's stable id so we can assert the reply persisted as ITS
@@ -154,11 +167,11 @@ test.describe('feed / comment threading', () => {
             await parent.locator('.bn-comment__reply-btn').click();
             const replyTa = parent.locator('.bn-comment__reply-form textarea').first();
             await expect(replyTa).toBeVisible();
-            await replyTa.fill(`nested ${stamp}`);
+            await replyTa.fill(`The one on Fifth Street is great ${stamp}`);
             await parent.locator('.bn-comment__reply-form .bn-comment-form__submit').click();
 
             // Optimistic node still checked...
-            await expect(parent.locator('.bn-comment__replies .bn-comment-card', { hasText: `nested ${stamp}` })).toBeVisible({ timeout: 15_000 });
+            await expect(parent.locator('.bn-comment__replies .bn-comment-card', { hasText: `The one on Fifth Street is great ${stamp}` })).toBeVisible({ timeout: 15_000 });
 
             // ...but the real assertion is SERVER TRUTH: the optimistic node above
             // renders client-side even when POST /comments silently fails. Read the
@@ -170,12 +183,15 @@ test.describe('feed / comment threading', () => {
                 `/comments?object_type=post&object_id=${createdPostId}`
             );
             expect(thread.status, 'the comment thread must load').toBeLessThan(300);
-            const persistedReply = findComment(thread.body.items ?? [], (c) => (c.content ?? '').includes(`nested ${stamp}`));
+            const persistedReply = findComment(thread.body.items ?? [], (c) => (c.content ?? '').includes(`The one on Fifth Street is great ${stamp}`));
             expect(persistedReply, 'the nested reply must persist server-side after write').toBeTruthy();
             expect(
                 persistedReply?.parent_id,
                 'the reply must persist as a child of its parent, not a top-level comment'
             ).toBe(parentCommentId);
+            // EFFECT: the post counts both comments: the parent and its reply.
+            const hostPost = await restGet<{ comment_count?: number }>(page.request, nonce, `/posts/${createdPostId}`);
+            expect(Number(hostPost.body.comment_count), 'comment_count after a comment and one reply').toBe(2);
         } finally {
             await deletePostRest(page.request, nonce, createdPostId).catch(() => {});
         }
@@ -187,7 +203,7 @@ test.describe('feed / comment threading', () => {
         let createdPostId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const postBody = `j121 edit-host ${stamp}`;
+        const postBody = `Planning a group bike ride for next weekend ${stamp}`;
 
         try {
             await page.goto(urls.feed);
@@ -207,27 +223,27 @@ test.describe('feed / comment threading', () => {
                 softSkip(testInfo, 'Comment input not exposed.');
                 return;
             }
-            await input.fill(`edit me ${stamp}`);
+            await input.fill(`Sounds fun, I will bring snacks ${stamp}`);
             await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
 
             // Scoped to the host card + patient for comment-render lag under load.
-            const seedCard = host.locator('.bn-comment-card', { hasText: `edit me ${stamp}` }).first();
+            const seedCard = host.locator('.bn-comment-card', { hasText: `Sounds fun, I will bring snacks ${stamp}` }).first();
             await expect(seedCard).toBeVisible({ timeout: 15_000 });
 
             // Pin the card by its stable comment id BEFORE editing — a successful
-            // edit rewrites the visible text to `edited ${stamp}`, so a card locator
-            // filtered on the original `edit me ${stamp}` text would stop matching.
+            // edit rewrites the visible text to `Sounds fun, I will bring snacks and water ${stamp}`, so a card locator
+            // filtered on the original `Sounds fun, I will bring snacks ${stamp}` text would stop matching.
             const commentId = await seedCard.getAttribute('data-comment-id');
             const card = page.locator(`.bn-comment-card[data-comment-id="${commentId}"]`);
 
             await card.locator('.bn-comment__edit-btn').click();
             const editTa = card.locator('.bn-comment__edit-form textarea');
             await expect(editTa).toBeVisible();
-            await editTa.fill(`edited ${stamp}`);
+            await editTa.fill(`Sounds fun, I will bring snacks and water ${stamp}`);
             await card.locator('.bn-comment__edit-form .bn-comment-form__submit').click();
 
             // Optimistic swap still checked...
-            await expect(card.locator('.bn-comment__content', { hasText: `edited ${stamp}` })).toBeVisible({ timeout: 15_000 });
+            await expect(card.locator('.bn-comment__content', { hasText: `Sounds fun, I will bring snacks and water ${stamp}` })).toBeVisible({ timeout: 15_000 });
             await expect(card.locator('.bn-comment__edited')).toBeVisible();
 
             // ...but the real assertion is SERVER TRUTH: the DOM text swap and the
@@ -243,7 +259,7 @@ test.describe('feed / comment threading', () => {
             const persisted = findComment(thread.body.items ?? [], (c) => Number(c.id) === Number(commentId));
             expect(persisted, 'the edited comment must exist server-side').toBeTruthy();
             expect(persisted?.content, 'the edited body must persist server-side, not just optimistically').toContain(
-                `edited ${stamp}`
+                `Sounds fun, I will bring snacks and water ${stamp}`
             );
             expect(persisted?.is_edited, 'the edit must flag the comment edited server-side').toBe(true);
         } finally {

@@ -1,6 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { createSpaceApi, deleteSpaceApi, bnApi, loginContextAs, ensureOnboarded } from '../_fixtures/spaces-rest';
 import { urls } from '../_fixtures/selectors';
+import { dbScalar, tablePrefix, userId } from '../_fixtures/wp';
 
 /**
  * J-622 — Per-space notification preference (C4).
@@ -34,7 +35,7 @@ test.describe('spaces / notification pref (J-622)', () => {
         const stamp = Date.now().toString().slice(-8);
         // Owner is an active member on create, so the membership row that stores
         // the pref exists.
-        const space = await createSpaceApi(page, { name: `E2E Notif ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Baking Swap Meet ${stamp}`, type: 'open' });
 
         try {
             // Set to a non-default value.
@@ -69,7 +70,7 @@ test.describe('spaces / notification pref (J-622)', () => {
     }) => {
         const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E NotifMember ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Cycling Touring Group ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -92,6 +93,26 @@ test.describe('spaces / notification pref (J-622)', () => {
             // member — not just for the owner who created the space.
             await actor.page.goto(urls.spaces, { waitUntil: 'domcontentloaded' });
             expect(await getPref(actor.page, space.id)).toBe('mentions_only');
+
+            // EFFECT: the value sits on THIS member's membership row, and the owner's own
+            // preference for the same space was not touched by it.
+            const p = await tablePrefix();
+            const uid = await userId(other);
+            expect(uid, `member "${other}" must resolve to a user id`).toBeGreaterThan(0);
+            expect(
+                await dbScalar(`SELECT notification_pref FROM ${p}bn_space_members WHERE space_id = ${space.id} AND user_id = ${uid}`)
+            ).toBe('mentions_only');
+            const ownerBefore = await getPref(page, space.id);
+            const off = await bnApi(actor.page, 'POST', `/spaces/${space.id}/notification-pref`, { pref: 'none' });
+            expect(off.status, `member set none failed: ${JSON.stringify(off.data)}`).toBe(200);
+            expect(await getPref(actor.page, space.id)).toBe('none');
+            expect(await getPref(page, space.id), 'a member changing their pref changed the owner\'s').toBe(ownerBefore);
+
+            // A member who leaves has no row to hold a preference: the write is refused.
+            const leave = await bnApi(actor.page, 'POST', `/spaces/${space.id}/leave`);
+            expect(leave.status).toBe(200);
+            const orphan = await bnApi(actor.page, 'POST', `/spaces/${space.id}/notification-pref`, { pref: 'all' });
+            expect(orphan.status, 'a non-member set a per-space notification pref').not.toBe(200);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);

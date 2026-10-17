@@ -353,7 +353,7 @@ class AssetService {
 						'reactor_name'    => __( 'Jordan Lee', 'buddynext' ),
 						'commenter_name'  => __( 'Jordan Lee', 'buddynext' ),
 						'sharer_name'     => __( 'Jordan Lee', 'buddynext' ),
-						'login_url'       => class_exists( \BuddyNext\Core\PageRouter::class ) ? \BuddyNext\Core\PageRouter::auth_url() : home_url( '/' ),
+						'login_url'       => class_exists( \BuddyNext\Core\PageRouter::class ) ? \BuddyNext\Core\PageRouter::login_url( '' ) : home_url( '/' ),
 						'action_url'      => home_url( '/' ),
 						'unsubscribe_url' => '#',
 						'current_year'    => gmdate( 'Y' ),
@@ -1469,6 +1469,10 @@ class AssetService {
 					// Space feed search + join request. Read by spaces/store.js via
 					// t() but never injected, so they always rendered English.
 					'discussionSearchFailed'          => __( 'Could not search discussions. Check your connection and try again.', 'buddynext' ),
+					'unlinkDiscussionTitle'           => __( 'Unlink this discussion?', 'buddynext' ),
+					'unlinkDiscussionBody'            => __( 'The discussion and its posts stay where they are, and everyone who is a member of this space stays a member. New discussion posts stop appearing in this space. You can turn Discussion on again later to create or link one.', 'buddynext' ),
+					'unlinkDiscussionOk'              => __( 'Unlink', 'buddynext' ),
+					'discussionUnlinked'              => __( 'Discussion unlinked.', 'buddynext' ),
 					'joinRequested'                   => __( 'Request sent: you’ll be notified when it’s approved.', 'buddynext' ),
 				),
 				// Parent-picker page size, injected so the JS "keep typing to narrow"
@@ -1897,14 +1901,15 @@ class AssetService {
 					'declineRequestFailed'  => __( 'Could not decline the join request. Try again.', 'buddynext' ),
 				),
 				// The suspend dialog's reason list (one source: ModerationService) and
-				// whether this viewer may suspend with no end date (admins only).
+				// whether this viewer may suspend with no end date (the same ability
+				// ModerationService::suspend_user() enforces).
 				'suspensionReasons' => array_map(
 					static fn( $code, $label ): array => array( (string) $code, (string) $label ),
 					array_keys( \BuddyNext\Moderation\ModerationService::suspension_reasons() ),
 					array_values( \BuddyNext\Moderation\ModerationService::suspension_reasons() )
 				),
 				'suspendNoteMax'    => \BuddyNext\Moderation\ModerationService::SUSPENSION_NOTE_MAX,
-				'canSuspendForever' => current_user_can( 'manage_options' ),
+				'canSuspendForever' => buddynext_can( get_current_user_id(), 'buddynext-moderation/suspend-indefinitely' ),
 			)
 		);
 	}

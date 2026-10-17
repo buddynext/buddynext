@@ -28,13 +28,13 @@ Each announcement can be dismissed. Once you dismiss it, it never appears at the
 
 ## Creating an announcement (for administrators)
 
-Site administrators create site-wide announcements. A space owner or space moderator can announce to their own space only, from that space's composer. Ordinary members cannot create announcements, and the whole check can be changed by a developer with the `buddynext_can_create_announcement` filter. The Announcements feature must also be on under **BuddyNext > Platform > Features**.
+Site administrators and community Admins create site-wide announcements; move **Post site-wide announcements** to Moderators under **Members > Roles & Capabilities** if your team works that way. A space owner or space moderator can announce to their own space only, from that space's composer. Ordinary members cannot create announcements, and the whole check can be changed by a developer with the `buddynext_can_create_announcement` filter. The Announcements feature must also be on under **BuddyNext > Platform > Features**.
 
 To create one, start a post in the composer and select the megaphone (Announcement) button. An optional **Auto-expire at** date and time (in the site's timezone) appears; leave it empty to keep the announcement until you end it. The post is published immediately and pinned to the top of every member's home feed. Members are also notified, in the background, so publishing never makes you wait.
 
 ### Ending an announcement
 
-An administrator can end an announcement at any time from **BuddyNext > Engagement > Announcements**, which lists every announcement with its status (Active, Scheduled, Ended or Not live) and offers **Feature** or **Unfeature**, **End now**, and **Delete**. Ending it removes the pin so the post stops appearing at the top of members' feeds, while the post itself stays in the feed as a normal post. Only administrators can end an announcement.
+An administrator can end an announcement at any time from **BuddyNext > Engagement > Announcements**, which lists every announcement with its status (Active, Scheduled, Ended or Not live) and offers **Feature** or **Unfeature**, **End now**, and **Delete**. Ending it removes the pin so the post stops appearing at the top of members' feeds, while the post itself stays in the feed as a normal post. Anyone who may post site-wide announcements can also end one straight from the post card with **End**.
 
 > **Tip:** Ending an announcement is the clean way to retire a notice once it is no longer relevant. You do not have to delete the post to stop it pinning - end it and it becomes an ordinary feed post.
 

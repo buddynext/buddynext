@@ -1,6 +1,7 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
-import { getSpace, createSpaceApi, deleteSpaceApi } from '../_fixtures/spaces-rest';
+import { getSpace, createSpaceApi, deleteSpaceApi, bnApi, type SpaceRow } from '../_fixtures/spaces-rest';
+import { dbCount, tablePrefix } from '../_fixtures/wp';
 
 /**
  * J-610 — Delete a space (owner).
@@ -27,7 +28,7 @@ test.describe('spaces / delete (J-610)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const name = `E2E Delete ${stamp}`;
+        const name = `Lost Pet Alerts ${stamp}`;
         const space = await createSpaceApi(page, { name, type: 'open' });
         let deleted = false;
 
@@ -57,6 +58,17 @@ test.describe('spaces / delete (J-610)', () => {
                 .poll(async () => (await getSpace(page, space.id)).status, { timeout: 10_000 })
                 .toBe(404);
             deleted = true;
+            // ...by slug too, the list route no longer answers it, and no membership rows
+            // are left behind pointing at a space that does not exist.
+            expect((await bnApi(page, 'GET', `/spaces/slug/${space.slug}`)).status, 'deleted space still resolves by slug').toBe(404);
+            const list = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(name)}&per_page=50`);
+            expect(list.status).toBe(200);
+            expect(((list.data as SpaceRow[]) ?? []).map((r) => Number(r.id))).not.toContain(space.id);
+            const p = await tablePrefix();
+            expect(
+                await dbCount(`SELECT COUNT(*) FROM ${p}bn_space_members WHERE space_id = ${space.id}`),
+                'membership rows orphaned by the delete'
+            ).toBe(0);
 
             // EFFECT 3: the directory no longer links to the deleted slug.
             await page.goto(urls.spaces);

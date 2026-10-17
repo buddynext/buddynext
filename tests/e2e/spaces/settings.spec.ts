@@ -37,9 +37,9 @@ test.describe('spaces / settings + moderation', () => {
         const savedNotice = '.bn-space-settings__notice[data-tone="success"]';
 
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Settings ${stamp}`, type: 'open' });
-        const newName = `Renamed Space ${stamp}`;
-        const newDesc = `Rewritten description ${stamp} — persisted by J-52.`;
+        const space = await createSpaceApi(page, { name: `Urban Sketching Group ${stamp}`, type: 'open' });
+        const newName = `Urban Sketchers of the Bay ${stamp}`;
+        const newDesc = `We meet most Saturdays to sketch the city together ${stamp} - all skill levels welcome.`;
 
         try {
             await page.goto(`/spaces/${space.slug}/settings/?bn_stab=general`, {
@@ -77,6 +77,14 @@ test.describe('spaces / settings + moderation', () => {
             const row = res.data as SpaceRow;
             expect(row.name).toBe(newName);
             expect(String(row.description ?? '')).toBe(newDesc);
+            // Renaming does not move the space: same slug, still the owner's.
+            expect(row.slug, 'a rename changed the space slug (links break)').toBe(space.slug);
+            expect(row.membership_role).toBe('owner');
+            // EFFECT 3: the directory route finds it under the NEW name and not the old one.
+            const byNew = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(newName)}&per_page=50`);
+            expect(((byNew.data as SpaceRow[]) ?? []).map((r) => Number(r.id))).toContain(space.id);
+            const byOld = await bnApi(page, 'GET', `/spaces?search=${encodeURIComponent(`Urban Sketching Group ${stamp}`)}&per_page=50`);
+            expect(((byOld.data as SpaceRow[]) ?? []).map((r) => Number(r.id)), 'directory still finds the space by its old name').not.toContain(space.id);
         } finally {
             await deleteSpaceApi(page, space.id);
         }
@@ -93,7 +101,7 @@ test.describe('spaces / settings + moderation', () => {
         const other = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Mod ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Camping Gear Trading ${stamp}`, type: 'open' });
         let postId = 0;
         let reportId = 0;
         // A member cannot report their own content (cannot_report_own), so a SECOND
@@ -105,7 +113,7 @@ test.describe('spaces / settings + moderation', () => {
             // Owner seeds a real post in the space.
             const created = await bnApi(page, 'POST', '/posts', {
                 type: 'text',
-                content: `reportable post ${stamp}`,
+                content: `Selling a barely used tent, message me ${stamp}`,
                 space_id: space.id,
             });
             expect(created.status, `seed post failed: ${JSON.stringify(created.data)}`).toBe(201);
@@ -145,6 +153,16 @@ test.describe('spaces / settings + moderation', () => {
                 timeout: 10_000,
             });
             await expect(page.locator(emptyState)).toHaveCount(0);
+
+            // Counterpart: once dismissed it leaves the queue route and the space screen.
+            const dismiss = await bnApi(page, 'POST', `/reports/${reportId}/dismiss`);
+            expect(dismiss.status, `dismiss failed: ${JSON.stringify(dismiss.data)}`).toBeLessThan(300);
+            const after = await bnApi(page, 'GET', `/reports/queue?per_page=100&object_type=post`);
+            const left = (after.data as { items?: Array<{ id: number }> }).items ?? [];
+            expect(left.some((i) => Number(i.id) === reportId), 'dismissed report still in GET /reports/queue').toBe(false);
+            await page.goto(`/spaces/${space.slug}/moderation/?bn_mtab=reports`, { waitUntil: 'domcontentloaded' });
+            await expect(mine).toHaveCount(0);
+            reportId = 0;
         } finally {
             if (reportId > 0) {
                 await bnApi(page, 'POST', `/reports/${reportId}/dismiss`);

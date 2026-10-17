@@ -353,6 +353,16 @@ class WPMediaVerseBridge {
 		// the one that never registered, because its type was intercepted by the
 		// photo branch upstream and never reached the seam at all.
 		add_filter( 'buddynext_render_post_body_media', array( $this, 'render_feed_card' ), 10, 2 );
+		add_filter( 'buddynext_integration_card_preview', array( $this, 'explore_card_preview' ), 10, 2 );
+		// Card label + icon, read by the feed card and the Explore card alike.
+		add_filter(
+			'buddynext_integration_card_types',
+			static function ( array $types ): array {
+				$types['media'] = array( 'label' => __( 'Media', 'buddynext' ), 'icon' => 'image' );
+				$types['document'] = array( 'label' => __( 'Document', 'buddynext' ), 'icon' => 'file-text' );
+				return $types;
+			}
+		);
 
 		add_action( 'buddynext_post_created', array( $this, 'on_post_privacy_changed' ), 10, 1 );
 		add_action( 'buddynext_post_updated', array( $this, 'on_post_privacy_changed' ), 10, 1 );
@@ -592,11 +602,7 @@ class WPMediaVerseBridge {
 
 		$args = is_array( $args ) ? $args : array();
 
-		return IntegrationActivity::render_bridge_card(
-			$this->hydrate_media_preview( $args ),
-			'image',
-			__( 'Media', 'buddynext' )
-		);
+		return IntegrationActivity::render_bridge_card( $this->hydrate_media_preview( $args ) );
 	}
 
 	/**
@@ -620,6 +626,22 @@ class WPMediaVerseBridge {
 	 * @param array<string,mixed> $args Render args from the post-body seam.
 	 * @return array<string,mixed>
 	 */
+	/**
+	 * Explore's media card: the same per-viewer title and cover as the feed card.
+	 *
+	 * @param array<string,mixed> $meta Stored link_meta.
+	 * @param string              $type Post type.
+	 * @return array<string,mixed>
+	 */
+	public function explore_card_preview( $meta, $type ): array {
+		$meta = is_array( $meta ) ? $meta : array();
+		if ( 'media' !== $type ) {
+			return $meta;
+		}
+
+		return (array) ( $this->hydrate_media_preview( array( 'link_preview' => $meta ) )['link_preview'] ?? $meta );
+	}
+
 	private function hydrate_media_preview( array $args ): array {
 		$link     = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
 		$media_id = (int) ( $link['media_id'] ?? 0 );
@@ -3249,7 +3271,7 @@ class WPMediaVerseBridge {
 			'desc'  => $size > 0 ? size_format( $size ) : '',
 		);
 
-		return IntegrationActivity::render_bridge_card( $args, 'file-text', __( 'Document', 'buddynext' ) );
+		return IntegrationActivity::render_bridge_card( $args );
 	}
 
 	/**

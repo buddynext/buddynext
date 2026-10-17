@@ -35,7 +35,7 @@ test.describe('spaces / leave (J-605)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Leave ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Photo Walk Wednesdays ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -72,6 +72,13 @@ test.describe('spaces / leave (J-605)', () => {
                     { timeout: 10_000 }
                 )
                 .not.toBe('active');
+
+            // EFFECT (owner's side): the member is off the roster and the head count is back
+            // to the owner alone.
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(roster.status).toBe(200);
+            expect(((roster.data as Array<{ role?: string }>) ?? []).map((r) => r.role)).toEqual(['owner']);
+            expect(Number(((await getSpace(page, space.id)).data as SpaceRow).member_count)).toBe(1);
 
             // ...and the reloaded hero offers the Join control again.
             await actor.page.goto(`/spaces/${space.slug}/`);

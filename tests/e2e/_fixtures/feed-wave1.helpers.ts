@@ -1,5 +1,6 @@
 import type { Browser, BrowserContext, Page, APIRequestContext } from '@playwright/test';
 import { sel, urls } from './selectors';
+import { settleOverlays } from './wp';
 
 /**
  * Shared helpers for the Feed wave-1 effect specs (J-500..J-529).
@@ -86,6 +87,7 @@ export type MemberSession = {
 export async function openMemberSession(browser: Browser, login: string): Promise<MemberSession> {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    await settleOverlays(page);
     await page.goto(`/?autologin=${encodeURIComponent(login)}`, { waitUntil: 'domcontentloaded' });
     // Land on a BuddyNext surface that carries a wp_rest nonce. /activity/ may
     // redirect a not-yet-onboarded member to /onboarding/, which still embeds one.

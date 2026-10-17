@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, '1.*' ]  # version branches get CI on every push: fixes land there without a PR
   pull_request:
   workflow_dispatch:
 

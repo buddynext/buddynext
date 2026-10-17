@@ -1,5 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
+import { dbCount, tablePrefix } from '../_fixtures/wp';
+import { dbSeedingAvailable } from '../_fixtures/db.fixture';
+import { idsOf, restJson } from '../_fixtures/effects';
 
 /**
  * J-45 DM list.
@@ -40,11 +43,44 @@ test.describe('messages / list', () => {
             // Bridge active: the route stays put and must show real UI - a list
             // or an explicit empty state. Landing on the URL is not evidence.
             const list = page.locator(sel.dmList).first();
-            const placeholder = page.locator('.bn-messages-empty, .bn-messages-placeholder, [data-dm-empty]').first();
+            // Empty states in the live markup: the rail's `.bn-dm-rail__empty` (parts/dm-rail.php:252)
+            // and the thread pane's `.bn-dm-empty` (messages/native.php:412). The old
+            // `.bn-messages-empty / .bn-messages-placeholder / [data-dm-empty]` matched nothing.
+            const placeholder = page.locator(`${sel.dmEmpty}, .bn-dm-empty`).first();
             const anyVisible =
                 (await list.isVisible().catch(() => false)) ||
                 (await placeholder.isVisible().catch(() => false));
             expect(anyVisible, 'DM route resolved but rendered neither a thread list nor an empty state').toBeTruthy();
+            // EFFECT: the list reflects the message store: threads on screen only when conversations exist.
+            if (dbSeedingAvailable()) {
+                const rows = await page.locator('.bn-dm-rail__item, [data-dm-item]').count();
+                const p = await tablePrefix();
+                const conversations = await dbCount(`SELECT COUNT(*) FROM ${p}mvs_conversations`);
+                if (rows > 0) {
+                    expect(conversations, `${rows} threads on screen but the conversations table is empty`).toBeGreaterThan(0);
+                }
+            }
+            // EFFECT: the rail lists the conversations the member's own DM route answers
+            // (WPMediaVerse owns the store: mvs/v1). Both empty or both populated, and no
+            // thread on screen that the route does not know about.
+            const rest = await restJson(page, '/wp-json/mvs/v1/me/conversations?per_page=50');
+            if (rest.status === 200) {
+                const routeIds = idsOf(rest.data);
+                const railIds = (await page.locator('.bn-dm-rail__item[data-conv-id]').evaluateAll((els) =>
+                    els.map((el) => Number(el.getAttribute('data-conv-id')))
+                )) as number[];
+                expect(railIds.length > 0, `rail shows ${railIds.length} threads, route answers ${routeIds.length}`).toBe(routeIds.length > 0);
+                if (routeIds.length < 50) {
+                    expect(railIds.filter((id) => !routeIds.includes(id)), 'rail shows a thread the route does not list').toEqual([]);
+                }
+                // An empty inbox says so, rather than rendering a blank rail.
+                if (routeIds.length === 0) {
+                    await expect(page.locator(sel.dmEmpty)).toBeVisible();
+                }
+            } else {
+                // Messaging switched off in WPMediaVerse: the page must say so, not show a rail.
+                await expect(page.locator('.bn-dm-dep-notice__title')).toBeVisible();
+            }
             return;
         }
 

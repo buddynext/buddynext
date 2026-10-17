@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { wp, ensureUser, createPage, deletePage } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-904 gate WP content behind membership.
@@ -45,18 +47,18 @@ test.describe('pro / gate content behind membership', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG}', 'E2E Content Gate Plan', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG}', 'Insider Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 6.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])
         );
         expect(tierId, 'the E2E content-gate test tier should be created').toBeGreaterThan(0);
 
-        lockedId = await ensureUser(MEMBER_LOCKED, `${MEMBER_LOCKED}@example.test`, 'E2E Content Locked Member');
+        lockedId = await ensureUser(MEMBER_LOCKED, `${MEMBER_LOCKED}@example.test`, 'Chloe Adams');
         unlockedId = await ensureUser(
             MEMBER_UNLOCKED,
             `${MEMBER_UNLOCKED}@example.test`,
-            'E2E Content Unlocked Member'
+            'Isaac Bennett'
         );
 
         await wp([
@@ -71,12 +73,21 @@ test.describe('pro / gate content behind membership', () => {
 
         const stamp = Date.now().toString().slice(-8);
         const created = await createPage(`[buddynext_members_only plan="${SLUG}"]${SECRET}[/buddynext_members_only]`, {
-            title: `E2E Content Gate ${stamp}`,
+            title: `Members Only Guides ${stamp}`,
             slug: `bn-e2e-content-gate-${stamp}`,
         });
         pageId = created.id;
         pageUrl = created.url;
     });
+
+    /** Whether the signed-in member holds an active row on the gating plan, per the route My Membership reads. */
+    async function holdsPlan(page: Page): Promise<boolean> {
+        const r = await restJson(page, '/wp-json/buddynext-pro/v1/me/subscriptions');
+        expect(r.status).toBe(200);
+        return ((r.data ?? []) as Array<{ tier_id?: string | number; status?: string }>).some(
+            (row) => row.status === 'active' && Number(row.tier_id) === tierId
+        );
+    }
 
     test.afterAll(async () => {
         await deletePage(pageId);
@@ -99,6 +110,8 @@ test.describe('pro / gate content behind membership', () => {
             const paywall = page.locator('.bn-paywall.bn-content-locked');
             await expect(paywall, 'a member without the plan should see the locked card').toBeVisible();
             await expect(page.getByText(SECRET)).toHaveCount(0);
+            // EFFECT (parity): the lock matches the data, this member holds no active row on the plan.
+            expect(await holdsPlan(page), 'locked member has no active subscription on the plan').toBe(false);
 
             const cta = paywall.locator('a.bn-paywall__cta');
             await expect(cta).toBeVisible();
@@ -111,6 +124,8 @@ test.describe('pro / gate content behind membership', () => {
 
             await expect(page.getByText(SECRET), 'a member holding the named plan should see the real content').toBeVisible();
             await expect(page.locator('.bn-paywall.bn-content-locked')).toHaveCount(0);
+            // EFFECT (parity): access comes from the subscription row, not from being signed in.
+            expect(await holdsPlan(page), 'unlocked member holds the active subscription').toBe(true);
         });
     }
 
@@ -121,5 +136,7 @@ test.describe('pro / gate content behind membership', () => {
 
         await expect(page.getByText(SECRET), 'the site admin must never be locked out of their own content').toBeVisible();
         await expect(page.locator('.bn-paywall.bn-content-locked')).toHaveCount(0);
+        // EFFECT: this is the admin bypass, not a plan the admin happens to hold.
+        expect(await holdsPlan(page), 'admin sees it without holding the plan').toBe(false);
     });
 });

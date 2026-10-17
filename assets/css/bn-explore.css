@@ -448,8 +448,74 @@ a.ec-title:hover { color: var(--bn-accent-text, var(--brand)); }
 	color: var(--bg);
 }
 
+/* Integration card (event, job, listing, course, badge, media, document, open
+   to work). The kicker carries the integration's icon; events add a calendar
+   tile beside the title and a when/where line. Without a cover the card stays
+   compact instead of reserving an empty image box. */
+.ec-kicker--integration {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	color: var(--bn-accent-text, var(--brand));
+}
+.ec-kicker--integration svg { width: 14px; height: 14px; flex-shrink: 0; }
+/* Badge artwork is an emblem drawn for a light ground: show all of it on a round
+   light plate, in light and dark alike, instead of cropping it like a photo. */
+.ec-card.is-integration[data-type="badge"] .ec-img img {
+	width: auto;
+	height: 72%;
+	aspect-ratio: 1;
+	object-fit: contain;
+	padding: var(--bn-s4);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-badge-plate);
+	box-shadow: var(--bn-shadow-md);
+}
+.ec-card.is-integration[data-type="badge"]:hover .ec-img img { transform: none; }
+.ec-lead {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+.ec-integration-head {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+}
+.ec-integration-head .ec-title { flex: 1; min-width: 0; }
+.ec-date {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	flex-shrink: 0;
+	min-inline-size: 44px;
+	padding: var(--bn-s1) var(--bn-s2);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	line-height: var(--bn-leading-tight);
+}
+.ec-date__m {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	text-transform: uppercase;
+	color: var(--bn-danger);
+}
+.ec-date__d {
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+.ec-facts {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
+	.ec-date { min-inline-size: 40px; }
+	.ec-date__d { font-size: var(--bn-text-md); }
 	.bn-explore-hero { padding: var(--bn-s4); }
 	.bn-explore-hero__title { font-size: var(--text-2xl); }
 	/* column-width already collapses to one column on narrow screens. */

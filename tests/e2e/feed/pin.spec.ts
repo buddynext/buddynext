@@ -4,8 +4,15 @@ import { sel, urls } from '../_fixtures/selectors';
 
 const OWNER = process.env.BN_TEST_USER ?? 'admin';
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
-import { readRestNonce, postIdOfCard, deletePostRest } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restGet } from '../_fixtures/feed-wave1.helpers';
 import type { Page, Locator } from '@playwright/test';
+
+/** The post's stored pin flag, per the post route (1 pinned, 0 not). */
+async function pinnedOf(page: Page, nonce: string, postId: number): Promise<number> {
+    const r = await restGet<{ is_pinned?: number }>(page.request, nonce, `/posts/${postId}`);
+    expect(r.status, 'GET /posts/{id}').toBe(200);
+    return Number(r.body.is_pinned);
+}
 
 /**
  * J-505 pin / unpin a post (B2).
@@ -51,7 +58,7 @@ test.describe('feed / pin + unpin', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j505 pin-me ${stamp}`;
+        const body = `Welcome to my page, I post about gardening and local hikes ${stamp}`;
 
         try {
             // The composer lives on the activity hub; the profile only lists posts.
@@ -67,11 +74,15 @@ test.describe('feed / pin + unpin', () => {
             await page.goto(urls.member(OWNER));
             await expect(cardWith(page, body)).toBeVisible({ timeout: 10_000 });
             createdId = await postIdOfCard(page, body);
+            expect(createdId, 'resolved server post id').toBeGreaterThan(0);
+            expect(await pinnedOf(page, nonce, createdId), 'a fresh post is not pinned').toBe(0);
 
             // Pin — optimistic flip first.
             await clickPin(page, cardWith(page, body));
             await expect(cardWith(page, body)).toHaveClass(pinnedClass, { timeout: 8_000 });
             await expect(cardWith(page, body).locator(pinLabel)).toBeVisible();
+            // EFFECT: the row is pinned, per the post route, before any reload re-renders it.
+            await expect.poll(() => pinnedOf(page, nonce, createdId), { timeout: 8_000 }).toBe(1);
 
             // Persistence: after reload the server still says pinned.
             await page.goto(urls.member(OWNER));
@@ -81,6 +92,8 @@ test.describe('feed / pin + unpin', () => {
             // Unpin — the same control now DELETEs the pin.
             await clickPin(page, cardWith(page, body));
             await expect(cardWith(page, body)).not.toHaveClass(pinnedClass, { timeout: 8_000 });
+            // EFFECT: the unpin reached the row too.
+            await expect.poll(() => pinnedOf(page, nonce, createdId), { timeout: 8_000 }).toBe(0);
 
             // Persistence: after reload the server confirms it is no longer pinned.
             await page.goto(urls.member(OWNER));
@@ -102,7 +115,7 @@ test.describe('feed / pin + unpin', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const body = `j505m member pin-me ${stamp}`;
+        const body = `Pinned note: open house at the studio next month ${stamp}`;
 
         try {
             await page.goto(urls.member(MEMBER_LOGIN));
@@ -115,10 +128,14 @@ test.describe('feed / pin + unpin', () => {
             await page.goto(urls.member(MEMBER_LOGIN));
             await expect(cardWith(page, body)).toBeVisible({ timeout: 10_000 });
             createdId = await postIdOfCard(page, body);
+            expect(createdId, 'resolved server post id').toBeGreaterThan(0);
+            expect(await pinnedOf(page, nonce, createdId), 'a fresh post is not pinned').toBe(0);
 
             await clickPin(page, cardWith(page, body));
             await expect(cardWith(page, body)).toHaveClass(pinnedClass, { timeout: 8_000 });
             await expect(cardWith(page, body).locator(pinLabel)).toBeVisible();
+            // EFFECT: the member's own row is pinned, per the post route.
+            await expect.poll(() => pinnedOf(page, nonce, createdId), { timeout: 8_000 }).toBe(1);
 
             // Persistence: after reload the server still says pinned.
             await page.goto(urls.member(MEMBER_LOGIN));
@@ -127,6 +144,8 @@ test.describe('feed / pin + unpin', () => {
             // Unpin — the same control now DELETEs the pin.
             await clickPin(page, cardWith(page, body));
             await expect(cardWith(page, body)).not.toHaveClass(pinnedClass, { timeout: 8_000 });
+            // EFFECT: the unpin reached the row too.
+            await expect.poll(() => pinnedOf(page, nonce, createdId), { timeout: 8_000 }).toBe(0);
 
             await page.goto(urls.member(MEMBER_LOGIN));
             await expect(cardWith(page, body)).toBeVisible({ timeout: 10_000 });

@@ -4,6 +4,27 @@ import { softSkip } from "../_fixtures/precondition";
 import { sel, urls } from '../_fixtures/selectors';
 import { userId, ensureUser, getUserMeta, setUserMeta, deleteUserMeta, displayName, wp } from '../_fixtures/wp';
 import { openMemberSession } from '../_fixtures/feed-wave1.helpers';
+import { bnApi } from '../_fixtures/spaces-rest';
+import type { Page } from '@playwright/test';
+
+type ProfileBody = {
+    display_name?: string;
+    fields?: Array<{ field_key?: string; value?: unknown }>;
+    privacy?: Record<string, unknown>;
+};
+
+/** GET /me/profile as the page's member: the read the edit form and the app both use. */
+async function meProfile(page: Page): Promise<ProfileBody> {
+    const r = await bnApi(page, 'GET', '/me/profile');
+    expect(r.status, 'GET /me/profile').toBe(200);
+    return (r.data ?? {}) as ProfileBody;
+}
+
+/** One field's stored value from a profile response, by field_key. */
+function fieldValue(body: ProfileBody, key: string): string {
+    const f = (body.fields ?? []).find((row) => row.field_key === key);
+    return f ? String(f.value ?? '') : '';
+}
 
 // A valid 4x4 PNG (correct IDAT CRC — ImageMagick rejects a malformed one),
 // small and well under the 4MB / 1024px avatar cap.
@@ -36,7 +57,7 @@ test.describe('profile / edit', () => {
             return;
         }
         const stamp = Date.now().toString().slice(-6);
-        const value = `e2e bio ${stamp}`;
+        const value = `Weekend hiker and amateur baker, always up for a coffee ${stamp}`;
         await bio.fill(value);
 
         const save = page.locator('button[type="submit"], .bn-btn[data-action="save"]').first();
@@ -64,6 +85,8 @@ test.describe('profile / edit', () => {
         if (await reloaded.isVisible().catch(() => false)) {
             await expect(reloaded).toHaveValue(value);
         }
+        // EFFECT: the profile route returns the new bio, not only the edit form.
+        expect(fieldValue(await meProfile(page), 'bio'), 'GET /me/profile bio').toBe(value);
     });
 
     /**
@@ -73,12 +96,12 @@ test.describe('profile / edit', () => {
      */
     test('J-34-member a plain member sets their own display name (mobile 390px)', async ({ page }) => {
         const bLogin = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
-        const bId = await ensureUser(bLogin, 'bn_e2e_target@example.com', 'BN E2E Target');
+        const bId = await ensureUser(bLogin, 'bn_e2e_target@example.com', 'Jordan Ellis');
         expect(bId, `member "${bLogin}" must exist`).toBeGreaterThan(0);
         await setUserMeta(bId, 'bn_onboarding_complete', '1');
 
         const original = await displayName(bId);
-        const value = `E2E Member ${Date.now().toString().slice(-6)}`;
+        const value = `Alex Rivera ${Date.now().toString().slice(-6)}`;
 
         try {
             await page.setViewportSize({ width: 390, height: 844 });
@@ -106,6 +129,8 @@ test.describe('profile / edit', () => {
 
             await page.goto(urls.memberEdit(bLogin));
             await expect(page.locator('#bn-ep-name')).toHaveValue(value);
+            // EFFECT: the member's own profile route carries the new name.
+            expect((await meProfile(page)).display_name, 'GET /me/profile display_name').toBe(value);
         } finally {
             await wp(['user', 'update', String(bId), `--display_name=${original}`]);
         }
@@ -180,7 +205,7 @@ test.describe('profile / edit', () => {
         }
 
         const original = await field.inputValue();
-        const value = `e2e ${Date.now().toString().slice(-5)}`;
+        const value = `Riverside Gardens ${Date.now().toString().slice(-5)}`;
         const save = page.locator('button[type="submit"]').first();
 
         try {
@@ -196,6 +221,8 @@ test.describe('profile / edit', () => {
             // Round-trip: reload and confirm the value stuck server-side.
             await page.goto(urls.memberEdit(user));
             await expect(page.locator('input[name="pronouns"]').first()).toHaveValue(value);
+            // EFFECT: the profile route returns the saved custom field value.
+            expect(fieldValue(await meProfile(page), 'pronouns'), 'GET /me/profile pronouns').toBe(value);
         } finally {
             // Leave the field exactly as found.
             await page.goto(urls.memberEdit(user));
@@ -211,22 +238,6 @@ test.describe('profile / edit', () => {
                 ]).catch(() => undefined);
             }
         }
-    });
-
-    // J-36 asserts a brand-hue picker (`[data-field="brand-hue"]` / `bn_brand_hue`).
-    // Neither string exists anywhere in Free or Pro, and /settings/appearance/
-    // renders no form control at all - so this is an UNBUILT feature, not a stale
-    // selector. Left failing-by-declaration rather than deleted, so it stays
-    // visible: either build the picker or retire J-36 from the catalogue.
-    // NOTE the form: `test.fixme(...)` as a bare statement inside a describe
-    // marks EVERY test in the group as fixme, not the one that follows it. It
-    // was written that way here, so all eight profile/edit tests silently
-    // stopped running - the suite reported "8 skipped" and read as deliberate.
-    // Marking the single test is `test.fixme('name', fn)`.
-    test.fixme('J-36 theme picker (Pro) applies brand hue', async ({ authenticatedPage: page }) => {
-        await page.goto(urls.settingsAppearance);
-        const picker = page.locator('[data-field="brand-hue"], [name="bn_brand_hue"]').first();
-        await expect(picker).toBeVisible();
     });
 
     /* B5 — Privacy section: audience selects + toggles render. */
@@ -251,6 +262,20 @@ test.describe('profile / edit', () => {
         // interactive-only data-pref, which would demand the toggle never disable.
         await expect(page.locator('#bn-ep-privacy-search-lbl')).toBeVisible();
         await expect(page.locator('[data-pref="bn_pro_hide_profile_views"]')).toBeVisible();
+
+        // EFFECT: each control shows the stored setting GET /me/profile returns (the
+        // same PrivacyService read enforcement uses), not a template default.
+        const privacy = (await meProfile(page)).privacy ?? {};
+        for (const key of ['bn_privacy_show_in_directory', 'bn_pro_hide_profile_views']) {
+            await expect(page.locator(`[data-pref="${key}"]`).first(), `${key} switch matches the stored value`).toHaveAttribute(
+                'aria-checked',
+                privacy[key] ? 'true' : 'false'
+            );
+        }
+        const mention = String(privacy.bn_privacy_mention ?? '');
+        await expect(page.locator('#bn-ep-privacy-mention'), 'mention audience matches the stored value').toHaveValue(
+            mention === 'members' ? 'everyone' : mention
+        );
     });
 
     /* B6 — Account section: change-password / change-email / sign-out-everywhere CTAs. */
@@ -299,6 +324,12 @@ test.describe('profile / edit', () => {
 
         if (count === 1) {
             await expect(page.locator('#bn-ep-member-type-title')).toHaveCount(1);
+            // EFFECT: the one select shows the type the member-type route holds.
+            const uid = await userId(user);
+            const r = await bnApi(page, 'GET', `/users/${uid}/member-type`);
+            expect(r.status, 'GET /users/{id}/member-type').toBe(200);
+            const slug = String(((r.data ?? {}) as { slug?: string }).slug ?? '');
+            await expect(select, 'the select shows the assigned member type').toHaveValue(slug);
         }
     });
 
@@ -315,7 +346,7 @@ test.describe('profile / edit', () => {
      * (usermeta bn_member_type). A round-trip to a second option and back proves
      * the assign path writes a concrete slug; the second hop restores the account.
      */
-    test('C2 member-type self-select assigns and persists (DB confirm)', async ({ authenticatedPage: page }, testInfo) => {
+    test('J-992 member-type self-select assigns, persists and leaves no unsaved-changes warning (DB confirm)', async ({ authenticatedPage: page }, testInfo) => {
         await page.goto(urls.memberEdit(user));
         await expect(page.locator(sel.app)).toBeVisible();
 
@@ -347,12 +378,17 @@ test.describe('profile / edit', () => {
         try {
             // Hop 1 — change to a DIFFERENT option; the change auto-saves.
             await Promise.all([waitAssign(), select.selectOption(target)]);
+            // The select saved itself, so leaving must not warn about unsaved changes.
+            await expect(page.locator('.bn-ep-form-shell')).not.toHaveAttribute('data-bn-dirty', '1');
             await page.goto(urls.memberEdit(user));
             await expect(page.locator('#bn-ep-member-type')).toHaveValue(target);
             expect(
                 await getUserMeta(uid, 'bn_member_type'),
                 'the chosen member type must be written to usermeta'
             ).toBe(target);
+            // EFFECT: the member-type route other surfaces read returns the new slug.
+            const mt = await bnApi(page, 'GET', `/users/${uid}/member-type`);
+            expect(String(((mt.data ?? {}) as { slug?: string }).slug ?? ''), 'GET /users/{id}/member-type').toBe(target);
 
             // Hop 2 — change back to the original (a concrete non-empty slug when
             // the member started assigned); doubles as the restore.

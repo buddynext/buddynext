@@ -243,6 +243,29 @@ class VerificationServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A site administrator always passes the access gate; a community moderator
+	 * who never verified does not, and the posting gate follows the same answer
+	 * (permissions program phase 5: one exemption, in one place).
+	 *
+	 * @return void
+	 */
+	public function test_is_verified_passes_site_admins_only(): void {
+		update_option( 'buddynext_email_verify_enabled_at', time() - 100 );
+		$admin     = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$moderator = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		update_user_meta( $moderator, 'bn_community_role', 'moderator' );
+
+		$this->assertTrue( $this->service->is_verified( $admin ), 'An owner is never held by their own setting.' );
+		$this->assertFalse( $this->service->is_verified( $moderator ), 'A community role is not an exemption.' );
+
+		$post = array( 'type' => 'text', 'content' => 'Farmers market moves to the church car park this week.' );
+		$this->assertNotWPError( ( new \BuddyNext\Feed\PostService() )->create( $admin, $post ) );
+		$refused = ( new \BuddyNext\Feed\PostService() )->create( $moderator, $post );
+		$this->assertWPError( $refused );
+		$this->assertSame( 'email_unverified', $refused->get_error_code() );
+	}
+
+	/**
 	 * mark_verification_enabled() stamps once and never overwrites.
 	 *
 	 * @return void

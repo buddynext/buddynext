@@ -47,7 +47,7 @@ test.describe('spaces / cancel own join request (J-661)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Cancel ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Pottery Studio Friends ${stamp}`, type: 'private' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -75,6 +75,13 @@ test.describe('spaces / cancel own join request (J-661)', () => {
 
             // EFFECT: the owner's pending queue no longer lists them.
             expect(await pending(page, space.id)).not.toContain(uid);
+
+            // EFFECT: the row is gone, not parked in another state: the requester can ask
+            // again and lands back in pending (a leftover row would refuse or skip the queue).
+            const again = await bnApi(actor.page, 'POST', `/spaces/${space.id}/join`);
+            expect(again.status, `re-request failed: ${JSON.stringify(again.data)}`).toBe(200);
+            expect((await getSpace(actor.page, space.id)).data as SpaceRow).toMatchObject({ membership_status: 'pending' });
+            expect(await pending(page, space.id)).toContain(uid);
         } finally {
             await actor.ctx.close();
             await deleteSpaceApi(page, space.id);

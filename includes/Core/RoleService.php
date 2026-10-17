@@ -58,24 +58,17 @@ class RoleService {
 	/**
 	 * Whether a user holds SITE-WIDE moderation authority.
 	 *
-	 * True for a WordPress admin (manage_options) and for any user whose
-	 * community role is moderator or above. This is the one predicate the
-	 * moderation REST routes and handlers use to decide "may act across the whole
-	 * community" — as opposed to space-scoped moderation, which is resolved per
-	 * space via SpaceMemberService. An admin promotes anyone to this authority
-	 * with the Community Role dropdown on the Members screen (bn_community_role).
+	 * Whoever may review the report queue (buddynext-moderation/review-queue):
+	 * WordPress admins and community moderators by default, plus anyone the
+	 * Roles & Capabilities screen grants it. Space-scoped moderation is resolved
+	 * per space via SpaceMemberService. Pro's PaidAccess asks this to never hold
+	 * a moderator under "Paying members only".
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return bool
 	 */
 	public function can_moderate_site( int $user_id ): bool {
-		if ( $user_id <= 0 ) {
-			return false;
-		}
-		if ( user_can( $user_id, 'manage_options' ) ) {
-			return true;
-		}
-		return self::ROLE_HIERARCHY[ $this->get_role( $user_id ) ] >= self::ROLE_HIERARCHY['moderator'];
+		return $user_id > 0 && buddynext_can( $user_id, 'buddynext-moderation/review-queue' );
 	}
 
 	/**

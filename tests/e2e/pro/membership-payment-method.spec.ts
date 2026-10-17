@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { wp, ensureUser } from '../_fixtures/wp';
+import { restJson } from '../_fixtures/effects';
 
 /**
  * J-903 change payment method without contacting support.
@@ -39,14 +40,14 @@ test.describe('pro / change payment method without support', () => {
                 'eval',
                 `$svc = new \\BuddyNextPro\\Membership\\MembershipTierService();` +
                     ` $existing = $svc->get_tier_by_slug( '${SLUG}' ); if ( $existing ) { $svc->delete_tier( (int) $existing['id'] ); }` +
-                    ` echo (int) $svc->create_tier( '${SLUG}', 'E2E Portal Plan', '', 0, array(` +
+                    ` echo (int) $svc->create_tier( '${SLUG}', 'Supporter Plan', '', 0, array(` +
                     `   'status' => 'active', 'price' => 8.0, 'billing_type' => 'recurring', 'billing_interval' => 'month'` +
                     ` ) );`,
             ])
         );
         expect(tierId, 'the E2E portal test tier should be created').toBeGreaterThan(0);
 
-        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'E2E Portal Member');
+        memberId = await ensureUser(MEMBER, `${MEMBER}@example.test`, 'Grace Liu');
         await wp([
             'eval',
             `( new \\BuddyNext\\Onboarding\\OnboardingService() )->finish( ${memberId} );` +
@@ -79,6 +80,16 @@ test.describe('pro / change payment method without support', () => {
 
         const portalForm = panel.locator('form.bn-my-membership__portal').first();
         const buttonVisible = await portalForm.isVisible().catch(() => false);
+
+        // EFFECT (parity): the control is on screen exactly when the server says this
+        // member can update their payment method for that subscription row.
+        const mine = await restJson(page, '/wp-json/buddynext-pro/v1/me/subscriptions');
+        expect(mine.status).toBe(200);
+        const row = ((mine.data ?? []) as Array<{ tier_id?: string | number; source?: string; capabilities?: { can_update_payment?: boolean } }>).find(
+            (r) => Number(r.tier_id) === tierId
+        );
+        expect(row?.source, 'the gateway-billed subscription row').toBe('stripe');
+        expect(buttonVisible, 'portal control vs capabilities.can_update_payment').toBe(Boolean(row?.capabilities?.can_update_payment));
 
         if (!buttonVisible) {
             testInfo.skip(

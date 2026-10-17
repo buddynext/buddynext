@@ -1387,6 +1387,7 @@ class SearchService {
 		// the index cannot answer the audience question to fix the count without a
 		// schema change; revisit if a privacy column is ever added to the index.
 		$items = $this->drop_hidden_posts( $items, $viewer_id );
+		$items = $this->drop_missing_members( $items );
 
 		/**
 		 * Filter each search result item before the set is returned.
@@ -1571,6 +1572,42 @@ class SearchService {
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_values( array_unique( array_map( 'intval', (array) $rows ) ) );
+	}
+
+	/**
+	 * Drop member rows whose account no longer exists, and remove them from the index.
+	 *
+	 * A member deleted outside BuddyNext's delete path (another plugin, a direct
+	 * database edit) leaves an index row; showing it would link to a missing profile
+	 * and cost one user lookup per row. One batched lookup finds them, and each is
+	 * deindexed so the next search never meets it (card 10415529534).
+	 *
+	 * @param array<int, array<string, mixed>> $items Result rows.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function drop_missing_members( array $items ): array {
+		$ids = array();
+		foreach ( $items as $item ) {
+			if ( in_array( (string) ( $item['object_type'] ?? '' ), array( 'user', 'member' ), true ) ) {
+				$ids[] = (int) ( $item['object_id'] ?? 0 );
+			}
+		}
+		if ( ! $ids ) {
+			return $items;
+		}
+
+		cache_users( $ids );
+		$kept = array();
+		foreach ( $items as $item ) {
+			$type = (string) ( $item['object_type'] ?? '' );
+			if ( in_array( $type, array( 'user', 'member' ), true ) && ! get_userdata( (int) $item['object_id'] ) ) {
+				$this->deindex( $type, (int) $item['object_id'] );
+				continue;
+			}
+			$kept[] = $item;
+		}
+
+		return $kept;
 	}
 
 	/**

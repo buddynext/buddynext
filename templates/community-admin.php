@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // ── Permission gate ───────────────────────────────────────────────────────────
 
-if ( ! current_user_can( 'manage_options' ) && ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
+if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
 	wp_die( esc_html__( 'You do not have permission to access the Community Admin Panel.', 'buddynext' ) );
 }
 
@@ -58,8 +58,7 @@ $bn_ca_m_search = '';
 // Computed section-independently: the sidebar note (rendered on every section)
 // needs the same admin-vs-moderator distinction as the Members role controls.
 $bn_ca_roles           = buddynext_service( 'roles' );
-$bn_ca_can_assign      = current_user_can( 'manage_options' )
-	|| ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'is_admin' ) && $bn_ca_roles->is_admin( get_current_user_id() ) );
+$bn_ca_can_assign      = buddynext_can( get_current_user_id(), 'buddynext-community/assign-roles' );
 $bn_ca_can_grant_admin = current_user_can( 'manage_options' );
 if ( 'members' === $admin_section ) {
 	$bn_ca_m_page        = isset( $_GET['mpage'] ) ? max( 1, (int) $_GET['mpage'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended

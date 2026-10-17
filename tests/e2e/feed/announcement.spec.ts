@@ -2,7 +2,9 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { endActiveAnnouncements } from '../_fixtures/wp';
 import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, openMemberSession, restGet, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+
+type AnnouncementList = { announcements?: Array<{ id: number }> };
 
 /**
  * J-513 composer announcement — admin only (B1 / B2).
@@ -27,10 +29,11 @@ test.describe('feed / composer announcement', () => {
 
     test('J-513 admin announcement renders as an announcement; a non-admin has no control', async ({ authenticatedPage: page, browser }, testInfo) => {
         const stamp = Date.now().toString().slice(-6);
-        const content = `j513 announcement ${stamp}`;
+        const content = `Community meetup moved to Saturday at the town hall ${stamp}`;
         let postId = 0;
         let nonce = '';
         let member: MemberSession | null = null;
+        let memberPostId = 0;
 
         try {
             // One site announcement is active at a time; retire the model site's own first.
@@ -57,6 +60,16 @@ test.describe('feed / composer announcement', () => {
             await expect(card).toHaveClass(/bn-post-card--announcement/);
             await expect(card.locator('.bn-post-card__announcement-bar')).toBeVisible();
 
+            // EFFECT: the row is stored as an announcement, and the route the app reads serves it.
+            expect(postId, 'resolved server post id').toBeGreaterThan(0);
+            const stored = await restGet<{ type?: string; is_announcement?: number }>(page.request, nonce, `/posts/${postId}`);
+            expect(stored.status, 'GET /posts/{id}').toBe(200);
+            expect(stored.body.type, 'stored post type').toBe('announcement');
+            expect(Number(stored.body.is_announcement), 'stored is_announcement flag').toBe(1);
+            const live = await restGet<AnnouncementList>(page.request, nonce, '/feed/announcements');
+            expect(live.status, 'GET /feed/announcements').toBe(200);
+            expect((live.body.announcements ?? []).map((a) => Number(a.id)), 'announcement not served by /feed/announcements').toContain(postId);
+
             // Non-admin: the announcement control is not merely disabled, it is absent.
             const otherSlug = await resolveOtherMemberSlug(page, 'varundubey');
             if (!otherSlug) {
@@ -67,10 +80,30 @@ test.describe('feed / composer announcement', () => {
                 // The composer may be absent for restricted members; either way there
                 // must be zero announcement tools for a non-admin.
                 await expect(member.page.locator(announceTool)).toHaveCount(0);
+
+                // EFFECT: the member is served the admin's announcement by the same route. Polled:
+                // a just-created announcement can lag a beat behind in the announcement-id cache.
+                const served = member;
+                await expect
+                    .poll(async () => {
+                        const theirs = await restGet<AnnouncementList>(served.request, served.nonce, '/feed/announcements');
+                        return (theirs.body.announcements ?? []).map((a) => Number(a.id));
+                    }, { timeout: 10_000, message: 'member is not served the announcement' })
+                    .toContain(postId);
+
+                // EFFECT: the gate is on the server too. A direct announcement post by the member is refused.
+                const attempt = await restPost<{ id?: number }>(member.request, member.nonce, '/posts', {
+                    content: `${content} by member`,
+                    type: 'announcement',
+                    privacy: 'public',
+                });
+                memberPostId = attempt.body.id ?? 0;
+                expect(attempt.status, `member announcement POST -> ${attempt.status} (expected 403)`).toBe(403);
             }
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
             if (member) {
+                await deletePostRest(member.request, member.nonce, memberPostId).catch(() => {});
                 await member.ctx.close().catch(() => {});
             }
         }

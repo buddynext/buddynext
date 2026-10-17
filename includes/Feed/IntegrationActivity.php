@@ -542,6 +542,38 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Every typed integration card, keyed by post type: the source label and icon
+	 * the feed card and the Explore card both show. One list, so a bridge's card
+	 * reads the same on the feed and on Explore, and Explore can never fall back
+	 * to a bare "Post" teaser for an integration it was not told about.
+	 *
+	 * A bridge registers its type here in the same change that publishes it.
+	 *
+	 * @return array<string,array{label:string,icon:string}>
+	 */
+	public static function card_types(): array {
+		/**
+		 * Filter the typed integration cards.
+		 *
+		 * @since 1.2.6
+		 *
+		 * @param array<string,array{label:string,icon:string}> $types Post type => { label, icon }.
+		 */
+		$types = (array) apply_filters( 'buddynext_integration_card_types', array() );
+
+		$out = array();
+		foreach ( $types as $type => $card ) {
+			if ( is_string( $type ) && '' !== $type && is_array( $card ) && ! empty( $card['label'] ) ) {
+				$out[ $type ] = array(
+					'label' => (string) $card['label'],
+					'icon'  => (string) ( $card['icon'] ?? 'link' ),
+				);
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Render the uniform integration feed card for a typed bridge post.
 	 *
 	 * The single card style every bridge shares: an icon + a source label + the
@@ -553,16 +585,24 @@ class IntegrationActivity {
 	 * would drop the link). Returns pre-escaped HTML for the seam to echo.
 	 *
 	 * @param array<string,mixed> $args  Post-body args ({ link_preview, post_content, bn_post_type }).
-	 * @param string              $icon  Lucide icon slug for the card (e.g. 'graduation-cap').
-	 * @param string              $label Source label shown above the title (e.g. "Course").
+	 * @param string              $icon  Lucide icon slug; '' = the type's registered icon.
+	 * @param string              $label Source label shown above the title; '' = the type's registered label.
 	 * @return string Card HTML, or '' when there is no link to render (text fallback).
 	 */
-	public static function render_bridge_card( array $args, string $icon, string $label ): string {
+	public static function render_bridge_card( array $args, string $icon = '', string $label = '' ): string {
 		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
 		$url   = isset( $link['url'] ) ? (string) $link['url'] : '';
 		$title = isset( $link['title'] ) ? (string) $link['title'] : '';
 		$desc  = isset( $link['desc'] ) ? (string) $link['desc'] : '';
 		$type  = isset( $args['bn_post_type'] ) ? (string) $args['bn_post_type'] : 'link';
+
+		$registered = self::card_types()[ $type ] ?? null;
+		if ( '' === $icon ) {
+			$icon = $registered['icon'] ?? 'link';
+		}
+		if ( '' === $label ) {
+			$label = $registered['label'] ?? '';
+		}
 
 		// No link to point at → let the caller fall back to the plain-text body.
 		if ( '' === $url ) {

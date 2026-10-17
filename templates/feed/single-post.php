@@ -55,23 +55,12 @@ if ( $bn_visible ) {
 		$bn_visible = false;
 	}
 
-	// Gates 1-4: blocks, space-content membership, followers-only and private,
-	// answered by the one shared method every REST read path also calls. The page
-	// and the app cannot disagree because they ask the same question.
+	// Blocks, space-content membership, followers-only, private and hidden
+	// (suspended or shadow-banned) authors, answered by the one shared method
+	// every REST read path also calls. The page and the app cannot disagree
+	// because they ask the same question.
 	if ( $bn_visible && ( new PostService() )->visibility_error( $bn_post_id, $bn_viewer_id ) instanceof WP_Error ) {
 		$bn_visible = false;
-	}
-
-	// Gate 5: author suspended or shadow-banned (skip for the author + admins).
-	if ( $bn_visible && $bn_author_id > 0 && $bn_author_id !== $bn_viewer_id && ! user_can( $bn_viewer_id, 'manage_options' ) ) {
-		// The bn_suspended meta this used to read was retired (schema v23 deletes it), so
-		// the check never fired. Ask the suspension table, with the same rule the feeds
-		// use: a suspension hides posts only when the moderator chose to hide them.
-		$bn_author_suspended = buddynext_service( 'moderation' )->hides_posts( $bn_author_id );
-		$bn_author_shadow    = (bool) get_user_meta( $bn_author_id, 'bn_shadow_banned', true );
-		if ( $bn_author_suspended || $bn_author_shadow ) {
-			$bn_visible = false;
-		}
 	}
 }
 

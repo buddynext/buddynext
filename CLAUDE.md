@@ -271,9 +271,18 @@ that surfaces partner content into the community) MUST:
    with a real `PostService::ALLOWED_TYPES` value (never the default `'link'`) so
    Explore/feed can classify it. Render it through the
    `buddynext_render_post_body_{type}` seam by calling the shared
-   `IntegrationActivity::render_bridge_card( $args, $icon, $label )` — one uniform
-   card (icon + source label + linked title) for every integration. Pass the SAME
-   `$type` to `IntegrationActivity::remove()` on delete, or the card orphans.
+   `IntegrationActivity::render_bridge_card( $args )` — one uniform card (icon +
+   source label + linked title) for every integration. Register the type's label
+   and icon ONCE on `buddynext_integration_card_types`; the feed card and the
+   Explore card both read it (an unregistered type is a bare "Post" teaser on
+   Explore — the 1.2.6 bug). Store what a member needs to judge the card in its
+   link_meta at publish: `image`, `description`, and the type's key facts (event
+   `month`/`day`/`city`). Pass the SAME `$type` to `IntegrationActivity::remove()`
+   on delete, or the card orphans.
+   **Done = both surfaces checked in the same change:** seed one REALISTIC item
+   through the partner's real flow, review its feed card AND its Explore card
+   (1440 + 390, light + dark), and keep `BR-17` green (it renders an Explore card
+   for every registered type and fails on a missing one).
 4. **Notifications: one contract, collect-only.** **BN never emails on a partner's
    behalf** - the integration owns its text, its visibility rule and its email; BN's
    center is a collective display so members see everything in one place without

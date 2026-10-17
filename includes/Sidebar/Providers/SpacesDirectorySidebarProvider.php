@@ -78,6 +78,8 @@ class SpacesDirectorySidebarProvider {
 				'surfaces' => self::SURFACES,
 				'title'    => __( 'Featured', 'buddynext' ),
 				'icon'     => 'star',
+				// Hidden <=640px, where .bn-sd-featured-strip shows the same list.
+				'classes'  => array( 'bn-sd-featured-card' ),
 				'render'   => function () use ( $featured_spaces, $cat_by_id ): void {
 					$this->render_space_list( $featured_spaces, $cat_by_id );
 				},

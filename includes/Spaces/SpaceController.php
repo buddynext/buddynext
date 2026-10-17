@@ -1333,6 +1333,7 @@ class SpaceController extends BaseRestController {
 			$row['category_slug']  = $cat_map[ $sid ]['category_slug'] ?? null;
 			$row['subspace_count'] = (int) ( $subspace_counts[ $sid ] ?? 0 );
 			$row['cover_tone']     = $tones[ $sid % count( $tones ) ];
+			$row['cover_focal']    = SpaceService::cover_focal( $sid ); // Meta primed above.
 			$row['type_label']     = SpaceService::type_label( (string) ( $row['type'] ?? 'open' ) );
 			$row['type_tone']      = SpaceTypeRegistry::instance()->tone( (string) ( $row['type'] ?? 'open' ) );
 			$row['join_method']    = SpaceTypeRegistry::instance()->join_method( (string) ( $row['type'] ?? 'open' ) );
@@ -1756,7 +1757,6 @@ class SpaceController extends BaseRestController {
 		// members-only in `fields`).
 		$space                = $space + ( $this->enrich_directory_rows( array( $space ), $viewer_id )[0] ?? array() );
 		$space['post_count']  = (int) buddynext_service( 'feed' )->space_post_count( (int) $space['id'], $viewer_id );
-		$space['cover_focal'] = SpaceService::cover_focal( (int) $space['id'] );
 		$space['brand_color'] = (string) buddynext_get_space_field( (int) $space['id'], 'brand_color' );
 
 		// The space sidebar's "Owner & moderators" card (shown to anyone who can see
@@ -2358,7 +2358,7 @@ class SpaceController extends BaseRestController {
 		do_action( 'buddynext_directory_members_primed', $ids, $viewer_id );
 
 		$role       = $viewer_id > 0 ? (string) ( new SpaceMemberService() )->get_role( $space_id, $viewer_id ) : '';
-		$manages    = in_array( $role, array( 'owner', 'moderator' ), true ) || ( $viewer_id > 0 && user_can( $viewer_id, 'manage_options' ) );
+		$manages    = SpaceRoles::can_moderate( $role, $viewer_id );
 		$via_link   = $manages ? ( new SpaceInviteLinkService() )->joined_via_link_map( $space_id ) : array();
 		$with_cover = function_exists( 'buddynext_user_cover_url' );
 

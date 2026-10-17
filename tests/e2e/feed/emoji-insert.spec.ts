@@ -35,7 +35,7 @@ test.describe('feed / emoji insert', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const text = `j540 emoji ${stamp} `;
+        const text = `Pancakes are on the table this morning ${stamp} `;
 
         try {
             await page.goto(urls.feed);
@@ -69,14 +69,14 @@ test.describe('feed / emoji insert', () => {
 
             // Publish.
             await page.locator(sel.composerSubmit).first().click();
-            await expect(page.locator(sel.postCard).filter({ hasText: `j540 emoji ${stamp}` }).first())
+            await expect(page.locator(sel.postCard).filter({ hasText: `Pancakes are on the table this morning ${stamp}` }).first())
                 .toBeVisible({ timeout: 10_000 });
 
             // Reload: the post is really published (server-rendered card present).
             await page.goto(urls.feed);
-            const card = page.locator(sel.postCard).filter({ hasText: `j540 emoji ${stamp}` }).first();
+            const card = page.locator(sel.postCard).filter({ hasText: `Pancakes are on the table this morning ${stamp}` }).first();
             await expect(card).toBeVisible({ timeout: 10_000 });
-            createdId = await postIdOfCard(page, `j540 emoji ${stamp}`);
+            createdId = await postIdOfCard(page, `Pancakes are on the table this morning ${stamp}`);
             expect(createdId).toBeGreaterThan(0);
 
             // REST truth (the load-bearing effect): the SERVER-STORED body carries
@@ -103,7 +103,7 @@ test.describe('feed / emoji insert', () => {
         let createdId = 0;
         let nonce = '';
         const stamp = Date.now().toString().slice(-6);
-        const text = `j540m member emoji ${stamp} `;
+        const text = `Finally finished the garden fence ${stamp} `;
 
         try {
             await page.goto(urls.feed);
@@ -133,13 +133,13 @@ test.describe('feed / emoji insert', () => {
             await expect(ta).toHaveValue(new RegExp(`${stamp}.*${escapeRe(emojiChar)}`), { timeout: 5_000 });
 
             await page.locator(sel.composerSubmit).first().click();
-            await expect(page.locator(sel.postCard).filter({ hasText: `j540m member emoji ${stamp}` }).first())
+            await expect(page.locator(sel.postCard).filter({ hasText: `Finally finished the garden fence ${stamp}` }).first())
                 .toBeVisible({ timeout: 10_000 });
 
             await page.goto(urls.feed);
-            const card = page.locator(sel.postCard).filter({ hasText: `j540m member emoji ${stamp}` }).first();
+            const card = page.locator(sel.postCard).filter({ hasText: `Finally finished the garden fence ${stamp}` }).first();
             await expect(card).toBeVisible({ timeout: 10_000 });
-            createdId = await postIdOfCard(page, `j540m member emoji ${stamp}`);
+            createdId = await postIdOfCard(page, `Finally finished the garden fence ${stamp}`);
             expect(createdId).toBeGreaterThan(0);
 
             const feed = await restGet<FeedHome>(page.request, nonce, '/feed/home?per_page=20');

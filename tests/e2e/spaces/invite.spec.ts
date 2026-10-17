@@ -32,7 +32,7 @@ test.describe('spaces / invite (J-606)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Invite ${stamp}`, type: 'private' });
+        const space = await createSpaceApi(page, { name: `Board Game Evenings ${stamp}`, type: 'private' });
         const invitee = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -49,6 +49,16 @@ test.describe('spaces / invite (J-606)', () => {
             // EFFECT: the invitee now sees a standing invitation.
             asInvitee = await getSpace(invitee.page, space.id);
             expect((asInvitee.data as SpaceRow).membership_status).toBe('invited');
+
+            // EFFECT: an invitation is not a membership yet: the invitee is not on the roster,
+            // the head count is still the owner alone, and the private feed stays closed.
+            const roster = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(roster.status).toBe(200);
+            const rows = (roster.data as Array<{ user_nicename?: string; user_login?: string }>) ?? [];
+            expect(rows.some((r) => (r.user_nicename ?? r.user_login) === other), 'an invited (not accepted) user is listed as a member').toBe(false);
+            expect(Number(((await getSpace(page, space.id)).data as SpaceRow).member_count)).toBe(1);
+            const feed = await bnApi(invitee.page, 'GET', `/spaces/${space.id}/feed`);
+            expect(feed.status, 'an invited (not accepted) user can read the private feed').toBe(403);
         } finally {
             await invitee.ctx.close();
             await deleteSpaceApi(page, space.id);

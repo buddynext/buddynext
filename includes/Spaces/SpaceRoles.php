@@ -69,6 +69,12 @@ class SpaceRoles {
 	 * Whether an actor may moderate a space (owner/moderator role, or a site
 	 * admin via the manage_options capability).
 	 *
+	 * Deliberately NOT the site-wide `buddynext-spaces/moderate` ability: a space's
+	 * membership (approve, ban, remove) is run by its own team, the community
+	 * moderators work reports from every space in Community Admin, and only a
+	 * WordPress administrator acts inside any space, matching who may see inside
+	 * a private one (owner decision 2026-10-17, permissions program phase 2).
+	 *
 	 * Consolidates the gate `! in_array( $role, [ 'owner', 'moderator' ], true )
 	 * && ! user_can( $user_id, 'manage_options' )` that was duplicated across the
 	 * approve/decline/ban/remove flows. By De Morgan, `! can_moderate()` is

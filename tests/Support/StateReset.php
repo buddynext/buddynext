@@ -128,6 +128,9 @@ final class StateReset implements BeforeTestHook {
 			// Space id => slug, remembered for a request. A space made in one test
 			// must not lend its address to the same id in the next.
 			'space_slugs'         => array(),
+			// Login/signup/reset filter re-entrancy guard: a test that dies inside a
+			// filter must not leave every later auth link on the plain address.
+			'resolving_auth_url'  => array(),
 		),
 		// Re-entrancy flags. A test that dies mid-sync leaves these true and every
 		// later test silently skips the work they guard.
@@ -172,7 +175,10 @@ final class StateReset implements BeforeTestHook {
 		\BuddyNext\Feed\FeedService::class                => array( 'excluded_space_ids' => null ),
 		\BuddyNext\SocialGraph\PrivacyService::class      => array( 'blocks_table_exists' => false ),
 		\BuddyNext\Profile\GamificationAchievements::class => array( 'rank_memo' => array() ),
-		\BuddyNext\Bridges\GamificationBridge::class      => array( 'points_label_memo' => null ),
+		\BuddyNext\Bridges\GamificationBridge::class      => array(
+			'points_label_memo' => null,
+			'badge_defs_memo'   => array(),
+		),
 		\BuddyNext\Notifications\NotificationMessageService::class => array( 'type_meta' => null ),
 		\BuddyNext\App\AppConfigController::class         => array( 'plugin_locales_memo' => null ),
 	);

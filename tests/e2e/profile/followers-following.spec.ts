@@ -2,11 +2,33 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
 import { userId, ensureUser, setUserMeta, getUserMeta, tablePrefix, wp } from '../_fixtures/wp';
 import { openMemberSession, restPost } from '../_fixtures/feed-wave1.helpers';
+import { bnApi } from '../_fixtures/spaces-rest';
+import type { Page } from '@playwright/test';
+
+/** The `ids` + `total` of a social-graph list route (followers / following). */
+async function graphList(page: Page, path: string): Promise<{ status: number; total: number; ids: number[] }> {
+    const r = await bnApi(page, 'GET', path);
+    const d = (r.data ?? {}) as { total?: number; ids?: unknown[] };
+    return { status: r.status, total: Number(d.total ?? 0), ids: (d.ids ?? []).map(Number) };
+}
+
+/** The tab shows the grid when the route has rows and the empty state when it has none. */
+async function expectSurfaceMatchesRoute(page: Page, path: string): Promise<void> {
+    const list = await graphList(page, path);
+    expect(list.status, `GET ${path}`).toBe(200);
+    // Rows, not `total`: total is the denormalised counter, which can lag rows a
+    // raw (hook-less) user delete removed; the grid renders the rows.
+    if (list.ids.length > 0) {
+        await expect(page.locator('.bn-pf-tab-content .bn-md-grid .bn-md-card').first(), `${path} returns rows, so the grid lists them`).toBeVisible();
+    } else {
+        await expect(page.locator('.bn-pf-tab-content .bn-empty-state').first(), `${path} is empty, so the tab says so`).toBeVisible();
+    }
+}
 
 const A_LOGIN = process.env.BN_TEST_USER ?? 'varundubey';
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 
 let A_ID = 0;
 let B_ID = 0;
@@ -99,6 +121,11 @@ test.describe('profile / followers + following', () => {
                 page.locator(`.bn-pf-tab-content a[href*="/members/${B_LOGIN}"]`).first(),
                 'the seeded follower must appear in the Followers grid'
             ).toBeVisible({ timeout: 5_000 });
+
+            // EFFECT: the followers route the grid is built from lists B for A.
+            const list = await graphList(page, `/users/${A_ID}/followers?per_page=50`);
+            expect(list.status, 'GET /users/{A}/followers').toBe(200);
+            expect(list.ids, 'B is in A\'s followers per the route').toContain(B_ID);
         } finally {
             await wp(['db', 'query', clearSql]);
             await bSess.ctx.close();
@@ -139,6 +166,11 @@ test.describe('profile / followers + following', () => {
                 page.locator(`.bn-pf-tab-content a[href*="/members/${B_LOGIN}"]`).first(),
                 'the seeded followee must appear in the Following grid'
             ).toBeVisible({ timeout: 5_000 });
+
+            // EFFECT: the following route the grid is built from lists B for A.
+            const list = await graphList(page, `/users/${A_ID}/following?per_page=50`);
+            expect(list.status, 'GET /users/{A}/following').toBe(200);
+            expect(list.ids, 'B is in A\'s following per the route').toContain(B_ID);
         } finally {
             await wp(['db', 'query', clearSql]);
             await aSess.ctx.close();
@@ -149,12 +181,16 @@ test.describe('profile / followers + following', () => {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.goto(urls.memberFollowers(user));
         await expect(page.locator(TAB_SURFACE).first()).toBeVisible({ timeout: 5_000 });
+        // EFFECT: grid vs empty state agrees with the followers route.
+        await expectSurfaceMatchesRoute(page, `/users/${A_ID}/followers?per_page=1`);
     });
 
     test('mobile (390px): following page is scrollable', async ({ authenticatedPage: page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.goto(urls.memberFollowing(user));
         await expect(page.locator(TAB_SURFACE).first()).toBeVisible({ timeout: 5_000 });
+        // EFFECT: grid vs empty state agrees with the following route.
+        await expectSurfaceMatchesRoute(page, `/users/${A_ID}/following?per_page=1`);
     });
 
     /**
@@ -203,6 +239,11 @@ test.describe('profile / followers + following', () => {
             const { status } = await restPost(bSess.request, bSess.nonce, `/users/${A_ID}/follow`, {});
             expect(status, `B must be able to follow A (got ${status})`).toBeLessThan(300);
             expect(await followerMeta(), 'the follower counter rose by one').toBe(before + 1);
+            // EFFECT: the profile route an app reads carries the same count, and the
+            // followers list route agrees with it.
+            const prof = await bnApi(page, 'GET', `/users/${A_ID}/profile`);
+            expect(Number(((prof.data ?? {}) as { follower_count?: number }).follower_count ?? -1), 'GET /users/{A}/profile follower_count').toBe(before + 1);
+            expect((await graphList(page, `/users/${A_ID}/followers?per_page=1`)).total, 'GET /users/{A}/followers total').toBe(before + 1);
             await expect
                 .poll(async () => await pillValue(), { timeout: 8_000 })
                 .toBe(before + 1);

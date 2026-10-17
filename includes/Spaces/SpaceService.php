@@ -1686,6 +1686,59 @@ class SpaceService {
 	}
 
 	/**
+	 * Inline style that frames a space cover <img> the way the owner positioned it.
+	 * Every surface that draws the cover (space hero, directory card, Explore card)
+	 * uses it, so a cover the owner moved keeps the same subject in view everywhere,
+	 * not only on the space page.
+	 *
+	 * The pan (object-position) applies everywhere. The zoom (transform:scale) is
+	 * chosen in the hero's frame, so cards leave it off: scaled up in a small band
+	 * it crops to an unreadable patch and spills past a band that cannot clip it
+	 * (the directory card's emblem overhangs its cover).
+	 *
+	 * @param int  $space_id Space.
+	 * @param bool $zoom     True for the hero, false for cards.
+	 * @return string CSS declarations, ready for esc_attr().
+	 */
+	public static function cover_frame_style( int $space_id, bool $zoom = true ): string {
+		$focal = self::cover_focal( $space_id );
+		$style = sprintf( 'object-position:%s%% %s%%;', $focal['x'], $focal['y'] );
+		return $zoom ? $style . sprintf( 'transform:scale(%s);', $focal['zoom'] ) : $style;
+	}
+
+	/**
+	 * Load the focal-point meta of every space in a list that has a cover, in one
+	 * query, so the cards that frame those covers do not read it one row at a time.
+	 * Spaces without a cover never read it, so a site with no covers pays nothing.
+	 *
+	 * @param array<int, array<string,mixed>|object> $rows bn_spaces rows.
+	 * @return void
+	 */
+	public static function prime_cover_focal( array $rows ): void {
+		$ids = array();
+		foreach ( $rows as $row ) {
+			$row = (array) $row;
+			if ( ! empty( $row['cover_image_url'] ) ) {
+				$ids[] = (int) $row['id'];
+			}
+		}
+		if ( $ids ) {
+			update_meta_cache( 'bn_space', $ids );
+		}
+	}
+
+	/**
+	 * Hydrate a list of rows, loading their cover framing first in one query.
+	 *
+	 * @param array<int, array<string,mixed>|object> $rows bn_spaces rows.
+	 * @return array<int, array<string,mixed>>
+	 */
+	private function hydrate_all( array $rows ): array {
+		self::prime_cover_focal( $rows );
+		return array_map( array( $this, 'hydrate' ), $rows );
+	}
+
+	/**
 	 * Resolve the featured spaces for a viewer — the single source of truth for
 	 * every surface (directory sidebar, mobile strip, onboarding, suggestions).
 	 *
@@ -1818,7 +1871,7 @@ class SpaceService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
-			return array_map( array( $this, 'hydrate' ), $cached );
+			return $this->hydrate_all( $cached );
 		}
 
 		$params   = $scope['params'];
@@ -1858,7 +1911,7 @@ class SpaceService {
 		// another's spaces.
 		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return array_map( array( $this, 'hydrate' ), $rows );
+		return $this->hydrate_all( $rows );
 	}
 
 	/**
@@ -2359,7 +2412,7 @@ class SpaceService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		return $this->hydrate_all( (array) $rows );
 	}
 
 	/**
@@ -2489,7 +2542,7 @@ class SpaceService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		return $this->hydrate_all( (array) $rows );
 	}
 
 	/**
@@ -2542,7 +2595,7 @@ class SpaceService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
-			return array_map( array( $this, 'hydrate' ), $cached );
+			return $this->hydrate_all( $cached );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
@@ -2562,7 +2615,7 @@ class SpaceService {
 
 		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return array_map( array( $this, 'hydrate' ), $rows );
+		return $this->hydrate_all( $rows );
 	}
 
 	/**

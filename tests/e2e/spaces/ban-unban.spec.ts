@@ -42,7 +42,7 @@ test.describe('spaces / ban + unban (J-609)', () => {
         baseURL,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Ban ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Neighborhood Garage Sales ${stamp}`, type: 'open' });
         const actor = await loginContextAs(browser, baseURL, other);
 
         try {
@@ -68,6 +68,16 @@ test.describe('spaces / ban + unban (J-609)', () => {
             // EFFECT: no longer an active member.
             const afterBan = await getSpace(actor.page, space.id);
             expect((afterBan.data as SpaceRow).membership_status ?? '').not.toBe('active');
+            expect(['', 'banned'], 'a banned member reads as banned or as no member at all').toContain(
+                (afterBan.data as SpaceRow).membership_status ?? ''
+            );
+
+            // EFFECT: off the owner's roster, and the head count dropped back to the owner alone.
+            const rosterAfterBan = await bnApi(page, 'GET', `/spaces/${space.id}/members?per_page=100`);
+            expect(rosterAfterBan.status).toBe(200);
+            expect(((rosterAfterBan.data as MemberRow[]) ?? []).some((r) => Number(r.user_id) === uid), 'banned member still on the roster').toBe(false);
+            const countAfterBan = await getSpace(page, space.id);
+            expect(Number((countAfterBan.data as SpaceRow).member_count), 'member_count after ban').toBe(1);
 
             // EFFECT: rejoin is refused with a ban error.
             const rejoinBlocked = await bnApi(actor.page, 'POST', `/spaces/${space.id}/join`);
@@ -79,6 +89,9 @@ test.describe('spaces / ban + unban (J-609)', () => {
 
             // EFFECT: gone from the ban list.
             expect(await banned(page, space.id)).not.toContain(uid);
+            // Unban lifts the block only: it does not re-add the member by itself.
+            const afterUnban = await getSpace(actor.page, space.id);
+            expect((afterUnban.data as SpaceRow).membership_status ?? '', 'unban silently re-added the member').not.toBe('active');
 
             // EFFECT: the member can rejoin and is active again.
             const rejoin = await bnApi(actor.page, 'POST', `/spaces/${space.id}/join`);

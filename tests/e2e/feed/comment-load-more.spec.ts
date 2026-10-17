@@ -1,6 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
-import { readRestNonce, postIdOfCard, deletePostRest, restPost } from '../_fixtures/feed-wave1.helpers';
+import { readRestNonce, postIdOfCard, deletePostRest, restPost, restGet } from '../_fixtures/feed-wave1.helpers';
+
+type Thread = { items?: Array<{ id: number }>; total?: number };
 
 /**
  * J-519 comment load-more (B3).
@@ -29,7 +31,7 @@ test.describe('feed / comment load-more', () => {
 
     test('J-519 a thread past one page loads older comments on demand', async ({ authenticatedPage: page }) => {
         const stamp = Date.now().toString().slice(-6);
-        const postText = `j519 busy thread ${stamp}`;
+        const postText = `Volunteers needed for the Saturday park cleanup ${stamp}`;
         let postId = 0;
         let nonce = '';
 
@@ -49,7 +51,7 @@ test.describe('feed / comment load-more', () => {
                 const c = await restPost<{ id?: number }>(page.request, nonce, '/comments', {
                     object_type: 'post',
                     object_id: postId,
-                    content: `j519 c${i} ${stamp}`,
+                    content: `Count me in, reply number ${i} ${stamp}`,
                 });
                 expect(c.status, `seed comment ${i} -> ${c.status}`).toBeLessThan(300);
             }
@@ -64,12 +66,37 @@ test.describe('feed / comment load-more', () => {
             const cards = card.locator(`${commentList} ${commentCard}`);
             await expect.poll(async () => cards.count(), { timeout: 8_000 }).toBe(PAGE_SIZE);
 
+            // EFFECT: what is on screen is page one of the comments route: same ids, and the
+            // route counts every seeded comment.
+            const byId = (a: number, b: number): number => a - b;
+            const renderedIds = async (): Promise<number[]> =>
+                (await cards.evaluateAll((els) => els.map((e) => Number((e as HTMLElement).dataset.commentId)))).sort(byId);
+            const pageOf = async (n: number): Promise<number[]> => {
+                const r = await restGet<Thread>(
+                    page.request,
+                    nonce,
+                    `/comments?object_type=post&object_id=${postId}&per_page=${PAGE_SIZE}&page=${n}`
+                );
+                expect(r.status, `GET /comments page ${n}`).toBe(200);
+                expect(r.body.total, 'total comments on the thread').toBe(SEED);
+                return (r.body.items ?? []).map((c) => Number(c.id));
+            };
+            const first = await pageOf(1);
+            expect(first.length, 'REST page one size').toBe(PAGE_SIZE);
+            expect(await renderedIds(), 'first page on screen vs REST page one').toEqual([...first].sort(byId));
+
             const more = card.locator(loadMore).first();
             await expect(more).toBeVisible({ timeout: 5_000 });
             await more.click();
 
             // Older page loaded — the rendered count grows beyond one page.
             await expect.poll(async () => cards.count(), { timeout: 8_000 }).toBeGreaterThan(PAGE_SIZE);
+
+            // EFFECT: the appended cards are page two of the route, every seeded comment once.
+            const second = await pageOf(2);
+            const all = [...first, ...second].sort(byId);
+            expect(new Set(all).size, 'REST pages one and two overlap or miss a comment').toBe(SEED);
+            await expect.poll(renderedIds, { timeout: 8_000 }).toEqual(all);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

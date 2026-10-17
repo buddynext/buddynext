@@ -573,11 +573,11 @@ class NotificationPrefCatalogue {
 			self::GROUP_GROWTH     => array(),
 		);
 
-		// Same receivable-capability gate the moderation REST routes use, so the
-		// prefs UI shows a moderator-only row to exactly the users who can receive
-		// it (WP admins plus community moderators — not a bare manage_options check,
-		// which would miss community-role moderators).
-		$can_moderate = ( new \BuddyNext\Core\RoleService() )->can_moderate_site( get_current_user_id() );
+		// Shown to exactly the users ModerationListener notifies: whoever reviews
+		// the report queue, and the owners and moderators of a space.
+		$bn_viewer    = get_current_user_id();
+		$can_moderate = buddynext_can( $bn_viewer, 'buddynext-moderation/review-queue' )
+			|| buddynext_service( 'space_members' )->moderates_any_space( $bn_viewer );
 
 		foreach ( $this->all() as $entry ) {
 			if ( ! empty( $entry['moderator_only'] ) && ! $can_moderate ) {

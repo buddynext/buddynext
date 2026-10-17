@@ -613,9 +613,8 @@ class ModerationListener implements ListenerInterface {
 	/**
 	 * Notify a user when their account suspension is lifted.
 	 *
-	 * Creates a bn.user_unsuspended in-app notification. Dispatches a
-	 * bn.unsuspension_confirmation email when that template exists; logs a
-	 * notice and skips the email send when the template is absent.
+	 * Creates a bn.user_unsuspended notification; the notification pipeline sends
+	 * its email from the bn.user_unsuspended template, per the member's preferences.
 	 *
 	 * @param int $user_id User whose suspension has been removed.
 	 */
@@ -635,28 +634,6 @@ class ModerationListener implements ListenerInterface {
 				'message'      => __( 'Your account suspension has been lifted.', 'buddynext' ),
 			)
 		);
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$template_exists = (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_email_templates WHERE type = %s AND enabled = 1 LIMIT 1",
-				'bn.unsuspension_confirmation'
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( $template_exists ) {
-			buddynext_service( 'email_sender' )->send( $user_id, 'bn.unsuspension_confirmation', array() );
-		} else {
-			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-				sprintf(
-					'BuddyNext: email template bn.unsuspension_confirmation not found — skipping email for user %d.',
-					$user_id
-				)
-			);
-		}
 	}
 
 	/**
@@ -743,6 +720,23 @@ class ModerationListener implements ListenerInterface {
 		) as $admin_id ) {
 			$recipients[ (int) $admin_id ] = true;
 		}
+		// Community moderators and admins review the queue too (from Community
+		// Admin). Asked through the ability, so a remapped role map is honoured.
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- indexed meta_key; the moderator set is small.
+		$community_mods = get_users(
+			array(
+				'meta_key'     => 'bn_community_role',
+				'meta_value'   => array( 'moderator', 'admin' ),
+				'meta_compare' => 'IN',
+				'fields'       => 'ID',
+			)
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		foreach ( (array) $community_mods as $mod_id ) {
+			if ( buddynext_can( (int) $mod_id, 'buddynext-moderation/review-queue' ) ) {
+				$recipients[ (int) $mod_id ] = true;
+			}
+		}
 		if ( $space_id > 0 ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$space_mods = $wpdb->get_col(
@@ -763,12 +757,12 @@ class ModerationListener implements ListenerInterface {
 		}
 
 		// Two audiences, two queues. A site moderator reviews everything from the
-		// wp-admin queue; a space owner or moderator has no access to it at all
-		// (it is manage_options-gated, so the link 403s for them) and reviews
+		// Community Admin report queue (the wp-admin one is administrator-only, so
+		// it 403s for a community moderator); a space owner or moderator reviews
 		// their own space from the space moderation page. Sending both the same
 		// URL is what made a space owner's only report notification a dead end
-		// — 404 in the bell, 403 from the email (Basecamp 10264117698).
-		$queue_url     = admin_url( 'admin.php?page=buddynext-moderation' );
+		// - 404 in the bell, 403 from the email (Basecamp 10264117698).
+		$queue_url     = PageRouter::community_admin_moderation_url();
 		$notifications = buddynext_service( 'notifications' );
 		$email_sender  = buddynext_service( 'email_sender' );
 

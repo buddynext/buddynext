@@ -7,8 +7,10 @@ import {
     deletePostRest,
     openMemberSession,
     restGet,
+    restPost,
     type MemberSession,
 } from '../_fixtures/feed-wave1.helpers';
+import { wp } from '../_fixtures/wp';
 
 type Notif = { id: number; type: string; sender_id: number | null; object_id: number | null };
 type NotifResponse = { items?: Notif[] };
@@ -61,7 +63,7 @@ test.describe('feed / @mention', () => {
 
             // Author the mention post through the composer (the real member action).
             const stamp = Date.now().toString().slice(-6);
-            const body = `j502 hey @${handle} take a look ${stamp}`;
+            const body = `hey @${handle} take a look at this view ${stamp}`;
             await page.goto(urls.feed);
             await expect(page.locator(sel.composer).first()).toBeVisible();
             authorNonce = await readRestNonce(page);
@@ -77,6 +79,18 @@ test.describe('feed / @mention', () => {
             const anchor = card.locator(mentionAnchor).filter({ hasText: `@${handle}` }).first();
             await expect(anchor).toBeVisible();
             await expect(anchor).toHaveAttribute('href', new RegExp(`/members/${handle}/?$|/${handle}/?$`));
+
+            // EFFECT: the stored post keeps the @handle, and the post route serves it to the
+            // mentioned member, linked, in her own session.
+            expect(createdId, 'resolved server post id').toBeGreaterThan(0);
+            const stored = await restGet<{ content?: string; content_html?: string }>(
+                recipient.request,
+                recipient.nonce,
+                `/posts/${createdId}`
+            );
+            expect(stored.status, 'recipient GET /posts/{id}').toBe(200);
+            expect(stored.body.content ?? '', 'stored body').toContain(`@${handle}`);
+            expect(stored.body.content_html ?? '', 'served body links the mention').toContain(`class="bn-mention">@${handle}</a>`);
 
             // Recipient side (server truth): a NEW bn.mention from the author lands.
             // Poll briefly — the mention fan-out is synchronous on publish but the
@@ -97,6 +111,89 @@ test.describe('feed / @mention', () => {
             if (recipient) {
                 await recipient.ctx.close().catch(() => {});
             }
+        }
+    });
+
+    /**
+     * J-983 a slow suggestion lookup never rewrites what the member already typed (card 10408199294).
+     *
+     * The @ / # typeahead fetches suggestions 200 ms after the last key. When the member
+     * ends the word (space) before that lookup answers, the box must stay closed: the old
+     * answer opened a dropdown for a word that no longer exists, and picking from it wrote
+     * "@alenull<handle>" into the post. Every typeahead box shares one helper, so the
+     * journey covers the composer (@ and #) and a comment box (@).
+     *
+     * Effect read-back: the comment is submitted and read from the post's comments route,
+     * so the stored text, not just the field, is proven unchanged.
+     */
+    test('J-983 ending a word while suggestions load leaves the text exactly as typed', async ({ authenticatedPage: page }) => {
+        let delay = 0;
+        await page.route(/\/(members\?search=|hashtags\/autocomplete)/, async (route) => {
+            if (delay) await new Promise((r) => setTimeout(r, delay));
+            await route.continue();
+        });
+        const dropdownItems = page.locator('.bn-composer__typeahead-item');
+
+        /** Type `text`, end the word while the lookup is in flight, then let it land. */
+        async function race(box: import('@playwright/test').Locator, text: string): Promise<void> {
+            delay = 1_200;
+            await box.fill('');
+            await box.pressSequentially(text, { delay: 30 });
+            await page.waitForTimeout(400); // debounce passed, lookup in flight
+            await box.press('Space');
+            await page.waitForTimeout(1_600); // the late answer lands
+            await expect(dropdownItems, `no suggestions open after "${text} "`).toHaveCount(0);
+            // A member who clicks where the box would have been must not change the text.
+            if (await dropdownItems.count()) await dropdownItems.first().click();
+            await expect(box).toHaveValue(`${text} `);
+            delay = 0;
+        }
+
+        // Type the start of a member who exists under that name. A fixed "@ali" matched
+        // nobody once other journeys renamed the seeded member, and then the race checks
+        // below passed on an empty answer instead of a late one.
+        const otherName = (await wp(['user', 'get', process.env.BN_TEST_OTHER_USER ?? 'alice', '--field=display_name'])).trim();
+        const q = otherName.replace(/[^A-Za-z]/g, '').slice(0, 3).toLowerCase();
+        expect(q.length, `the second member (${otherName}) has a name to mention`).toBe(3);
+
+        await page.goto(urls.feed);
+        const nonce = await readRestNonce(page);
+        const composer = page.locator(sel.composerTextarea).first();
+        await composer.click();
+
+        // Positive control: with no delay the typeahead works and inserts the pick.
+        await composer.pressSequentially(`hi @${q}`, { delay: 60 });
+        await expect(dropdownItems.first()).toBeVisible({ timeout: 5_000 });
+        await dropdownItems.first().click();
+        await expect(composer).not.toHaveValue(/null/);
+        await expect(composer).toHaveValue(/^hi @\S+ ?$/);
+
+        await race(composer, `hi @${q}`);
+        await race(composer, 'see #e');
+        await composer.fill('');
+
+        // Comment box on a post of our own.
+        const stamp = Date.now().toString().slice(-6);
+        const created = await restPost<{ id?: number }>(page.request, nonce, '/posts', { content: `Quick update from the garden club meeting ${stamp}`, privacy: 'public' });
+        const postId = created.body.id ?? 0;
+        expect(postId, 'host post created').toBeGreaterThan(0);
+        try {
+            await page.goto(urls.feed);
+            const host = page.locator(sel.postCard).filter({ hasText: `Quick update from the garden club meeting ${stamp}` }).first();
+            await expect(host).toBeVisible({ timeout: 10_000 });
+            await host.locator(sel.postComment).first().click();
+            const input = host.locator(sel.commentInput).first();
+            await expect(input).toBeVisible();
+            await race(input, `Thanks for the tip ${stamp} @${q}`);
+            // Enter adds a line in a comment box; the send button submits.
+            await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
+            // EFFECT: the stored comment is the text as typed.
+            await expect.poll(async () => {
+                const r = await restGet<{ items?: Array<{ content?: string }> }>(page.request, nonce, `/comments?object_type=post&object_id=${postId}`);
+                return ((r.body.items ?? []).map((c) => c.content ?? '').find((c) => c.includes(stamp)) ?? '').trim();
+            }, { timeout: 8_000 }).toBe(`Thanks for the tip ${stamp} @${q}`);
+        } finally {
+            await deletePostRest(page.request, nonce, postId).catch(() => {});
         }
     });
 });

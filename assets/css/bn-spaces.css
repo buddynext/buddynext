@@ -4010,6 +4010,9 @@ a.bn-sh-statpill:focus-visible {
 		display: block;
 		margin-block-end: var(--bn-s4);
 	}
+	.bn-sd-featured-card {
+		display: none;
+	}
 
 	.bn-sd-featured-strip__title {
 		display: flex;

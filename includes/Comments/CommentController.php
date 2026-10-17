@@ -331,9 +331,9 @@ class CommentController extends BaseRestController {
 			$comment['viewer_reaction'] = $viewer_id > 0
 				? $reactions->get_user_emoji( $viewer_id, 'comment', (int) $comment['id'] )
 				: null;
-			$comment['can_edit']        = $viewer_id > 0
-				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
-			$comment['can_delete']      = $comment['can_edit'];
+			$is_own_comment             = $viewer_id > 0 && (int) $comment['user_id'] === $viewer_id;
+			$comment['can_edit']        = $is_own_comment || buddynext_can( $viewer_id, 'buddynext-feed/edit-any-post' );
+			$comment['can_delete']      = $is_own_comment || buddynext_can( $viewer_id, 'buddynext-feed/delete-any-post' );
 			// Per-object permission AND top-level, because pin() itself refuses a
 			// reply. Sending can_pin=true for every reply rendered a Pin button on
 			// each one that could only ever return 403 - a control that is visible,

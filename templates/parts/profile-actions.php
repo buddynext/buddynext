@@ -161,7 +161,7 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 	?>
 	<div class="bn-pf-actions">
 		<a class="bn-btn" data-variant="primary" data-size="sm"
-			href="<?php echo esc_url( add_query_arg( 'redirect_to', $bn_pa_profile_url, \BuddyNext\Core\PageRouter::auth_url() ) ); ?>">
+			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::login_url( $bn_pa_profile_url ) ); ?>">
 			<?php esc_html_e( 'Follow', 'buddynext' ); ?>
 		</a>
 		<?php

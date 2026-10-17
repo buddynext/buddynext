@@ -1,6 +1,17 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { loginAs } from '../_fixtures/actor';
 import { urls } from '../_fixtures/selectors';
+import { bnApi } from '../_fixtures/spaces-rest';
+import type { Page } from '@playwright/test';
+
+/** Where the draft actually lives: the member's drafts route, or the browser store. */
+async function draftStored(page: Page, content: string): Promise<boolean> {
+    const rest = await bnApi(page, 'GET', '/me/drafts');
+    if (rest.status === 200 && JSON.stringify(rest.data ?? '').includes(content)) {
+        return true;
+    }
+    return page.evaluate((needle) => Object.keys(localStorage).some((k) => (localStorage.getItem(k) ?? '').includes(needle)), content);
+}
 
 const MEMBER_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'alice';
 
@@ -18,7 +29,7 @@ test.describe('feed / composer drafts', () => {
         await page.goto(urls.feed);
 
         const stamp   = Date.now().toString().slice(-6);
-        const content = `draft ${stamp}`;
+        const content = `Half-written thoughts about the weekend market ${stamp}`;
 
         const textarea = page.locator('.bn-composer__prompt').first();
         await expect(textarea).toBeVisible();
@@ -31,6 +42,8 @@ test.describe('feed / composer drafts', () => {
         // 'Draft saved' status briefly visible.
         const status = page.locator('.bn-composer__draft-status').first();
         await expect(status).toBeVisible();
+        // EFFECT: the draft is in the store the next load reads, not only in the status text.
+        await expect.poll(() => draftStored(page, content), { timeout: 5_000 }).toBe(true);
 
         // Hard refresh; the prompt should re-hydrate from localStorage.
         await page.reload();
@@ -44,7 +57,7 @@ test.describe('feed / composer drafts', () => {
         await page.goto(urls.feed);
 
         const stamp    = Date.now().toString().slice(-6);
-        const content  = `discard ${stamp}`;
+        const content  = `Changed my mind about posting this ${stamp}`;
 
         const textarea = page.locator('.bn-composer__prompt').first();
         await textarea.click();
@@ -56,6 +69,8 @@ test.describe('feed / composer drafts', () => {
         await discard.click();
 
         await expect(textarea).toHaveValue('');
+        // EFFECT: discard emptied the store, so nothing can come back on the next load.
+        await expect.poll(() => draftStored(page, content), { timeout: 5_000 }).toBe(false);
 
         await page.reload();
         const reloaded = page.locator('.bn-composer__prompt').first();
@@ -73,7 +88,7 @@ test.describe('feed / composer drafts', () => {
         await page.goto(urls.feed);
 
         const stamp   = Date.now().toString().slice(-6);
-        const content = `member draft ${stamp}`;
+        const content = `Still deciding what to share from the hike ${stamp}`;
 
         const textarea = page.locator('.bn-composer__prompt').first();
         await expect(textarea).toBeVisible();
@@ -85,6 +100,8 @@ test.describe('feed / composer drafts', () => {
 
         const status = page.locator('.bn-composer__draft-status').first();
         await expect(status).toBeVisible();
+        // EFFECT: the draft is in the store the next load reads, not only in the status text.
+        await expect.poll(() => draftStored(page, content), { timeout: 5_000 }).toBe(true);
 
         // Hard refresh; the prompt should re-hydrate from localStorage.
         await page.reload();

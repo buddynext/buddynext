@@ -1,7 +1,8 @@
 import { test, expect } from '../_fixtures/auth.fixture';
-import { softSkip, resolveOtherMemberSlug } from '../_fixtures/precondition';
+import { softSkip } from '../_fixtures/precondition';
 import { urls } from '../_fixtures/selectors';
 import { readRestNonce, openMemberSession, restGet, restPost, type MemberSession } from '../_fixtures/feed-wave1.helpers';
+import { dbCount, ensureUser, tablePrefix, wp } from '../_fixtures/wp';
 import type { Page } from '@playwright/test';
 
 /**
@@ -28,6 +29,9 @@ import type { Page } from '@playwright/test';
  * wp-admin Appeals tab TABLE (not a REST list).
  */
 const ADMIN_LOGIN = 'varundubey';
+// A member of its own: suspending a shared seeded member (alice) left her suspended
+// for every later journey whenever this test timed out before its finally block ran.
+const APPELLANT = 'bn_e2e_appellant';
 
 /** Read the current user's id off the post-composer's Interactivity context. */
 async function readComposerUserId(page: Page): Promise<number> {
@@ -46,6 +50,19 @@ async function readComposerUserId(page: Page): Promise<number> {
 }
 
 test.describe('moderation / appeal (J-61)', () => {
+    test.beforeAll(async () => {
+        const id = await ensureUser(APPELLANT, `${APPELLANT}@example.com`, 'Theo Marsh');
+        await wp(['user', 'meta', 'update', String(id), 'bn_onboarding_complete', '1']);
+    });
+
+    // Runs even after a timeout tore the page down, unlike the REST call in the test's finally.
+    test.afterAll(async () => {
+        await wp([
+            'eval',
+            `$u = get_user_by( 'login', '${APPELLANT}' ); $a = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) ); if ( $u ) { ( new \\BuddyNext\\Moderation\\ModerationService() )->unsuspend_user( $u->ID, (int) $a[0] ); }`,
+        ]).catch(() => undefined);
+    });
+
     test('a suspended member can appeal, and the admin appeals queue shows it', async ({ authenticatedPage: page, browser }, testInfo) => {
         await page.goto(urls.feed, { waitUntil: 'domcontentloaded' });
         const adminNonce = await readRestNonce(page).catch(() => '');
@@ -54,17 +71,13 @@ test.describe('moderation / appeal (J-61)', () => {
             return;
         }
 
-        const target = await resolveOtherMemberSlug(page, ADMIN_LOGIN);
-        if (!target) {
-            softSkip(testInfo, 'No other usable member found to suspend for the appeal journey.');
-            return;
-        }
+        const target = APPELLANT;
 
         let member: MemberSession | null = null;
         let targetUserId = 0;
         let appealId = 0;
         const stamp = Date.now().toString().slice(-8);
-        const appealMessage = `j61 this suspension was a mistake, please review ${stamp}`;
+        const appealMessage = `I think this was a mistake, I was quoting the rules, not breaking them ${stamp}`;
 
         try {
             member = await openMemberSession(browser, target);
@@ -78,7 +91,7 @@ test.describe('moderation / appeal (J-61)', () => {
             // the admin's own moderation UI calls (assets/js/moderation/store.js
             // suspendUser()) — require_moderator, so the admin's nonce clears it.
             const susp = await restPost<{ suspension_id?: number }>(page.request, adminNonce, `/users/${targetUserId}/suspend`, {
-                reason: `E2E appeal journey ${stamp}`,
+                reason: `Repeated off-topic posting after a warning ${stamp}`,
                 duration_days: 1,
                 hide_posts: false,
             });
@@ -87,6 +100,10 @@ test.describe('moderation / appeal (J-61)', () => {
                 return;
             }
             expect(susp.body.suspension_id ?? 0).toBeGreaterThan(0);
+            // EFFECT: the suspension is a live row for THIS member, not just a 2xx.
+            const p = await tablePrefix();
+            const activeSuspension = `SELECT COUNT(*) FROM ${p}bn_user_suspensions WHERE user_id = ${targetUserId} AND lifted_at IS NULL`;
+            expect(await dbCount(activeSuspension), 'no active suspension row after the suspend route').toBe(1);
 
             // MEMBER role, real UI: the account-status page renders the suspension
             // banner + appeal form, and submitting it is a real browser
@@ -124,6 +141,33 @@ test.describe('moderation / appeal (J-61)', () => {
             await page.goto('/wp-admin/admin.php?page=buddynext-moderation&tab=appeals', { waitUntil: 'domcontentloaded' });
             const row = page.locator('table.widefat tbody tr', { hasText: appealMessage });
             await expect(row).toBeVisible({ timeout: 10_000 });
+
+            // EFFECT: the team's queue route lists the same appeal the table shows. The route
+            // pages oldest-first, so the newest appeal sits on the last page.
+            type AppealPage = { items?: Array<{ id: number | string }>; total?: number };
+            const first = await restGet<AppealPage>(page.request, adminNonce, '/appeals?per_page=50');
+            expect(first.status, 'GET /appeals').toBe(200);
+            const lastPage = Math.max(1, Math.ceil(Number(first.body.total ?? 0) / 50));
+            const last = lastPage > 1
+                ? await restGet<AppealPage>(page.request, adminNonce, `/appeals?per_page=50&page=${lastPage}`)
+                : first;
+            expect(
+                (last.body.items ?? []).some((a) => Number(a.id) === appealId),
+                'appeal missing from GET /appeals'
+            ).toBe(true);
+
+            // Approving an appeal is the other half of the promise: it lifts the suspension.
+            const resolved = await restPost(page.request, adminNonce, `/appeals/${appealId}/resolve`, {
+                decision: 'approved',
+                reviewer_note: 'Context checked, the quote was from the community guidelines',
+            });
+            expect(resolved.status, `resolve failed: ${JSON.stringify(resolved.body)}`).toBeLessThan(300);
+            // EFFECT: the appealed suspension is lifted and the appeal left the pending state.
+            expect(await dbCount(activeSuspension), 'suspension still active after the appeal was approved').toBe(0);
+            expect(
+                await dbCount(`SELECT COUNT(*) FROM ${p}bn_appeals WHERE id = ${appealId} AND status = 'pending'`),
+                'appeal still pending after resolve'
+            ).toBe(0);
         } finally {
             // Approving lifts the exact appealed suspension (ModerationService::
             // resolve_appeal()), so this one call cleans up both the appeal and
@@ -132,7 +176,7 @@ test.describe('moderation / appeal (J-61)', () => {
             if (appealId) {
                 await restPost(page.request, adminNonce, `/appeals/${appealId}/resolve`, {
                     decision: 'approved',
-                    reviewer_note: 'e2e cleanup',
+                    reviewer_note: 'Closing out after review',
                 }).catch(() => undefined);
             }
             if (targetUserId && adminNonce) {

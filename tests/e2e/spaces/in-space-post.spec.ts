@@ -36,8 +36,8 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E InPost ${stamp}`, type: 'open' });
-        const body = `space post ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
+        const space = await createSpaceApi(page, { name: `Amateur Astronomers ${stamp}`, type: 'open' });
+        const body = `Clear skies tonight, telescopes out at the park ${stamp} ${Math.random().toString(36).slice(2, 8)}`;
         let postId = 0;
 
         try {
@@ -56,6 +56,18 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
 
             // EFFECT 2: the post is retrievable in that space's feed.
             expect(await spaceFeedIds(page, space.id)).toContain(postId);
+
+            // EFFECT 3: the stored post row carries the space and the typed body.
+            const got = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(got.status, `GET post failed: ${JSON.stringify(got.data)}`).toBe(200);
+            expect(Number((got.data as PostRow).space_id)).toBe(space.id);
+            expect(String((got.data as PostRow).content ?? '')).toContain(body);
+
+            // Counterpart: deleting it takes it out of the space feed.
+            const del = await bnApi(page, 'DELETE', `/posts/${postId}`);
+            expect(del.status, `delete failed: ${JSON.stringify(del.data)}`).toBeLessThan(300);
+            expect(await spaceFeedIds(page, space.id)).not.toContain(postId);
+            postId = 0;
         } finally {
             if (postId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${postId}`);
@@ -68,13 +80,13 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
         authenticatedPage: page,
     }) => {
         const stamp = Date.now().toString().slice(-8);
-        const space = await createSpaceApi(page, { name: `E2E Pin ${stamp}`, type: 'open' });
+        const space = await createSpaceApi(page, { name: `Vinyl Record Hunters ${stamp}`, type: 'open' });
         let postId = 0;
 
         try {
             const create = await bnApi(page, 'POST', '/posts', {
                 type: 'text',
-                content: `no pin ${stamp}`,
+                content: `Found a great record shop downtown ${stamp}`,
                 space_id: space.id,
             });
             expect(create.status, `create failed: ${JSON.stringify(create.data)}`).toBe(201);
@@ -86,6 +98,10 @@ test.describe('spaces / in-space post + pin (J-620/J-621)', () => {
             const pin = await bnApi(page, 'POST', `/posts/${postId}/pin`);
             expect(pin.status, `expected a rejection: ${JSON.stringify(pin.data)}`).toBe(403);
             expect((pin.data as { code?: string }).code).toBe('pin_not_allowed_in_space');
+            // EFFECT: the refusal wrote nothing: the post is still unpinned.
+            const got = await bnApi(page, 'GET', `/posts/${postId}`);
+            expect(got.status).toBe(200);
+            expect(Boolean(Number((got.data as PostRow).is_pinned ?? 0)), 'refused pin still pinned the post').toBe(false);
         } finally {
             if (postId > 0) {
                 await bnApi(page, 'DELETE', `/posts/${postId}`);

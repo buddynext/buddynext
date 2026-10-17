@@ -131,12 +131,12 @@ final class PrivateCommunity {
 
 		// MediaVerse's page-layer gate (2.3.2+) turns guests away from its
 		// server-rendered pages when the filters above arm it. Send them to
-		// BN's auth hub — the same place BN's own gated hubs send guests —
-		// instead of wp-login.php.
+		// BN's login page — the same place BN's own gated hubs send guests,
+		// buddynext_login_url included — instead of wp-login.php.
 		add_filter(
 			'mvs_community_login_url',
 			static function () {
-				return PageRouter::auth_url();
+				return PageRouter::login_url( '' );
 			}
 		);
 

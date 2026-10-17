@@ -27,11 +27,11 @@ import { ensureUser, userId, setUserMeta, wp, dbScalar, tablePrefix } from '../_
 
 const B_LOGIN = process.env.BN_TEST_OTHER_USER ?? 'bn_e2e_target';
 const B_EMAIL = 'bn_e2e_target@example.com';
-const B_NAME = 'BN E2E Target';
+const B_NAME = 'Jordan Ellis';
 
 const P_LOGIN = 'bn_e2e_private';
 const P_EMAIL = 'bn_e2e_private@example.com';
-const P_NAME = 'BN E2E Private';
+const P_NAME = 'Priya Nair';
 
 const memberUrl = (login: string) => `/members/${login}/`;
 
@@ -57,6 +57,13 @@ async function clearPresence(): Promise<void> {
     const p = await tablePrefix();
     await wp(['db', 'query', `DELETE FROM ${p}bn_presence WHERE user_id=${B_ID};`]);
     await wp(['transient', 'delete', `bn_presence_${B_ID}`]).catch(() => undefined);
+}
+
+/** What the presence reader the hero uses answers for P looking at B (block-aware). */
+async function readerSaysOnline(): Promise<string> {
+    return (
+        await wp(['eval', `echo buddynext_service( 'blocks' )->is_user_online( ${P_ID}, ${B_ID} ) ? '1' : '0';`])
+    ).trim();
 }
 
 test.describe('profile / presence (online / last-active, effect-based)', () => {
@@ -92,6 +99,8 @@ test.describe('profile / presence (online / last-active, effect-based)', () => {
                 page.locator(AVATAR).first(),
                 'a member active within the online window must show data-presence="online" to another viewer'
             ).toHaveAttribute('data-presence', 'online');
+            // EFFECT: the dot is the reader's answer for this viewer, not a template default.
+            expect(await readerSaysOnline(), 'is_user_online( P, B ) with a fresh presence row').toBe('1');
         } finally {
             await clearPresence();
         }
@@ -111,6 +120,13 @@ test.describe('profile / presence (online / last-active, effect-based)', () => {
                 page.locator(AVATAR).first(),
                 'a member with no bn_presence row must not render a stale/false online dot'
             ).not.toHaveAttribute('data-presence', 'online');
+            // EFFECT: no presence row for B, and the reader answers offline for this viewer.
+            const p = await tablePrefix();
+            expect(
+                (await dbScalar(`SELECT COUNT(*) FROM ${p}bn_presence WHERE user_id=${B_ID}`)).trim(),
+                'B holds no presence row'
+            ).toBe('0');
+            expect(await readerSaysOnline(), 'is_user_online( P, B ) with no presence row').toBe('0');
         } finally {
             await clearPresence();
         }
