@@ -1901,14 +1901,15 @@ class AssetService {
 					'declineRequestFailed'  => __( 'Could not decline the join request. Try again.', 'buddynext' ),
 				),
 				// The suspend dialog's reason list (one source: ModerationService) and
-				// whether this viewer may suspend with no end date (admins only).
+				// whether this viewer may suspend with no end date (the same ability
+				// ModerationService::suspend_user() enforces).
 				'suspensionReasons' => array_map(
 					static fn( $code, $label ): array => array( (string) $code, (string) $label ),
 					array_keys( \BuddyNext\Moderation\ModerationService::suspension_reasons() ),
 					array_values( \BuddyNext\Moderation\ModerationService::suspension_reasons() )
 				),
 				'suspendNoteMax'    => \BuddyNext\Moderation\ModerationService::SUSPENSION_NOTE_MAX,
-				'canSuspendForever' => current_user_can( 'manage_options' ),
+				'canSuspendForever' => buddynext_can( get_current_user_id(), 'buddynext-moderation/suspend-indefinitely' ),
 			)
 		);
 	}

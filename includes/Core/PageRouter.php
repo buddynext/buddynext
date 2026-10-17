@@ -1887,30 +1887,16 @@ class PageRouter {
 		}
 
 		$viewer_id = get_current_user_id();
-		$author_id = (int) ( $post['user_id'] ?? 0 );
 
 		// Who may read the post is decided in ONE place, PostService::visibility_error(),
 		// the gate the page itself and the REST read use. This method used to keep
-		// its own copy (status, block, space, followers, private), and a copy goes
+		// its own copy (status, block, space, followers, private, hidden authors), and a copy goes
 		// stale: it never learned that a private account's posts are followers-only,
 		// nor about connections-only posts, so the page answered 404 while its head
 		// still printed the author's name and the full text in the description,
 		// og: and twitter: tags, for crawlers and anyone who views source.
 		if ( null !== $posts->visibility_error( $post_id, $viewer_id ) ) {
 			return;
-		}
-
-		// Author content-hidden / shadow-ban gate (admins + the author see through).
-		// Uses hides_posts() (bn_user_suspensions, hide_posts=1) — the same
-		// predicate as the feed and the shared-post embed — so a single-post view
-		// stays consistent with how the post appears elsewhere. is_suspended()
-		// would over-hide action-restricted (hide_posts=0) members' content.
-		if ( $author_id > 0 && $author_id !== $viewer_id && ! user_can( $viewer_id, 'manage_options' ) ) {
-			$author_suspended = buddynext_service( 'moderation' )->hides_posts( $author_id );
-			$author_shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
-			if ( $author_suspended || $author_shadow ) {
-				return;
-			}
 		}
 
 		\BuddyNext\Feed\SinglePostMeta::emit_for_post( $post );
@@ -4327,6 +4313,15 @@ class PageRouter {
 	 */
 	public static function community_admin_url(): string {
 		return self::hub_url( 'buddynext_slug_community_admin', 'buddynext_page_community_admin' );
+	}
+
+	/**
+	 * Return the Community Admin report queue URL (the panel opens on space moderation).
+	 *
+	 * @return string
+	 */
+	public static function community_admin_moderation_url(): string {
+		return trailingslashit( self::community_admin_url() ) . 'moderation/';
 	}
 
 	/**

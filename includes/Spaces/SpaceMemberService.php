@@ -724,6 +724,26 @@ class SpaceMemberService {
 	// ── Queries ─────────────────────────────────────────────────────────────
 
 	/**
+	 * Whether a user owns or moderates at least one space (an active membership).
+	 *
+	 * @param int $user_id User to check.
+	 * @return bool
+	 */
+	public function moderates_any_space( int $user_id ): bool {
+		global $wpdb;
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one indexed (user_id, role) probe on the prefs screen.
+		return (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1 FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND role IN ( 'owner', 'moderator' ) AND status = 'active' LIMIT 1",
+				$user_id
+			)
+		);
+	}
+
+	/**
 	 * Check whether a user is an active member of a space.
 	 *
 	 * @param int $space_id Space to check.

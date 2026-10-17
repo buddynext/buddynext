@@ -1900,6 +1900,19 @@ class PostService {
 			);
 		}
 
+		// Gate 6 — author hidden by a hide_posts suspension or a shadow ban, the
+		// same rule as the feed SQL. 404 like gates 1, 2 and 5.
+		$moderation = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new \BuddyNext\Moderation\ModerationService();
+		if ( $moderation->hides_author_from( $author_id, $viewer_id ) ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		return null;
 	}
 
@@ -2096,17 +2109,9 @@ class PostService {
 				continue;
 			}
 
-			// Gate 5 — author's content hidden by a hide_posts suspension, or
-			// shadow-banned (admins and the author bypass). Reads the canonical
-			// bn_user_suspensions table via hides_posts() — the same hide_posts=1
-			// predicate the feed uses — NOT the retired bn_suspended usermeta,
-			// which only the admin panel set (the split-brain this fixes).
-			if ( ! $is_admin && ! $is_author ) {
-				$suspended = $moderation->hides_posts( $author_id );
-				$shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
-				if ( $suspended || $shadow ) {
-					continue;
-				}
+			// Gate 5 — author hidden by a hide_posts suspension or a shadow ban.
+			if ( $moderation->hides_author_from( $author_id, $viewer ) ) {
+				continue;
 			}
 
 			$visible[] = $post_id;

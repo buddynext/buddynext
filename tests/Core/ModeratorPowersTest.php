@@ -67,6 +67,20 @@ class ModeratorPowersTest extends WP_UnitTestCase {
 		$service = new ModerationService();
 		$this->assertSame( '', $service->hidden_authors_where( 'user_id', $this->member( 'moderator' ) ) );
 		$this->assertNotSame( '', $service->hidden_authors_where( 'user_id', $this->member( 'member' ) ) );
+
+		// Opening the post agrees with the feed: a moderator reads it, a member does not.
+		$author = $this->member( 'member' );
+		$post   = ( new \BuddyNext\Feed\PostService() )->create( $author, array( 'type' => 'text', 'content' => 'Selling cheap followers, message me.' ) );
+		$id     = is_array( $post ) ? (int) $post['id'] : (int) $post;
+		update_user_meta( $author, 'bn_shadow_banned', '1' );
+		$posts = new \BuddyNext\Feed\PostService();
+		$this->assertSame( array( $id ), $posts->filter_visible( array( $id ), $this->member( 'moderator' ) ) );
+		$this->assertSame( array(), $posts->filter_visible( array( $id ), $this->member( 'member' ) ) );
+
+		// The single-post gate every reader shares (REST read, page, reactions, shares).
+		$this->assertNull( $posts->visibility_error( $id, $this->member( 'moderator' ) ) );
+		$this->assertNull( $posts->visibility_error( $id, $author ), 'The author must not notice the ban.' );
+		$this->assertWPError( $posts->visibility_error( $id, $this->member( 'member' ) ) );
 	}
 
 	/**
@@ -103,6 +117,73 @@ class ModeratorPowersTest extends WP_UnitTestCase {
 		$this->assertWPError( $posts->create( $this->member( 'moderator' ), $data ) );
 		$this->assertWPError( $posts->create( $this->member( 'member' ), $data ) );
 		$this->assertNotWPError( $posts->create( $this->member( 'admin' ), $data ) );
+	}
+
+	/**
+	 * A new report reaches community moderators, linked to the Community Admin
+	 * queue they can open; an ordinary member is not told.
+	 *
+	 * @return void
+	 */
+	public function test_community_moderators_are_told_about_new_reports(): void {
+		global $wpdb;
+		$moderator = $this->member( 'moderator' );
+		$bystander = $this->member( 'member' );
+		$reporter  = $this->member( 'member' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- test fixture.
+		$wpdb->insert( $wpdb->prefix . 'bn_reports', array( 'reporter_id' => $reporter, 'object_type' => 'post', 'object_id' => 77, 'reason' => 'spam' ) );
+		do_action( 'buddynext_report_created', (int) $wpdb->insert_id, 'post', 77, $reporter );
+
+		$sent = static function ( int $user ) use ( $wpdb ): ?string {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- test read-back.
+			$data = $wpdb->get_var( $wpdb->prepare( "SELECT data FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = 'bn.new_report'", $user ) );
+			return null === $data ? null : (string) ( json_decode( (string) $data, true )['url'] ?? '' );
+		};
+		$this->assertSame( trailingslashit( \BuddyNext\Core\PageRouter::community_admin_url() ) . 'moderation/', $sent( $moderator ) );
+		$this->assertNull( $sent( $bystander ) );
+	}
+
+	/**
+	 * The suspend dialog offers "no end date" to exactly who may use it.
+	 *
+	 * @return void
+	 */
+	public function test_suspend_dialog_offers_no_end_date_to_who_may_use_it(): void {
+		$flag = function ( int $user ): bool {
+			wp_set_current_user( $user );
+			$method = new \ReflectionMethod( \BuddyNext\Core\AssetService::class, 'i18n_moderation' );
+			$method->setAccessible( true );
+			$method->invoke( ( new \ReflectionClass( \BuddyNext\Core\AssetService::class ) )->newInstanceWithoutConstructor() );
+			return (bool) ( wp_interactivity_state( 'buddynext/moderation' )['canSuspendForever'] ?? false );
+		};
+		$this->assertTrue( $flag( $this->member( 'admin' ) ), 'a community admin may suspend with no end date' );
+		$this->assertFalse( $flag( $this->member( 'moderator' ) ), 'a moderator suspends for a set time only' );
+		wp_set_current_user( 0 );
+	}
+
+	/**
+	 * The "New reports to review" setting shows to everyone who receives it.
+	 *
+	 * @return void
+	 */
+	public function test_report_setting_shows_to_every_recipient(): void {
+		global $wpdb;
+		$owner = $this->member( 'member' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- test fixture.
+		$wpdb->insert( $wpdb->prefix . 'bn_space_members', array( 'space_id' => 9100, 'user_id' => $owner, 'role' => 'owner', 'status' => 'active' ) );
+		$shown = function ( int $user ): bool {
+			wp_set_current_user( $user );
+			foreach ( ( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->grouped() as $rows ) {
+				if ( in_array( 'bn.new_report', array_column( (array) $rows, 'slug' ), true ) ) {
+					return true;
+				}
+			}
+			return false;
+		};
+		$this->assertTrue( $shown( $this->member( 'moderator' ) ), 'community moderator' );
+		$this->assertTrue( $shown( $owner ), 'space owner' );
+		$this->assertFalse( $shown( $this->member( 'member' ) ), 'member' );
+		wp_set_current_user( 0 );
 	}
 
 	/**

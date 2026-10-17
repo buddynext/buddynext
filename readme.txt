@@ -97,6 +97,10 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Fix      - Changing your member type on the edit profile page no longer warns about unsaved changes when you leave; the type already saved.
 * Fix      - With email verification on, a site administrator now reads as verified in the app and the verification status check, matching every page that already let them through.
 * Fix      - Search no longer shows deleted members, including ones removed by another plugin, and the update clears search entries for members, posts and spaces deleted before this version.
+* Fix      - Community moderators are told about new reports, and the notification opens the front-end moderation queue instead of a wp-admin screen they cannot open.
+* Fix      - A post from a shadow-banned member, or a suspended member whose posts are hidden, no longer opens for other members by direct link or through the app.
+* Fix      - Community admins are offered an open-ended suspension in the suspend dialog, as their role allows.
+* Fix      - Space owners and moderators see the new-report setting in their notification preferences.
 * Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
 * Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
 * Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.

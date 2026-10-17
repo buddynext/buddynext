@@ -2707,6 +2707,39 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a viewer sees posts by hidden-suspended and shadow-banned members.
+	 *
+	 * Site moderators do, because they review them. The one definition for the
+	 * feed SQL below and hides_author_from(), so a post a moderator sees in the
+	 * feed never 404s when they open it.
+	 *
+	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @return bool
+	 */
+	public function sees_hidden_authors( int $viewer_id ): bool {
+		return $this->is_site_moderator( $viewer_id );
+	}
+
+	/**
+	 * Whether one author's posts are hidden from one viewer.
+	 *
+	 * The per-post form of hidden_authors_where(), asked by every single-post
+	 * reader through PostService::visibility_error() and by the batch readers
+	 * (PostService::filter_visible(), bookmarks). Hidden when a hide_posts
+	 * suspension or a shadow ban applies, except from the author and moderators.
+	 *
+	 * @param int $author_id Post author.
+	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @return bool
+	 */
+	public function hides_author_from( int $author_id, int $viewer_id ): bool {
+		if ( $author_id <= 0 || $author_id === $viewer_id || $this->sees_hidden_authors( $viewer_id ) ) {
+			return false;
+		}
+		return $this->hides_posts( $author_id ) || (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
+	}
+
+	/**
 	 * Hide hidden-suspended and shadow-banned authors' content from a viewer.
 	 *
 	 * The one rule every content list asks (feeds, the hashtag page): everyone
@@ -2720,7 +2753,7 @@ class ModerationService {
 	 * @return string SQL fragment starting with AND, or '' for a moderator.
 	 */
 	public function hidden_authors_where( string $column, int $viewer_id ): string {
-		if ( $this->is_site_moderator( $viewer_id ) ) {
+		if ( $this->sees_hidden_authors( $viewer_id ) ) {
 			return '';
 		}
 
