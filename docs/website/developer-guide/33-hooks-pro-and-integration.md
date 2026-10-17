@@ -272,6 +272,8 @@ Pro hooks that fire but were missing from the table above. Same columns. `consum
 | `buddynext_pro_learnomy_source_released` | action | A Learnomy source was deleted and its community was released. | `int $space_id, string $type, int $source_id` | (none) |
 | `buddynext_pro_learnomy_backfill_chunk_size` | filter | Roster rows joined per Learnomy backfill run (floored at 1). | `int $size, string $type, int $source_id` | (none) |
 
+To gate a feature on a plan, call `EntitlementRegistry::allows( $user_id, $key )`. It answers the member's plan and always lets a site administrator through, so an owner is never locked out by a plan they set. `EntitlementRegistry::can()` is the plan's own answer, administrators included; use it to show what a plan contains, or for a perk that widens access past another member's privacy, which the owner exemption must never open.
+
 ### Email, analytics, AI, push, and platform
 
 | Hook | Type | Fired when | Parameters | consumed_by |
