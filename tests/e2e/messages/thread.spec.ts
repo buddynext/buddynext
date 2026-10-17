@@ -1,24 +1,25 @@
 import { test, expect } from '../_fixtures/auth.fixture';
 import { sel, urls } from '../_fixtures/selectors';
-import { dbCount, dbScalar, tablePrefix, userId } from '../_fixtures/wp';
+import { dbCount, dbScalar, tablePrefix, userId, wp } from '../_fixtures/wp';
 import { idsOf, restJson } from '../_fixtures/effects';
 import { bnNonce } from '../_fixtures/spaces-rest';
 import { softSkip } from '../_fixtures/precondition';
 
 /**
- * J-46 new thread + J-47 request accept. Both blocked on WPMediaVerse bridge.
+ * J-46 new thread + J-47 request accept, through the WPMediaVerse bridge.
  *
  * Covers: cap-integrate-with-wbcom-plugins
  * Roles: member
  *
- * Only runs with BN_WPMEDIAVERSE=1 (fixme otherwise), so this capability is
- * proven in CI only when that bridge flag is set.
+ * Skips with the reason on a site without direct messaging.
  */
 test.describe('messages / thread', () => {
-    test.fixme(
-        !process.env.BN_WPMEDIAVERSE,
-        'J-46 / J-47  -  DM thread interactions require the WPMediaVerse bridge. Set BN_WPMEDIAVERSE=1 once it is active.',
-    );
+    // Runs wherever direct messaging is available (WPMediaVerse active), the
+    // same check the Messages hub uses; skips with the reason elsewhere.
+    test.beforeAll(async () => {
+        const on = (await wp(['eval', "echo \\BuddyNext\\Messages\\MessagesData::available() ? '1' : '0';"]).catch(() => '0')).trim();
+        test.skip('1' !== on, 'J-46 / J-47 need direct messaging (WPMediaVerse) active on this site.');
+    });
 
     test('thread surface accepts a message send', async ({ authenticatedPage: page }, testInfo) => {
         const me = await userId(process.env.BN_TEST_USER ?? 'varundubey');
