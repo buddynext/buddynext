@@ -204,11 +204,20 @@ class VerificationService {
 	 * This is the ACCESS question. For "should this member be shown as verified",
 	 * use `has_verified_badge()` — see the note there for why they differ.
 	 *
+	 * Site administrators always pass: an owner is never held out of their own
+	 * site by a setting they control. Every gate (posting, commenting, blog
+	 * activity, the full-enforcement hold, the app's /auth/status) asks this one
+	 * method, so the exemption lives here once.
+	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return bool
 	 */
 	public function is_verified( int $user_id ): bool {
 		if ( ! (bool) get_option( 'buddynext_email_verify', false ) ) {
+			return true;
+		}
+
+		if ( $user_id > 0 && user_can( $user_id, 'manage_options' ) ) {
 			return true;
 		}
 

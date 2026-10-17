@@ -345,7 +345,6 @@ class PostService {
 		}
 
 		if ( ! $is_partner_card
-			&& ! user_can( $user_id, 'manage_options' )
 			&& function_exists( 'buddynext_service' )
 			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
 			return new WP_Error(

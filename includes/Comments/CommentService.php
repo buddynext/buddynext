@@ -61,8 +61,7 @@ class CommentService {
 
 		// Email-verification gate — an unverified member cannot comment until they
 		// confirm their address (admins exempt; no-op when verification is off).
-		if ( ! user_can( $user_id, 'manage_options' )
-			&& function_exists( 'buddynext_service' )
+		if ( function_exists( 'buddynext_service' )
 			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
 			return new WP_Error(
 				'email_unverified',

@@ -173,11 +173,7 @@ class VerificationListener implements ListenerInterface {
 			return false;
 		}
 
-		// Never trap an administrator out of their own site.
-		if ( user_can( $user_id, 'manage_options' ) ) {
-			return false;
-		}
-
+		// is_verified() passes site administrators, so an owner is never trapped.
 		return ! buddynext_service( 'verification' )->is_verified( $user_id );
 	}
 

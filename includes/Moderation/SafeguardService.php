@@ -382,8 +382,8 @@ class SafeguardService {
 		// Trusted roles are exempt — site admins (and community moderators) post
 		// announcements/bulk content legitimately and should not hit the
 		// member-facing flood limit. Filterable for custom exemption rules.
-		$exempt = user_can( $user_id, 'manage_options' )
-			|| buddynext_can( $user_id, 'buddynext-moderation/review-queue' );
+		// Site admins pass buddynext_can() at its first layer.
+		$exempt = buddynext_can( $user_id, 'buddynext-moderation/review-queue' );
 		/**
 		 * Filter whether a user is exempt from the post rate limit.
 		 *
