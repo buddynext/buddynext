@@ -1123,6 +1123,15 @@ final class ResponseSchema {
 				'category_slug'      => array( 'type' => 'string' ),
 				'subspace_count'     => array( 'type' => 'integer' ),
 				'cover_tone'         => array( 'type' => 'string' ),
+				'cover_focal'        => array(
+					'description' => 'Where the owner positioned the cover, in percent; cards apply x/y only.',
+					'type'        => 'object',
+					'properties'  => array(
+						'x'    => array( 'type' => 'number' ),
+						'y'    => array( 'type' => 'number' ),
+						'zoom' => array( 'type' => 'number' ),
+					),
+				),
 				'type_label'         => array( 'type' => 'string' ),
 				'type_tone'          => array( 'type' => 'string' ),
 				'join_method'        => array( 'type' => 'string' ),

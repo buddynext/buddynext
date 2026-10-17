@@ -26322,6 +26322,21 @@
                     "cover_tone": {
                         "type": "string"
                     },
+                    "cover_focal": {
+                        "type": "object",
+                        "description": "Where the owner positioned the cover, in percent; cards apply x/y only.",
+                        "properties": {
+                            "x": {
+                                "type": "number"
+                            },
+                            "y": {
+                                "type": "number"
+                            },
+                            "zoom": {
+                                "type": "number"
+                            }
+                        }
+                    },
                     "type_label": {
                         "type": "string"
                     },

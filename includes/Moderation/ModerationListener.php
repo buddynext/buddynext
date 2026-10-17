@@ -613,9 +613,8 @@ class ModerationListener implements ListenerInterface {
 	/**
 	 * Notify a user when their account suspension is lifted.
 	 *
-	 * Creates a bn.user_unsuspended in-app notification. Dispatches a
-	 * bn.unsuspension_confirmation email when that template exists; logs a
-	 * notice and skips the email send when the template is absent.
+	 * Creates a bn.user_unsuspended notification; the notification pipeline sends
+	 * its email from the bn.user_unsuspended template, per the member's preferences.
 	 *
 	 * @param int $user_id User whose suspension has been removed.
 	 */
@@ -635,28 +634,6 @@ class ModerationListener implements ListenerInterface {
 				'message'      => __( 'Your account suspension has been lifted.', 'buddynext' ),
 			)
 		);
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$template_exists = (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_email_templates WHERE type = %s AND enabled = 1 LIMIT 1",
-				'bn.unsuspension_confirmation'
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( $template_exists ) {
-			buddynext_service( 'email_sender' )->send( $user_id, 'bn.unsuspension_confirmation', array() );
-		} else {
-			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-				sprintf(
-					'BuddyNext: email template bn.unsuspension_confirmation not found — skipping email for user %d.',
-					$user_id
-				)
-			);
-		}
 	}
 
 	/**

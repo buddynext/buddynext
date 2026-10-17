@@ -2350,6 +2350,12 @@ function buildSpaceCard( row ) {
 		coverImg.src     = row.cover_image_url;
 		coverImg.alt     = '';
 		coverImg.loading = 'lazy';
+		// The owner's framing, as SpaceService::cover_frame_style( $id, false ) draws it.
+		if ( row.cover_focal ) {
+			var focalX = Number( row.cover_focal.x );
+			var focalY = Number( row.cover_focal.y );
+			coverImg.style.objectPosition = ( isFinite( focalX ) ? focalX : 50 ) + '% ' + ( isFinite( focalY ) ? focalY : 50 ) + '%';
+		}
 		cover.appendChild( coverImg );
 	}
 

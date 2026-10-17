@@ -1771,7 +1771,8 @@ const messagesStore = store( 'buddynext/messages', {
 					return;
 				}
 				ctx.groupBusy = false;
-				bnToast( t( 'groupCreateFailed', 'Could not create the group.' ), { tone: 'danger' } );
+				// The server says why (a plan's group-size limit, a block); show that.
+				bnToast( ( data && data.message ) || t( 'groupCreateFailed', 'Could not create the group.' ), { tone: 'danger' } );
 			} catch ( _e ) {
 				ctx.groupBusy = false;
 				bnToast( t( 'groupCreateFailed', 'Could not create the group.' ), { tone: 'danger' } );
