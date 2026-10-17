@@ -79,6 +79,8 @@ Notes:
 - Updating a field's `options` over `PUT /buddynext/v1/profile-fields/{id}` replaces the choice list but keeps any string-keyed add-on options already stored on the field.
 - `buddynext_profile_saved` is the place to react to "this member's answers changed". Re-entrant saves from inside it are allowed but must guard against recursion. BuddyNext Pro uses it to clear answers to fields that no longer apply to the member (see [Conditional Logic for Profile Fields](../pro/27-conditional-profile-fields.md)).
 
+> **Runnable snippet:** passing profile changes to a CRM or mailing tool (`buddynext_profile_saved`) is in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) at `hooks/react-to-profile-saved.php`. Its header says what to change and how it was checked.
+
 ## Avatar and cover upload limits
 
 Three filters set the ceiling for a profile image. Each takes a `$kind` of `'avatar'` or `'cover'`, so the two can be capped differently. All three are applied on the server in `ProfileController::validate_image_upload()` **and** passed to the browser through `AssetService`, so the client-side check and the server-side check stay in agreement - if you filter one, the other follows.

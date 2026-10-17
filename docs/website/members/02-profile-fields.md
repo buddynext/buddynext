@@ -133,6 +133,24 @@ Since 1.0.4 the profile form is fully yours to shape:
 - **Show on registration, set once.** The add-field form now includes the "Show on the registration form" checkbox directly, so you decide whether a new field collects a value at signup while you are creating it, instead of adding the field first and coming back to turn it on.
 - **Field types explain themselves.** The add-field form describes what each type does as you pick it - for example, that Dropdown, Radio, and Multi-select let members choose from the options you define below, while Yes / No is a single checkbox and the rest are free text. You no longer have to guess which type fits before trying it.
 
+## Options with their own label (1.2.5)
+
+For a Dropdown, Radio or Multi-select field you type one option per line in the **Options** box. What you type is both what members see and what is stored.
+
+When you want members to see one thing and store another, write the stored value, a `|`, then the label:
+
+```
+s|Small
+m|Medium
+l|Large
+```
+
+Members are offered Small, Medium and Large, and their profile shows the label. The stored value stays `s`, `m` or `l`, which is useful when another tool reads it, or when you want to reword a label later without touching what members already picked.
+
+- A list with no `|` works exactly as before.
+- Renaming the field, or changing any other setting, never changes its options. Only editing the Options box does.
+- Fields created with choices in 1.2.4 open with their choices shown in this `value|Label` form. Before 1.2.5 they opened with an empty Options box, and saving then removed the choices.
+
 ## Fields that need attention (1.2.1)
 
 When a field is set up in a way that stops members from answering it, the Profile Fields screen shows a **Some profile fields need attention** notice at the top. Each problem names the field, says what is wrong, and has a **Fix** button that opens that field's panel. The notice stays until the problem is fixed.

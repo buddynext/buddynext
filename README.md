@@ -4,149 +4,117 @@
 
 <h1 align="center">BuddyNext</h1>
 
-<p align="center"><strong>The community operating system for WordPress.</strong></p>
+<p align="center"><strong>A community platform for WordPress: activity feed, spaces, member profiles, messaging and moderation in one plugin.</strong></p>
 
 <p align="center">
   <a href="https://github.com/buddynext/buddynext/releases/latest"><img src="https://img.shields.io/github/v/release/buddynext/buddynext?label=release&color=2563eb" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/WordPress-6.9%2B-21759b" alt="WordPress 6.9+">
-  <img src="https://img.shields.io/badge/PHP-8.1--8.4-777bb4" alt="PHP 8.1 to 8.4">
+  <img src="https://img.shields.io/badge/PHP-8.1%2B-777bb4" alt="PHP 8.1+">
   <img src="https://img.shields.io/badge/license-GPLv2%2B-4c9a2a" alt="License GPLv2+">
-  <a href="https://wbcomdesigns.com"><img src="https://img.shields.io/badge/by-Wbcom%20Designs-1a1a1a" alt="By Wbcom Designs"></a>
-  <a href="https://wbcomdesigns.com"><img src="https://img.shields.io/badge/part%20of-the%20Wbcom%20family-0b5cff" alt="Part of the Wbcom family"></a>
 </p>
 
 ---
 
-BuddyNext turns any WordPress site into a modern social network - **activity feeds, spaces, member profiles, direct messaging, and moderation** - in a single plugin. It is REST-first and ships a Progressive Web App, so the same community runs on the web and in an app from day one.
+BuddyNext turns a WordPress site into a social community. It is REST-first (the web UI and the installable app read the same endpoints) and built on the WordPress Interactivity API, with no build step needed to run it.
 
-Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [Wbcom Designs](https://wbcomdesigns.com). Free and open source under GPLv2+.
+## What it does
 
-## Why BuddyNext
+### Activity and content
+- Activity feed with For You, Following, Spaces and Network views.
+- Text, link and poll posts with per-post privacy.
+- Reactions (six built-in), threaded comments, bookmarks and scheduled posts.
+- Hashtags with trending topics and per-tag pages.
+- Site-wide announcements that members can dismiss.
 
-- **Everything in one plugin.** Feed, spaces, profiles, messaging, notifications, onboarding, and moderation - no stitching together a dozen add-ons to get a working community.
-- **Built for people.** Every screen is designed around what a real member expects, with a clean responsive UI, dark mode that follows your theme, and full keyboard and screen-reader support.
-- **Yours to own.** Self-hosted on your WordPress site. No per-seat fees, no data leaving your server, no lock-in.
-- **Ready for the world.** Fully translation-ready out of the box, with a complete language template.
-- **Extensible by design.** A documented hook layer and a native REST API let you - or the Wbcom family of add-ons - extend any surface without forking.
+### Spaces
+- Public, private and hidden spaces with roles, join requests, categories and sub-spaces.
+- Per-space feeds, search and moderation.
+- Featured spaces and shareable invite links.
 
-## Features
+### Members and profiles
+- Profile field groups with field-level visibility, avatar and cover, and a vanity profile slug.
+- Follows, connections, block and mute.
+- Member directory, member types and email invitations.
+- Setup wizard and a member onboarding flow.
 
-### Activity & content
-- **Activity feed** with For You, Following, Spaces, and Network views.
-- **Posts** - text, link, and poll posts with per-post privacy (public / followers / space).
-- **Reactions** - six switchable emoji, one reaction per member per item.
-- **Threaded comments** - nested replies, inline edit, soft delete, and moderator pinning.
-- **Bookmarks** to save any post for later.
-- **Hashtags** - auto-extracted, with trending topics, follow, related tags, and per-tag pages.
-- **Scheduled posts** - write now, publish later; the composer holds the post until its moment.
-- **Announcements** - site-wide banners admins pin to every feed; each member can dismiss their own.
+### Messaging and companions
+- Direct messaging and media galleries through the [WPMediaVerse](https://wbcomdesigns.com/downloads/mediaverse/) bridge.
+- Bridges for Jetonomy, WB Gamification, WP Career Board, Learnomy, WB Listora, Eventonomy and Member Blog, managed from the companion screen in wp-admin.
+- To move an existing BuddyPress or BuddyBoss community across, use [BuddyNext Importer](https://github.com/buddynext/buddynext-importer).
 
-### Spaces (communities)
-- **Public, private, and hidden spaces** with membership, roles, and join requests.
-- **Per-space feeds**, space moderation, settings, and categories.
-- **Search inside a space** - a space's Feed tab has its own search box, scoped to that space and respecting its privacy.
-- **Sub-spaces** for communities that need a second level.
-- **Featured spaces** - owners can feature spaces so new members see them first, across the directory, setup checklist, onboarding wizard and a phone-only strip.
-- **Shareable invite links** - one link lets people join a space directly, with a per-person single-use cap and an expiry.
+### Moderation and safety
+- Reports, a review queue, strikes, suspensions, appeals and shadow-ban.
+- Content warnings, banned words and an auto-hide threshold.
+- A front-end Community Admin hub for moderators.
 
-### Members & profiles
-- **Rich profiles** with customizable field groups (basic info, social links, work, education, skills, and custom groups).
-- **Avatar + cover**, vanity profile slug, and a profile-completion strength meter.
-- **Field-level visibility** - public, followers-only, private, or per-entry.
-- **Social graph** - follows, mutual connections, block, and mute.
-- **Member directory** with search and by-role browsing.
-- **Member types** to classify members (student, mentor, staff) and filter the directory by them.
-- **Invitations** - invite people by email, with pending and expiring invites tracked.
-
-### Direct messaging
-- **One-to-one and group messaging** with media attachments, a conversation info panel, shared-media gallery, safety actions, and a full-bleed media lightbox. *(Powered by the free WPMediaVerse companion.)*
-
-### Moderation
-- **Reporting** from any post, a **review queue**, **strikes**, **suspensions**, and an **appeals** flow.
-- **Shadow-ban** and an auto-hide threshold.
-- **Content warnings** - a moderator can add, change or clear an NSFW/spoiler/violence/language warning on reported content from any moderation surface; readers see a blur with a "Show anyway" toggle.
-- Every action is written to an **immutable audit log**.
-- **Community Admin** - a front-end hub so moderators can work the community without a wp-admin account.
-- **Banned words, hashtags, link domains and IPs**, with whole-word matching and a `*` wildcard for variants.
-
-### Accounts & security (in-house, no third-party services)
-- **Login & signup** with built-in spam protection - honeypot, human-check, rate limiting, and time-trap.
-- **Email verification**, opt-in **two-factor authentication** (TOTP), password reset, change email/password, and sign-out-everywhere.
-- **Social login** with verified-email account linking.
-- **GDPR** self-service data export and account deletion.
-
-### Engagement & discovery
-- **Onboarding wizard** - Profile → Spaces → People → Notifications.
-- **Gamification** - streaks, badges, and standings on member profiles.
-- **Notifications** - in-app and email, with per-channel preferences.
-- **Search** across members, spaces, hashtags, and posts.
-- **Sidebar widgets** - trending topics, suggested people, and your spaces.
+### Accounts
+- Login and signup with honeypot, time-trap and rate limiting.
+- Email verification, optional TOTP two-factor authentication, social login and account data export and deletion.
 
 ### Platform
-- **Native REST API** - every surface is REST-first, so the web and the app render from the same endpoints.
-- **Progressive Web App** - installable to the home screen with branded icons.
-- **Dark mode** that follows your theme; tuned for BuddyX and Reign, works with any theme.
-- **Translation-ready** - every template, label, and script is internationalized, with a complete language template.
-- **White-label** the admin menu, plus a built-in outbound webhook for external integrations.
-- **Plugin isolation** - keep unrelated plugins off community pages so they stay fast, with an allow-list for the ones that must run.
-- **Built for scale** - designed and tested against 100,000-member communities, with guidance on persistent object caching.
+- Progressive Web App support (manifest and service worker served over REST).
+- Outbound webhooks.
+- White-label admin menu and plugin isolation on community pages.
+- Translation-ready (text domain `buddynext`).
 
-### Gutenberg blocks
+### Blocks and shortcodes
+19 Gutenberg blocks: Activity Feed, Community Activity, Connection Button, Follow Button, Header User Menu, Member Card, Member Directory, Members Showcase, My Spaces, Notification Bell, Post Composer, Profile Completion Bar, Profile Fields, Profile Header, Search Bar, Space Card, Space Directory, Spaces Showcase and Trending Hashtags.
 
-Nineteen blocks put community surfaces on any page or in any block theme, so a homepage or landing page can be built without shortcodes or code:
+8 shortcodes: `buddynext_activity`, `buddynext_people`, `buddynext_spaces`, `buddynext_messages`, `buddynext_notifications`, `buddynext_auth`, `buddynext_community_admin`, `buddynext_search`.
 
-- **Feeds** - Activity Feed, Community Activity
-- **Members** - Member Directory, Members Showcase, Member Card, Profile Header, Profile Fields, Profile Completion Bar
-- **Spaces** - Space Directory, Spaces Showcase, Space Card, My Spaces
-- **Actions** - Post Composer, Follow Button, Connection Button
-- **Chrome** - Search Bar, Notification Bell, Header User Menu, Trending Hashtags
+## Who it is for
 
-Each block previews live in the editor with your theme's tokens, and the action buttons on block-placed cards are fully wired.
+Site owners and developers who want to run a members-only or public community on their own WordPress install, and agencies building community sites for clients. Free covers the community itself. [BuddyNext Pro](https://wbcomdesigns.com/downloads/buddynext-pro/) adds membership plans, payments, email automation and more.
 
-## BuddyNext Pro
+## Where to get it
 
-[**BuddyNext Pro**](https://wbcomdesigns.com/downloads/buddynext-pro/) adds the application and monetization layer on top of Free: membership plans with on-site checkout across Stripe, PayPal and points, unlisted plans, coupons and tax, partial refunds, renewal reminders, CSV export and per-member billing history; content protection and gated spaces; email automation (campaigns + drip); advanced moderation; member labels; advanced profile field types; a Portfolio profile panel; analytics; and more. Free runs first; Pro extends it through a published contract without modifying any Free code.
+- Product site: [buddynext.com](https://buddynext.com/)
+- Download: [wbcomdesigns.com/downloads/buddynext](https://wbcomdesigns.com/downloads/buddynext/)
+- Releases: the latest `buddynext-<version>.zip` is on the [GitHub releases page](https://github.com/buddynext/buddynext/releases/latest)
 
-## Part of the Wbcom Designs family
+BuddyNext is not listed on wordpress.org.
 
-BuddyNext is the social layer. Each companion plugin owns its own domain and surfaces inside BuddyNext through a native bridge - install only what your community needs.
+## Documentation
 
-| Companion | Adds to your community | Bridge |
-|-----------|------------------------|--------|
-| [WPMediaVerse](https://wbcomdesigns.com/downloads/mediaverse/) | Direct messaging and rich media galleries | Free |
-| [Jetonomy](https://wbcomdesigns.com/downloads/jetonomy/) | Forum-style threaded discussions and Q&A | Free |
-| [WB Gamification](https://wbcomdesigns.com/downloads/wordpress-gamification-plugin/) | Points, badges, levels, and leaderboards | Free |
-| [Eventonomy](https://wbcomdesigns.com/downloads/eventonomy/) | Events, calendars, and RSVPs | Free |
-| [WP Career Board](https://wbcomdesigns.com/downloads/wp-career-board/) | Job listings and applicant management | Pro |
-| [Learnomy](https://wbcomdesigns.com/downloads/learnomy/) | Courses, lessons, and certificates | Pro |
-| [Listora](https://wbcomdesigns.com/downloads/listora/) | Business directory and listings | Pro |
-| [BuddyNext Importer](https://github.com/buddynext/buddynext-importer) | Moves an existing BuddyPress or BuddyBoss community across - members, profile fields, groups, activity with its comments, connections, forums, media and messages. Run once, then remove it. | Free, standalone |
-
-**More from Wbcom Designs** (standalone, no bridge required):
-
-- [MediaShield](https://wbcomdesigns.com/downloads/mediashield/) - media protection and moderation
-- [WP Sell Services](https://wbcomdesigns.com/downloads/wp-sell-services/) - sell services and accept bookings
-- [WB Ad Manager](https://wbcomdesigns.com/downloads/wb-ad-manager/) - manage and serve ads across your site
-
-Explore the full catalog at [wbcomdesigns.com](https://wbcomdesigns.com).
+- [BuddyNext docs](https://buddynext.com/docs/)
+- [Wbcom docs hub](https://docs.wbcomdesigns.com/products/buddynext/)
+- [Developer API overview](https://buddynext.com/developers/api/)
+- [Release notes](https://wbcomdesigns.com/release-notes/buddynext/)
+- [Pricing and Free vs Pro](https://buddynext.com/free-vs-pro/)
 
 ## Requirements
 
 - WordPress 6.9 or newer
-- PHP 8.1 to 8.4
+- PHP 8.1 or newer
 
 ## Installation
 
-1. Download BuddyNext from [wbcomdesigns.com/downloads/buddynext](https://wbcomdesigns.com/downloads/buddynext/) (or the latest `buddynext-<version>.zip` from [Releases](https://github.com/buddynext/buddynext/releases/latest)).
-2. In wp-admin, go to **Plugins → Add New → Upload Plugin** and upload the zip.
-3. Activate. No build step, no Composer, no npm - install and go.
+1. Download the zip from the link above.
+2. In wp-admin go to **Plugins > Add New > Upload Plugin**, upload the zip and activate.
+3. Activation opens the setup wizard (`wp-admin/admin.php?page=buddynext-setup`). It sets the community name, registration, profile and space defaults and creates the community pages.
+4. Optional: install [BuddyNext Pro](https://wbcomdesigns.com/downloads/buddynext-pro/) and the companion plugins you need.
 
-For monetization and the application layer, add [BuddyNext Pro](https://wbcomdesigns.com/downloads/buddynext-pro/).
+## For developers
+
+| | |
+|---|---|
+| Plugin file | `buddynext.php` |
+| PHP namespace | `BuddyNext\` (PSR-4, `includes/`) |
+| Text domain | `buddynext` |
+| Hook prefix | `buddynext_` |
+| REST namespace | `buddynext/v1` |
+| Blocks | `buddynext/*`, sources in `blocks/` |
+
+- **REST API.** Cookie authentication with the `X-WP-Nonce` header. Main route groups include `/me`, `/users`, `/spaces`, `/posts`, `/feed`, `/comments`, `/reactions`, `/hashtags`, `/reports`, `/appeals`, `/auth`, `/account`, `/search`, `/webhooks` and `/member-types`. List the live surface at `/wp-json/buddynext/v1`. See the [REST contract](https://docs.wbcomdesigns.com/products/buddynext/developer-guide/14-rest-contract/).
+- **Hooks.** Actions and filters are documented in the [hooks overview](https://docs.wbcomdesigns.com/products/buddynext/developer-guide/25-hooks-overview/).
+- **Template overrides.** Copy a file from `templates/` to `your-theme/buddynext/` (child theme first, then parent theme).
+- **WP-CLI.** `wp buddynext demo`, `cert`, `handles`, `bridge-status`, `repair-space-owners`, `repair-discussion-visibility` and `reconcile-media-privacy`. See the [WP-CLI reference](https://docs.wbcomdesigns.com/products/buddynext/developer-guide/38-wp-cli/).
+- **Development setup.** The plugin runs without a build step. `composer install` then `composer lint` (PHPCS) and `composer lint-fix` (PHPCBF). End-to-end tests use Playwright: `npm install`, `npm run test:e2e:install`, `npm run test:e2e`.
+- **Developer guide.** [Getting started for developers](https://docs.wbcomdesigns.com/products/buddynext/developer-guide/02-getting-started-dev/).
 
 ## Support
 
-- Product site and documentation: [buddynext.com](https://buddynext.com/)
-- Download and account: [wbcomdesigns.com/downloads/buddynext](https://wbcomdesigns.com/downloads/buddynext/)
+Open a ticket at [wbcomdesigns.com/support](https://wbcomdesigns.com/support/) or use the [contact page](https://buddynext.com/contact/) on the product site.
 
 ## License
 

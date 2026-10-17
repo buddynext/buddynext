@@ -60,6 +60,8 @@ The unread count and the bell badge update immediately, without a page reload.
 
 Each row has a dismiss action that removes that notification permanently. Dismissing is different from marking read: a read notification stays in your list, a dismissed one is gone.
 
+Since 1.2.5 you can also select several notifications and delete them together, instead of dismissing them one at a time. The bell count follows what you delete.
+
 ### Filtering
 
 The Notifications page has filter tabs: **All**, **Unread**, **Mentions**, **Comments**, **Reactions**, **Spaces**, **Follows** and **Messages** (the Messages tab is left out while messages are switched off). Switching tabs updates the list in place, without reloading the page.

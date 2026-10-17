@@ -22042,6 +22042,10 @@
                     "post_count": {
                         "type": "integer"
                     },
+                    "recent_count": {
+                        "type": "integer",
+                        "description": "Posts using the tag inside the trending window."
+                    },
                     "follower_count": {
                         "type": "integer"
                     },
