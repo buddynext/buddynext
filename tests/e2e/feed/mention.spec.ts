@@ -10,6 +10,7 @@ import {
     restPost,
     type MemberSession,
 } from '../_fixtures/feed-wave1.helpers';
+import { wp } from '../_fixtures/wp';
 
 type Notif = { id: number; type: string; sender_id: number | null; object_id: number | null };
 type NotifResponse = { items?: Notif[] };
@@ -148,19 +149,26 @@ test.describe('feed / @mention', () => {
             delay = 0;
         }
 
+        // Type the start of a member who exists under that name. A fixed "@ali" matched
+        // nobody once other journeys renamed the seeded member, and then the race checks
+        // below passed on an empty answer instead of a late one.
+        const otherName = (await wp(['user', 'get', process.env.BN_TEST_OTHER_USER ?? 'alice', '--field=display_name'])).trim();
+        const q = otherName.replace(/[^A-Za-z]/g, '').slice(0, 3).toLowerCase();
+        expect(q.length, `the second member (${otherName}) has a name to mention`).toBe(3);
+
         await page.goto(urls.feed);
         const nonce = await readRestNonce(page);
         const composer = page.locator(sel.composerTextarea).first();
         await composer.click();
 
         // Positive control: with no delay the typeahead works and inserts the pick.
-        await composer.pressSequentially('hi @ali', { delay: 60 });
+        await composer.pressSequentially(`hi @${q}`, { delay: 60 });
         await expect(dropdownItems.first()).toBeVisible({ timeout: 5_000 });
         await dropdownItems.first().click();
         await expect(composer).not.toHaveValue(/null/);
         await expect(composer).toHaveValue(/^hi @\S+ ?$/);
 
-        await race(composer, 'hi @ali');
+        await race(composer, `hi @${q}`);
         await race(composer, 'see #e');
         await composer.fill('');
 
@@ -176,14 +184,14 @@ test.describe('feed / @mention', () => {
             await host.locator(sel.postComment).first().click();
             const input = host.locator(sel.commentInput).first();
             await expect(input).toBeVisible();
-            await race(input, `Thanks for the tip ${stamp} @ali`);
+            await race(input, `Thanks for the tip ${stamp} @${q}`);
             // Enter adds a line in a comment box; the send button submits.
             await host.locator('[data-wp-on--click="actions.submitComment"]').first().click();
             // EFFECT: the stored comment is the text as typed.
             await expect.poll(async () => {
                 const r = await restGet<{ items?: Array<{ content?: string }> }>(page.request, nonce, `/comments?object_type=post&object_id=${postId}`);
                 return ((r.body.items ?? []).map((c) => c.content ?? '').find((c) => c.includes(stamp)) ?? '').trim();
-            }, { timeout: 8_000 }).toBe(`Thanks for the tip ${stamp} @ali`);
+            }, { timeout: 8_000 }).toBe(`Thanks for the tip ${stamp} @${q}`);
         } finally {
             await deletePostRest(page.request, nonce, postId).catch(() => {});
         }

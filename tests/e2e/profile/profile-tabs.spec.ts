@@ -149,6 +149,29 @@ async function clearProfileValuesHard(uid: number): Promise<void> {
     await wp(['cache', 'flush']);
 }
 
+/**
+ * Take B's member type off for one test and return how to put it back.
+ *
+ * A member_type profile field shows the member's type as profile content, so a
+ * member with a type is not an "empty" profile: it fills its group (strength) and
+ * gives the About tab something to show. The tests that need a blank member clear
+ * the type with the values; the type is restored so the shared member is unchanged.
+ */
+async function clearMemberType(uid: number): Promise<() => Promise<void>> {
+    const typeId = parseInt(
+        await wp(['eval', `$t = buddynext_service( 'member_types' )->get_user_type( ${uid} ); echo (int) ( $t['id'] ?? 0 );`]),
+        10
+    ) || 0;
+    if (typeId > 0) {
+        await wp(['eval', `buddynext_service( 'member_types' )->remove_user_type( ${uid} );`]);
+    }
+    return async () => {
+        if (typeId > 0) {
+            await wp(['eval', `buddynext_service( 'member_types' )->assign_type( ${uid}, ${typeId} );`]);
+        }
+    };
+}
+
 async function connectionCount(status: string): Promise<number> {
     const p = await tablePrefix();
     return dbCount(
@@ -189,8 +212,9 @@ const ringPct = (page: Page): Promise<number> =>
 
 test.describe('profile / A3 tabs + completion (effect-based)', () => {
     test('J-720 profile strength rises when a field is filled', async ({ page }) => {
-        // Start B from a clean 0% baseline (no field values).
+        // Start B from a clean 0% baseline (no field values, no member type).
         await clearProfileValues(B_ID);
+        const restoreType = await clearMemberType(B_ID);
         try {
             await loginAs(page, B_LOGIN);
             await page.goto(memberUrl(B_LOGIN));
@@ -225,6 +249,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             }
         } finally {
             await clearProfileValues(B_ID);
+            await restoreType();
         }
     });
 
@@ -386,6 +411,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
         // Log in first: loginAs() refills the required answers, the hard clear must come after.
         await loginAs(page, B_LOGIN);
         await clearProfileValuesHard(B_ID);
+        const restoreType = await clearMemberType(B_ID);
         try {
 
             // Give A about content (skills / work) so the card has something to show; the
@@ -417,6 +443,7 @@ test.describe('profile / A3 tabs + completion (effect-based)', () => {
             expect(await dbCount(`SELECT COUNT(*) FROM ${p}bn_profile_values WHERE user_id=${B_ID}`), 'B holds no profile values').toBe(0);
         } finally {
             await satisfyRequiredFields(B_ID);
+            await restoreType();
         }
     });
 });

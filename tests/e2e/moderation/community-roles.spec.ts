@@ -33,6 +33,9 @@ test.describe('moderation / community roles', () => {
     let readerId = 0;
 
     test.beforeAll(async () => {
+        // About 25 WP-CLI boots (four members, then their meta). On a site running the
+        // full partner suite each boot is ~2 s, past the 30 s default for a hook.
+        test.setTimeout(120_000);
         modId = await ensureUser(MOD, `${MOD}@example.com`, 'Priya Raman');
         cadminId = await ensureUser(CADMIN, `${CADMIN}@example.com`, 'Marcus Webb');
         memberId = await ensureUser(MEMBER, `${MEMBER}@example.com`, 'Hannah Ortiz');
