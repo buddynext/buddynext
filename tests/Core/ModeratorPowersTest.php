@@ -84,6 +84,34 @@ class ModeratorPowersTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Editing another member's post never reads or widens content the editor cannot see.
+	 *
+	 * @return void
+	 */
+	public function test_editing_others_posts_stops_at_what_the_editor_can_read(): void {
+		$posts  = new \BuddyNext\Feed\PostService();
+		$author = $this->member( 'member' );
+		$editor = $this->member( 'admin' );
+		$id     = static fn( $p ): int => is_array( $p ) ? (int) $p['id'] : (int) $p;
+
+		$public  = $id( $posts->create( $author, array( 'type' => 'text', 'content' => 'Ride starts at 7 from the bridge.' ) ) );
+		$private = $id( $posts->create( $author, array( 'type' => 'text', 'content' => 'My new door code is 4471.', 'privacy' => 'private' ) ) );
+
+		$this->assertNotWPError( $posts->update( $public, $editor, array( 'content' => 'Ride starts at 7:30 from the bridge.' ) ), 'A community admin fixes a post they can read.' );
+		$this->assertWPError( $posts->update( $private, $editor, array( 'content_warning' => false ) ), 'A community admin cannot reach a private post through an edit.' );
+
+		$posts->update( $public, $editor, array( 'privacy' => 'private' ) );
+		$this->assertSame( 'public', $posts->get( $public )['privacy'], 'Only the author picks the audience.' );
+
+		$comments = buddynext_service( 'comments' );
+		$secret   = $comments->create( $author, 'post', $private, 'Remember to change it monthly.' );
+		$this->assertWPError( $comments->update( (int) ( is_array( $secret ) ? $secret['id'] : $secret ), $editor, 'Edited.' ), 'Nor a comment under it.' );
+
+		$site_admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->assertNotWPError( $posts->update( $private, $site_admin, array( 'content_warning' => false ) ), 'A site administrator keeps the power.' );
+	}
+
+	/**
 	 * Admin-level powers: open-ended suspension, appeals and role changes.
 	 *
 	 * @return void

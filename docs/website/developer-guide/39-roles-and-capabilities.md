@@ -76,7 +76,7 @@ The role map holds 29 generic capabilities:
 | `buddynext-feed/delete-own-post` | `member` |
 | `buddynext-feed/delete-any-post` | `moderator` (any post or comment; on the Roles tab as "Delete anyone's post or comment") |
 | `buddynext-feed/announce` | `admin` (post and end site-wide announcements; "Post site-wide announcements"; a space announcement follows the space role) |
-| `buddynext-feed/edit-any-post` | `admin` (edit any post or comment, hide a post, edit past the edit window; "Edit anyone's post or comment") |
+| `buddynext-feed/edit-any-post` | `admin` (edit any post or comment, hide a post, edit past the edit window; "Edit anyone's post or comment"). Anyone but a site administrator acts only on posts they can already read, and a post's audience changes only when its author edits it |
 | `buddynext-feed/schedule-post` | `member` |
 | `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes; not in `Abilities::CATALOG`) |
 | `buddynext-comments/create` | `member` |

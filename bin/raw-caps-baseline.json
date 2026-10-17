@@ -19,7 +19,7 @@
  "includes/Feed/BookmarkController.php": 2,
  "includes/Feed/FeedController.php": 2,
  "includes/Feed/FeedService.php": 2,
- "includes/Feed/PostService.php": 5,
+ "includes/Feed/PostService.php": 6,
  "includes/Media/Galleries.php": 1,
  "includes/Media/MediaClient.php": 1,
  "includes/Media/MediaController.php": 4,

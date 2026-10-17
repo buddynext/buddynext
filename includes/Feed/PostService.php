@@ -2349,7 +2349,9 @@ class PostService {
 			);
 		}
 
-		if ( isset( $data['privacy'] ) ) {
+		// The audience is the author's choice: an edit by anyone else never
+		// widens (or narrows) who can see the post.
+		if ( isset( $data['privacy'] ) && (int) ( $this->get( $post_id )['user_id'] ?? 0 ) === $user_id ) {
 			$fields['privacy'] = self::normalize_privacy( (string) $data['privacy'] );
 			$formats[]         = '%s';
 		}
@@ -4701,8 +4703,8 @@ class PostService {
 
 		// The post owner may manage their own post; "Edit anyone's post or
 		// comment" (site administrators and community admins by default) may
-		// manage any member's post, the same power that lifts the edit window.
-		if ( (int) $post['user_id'] !== $user_id && ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
+		// manage any member's post they can read - see may_edit_others().
+		if ( (int) $post['user_id'] !== $user_id && ! $this->may_edit_others( $post_id, $user_id ) ) {
 			return new WP_Error(
 				'not_post_owner',
 				__( 'You are not the owner of this post.', 'buddynext' )
@@ -4710,6 +4712,25 @@ class PostService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether a user may edit or hide another member's post.
+	 *
+	 * "Edit anyone's post or comment" is delegable, but seeing private content
+	 * stays a site-administrator power: anyone else holding it may act only on a
+	 * post visibility_error() already lets them read. Without this, an edit
+	 * request (whose response returns the full row) read any post by id.
+	 *
+	 * @param int $post_id Post ID.
+	 * @param int $user_id Acting user ID.
+	 * @return bool
+	 */
+	public function may_edit_others( int $post_id, int $user_id ): bool {
+		if ( $user_id <= 0 || ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
+			return false;
+		}
+		return user_can( $user_id, 'manage_options' ) || null === $this->visibility_error( $post_id, $user_id );
 	}
 
 	/**
@@ -4730,7 +4751,7 @@ class PostService {
 			return false;
 		}
 
-		if ( buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
+		if ( $this->may_edit_others( $post_id, $user_id ) ) {
 			return true;
 		}
 

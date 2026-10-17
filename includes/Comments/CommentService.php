@@ -455,7 +455,7 @@ class CommentService {
 			return new WP_Error( 'comment_deleted', __( 'This comment has been deleted and can no longer be edited.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		if ( $comment['user_id'] !== $user_id && ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' ) ) {
+		if ( $comment['user_id'] !== $user_id && ! $this->may_edit_others( $comment_id, $user_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You cannot edit this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -518,6 +518,26 @@ class CommentService {
 		do_action( 'buddynext_comment_updated', $comment_id, $user_id );
 
 		return true;
+	}
+
+	/**
+	 * Whether a user may edit another member's comment.
+	 *
+	 * The comment's post decides, through PostService::may_edit_others(): a
+	 * delegated editor may only rewrite a comment on a post they can read. A
+	 * comment on an object with no owning post keeps the plain capability.
+	 *
+	 * @param int $comment_id Comment ID.
+	 * @param int $user_id    Acting user ID.
+	 * @return bool
+	 */
+	private function may_edit_others( int $comment_id, int $user_id ): bool {
+		$posts   = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : null;
+		$post_id = $posts instanceof \BuddyNext\Feed\PostService ? $posts->resolve_post_id( 'comment', $comment_id ) : 0;
+		if ( $post_id > 0 ) {
+			return $posts->may_edit_others( $post_id, $user_id );
+		}
+		return buddynext_can( $user_id, 'buddynext-feed/edit-any-post' );
 	}
 
 	/**
