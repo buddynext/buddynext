@@ -24,7 +24,7 @@ This release lets you hand moderation work to community admins and moderators wi
 - Logged-out visitors see the real poll percentages instead of 0%.
 - An admin screen whose feature is switched off says so and links to Features.
 - On sites using Redis or Memcached, comments, votes, reactions, edits and blog post cards update straight away.
-- Explore space cards show the space cover, positioned as on the space page.
+- Explore space cards show the space cover, and Explore and the Spaces directory show the part of the photo the owner positioned on the space page.
 - A shared badge shows its artwork and what it was awarded for, including badges shared before this update.
 - Initials on the generated picture for members without a photo are readable on every colour.
 - A private space's linked forum lets in members who joined the space before the forum was linked.
