@@ -480,6 +480,11 @@
       "id": "hook-consumed-never-fired:buddynext_reconcile_media_privacy",
       "reason": "Background job: MediaPrivacyRepairCommand::HOOK, scheduled from WPMediaVerseBridge (as_enqueue_async_action, WP-Cron fallback); the scanner cannot follow the class constant. Verified 1.2.5 release gate. False positive.",
       "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_jetonomy_grant_space_members",
+      "reason": "False positive (1.2.6). Fired as an Action Scheduler job (as_enqueue_async_action / wp_schedule_single_event) through the class constant JetonomyBridge::GRANT_MEMBERS_HOOK, JetonomyBridge.php:1276-1278; the scanner reads literal hook names only.",
+      "severity": "error"
     }
   ]
 }
