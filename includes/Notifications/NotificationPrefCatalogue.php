@@ -94,6 +94,8 @@ class NotificationPrefCatalogue {
 	 *   can_email         bool    - whether the type produces a transactional email.
 	 *   moderator_only    bool    - optional; when true the prefs UI hides the row
 	 *                               from non-moderators (see grouped()).
+	 *   owner_only        bool    - optional; when true the prefs UI hides the row
+	 *                               from anyone who cannot manage the site.
 	 *   email_only        bool    - optional; when true the row has no in-app
 	 *                               channel, so the prefs UI hides its In-app toggle
 	 *                               and shows only the email frequency (e.g. 'digest').
@@ -556,7 +558,7 @@ class NotificationPrefCatalogue {
 	 *
 	 * Group order is fixed and matches the order the prefs UI renders. Rows a
 	 * type marks `moderator_only` are dropped for viewers who cannot moderate the
-	 * site, so a plain member is not offered a preference for a notification only
+	 * site (and `owner_only` rows for viewers who cannot manage it), so a plain member is not offered a preference for a notification only
 	 * moderators ever receive. `all()` is deliberately left unfiltered — the
 	 * delivery and validation paths must still know every type regardless of who
 	 * is acting when a notification is composed.
@@ -581,6 +583,9 @@ class NotificationPrefCatalogue {
 
 		foreach ( $this->all() as $entry ) {
 			if ( ! empty( $entry['moderator_only'] ) && ! $can_moderate ) {
+				continue;
+			}
+			if ( ! empty( $entry['owner_only'] ) && ! user_can( $bn_viewer, 'manage_options' ) ) {
 				continue;
 			}
 			$group = isset( $entry['group'] ) ? (string) $entry['group'] : self::GROUP_GROWTH;

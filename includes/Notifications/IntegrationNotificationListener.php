@@ -326,7 +326,7 @@ class IntegrationNotificationListener implements ListenerInterface {
 		foreach ( self::sources() as $source => $info ) {
 			/**
 			 * The plugin declares its notification types on its own filter:
-			 * `{prefix}_community_notification_types` ( slug => label, description, default_on ).
+			 * `{prefix}_community_notification_types` ( slug => label, description, default_on, email, audience ).
 			 */
 			$types = (array) apply_filters( $info['prefix'] . '_community_notification_types', array() );
 			foreach ( $types as $slug => $type ) {
@@ -334,8 +334,9 @@ class IntegrationNotificationListener implements ListenerInterface {
 				if ( '' === $slug || ! is_array( $type ) ) {
 					continue;
 				}
-				$emails                             = self::type_emails( $source, $slug, $type );
-				$catalogue[ $source . '.' . $slug ] = array(
+				$emails   = self::type_emails( $source, $slug, $type );
+				$audience = (string) ( $type['audience'] ?? '' );
+				$entry    = array(
 					'label'              => (string) ( $type['label'] ?? $slug ),
 					'description'        => (string) ( $type['description'] ?? '' ),
 					'group'              => $source,
@@ -345,6 +346,14 @@ class IntegrationNotificationListener implements ListenerInterface {
 					'default_email_freq' => $emails ? 'immediate' : 'off',
 					'can_email'          => $emails,
 				);
+				// A type only moderators or the site owner ever receive is not offered
+				// to anyone else ('audience' => 'moderator' | 'owner').
+				if ( 'moderator' === $audience ) {
+					$entry['moderator_only'] = true;
+				} elseif ( 'owner' === $audience ) {
+					$entry['owner_only'] = true;
+				}
+				$catalogue[ $source . '.' . $slug ] = $entry;
 			}
 		}
 		return $catalogue;
