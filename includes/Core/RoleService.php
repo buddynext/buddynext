@@ -116,6 +116,22 @@ class RoleService {
 		return ( self::ROLE_HIERARCHY[ $this->get_role( $user_id ) ] ?? 0 ) >= self::ROLE_HIERARCHY['moderator'];
 	}
 
+	/**
+	 * How much moderation authority a user holds, for comparing two people.
+	 *
+	 * A WordPress administrator outranks every community role; below that the
+	 * order is admin, moderator, member. Equal ranks do not outrank each other.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return int 4 = WordPress administrator, 3 = admin, 2 = moderator, 1 = member.
+	 */
+	public function rank( int $user_id ): int {
+		if ( $user_id > 0 && user_can( $user_id, 'manage_options' ) ) {
+			return 1 + max( self::ROLE_HIERARCHY );
+		}
+		return self::ROLE_HIERARCHY[ $this->get_role( $user_id ) ];
+	}
+
 	// ── Credit helpers ────────────────────────────────────────────────────────
 
 	/**

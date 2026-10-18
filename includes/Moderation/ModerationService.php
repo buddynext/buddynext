@@ -1247,6 +1247,11 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		$outranked = $this->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
+		}
+
 		$reason = self::require_sanction_reason( $reason, __( 'Add a reason for the strike. The member sees it on their account page.', 'buddynext' ) );
 		if ( is_wp_error( $reason ) ) {
 			return $reason;
@@ -1322,6 +1327,11 @@ class ModerationService {
 		$actor_is_site_mod = $this->is_site_moderator( $actor_id );
 		if ( ! $actor_is_site_mod && ! ( $space_id > 0 && $this->actor_moderates_space( $actor_id, $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$outranked = $this->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
 		}
 
 		// A space-only moderator's authority is scoped to their space: they may warn a
@@ -2007,6 +2017,32 @@ class ModerationService {
 	}
 
 	/**
+	 * Refuse a sanction against someone who outranks the actor.
+	 *
+	 * A moderator who may warn, strike, suspend or shadow-ban members must not be
+	 * able to do it to the administrators above them. Equal ranks are allowed, and
+	 * actor 0 is the automated-rule system actor, which has no rank to compare.
+	 *
+	 * @param int $user_id  Member the sanction is aimed at.
+	 * @param int $actor_id Person applying it (0 = system).
+	 * @return WP_Error|null Error when the target outranks the actor, else null.
+	 */
+	private function outranked_error( int $user_id, int $actor_id ): ?WP_Error {
+		if ( $actor_id <= 0 ) {
+			return null;
+		}
+		$roles = new \BuddyNext\Core\RoleService();
+		if ( $roles->rank( $user_id ) <= $roles->rank( $actor_id ) ) {
+			return null;
+		}
+		return new WP_Error(
+			'forbidden',
+			__( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ),
+			array( 'status' => 403 )
+		);
+	}
+
+	/**
 	 * Whether an actor owns or moderates a given space.
 	 *
 	 * Routed through buddynext_can() (the canonical 4-layer permission entry
@@ -2247,6 +2283,11 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ) );
 		}
 
+		$outranked = $this->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
+		}
+
 		// A person suspending someone must say why: the member is shown this text on
 		// their account status page and in the suspension email, so an empty or
 		// internal-sounding reason leaves them with nothing to act on or appeal
@@ -2428,6 +2469,11 @@ class ModerationService {
 		// 10264294189).
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$outranked = $this->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
 		}
 
 		update_user_meta( $user_id, 'bn_shadow_banned', '1' );
