@@ -119,6 +119,8 @@ $bn_disc_enabled  = ! empty( $bn_disc_status['enabled'] );
 $bn_disc_url      = isset( $bn_disc_status['url'] ) ? (string) $bn_disc_status['url'] : '';
 $bn_disc_name     = isset( $bn_disc_status['name'] ) ? (string) $bn_disc_status['name'] : '';
 $bn_disc_space_id = isset( $bn_space->id ) ? (int) $bn_space->id : 0;
+// The discussion this space unlinked earlier, offered back before a new one is made.
+$bn_disc_prev = isset( $bn_disc_status['previous'] ) && is_array( $bn_disc_status['previous'] ) ? $bn_disc_status['previous'] : null;
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -199,13 +201,13 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 					// discussions. Once set, this picker is replaced by the line above.
 					?>
 					<div class="bn-space-settings__discussion-picker" data-bn-discussion-picker data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>">
-						<input type="hidden" name="bn_discussion_link_id" value="0" data-bn-discussion-link-id>
-						<label class="bn-space-settings__discussion-picker-label" for="bn_discussion_search"><?php esc_html_e( 'Already have a discussion? Link it instead (optional):', 'buddynext' ); ?></label>
+						<input type="hidden" name="bn_discussion_link_id" value="<?php echo esc_attr( (string) ( null !== $bn_disc_prev ? (int) $bn_disc_prev['id'] : 0 ) ); ?>" data-bn-discussion-link-id>
+						<label class="bn-space-settings__discussion-picker-label" for="bn_discussion_search"><?php echo esc_html( null !== $bn_disc_prev ? __( 'This space’s earlier discussion comes back when you turn Discussion on. Clear it to create a new one, or search for another:', 'buddynext' ) : __( 'Already have a discussion? Link it instead (optional):', 'buddynext' ) ); ?></label>
 						<input
 							type="text"
 							id="bn_discussion_search"
 							class="bn-input bn-space-settings__discussion-search"
-							value=""
+							value="<?php echo esc_attr( null !== $bn_disc_prev ? (string) $bn_disc_prev['name'] : '' ); ?>"
 							placeholder="<?php esc_attr_e( 'Search your discussions to link one…', 'buddynext' ); ?>"
 							autocomplete="off"
 							role="combobox"
@@ -214,7 +216,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 							data-bn-discussion-search
 							data-wp-on--input="actions.discussionSearch"
 							data-wp-on--focus="actions.discussionSearch">
-						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear: create a new discussion instead', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear <?php echo null === $bn_disc_prev ? 'hidden' : ''; ?> data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear: create a new discussion instead', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 						<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
 					</div>
 				<?php endif; ?>
