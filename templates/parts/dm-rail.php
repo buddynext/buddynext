@@ -249,29 +249,39 @@ do_action( 'buddynext_part_dm_rail_before', $args );
 		<?php endif; ?>
 
 		<?php if ( empty( $pinned ) && empty( $recent ) ) : ?>
-			<div class="bn-dm-rail__empty">
+			<?php if ( 'requests' === $tab_active || 'unread' === $tab_active ) : ?>
+				<div class="bn-dm-rail__empty">
+					<?php echo esc_html( 'requests' === $tab_active ? __( 'No message requests.', 'buddynext' ) : __( 'No unread messages.', 'buddynext' ) ); ?>
+				</div>
+			<?php else : ?>
 				<?php
-				// Tab-aware empty copy — "No conversations yet" reads wrong under the
-				// Unread / Requests filters.
-				if ( 'requests' === $tab_active ) {
-					esc_html_e( 'No message requests.', 'buddynext' );
-				} elseif ( 'unread' === $tab_active ) {
-					esc_html_e( 'No unread messages.', 'buddynext' );
-				} else {
-					esc_html_e( 'No conversations yet.', 'buddynext' );
-				}
+				// A member with no conversations at all gets the shared empty state, with
+				// the compose action inside it rather than at the foot of the rail.
+				buddynext_get_template(
+					'parts/empty-state.php',
+					array(
+						'icon'       => 'message-circle',
+						'title'      => __( 'No conversations yet', 'buddynext' ),
+						'body'       => __( 'Message someone in the community to start one.', 'buddynext' ),
+						'cta_label'  => __( 'New message', 'buddynext' ),
+						'cta_icon'   => 'plus',
+						'cta_action' => 'actions.openCompose',
+					)
+				);
 				?>
-			</div>
+			<?php endif; ?>
 		<?php endif; ?>
 
 	</div>
 
+	<?php if ( ! empty( $pinned ) || ! empty( $recent ) || 'requests' === $tab_active || 'unread' === $tab_active ) : ?>
 	<div class="bn-dm-rail__foot">
 		<button type="button" class="bn-btn" data-variant="primary" data-size="md" data-wp-on--click="actions.openCompose" aria-haspopup="dialog">
 			<span class="bn-btn__icon" aria-hidden="true"><?php buddynext_icon( 'plus' ); ?></span>
 			<?php esc_html_e( 'New message', 'buddynext' ); ?>
 		</button>
 	</div>
+	<?php endif; ?>
 
 </aside>
 <?php

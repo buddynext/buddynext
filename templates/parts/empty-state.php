@@ -19,6 +19,8 @@
  * @var string $cta_url    Optional. URL for the primary CTA button.
  * @var string $cta_label  Optional. Visible label for the CTA button.
  * @var string $cta_icon   Optional. Lucide-icon slug rendered inside the CTA.
+ * @var string $cta_action Optional. Interactivity action (e.g. 'actions.openCompose') run by the CTA
+ *                         when there is no $cta_url; renders a button instead of a link.
  * @var array  $classes    Optional. Extra CSS classes appended to `.bn-empty-state`.
  * @var string $tone       Optional. Reserved for future variant ('default'|'muted').
  *
@@ -36,14 +38,15 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'icon'      => isset( $icon ) ? (string) $icon : 'inbox',
-	'title'     => isset( $title ) ? (string) $title : '',
-	'body'      => isset( $body ) ? (string) $body : '',
-	'cta_url'   => isset( $cta_url ) ? (string) $cta_url : '',
-	'cta_label' => isset( $cta_label ) ? (string) $cta_label : '',
-	'cta_icon'  => isset( $cta_icon ) ? (string) $cta_icon : '',
-	'classes'   => isset( $classes ) ? (array) $classes : array(),
-	'tone'      => isset( $tone ) ? (string) $tone : 'default',
+	'icon'       => isset( $icon ) ? (string) $icon : 'inbox',
+	'title'      => isset( $title ) ? (string) $title : '',
+	'body'       => isset( $body ) ? (string) $body : '',
+	'cta_url'    => isset( $cta_url ) ? (string) $cta_url : '',
+	'cta_label'  => isset( $cta_label ) ? (string) $cta_label : '',
+	'cta_icon'   => isset( $cta_icon ) ? (string) $cta_icon : '',
+	'cta_action' => isset( $cta_action ) ? (string) $cta_action : '',
+	'classes'    => isset( $classes ) ? (array) $classes : array(),
+	'tone'       => isset( $tone ) ? (string) $tone : 'default',
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -81,6 +84,15 @@ do_action( 'buddynext_part_empty_state_before', $args );
 
 	<?php if ( '' !== (string) $args['body'] ) : ?>
 		<p><?php echo esc_html( (string) $args['body'] ); ?></p>
+	<?php endif; ?>
+
+	<?php if ( '' === (string) $args['cta_url'] && '' !== (string) $args['cta_action'] && '' !== (string) $args['cta_label'] ) : ?>
+		<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="<?php echo esc_attr( (string) $args['cta_action'] ); ?>" aria-haspopup="dialog">
+			<?php if ( '' !== (string) $args['cta_icon'] && function_exists( 'buddynext_icon' ) ) : ?>
+				<?php buddynext_icon( (string) $args['cta_icon'] ); ?>
+			<?php endif; ?>
+			<?php echo esc_html( (string) $args['cta_label'] ); ?>
+		</button>
 	<?php endif; ?>
 
 	<?php if ( '' !== (string) $args['cta_url'] && '' !== (string) $args['cta_label'] ) : ?>
