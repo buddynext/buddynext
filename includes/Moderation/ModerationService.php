@@ -2028,11 +2028,7 @@ class ModerationService {
 	 * @return WP_Error|null Error when the target outranks the actor, else null.
 	 */
 	private function outranked_error( int $user_id, int $actor_id ): ?WP_Error {
-		if ( $actor_id <= 0 ) {
-			return null;
-		}
-		$roles = new \BuddyNext\Core\RoleService();
-		if ( $roles->rank( $user_id ) <= $roles->rank( $actor_id ) ) {
+		if ( ! ( new \BuddyNext\Core\RoleService() )->outranks( $user_id, $actor_id ) ) {
 			return null;
 		}
 		return new WP_Error(

@@ -1090,7 +1090,7 @@ $posts_pct_abs = abs( $posts_pct );
 												</div>
 											<?php endif; ?>
 											<?php // On a profile report the offender IS the reported member (get_queue enrich), as in the wp-admin row. ?>
-											<?php if ( $rpt_offender > 0 ) : ?>
+											<?php if ( $rpt_offender > 0 && ! buddynext_service( 'roles' )->outranks( $rpt_offender, $current_user_id ) ) : ?>
 												<?php $rpt_is_profile = 'user' === $rpt_obj_type; ?>
 												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.warnUser">
 													<?php echo esc_html( $rpt_is_profile ? __( 'Warn member', 'buddynext' ) : __( 'Warn author', 'buddynext' ) ); ?>

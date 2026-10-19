@@ -132,6 +132,20 @@ class RoleService {
 		return self::ROLE_HIERARCHY[ $this->get_role( $user_id ) ];
 	}
 
+	/**
+	 * Whether the target holds more moderation authority than the actor.
+	 *
+	 * The single answer behind both the sanction guard and which sanction controls
+	 * are shown. Actor 0 is the automated-rule system actor and outranks no one.
+	 *
+	 * @param int $target_id Member a sanction is aimed at.
+	 * @param int $actor_id  Person applying it (0 = system).
+	 * @return bool
+	 */
+	public function outranks( int $target_id, int $actor_id ): bool {
+		return $actor_id > 0 && $this->rank( $target_id ) > $this->rank( $actor_id );
+	}
+
 	// ── Credit helpers ────────────────────────────────────────────────────────
 
 	/**

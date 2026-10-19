@@ -1419,6 +1419,10 @@ class ModerationQueue {
 	 * @return void
 	 */
 	private function user_inline_actions( int $user_id, string $who = 'author' ): void {
+		// Someone who outranks the viewer cannot be sanctioned by them, so offer no controls.
+		if ( buddynext_service( 'roles' )->outranks( $user_id, get_current_user_id() ) ) {
+			return;
+		}
 		$is_member = 'member' === $who;
 		$this->user_button( $user_id, 'strike', $is_member ? __( 'Strike member', 'buddynext' ) : __( 'Strike author', 'buddynext' ), 'secondary', '', true );
 
