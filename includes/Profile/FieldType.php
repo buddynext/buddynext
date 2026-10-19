@@ -2064,8 +2064,10 @@ class FieldType {
 
 		switch ( self::date_display_mode( $field ) ) {
 			case 'age':
-				$birth = new \DateTimeImmutable( '@' . $ts );
-				$now   = new \DateTimeImmutable( 'now' );
+				// Both sides are calendar dates: the birth date is timezone-free and today
+				// is the site's today, so the birthday itself counts on the right day.
+				$birth = new \DateTimeImmutable( gmdate( 'Y-m-d', $ts ) );
+				$now   = new \DateTimeImmutable( wp_date( 'Y-m-d' ) );
 
 				// A future date has no age. Show nothing rather than a negative number.
 				if ( $birth > $now ) {
@@ -2081,11 +2083,12 @@ class FieldType {
 				return gmdate( 'Y', $ts );
 
 			case 'month_year':
-				return wp_date( 'F Y', $ts );
+				// A date-only value has no timezone: format it in UTC or west-of-UTC sites show the day before.
+				return wp_date( 'F Y', $ts, new \DateTimeZone( 'UTC' ) );
 
 			case 'date':
 			default:
-				return wp_date( (string) get_option( 'date_format', 'F j, Y' ), $ts );
+				return wp_date( (string) get_option( 'date_format', 'F j, Y' ), $ts, new \DateTimeZone( 'UTC' ) );
 		}
 	}
 
