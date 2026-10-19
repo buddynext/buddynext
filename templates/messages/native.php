@@ -459,7 +459,15 @@ $bn_ctx = wp_json_encode(
 			<div class="bn-dm-empty">
 				<span class="bn-dm-empty__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
 				<h2 class="bn-dm-empty__title"><?php esc_html_e( 'Your messages', 'buddynext' ); ?></h2>
-				<p class="bn-dm-empty__body"><?php esc_html_e( 'Select a conversation or start a new one.', 'buddynext' ); ?></p>
+				<p class="bn-dm-empty__body">
+					<?php
+					echo esc_html(
+						empty( $convs['pinned'] ) && empty( $convs['recent'] ) && 'all' === $active_tab
+							? __( 'Your conversations will open here.', 'buddynext' )
+							: __( 'Select a conversation or start a new one.', 'buddynext' )
+					);
+					?>
+				</p>
 			</div>
 		<?php endif; ?>
 	</section>
