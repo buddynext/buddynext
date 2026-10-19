@@ -48,7 +48,7 @@ The tab is a per-space choice made by the space owner.
 
 Switching it off hides the tab but keeps the discussion and everything in it, so switching it back on restores the same discussion. Only the space owner can change this.
 
-To link a different discussion, select **Unlink** next to **Linked discussion** and confirm. The forum, its posts and every space member stay where they are; only the link to this space is removed. Switching **Enable discussion** on again creates a new discussion or lets you link an existing one.
+To link a different discussion, select **Unlink** next to **Linked discussion** and confirm. The forum, its posts and every space member stay where they are; only the link to this space is removed. Unlinking also switches **Enable discussion** off. Switching it on again brings back the discussion you just unlinked; clear it to create a new discussion instead, or search for another one to link. A member who is banned from or leaves the space afterwards loses access to the old discussion too.
 
 > **Note:** Until Jetonomy is active, the forum does not exist. BuddyNext registers none of its forum navigation or behavior, and pages render exactly as they did before. The integration adds zero overhead on sites that do not use it.
 

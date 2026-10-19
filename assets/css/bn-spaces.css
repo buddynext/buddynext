@@ -2174,8 +2174,14 @@ a.bn-sh-statpill:focus-visible {
 /* Discussion-link typeahead picker (Integrations panel). */
 .bn-space-settings__discussion-picker {
 	position: relative;
-	margin-block-start: var(--bn-s2);
+	margin-block: var(--bn-s2) var(--bn-s4);
 	max-inline-size: 420px;
+}
+
+/* Holds the input and its clear button so the button centres on the input,
+   not on the label above it. */
+.bn-space-settings__discussion-field {
+	position: relative;
 }
 
 .bn-space-settings__discussion-picker-label {
@@ -2187,15 +2193,20 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-settings__discussion-search {
 	inline-size: 100%;
-	padding-inline-end: var(--bn-s6);
+	padding-inline-end: var(--bn-s10);
 }
 
 .bn-space-settings__discussion-clear {
 	position: absolute;
-	inset-block-start: var(--bn-s2);
-	inset-inline-end: var(--bn-s2);
-	inline-size: 24px;
-	block-size: 24px;
+	inset-block-start: 50%;
+	inset-inline-end: var(--bn-s1);
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 32px;
+	block-size: 32px;
+	padding: 0;
 	border: 0;
 	border-radius: var(--bn-r-md);
 	background: transparent;
@@ -2203,6 +2214,10 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-lg);
 	line-height: 1;
 	cursor: pointer;
+}
+
+.bn-space-settings__discussion-clear[hidden] {
+	display: none;
 }
 
 .bn-space-settings__discussion-clear:hover {
