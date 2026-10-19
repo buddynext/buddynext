@@ -45,7 +45,7 @@ Unbanning removes the ban record, so a space ban is never a one-way door. The me
 
 ## Setting it up (for owners)
 
-Space bans need no configuration. Any owner or moderator of a space can ban, view bans, and unban for that space, and a site administrator can do the same for any space. There are no plugin settings to enable first.
+Space bans need no configuration. Any owner or moderator of a space can ban, view bans, and unban for that space, and a site administrator can do the same for any space. There are no plugin settings to enable first. A space moderator cannot ban or remove a member who outranks them, such as a community admin or site administrator; those members show no ban or remove controls and the request is refused.
 
 The one related space setting is the default notification preference for new members, which is covered in Space Notifications, not here.
 

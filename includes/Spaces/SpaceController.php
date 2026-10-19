@@ -3302,6 +3302,12 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'cannot_remove_owner', __( 'The space owner cannot be removed.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// A space moderator cannot remove the administrators above them.
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $target_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
+		}
+
 		if ( ! $service->remove( $space_id, $target_id, $actor_id ) ) {
 			return new WP_Error( 'remove_failed', __( 'Could not remove the member.', 'buddynext' ), array( 'status' => 400 ) );
 		}

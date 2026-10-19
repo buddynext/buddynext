@@ -70,4 +70,58 @@ class CommunityModeratorSpacePowersTest extends WP_UnitTestCase {
 		$this->assertTrue( $members->ban( $space_id, $this->member( 'member', 'administrator' ), $second ) );
 		$this->assertWPError( $members->ban( $space_id, $space_mod, $owner ), 'The owner is never banned.' );
 	}
+
+	/**
+	 * A space moderator keeps the members below them in order but cannot ban or
+	 * remove a WordPress administrator, whichever primitive the call comes through.
+	 * A peer is fair game and the automated system actor (0) is exempt.
+	 *
+	 * @return void
+	 */
+	public function test_space_moderator_cannot_sanction_someone_who_outranks_them(): void {
+		$owner    = $this->member();
+		$members  = new SpaceMemberService();
+		$space_id = ( new SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Harbour Road Swimmers',
+				'slug' => 'harbour-road-swimmers',
+				'type' => 'open',
+			)
+		);
+		$this->assertIsInt( $space_id );
+
+		$space_mod = $this->member();
+		$members->join( $space_id, $space_mod );
+		$this->assertTrue( $members->change_role( $space_id, $space_mod, 'moderator', $owner ) );
+
+		$admin = $this->member( 'member', 'administrator' );
+		$members->join( $space_id, $admin );
+
+		$banned = $members->ban( $space_id, $space_mod, $admin );
+		$this->assertWPError( $banned );
+		$this->assertSame( 'forbidden', $banned->get_error_code() );
+
+		$banned = $members->ban_from_space( $space_id, $admin, $space_mod );
+		$this->assertWPError( $banned );
+		$this->assertSame( 'forbidden', $banned->get_error_code() );
+		$this->assertTrue( $members->is_member( $space_id, $admin ), 'The administrator is still in the space.' );
+
+		$peer = $this->member();
+		$members->join( $space_id, $peer );
+		$this->assertTrue( $members->ban_from_space( $space_id, $peer, $space_mod ), 'A peer is not above the moderator.' );
+
+		$other = $this->member();
+		$members->join( $space_id, $other );
+		$this->assertTrue( $members->ban_from_space( $space_id, $other, 0 ), 'Automated moderation has no rank to compare.' );
+
+		wp_set_current_user( $space_mod );
+		$request = new \WP_REST_Request( 'DELETE', '/buddynext/v1/spaces/' . $space_id . '/members/' . $admin );
+		$request->set_param( 'id', $space_id );
+		$request->set_param( 'user_id', $admin );
+		$removed = ( new \BuddyNext\Spaces\SpaceController() )->remove_member( $request );
+		$this->assertWPError( $removed );
+		$this->assertSame( 'forbidden', $removed->get_error_code() );
+		$this->assertTrue( $members->is_member( $space_id, $admin ) );
+	}
 }
