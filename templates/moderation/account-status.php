@@ -47,9 +47,7 @@ $bn_as_date = static function ( $utc ): string {
 	if ( '' === $utc ) {
 		return '';
 	}
-	$fmt = get_option( 'date_format', 'M j, Y' ) . ' ' . get_option( 'time_format', 'g:i a' );
-	$ts  = strtotime( $utc . ' UTC' );
-	return (string) wp_date( $fmt, false !== $ts ? (int) $ts : 0 );
+	return buddynext_date_local( $utc, get_option( 'date_format', 'M j, Y' ) . ' ' . get_option( 'time_format', 'g:i a' ) );
 };
 
 /**

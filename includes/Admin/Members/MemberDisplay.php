@@ -102,33 +102,4 @@ class MemberDisplay {
 
 		return ucwords( str_replace( array( '_', '-' ), ' ', $role ) );
 	}
-
-	/**
-	 * Return a short human-readable time difference string.
-	 *
-	 * @param int $timestamp Unix timestamp.
-	 * @return string e.g. "2h ago", "3d ago", "1w ago".
-	 */
-	public static function human_time_diff_short( int $timestamp ): string {
-		if ( $timestamp <= 0 ) {
-			return "\xe2\x80\x94";
-		}
-		$diff = max( 0, time() - $timestamp );
-		if ( $diff < 60 ) {
-			return __( 'Just now', 'buddynext' );
-		}
-		if ( $diff < 3600 ) {
-			return (string) round( $diff / 60 ) . 'm ago';
-		}
-		if ( $diff < 86400 ) {
-			return (string) round( $diff / 3600 ) . 'h ago';
-		}
-		if ( $diff < 604800 ) {
-			return (string) round( $diff / 86400 ) . 'd ago';
-		}
-		if ( $diff < 2592000 ) {
-			return (string) round( $diff / 604800 ) . 'w ago';
-		}
-		return gmdate( 'M j, Y', $timestamp );
-	}
 }

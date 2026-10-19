@@ -359,7 +359,7 @@ class SpaceSidebarProvider {
 					<?php buddynext_icon( 'calendar' ); ?>
 					<?php
 					// translators: %s is the formatted date.
-					printf( esc_html__( 'Created %s', 'buddynext' ), buddynext_date_local( (string) $space->created_at ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output.
+					printf( esc_html__( 'Created %s', 'buddynext' ), buddynext_date_local( (string) $space->created_at ) );
 					?>
 				</span>
 			<?php endif; ?>

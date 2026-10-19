@@ -498,9 +498,12 @@ class AdminHub {
 		$insights = new Insights();
 		$metrics  = $insights->metrics();
 
-		$today_start     = gmdate( 'Y-m-d 00:00:00' );
-		$yesterday_start = gmdate( 'Y-m-d 00:00:00', strtotime( '-1 day' ) );
-		$yesterday_end   = gmdate( 'Y-m-d 23:59:59', strtotime( '-1 day' ) );
+		// "Today" is the site's day (Settings > General); the columns are UTC.
+		$utc             = new \DateTimeZone( 'UTC' );
+		$site_today      = new \DateTimeImmutable( 'today', wp_timezone() );
+		$today_start     = $site_today->setTimezone( $utc )->format( 'Y-m-d H:i:s' );
+		$yesterday_start = $site_today->modify( '-1 day' )->setTimezone( $utc )->format( 'Y-m-d H:i:s' );
+		$yesterday_end   = $site_today->modify( '-1 second' )->setTimezone( $utc )->format( 'Y-m-d H:i:s' );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$members_new_today = (int) $wpdb->get_var(
