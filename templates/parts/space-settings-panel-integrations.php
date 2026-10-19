@@ -192,33 +192,6 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 						&middot;
 						<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>" data-wp-on--click="actions.unlinkDiscussion"><?php esc_html_e( 'Unlink', 'buddynext' ); ?></button>
 					</p>
-				<?php else : ?>
-					<?php
-					// First-time setup only: create a new dedicated discussion (default)
-					// or link an existing one. The typeahead search scopes results by
-					// role server-side (site admin: all; space owner: their own), so it
-					// scales past a bounded <select> on sites with thousands of
-					// discussions. Once set, this picker is replaced by the line above.
-					?>
-					<div class="bn-space-settings__discussion-picker" data-bn-discussion-picker data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>">
-						<input type="hidden" name="bn_discussion_link_id" value="<?php echo esc_attr( (string) ( null !== $bn_disc_prev ? (int) $bn_disc_prev['id'] : 0 ) ); ?>" data-bn-discussion-link-id>
-						<label class="bn-space-settings__discussion-picker-label" for="bn_discussion_search"><?php echo esc_html( null !== $bn_disc_prev ? __( 'This space’s earlier discussion comes back when you turn Discussion on. Clear it to create a new one, or search for another:', 'buddynext' ) : __( 'Already have a discussion? Link it instead (optional):', 'buddynext' ) ); ?></label>
-						<input
-							type="text"
-							id="bn_discussion_search"
-							class="bn-input bn-space-settings__discussion-search"
-							value="<?php echo esc_attr( null !== $bn_disc_prev ? (string) $bn_disc_prev['name'] : '' ); ?>"
-							placeholder="<?php esc_attr_e( 'Search your discussions to link one…', 'buddynext' ); ?>"
-							autocomplete="off"
-							role="combobox"
-							aria-expanded="false"
-							aria-controls="bn_discussion_results"
-							data-bn-discussion-search
-							data-wp-on--input="actions.discussionSearch"
-							data-wp-on--focus="actions.discussionSearch">
-						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear <?php echo null === $bn_disc_prev ? 'hidden' : ''; ?> data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear: create a new discussion instead', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
-						<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
-					</div>
 				<?php endif; ?>
 			<?php else : ?>
 				<p class="bn-space-settings__hint">
@@ -233,6 +206,37 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			</label>
 		<?php endif; ?>
 	</div>
+
+	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has ) : ?>
+		<?php
+		// First-time setup only: create a new dedicated discussion (default)
+		// or link an existing one. The typeahead search scopes results by
+		// role server-side (site admin: all; space owner: their own), so it
+		// scales past a bounded <select> on sites with thousands of
+		// discussions. Once set, this picker is replaced by the line above.
+		?>
+		<div class="bn-space-settings__discussion-picker" data-bn-discussion-picker data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>">
+			<input type="hidden" name="bn_discussion_link_id" value="<?php echo esc_attr( (string) ( null !== $bn_disc_prev ? (int) $bn_disc_prev['id'] : 0 ) ); ?>" data-bn-discussion-link-id>
+			<label class="bn-space-settings__discussion-picker-label" for="bn_discussion_search"><?php echo esc_html( null !== $bn_disc_prev ? __( 'This space’s earlier discussion comes back when you turn Discussion on. Clear it to create a new one, or search for another:', 'buddynext' ) : __( 'Already have a discussion? Link it instead (optional):', 'buddynext' ) ); ?></label>
+			<div class="bn-space-settings__discussion-field">
+				<input
+					type="text"
+					id="bn_discussion_search"
+					class="bn-input bn-space-settings__discussion-search"
+					value="<?php echo esc_attr( null !== $bn_disc_prev ? (string) $bn_disc_prev['name'] : '' ); ?>"
+					placeholder="<?php esc_attr_e( 'Search your discussions to link one…', 'buddynext' ); ?>"
+					autocomplete="off"
+					role="combobox"
+					aria-expanded="false"
+					aria-controls="bn_discussion_results"
+					data-bn-discussion-search
+					data-wp-on--input="actions.discussionSearch"
+					data-wp-on--focus="actions.discussionSearch">
+				<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear <?php echo null === $bn_disc_prev ? 'hidden' : ''; ?> data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear: create a new discussion instead', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+			</div>
+			<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
+		</div>
+	<?php endif; ?>
 
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
