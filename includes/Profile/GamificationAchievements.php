@@ -600,7 +600,7 @@ class GamificationAchievements {
 			$desc      = isset( $badge['description'] ) ? (string) $badge['description'] : '';
 			$image     = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
 			$is_cr     = ! empty( $badge['is_credential'] );
-			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? get_date_from_gmt( (string) $badge['earned_at'], $date_format ) : '';
+			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? buddynext_date_local( (string) $badge['earned_at'], $date_format ) : '';
 			// Only earned badges the viewer can open get a link; the rest are static.
 			// When the partner cannot say which badges are published (WB Gamification
 			// older than 1.6.5), nobody but the member and site staff gets a link:

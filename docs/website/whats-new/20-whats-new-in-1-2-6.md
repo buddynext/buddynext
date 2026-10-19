@@ -8,6 +8,7 @@ This release lets you hand moderation work to community admins and moderators wi
 
 - **Unlink a space's discussion.** A space owner can unlink the space's discussion under **Settings > Integrations**. The forum, its posts and every space member stay, and Discussion can be turned on again later. See [Space Forum](../spaces/09-space-forum.md).
 - **Your own login page.** Developers can send every BuddyNext Log in link and guest gate to their own login page with the `buddynext_login_url` filter. See [Your own login page](../developer-guide/57-your-own-login-page.md).
+- **Your Site Icon as the app icon.** The installable app uses your WordPress Site Icon when one is set, and BuddyNext's own icons otherwise. Change it under **Settings > General** in WordPress. See [Progressive web app](../engagement/04-pwa.md).
 
 ## Better for site owners
 
@@ -17,6 +18,7 @@ This release lets you hand moderation work to community admins and moderators wi
 - **Editing profiles.** Anyone you give "Edit anyone's profile" can also change a member's member type, and can open the profile editor from a page using the members shortcode.
 - **Explore.** Each integration activity is its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.
 - **Integration versions.** The readme lists the minimum version of each integration plugin and what happens on an older one.
+- **One timezone for every date.** Dates and times show in your site's timezone on member and admin screens, so a joined date, an expiry or a birthday reads the same everywhere.
 
 ## Fixes
 
@@ -34,6 +36,12 @@ This release lets you hand moderation work to community admins and moderators wi
 - Changing your member type no longer warns about unsaved changes.
 - With email verification on, a site administrator reads as verified in the app.
 - Search no longer shows deleted members, and the update clears search entries for members, posts and spaces deleted before this version.
+- Birthdays and other date-only profile fields no longer show a day early or late when the site timezone is not UTC.
+- Profile Strength no longer counts a section as complete while a required field in it is empty.
+- A space moderator can no longer ban or remove a member who outranks them, and moderators can no longer warn, strike, suspend or shadow-ban one. Those controls are hidden for that member.
+- Notification types that only reach the site owner are no longer offered to members in notification settings or the app.
+- After a space unlinks its discussion, banning or removing a member still removes their forum access, and turning Discussion back on offers the old forum.
+- The Messages screen shows the standard empty state when you have no conversations.
 
 ## Security
 
@@ -45,6 +53,7 @@ This release lets you hand moderation work to community admins and moderators wi
 - **REST.** `DELETE /spaces/{id}/discussion` unlinks a space's discussion. The REST API reference is regenerated for 1.2.6.
 - **Auth links.** The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.
 - **Tests.** The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
+- **Notification audience.** Integration notification types can declare `audience` as `owner` or `moderator`; see [Notifications and email hooks](../developer-guide/30-hooks-notifications-email.md).
 
 ## BuddyNext Pro 1.2.6
 
@@ -55,3 +64,5 @@ Clear plan limits for group messages and pinned posts, and every bridge tested a
 - **Events.** Event cards show the event's own date when the site's timezone differs, and cards posted before this update are corrected.
 - **Bulk moderation.** Bulk moderation works on phones, and Bulk Warn and Bulk Suspend ask for a reason when it is empty.
 - **Compatibility.** Tested with Eventonomy 1.9.0, WP Career Board 1.8.1, WB Listora 2.0.0 and Learnomy 2.1.3.
+- **Dates.** Membership, invoice, receipt and billing dates show in the site timezone, matching the admin screens.
+- **Trials.** A trial bought on a gateway BuddyNext does not bill, such as the Test gateway, no longer promises a cancel the member cannot make.

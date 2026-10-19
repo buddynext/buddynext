@@ -1876,14 +1876,14 @@ class Members extends AdminPageBase {
 									<?php endif; ?>
 								</td>
 								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Joined', 'buddynext' ); ?>">
-									<time datetime="<?php echo esc_attr( gmdate( 'c', strtotime( $member['registered'] ) ) ); ?>">
-										<?php echo esc_html( gmdate( 'M j, Y', strtotime( $member['registered'] ) ) ); ?>
+									<time datetime="<?php echo esc_attr( \BuddyNext\Core\Dates::iso8601( $member['registered'] ) ); ?>">
+										<?php echo buddynext_date_local( $member['registered'], 'M j, Y' ); ?>
 									</time>
 								</td>
 								<td class="bn-col-muted" data-colname="<?php esc_attr_e( 'Last active', 'buddynext' ); ?>">
 									<?php if ( $member['last_active'] > 0 ) : ?>
 										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_active'] ) ); ?>">
-											<?php echo esc_html( MemberDisplay::human_time_diff_short( $member['last_active'] ) ); ?>
+											<?php echo esc_html( buddynext_time_ago( gmdate( 'Y-m-d H:i:s', (int) $member['last_active'] ) ) ); ?>
 										</time>
 									<?php else : ?>
 										<span aria-hidden="true">&mdash;</span>

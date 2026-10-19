@@ -457,7 +457,7 @@ $posts_pct_abs = abs( $posts_pct );
 							$bn_ca_m_id   = (int) ( $bn_ca_m['id'] ?? 0 );
 							$bn_ca_m_role = ( is_object( $bn_ca_roles ) && method_exists( $bn_ca_roles, 'get_role' ) ) ? $bn_ca_roles->get_role( $bn_ca_m_id ) : 'member';
 							$bn_ca_m_init = strtoupper( mb_substr( $bn_ca_m_name, 0, 1 ) );
-							$bn_ca_m_reg  = mysql2date( (string) get_option( 'date_format' ), (string) ( $bn_ca_m['registered'] ?? '' ) );
+							$bn_ca_m_reg  = buddynext_date_local( (string) ( $bn_ca_m['registered'] ?? '' ) );
 							?>
 							<div class="bn-ca-row">
 								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $bn_ca_m_init ); ?></span>
@@ -729,7 +729,7 @@ $posts_pct_abs = abs( $posts_pct );
 											printf(
 												/* translators: %s: expiry date. */
 												esc_html__( 'Expires %s', 'buddynext' ),
-												esc_html( mysql2date( (string) get_option( 'date_format' ), $bn_inv_exp ) )
+												buddynext_date_local( (string) $bn_inv_exp )
 											);
 										}
 										?>
@@ -1090,7 +1090,7 @@ $posts_pct_abs = abs( $posts_pct );
 												</div>
 											<?php endif; ?>
 											<?php // On a profile report the offender IS the reported member (get_queue enrich), as in the wp-admin row. ?>
-											<?php if ( $rpt_offender > 0 ) : ?>
+											<?php if ( $rpt_offender > 0 && ! buddynext_service( 'roles' )->outranks( $rpt_offender, $current_user_id ) ) : ?>
 												<?php $rpt_is_profile = 'user' === $rpt_obj_type; ?>
 												<button type="button" class="bn-ca-more-menu-item" role="menuitem" data-wp-on--click="actions.warnUser">
 													<?php echo esc_html( $rpt_is_profile ? __( 'Warn member', 'buddynext' ) : __( 'Warn author', 'buddynext' ) ); ?>

@@ -207,8 +207,8 @@ class MemberEditForm {
 				<div class="bn-hero-stats">
 					<?php
 					$last_login     = (int) get_user_meta( $user_id, 'bn_last_login', true );
-					$joined         = gmdate( 'M j, Y', strtotime( $wp_user->user_registered ) );
-					$joined_iso     = gmdate( 'c', strtotime( $wp_user->user_registered ) );
+					$joined         = buddynext_date_local( $wp_user->user_registered, 'M j, Y' );
+					$joined_iso     = \BuddyNext\Core\Dates::iso8601( $wp_user->user_registered );
 					$last_login_iso = $last_login > 0 ? gmdate( 'c', $last_login ) : '';
 					?>
 					<span>
@@ -227,7 +227,7 @@ class MemberEditForm {
 							printf(
 								/* translators: %s: formatted last-login time, or the word for Never. */
 								esc_html__( 'Last login: %s', 'buddynext' ),
-								'<time datetime="' . esc_attr( $last_login_iso ) . '">' . esc_html( MemberDisplay::human_time_diff_short( $last_login ) ) . '</time>'
+								'<time datetime="' . esc_attr( $last_login_iso ) . '">' . esc_html( buddynext_time_ago( gmdate( 'Y-m-d H:i:s', $last_login ) ) ) . '</time>'
 							);
 							?>
 						<?php else : ?>

@@ -93,6 +93,16 @@
 		<severity>0</severity>
 	</rule>
 
+	<!-- These two helpers return already-escaped strings, so echoing them is safe. -->
+	<rule ref="WordPress.Security.EscapeOutput">
+		<properties>
+			<property name="customEscapingFunctions" type="array">
+				<element value="buddynext_date_local"/>
+				<element value="buddynext_time_ago"/>
+			</property>
+		</properties>
+	</rule>
+
 	<!-- PHP minimum version -->
 	<config name="minimum_supported_wp_version" value="6.9"/>
 	<config name="testVersion" value="8.1-"/>

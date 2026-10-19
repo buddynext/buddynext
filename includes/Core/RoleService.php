@@ -116,6 +116,59 @@ class RoleService {
 		return ( self::ROLE_HIERARCHY[ $this->get_role( $user_id ) ] ?? 0 ) >= self::ROLE_HIERARCHY['moderator'];
 	}
 
+	/**
+	 * How much moderation authority a user holds, for comparing two people.
+	 *
+	 * A WordPress administrator outranks every community role; below that the
+	 * order is admin, moderator, member. Equal ranks do not outrank each other.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return int 4 = WordPress administrator, 3 = admin, 2 = moderator, 1 = member.
+	 */
+	public function rank( int $user_id ): int {
+		if ( $user_id > 0 && user_can( $user_id, 'manage_options' ) ) {
+			return 1 + max( self::ROLE_HIERARCHY );
+		}
+		return self::ROLE_HIERARCHY[ $this->get_role( $user_id ) ];
+	}
+
+	/**
+	 * Whether the target holds more moderation authority than the actor.
+	 *
+	 * The single answer behind both the sanction guard and which sanction controls
+	 * are shown. Actor 0 is the automated-rule system actor and outranks no one.
+	 *
+	 * @param int $target_id Member a sanction is aimed at.
+	 * @param int $actor_id  Person applying it (0 = system).
+	 * @return bool
+	 */
+	public function outranks( int $target_id, int $actor_id ): bool {
+		return $actor_id > 0 && $this->rank( $target_id ) > $this->rank( $actor_id );
+	}
+
+	/**
+	 * Refuse a moderation action against someone who outranks the actor.
+	 *
+	 * A moderator who may warn, strike, suspend, shadow-ban, ban or remove members
+	 * must not be able to do it to the administrators above them. Equal ranks are
+	 * allowed, and actor 0 is the automated-rule system actor, which has no rank to
+	 * compare.
+	 *
+	 * @param int $target_id Member the action is aimed at.
+	 * @param int $actor_id  Person applying it (0 = system).
+	 * @return \WP_Error|null Error when the target outranks the actor, else null.
+	 */
+	public function outranked_error( int $target_id, int $actor_id ): ?\WP_Error {
+		if ( ! $this->outranks( $target_id, $actor_id ) ) {
+			return null;
+		}
+		return new \WP_Error(
+			'forbidden',
+			__( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ),
+			array( 'status' => 403 )
+		);
+	}
+
 	// ── Credit helpers ────────────────────────────────────────────────────────
 
 	/**

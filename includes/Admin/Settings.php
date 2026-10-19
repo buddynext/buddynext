@@ -3619,7 +3619,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							<?php $bn_member = get_userdata( (int) $bn_row['user_id'] ); ?>
 							<tr>
 								<td class="column-primary">
-									<?php echo esc_html( get_date_from_gmt( (string) $bn_row['created_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?>
+									<?php echo buddynext_date_local( (string) $bn_row['created_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ); ?>
 									<button type="button" class="toggle-row">
 										<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
 										<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>

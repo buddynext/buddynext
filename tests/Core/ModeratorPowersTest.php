@@ -232,6 +232,34 @@ class ModeratorPowersTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A moderator cannot sanction the people above them; equals and juniors stay open.
+	 *
+	 * Warn, strike, suspend and shadow-ban all refuse a target that outranks the
+	 * actor: a WordPress administrator or a community admin over a moderator.
+	 *
+	 * @return void
+	 */
+	public function test_sanctions_refuse_a_target_who_outranks_the_actor(): void {
+		$service   = new ModerationService();
+		$moderator = $this->member( 'moderator' );
+		$peer      = $this->member( 'moderator' );
+		$admin     = $this->member( 'admin' );
+		$wp_admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$junior    = $this->member( 'member' );
+
+		foreach ( array( $admin, $wp_admin ) as $above ) {
+			$this->assertWPError( $service->warn( $above, $moderator, 'Test warning' ), 'Warn.' );
+			$this->assertWPError( $service->issue_strike( $above, $moderator, 'Test strike' ), 'Strike.' );
+			$this->assertWPError( $service->suspend_user( $above, $moderator, 'Test', array( 'duration_days' => 3 ) ), 'Suspend.' );
+			$this->assertWPError( $service->shadow_ban( $above, $moderator, 'Test' ), 'Shadow-ban.' );
+		}
+
+		$this->assertTrue( $service->warn( $junior, $moderator, 'Test warning' ), 'A moderator may warn a member.' );
+		$this->assertTrue( $service->warn( $peer, $moderator, 'Test warning' ), 'Equal ranks are not blocked.' );
+		$this->assertTrue( $service->warn( $moderator, $wp_admin, 'Test warning' ), 'A WordPress administrator may warn a moderator.' );
+	}
+
+	/**
 	 * Clear the per-request role map memo.
 	 *
 	 * @return void

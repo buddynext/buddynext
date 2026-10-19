@@ -51,12 +51,26 @@ class NotificationPrefControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertArrayHasKey( 'prefs', $data );
 
-		$catalogue = ( new NotificationPrefCatalogue() )->all();
+		// A member is offered every type except the moderator-only and owner-only ones.
+		$catalogue = array_filter(
+			( new NotificationPrefCatalogue() )->all(),
+			static fn( array $entry ): bool => empty( $entry['moderator_only'] ) && empty( $entry['owner_only'] )
+		);
 		foreach ( array_keys( $catalogue ) as $type ) {
 			$this->assertArrayHasKey( $type, $data['prefs'], "missing pref row for {$type}" );
 			$this->assertArrayHasKey( 'on_site', $data['prefs'][ $type ] );
 			$this->assertArrayHasKey( 'email_freq', $data['prefs'][ $type ] );
 		}
+	}
+
+	public function test_get_prefs_hides_moderator_only_rows_from_a_member_and_shows_them_to_a_moderator(): void {
+		wp_set_current_user( $this->user_id );
+		$data = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/me/notification-prefs' ) )->get_data();
+		$this->assertArrayNotHasKey( 'bn.appeal_submitted', $data['prefs'], 'A member must not be offered a moderator-only row.' );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$data = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/me/notification-prefs' ) )->get_data();
+		$this->assertArrayHasKey( 'bn.appeal_submitted', $data['prefs'], 'An administrator is offered the moderator-only row.' );
 	}
 
 	public function test_get_prefs_overlays_stored_values_on_top_of_defaults(): void {

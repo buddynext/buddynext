@@ -210,12 +210,15 @@ class Insights {
 		$connections_tot = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$p}bn_connections WHERE status = 'accepted'" );
 		$follows_total   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$p}bn_follows WHERE status = 'approved'" );
 
-		// 14-day signup histogram (oldest → newest), zero-filled.
-		$d14  = gmdate( 'Y-m-d 00:00:00', $now - 13 * DAY_IN_SECONDS );
-		$rows = $wpdb->get_results(
+		// 14-day signup histogram (oldest → newest), zero-filled, bucketed by the site's day.
+		$site_tz = wp_timezone();
+		$offset  = ( new \DateTimeImmutable( 'now', $site_tz ) )->format( 'P' );
+		$d14     = ( new \DateTimeImmutable( '-13 days midnight', $site_tz ) )->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
+		$rows    = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT DATE(user_registered) AS d, COUNT(*) AS c
-				 FROM {$wpdb->users} WHERE user_registered >= %s GROUP BY DATE(user_registered)",
+				"SELECT DATE(CONVERT_TZ(user_registered, '+00:00', %s)) AS d, COUNT(*) AS c
+				 FROM {$wpdb->users} WHERE user_registered >= %s GROUP BY d",
+				$offset,
 				$d14
 			),
 			OBJECT_K
@@ -224,7 +227,7 @@ class Insights {
 
 		$signups = array();
 		for ( $i = 13; $i >= 0; $i-- ) {
-			$day             = gmdate( 'Y-m-d', $now - $i * DAY_IN_SECONDS );
+			$day             = wp_date( 'Y-m-d', $now - $i * DAY_IN_SECONDS );
 			$signups[ $day ] = isset( $rows[ $day ] ) ? (int) $rows[ $day ]->c : 0;
 		}
 

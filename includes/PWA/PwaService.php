@@ -112,33 +112,39 @@ class PwaService {
 			'categories'       => array( 'social', 'community' ),
 		);
 
-		// Icon set: branded PNG marks at the 192/512 break points the install
-		// criteria look for. PNGs are the only universally-accepted manifest icon
-		// format — Chromium rejects REST-served SVG manifest icons ("isn't a
-		// valid image"), so we ship real PNGs. The 512 is also advertised
-		// `maskable`; the brand mark carries enough padding for the safe zone.
+		// Icon set: the site owner's own Site Icon (Settings > General) when one is set,
+		// else the branded PNGs we ship. Chromium rejects REST-served SVG manifest icons,
+		// so both are real raster files at the 192/512 break points the install criteria
+		// look for. Only our own 512 is advertised `maskable`: it carries the safe-zone
+		// padding, and an owner's icon would be cropped by a mask.
 		$png_base = ( defined( 'BUDDYNEXT_URL' ) ? constant( 'BUDDYNEXT_URL' ) : plugins_url( '/', dirname( __DIR__, 2 ) ) ) . 'assets/images/pwa/';
+		$icon_192 = (string) get_site_icon_url( 192 );
+		$icon_512 = (string) get_site_icon_url( 512 );
+		$own      = '' === $icon_192 || '' === $icon_512;
 
 		$manifest['icons'] = array(
 			array(
-				'src'     => $png_base . 'icon-192.png',
+				'src'     => $own ? $png_base . 'icon-192.png' : $icon_192,
 				'sizes'   => '192x192',
 				'type'    => 'image/png',
 				'purpose' => 'any',
 			),
 			array(
-				'src'     => $png_base . 'icon-512.png',
+				'src'     => $own ? $png_base . 'icon-512.png' : $icon_512,
 				'sizes'   => '512x512',
 				'type'    => 'image/png',
 				'purpose' => 'any',
 			),
-			array(
+		);
+
+		if ( $own ) {
+			$manifest['icons'][] = array(
 				'src'     => $png_base . 'icon-512.png',
 				'sizes'   => '512x512',
 				'type'    => 'image/png',
 				'purpose' => 'maskable',
-			),
-		);
+			);
+		}
 
 		/**
 		 * Filter the BuddyNext Web App Manifest.

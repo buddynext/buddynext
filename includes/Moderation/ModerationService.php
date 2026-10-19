@@ -1247,6 +1247,11 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
+		}
+
 		$reason = self::require_sanction_reason( $reason, __( 'Add a reason for the strike. The member sees it on their account page.', 'buddynext' ) );
 		if ( is_wp_error( $reason ) ) {
 			return $reason;
@@ -1322,6 +1327,11 @@ class ModerationService {
 		$actor_is_site_mod = $this->is_site_moderator( $actor_id );
 		if ( ! $actor_is_site_mod && ! ( $space_id > 0 && $this->actor_moderates_space( $actor_id, $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
 		}
 
 		// A space-only moderator's authority is scoped to their space: they may warn a
@@ -2247,6 +2257,11 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ) );
 		}
 
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
+		}
+
 		// A person suspending someone must say why: the member is shown this text on
 		// their account status page and in the suspension email, so an empty or
 		// internal-sounding reason leaves them with nothing to act on or appeal
@@ -2428,6 +2443,11 @@ class ModerationService {
 		// 10264294189).
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
 		}
 
 		update_user_meta( $user_id, 'bn_shadow_banned', '1' );

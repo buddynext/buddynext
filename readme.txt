@@ -75,11 +75,13 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 
 * New      - Developers can send every BuddyNext Log in link and guest gate to their own login page with the buddynext_login_url filter.
 * New      - Space owners can unlink a space's discussion; the forum and every space member stay, and Discussion can be turned on again later.
+* New      - The installable app uses your WordPress Site Icon, with the BuddyNext icons as the fallback when none is set.
 * Improve  - Community moderators can remove any comment, bulk-moderate and review posts from suspended or shadow-banned members without being WordPress administrators.
 * Improve  - Open-ended suspensions, appeals, editing other members' posts and comments, site-wide announcements and role changes are now permissions you can hand to community admins or moderators under Roles & Capabilities.
 * Improve  - Anyone you give "Edit anyone's profile" can now also change a member's self-chosen member type and open the profile editor from a page using the members shortcode.
 * Improve  - Explore shows each integration activity as its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.
 * Improve  - The readme lists the minimum version of each integration plugin and what happens on an older one.
+* Improve  - Every date and time stored in UTC now shows in the site timezone on member and admin screens, through one shared formatter.
 * Fix      - Finishing a word while @mention or #hashtag suggestions are still loading no longer opens a stale list or inserts "null" into a post or comment.
 * Fix      - Logged-out visitors see the real poll percentages instead of 0% on every option.
 * Fix      - Opening an admin screen whose feature is switched off, such as AI Moderation, now says the feature is off and links to Features, instead of claiming the setting moved.
@@ -101,10 +103,17 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Fix      - A post from a shadow-banned member, or a suspended member whose posts are hidden, no longer opens for other members by direct link or through the app.
 * Fix      - Community admins are offered an open-ended suspension in the suspend dialog, as their role allows.
 * Fix      - Space owners and moderators see the new-report setting in their notification preferences.
+* Fix      - Birthdays and other date-only profile fields no longer show a day early or late on sites whose timezone is not UTC.
+* Fix      - Profile Strength no longer counts a section as complete while a required field in it is empty.
+* Fix      - A space moderator can no longer ban or remove a member who outranks them, and moderators can no longer warn, strike, suspend or shadow-ban one; those controls are hidden.
+* Fix      - Notification types that only reach the site owner are no longer offered to members in notification settings or the app.
+* Fix      - After a space unlinks its discussion, banning or removing a member still removes their forum access, and turning Discussion back on offers the old forum.
+* Fix      - The Messages screen shows the standard empty state when you have no conversations.
 * Dev      - The PHPUnit suite installs its tables before the first test, so it runs on a fresh test database.
 * Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
 * Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.
-* Compat   - Tested with Jetonomy 2.0.2, WB Gamification 1.6.7 and BuddyPress Member Blog 4.4.0. Aligned with BuddyNext Pro 1.2.6. Install the updates together.
+* Dev      - Integration notification types can declare an audience of owner or moderator so BuddyNext offers the setting only to the people who receive it.
+* Compat   - Tested with Jetonomy 2.0.3, WB Gamification 1.6.7 and BuddyPress Member Blog 4.4.0. Aligned with BuddyNext Pro 1.2.6. Install the updates together.
 
 = 1.2.5 - October 2026 =
 

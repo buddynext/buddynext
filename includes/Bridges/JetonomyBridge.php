@@ -1248,6 +1248,52 @@ class JetonomyBridge {
 	private const GRANTED_META = 'buddynext_jt_granted_forum';
 
 	/**
+	 * Space meta listing the forums a space has unlinked, newest last (comma
+	 * separated ids). Revoking a banned or departed member's access must reach
+	 * these too, and re-enabling Discussion offers the latest one back.
+	 *
+	 * @var string
+	 */
+	private const UNLINKED_META = 'jetonomy_unlinked_forums';
+
+	/**
+	 * Forums this space has unlinked, oldest first.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @return int[]
+	 */
+	private function unlinked_forum_ids( int $space_id ): array {
+		$raw = (string) buddynext_get_space_field( $space_id, self::UNLINKED_META );
+		return '' === $raw ? array() : array_values( array_filter( array_map( 'absint', explode( ',', $raw ) ) ) );
+	}
+
+	/**
+	 * The forum this space most recently unlinked, if it can still be offered back.
+	 *
+	 * Gone, or linked to another space since, means there is nothing to offer.
+	 *
+	 * @param int $space_id BuddyNext space.
+	 * @return array{id:int,name:string}|null
+	 */
+	public function previous_discussion( int $space_id ): ?array {
+		if ( $this->space_has_discussion( $space_id ) ) {
+			return null;
+		}
+		foreach ( array_reverse( $this->unlinked_forum_ids( $space_id ) ) as $forum_id ) {
+			if ( $this->discussion_exists( $forum_id ) && 0 === $this->space_id_for_forum( $forum_id ) ) {
+				global $wpdb;
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$name = (string) $wpdb->get_var( $wpdb->prepare( "SELECT title FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $forum_id ) );
+				return array(
+					'id'   => $forum_id,
+					'name' => $name,
+				);
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Queue the backfill when a space is linked to a forum.
 	 *
 	 * @param int    $meta_id  Meta row id (unused).
@@ -1344,13 +1390,25 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function revoke_forum_access( $space_id, $user_id ): void {
-		$forum_id = $this->forum_id_for_space( (int) $space_id );
+		$space_id = (int) $space_id;
 		$user_id  = (int) $user_id;
-		if ( $forum_id <= 0 || ! in_array( (string) $forum_id, (array) get_user_meta( $user_id, self::GRANTED_META, false ), true ) ) {
-			return;
+		$granted  = (array) get_user_meta( $user_id, self::GRANTED_META, false );
+
+		// The forum linked now AND any this space unlinked earlier: unlinking leaves
+		// the roster alone, so a member banned afterwards must still lose the old
+		// forum. A forum another space has taken over since is not ours to revoke.
+		$forums = array_unique( array_merge( array( $this->forum_id_for_space( $space_id ) ), $this->unlinked_forum_ids( $space_id ) ) );
+		foreach ( $forums as $forum_id ) {
+			if ( $forum_id <= 0 || ! in_array( (string) $forum_id, $granted, true ) ) {
+				continue;
+			}
+			$owner = $this->space_id_for_forum( $forum_id );
+			if ( 0 !== $owner && $owner !== $space_id ) {
+				continue;
+			}
+			\Jetonomy\Models\SpaceMember::remove( $forum_id, $user_id );
+			delete_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
 		}
-		\Jetonomy\Models\SpaceMember::remove( $forum_id, $user_id );
-		delete_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
 		$this->invalidate_member_caches( $user_id );
 	}
 
@@ -1424,10 +1482,13 @@ class JetonomyBridge {
 
 		if ( ! $this->space_has_discussion( $space_id ) ) {
 			$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			$previous = $this->previous_discussion( $space_id );
 			$may_link = $link_id > 0 && (
-				user_can( $actor_id, 'manage_options' )
+				// The space's own earlier discussion is always its to take back.
+				( null !== $previous && $previous['id'] === $link_id )
+				|| ( user_can( $actor_id, 'manage_options' )
 					? $this->discussion_exists( $link_id )
-					: $this->discussion_owned_by( $link_id, (int) ( $space['owner_id'] ?? 0 ) )
+					: $this->discussion_owned_by( $link_id, (int) ( $space['owner_id'] ?? 0 ) ) )
 			);
 			if ( $may_link ) {
 				update_space_meta( $space_id, 'jetonomy_forum_id', $link_id );
@@ -1454,7 +1515,7 @@ class JetonomyBridge {
 	 *                    always show it. The bridge owns all jt_* access.
 	 *
 	 * @param int $space_id BuddyNext space ID.
-	 * @return array{has_discussion:bool,enabled:bool,forum_id:int,name:string,url:string}
+	 * @return array{has_discussion:bool,enabled:bool,forum_id:int,name:string,url:string,previous?:array{id:int,name:string}|null}
 	 */
 	public function space_discussion_status( int $space_id ): array {
 		$forum_id = $this->forum_id_for_space( $space_id );
@@ -1465,6 +1526,7 @@ class JetonomyBridge {
 				'forum_id'       => 0,
 				'name'           => '',
 				'url'            => '',
+				'previous'       => $this->previous_discussion( $space_id ),
 			);
 		}
 
@@ -1650,6 +1712,10 @@ class JetonomyBridge {
 			return;
 		}
 		update_space_meta( $space_id, 'jetonomy_forum_id', 0 );
+		// With no discussion behind it the switch reads off, and the forum is
+		// remembered so re-enabling offers it back and a later ban still revokes it.
+		$this->set_discussion_enabled( $space_id, false );
+		update_space_meta( $space_id, self::UNLINKED_META, implode( ',', array_unique( array_merge( $this->unlinked_forum_ids( $space_id ), array( $forum_id ) ) ) ) );
 		unset( self::$forum_space_memo[ $forum_id ] );
 		$this->invalidate_space_caches( $forum_id );
 
@@ -2755,12 +2821,12 @@ class JetonomyBridge {
 				'version'          => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
 				// No hard floor evidenced for the model/action seams this bridge
 				// consumes, so none is declared (an invented floor would be worse
-				// than an honest null). Tested against 2.0.1: every Jetonomy hook, class,
+				// than an honest null). Tested against 2.0.3: every Jetonomy hook, class,
 				// method and function BuddyNext and BuddyNext Pro use was checked against
-				// the partner code at that tag on 2026-10-11 (all present; hook argument
-				// lists unchanged; Space::create() and Space::update() may now return a
+				// the partner code at that tag on 2026-10-19 (all present; hook argument
+				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
-				'tested_version'   => '2.0.2',
+				'tested_version'   => '2.0.3',
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
 				// On 2.0.0 the forum still notifies in its own list and the bell

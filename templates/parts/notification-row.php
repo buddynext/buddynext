@@ -149,7 +149,7 @@ do_action( 'buddynext_part_notification_row_before', $args );
 
 		<div class="bn-notif-row__meta">
 			<span class="bn-badge" data-tone="<?php echo esc_attr( $tone ); ?>"><?php echo esc_html( $pill_label ); ?></span>
-			<time class="bn-notif-row__time" datetime="<?php echo esc_attr( mysql2date( DATE_W3C, $bn_row->created_at, false ) ); ?>"><?php echo esc_html( $bn_time_ago( $bn_row->created_at ) ); ?></time>
+			<time class="bn-notif-row__time" datetime="<?php echo esc_attr( \BuddyNext\Core\Dates::iso8601( (string) $bn_row->created_at ) ); ?>"><?php echo esc_html( $bn_time_ago( $bn_row->created_at ) ); ?></time>
 			<?php if ( 'bn.space_invite' !== $notif_type ) : ?>
 				<button class="bn-btn bn-notif-row__dismiss" data-variant="ghost" data-size="sm"
 					data-wp-on--click="actions.dismiss"
