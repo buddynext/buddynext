@@ -113,7 +113,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * Dev      - New buddynext_integration_card_types and buddynext_integration_card_preview filters give an integration's activity one label, icon and set of details on the feed and on Explore.
 * Dev      - The password reset email always opens the BuddyNext reset screen, and a login, signup or reset link filter that returns WordPress's own address no longer loops.
 * Dev      - Integration notification types can declare an audience of owner or moderator so BuddyNext offers the setting only to the people who receive it.
-* Compat   - Tested with Jetonomy 2.0.2, WB Gamification 1.6.7 and BuddyPress Member Blog 4.4.0. Aligned with BuddyNext Pro 1.2.6. Install the updates together.
+* Compat   - Tested with Jetonomy 2.0.3, WB Gamification 1.6.7 and BuddyPress Member Blog 4.4.0. Aligned with BuddyNext Pro 1.2.6. Install the updates together.
 
 = 1.2.5 - October 2026 =
 

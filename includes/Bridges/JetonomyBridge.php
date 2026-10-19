@@ -2821,12 +2821,12 @@ class JetonomyBridge {
 				'version'          => defined( 'JETONOMY_VERSION' ) ? JETONOMY_VERSION : null,
 				// No hard floor evidenced for the model/action seams this bridge
 				// consumes, so none is declared (an invented floor would be worse
-				// than an honest null). Tested against 2.0.1: every Jetonomy hook, class,
+				// than an honest null). Tested against 2.0.3: every Jetonomy hook, class,
 				// method and function BuddyNext and BuddyNext Pro use was checked against
-				// the partner code at that tag on 2026-10-11 (all present; hook argument
-				// lists unchanged; Space::create() and Space::update() may now return a
+				// the partner code at that tag on 2026-10-19 (all present; hook argument
+				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
-				'tested_version'   => '2.0.2',
+				'tested_version'   => '2.0.3',
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
 				// On 2.0.0 the forum still notifies in its own list and the bell
