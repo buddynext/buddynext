@@ -2641,13 +2641,18 @@ class ProfileService {
 			// checklist scannable and still surfaces which SECTIONS are unfilled, which
 			// is what a member acts on. Repeater groups already roll up per group above.
 			$any_filled = false;
+			$req_empty  = false;
 			foreach ( $fields as $f ) {
 				if ( $filled( $f, $f['value'] ?? '' ) ) {
 					$any_filled = true;
-					break;
+				} elseif ( ! empty( $f['is_required'] ) ) {
+					$req_empty = true;
 				}
 			}
-			$tasks[] = array(
+			// An empty REQUIRED field keeps the section open, so the ring never reads 100%
+			// while something the site insists on is still blank.
+			$any_filled = $any_filled && ! $req_empty;
+			$tasks[]    = array(
 				'label' => sprintf(
 					/* translators: %s: profile section name (owner-defined, e.g. "Work Experience"). */
 					__( 'Add %s', 'buddynext' ),
