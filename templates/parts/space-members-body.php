@@ -336,7 +336,7 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 				// site's configured timezone for display via get_date_from_gmt().
 				$joined_formatted = '';
 				if ( ! empty( $member['joined_at'] ) ) {
-					$joined_local     = get_date_from_gmt( (string) $member['joined_at'], (string) get_option( 'date_format' ) );
+					$joined_local     = buddynext_date_local( (string) $member['joined_at'] );
 					$joined_formatted = '' !== $joined_local
 						? sprintf(
 							/* translators: %s: formatted join date. */

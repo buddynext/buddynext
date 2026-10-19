@@ -510,7 +510,7 @@ class Spaces extends AdminPageBase {
 								// created_at is stored in UTC; convert to the site timezone
 								// for display (mysql2date would print the raw UTC value).
 								$owner   = get_userdata( $space['owner_id'] );
-								$created = get_date_from_gmt( (string) $space['created_at'], (string) get_option( 'date_format' ) );
+								$created = buddynext_date_local( (string) $space['created_at'] );
 								// Unknown/empty type values fall back to the registry's
 								// 'open' definition, so tone AND label stay consistent -
 								// never a coloured pill with no text (B4).

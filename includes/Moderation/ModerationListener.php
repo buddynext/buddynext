@@ -241,7 +241,7 @@ class ModerationListener implements ListenerInterface {
 		$bn_reason     = \BuddyNext\Moderation\ModerationService::member_facing_reason( $reason );
 		$reason        = '' !== $bn_reason ? $bn_reason : __( 'No reason was recorded. Contact the site team if you think this is a mistake.', 'buddynext' );
 		$expires_label = null !== $expires_at && '' !== $expires_at
-			? wp_date( (string) get_option( 'date_format' ), (int) strtotime( $expires_at . ' UTC' ) )
+			? buddynext_date_local( $expires_at )
 			: __( 'until the suspension is lifted', 'buddynext' );
 
 		// reason + expires_at are passed as top-level scalars so EmailSender::

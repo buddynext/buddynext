@@ -142,9 +142,8 @@ if ( ! empty( $bn_sf_author_ids ) ) {
 	cache_users( $bn_sf_author_ids );
 }
 
-$bn_sf_viewer   = get_current_user_id();
-$bn_sf_date_fmt = (string) get_option( 'date_format' );
-$bn_sf_empty    = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
+$bn_sf_viewer = get_current_user_id();
+$bn_sf_empty  = empty( $bn_sf_folders ) && empty( $bn_sf_documents );
 
 /*
  * The Remove control means different things on the two drives, and this is the
@@ -496,7 +495,7 @@ if ( $bn_sf_is_space ) {
 					<a class="bn-files__name" href="<?php echo esc_url( $bn_sf_folder_url( $bn_sf_fid ) ); ?>"><?php echo esc_html( $bn_sf_fname ); ?></a>
 					<span class="bn-files__meta">
 						<span class="bn-files__size"><?php esc_html_e( 'Folder', 'buddynext' ); ?></span>
-						<span class="bn-files__date"><?php echo esc_html( '' !== $bn_sf_fdate ? mysql2date( $bn_sf_date_fmt, $bn_sf_fdate ) : '' ); ?></span>
+						<span class="bn-files__date"><?php echo buddynext_date_local( $bn_sf_fdate ); ?></span>
 					</span>
 					<?php if ( isset( $bn_sf_f['can_manage'] ) ? (bool) $bn_sf_f['can_manage'] : $bn_sf_can_manage_folders ) : ?>
 						<span class="bn-files__actions">
@@ -545,7 +544,7 @@ if ( $bn_sf_is_space ) {
 					<a class="bn-files__name" href="<?php echo esc_url( $bn_sf_doc_url( $bn_sf_did ) ); ?>"><?php echo esc_html( $bn_sf_title ); ?></a>
 					<span class="bn-files__meta">
 						<span class="bn-files__size"><?php echo esc_html( $bn_sf_dsize > 0 ? size_format( $bn_sf_dsize ) : '' ); ?></span>
-						<span class="bn-files__date"><?php echo esc_html( '' !== $bn_sf_ddate ? mysql2date( $bn_sf_date_fmt, $bn_sf_ddate ) : '' ); ?></span>
+						<span class="bn-files__date"><?php echo buddynext_date_local( $bn_sf_ddate ); ?></span>
 						<?php if ( '' !== $bn_sf_owner ) : ?>
 							<span class="bn-files__owner"><?php echo esc_html( $bn_sf_owner ); ?></span>
 						<?php endif; ?>

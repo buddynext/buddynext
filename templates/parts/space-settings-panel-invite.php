@@ -67,7 +67,7 @@ if ( null !== $bn_inv_link ) {
 	$bn_expiry_part = empty( $bn_inv_link['expires_at'] )
 		? __( 'No expiry', 'buddynext' )
 		/* translators: %s: formatted expiry date. */
-		: sprintf( __( 'Expires %s', 'buddynext' ), wp_date( (string) get_option( 'date_format' ), (int) strtotime( (string) $bn_inv_link['expires_at'] . ' UTC' ) ) );
+		: sprintf( __( 'Expires %s', 'buddynext' ), buddynext_date_local( (string) $bn_inv_link['expires_at'] ) );
 
 	$bn_max      = (int) ( $bn_inv_link['max_uses'] ?? 0 );
 	$bn_use_part = 0 === $bn_max

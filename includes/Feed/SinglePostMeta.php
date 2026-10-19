@@ -65,10 +65,10 @@ class SinglePostMeta {
 			'article:author' => $author ? $author->display_name : __( 'Community member', 'buddynext' ),
 		);
 		if ( ! empty( $post['created_at'] ) ) {
-			$extra['article:published_time'] = mysql2date( 'c', (string) $post['created_at'], false );
+			$extra['article:published_time'] = \BuddyNext\Core\Dates::iso8601( (string) $post['created_at'] );
 		}
 		if ( ! empty( $post['edited_at'] ) ) {
-			$extra['article:modified_time'] = mysql2date( 'c', (string) $post['edited_at'], false );
+			$extra['article:modified_time'] = \BuddyNext\Core\Dates::iso8601( (string) $post['edited_at'] );
 		}
 
 		HeadMeta::emit(

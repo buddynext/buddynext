@@ -51,7 +51,7 @@ $heading = $is_self
 					<?php
 					$reason  = \BuddyNext\Moderation\ModerationService::member_facing_reason( (string) ( $suspension['reason'] ?? '' ) );
 					$expires = ! empty( $suspension['expires_at'] )
-						? date_i18n( (string) get_option( 'date_format' ), (int) strtotime( (string) $suspension['expires_at'] ) )
+						? buddynext_date_local( (string) $suspension['expires_at'] )
 						: '';
 					if ( '' !== $expires ) {
 						printf(

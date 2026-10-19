@@ -57,7 +57,7 @@ if ( ! $is_own_profile && ! current_user_can( 'manage_options' )
 $avatar_url   = (string) get_avatar_url( $user_id, array( 'size' => 96 ) );
 $cover_url    = buddynext_user_cover_url( $user_id );
 $display_name = $profile_user->display_name;
-$joined       = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
+$joined       = buddynext_date_local( $profile_user->user_registered, 'M Y' );
 
 $bn_follow_svc = buddynext_service( 'follows' );
 $bn_conn_svc   = buddynext_service( 'connections' );

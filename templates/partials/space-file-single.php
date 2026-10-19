@@ -122,7 +122,7 @@ if ( $bn_fs_can_share ) {
 $bn_fs_ctx = (string) wp_json_encode( $bn_fs_ctx_arr );
 
 $bn_fs_back_url = $bn_fs_folder > 0 ? add_query_arg( 'bn_folder', $bn_fs_folder, $bn_fs_base_url ) : $bn_fs_base_url;
-$bn_fs_date_out = '' !== $bn_fs_date ? mysql2date( (string) get_option( 'date_format' ), $bn_fs_date ) : '';
+$bn_fs_date_out = buddynext_date_local( $bn_fs_date );
 ?>
 <div
 	class="bn-space-files bn-file-single"
