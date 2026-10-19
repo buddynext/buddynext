@@ -31,18 +31,18 @@ The app experience is active by default on the front end and needs no admin acti
 | What it covers | What it does | Default |
 |---|---|---|
 | App name and details | The name, description, and colours members see when they install and launch the app. | Your WordPress site title and tagline, a white background and a blue (#0073aa) theme colour |
-| App icon | The home-screen icon members tap to open the community. | A BuddyNext app icon shipped with the plugin |
+| App icon | The home-screen icon members tap to open the community. | Your WordPress Site Icon, or a BuddyNext icon shipped with the plugin when none is set |
 | Launch window | How the app opens once installed. | Its own full-screen window, in portrait |
 | Offline shell | Whether the app opens to a cached home screen when there is no connection. | On |
 
-The defaults are ready to go: the app name is your WordPress site title, and it launches in its own portrait window. The theme colour is not taken from your brand colour setting; a developer can change it with the `buddynext_pwa_manifest` filter. The icon is a real image file shipped with BuddyNext, at the two sizes phones and desktops ask for.
+The defaults are ready to go: the app name is your WordPress site title, and it launches in its own portrait window. The theme colour is not taken from your brand colour setting; a developer can change it with the `buddynext_pwa_manifest` filter. The icon is your WordPress Site Icon, at the two sizes phones and desktops ask for. Until you set one, a BuddyNext icon is used.
 
-**Replacing the app icon with your own** is worth doing before you tell members to install the community, because it is the icon they will see on their home screen every day. It is not a settings field - your developer swaps it from your site's code, and the same goes for a custom app name or colour, or turning the offline behaviour off. No technical setup is needed for the default installable experience to work; this is polish, not plumbing.
+**Setting the app icon** is worth doing before you tell members to install the community, because it is the icon they will see on their home screen every day. Upload a square image of at least 512 x 512 pixels under Settings > General > Site Icon. There is no separate field to maintain. A custom app name or colour, or turning the offline behaviour off, is done by your developer from your site's code. Members who already installed the app may need to remove it and add it again to see a new icon.
 
 ## Good to know
 
 - The install prompt and offline behaviour are evaluated by the browser, not by BuddyNext. Browsers require the site to be served over HTTPS (or localhost during development) before they offer to install. The PWA is intended for the front-end community surface and does not apply in the WordPress admin.
-- The app icon ships at 192 and 512 pixels, and the larger one is also marked "maskable", so it crops cleanly into the rounded or circular shapes different phones use. If you replace the icon, supply both sizes and leave a little padding around your mark, or a phone that crops to a circle will clip its edges.
+- The app icon is served at 192 and 512 pixels. The shipped BuddyNext icon is also marked "maskable", so it crops cleanly into the rounded or circular shapes different phones use; your Site Icon is not, so leave a little padding around your mark if you want it to look right on a phone that crops to a circle.
 - Offline coverage is the home shell plus pages a member has already visited. A first-time, fully-offline visit to a deep page will not have cached content to show.
 - The app only keeps copies of BuddyNext's own files (its styles, scripts and the offline page). Your theme's files, other plugins' files and uploads are left to the browser as if the app were not installed, so updating any of them shows up on the very next page view. After a BuddyNext update the new files are used straight away too; a saved copy is only used when there is no connection. Developers can add another plugin's directory with the `buddynext_pwa_asset_paths` filter.
 - Installability depends on the member's browser and device. Some browsers show the prompt automatically; others require the member to choose "Install" or "Add to Home Screen" from a menu.
