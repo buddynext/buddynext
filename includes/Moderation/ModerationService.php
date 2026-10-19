@@ -1247,7 +1247,7 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue strikes.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		$outranked = $this->outranked_error( $user_id, $actor_id );
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
 		if ( null !== $outranked ) {
 			return $outranked;
 		}
@@ -1329,7 +1329,7 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		$outranked = $this->outranked_error( $user_id, $actor_id );
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
 		if ( null !== $outranked ) {
 			return $outranked;
 		}
@@ -2017,28 +2017,6 @@ class ModerationService {
 	}
 
 	/**
-	 * Refuse a sanction against someone who outranks the actor.
-	 *
-	 * A moderator who may warn, strike, suspend or shadow-ban members must not be
-	 * able to do it to the administrators above them. Equal ranks are allowed, and
-	 * actor 0 is the automated-rule system actor, which has no rank to compare.
-	 *
-	 * @param int $user_id  Member the sanction is aimed at.
-	 * @param int $actor_id Person applying it (0 = system).
-	 * @return WP_Error|null Error when the target outranks the actor, else null.
-	 */
-	private function outranked_error( int $user_id, int $actor_id ): ?WP_Error {
-		if ( ! ( new \BuddyNext\Core\RoleService() )->outranks( $user_id, $actor_id ) ) {
-			return null;
-		}
-		return new WP_Error(
-			'forbidden',
-			__( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ),
-			array( 'status' => 403 )
-		);
-	}
-
-	/**
 	 * Whether an actor owns or moderates a given space.
 	 *
 	 * Routed through buddynext_can() (the canonical 4-layer permission entry
@@ -2279,7 +2257,7 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ) );
 		}
 
-		$outranked = $this->outranked_error( $user_id, $actor_id );
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
 		if ( null !== $outranked ) {
 			return $outranked;
 		}
@@ -2467,7 +2445,7 @@ class ModerationService {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		$outranked = $this->outranked_error( $user_id, $actor_id );
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
 		if ( null !== $outranked ) {
 			return $outranked;
 		}

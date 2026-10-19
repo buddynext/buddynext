@@ -585,6 +585,12 @@ class SpaceMemberService {
 			);
 		}
 
+		// A space moderator cannot ban the administrators above them.
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
+		if ( null !== $outranked ) {
+			return $outranked;
+		}
+
 		$target_role = $this->get_role( $space_id, $user_id );
 
 		if ( 'owner' === $target_role ) {
@@ -2484,6 +2490,12 @@ class SpaceMemberService {
 		// other / future caller.
 		if ( $banned_by > 0 && ! buddynext_service( 'permissions' )->can( $banned_by, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to ban members from this space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// A space moderator cannot ban the administrators above them ($banned_by 0 = system, exempt).
+		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $banned_by );
+		if ( null !== $outranked ) {
+			return $outranked;
 		}
 
 		global $wpdb;

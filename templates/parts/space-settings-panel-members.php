@@ -111,6 +111,8 @@ $bn_sspm_ctx = (string) wp_json_encode(
 						? $bn_member->role
 						: 'member';
 					$bn_is_owner          = ( 'owner' === $bn_member_role );
+					// Role, remove and ban controls stay off members who outrank the viewer.
+					$bn_outranks_viewer = buddynext_service( 'roles' )->outranks( (int) $bn_member->user_id, get_current_user_id() );
 
 					$role_tone_map  = array(
 						'owner'     => 'accent',
@@ -146,7 +148,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 
 						<span class="bn-badge" data-tone="<?php echo esc_attr( $role_tone ); ?>"><?php echo esc_html( $role_label ); ?></span>
 
-						<?php if ( ! $bn_is_owner ) : ?>
+						<?php if ( ! $bn_is_owner && ! $bn_outranks_viewer ) : ?>
 							<div class="bn-space-settings__member-actions">
 								<?php if ( 'member' === $bn_member_role ) : ?>
 									<button

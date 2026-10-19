@@ -283,7 +283,7 @@ $mod_privacy = array(
 							// a site moderator may warn anyone; nobody removes the owner or themselves.
 							// ponytail: one role lookup per row, bounded by the 20-report page.
 							$r_role      = $reported_uid > 0 ? (string) $bn_member_svc->get_role( $space_id, $reported_uid ) : '';
-							$r_is_member = in_array( $r_role, array( 'member', 'moderator' ), true ) && get_current_user_id() !== $reported_uid;
+							$r_is_member = in_array( $r_role, array( 'member', 'moderator' ), true ) && get_current_user_id() !== $reported_uid && ! buddynext_service( 'roles' )->outranks( $reported_uid, get_current_user_id() );
 							$r_can_warn  = $reported_uid > 0 && get_current_user_id() !== $reported_uid && ( $r_is_member || 'owner' === $r_role || $bn_mod_site_mod ) && ! buddynext_service( 'roles' )->outranks( $reported_uid, get_current_user_id() );
 							$r_obj_type  = (string) ( $report['object_type'] ?? '' );
 							$r_obj_id    = (int) ( $report['object_id'] ?? 0 );

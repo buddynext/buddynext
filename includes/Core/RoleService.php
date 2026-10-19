@@ -146,6 +146,29 @@ class RoleService {
 		return $actor_id > 0 && $this->rank( $target_id ) > $this->rank( $actor_id );
 	}
 
+	/**
+	 * Refuse a moderation action against someone who outranks the actor.
+	 *
+	 * A moderator who may warn, strike, suspend, shadow-ban, ban or remove members
+	 * must not be able to do it to the administrators above them. Equal ranks are
+	 * allowed, and actor 0 is the automated-rule system actor, which has no rank to
+	 * compare.
+	 *
+	 * @param int $target_id Member the action is aimed at.
+	 * @param int $actor_id  Person applying it (0 = system).
+	 * @return \WP_Error|null Error when the target outranks the actor, else null.
+	 */
+	public function outranked_error( int $target_id, int $actor_id ): ?\WP_Error {
+		if ( ! $this->outranks( $target_id, $actor_id ) ) {
+			return null;
+		}
+		return new \WP_Error(
+			'forbidden',
+			__( 'You cannot take moderation action against someone with more authority than you.', 'buddynext' ),
+			array( 'status' => 403 )
+		);
+	}
+
 	// ── Credit helpers ────────────────────────────────────────────────────────
 
 	/**
