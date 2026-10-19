@@ -205,7 +205,7 @@ apply_filters( 'buddynext_pwa_manifest', array $manifest )
 | GET | `/pwa/sw` | The service-worker script. Served through REST (not a static file) so it can be generated and cache-busted per install. |
 | GET | `/pwa/offline` | The offline fallback page the service worker serves when a navigation fails with no cached match. Precached without a version query so the shell's bare URLs are guaranteed a cache hit. |
 
-There is deliberately no `/pwa/icon` route - manifest icons are served as real PNG files instead, because Chromium rejects REST-served SVG images in a manifest ("isn't a valid image").
+There is deliberately no `/pwa/icon` route - manifest icons are real PNG files instead (the WordPress Site Icon at 192 and 512 when one is set, the shipped BuddyNext PNGs otherwise), because Chromium rejects REST-served SVG images in a manifest ("isn't a valid image").
 
 ```php
 // Disable the PWA entirely.
