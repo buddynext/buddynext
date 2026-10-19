@@ -94,6 +94,8 @@ class NotificationPrefCatalogue {
 	 *   can_email         bool    - whether the type produces a transactional email.
 	 *   moderator_only    bool    - optional; when true the prefs UI hides the row
 	 *                               from non-moderators (see grouped()).
+	 *   owner_only        bool    - optional; when true the prefs UI hides the row
+	 *                               from anyone who cannot manage the site.
 	 *   email_only        bool    - optional; when true the row has no in-app
 	 *                               channel, so the prefs UI hides its In-app toggle
 	 *                               and shows only the email frequency (e.g. 'digest').
@@ -556,7 +558,7 @@ class NotificationPrefCatalogue {
 	 *
 	 * Group order is fixed and matches the order the prefs UI renders. Rows a
 	 * type marks `moderator_only` are dropped for viewers who cannot moderate the
-	 * site, so a plain member is not offered a preference for a notification only
+	 * site (and `owner_only` rows for viewers who cannot manage it), so a plain member is not offered a preference for a notification only
 	 * moderators ever receive. `all()` is deliberately left unfiltered — the
 	 * delivery and validation paths must still know every type regardless of who
 	 * is acting when a notification is composed.
@@ -573,16 +575,7 @@ class NotificationPrefCatalogue {
 			self::GROUP_GROWTH     => array(),
 		);
 
-		// Shown to exactly the users ModerationListener notifies: whoever reviews
-		// the report queue, and the owners and moderators of a space.
-		$bn_viewer    = get_current_user_id();
-		$can_moderate = buddynext_can( $bn_viewer, 'buddynext-moderation/review-queue' )
-			|| buddynext_service( 'space_members' )->moderates_any_space( $bn_viewer );
-
-		foreach ( $this->all() as $entry ) {
-			if ( ! empty( $entry['moderator_only'] ) && ! $can_moderate ) {
-				continue;
-			}
+		foreach ( $this->visible() as $entry ) {
 			$group = isset( $entry['group'] ) ? (string) $entry['group'] : self::GROUP_GROWTH;
 			if ( ! isset( $groups[ $group ] ) ) {
 				$groups[ $group ] = array();
@@ -591,6 +584,30 @@ class NotificationPrefCatalogue {
 		}
 
 		return $groups;
+	}
+
+	/**
+	 * The catalogue rows the current viewer is offered, in catalogue order.
+	 *
+	 * `moderator_only` rows go to exactly the users ModerationListener notifies
+	 * (whoever reviews the report queue, plus space owners and moderators);
+	 * `owner_only` rows go to whoever can manage the site. Both the settings
+	 * screen (grouped()) and `GET /me/notification-prefs` (resolve_for_user())
+	 * read this, so a plain member is not offered a preference on either surface.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function visible(): array {
+		$bn_viewer    = get_current_user_id();
+		$can_moderate = buddynext_can( $bn_viewer, 'buddynext-moderation/review-queue' )
+			|| buddynext_service( 'space_members' )->moderates_any_space( $bn_viewer );
+		$can_manage   = user_can( $bn_viewer, 'manage_options' );
+
+		return array_filter(
+			$this->all(),
+			static fn( array $entry ): bool => ( empty( $entry['moderator_only'] ) || $can_moderate )
+				&& ( empty( $entry['owner_only'] ) || $can_manage )
+		);
 	}
 
 	/**
@@ -640,7 +657,7 @@ class NotificationPrefCatalogue {
 	 */
 	public function resolve_for_user( array $stored ): array {
 		$out = array();
-		foreach ( $this->all() as $slug => $entry ) {
+		foreach ( $this->visible() as $slug => $entry ) {
 			// The site-owner's per-type default (Settings) is the base a member with no
 			// stored choice sees — the same base the delivery path uses (card 10268684581).
 			$on_site    = $this->effective_default_on_site( $slug );
