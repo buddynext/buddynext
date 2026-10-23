@@ -128,8 +128,8 @@ class NotificationMessageService {
 			}
 		}
 		if ( ! empty( $actor_ids ) ) {
-			// Cache_users primes the user cache so subsequent get_userdata calls are O(1).
-			cache_users( array_keys( $actor_ids ) );
+			// One pass warms users and avatars, so per-row lookups are cache hits.
+			\BuddyNext\Profile\AvatarService::prime( array_keys( $actor_ids ) );
 		}
 
 		$out = array();

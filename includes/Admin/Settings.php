@@ -3595,7 +3595,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		</div>
 		<?php
 		$bn_recent = \BuddyNext\Outbound\WebhookLog::recent( 10 );
-		cache_users( array_filter( array_map( static fn( $r ) => (int) $r['user_id'], $bn_recent ) ) );
+		\BuddyNext\Profile\AvatarService::prime( array_filter( array_map( static fn( $r ) => (int) $r['user_id'], $bn_recent ) ) );
 		?>
 		<div class="bn-field">
 			<span class="bn-label"><?php esc_html_e( 'Recent requests', 'buddynext' ); ?></span>

@@ -77,7 +77,7 @@ class RecentActivityWidget extends \WP_Widget {
 		// is not an N+1.
 		$author_ids = array_map( static fn( $r ): int => (int) $r->user_id, (array) $rows );
 		if ( ! empty( $author_ids ) ) {
-			cache_users( array_values( array_unique( $author_ids ) ) );
+			\BuddyNext\Profile\AvatarService::prime( array_values( array_unique( $author_ids ) ) );
 		}
 
 		if ( empty( $rows ) ) {

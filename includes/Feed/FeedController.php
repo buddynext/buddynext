@@ -490,7 +490,7 @@ class FeedController extends BaseRestController {
 	 * (the same buddynext_format_content() the comment REST uses), and a
 	 * viewer_state block (my_reaction / is_bookmarked / my_voted_option_id /
 	 * can_edit). Everything is primed ONCE for the whole page — author cache via
-	 * cache_users(), reactions + poll votes via single batch maps, bookmarks via
+	 * \BuddyNext\Profile\AvatarService::prime(), reactions + poll votes via single batch maps, bookmarks via
 	 * the already-cached user_bookmarks() — so enrichment adds a constant handful
 	 * of queries, not four per card.
 	 *
@@ -536,7 +536,7 @@ class FeedController extends BaseRestController {
 
 		// Prime once for the whole page (no per-card lookups below).
 		if ( ! empty( $author_ids ) ) {
-			cache_users( array_values( array_unique( $author_ids ) ) );
+			\BuddyNext\Profile\AvatarService::prime( array_values( array_unique( $author_ids ) ) );
 		}
 		// media_ids need no page-level priming: they are WPMediaVerse index ids,
 		// not WP attachments, and the engine's MediaRepository keeps a per-request

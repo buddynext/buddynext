@@ -260,7 +260,7 @@ class MemberDirectoryController extends BaseRestController {
 		$blocked_either = array();
 		$muted_set      = array();
 		if ( $page_ids ) {
-			cache_users( $page_ids );
+			\BuddyNext\Profile\AvatarService::prime( $page_ids );
 			update_meta_cache( 'user', $page_ids );
 
 			if ( $viewer_id > 0 ) {
@@ -318,7 +318,7 @@ class MemberDirectoryController extends BaseRestController {
 
 		// Batch-prime the same lookups the directory listing primes, so shape_item()
 		// resolves from cache instead of issuing a query per row.
-		cache_users( $ids );
+		\BuddyNext\Profile\AvatarService::prime( $ids );
 		update_meta_cache( 'user', $ids );
 
 		$following_set  = array();

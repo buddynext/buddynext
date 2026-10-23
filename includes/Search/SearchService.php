@@ -577,7 +577,7 @@ class SearchService {
 
 		$members = array_values( ( $by_type['user'] ?? array() ) + ( $by_type['member'] ?? array() ) );
 		if ( $members ) {
-			cache_users( $members );
+			\BuddyNext\Profile\AvatarService::prime( $members );
 		}
 		if ( ! empty( $by_type['space'] ) ) {
 			\BuddyNext\Core\PageRouter::prime_space_urls( array_values( $by_type['space'] ) );
@@ -1596,7 +1596,7 @@ class SearchService {
 			return $items;
 		}
 
-		cache_users( $ids );
+		\BuddyNext\Profile\AvatarService::prime( $ids );
 		$kept = array();
 		foreach ( $items as $item ) {
 			$type = (string) ( $item['object_type'] ?? '' );
@@ -1721,7 +1721,7 @@ class SearchService {
 		// Prime the user + usermeta caches in two batched queries so the loop's
 		// per-row get_userdata() / get_user_meta() reads hit cache (was an N+1).
 		if ( ! empty( $user_ids ) ) {
-			cache_users( $user_ids );
+			\BuddyNext\Profile\AvatarService::prime( $user_ids );
 			update_meta_cache( 'user', $user_ids );
 		}
 

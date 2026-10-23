@@ -4626,7 +4626,7 @@ class ProfileService {
 		}
 
 		// One query primes every member's meta; without it the loop below is an N+1.
-		cache_users( $user_ids );
+		\BuddyNext\Profile\AvatarService::prime( $user_ids );
 
 		foreach ( $user_ids as $uid ) {
 			if ( '' === ( $out[ $uid ] ?? '' ) ) {

@@ -3765,7 +3765,7 @@ class PageRouter {
 	 * Every surface that renders an "@handle" (member cards, space member lists, the
 	 * profile hero, the "online now" sidebar) must resolve it here, so the credential
 	 * can never leak and the two never drift. Prime the usermeta cache
-	 * (`cache_users()` / `update_meta_cache( 'user', $ids )`) before a loop of these.
+	 * (`\BuddyNext\Profile\AvatarService::prime()` / `update_meta_cache( 'user', $ids )`) before a loop of these.
 	 *
 	 * @param int $user_id User ID.
 	 * @return string Public handle without the leading '@', or '' for an invalid user.

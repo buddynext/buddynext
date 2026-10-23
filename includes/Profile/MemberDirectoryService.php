@@ -720,7 +720,7 @@ class MemberDirectoryService {
 		// row via the bn_presence JOIN, and follower counts are batch-resolved below.
 		$row_ids = array_values( array_filter( array_map( static fn( $r ) => (int) $r['ID'], $rows ) ) );
 		if ( $row_ids ) {
-			cache_users( $row_ids );
+			\BuddyNext\Profile\AvatarService::prime( $row_ids );
 			update_meta_cache( 'user', $row_ids );
 			// Warm the viewer→peer restrict cache so the per-row is_user_online()
 			// guard below resolves from cache instead of one query per member.

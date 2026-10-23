@@ -1123,7 +1123,7 @@ class Spaces extends AdminPageBase {
 
 			// Prime every owner in ONE query. The render loop calls get_userdata()
 			// per row for the Owner column; uncached that is a query per row (20 per
-			// page), which was the last N+1 left on this screen. cache_users() fetches
+			// page), which was the last N+1 left on this screen. \BuddyNext\Profile\AvatarService::prime() fetches
 			// them all at once and warms the same cache get_userdata() reads, so the
 			// loop below stays unchanged and simply stops hitting the database.
 			$owner_ids = array_values(
@@ -1134,7 +1134,7 @@ class Spaces extends AdminPageBase {
 				)
 			);
 			if ( $owner_ids ) {
-				cache_users( $owner_ids );
+				\BuddyNext\Profile\AvatarService::prime( $owner_ids );
 			}
 		}
 

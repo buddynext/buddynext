@@ -1885,7 +1885,7 @@ class SpaceMemberService {
 		);
 
 		if ( ! empty( $ids ) ) {
-			cache_users( $ids );
+			\BuddyNext\Profile\AvatarService::prime( $ids );
 		}
 	}
 

@@ -139,7 +139,7 @@ foreach ( $bn_sf_documents as $bn_sf_doc ) {
 }
 $bn_sf_author_ids = array_values( array_unique( $bn_sf_author_ids ) );
 if ( ! empty( $bn_sf_author_ids ) ) {
-	cache_users( $bn_sf_author_ids );
+	\BuddyNext\Profile\AvatarService::prime( $bn_sf_author_ids );
 }
 
 $bn_sf_viewer = get_current_user_id();

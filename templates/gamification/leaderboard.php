@@ -130,7 +130,7 @@ if ( ! is_array( $leaderboard ) ) {
  * row renders. This screen draws up to 100 avatars in a single request - far
  * more than any other BuddyNext page - so a per-row user lookup that is
  * invisible elsewhere compounds here: measured at 402 queries for 100 rows,
- * of which 101 hit wp_users and 100 hit wp_usermeta. cache_users() takes that
+ * of which 101 hit wp_users and 100 hit wp_usermeta. \BuddyNext\Profile\AvatarService::prime() takes that
  * to one query each, 402 -> 203.
  *
  * The remaining 200 are two per row from OTHER plugins hooking the avatar
@@ -159,7 +159,7 @@ if ( ! empty( $leaderboard ) ) {
 		)
 	);
 	if ( ! empty( $bn_lb_user_ids ) ) {
-		cache_users( $bn_lb_user_ids );
+		\BuddyNext\Profile\AvatarService::prime( $bn_lb_user_ids );
 	}
 }
 

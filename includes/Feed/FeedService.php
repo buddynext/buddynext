@@ -2650,7 +2650,7 @@ class FeedService {
 		}
 
 		if ( ! empty( $author_ids ) ) {
-			cache_users( array_values( array_unique( $author_ids ) ) );
+			\BuddyNext\Profile\AvatarService::prime( array_values( array_unique( $author_ids ) ) );
 
 			// Each card's byline asks follow / pending / blocked / connection degree
 			// about its author. Answer the whole page here, one query each, so the
