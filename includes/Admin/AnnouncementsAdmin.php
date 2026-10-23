@@ -213,14 +213,14 @@ class AnnouncementsAdmin {
 			return array(
 				'key'   => 'expired',
 				'label' => __( 'Ended', 'buddynext' ),
-				'tone'  => 'muted',
+				'tone'  => 'neutral',
 			);
 		}
 		if ( 'published' !== $status ) {
 			return array(
 				'key'   => 'expired',
 				'label' => __( 'Not live', 'buddynext' ),
-				'tone'  => 'muted',
+				'tone'  => 'neutral',
 			);
 		}
 		return array(

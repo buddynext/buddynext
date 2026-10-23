@@ -2565,8 +2565,8 @@ button.bn-btn-danger:hover {
 }
 
 .bn-modal__actions .bn-btn[data-variant="danger"]:hover {
-	background: color-mix(in oklch, var(--bn-a-red) 85%, var(--bn-ink));
-	border-color: color-mix(in oklch, var(--bn-a-red) 85%, var(--bn-ink));
+	background: color-mix(in oklab, var(--bn-a-red) 85%, var(--bn-ink));
+	border-color: color-mix(in oklab, var(--bn-a-red) 85%, var(--bn-ink));
 }
 
 .bn-modal__actions .bn-btn[data-variant="ghost"] {

@@ -1000,7 +1000,7 @@ $posts_pct_abs = abs( $posts_pct );
 										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>
 										<?php echo esc_html( $rpt_reason ); ?>
 										<?php if ( $rpt_escalated ) : ?>
-											<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
+											<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
 										<?php endif; ?>
 									</div>
 									<div class="bn-ca-report-row__excerpt"><?php echo esc_html( '' !== $rpt_excerpt ? $rpt_excerpt : buddynext_object_label( $rpt_obj_type, $rpt_obj_id ) ); ?></div>
@@ -1108,7 +1108,7 @@ $posts_pct_abs = abs( $posts_pct );
 													</button>
 												<?php endif; ?>
 												<?php if ( $rpt_suspended ) : ?>
-													<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Already suspended', 'buddynext' ); ?></span>
+													<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Already suspended', 'buddynext' ); ?></span>
 												<?php else : ?>
 													<button type="button" class="bn-ca-more-menu-item bn-ca-more-menu-item--danger" role="menuitem" data-wp-on--click="actions.suspendUser">
 														<?php echo esc_html( $rpt_is_profile ? __( 'Suspend member', 'buddynext' ) : __( 'Suspend author', 'buddynext' ) ); ?>

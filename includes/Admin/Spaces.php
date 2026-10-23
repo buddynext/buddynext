@@ -535,7 +535,7 @@ class Spaces extends AdminPageBase {
 												<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Featured', 'buddynext' ); ?></span>
 											<?php endif; ?>
 											<?php if ( ! empty( $space['is_archived'] ) ) : ?>
-												<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
+												<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
 											<?php endif; ?>
 											<?php if ( '' !== (string) $space['parent_name'] ) : ?>
 												<span class="bn-row-meta">

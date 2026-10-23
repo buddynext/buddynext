@@ -82,7 +82,7 @@ class PostService {
 		// under_review — see below.
 		'pending'      => array(
 			'label_key'       => 'Pending',
-			'tone'            => 'warning',
+			'tone'            => 'warn',
 			'admin_filter'    => true,
 			'readable'        => false,
 			'pre_publication' => true,
@@ -96,7 +96,7 @@ class PostService {
 		// still open, and rejecting it deleted the post and orphaned them.
 		'under_review' => array(
 			'label_key'       => 'Under review',
-			'tone'            => 'warning',
+			'tone'            => 'warn',
 			'admin_filter'    => true,
 			'readable'        => false,
 			'pre_publication' => false,

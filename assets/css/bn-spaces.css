@@ -2490,8 +2490,10 @@ a.bn-sh-statpill:focus-visible {
 	flex-wrap: wrap;
 }
 
+/* Auto basis: on a phone the badges wrap below instead of squeezing the
+   reporter line into a one-word column. */
 .bn-space-mod__report-who {
-	flex: 1;
+	flex: 1 1 auto;
 	min-inline-size: 0;
 }
 

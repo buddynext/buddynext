@@ -759,7 +759,7 @@ class NotificationMessageService {
 				),
 				'bn.new_report'               => array(
 					'icon'  => 'flag',
-					'tone'  => 'warning',
+					'tone'  => 'warn',
 					'label' => __( 'New report', 'buddynext' ),
 				),
 				'bn.announcement'             => array(
@@ -779,7 +779,7 @@ class NotificationMessageService {
 				),
 				'bn.space_media_unlinked'     => array(
 					'icon'  => 'image',
-					'tone'  => 'warning',
+					'tone'  => 'warn',
 					'label' => __( 'Media unlinked', 'buddynext' ),
 				),
 				'bn.report_escalated'         => array(

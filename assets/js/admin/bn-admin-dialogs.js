@@ -8,7 +8,7 @@
  * Usage:
  *   1. Declarative (no JS): add `data-bn-confirm="Are you sure?"` to any
  *      <a>, <button>, or <form>. Click is intercepted; user gets a modal.
- *      Optional: data-bn-confirm-tone="danger" | "warning" | "neutral",
+ *      Optional: data-bn-confirm-tone="danger" | "warn" | "neutral",
  *                data-bn-confirm-title="…",
  *                data-bn-confirm-ok="Delete",
  *                data-bn-confirm-cancel="Cancel".
@@ -556,7 +556,7 @@
 			title:       t.title || __( 'Restore default settings?', 'buddynext' ),
 			message:     message,
 			html:        true,
-			tone:        'warning',
+			tone:        'warn',
 			okLabel:     t.confirm || __( 'Restore defaults', 'buddynext' ),
 			cancelLabel: t.cancel || __( 'Cancel', 'buddynext' ),
 		} ).then( function ( ok ) {

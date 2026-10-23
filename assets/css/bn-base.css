@@ -79,7 +79,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-800: oklch(34% calc(var(--bn-chroma) * 0.85) var(--bn-hue));
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
-	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
+	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
 	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
 	   white label needs (see the @supports block below). */
@@ -461,7 +461,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-300: oklch(42% 0.10 var(--bn-hue));
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
-	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 	--bn-accent-solid: var(--bn-accent);
 
@@ -510,7 +510,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
-		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 		--bn-accent-solid: var(--bn-accent);
 	}
@@ -609,7 +609,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-800: #28316a;
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
-		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #ffffff;
 		--bn-accent-solid: #4754ad;
 
@@ -676,7 +676,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-200: #404670;
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
-		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #15161f;
 		--bn-accent-solid: #8d96e0;
 
@@ -3098,13 +3098,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
    At 60% the lowest is 6.3:1 on BuddyX light, which leaves room for any theme. */
 .bn-badge[data-tone="neutral"]  { background: var(--bn-sunken); color: var(--bn-ink-2); border-color: var(--bn-line); }
 .bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-text); border-color: transparent; }
-.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklch, var(--bn-success) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklch, var(--bn-warn) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklch, var(--bn-danger) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklch, var(--bn-info) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklch, var(--bn-jetonomy) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklch, var(--bn-media) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklch, var(--bn-events) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklab, var(--bn-success) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklab, var(--bn-warn) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklab, var(--bn-info) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklab, var(--bn-jetonomy) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklab, var(--bn-media) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklab, var(--bn-events) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Chip group — the shared wrapper an injecting engine (Pro / gamification) should
    wrap a row of .bn-badge chips in (member labels, credential badges, level frames)
@@ -3276,7 +3276,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-normal);
 }
-.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklch, var(--bn-paid) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklab, var(--bn-paid) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
 	and sits inline before the label via the badge's own flex gap. */

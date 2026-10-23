@@ -1319,8 +1319,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 
 /* The state colour carries a text label ("Save", "Like") as well as the icon, so
    each is mixed toward the ink to stay readable: raw amber was about 3.3:1. */
-.bn-post-card__action-btn.is-reacted { color: color-mix(in oklch, var(--bn-danger) 80%, var(--bn-ink)); }
-.bn-post-card__action-btn.is-bookmarked { color: color-mix(in oklch, var(--bn-warn) 62%, var(--bn-ink)); }
+.bn-post-card__action-btn.is-reacted { color: color-mix(in oklab, var(--bn-danger) 80%, var(--bn-ink)); }
+.bn-post-card__action-btn.is-bookmarked { color: color-mix(in oklab, var(--bn-warn) 62%, var(--bn-ink)); }
 .bn-post-card__action-btn.is-shared { color: var(--bn-accent-text); }
 
 /* Bookmarked = the Lucide bookmark filled solid, not just recoloured. The icon

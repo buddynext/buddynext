@@ -483,7 +483,7 @@ class ModerationQueue {
 					<span class="description bn-mod-object-ref"><?php echo esc_html( $bn_label ); ?></span>
 				<?php endif; ?>
 				<?php if ( $escalated ) : ?>
-					<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
+					<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
 				<?php endif; ?>
 				<?php if ( ! empty( $report['notes'] ) ) : ?>
 					<p class="description"><?php echo esc_html( (string) $report['notes'] ); ?></p>
@@ -1432,7 +1432,7 @@ class ModerationQueue {
 		// fact they needed — that this account is already out. Mirrors the frontend
 		// queue's "Already suspended" state.
 		if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) {
-			echo '<span class="bn-badge" data-tone="warning">' . esc_html__( 'Already suspended', 'buddynext' ) . '</span>';
+			echo '<span class="bn-badge" data-tone="warn">' . esc_html__( 'Already suspended', 'buddynext' ) . '</span>';
 			return;
 		}
 

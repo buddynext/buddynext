@@ -1669,12 +1669,12 @@
 
 /* Warning tone: something is set up wrong but nothing is broken yet. Same
    anatomy as the error alert so every "needs attention" message reads alike. */
-.bn-alert[data-tone="warning"] {
+.bn-alert[data-tone="warn"] {
 	background: var(--bn-a-amber-bg);
 	border-inline-start-color: var(--bn-a-amber);
 }
 
-.bn-alert[data-tone="warning"] .bn-alert__icon {
+.bn-alert[data-tone="warn"] .bn-alert__icon {
 	color: var(--bn-a-amber);
 }
 
