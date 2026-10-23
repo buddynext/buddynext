@@ -45,33 +45,6 @@ function formatBadge( count ) {
 }
 
 /**
- * Map a raw notification type (e.g. `bn.post_reacted`) to its filter-tab key.
- * Mirrors the server-side filter→type map in templates/notifications/index.php
- * so a single mark-read updates the right type tab too. Returns '' for types
- * with no dedicated tab.
- *
- * @param {string} type Raw notification type.
- * @return {string} Filter key, or '' when none.
- */
-function filterKeyForType( type ) {
-	var map = {
-		'bn.post_reacted': 'reaction',
-		'mediaverse.media_reaction': 'reaction',
-		'bn.post_commented': 'comment',
-		'bn.mention': 'mention',
-		'mediaverse.media_mention': 'mention',
-		'bn.new_follower': 'follow',
-		'bn.connection_accepted': 'follow',
-		'bn.connection_requested': 'follow',
-		'bn.space_invite': 'space',
-		'bn.space_join_requested': 'space',
-		'bn.space_new_post': 'space',
-		'bn.new_message': 'message',
-	};
-	return map[ type ] || '';
-}
-
-/**
  * Adjust the reactive unread filter-tab counts by `delta`.
  *
  * Every notification belongs to All + Unread, so both always move. When a row
@@ -153,7 +126,7 @@ function adjustUnreadTabBadges( ctx, delta, type ) {
 		return;
 	}
 	var filters = [ 'all', 'unread' ];
-	var typeKey = type ? filterKeyForType( type ) : '';
+	var typeKey = ( type && ctx.tabOfType && ctx.tabOfType[ type ] ) || '';
 	if ( typeKey ) {
 		filters.push( typeKey );
 	}

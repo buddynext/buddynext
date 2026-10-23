@@ -295,6 +295,15 @@ $initial_context = wp_json_encode(
 			'space'    => $space_unread,
 			'message'  => $message_unread,
 		),
+		// Type -> tab, from the one server map, so a mark-read or delete moves
+		// the right tab badge without a second copy of the map in JS.
+		'tabOfType'     => array_merge(
+			...array_map(
+				static fn( string $tab, array $types ): array => array_fill_keys( $types, $tab ),
+				array_keys( NotificationService::TAB_TYPES ),
+				NotificationService::TAB_TYPES
+			)
+		),
 	)
 );
 ?>

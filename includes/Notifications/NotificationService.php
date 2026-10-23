@@ -44,6 +44,7 @@ class NotificationService {
 			'bn.space_ownership_received',
 			'bn.space_role_changed',
 			'bn.bulk_invite',
+			'bn.space_media_unlinked',
 		),
 		'message'  => array( 'bn.new_message' ),
 	);
