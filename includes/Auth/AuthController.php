@@ -919,9 +919,7 @@ class AuthController {
 		// this endpoint into an enumeration oracle ("that address is a real, pending
 		// account"), which is exactly what the generic 401 below exists to prevent.
 		// So verify the password ourselves, and only then explain the real reason.
-		$user = is_email( $user_input )
-			? get_user_by( 'email', $user_input )
-			: get_user_by( 'login', $user_input );
+		$user = self::user_for_identifier( $user_input );
 
 		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
 			return null; // Fall through to the generic credential failure.
@@ -972,7 +970,8 @@ class AuthController {
 			return $limited;
 		}
 
-		$login = is_email( $user_input ) ? $this->resolve_login_for_email( $user_input ) : $user_input;
+		$identified = self::user_for_identifier( $user_input );
+		$login      = $identified ? $identified->user_login : $user_input;
 
 		// Verify the password (runs the full authenticate chain, including the
 		// pending-approval gate) WITHOUT setting an auth cookie yet — so a 2FA
@@ -1805,14 +1804,23 @@ class AuthController {
 	}
 
 	/**
-	 * Resolve a username for a given email address.
+	 * The account a sign-in identifier names: an email, a username, or the member's
+	 * handle (the @name shown everywhere in the community, which differs from
+	 * user_login whenever the email's local part held a dot).
 	 *
-	 * @param string $email Email.
-	 * @return string Username or original input if no match.
+	 * A real username wins over a handle, so signing in never depends on another
+	 * member's handle. Null when nothing matches.
+	 *
+	 * @param string $identifier What the member typed.
+	 * @return \WP_User|null
 	 */
-	private function resolve_login_for_email( string $email ): string {
-		$user = get_user_by( 'email', $email );
-		return $user ? $user->user_login : $email;
+	private static function user_for_identifier( string $identifier ): ?\WP_User {
+		if ( is_email( $identifier ) ) {
+			$user = get_user_by( 'email', $identifier );
+		} else {
+			$user = get_user_by( 'login', $identifier ) ?: \BuddyNext\Profile\Handle::resolve( ltrim( $identifier, '@' ) );
+		}
+		return $user instanceof \WP_User ? $user : null;
 	}
 
 	/**
