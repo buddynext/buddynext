@@ -334,6 +334,17 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-wp-on--click="actions.requestJoin"
 				><?php esc_html_e( 'Request to join', 'buddynext' ); ?></button>
 			<?php endif; ?>
+
+			<?php if ( ! $bn_is_guest && ! $bn_is_owner && buddynext_can( get_current_user_id(), 'buddynext-moderation/report' ) ) : ?>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="sm"
+					data-wp-on--click="actions.reportSpace"
+					aria-label="<?php esc_attr_e( 'Report this space', 'buddynext' ); ?>"
+				><?php buddynext_icon( 'flag' ); ?> <?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+			<?php endif; ?>
 		</div>
 	</div>
 

@@ -291,6 +291,12 @@ class ModerationService {
 			return $object_id;
 		}
 
+		if ( 'space' === $object_type ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT owner_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $object_id ) );
+		}
+
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return 0;
 		}
@@ -1212,6 +1218,10 @@ class ModerationService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		if ( false !== $updated ) {
+			wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+		}
+
 		return false !== $updated;
 	}
 
@@ -1723,7 +1733,7 @@ class ModerationService {
 				        MAX(space_id) AS space_id,
 				        MAX(reason) AS reason,
 				        MAX(notes) AS notes,
-				        MAX(status) AS status,
+				        IF( SUM( status = 'escalated' ) > 0, 'escalated', 'pending' ) AS status,
 				        COUNT(*) AS report_count,
 				        COUNT(DISTINCT reporter_id) AS reporter_count,
 				        GROUP_CONCAT(DISTINCT reason ORDER BY reason SEPARATOR ', ') AS reasons,
@@ -2094,7 +2104,7 @@ class ModerationService {
 	 * @return string[]
 	 */
 	public static function reportable_types(): array {
-		return array_values( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'message', 'media' ) ) ) );
+		return array_values( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'space', 'message', 'media' ) ) ) );
 	}
 
 	/**
@@ -2282,7 +2292,7 @@ class ModerationService {
 		if ( $actor_id > 0 && $bn_duration_opt <= 0 && ! buddynext_can( $actor_id, 'buddynext-moderation/suspend-indefinitely' ) ) {
 			return new WP_Error(
 				'forbidden',
-				__( 'Only an administrator can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
+				__( 'Only a community or site admin can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -3504,16 +3514,22 @@ class ModerationService {
 			)
 			: array();
 
-		$updated = $wpdb->query(
+		// Escalating hands the report to senior review: it is still open, so it is
+		// not "resolved" by anyone and carries no resolved_by / resolved_at. Only a
+		// pending report can be escalated, so a second escalate matches no rows and
+		// returns 409 below instead of writing a second audit row.
+		$escalating = 'escalated' === $status;
+		$from       = $escalating ? "('pending')" : "('pending','escalated')";
+		$updated    = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_reports
-				 SET status = %s, resolved_by = %d, resolved_at = %s
-				 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
-				$status,
-				$recorded_actor,
-				current_time( 'mysql', true ), // UTC, to match created_at and the resolved_today query.
-				(string) $target['object_type'],
-				(int) $target['object_id']
+				 SET status = %s, resolved_by = " . ( $escalating ? 'NULL' : '%d' ) . ', resolved_at = ' . ( $escalating ? 'NULL' : '%s' ) . "
+				 WHERE object_type = %s AND object_id = %d AND status IN {$from}",
+				...array_merge(
+					array( $status ),
+					$escalating ? array() : array( $recorded_actor, current_time( 'mysql', true ) ), // UTC, to match created_at and the resolved_today query.
+					array( (string) $target['object_type'], (int) $target['object_id'] )
+				)
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -3531,9 +3547,15 @@ class ModerationService {
 		if ( 0 === (int) $updated ) {
 			return new WP_Error(
 				'already_resolved',
-				__( 'This report was already actioned by another moderator.', 'buddynext' ),
+				$escalating
+					? __( 'This report was already escalated or actioned by another moderator.', 'buddynext' )
+					: __( 'This report was already actioned by another moderator.', 'buddynext' ),
 				array( 'status' => 409 )
 			);
+		}
+
+		if ( $escalating ) {
+			$this->notify_escalation( $recorded_actor, (string) $target['object_type'], (int) $target['object_id'] );
 		}
 
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
@@ -3663,6 +3685,74 @@ class ModerationService {
 	 * @param int    $object_id    Reported content ID.
 	 * @return void
 	 */
+	/**
+	 * Everyone who holds a moderation ability site-wide, for "who gets told" fan-outs.
+	 *
+	 * WordPress administrators plus community-role holders the ability admits, so a
+	 * remapped role map is honoured. One resolver for every moderation alert (new
+	 * report, escalation, appeal) so the audiences cannot drift. Community roles are
+	 * read from the indexed bn_community_role meta, never a full user scan.
+	 *
+	 * @param string $ability buddynext_can() ability a community-role holder must pass.
+	 * @return int[] Unique user IDs.
+	 */
+	public function staff_recipients( string $ability ): array {
+		$ids = array_map(
+			'intval',
+			(array) get_users(
+				array(
+					'role'   => 'administrator',
+					'fields' => 'ID',
+				)
+			)
+		);
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- indexed meta_key; the community-staff set is small.
+		$community = get_users(
+			array(
+				'meta_key'     => 'bn_community_role',
+				'meta_value'   => array( 'moderator', 'admin' ),
+				'meta_compare' => 'IN',
+				'fields'       => 'ID',
+			)
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		foreach ( (array) $community as $user_id ) {
+			if ( buddynext_can( (int) $user_id, $ability ) ) {
+				$ids[] = (int) $user_id;
+			}
+		}
+		return array_values( array_unique( $ids ) );
+	}
+
+	/**
+	 * Tell senior reviewers a report was escalated (bell only, never the escalator).
+	 *
+	 * @param int    $escalator   Recorded actor; 0 for a system escalation.
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object ID.
+	 */
+	private function notify_escalation( int $escalator, string $object_type, int $object_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$notifications = buddynext_service( 'notifications' );
+		foreach ( $this->staff_recipients( 'buddynext-moderation/resolve-appeals' ) as $recipient_id ) {
+			if ( $recipient_id === $escalator ) {
+				continue;
+			}
+			$notifications->create(
+				array(
+					'recipient_id' => $recipient_id,
+					'sender_id'    => $escalator,
+					'type'         => 'bn.report_escalated',
+					'object_type'  => $object_type,
+					'object_id'    => $object_id,
+					'group_key'    => 'report_escalated_' . $object_type . '_' . $object_id,
+				)
+			);
+		}
+	}
+
 	private function notify_reporters_reviewed( array $reporter_ids, int $sender_id, string $object_type, int $object_id ): void {
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;

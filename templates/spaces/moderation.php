@@ -354,6 +354,9 @@ $mod_privacy = array(
 										);
 										?>
 									</span>
+									<?php if ( 'escalated' === (string) ( $report['status'] ?? '' ) ) : ?>
+										<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
+									<?php endif; ?>
 								</div>
 
 								<div class="bn-space-mod__report-body">

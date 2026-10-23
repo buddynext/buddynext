@@ -999,6 +999,9 @@ $posts_pct_abs = abs( $posts_pct );
 									<div class="bn-ca-report-row__type">
 										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>
 										<?php echo esc_html( $rpt_reason ); ?>
+										<?php if ( $rpt_escalated ) : ?>
+											<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
+										<?php endif; ?>
 									</div>
 									<div class="bn-ca-report-row__excerpt"><?php echo esc_html( '' !== $rpt_excerpt ? $rpt_excerpt : buddynext_object_label( $rpt_obj_type, $rpt_obj_id ) ); ?></div>
 									<div class="bn-ca-report-row__meta">

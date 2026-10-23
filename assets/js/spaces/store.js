@@ -4,7 +4,7 @@ import { restFetch } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
-import { bnConfirm, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1100,6 +1100,28 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * Reverts the button to "Join" (public) or "Request to join"
 		 * (private/secret) and decrements the displayed member count.
 		 */
+		/**
+		 * Report this space to the site moderators (the site queue only).
+		 */
+		reportSpace: async function ( event ) {
+			var spaceId = resolveSpaceId( event && event.target && event.target.closest( 'button' ) );
+			if ( ! spaceId ) { return; }
+			var result = await bnReportDialog( { title: t( 'reportSpaceTitle', 'Report this space' ) } );
+			if ( ! result ) { return; }
+			var res = await restFetch( '/reports', {
+				method:       'POST',
+				nonce:        resolveNonce(),
+				toastOnError: false,
+				body:         { object_type: 'space', object_id: parseInt( spaceId, 10 ), reason: result.reason || 'other', notes: result.notes || '' },
+			} );
+			if ( res.ok || 201 === res.status ) {
+				bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+				return;
+			}
+			var data = res.data || {};
+			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+		},
+
 		leaveSpace: async function ( event ) {
 			if ( routeMembership( event, 'joined' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );

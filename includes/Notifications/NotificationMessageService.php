@@ -382,6 +382,9 @@ class NotificationMessageService {
 			case 'bn.new_report':
 				return __( 'New content was reported and is awaiting review.', 'buddynext' );
 
+			case 'bn.report_escalated':
+				return __( 'A report was escalated for senior review.', 'buddynext' );
+
 			case 'bn.post_approved':
 				return __( 'Your post was approved and is now live.', 'buddynext' );
 
@@ -759,6 +762,11 @@ class NotificationMessageService {
 					'tone'  => 'warning',
 					'label' => __( 'New report', 'buddynext' ),
 				),
+				'bn.report_escalated'         => array(
+					'icon'  => 'flag',
+					'tone'  => 'danger',
+					'label' => __( 'Report escalated', 'buddynext' ),
+				),
 				'bn.onboarding_nudge'         => array(
 					'icon'  => 'sparkles',
 					'tone'  => 'accent',
@@ -1010,6 +1018,11 @@ class NotificationMessageService {
 						return add_query_arg( 'bn_mtab', 'reports', $report_space_link . 'moderation/' );
 					}
 				}
+				return PageRouter::community_admin_moderation_url();
+
+			case 'bn.report_escalated':
+				// Senior-review hand-off: only site-level reviewers receive it, and the
+				// aggregate queue is where the escalated row sits.
 				return PageRouter::community_admin_moderation_url();
 
 			case 'bn.onboarding_nudge':

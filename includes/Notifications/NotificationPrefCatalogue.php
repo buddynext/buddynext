@@ -386,6 +386,16 @@ class NotificationPrefCatalogue {
 				// hidden from members who could never receive it.
 				'moderator_only'     => true,
 			),
+			'bn.report_escalated'         => array(
+				'label'              => __( 'Escalated reports', 'buddynext' ),
+				'description'        => __( 'A moderator escalated a report for senior review.', 'buddynext' ),
+				'group'              => self::GROUP_MODERATION,
+				'default_on_site'    => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
+				// Sent only to site and community admins (ModerationService::notify_escalation).
+				'moderator_only'     => true,
+			),
 			'bn.post_approved'            => array(
 				'label'              => __( 'Post approved', 'buddynext' ),
 				'description'        => __( 'Your post was approved and is now live.', 'buddynext' ),

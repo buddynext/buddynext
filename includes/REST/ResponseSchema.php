@@ -3968,6 +3968,32 @@ final class ResponseSchema {
 								),
 							),
 						),
+						'bn.report_escalated'              => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
 						'bn.post_approved'                 => array(
 							'type'       => 'object',
 							'properties' => array(

@@ -221,7 +221,6 @@ class PermissionService {
 	 */
 	private const READ_CAPS = array(
 		'buddynext-profile/view',
-		'buddynext-moderation/review-queue',
 	);
 
 	/**

@@ -457,7 +457,14 @@ class ModerationListener implements ListenerInterface {
 				array( '%d', '%s' ),
 				array( '%d' )
 			);
+			// A removed comment leaves the parent post's public count; recount it.
+			$parent_post = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d AND object_type = 'post'", $object_id )
+			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			if ( $parent_post > 0 ) {
+				buddynext_service( 'counters' )->recount_post_comments( $parent_post );
+			}
 
 			return true;
 		}
@@ -650,12 +657,8 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
-		$admin_ids = get_users(
-			array(
-				'role'   => 'administrator',
-				'fields' => 'ID',
-			)
-		);
+		// Everyone who can decide appeals: WP administrators plus community admins.
+		$admin_ids = buddynext_service( 'moderation' )->staff_recipients( 'buddynext-moderation/resolve-appeals' );
 
 		if ( empty( $admin_ids ) ) {
 			return;
@@ -710,33 +713,9 @@ class ModerationListener implements ListenerInterface {
 			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_reports WHERE id = %d", $report_id )
 		);
 
-		// Deduplicated recipient set keyed by user ID.
-		$recipients = array();
-		foreach ( (array) get_users(
-			array(
-				'role'   => 'administrator',
-				'fields' => 'ID',
-			)
-		) as $admin_id ) {
-			$recipients[ (int) $admin_id ] = true;
-		}
-		// Community moderators and admins review the queue too (from Community
-		// Admin). Asked through the ability, so a remapped role map is honoured.
-		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- indexed meta_key; the moderator set is small.
-		$community_mods = get_users(
-			array(
-				'meta_key'     => 'bn_community_role',
-				'meta_value'   => array( 'moderator', 'admin' ),
-				'meta_compare' => 'IN',
-				'fields'       => 'ID',
-			)
-		);
-		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-		foreach ( (array) $community_mods as $mod_id ) {
-			if ( buddynext_can( (int) $mod_id, 'buddynext-moderation/review-queue' ) ) {
-				$recipients[ (int) $mod_id ] = true;
-			}
-		}
+		// Deduplicated recipient set keyed by user ID: site staff who review the
+		// queue (WP administrators and community moderators/admins).
+		$recipients = array_fill_keys( buddynext_service( 'moderation' )->staff_recipients( 'buddynext-moderation/review-queue' ), true );
 		if ( $space_id > 0 ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$space_mods = $wpdb->get_col(

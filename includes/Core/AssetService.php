@@ -1431,6 +1431,9 @@ class AssetService {
 					'leaveSpaceTitle'                 => __( 'Leave this space?', 'buddynext' ),
 					'leaveSpaceConfirm'               => __( 'You will stop seeing its posts and can join again later.', 'buddynext' ),
 					'leaveSpaceOk'                    => __( 'Leave', 'buddynext' ),
+					'reportSpaceTitle'                => __( 'Report this space', 'buddynext' ),
+					'toastReportSubmitted'            => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
+					'toastCouldNotReport'             => __( 'Could not submit report. Try again.', 'buddynext' ),
 					// Directory subtitle count, kept in sync by the store after a
 					// client-side re-render (SSR count would otherwise go stale on
 					// search — card 10297104779). Singular/plural pairs so the JS can
