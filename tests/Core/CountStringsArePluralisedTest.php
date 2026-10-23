@@ -107,6 +107,12 @@ class CountStringsArePluralisedTest extends \WP_UnitTestCase {
 					continue;
 				}
 
+				// "%s Followers" where the translators note says %s is a name (the
+				// community, a member) is a heading, not a count.
+				if ( preg_match( '/translators:\s*%[sd]:[^*]*\bname\b/i', $line ) ) {
+					continue;
+				}
+
 				$offences[] = sprintf(
 					'%s:%d  \'%%s %s\' has no singular form - use _n(), or ship a \'1 %s\' sibling for JS',
 					str_replace( dirname( __DIR__, 2 ) . '/', '', $path ),

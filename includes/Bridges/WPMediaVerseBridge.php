@@ -362,8 +362,14 @@ class WPMediaVerseBridge {
 		add_filter(
 			'buddynext_integration_card_types',
 			static function ( array $types ): array {
-				$types['media'] = array( 'label' => __( 'Media', 'buddynext' ), 'icon' => 'image' );
-				$types['document'] = array( 'label' => __( 'Document', 'buddynext' ), 'icon' => 'file-text' );
+				$types['media']    = array(
+					'label' => __( 'Media', 'buddynext' ),
+					'icon'  => 'image',
+				);
+				$types['document'] = array(
+					'label' => __( 'Document', 'buddynext' ),
+					'icon'  => 'file-text',
+				);
 				return $types;
 			}
 		);
@@ -646,6 +652,12 @@ class WPMediaVerseBridge {
 		return (array) ( $this->hydrate_media_preview( array( 'link_preview' => $meta ) )['link_preview'] ?? $meta );
 	}
 
+	/**
+	 * Fill a media card's link preview from the MediaVerse item it points at.
+	 *
+	 * @param array $args Post args carrying `link_preview` with a `media_id`.
+	 * @return array The args, with the preview hydrated when the item resolves.
+	 */
 	private function hydrate_media_preview( array $args ): array {
 		$link     = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
 		$media_id = (int) ( $link['media_id'] ?? 0 );

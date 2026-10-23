@@ -52,7 +52,6 @@
  "templates/partials/composer.php": 1,
  "templates/partials/space-files-tab.php": 1,
  "templates/parts/settings-account-fields.php": 1,
- "templates/parts/space-members-body.php": 1,
  "templates/profile/view.php": 1,
  "templates/spaces/directory.php": 2
 }

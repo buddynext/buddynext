@@ -31,6 +31,13 @@ class AssetService {
 	private const VERSION = BUDDYNEXT_VERSION;
 
 	/**
+	 * Accent folding map for this request, built once by slug_fold_map().
+	 *
+	 * @var array<string, string>|null
+	 */
+	private static ?array $slug_fold_map = null;
+
+	/**
 	 * Base URL for plugin assets (with trailing slash).
 	 *
 	 * @var string
@@ -884,9 +891,8 @@ class AssetService {
 	 * @return array<string, string> Letter => replacement.
 	 */
 	public static function slug_fold_map(): array {
-		static $map = null;
-		if ( null !== $map ) {
-			return $map;
+		if ( null !== self::$slug_fold_map ) {
+			return self::$slug_fold_map;
 		}
 		$map = array();
 		foreach ( array( array( 0xC0, 0x24F ), array( 0x1E00, 0x1EFF ) ) as $range ) {
@@ -898,6 +904,7 @@ class AssetService {
 				}
 			}
 		}
+		self::$slug_fold_map = $map;
 		return $map;
 	}
 

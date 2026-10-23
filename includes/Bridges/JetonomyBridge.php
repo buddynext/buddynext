@@ -1401,6 +1401,9 @@ class JetonomyBridge {
 		$space_id = (int) $space_id;
 		$user_id  = (int) $user_id;
 		$granted  = (array) get_user_meta( $user_id, self::GRANTED_META, false );
+		if ( empty( $granted ) || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
+			return;
+		}
 
 		// The forum linked now AND any this space unlinked earlier: unlinking leaves
 		// the roster alone, so a member banned afterwards must still lose the old
@@ -1433,7 +1436,7 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	private function put_on_forum( int $forum_id, int $user_id, string $bn_role ): void {
-		if ( $user_id <= 0 ) {
+		if ( $user_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
 			return;
 		}
 		$role    = in_array( $bn_role, array( 'owner', 'admin' ), true ) ? 'admin' : ( 'moderator' === $bn_role ? 'moderator' : 'member' );

@@ -36,10 +36,10 @@ class PermissionService {
 	 * @var array<string, string|null>
 	 */
 	private const ROLE_MAP = array(
-		'buddynext-profile/edit-own'        => 'member',
-		'buddynext-profile/edit-any'        => 'admin',
-		'buddynext-profile/view'            => null,
-		'buddynext-feed/create-post'        => 'member',
+		'buddynext-profile/edit-own'                => 'member',
+		'buddynext-profile/edit-any'                => 'admin',
+		'buddynext-profile/view'                    => null,
+		'buddynext-feed/create-post'                => 'member',
 		// Umbrella "may engage with content" ability for the lightweight
 		// interaction controls that have no cap of their own (react, share,
 		// bookmark, poll-vote). Member-level so every member in good standing
@@ -48,7 +48,7 @@ class PermissionService {
 		// Decoupled from create-post on purpose: an owner who restricts posting
 		// should not thereby strip reactions, and an owner who wants a read-only
 		// community can map THIS to a higher role to hide them all at once.
-		'buddynext-feed/interact'           => 'member',
+		'buddynext-feed/interact'                   => 'member',
 		// There was no comment capability at all. Pro's AI reply checked buddynext_can( $u,
 		// 'comment' ) — an unmapped slug, so passes_role_check() returned false for every
 		// member and the feature was dead for exactly the people it was for. It is NOT a
@@ -56,41 +56,41 @@ class PermissionService {
 		// mapping it to create-post would tie replying to POST-creation rights (and drag in
 		// unrelated plan gating). So Free builds the door rather than Pro reaching through a
 		// wall.
-		'buddynext-comments/create'         => 'member',
-		'buddynext-feed/delete-own-post'    => 'member',
-		'buddynext-feed/delete-any-post'    => 'moderator',
+		'buddynext-comments/create'                 => 'member',
+		'buddynext-feed/delete-own-post'            => 'member',
+		'buddynext-feed/delete-any-post'            => 'moderator',
 		// Editing someone else's post or comment, and hiding a post: a site
 		// administrator's correction power, delegable to the community admin role
 		// rather than tied to manage_options. Distinct from delete-any-post on
 		// purpose: a moderator removes, they do not rewrite what a member said.
-		'buddynext-feed/edit-any-post'      => 'admin',
+		'buddynext-feed/edit-any-post'              => 'admin',
 		// Post and end site-wide announcements. A space announcement follows the
 		// space role instead (buddynext-moderate-space).
-		'buddynext-feed/announce'           => 'admin',
-		'buddynext-feed/schedule-post'      => 'member',
-		'buddynext-spaces/create'           => 'member',
-		'buddynext-spaces/join'             => 'member',
-		'buddynext-spaces/join-gated'       => null,
-		'buddynext-spaces/post'             => 'member',
-		'buddynext-spaces/moderate'         => 'moderator',
-		'buddynext-spaces/manage-settings'  => 'moderator',
-		'buddynext-spaces/delete'           => 'moderator',
-		'buddynext-connections/follow'      => 'member',
-		'buddynext-connections/connect'     => 'member',
-		'buddynext-moderation/report'       => 'member',
-		'buddynext-moderation/review-queue' => 'moderator',
+		'buddynext-feed/announce'                   => 'admin',
+		'buddynext-feed/schedule-post'              => 'member',
+		'buddynext-spaces/create'                   => 'member',
+		'buddynext-spaces/join'                     => 'member',
+		'buddynext-spaces/join-gated'               => null,
+		'buddynext-spaces/post'                     => 'member',
+		'buddynext-spaces/moderate'                 => 'moderator',
+		'buddynext-spaces/manage-settings'          => 'moderator',
+		'buddynext-spaces/delete'                   => 'moderator',
+		'buddynext-connections/follow'              => 'member',
+		'buddynext-connections/connect'             => 'member',
+		'buddynext-moderation/report'               => 'member',
+		'buddynext-moderation/review-queue'         => 'moderator',
 		// Acting on a report (dismiss / resolve / escalate / remove content). Its own
 		// ability, distinct from review-queue (seeing the queue), so an owner can let
 		// a role read the queue without resolving reports. The moderation queue's
 		// Dismiss / Remove buttons render from this ability and ModerationService
 		// authorises report actions against it, so the two never diverge (card
 		// 10264294189).
-		'buddynext-moderation/dismiss'      => 'moderator',
-		'buddynext-moderation/issue-strike' => 'moderator',
+		'buddynext-moderation/dismiss'              => 'moderator',
+		'buddynext-moderation/issue-strike'         => 'moderator',
 		// Site-wide moderators have full moderation authority (product decision):
 		// suspend is a moderator power, not admin-only. Space-scoped suspension is
 		// still resolved separately per space.
-		'buddynext-moderation/suspend-user' => 'moderator',
+		'buddynext-moderation/suspend-user'         => 'moderator',
 		// A suspension with no end date stays with the admins (card 10264294189);
 		// moderators suspend for a set number of days.
 		'buddynext-moderation/suspend-indefinitely' => 'admin',
@@ -103,9 +103,9 @@ class PermissionService {
 		'buddynext-community/assign-roles'          => 'admin',
 		// Space-scoped capabilities — resolved by can_moderate_space() /
 		// can_manage_space() / can_own_space().
-		'buddynext-moderate-space'          => null,
-		'buddynext-manage-space'            => null,
-		'buddynext-own-space'               => null,
+		'buddynext-moderate-space'                  => null,
+		'buddynext-manage-space'                    => null,
+		'buddynext-own-space'                       => null,
 	);
 
 	/**

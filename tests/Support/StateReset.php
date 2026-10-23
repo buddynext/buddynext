@@ -72,6 +72,9 @@ final class StateReset implements BeforeTestHook {
 			'rendered'          => array(),
 			'category_icon_map' => null,
 		),
+		// Built from remove_accents() for the current locale; a test that switches
+		// locale must not read the previous test's folding.
+		\BuddyNext\Core\AssetService::class             => array( 'slug_fold_map' => null ),
 		\BuddyNext\SocialGraph\BlockService::class        => array( 'blocking_pair_cache' => array() ),
 		\BuddyNext\SocialGraph\ConnectionService::class   => array( 'degree_memo' => array() ),
 		// The hard-ban memo, and its "forget on ban/unban" hooks: the suite resets hooks

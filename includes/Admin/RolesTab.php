@@ -69,13 +69,13 @@ class RolesTab extends AdminPageBase {
 				'buddynext-profile/edit-any' => __( "Edit anyone's profile", 'buddynext' ),
 			),
 			__( 'Moderation', 'buddynext' )       => array(
-				'buddynext-moderation/report'       => __( 'Report content', 'buddynext' ),
-				'buddynext-moderation/review-queue' => __( 'Review the report queue', 'buddynext' ),
-				'buddynext-moderation/dismiss'      => __( 'Resolve reports', 'buddynext' ),
-				'buddynext-moderation/issue-strike' => __( 'Issue strikes', 'buddynext' ),
-				'buddynext-moderation/suspend-user' => __( 'Suspend members', 'buddynext' ),
+				'buddynext-moderation/report'          => __( 'Report content', 'buddynext' ),
+				'buddynext-moderation/review-queue'    => __( 'Review the report queue', 'buddynext' ),
+				'buddynext-moderation/dismiss'         => __( 'Resolve reports', 'buddynext' ),
+				'buddynext-moderation/issue-strike'    => __( 'Issue strikes', 'buddynext' ),
+				'buddynext-moderation/suspend-user'    => __( 'Suspend members', 'buddynext' ),
 				'buddynext-moderation/suspend-indefinitely' => __( 'Suspend members with no end date', 'buddynext' ),
-				'buddynext-moderation/resolve-appeals'      => __( 'Decide appeals', 'buddynext' ),
+				'buddynext-moderation/resolve-appeals' => __( 'Decide appeals', 'buddynext' ),
 			),
 		);
 	}

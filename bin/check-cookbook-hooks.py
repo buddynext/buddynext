@@ -93,6 +93,15 @@ def collect_defined(roots):
     bind = re.compile(r"->(?:bind|singleton|instance)\s*\(\s*'([a-z0-9_]+)'")
     # A dynamic hook: "buddynext_..._{$var}" — capture the static prefix.
     dynamic = re.compile(r'"((?:buddynext_|buddynextpro_)[a-z0-9_]*?)\{\$')
+    # The same, concatenated: apply_filters( 'buddynext_render_post_body_' . $type, … ).
+    concat = re.compile(
+        r"\b(?:do_action|do_action_ref_array|apply_filters|apply_filters_ref_array)\s*\(\s*'((?:buddynext_|buddynextpro_)[a-z0-9_]*_)'\s*\."
+    )
+    # A helper that fires the hook it is handed: `function filter_auth_url( string $hook, …`
+    # whose body calls apply_filters( $hook, … ). Its call sites name real hooks.
+    forwarder = re.compile(
+        r"function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*string\s+\$hook\b.*?\{(.*?)\n\t\}", re.DOTALL
+    )
 
     # Hooks held in a CONSTANT/PROPERTY, e.g. `const FILTER_MANIFEST =
     # 'buddynext_pwa_manifest';` then `apply_filters( self::FILTER_MANIFEST, … )`.
@@ -126,6 +135,10 @@ def collect_defined(roots):
             hooks.update(fire.findall(src))
             services.update(bind.findall(src))
             prefixes.update(dynamic.findall(src))
+            prefixes.update(concat.findall(src))
+            for fn, body in forwarder.findall(src):
+                if re.search(r"\b(?:do_action|apply_filters)\s*\(\s*\$hook\b", body):
+                    hooks.update(re.findall(r"\b" + fn + r"\s*\(\s*'((?:buddynext_|buddynextpro_)[a-z0-9_]+)'", src))
             for name, literal in held_decl.findall(src):
                 name_to_literals.setdefault(name, set()).add(literal)
             hook_ref_names.update(hook_by_ref.findall(src))

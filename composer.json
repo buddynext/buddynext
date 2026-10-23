@@ -28,7 +28,9 @@
   },
   "scripts": {
     "lint": "phpcs",
-    "lint-fix": "phpcbf"
+    "lint-fix": "phpcbf",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "post-install-cmd": "@hooks:install"
   },
   "config": {
     "optimize-autoloader": true,

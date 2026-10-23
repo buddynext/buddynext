@@ -41,7 +41,7 @@ if ( ! $bn_space ) {
 	return;
 }
 
-$bn_space_id      = isset( $args['members_data']['space_id'] ) ? (int) $args['members_data']['space_id'] : 0;
+$bn_space_id = isset( $args['members_data']['space_id'] ) ? (int) $args['members_data']['space_id'] : 0;
 // Promote / demote belongs to the owner and site admins; a moderator sees remove and ban only.
 $bn_can_roles     = buddynext_service( 'space_members' )->can_change_roles( $bn_space_id, get_current_user_id() );
 $bn_space_members = isset( $args['members_data']['members'] ) && is_array( $args['members_data']['members'] )

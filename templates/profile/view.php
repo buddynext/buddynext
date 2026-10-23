@@ -177,7 +177,7 @@ $pronouns = $get_fv( 'basic_info', 'pronouns' );
 // live in basic_info) and through FieldType::display_text() so a map/date/etc.
 // shows its human value, not raw storage. Empties are dropped so the row carries
 // only fields the member actually filled.
-$bn_find_field = static function ( string $field_key ) use ( $group_data ): ?array {
+$bn_find_field  = static function ( string $field_key ) use ( $group_data ): ?array {
 	foreach ( $group_data as $bn_g ) {
 		if ( empty( $bn_g['fields'] ) || ! is_array( $bn_g['fields'] ) ) {
 			continue;
@@ -190,7 +190,7 @@ $bn_find_field = static function ( string $field_key ) use ( $group_data ): ?arr
 	}
 	return null;
 };
-$hero_meta     = array();
+$hero_meta      = array();
 $bn_header_keys = \BuddyNext\Profile\ProfileService::hero_meta_field_keys();
 foreach ( $bn_header_keys as $bn_hk ) {
 	$bn_hf = $bn_find_field( (string) $bn_hk );

@@ -51,132 +51,132 @@ final class CompanionRegistry {
 			'buddynext_companions',
 			array(
 				'wpmediaverse'           => array(
-					'label'     => 'MediaVerse',
+					'label'       => 'MediaVerse',
 					'integration' => 'media',
-					'why'       => __( 'Direct messaging, media galleries, and social feeds.', 'buddynext' ),
-					'detect'    => static fn(): bool => class_exists( '\\WPMediaVerse\\Core\\Plugin' ),
-					'free'      => array(
+					'why'         => __( 'Direct messaging, media galleries, and social feeds.', 'buddynext' ),
+					'detect'      => static fn(): bool => class_exists( '\\WPMediaVerse\\Core\\Plugin' ),
+					'free'        => array(
 						'item_id'  => 1660826,
 						'key'      => 'wbcomfree7a9c2e5d1f8b4c6a3e0d9b2f7c1a8e44',
 						'basename' => 'wpmediaverse/wpmediaverse.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/wpmediaverse/',
-					'unlocks'   => __( 'Member-to-member direct messaging inside BuddyNext.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/wpmediaverse/',
+					'unlocks'     => __( 'Member-to-member direct messaging inside BuddyNext.', 'buddynext' ),
 				),
 				'jetonomy'               => array(
-					'label'     => 'Jetonomy',
+					'label'       => 'Jetonomy',
 					'integration' => 'jetonomy',
-					'why'       => __( 'Forum-style threaded discussions and Q&A boards.', 'buddynext' ),
-					'detect'    => static fn(): bool => class_exists( '\\Jetonomy\\Plugin' ) || function_exists( 'jetonomy' ),
-					'free'      => array(
+					'why'         => __( 'Forum-style threaded discussions and Q&A boards.', 'buddynext' ),
+					'detect'      => static fn(): bool => class_exists( '\\Jetonomy\\Plugin' ) || function_exists( 'jetonomy' ),
+					'free'        => array(
 						'item_id'  => 1660320,
 						'key'      => 'wbcomfreec7e2a9b45d8f1c3e6a0b9d2f7c4e8a11',
 						'basename' => 'jetonomy/jetonomy.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/jetonomy/',
-					'unlocks'   => __( 'Forum activity surfaced in the BuddyNext feed.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/jetonomy/',
+					'unlocks'     => __( 'Forum activity surfaced in the BuddyNext feed.', 'buddynext' ),
 				),
 				'wb-gamification'        => array(
-					'label'     => 'Gamification',
+					'label'       => 'Gamification',
 					'integration' => 'gamification',
-					'why'       => __( 'Points, badges, levels, and leaderboards.', 'buddynext' ),
-					'detect'    => static fn(): bool => function_exists( 'wb_gam_submit_event' ) || defined( 'WB_GAM_VERSION' ),
-					'free'      => array(
+					'why'         => __( 'Points, badges, levels, and leaderboards.', 'buddynext' ),
+					'detect'      => static fn(): bool => function_exists( 'wb_gam_submit_event' ) || defined( 'WB_GAM_VERSION' ),
+					'free'        => array(
 						'item_id'  => 1662147,
 						'key'      => 'wbcomfree6e2a9c1d7b4f3c8a0e5d9b2f1a7c6e11',
 						'basename' => 'wb-gamification/wb-gamification.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/wb-gamification/',
-					'unlocks'   => __( 'Badges + leaderboard on member profiles.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/wb-gamification/',
+					'unlocks'     => __( 'Badges + leaderboard on member profiles.', 'buddynext' ),
 				),
 				'wp-career-board'        => array(
-					'label'     => 'Career Board',
+					'label'       => 'Career Board',
 					'integration' => 'careerboard',
-					'why'       => __( 'Job listings and applicant management.', 'buddynext' ),
+					'why'         => __( 'Job listings and applicant management.', 'buddynext' ),
 					// Probe WCB_VERSION (defined when Career Board loads) + its real
 					// class \WCB\Core\Plugin. The old \WP_Career_Board\Plugin class
 					// never existed, so detect() always returned false and the card
 					// showed "Activate" even when the plugin was active.
-					'detect'    => static fn(): bool => defined( 'WCB_VERSION' ) || class_exists( '\\WCB\\Core\\Plugin' ),
-					'free'      => array(
+					'detect'      => static fn(): bool => defined( 'WCB_VERSION' ) || class_exists( '\\WCB\\Core\\Plugin' ),
+					'free'        => array(
 						'item_id'  => 1659888,
 						'key'      => 'wbcomfree5b8c1e7a9d3f2a4c6e0d1b7f9c2a6e00',
 						'basename' => 'wp-career-board/wp-career-board.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/wp-career-board/',
-					'unlocks'   => __( 'Job posts as activity cards in the feed.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/wp-career-board/',
+					'unlocks'     => __( 'Job posts as activity cards in the feed.', 'buddynext' ),
 					// The bridge that delivers this lives in BuddyNext Pro.
-					'needs_pro' => true,
+					'needs_pro'   => true,
 					// Where to send the admin after a one-click install so they can
 					// finish setup, instead of leaving them on the integrations screen.
-					'setup_url' => 'admin.php?page=wcb-settings',
+					'setup_url'   => 'admin.php?page=wcb-settings',
 				),
 				'learnomy'               => array(
-					'label'     => 'Learnomy',
+					'label'       => 'Learnomy',
 					'integration' => 'learnomy',
-					'why'       => __( 'Courses, lessons, and quizzes - a full LMS for your community.', 'buddynext' ),
-					'detect'    => static fn(): bool => defined( 'LEARNOMY_VERSION' ) || function_exists( 'learnomy' ),
-					'free'      => array(
+					'why'         => __( 'Courses, lessons, and quizzes - a full LMS for your community.', 'buddynext' ),
+					'detect'      => static fn(): bool => defined( 'LEARNOMY_VERSION' ) || function_exists( 'learnomy' ),
+					'free'        => array(
 						'item_id'  => 1662698,
 						'key'      => 'wbcomfree5d8a1f3c7b2e9a4c6f0d1e8b3c9a7f25',
 						'basename' => 'learnomy/learnomy.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/learnomy/',
-					'unlocks'   => __( 'Completed courses + certificates on member profiles.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/learnomy/',
+					'unlocks'     => __( 'Completed courses + certificates on member profiles.', 'buddynext' ),
 					// The bridge that delivers this lives in BuddyNext Pro.
-					'needs_pro' => true,
+					'needs_pro'   => true,
 				),
 				'wb-listora'             => array(
-					'label'     => 'Listora',
+					'label'       => 'Listora',
 					'integration' => 'listora',
-					'why'       => __( 'Directory listings - members publish and manage listings.', 'buddynext' ),
-					'detect'    => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),
+					'why'         => __( 'Directory listings - members publish and manage listings.', 'buddynext' ),
+					'detect'      => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),
 					// Free download credentials mirror WB Listora's own EDD-SL SDK
 					// registration (wb-listora.php: item_id 1662779 + the shared free
 					// license key). CompanionInstaller activates in place when the
 					// plugin is already on disk.
-					'free'      => array(
+					'free'        => array(
 						'item_id'  => 1662779,
 						'key'      => 'wbcomfree8a5d1c7e3f2b9a4c6e0d1b7f9c2a6e55',
 						'basename' => 'wb-listora/wb-listora.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/wb-listora/',
-					'unlocks'   => __( 'Member listings surfaced in the feed + on profiles.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/wb-listora/',
+					'unlocks'     => __( 'Member listings surfaced in the feed + on profiles.', 'buddynext' ),
 					// The bridge that delivers this lives in BuddyNext Pro.
-					'needs_pro' => true,
+					'needs_pro'   => true,
 				),
 				'eventonomy'             => array(
-					'label'     => 'Eventonomy',
+					'label'       => 'Eventonomy',
 					'integration' => 'eventonomy',
-					'why'       => __( 'Events, RSVPs, and calendars - members create and attend events.', 'buddynext' ),
-					'detect'    => static fn(): bool => defined( 'EVENTONOMY_VERSION' ),
+					'why'         => __( 'Events, RSVPs, and calendars - members create and attend events.', 'buddynext' ),
+					'detect'      => static fn(): bool => defined( 'EVENTONOMY_VERSION' ),
 					// Free-download credentials mirror Eventonomy's own EDD-SL preset
 					// (eventonomy.php: EVENTONOMY_EDD_ITEM_ID + EVENTONOMY_FREE_LICENSE_KEY).
-					'free'      => array(
+					'free'        => array(
 						'item_id'  => 1666307,
 						'key'      => 'eventonomyfree7a9c2e5d1f8b4c6a3e0d9b2f7c1a8e44',
 						'basename' => 'eventonomy/eventonomy.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/eventonomy/',
-					'unlocks'   => __( 'Events as activity cards in the feed + attending events on member profiles.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/eventonomy/',
+					'unlocks'     => __( 'Events as activity cards in the feed + attending events on member profiles.', 'buddynext' ),
 					// The bridge that delivers this lives in BuddyNext Pro.
-					'needs_pro' => true,
+					'needs_pro'   => true,
 				),
 				'buddypress-member-blog' => array(
-					'label'     => 'WB Member Blog',
+					'label'       => 'WB Member Blog',
 					'integration' => 'blog',
-					'why'       => __( 'Front-end publishing - members write and manage posts without wp-admin.', 'buddynext' ),
-					'detect'    => static fn(): bool => defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ),
+					'why'         => __( 'Front-end publishing - members write and manage posts without wp-admin.', 'buddynext' ),
+					'detect'      => static fn(): bool => defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ),
 					// Free-download credentials mirror WB Member Blog's own EDD-SL
 					// preset (buddypress-member-blog.php:
 					// BUDDYPRESS_MEMBER_BLOG_EDD_ITEM_ID + _EDD_LICENSE).
-					'free'      => array(
+					'free'        => array(
 						'item_id'  => 610863,
 						'key'      => 'memberblog8d3a7c1e5f2b9a4c6e0d1f8b7a2c9e55',
 						'basename' => 'buddypress-member-blog/buddypress-member-blog.php',
 					),
-					'store_url' => 'https://wbcomdesigns.com/downloads/buddypress-member-blog/',
-					'unlocks'   => __( 'An Articles tab on member profiles + article cards in the feed.', 'buddynext' ),
+					'store_url'   => 'https://wbcomdesigns.com/downloads/buddypress-member-blog/',
+					'unlocks'     => __( 'An Articles tab on member profiles + article cards in the feed.', 'buddynext' ),
 				),
 			)
 		);
