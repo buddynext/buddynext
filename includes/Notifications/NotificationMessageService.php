@@ -762,6 +762,26 @@ class NotificationMessageService {
 					'tone'  => 'warning',
 					'label' => __( 'New report', 'buddynext' ),
 				),
+				'bn.announcement'             => array(
+					'icon'  => 'megaphone',
+					'tone'  => 'accent',
+					'label' => __( 'Announcement', 'buddynext' ),
+				),
+				'bn.post_approved'            => array(
+					'icon'  => 'check-circle',
+					'tone'  => 'success',
+					'label' => __( 'Post approved', 'buddynext' ),
+				),
+				'bn.post_rejected'            => array(
+					'icon'  => 'x-circle',
+					'tone'  => 'danger',
+					'label' => __( 'Post not approved', 'buddynext' ),
+				),
+				'bn.space_media_unlinked'     => array(
+					'icon'  => 'image',
+					'tone'  => 'warning',
+					'label' => __( 'Media unlinked', 'buddynext' ),
+				),
 				'bn.report_escalated'         => array(
 					'icon'  => 'flag',
 					'tone'  => 'danger',
@@ -907,6 +927,7 @@ class NotificationMessageService {
 			case 'bn.post_shared':
 			case 'bn.mention':
 			case 'bn.space_new_post':
+			case 'bn.announcement':
 			case 'bn.post_approved':
 				// object_id is a bn_posts row id — deep-link to the canonical
 				// single-post permalink (/p/{id}/), not the generic feed. The

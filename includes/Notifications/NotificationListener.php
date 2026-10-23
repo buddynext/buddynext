@@ -407,19 +407,43 @@ class NotificationListener implements ListenerInterface {
 			)
 		);
 
-		if ( 0 === $owner_id || $owner_id === $user_id ) {
-			return;
-		}
-
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
 
-		if ( $this->is_blocked( $owner_id, $user_id ) ) {
+		// A reply tells the parent comment's author; when that is also the post
+		// owner they get the reply notice alone, never two for one comment.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$parent_author = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT p.user_id FROM {$wpdb->prefix}bn_comments c JOIN {$wpdb->prefix}bn_comments p ON p.id = c.parent_id WHERE c.id = %d",
+				$comment_id
+			)
+		);
+
+		$notifications = buddynext_service( 'notifications' );
+		$told          = array();
+
+		if ( $parent_author > 0 && $parent_author !== $user_id && ! $this->is_blocked( $parent_author, $user_id ) ) {
+			$notifications->create(
+				array(
+					'recipient_id' => $parent_author,
+					'sender_id'    => $user_id,
+					'type'         => 'bn.comment_reply',
+					'object_type'  => 'post',
+					'object_id'    => $post_id,
+					'group_key'    => 'comment_replies_' . $comment_id,
+					'data'         => array( 'comment_id' => $comment_id ),
+				)
+			);
+			$told[ $parent_author ] = true;
+		}
+
+		if ( 0 === $owner_id || $owner_id === $user_id || isset( $told[ $owner_id ] ) || $this->is_blocked( $owner_id, $user_id ) ) {
 			return;
 		}
 
-		buddynext_service( 'notifications' )->create(
+		$notifications->create(
 			array(
 				'recipient_id' => $owner_id,
 				'sender_id'    => $user_id,
@@ -497,6 +521,13 @@ class NotificationListener implements ListenerInterface {
 		}
 
 		if ( $this->is_blocked( $mentioned_user_id, $mentioner_id ) ) {
+			return;
+		}
+
+		// Tagging someone does not let them into a post they may not see: a bell row
+		// that opens a 404 is a dead end, and its text would still hint at the post.
+		$posts = buddynext_service( 'post_service' );
+		if ( $posts instanceof \BuddyNext\Feed\PostService && null !== $posts->visibility_error( $context_id, $mentioned_user_id ) ) {
 			return;
 		}
 
@@ -1126,7 +1157,7 @@ class NotificationListener implements ListenerInterface {
 		foreach ( (array) $inserted as $row ) {
 			$rid      = (int) $row['recipient_id'];
 			$notif_id = (int) $row['id'];
-			wp_cache_delete( "unread_{$rid}", 'buddynext_notifications' );
+			buddynext_service( 'notifications' )->forget_counts_for( array( $rid ) );
 			$data = array(
 				'recipient_id' => $rid,
 				'sender_id'    => $author_id,
@@ -1388,7 +1419,7 @@ class NotificationListener implements ListenerInterface {
 			if ( $notif_id <= 0 ) {
 				continue;
 			}
-			wp_cache_delete( "unread_{$member_id}", 'buddynext_notifications' );
+			buddynext_service( 'notifications' )->forget_counts_for( array( $member_id ) );
 			/** This action is documented in includes/Notifications/NotificationService.php */
 			do_action( 'buddynext_notification_created', $notif_id, $member_id, $data );
 		}
