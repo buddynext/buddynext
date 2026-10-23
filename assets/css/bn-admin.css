@@ -737,6 +737,17 @@
 	color: var(--bn-a-text-1);
 }
 
+.bn-ss-heading {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.bn-ss-sub {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+}
+
 .bn-ss-body {
 	/* Sides + bottom keep the card's s5 gutter; top is tighter so the first row
 	   binds to the section header instead of floating below an empty gap. The

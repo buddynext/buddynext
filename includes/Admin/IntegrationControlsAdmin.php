@@ -96,7 +96,17 @@ class IntegrationControlsAdmin {
 					?>
 					<div class="bn-settings-section">
 						<div class="bn-ss-header">
-							<span class="bn-ss-title"><?php echo esc_html( $bn_label ); ?></span>
+							<?php
+							// Named by the product the owner installed (the same name Add-ons uses), with what it adds as the sub-line.
+							$bn_companion = \BuddyNext\Integrations\CompanionRegistry::for_integration( (string) $key );
+							$bn_product   = (string) ( $bn_companion['label'] ?? $bn_label );
+							?>
+							<div class="bn-ss-heading">
+								<span class="bn-ss-title"><?php echo esc_html( $bn_product ); ?></span>
+								<?php if ( $bn_product !== $bn_label ) : ?>
+									<span class="bn-ss-sub"><?php echo esc_html( $bn_label ); ?></span>
+								<?php endif; ?>
+							</div>
 							<?php if ( $bn_stale ) : ?>
 								<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Update needed', 'buddynext' ); ?></span>
 							<?php elseif ( $bn_behind ) : ?>

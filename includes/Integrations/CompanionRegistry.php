@@ -52,6 +52,7 @@ final class CompanionRegistry {
 			array(
 				'wpmediaverse'           => array(
 					'label'     => 'MediaVerse',
+					'integration' => 'media',
 					'why'       => __( 'Direct messaging, media galleries, and social feeds.', 'buddynext' ),
 					'detect'    => static fn(): bool => class_exists( '\\WPMediaVerse\\Core\\Plugin' ),
 					'free'      => array(
@@ -64,6 +65,7 @@ final class CompanionRegistry {
 				),
 				'jetonomy'               => array(
 					'label'     => 'Jetonomy',
+					'integration' => 'jetonomy',
 					'why'       => __( 'Forum-style threaded discussions and Q&A boards.', 'buddynext' ),
 					'detect'    => static fn(): bool => class_exists( '\\Jetonomy\\Plugin' ) || function_exists( 'jetonomy' ),
 					'free'      => array(
@@ -76,6 +78,7 @@ final class CompanionRegistry {
 				),
 				'wb-gamification'        => array(
 					'label'     => 'Gamification',
+					'integration' => 'gamification',
 					'why'       => __( 'Points, badges, levels, and leaderboards.', 'buddynext' ),
 					'detect'    => static fn(): bool => function_exists( 'wb_gam_submit_event' ) || defined( 'WB_GAM_VERSION' ),
 					'free'      => array(
@@ -88,6 +91,7 @@ final class CompanionRegistry {
 				),
 				'wp-career-board'        => array(
 					'label'     => 'Career Board',
+					'integration' => 'careerboard',
 					'why'       => __( 'Job listings and applicant management.', 'buddynext' ),
 					// Probe WCB_VERSION (defined when Career Board loads) + its real
 					// class \WCB\Core\Plugin. The old \WP_Career_Board\Plugin class
@@ -109,6 +113,7 @@ final class CompanionRegistry {
 				),
 				'learnomy'               => array(
 					'label'     => 'Learnomy',
+					'integration' => 'learnomy',
 					'why'       => __( 'Courses, lessons, and quizzes - a full LMS for your community.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'LEARNOMY_VERSION' ) || function_exists( 'learnomy' ),
 					'free'      => array(
@@ -123,6 +128,7 @@ final class CompanionRegistry {
 				),
 				'wb-listora'             => array(
 					'label'     => 'Listora',
+					'integration' => 'listora',
 					'why'       => __( 'Directory listings - members publish and manage listings.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),
 					// Free download credentials mirror WB Listora's own EDD-SL SDK
@@ -141,6 +147,7 @@ final class CompanionRegistry {
 				),
 				'eventonomy'             => array(
 					'label'     => 'Eventonomy',
+					'integration' => 'eventonomy',
 					'why'       => __( 'Events, RSVPs, and calendars - members create and attend events.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'EVENTONOMY_VERSION' ),
 					// Free-download credentials mirror Eventonomy's own EDD-SL preset
@@ -157,6 +164,7 @@ final class CompanionRegistry {
 				),
 				'buddypress-member-blog' => array(
 					'label'     => 'WB Member Blog',
+					'integration' => 'blog',
 					'why'       => __( 'Front-end publishing - members write and manage posts without wp-admin.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'BUDDYPRESS_MEMBER_BLOG_VERSION' ),
 					// Free-download credentials mirror WB Member Blog's own EDD-SL
@@ -175,7 +183,24 @@ final class CompanionRegistry {
 	}
 
 	/**
-	 * Get one companion entry by slug, or null if unknown.
+	 * The companion whose bridge registers this integration key, or null.
+	 *
+	 * Lets Integration Settings name each box by the product the owner installed.
+	 *
+	 * @param string $integration_key Key on the buddynext_integrations registry.
+	 * @return array<string, mixed>|null
+	 */
+	public static function for_integration( string $integration_key ): ?array {
+		foreach ( self::all() as $entry ) {
+			if ( ( $entry['integration'] ?? '' ) === $integration_key ) {
+				return $entry;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * One companion by slug.
 	 *
 	 * @param string $slug Companion slug.
 	 * @return array<string, mixed>|null
