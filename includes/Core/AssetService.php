@@ -2248,7 +2248,7 @@ class AssetService {
 					'strengthFair'     => __( 'Fair', 'buddynext' ),
 					'strengthGood'     => __( 'Good', 'buddynext' ),
 					'strengthStrong'   => __( 'Strong', 'buddynext' ),
-					'fillRequired'     => __( 'Please fill in your email, username, and password.', 'buddynext' ),
+					'fillRequired'     => __( 'Please fill in your email and password.', 'buddynext' ),
 					'agreeTerms'       => __( 'Please agree to the Terms of Service and Privacy Policy to continue.', 'buddynext' ),
 					'answerChallenge'  => __( 'Please answer the verification question.', 'buddynext' ),
 					'createFailed'     => __( 'Could not create your account.', 'buddynext' ),

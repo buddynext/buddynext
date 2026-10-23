@@ -370,7 +370,6 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<div class="bn-ob-field">
 					<label class="bn-ob-label" for="bn-ob-username">
 						<?php esc_html_e( 'Username', 'buddynext' ); ?>
-						<span class="bn-ob-label__hint"><?php esc_html_e( '3+ characters, letters & numbers', 'buddynext' ); ?></span>
 					</label>
 					<div class="bn-ob-input-prefix"
 						data-wp-class--is-checking="context.usernameChecking"
@@ -386,6 +385,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 							autocomplete="username"
 							autocapitalize="off"
 							spellcheck="false"
+							aria-describedby="bn-ob-username-hint"
 							data-wp-on--input="actions.checkUsername" />
 						<span class="bn-ob-input-prefix__status"
 							data-wp-class--tone-ok="context.usernameAvailable"
@@ -393,6 +393,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 							data-wp-bind--hidden="!context.usernameStatusLabel"
 							data-wp-text="context.usernameStatusLabel"></span>
 					</div>
+					<span class="bn-ob-field__hint" id="bn-ob-username-hint"><?php echo esc_html( \BuddyNext\Profile\Handle::hint() ); ?></span>
 				</div>
 
 				<div class="bn-ob-field">

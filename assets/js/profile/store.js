@@ -1695,7 +1695,9 @@ const profileStore = store( 'buddynext/profile', {
 			// hyphen and underscore. A space becomes a hyphen; anything else is
 			// dropped. Leading and trailing hyphens are left alone here, or a hyphen
 			// could never be typed: the server trims them on save.
-			var slug = input.value.toLowerCase()
+			// Accents fold to their base letter first, as Handle::make_safe() does.
+			var slug = input.value.normalize( 'NFD' ).replace( /[\u0300-\u036f]/g, '' )
+			                .toLowerCase()
 			                .replace( /\s+/g, '-' )
 			                .replace( /[^a-z0-9_-]/g, '' );
 

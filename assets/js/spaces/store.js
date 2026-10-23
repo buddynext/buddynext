@@ -3027,7 +3027,9 @@ function initSpacesImperative() {
 		} );
 		nameInput.addEventListener( 'input', function () {
 			if ( slugTouched ) { return; }
+			// Accents fold to their base letter first, as sanitize_title() does on save.
 			slugInput.value = nameInput.value
+				.normalize( 'NFD' ).replace( /[\u0300-\u036f]/g, '' )
 				.toLowerCase()
 				.replace( /[^a-z0-9]+/g, '-' )
 				.replace( /^-+|-+$/g, '' )

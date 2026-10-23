@@ -72,7 +72,8 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 				<?php esc_html_e( 'Handle', 'buddynext' ); ?>
 			</label>
 			<p class="bn-ep-hint" id="bn-ep-slug-hint">
-				<?php esc_html_e( 'Your profile address and your @mention name. Change it whenever you like - your old handle keeps working, and nobody else can take it. Use letters, numbers, hyphens and underscores.', 'buddynext' ); ?>
+				<?php esc_html_e( 'Your profile address and your @mention name. Change it whenever you like - your old handle keeps working, and nobody else can take it.', 'buddynext' ); ?>
+				<?php echo esc_html( \BuddyNext\Profile\Handle::hint() ); ?>
 			</p>
 			<div class="bn-ep-slug-field">
 				<span class="bn-ep-slug-base">
@@ -86,7 +87,7 @@ $onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id 
 						spellcheck="false"
 						value="<?php echo esc_attr( $profile_slug ); ?>"
 						data-wp-bind--value="context.slugDraft"
-						maxlength="<?php echo esc_attr( (string) \BuddyNext\Profile\Handle::MAX_LENGTH ); ?>"
+						maxlength="<?php echo esc_attr( (string) \BuddyNext\Profile\Handle::bounds()[1] ); ?>"
 						placeholder="<?php esc_attr_e( 'handle', 'buddynext' ); ?>"
 						aria-describedby="bn-ep-slug-hint bn-ep-slug-status"
 						data-wp-bind--aria-invalid="state.slugIsTaken"

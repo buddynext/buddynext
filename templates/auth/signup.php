@@ -464,7 +464,7 @@ if ( 'invite' === $bn_reg_mode ) {
 								data-wp-bind--aria-invalid="state.usernameInvalid"
 								data-wp-on--input="actions.setUserLogin" />
 							<span class="bn-auth-hint" id="bn-signup-username-hint">
-								<?php esc_html_e( '3–24 characters: letters, numbers, underscore.', 'buddynext' ); ?>
+								<?php echo esc_html( \BuddyNext\Profile\Handle::hint() ); ?>
 							</span>
 							<span class="bn-auth-field__msg"
 								data-wp-bind--hidden="!state.usernameError"

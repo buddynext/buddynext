@@ -126,23 +126,8 @@ final class Handle {
 	 * @return true|\WP_Error True, or the reason it cannot be used.
 	 */
 	public static function validate( string $handle ): bool|\WP_Error {
-		$length = strlen( $handle );
-
-		/**
-		 * Filter the handle length bounds.
-		 *
-		 * The CHARSET is deliberately not filterable — it is the mention parser's
-		 * contract, and widening it produces handles nobody can @mention. Length
-		 * is a judgement call, so it is the owner's.
-		 *
-		 * @since 1.1.6
-		 *
-		 * @param array{0:int,1:int} $bounds [ min, max ].
-		 */
-		list( $min, $max ) = (array) apply_filters(
-			'buddynext_handle_length_bounds',
-			array( self::MIN_LENGTH, self::MAX_LENGTH )
-		);
+		$length            = strlen( $handle );
+		list( $min, $max ) = self::bounds();
 
 		if ( $length < (int) $min ) {
 			return new \WP_Error(
@@ -177,6 +162,45 @@ final class Handle {
 		}
 
 		return true;
+	}
+
+	/**
+	 * The handle length bounds, [ min, max ], after the owner's filter.
+	 *
+	 * @return array{0:int,1:int}
+	 */
+	public static function bounds(): array {
+		/**
+		 * Filter the handle length bounds.
+		 *
+		 * The CHARSET is deliberately not filterable — it is the mention parser's
+		 * contract, and widening it produces handles nobody can @mention. Length
+		 * is a judgement call, so it is the owner's.
+		 *
+		 * @since 1.1.6
+		 *
+		 * @param array{0:int,1:int} $bounds [ min, max ].
+		 */
+		list( $min, $max ) = (array) apply_filters(
+			'buddynext_handle_length_bounds',
+			array( self::MIN_LENGTH, self::MAX_LENGTH )
+		);
+		return array( (int) $min, (int) $max );
+	}
+
+	/**
+	 * The one sentence every handle field shows: the real bounds and CHARSET.
+	 *
+	 * @return string Translated hint.
+	 */
+	public static function hint(): string {
+		list( $min, $max ) = self::bounds();
+		return sprintf(
+			/* translators: 1: minimum characters, 2: maximum characters. */
+			__( '%1$d-%2$d characters: letters, numbers, hyphens and underscores.', 'buddynext' ),
+			$min,
+			$max
+		);
 	}
 
 	/**
