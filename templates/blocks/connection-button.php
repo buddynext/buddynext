@@ -127,8 +127,7 @@ $context_json = (string) wp_json_encode(
 		data-user-id="<?php echo absint( $user_id ); ?>"
 		data-wp-on--click="actions.disconnect"
 		data-wp-bind--hidden="!state.showConnected"
-		aria-pressed="true"
-		aria-label="<?php esc_attr_e( 'Disconnect from member', 'buddynext' ); ?>"
+		aria-haspopup="dialog"
 		<?php echo 'accepted' === $bn_status ? '' : 'hidden'; ?>
 	>
 		<?php esc_html_e( 'Connected', 'buddynext' ); ?>

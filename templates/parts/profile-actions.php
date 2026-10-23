@@ -255,6 +255,7 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 		</button>
 		<button class="bn-btn bn-pf-connected" data-variant="secondary" data-state="connected" data-size="sm"
 			data-wp-on--click="actions.disconnectUser"
+			aria-haspopup="dialog"
 			data-wp-bind--hidden="!context.isConnected"
 			<?php echo $bn_pa_connected ? '' : 'hidden'; ?>>
 			<?php buddynext_icon( 'check' ); ?>

@@ -24,7 +24,7 @@
  */
 
 import { store, getContext } from '@wordpress/interactivity';
-import { bnToast, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnResolveConnectNote, bnConfirmDisconnect } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -404,6 +404,7 @@ store( 'buddynext/connection-button', {
 			const ctx  = getContext();
 			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
+			if ( ! await bnConfirmDisconnect( ctx.targetName ? '@' + ctx.targetName : '' ) ) { return; }
 			const prev = ctx.status;
 			ctx.busy   = true;
 			ctx.status = '';

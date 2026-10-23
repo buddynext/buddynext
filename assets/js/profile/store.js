@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 
@@ -2122,6 +2122,7 @@ const profileStore = store( 'buddynext/profile', {
 
 		async disconnectUser() {
 			var ctx = getContext();
+			if ( ! await bnConfirmDisconnect( ctx.displayName || '' ) ) { return; }
 			try {
 				var res = await restFetch( '/users/' + ctx.profileUserId + '/connect', {
 					method:       'DELETE',

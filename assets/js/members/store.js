@@ -14,7 +14,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnBlockConfirm, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnBlockConfirm, bnConfirmDisconnect, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 
@@ -1004,6 +1004,7 @@ const membersStore = store( 'buddynext/members', {
 				return;
 			}
 			if ( cur === 'accepted' ) {
+				if ( ! await bnConfirmDisconnect( ctx.displayName || '' ) ) { return; }
 				ctx.busy = true;
 				ctx.connection = 'none';
 				try {

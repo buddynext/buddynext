@@ -149,6 +149,7 @@ $context_attr = esc_attr(
 		data-variant="secondary"
 		data-size="sm"
 		data-wp-on--click="actions.disconnect"
+		aria-haspopup="dialog"
 		data-wp-bind--aria-busy="context.busy"
 		data-wp-bind--disabled="context.busy"
 		data-action="bn-toggle-connect"

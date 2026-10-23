@@ -2159,6 +2159,12 @@ class PageRouter {
 				'blockStopContact'       => __( 'Stop them from following you or sending you messages.', 'buddynext' ),
 				'blockRemoveLinks'       => __( 'Remove any existing connection or follow between you.', 'buddynext' ),
 				'blockHelp'              => __( 'You can unblock from your settings at any time.', 'buddynext' ),
+				// Remove-connection confirmation (bnConfirmDisconnect).
+				/* translators: %s: the member's display name */
+				'disconnectTitleNamed'   => __( 'Remove your connection with %s?', 'buddynext' ),
+				'disconnectTitleGeneric' => __( 'Remove this connection?', 'buddynext' ),
+				'disconnectBody'         => __( 'To connect again you will need to send a new request and wait for them to accept.', 'buddynext' ),
+				'disconnectConfirm'      => __( 'Remove connection', 'buddynext' ),
 				'follow'                 => __( 'Follow', 'buddynext' ),
 				'following'              => __( 'Following', 'buddynext' ),
 				'genericError'           => __( 'Something went wrong. Try again.', 'buddynext' ),
