@@ -76,7 +76,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * New      - Developers can send every BuddyNext Log in link and guest gate to their own login page with the buddynext_login_url filter.
 * New      - Space owners can unlink a space's discussion; the forum and every space member stay, and Discussion can be turned on again later.
 * New      - The installable app uses your WordPress Site Icon, with the BuddyNext icons as the fallback when none is set.
-* Improve  - Community moderators can remove any comment, bulk-moderate and review posts from suspended or shadow-banned members without being WordPress administrators.
+* Improve  - Community moderators can remove any comment and review posts from suspended or shadow-banned members without being WordPress administrators.
 * Improve  - Open-ended suspensions, appeals, editing other members' posts and comments, site-wide announcements and role changes are now permissions you can hand to community admins or moderators under Roles & Capabilities.
 * Improve  - Anyone you give "Edit anyone's profile" can now also change a member's self-chosen member type and open the profile editor from a page using the members shortcode.
 * Improve  - Explore shows each integration activity as its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.

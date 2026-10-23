@@ -12,7 +12,7 @@ This release lets you hand moderation work to community admins and moderators wi
 
 ## Better for site owners
 
-- **Community moderators.** Community moderators can remove any comment, bulk-moderate, review posts from suspended or shadow-banned members and work the report queue, all without being WordPress administrators.
+- **Community moderators.** Community moderators can remove any comment, review posts from suspended or shadow-banned members and work the report queue, all without being WordPress administrators.
 - **Permissions you can hand out.** Open-ended suspensions, appeals, editing other members' posts and comments, site-wide announcements and role changes are permissions you can give to community admins or moderators under **Roles & Capabilities**. See [Roles and capabilities](../developer-guide/39-roles-and-capabilities.md).
 - **Report alerts.** Community moderators and admins are told about new reports, and the notification opens the front-end moderation queue. Space owners and moderators see the new-report setting in their notification preferences.
 - **Editing profiles.** Anyone you give "Edit anyone's profile" can also change a member's member type, and can open the profile editor from a page using the members shortcode.
