@@ -398,7 +398,7 @@ if ( 'invite' === $bn_reg_mode ) {
 							id="bn-signup-email"
 							name="email"
 							autocomplete="email"
-							placeholder="you@example.com"
+							placeholder="<?php esc_attr_e( 'you@example.com', 'buddynext' ); ?>"
 							value="<?php echo esc_attr( $bn_prefill_email ); ?>"
 							required
 							data-wp-bind--value="context.email"
@@ -457,7 +457,7 @@ if ( 'invite' === $bn_reg_mode ) {
 								id="bn-signup-username"
 								name="user_login"
 								autocomplete="username"
-								placeholder="@username"
+								placeholder="<?php esc_attr_e( 'username', 'buddynext' ); ?>"
 								aria-describedby="bn-signup-username-hint"
 								required
 								data-wp-bind--disabled="state.submitting"

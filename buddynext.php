@@ -2021,9 +2021,9 @@ function buddynext_time_ago( string $gmt_datetime ): string {
 /**
  * Format a UTC datetime as an absolute date in the site's configured timezone.
  *
- * Honours the WordPress Settings > General timezone selection uniformly: the
- * stored value is UTC and get_date_from_gmt() converts it to site-local time
- * before formatting. Use this for calendar-style displays ("Joined June 2026");
+ * Honours the WordPress Settings > General timezone and the site language: the
+ * stored value is UTC and wp_date() converts it to site-local time, with
+ * translated month and day names, before formatting. Use this for calendar-style displays ("Joined June 2026");
  * use buddynext_time_ago() for "X ago" durations.
  *
  * @param string $gmt_datetime A 'Y-m-d H:i:s' datetime stored in UTC.
@@ -2039,7 +2039,14 @@ function buddynext_date_local( string $gmt_datetime, string $format = '' ): stri
 		$format = (string) get_option( 'date_format', 'F j, Y' );
 	}
 
-	return esc_html( get_date_from_gmt( $gmt_datetime, $format ) );
+	$timestamp = strtotime( $gmt_datetime . ' UTC' );
+	if ( false === $timestamp ) {
+		return '';
+	}
+
+	// wp_date() converts to the site timezone AND translates month and day names;
+	// get_date_from_gmt() did the first only, so a German site read "7. October".
+	return esc_html( (string) wp_date( $format, $timestamp, wp_timezone() ) );
 }
 
 /**

@@ -28,7 +28,8 @@ $bn_sh_record = ( new \BuddyNext\Spaces\SpaceService() )->get( $bn_sh_space_id )
 if ( null === $bn_sh_record ) {
 	return;
 }
-$bn_sh_space  = (object) $bn_sh_record;
+// get_object() carries category_slug, which the hero needs for the category icon on a space with no avatar.
+$bn_sh_space  = ( new \BuddyNext\Spaces\SpaceService() )->get_object( $bn_sh_space_id );
 $bn_sh_active = isset( $active_tab ) && '' !== (string) $active_tab ? (string) $active_tab : 'feed';
 $bn_sh_viewer = get_current_user_id();
 
