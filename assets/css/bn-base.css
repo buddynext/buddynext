@@ -3507,6 +3507,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-app input.bn-input:where( :not( :focus, :disabled, [aria-invalid="true"], .bn-input--error ) ) {
 	border: 1px solid var(--bn-line-strong);
 }
+/* Selects and textareas: a theme's `:focus` can blank the fill (Blocksy turns it
+   transparent). Focus only, so every resting look is untouched. The DM composer
+   and the inline visibility select are transparent by design, so they are left
+   out; the comment box already takes the surface fill on focus. The class is
+   doubled for the same 0,2,1 tie as the input rule above. */
+.bn-app :is( select.bn-select.bn-select, select.bn-input.bn-input, textarea.bn-textarea.bn-textarea, textarea.bn-input.bn-input ):focus:not( .bn-dm-composer__input, .bn-ep-field-vis__select ) {
+	background-color: var(--bn-surface);
+}
 /* Focus: BuddyNext's accent border and its transparent outline (the ring is the
    box-shadow). A theme's `input:focus` paints its own border colour and a solid
    outline, which beats the 0,2,0 :focus-visible rule. Invalid and error keep
