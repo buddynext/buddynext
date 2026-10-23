@@ -82,6 +82,7 @@ class AssetService {
 		// Cache-bust every BuddyNext asset by its file mtime so CSS/JS edits
 		// always reach the browser (the plugin version string stays fixed
 		// pre-release). One filter covers all BN handles — front-end + admin.
+		add_filter( 'script_module_data_@buddynext/slug', array( $this, 'slug_module_data' ) );
 		add_filter( 'style_loader_src', array( $this, 'version_by_mtime' ), 20 );
 		add_filter( 'script_loader_src', array( $this, 'version_by_mtime' ), 20 );
 	}
@@ -261,6 +262,7 @@ class AssetService {
 			true
 		);
 		wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+		wp_add_inline_script( 'bn-admin-taxonomy', 'var bnSlugFold = ' . wp_json_encode( self::slug_fold_map() ) . ';', 'before' );
 		if ( false !== strpos( $hook_suffix, 'buddynext-members' )
 			|| false !== strpos( $hook_suffix, 'buddynext-spaces' ) ) {
 			wp_enqueue_style(
@@ -588,6 +590,15 @@ class AssetService {
 			$this->module_version( 'js/shell/popover.js' )
 		);
 
+		// `@buddynext/slug` folds accents in live slug previews with the table
+		// sanitize_title() uses, so a previewed address is the saved one.
+		wp_register_script_module(
+			'@buddynext/slug',
+			$this->assets_url . 'js/shell/slug.js',
+			array(),
+			$this->module_version( 'js/shell/slug.js' )
+		);
+
 		// `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility primitive:
 		// focus-in, focus-trap, focus-return and Escape-to-close for every
 		// .bn-modal-backdrop, store-agnostic, so features render modal markup and do
@@ -783,6 +794,8 @@ class AssetService {
 			// scroll-to-zoom), so both import @buddynext/cover-reposition.
 			if ( '@buddynext/profile' === $id || '@buddynext/spaces' === $id ) {
 				$deps[] = array( 'id' => '@buddynext/cover-reposition' );
+				// The handle box and the new-space address preview their slug.
+				$deps[] = array( 'id' => '@buddynext/slug' );
 			}
 			// The feed paginates by letting the Interactivity Router swap its region
 			// (actions.loadMore) — the only supported way to add cards that are actually
@@ -836,6 +849,42 @@ class AssetService {
 				$this->module_version( 'js/' . $path . '.js' )
 			);
 		}
+	}
+
+	/**
+	 * Hand the slug module its fold table (script_module_data_@buddynext/slug).
+	 *
+	 * @param array<string, mixed> $data Module data.
+	 * @return array<string, mixed>
+	 */
+	public function slug_module_data( array $data ): array {
+		$data['fold'] = self::slug_fold_map();
+		return $data;
+	}
+
+	/**
+	 * What remove_accents() makes of each accented Latin letter, for this site's
+	 * locale: the exact folding sanitize_title() applies on save, including the
+	 * letters Unicode does not decompose (Ø, Ł, Æ, ß) and locale rules (de: ä => ae).
+	 *
+	 * @return array<string, string> Letter => replacement.
+	 */
+	public static function slug_fold_map(): array {
+		static $map = null;
+		if ( null !== $map ) {
+			return $map;
+		}
+		$map = array();
+		foreach ( array( array( 0xC0, 0x24F ), array( 0x1E00, 0x1EFF ) ) as $range ) {
+			for ( $cp = $range[0]; $cp <= $range[1]; $cp++ ) {
+				$char = mb_chr( $cp, 'UTF-8' );
+				$out  = remove_accents( $char );
+				if ( $out !== $char ) {
+					$map[ $char ] = $out;
+				}
+			}
+		}
+		return $map;
 	}
 
 	/**

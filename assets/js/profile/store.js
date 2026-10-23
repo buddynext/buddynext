@@ -3,6 +3,7 @@ import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
+import { foldAccents } from '@buddynext/slug';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1695,8 +1696,8 @@ const profileStore = store( 'buddynext/profile', {
 			// hyphen and underscore. A space becomes a hyphen; anything else is
 			// dropped. Leading and trailing hyphens are left alone here, or a hyphen
 			// could never be typed: the server trims them on save.
-			// Accents fold to their base letter first, as Handle::make_safe() does.
-			var slug = input.value.normalize( 'NFD' ).replace( /[\u0300-\u036f]/g, '' )
+			// Accents fold first, with the table Handle::make_safe() uses.
+			var slug = foldAccents( input.value )
 			                .toLowerCase()
 			                .replace( /\s+/g, '-' )
 			                .replace( /[^a-z0-9_-]/g, '' );

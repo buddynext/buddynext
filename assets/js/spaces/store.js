@@ -4,6 +4,7 @@ import { restFetch } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
+import { foldAccents } from '@buddynext/slug';
 import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -3027,9 +3028,8 @@ function initSpacesImperative() {
 		} );
 		nameInput.addEventListener( 'input', function () {
 			if ( slugTouched ) { return; }
-			// Accents fold to their base letter first, as sanitize_title() does on save.
-			slugInput.value = nameInput.value
-				.normalize( 'NFD' ).replace( /[\u0300-\u036f]/g, '' )
+			// Accents fold first, with the table sanitize_title() uses on save.
+			slugInput.value = foldAccents( nameInput.value )
 				.toLowerCase()
 				.replace( /[^a-z0-9]+/g, '-' )
 				.replace( /^-+|-+$/g, '' )

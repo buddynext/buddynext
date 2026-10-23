@@ -15,9 +15,13 @@
 ( function () {
 	'use strict';
 
+	// What sanitize_title() folds each accented letter to on this site, printed by
+	// AssetService::slug_fold_map() (the same table the @buddynext/slug module uses).
+	var fold = window.bnSlugFold || {};
+
 	function slugify( value ) {
-		// Accents fold to their base letter first, as sanitize_title() does on save.
 		return value
+			.replace( /[^\x00-\x7f]/g, function ( c ) { return fold[ c ] || c; } )
 			.normalize( 'NFD' ).replace( /[\u0300-\u036f]/g, '' )
 			.toLowerCase()
 			.replace( /[^a-z0-9]+/g, '-' )
