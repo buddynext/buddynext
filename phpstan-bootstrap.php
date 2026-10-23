@@ -318,6 +318,14 @@ if ( ! class_exists( 'Member_Blog_Compat' ) ) {
 		public static function get_edit_post_url( $post_id ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Stub.
 			return '';
 		}
+		/**
+		 * Stub for the real new-post address resolver.
+		 *
+		 * @return string
+		 */
+		public static function get_create_post_url() {
+			return '';
+		}
 	}
 }
 

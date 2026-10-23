@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # CI runs at release, not per fix: fixes on a version branch are checked locally,
+  # and the release step runs this workflow on that branch (gh workflow run CI --ref 1.x.y)
+  # before it merges. master still runs on every push.
   push:
-    branches: [ master, '1.*' ]  # version branches get CI on every push: fixes land there without a PR
+    branches: [ master ]
   pull_request:
   workflow_dispatch:
 

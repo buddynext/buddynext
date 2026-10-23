@@ -341,7 +341,7 @@ class AvatarService {
 		}
 		cache_users( $ids );
 		// prime() arrived in Jetonomy 2.0.3; older releases have the class without it.
-		if ( count( $ids ) > 1 && method_exists( '\Jetonomy\Avatar', 'prime' ) ) {
+		if ( count( $ids ) > 1 && is_callable( array( '\Jetonomy\Avatar', 'prime' ) ) ) {
 			\Jetonomy\Avatar::prime( $ids );
 		}
 	}
