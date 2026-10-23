@@ -531,7 +531,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									<?php endif; ?>
 								</span>
 								<div class="bn-ob-space__info">
-									<p class="bn-ob-space__name"><?php echo esc_html( (string) $space['name'] ); ?></p>
+									<p class="bn-ob-space__name" id="bn-ob-space-name-<?php echo esc_attr( (string) $space_id ); ?>"><?php echo esc_html( (string) $space['name'] ); ?></p>
 									<p class="bn-ob-space__meta">
 										<?php
 										echo esc_html(
@@ -549,6 +549,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									data-variant="<?php echo $is_joined ? 'secondary' : 'primary'; ?>"
 									data-size="sm"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+									<?php // Named "Join <space>": the button's own text, then the space name. ?>
+									id="bn-ob-space-cta-<?php echo esc_attr( (string) $space_id ); ?>"
+									aria-labelledby="bn-ob-space-cta-<?php echo esc_attr( (string) $space_id ); ?> bn-ob-space-name-<?php echo esc_attr( (string) $space_id ); ?>"
 									aria-pressed="<?php echo $is_joined ? 'true' : 'false'; ?>"
 									data-wp-on--click="actions.joinSuggestedSpace">
 									<?php echo $is_joined ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
@@ -629,7 +632,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									<?php endif; ?>
 								</span>
 								<div class="bn-ob-person__info">
-									<p class="bn-ob-person__name"><?php echo esc_html( $sug_name ); ?></p>
+									<p class="bn-ob-person__name" id="bn-ob-person-name-<?php echo esc_attr( (string) $sug_id ); ?>"><?php echo esc_html( $sug_name ); ?></p>
 									<p class="bn-ob-person__meta">
 										<?php if ( $sug_headline ) : ?>
 											<?php echo esc_html( $sug_headline ); ?>
@@ -653,6 +656,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									data-variant="<?php echo $is_following_sug ? 'secondary' : 'primary'; ?>"
 									data-size="sm"
 									data-user-id="<?php echo esc_attr( (string) $sug_id ); ?>"
+									<?php // Named "Follow <member>": the button's own text, then the member's name. ?>
+									id="bn-ob-person-cta-<?php echo esc_attr( (string) $sug_id ); ?>"
+									aria-labelledby="bn-ob-person-cta-<?php echo esc_attr( (string) $sug_id ); ?> bn-ob-person-name-<?php echo esc_attr( (string) $sug_id ); ?>"
 									aria-pressed="<?php echo $is_following_sug ? 'true' : 'false'; ?>"
 									data-wp-on--click="actions.followSuggestedUser">
 									<?php echo $is_following_sug ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
@@ -833,7 +839,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 								data-wp-bind--hidden="!state.previewAvatar"
 								<?php echo '' !== $custom_avatar ? 'src="' . esc_url( $custom_avatar ) . '"' : 'hidden'; ?>
 								alt="" />
-							<span data-wp-bind--hidden="state.previewAvatar" data-wp-text="state.previewInitial"><?php echo esc_html( '' !== (string) $display_name ? strtoupper( substr( (string) $display_name, 0, 1 ) ) : '?' ); ?></span>
+							<span data-wp-bind--hidden="state.previewAvatar" data-wp-text="state.previewInitial"><?php echo esc_html( \BuddyNext\Profile\AvatarService::initials_for( (string) $display_name ) ); ?></span>
 						</div>
 						<div class="bn-ob-preview-card__id">
 							<div class="bn-ob-preview-card__name" data-wp-text="state.previewName">

@@ -20,6 +20,7 @@ import { restFetch } from '@buddynext/rest-client';
 import { uploadMedia, validateMedia } from '@buddynext/upload-core';
 import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
+import { initials as initialsFor } from '@buddynext/initials';
 
 /**
  * Neutral reaction glyph for a slug with no vendored emoji asset. Mirrors the SSR
@@ -570,7 +571,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	const avatar = document.createElement( 'div' );
 	avatar.className = 'bn-comment__avatar';
 	avatar.setAttribute( 'aria-hidden', 'true' );
-	const initials = ( comment.author_name || 'U' ).split( ' ' ).map( ( w ) => w[ 0 ] || '' ).join( '' ).slice( 0, 2 ).toUpperCase();
+	const initials = initialsFor( comment.author_name );
 	if ( comment.author_avatar_url ) {
 		const img = document.createElement( 'img' );
 		img.src    = comment.author_avatar_url;

@@ -697,6 +697,14 @@ class AssetService {
 			),
 			$this->module_version( 'js/feed/share-modal.js' )
 		);
+		// `@buddynext/initials` mirrors AvatarService::initials_for() for avatar
+		// placeholders a store draws, so they match the server-rendered ones.
+		wp_register_script_module(
+			'@buddynext/initials',
+			$this->assets_url . 'js/shell/initials.js',
+			array(),
+			$this->module_version( 'js/shell/initials.js' )
+		);
 		wp_register_script_module(
 			'@buddynext/feed-post-card',
 			$this->assets_url . 'js/feed/post-card.js',
@@ -707,6 +715,7 @@ class AssetService {
 				array( 'id' => '@buddynext/upload-core' ),
 				array( 'id' => '@buddynext/feed-shared' ),
 				array( 'id' => '@buddynext/popover' ),
+				array( 'id' => '@buddynext/initials' ),
 			),
 			$this->module_version( 'js/feed/post-card.js' )
 		);
@@ -789,6 +798,9 @@ class AssetService {
 			// the viewport; declared so WP emits the import-map entry.
 			if ( '@buddynext/spaces' === $id ) {
 				$deps[] = array( 'id' => '@buddynext/popover' );
+			}
+			if ( '@buddynext/onboarding' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/initials' );
 			}
 			// Profile and space covers share one reposition modal (drag-to-pan /
 			// scroll-to-zoom), so both import @buddynext/cover-reposition.
