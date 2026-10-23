@@ -2346,6 +2346,60 @@
                         }
                     }
                 }
+            },
+            "delete": {
+                "tags": [
+                    "Pro: Email (Broadcast & Drip)"
+                ],
+                "operationId": "delete_buddynext_pro_v1_drip_sequences_id_steps_index_",
+                "summary": "DELETE /buddynext-pro/v1/drip-sequences/{id}/steps/{index}",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
             }
         },
         "/buddynext-pro/v1/events/headcounts": {
@@ -29205,6 +29259,13 @@
                                 "id": {
                                     "type": "integer"
                                 },
+                                "space_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "Space the action happened in; 0 or null for a site-wide action."
+                                },
                                 "actor_id": {
                                     "type": "integer"
                                 },
@@ -30084,6 +30145,23 @@
                                 "id": {
                                     "type": "integer"
                                 },
+                                "co_written": {
+                                    "type": "boolean"
+                                },
+                                "co_writers": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer"
+                                            },
+                                            "name": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
                                 "title": {
                                     "type": "string"
                                 },
@@ -30111,6 +30189,9 @@
                                     "type": "string"
                                 },
                                 "status_label": {
+                                    "type": "string"
+                                },
+                                "edit_url": {
                                     "type": "string"
                                 }
                             }

@@ -105,6 +105,24 @@ class ReportSystemActorTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Only a pending report escalates: a second escalate is a 409, and the
+	 * escalated report can still be resolved.
+	 *
+	 * @return void
+	 */
+	public function test_second_escalate_conflicts_and_escalated_report_still_resolves(): void {
+		$report_id = $this->seed_report( 9003 );
+
+		$this->assertTrue( $this->service->escalate( $report_id, $this->admin, 0 ) );
+		$again = $this->service->escalate( $report_id, $this->admin, 0 );
+		$this->assertWPError( $again );
+		$this->assertSame( 409, $again->get_error_data()['status'] ?? null );
+
+		$this->assertTrue( $this->service->resolve( $report_id, $this->admin ) );
+		$this->assertSame( $this->admin, $this->resolved_by( $report_id ) );
+	}
+
+	/**
 	 * Passing no $resolved_by keeps the historical behaviour: the acting admin is
 	 * recorded, so a human moderator's action is still attributed to them.
 	 *

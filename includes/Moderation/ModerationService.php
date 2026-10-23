@@ -3486,19 +3486,31 @@ class ModerationService {
 		// pending report can be escalated, so a second escalate matches no rows and
 		// returns 409 below instead of writing a second audit row.
 		$escalating = 'escalated' === $status;
-		$from       = $escalating ? "('pending')" : "('pending','escalated')";
-		$updated    = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_reports
-				 SET status = %s, resolved_by = " . ( $escalating ? 'NULL' : '%d' ) . ', resolved_at = ' . ( $escalating ? 'NULL' : '%s' ) . "
-				 WHERE object_type = %s AND object_id = %d AND status IN {$from}",
-				...array_merge(
-					array( $status ),
-					$escalating ? array() : array( $recorded_actor, current_time( 'mysql', true ) ), // UTC, to match created_at and the resolved_today query.
-					array( (string) $target['object_type'], (int) $target['object_id'] )
+		if ( $escalating ) {
+			$updated = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_reports
+					 SET status = %s, resolved_by = NULL, resolved_at = NULL
+					 WHERE object_type = %s AND object_id = %d AND status = 'pending'",
+					$status,
+					(string) $target['object_type'],
+					(int) $target['object_id']
 				)
-			)
-		);
+			);
+		} else {
+			$updated = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_reports
+					 SET status = %s, resolved_by = %d, resolved_at = %s
+					 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
+					$status,
+					$recorded_actor,
+					current_time( 'mysql', true ), // UTC, to match created_at and the resolved_today query.
+					(string) $target['object_type'],
+					(int) $target['object_id']
+				)
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		// $wpdb->query returns false on SQL error, int (rows affected) otherwise.
@@ -3629,21 +3641,6 @@ class ModerationService {
 	}
 
 	/**
-	 * Notify each reporter that their report was reviewed (resolved/dismissed).
-	 * The `bn.report_resolved` type is deliberately outcome-neutral ("we reviewed
-	 * your report") so it fits both resolve and dismiss without leaking the moderator's
-	 * decision. Idempotent per content via the group key. Skips the sender themselves.
-	 *
-	 * @param int[]  $reporter_ids Distinct reporter user IDs.
-	 * @param int    $sender_id    Actor RECORDED on the action (0 = system/AI). Becomes
-	 *                             the notification sender_id — the avatar the reporter
-	 *                             sees — so an AI action shows "System", never an admin
-	 *                             (card 10264294554).
-	 * @param string $object_type  Reported content type.
-	 * @param int    $object_id    Reported content ID.
-	 * @return void
-	 */
-	/**
 	 * Everyone who holds a moderation ability site-wide, for "who gets told" fan-outs.
 	 *
 	 * WordPress administrators plus community-role holders the ability admits, so a
@@ -3711,6 +3708,21 @@ class ModerationService {
 		}
 	}
 
+	/**
+	 * Notify each reporter that their report was reviewed (resolved/dismissed).
+	 * The `bn.report_resolved` type is deliberately outcome-neutral ("we reviewed
+	 * your report") so it fits both resolve and dismiss without leaking the moderator's
+	 * decision. Idempotent per content via the group key. Skips the sender themselves.
+	 *
+	 * @param int[]  $reporter_ids Distinct reporter user IDs.
+	 * @param int    $sender_id    Actor RECORDED on the action (0 = system/AI). Becomes
+	 *                             the notification sender_id — the avatar the reporter
+	 *                             sees — so an AI action shows "System", never an admin
+	 *                             (card 10264294554).
+	 * @param string $object_type  Reported content type.
+	 * @param int    $object_id    Reported content ID.
+	 * @return void
+	 */
 	private function notify_reporters_reviewed( array $reporter_ids, int $sender_id, string $object_type, int $object_id ): void {
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;

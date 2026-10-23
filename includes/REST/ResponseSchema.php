@@ -4952,6 +4952,10 @@ final class ResponseSchema {
 							'id'             => array(
 								'type' => 'integer',
 							),
+							'space_id'       => array(
+								'type'        => array( 'integer', 'null' ),
+								'description' => 'Space the action happened in; 0 or null for a site-wide action.',
+							),
 							'actor_id'       => array(
 								'type' => 'integer',
 							),
