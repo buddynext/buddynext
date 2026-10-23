@@ -147,6 +147,10 @@ class WPMediaVerseBridge {
 		// profile.
 		add_filter( 'mvs_user_profile_url', array( $this, 'member_profile_url' ), 10, 2 );
 
+		// The DM inbox warms its participants in one pass; prime their avatars with
+		// it so an avatar plugin (Jetonomy) costs one query, not one per row.
+		add_action( 'mvs_users_primed', array( \BuddyNext\Profile\AvatarService::class, 'prime' ), 10, 1 );
+
 		// Space albums decide media privacy themselves — opt out of the engine's
 		// album-privacy inheritance for them.
 		add_filter( 'mvs_album_inherit_privacy', array( $this, 'skip_inherit_for_space_albums' ), 10, 2 );
