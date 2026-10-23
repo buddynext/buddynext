@@ -1547,6 +1547,14 @@ store( 'buddynext/post-card', {
 				return opt ? opt.pct + '%' : '0%';
 			} catch ( _e ) { return '0%'; }
 		},
+		// "Option text: 42%" - the label a screen reader hears, redrawn with the live percentage.
+		get pollOptionLabel() {
+			try {
+				const ctx  = getContext();
+				const opt  = ( ctx.pollOptions || [] ).find( ( o ) => o.id === ctx.optionId );
+				return ( ctx.optionText || '' ) + ': ' + ( opt ? opt.pct : 0 ) + '%';
+			} catch ( _e ) { return ''; }
+		},
 		get pollFillStyle() {
 			try {
 				const ctx = getContext();

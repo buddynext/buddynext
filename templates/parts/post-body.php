@@ -379,7 +379,10 @@ do_action( 'buddynext_part_post_body_before', $args );
 						type="button"
 						class="bn-post-card__poll-option<?php echo $opt_voted ? ' is-voted' : ''; ?><?php echo $bn_poll_closed ? ' is-closed' : ''; ?>"
 						<?php // Every option names itself: the fill and percentage below redraw from it on hydration, for a viewer who cannot vote too. ?>
-						data-wp-context='<?php echo wp_json_encode( array( 'optionId' => $opt_id ) ); ?>'
+						data-wp-context='<?php echo wp_json_encode( array(
+							'optionId'   => $opt_id,
+							'optionText' => $opt_text,
+						) ); ?>'
 						<?php if ( $bn_poll_votable ) : ?>
 						data-wp-bind--class="state.pollOptionBtnClass"
 						data-wp-on--click="actions.votePoll"
@@ -388,6 +391,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 						<?php endif; ?>
 						data-option-id="<?php echo absint( $opt_id ); ?>"
 						aria-label="<?php echo esc_attr( sprintf( '%s: %d%%', $opt_text, $opt_pct ) ); ?>"
+						data-wp-bind--aria-label="state.pollOptionLabel"
 					>
 						<div
 							class="bn-post-card__poll-fill"
