@@ -2250,13 +2250,12 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-ep-hero-name {
 	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-xl);
+	--bn-input-fs: var(--bn-text-xl);
 	font-weight: 700;
 	letter-spacing: var(--bn-ls-tight);
 	color: var(--bn-ink);
 }
 .bn-ep-hero-headline {
-	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
 }
 .bn-ep-hero-handle {
