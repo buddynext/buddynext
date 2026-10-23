@@ -519,7 +519,7 @@ class CronService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, type, sender_id, object_type, object_id, data, created_at, is_read,
+				"SELECT id, recipient_id, type, sender_id, object_type, object_id, data, created_at, is_read,
 				        COALESCE( group_count, 1 ) AS group_count
 				   FROM {$wpdb->prefix}bn_notifications
 				  WHERE recipient_id = %d
@@ -537,6 +537,10 @@ class CronService {
 		if ( null === $rows ) {
 			return array();
 		}
+
+		// Only what the bell would show: a gone object or a row its partner now
+		// hides (trashed reply, private item) is never emailed.
+		$rows = buddynext_service( 'notifications' )->filter_resolvable( $rows );
 
 		// The member's own choice per type, or the catalogue default where they made
 		// none. One read: the service caches the member's saved rows.

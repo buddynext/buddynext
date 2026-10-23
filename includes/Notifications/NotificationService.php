@@ -257,10 +257,13 @@ class NotificationService {
 	 * "gone". The page's objects are primed first so this is a few queries per type,
 	 * not one per row.
 	 *
+	 * The email digest reads the same gate (CronService), so the bell and the
+	 * email can never disagree about what a member may see.
+	 *
 	 * @param array<int,array<string,mixed>> $rows Raw notification rows.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function filter_resolvable( array $rows ): array {
+	public function filter_resolvable( array $rows ): array {
 		if ( empty( $rows ) || ! function_exists( 'buddynext_object_exists' ) ) {
 			return $rows;
 		}
