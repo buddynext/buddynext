@@ -446,27 +446,7 @@ class ModerationListener implements ListenerInterface {
 		}
 
 		if ( 'comment' === $object_type ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_comments',
-				array(
-					'is_deleted' => 1,
-					'updated_at' => current_time( 'mysql', true ),
-				),
-				array( 'id' => $object_id ),
-				array( '%d', '%s' ),
-				array( '%d' )
-			);
-			// A removed comment leaves the parent post's public count; recount it.
-			$parent_post = (int) $wpdb->get_var(
-				$wpdb->prepare( "SELECT object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d AND object_type = 'post'", $object_id )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			if ( $parent_post > 0 ) {
-				buddynext_service( 'counters' )->recount_post_comments( $parent_post );
-			}
-
-			return true;
+			return buddynext_service( 'comments' )->soft_delete( $object_id, $actor_id );
 		}
 
 		if ( 'message' === $object_type ) {

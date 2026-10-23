@@ -86,10 +86,22 @@ class ReportSystemActorTest extends \WP_UnitTestCase {
 	public function test_system_resolved_by_records_zero_not_the_admin(): void {
 		$report_id = $this->seed_report( 9001 );
 
-		$result = $this->service->escalate( $report_id, $this->admin, 0 );
+		$result = $this->service->resolve( $report_id, $this->admin, 0 );
 
-		$this->assertTrue( $result, 'The admin should be authorised to escalate.' );
+		$this->assertTrue( $result, 'The admin should be authorised to resolve.' );
 		$this->assertSame( 0, $this->resolved_by( $report_id ), 'The report must be stamped with the system (0), not the admin.' );
+	}
+
+	/**
+	 * Escalation is not a resolution: it stamps no resolved_by.
+	 *
+	 * @return void
+	 */
+	public function test_escalate_stamps_no_resolver(): void {
+		$report_id = $this->seed_report( 9001 );
+
+		$this->assertTrue( $this->service->escalate( $report_id, $this->admin, 0 ) );
+		$this->assertNull( $this->resolved_by( $report_id ), 'An escalated report has not been resolved by anyone.' );
 	}
 
 	/**

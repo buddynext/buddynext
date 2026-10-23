@@ -558,16 +558,35 @@ class CommentService {
 			return new WP_Error( 'forbidden', __( 'You cannot delete this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		// Idempotent: a second DELETE on an already-soft-deleted comment must not
-		// decrement the count again or re-fire the hook (the decrement underflow
-		// is floored, but the count would still drift below the true total).
+		$this->soft_delete( $comment_id, $user_id );
+
+		return true;
+	}
+
+	/**
+	 * Take a comment down: the one path for every remover (author, admin, moderator).
+	 *
+	 * Blanks the content and marks it deleted so the thread keeps its shape, clears
+	 * the thread cache and a pin on it, recounts the parent post, and fires
+	 * buddynext_comment_deleted so search, streaks, feed caches, notifications and
+	 * the forum mirror clean up. The caller has already decided the actor may do it.
+	 * Idempotent: an already-deleted comment changes nothing and fires nothing.
+	 *
+	 * @param int $comment_id Comment to take down.
+	 * @param int $actor_id   User who removed it (0 = automated).
+	 * @return bool True when the comment exists and is now deleted.
+	 */
+	public function soft_delete( int $comment_id, int $actor_id ): bool {
+		$comment = $this->get( $comment_id );
+		if ( null === $comment ) {
+			return false;
+		}
 		if ( ! empty( $comment['is_deleted'] ) ) {
 			return true;
 		}
 
 		global $wpdb;
 
-		// Soft-delete: blank the content and mark deleted so threads remain intact.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_comments',
@@ -581,20 +600,14 @@ class CommentService {
 			array( '%d' )
 		);
 
-		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
-
-		// If this was the pinned comment, drop the pin — a soft-deleted comment
-		// must not survive as a "[deleted]" tombstone promoted to the top of the
-		// thread. A normal (in-flow) deleted comment keeps its tombstone; only
-		// the pinned highlight is cleared.
+		// A soft-deleted comment must not survive as a "[deleted]" tombstone promoted
+		// to the top of the thread; an in-flow deleted comment keeps its tombstone.
 		$pin_key = 'bn_pinned_comment_' . sanitize_key( (string) $comment['object_type'] ) . '_' . (int) $comment['object_id'];
 		if ( (int) get_option( $pin_key, 0 ) === $comment_id ) {
 			delete_option( $pin_key );
 		}
 
-		if ( 'post' === $comment['object_type'] ) {
-			buddynext_service( 'post_service' )->decrement_counter( (int) $comment['object_id'], 'comment_count' );
-		}
+		$this->after_visibility_change( $comment );
 
 		/**
 		 * Fires after a comment is deleted.
@@ -602,9 +615,58 @@ class CommentService {
 		 * @param int $comment_id Deleted comment ID.
 		 * @param int $user_id    User who deleted the comment.
 		 */
-		do_action( 'buddynext_comment_deleted', $comment_id, $user_id );
+		do_action( 'buddynext_comment_deleted', $comment_id, $actor_id );
 
 		return true;
+	}
+
+	/**
+	 * Hide or unhide a comment ("Under review"), the moderation auto-hide state.
+	 *
+	 * Never touches a deleted comment, so clearing reports can not revive a
+	 * takedown. The caller fires its own moderation hook on a real change.
+	 *
+	 * @param int  $comment_id Comment to change.
+	 * @param bool $hidden     True to hide, false to unhide.
+	 * @return bool True when the comment's state actually changed.
+	 */
+	public function set_hidden( int $comment_id, bool $hidden ): bool {
+		$comment = $this->get( $comment_id );
+		if ( null === $comment || ! empty( $comment['is_deleted'] ) ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$changed = (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = %d, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = %d AND is_deleted = 0",
+				$hidden ? 1 : 0,
+				$comment_id,
+				$hidden ? 0 : 1
+			)
+		);
+		if ( $changed < 1 ) {
+			return false;
+		}
+
+		$this->after_visibility_change( $comment );
+
+		return true;
+	}
+
+	/**
+	 * Refresh what a comment's visibility feeds: the thread list cache and the
+	 * parent post's public comment count (live, unhidden comments only).
+	 *
+	 * @param array<string,mixed> $comment Comment row as it was before the change.
+	 * @return void
+	 */
+	private function after_visibility_change( array $comment ): void {
+		$this->bust_cache( (string) $comment['object_type'], (int) $comment['object_id'] );
+		if ( 'post' === $comment['object_type'] ) {
+			buddynext_service( 'counters' )->recount_post_comments( (int) $comment['object_id'] );
+		}
 	}
 
 	/**

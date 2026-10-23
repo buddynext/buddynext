@@ -847,19 +847,7 @@ class ModerationService {
 	 * @return void
 	 */
 	private function auto_hide_comment( int $comment_id ): void {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 1, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 0 AND is_deleted = 0",
-				$comment_id
-			)
-		);
-
-		if ( $updated > 0 ) {
-			$this->reconcile_comment_post_count( $comment_id );
-
+		if ( buddynext_service( 'comments' )->set_hidden( $comment_id, true ) ) {
 			/**
 			 * Fires when a comment is auto-hidden after reaching the report threshold.
 			 *
@@ -867,34 +855,6 @@ class ModerationService {
 			 * @param int $actor_id   Who hid it (0 = the automatic report threshold).
 			 */
 			do_action( 'buddynext_comment_hidden', $comment_id, 0 );
-		}
-	}
-
-	/**
-	 * Recount the parent post's comment_count for a comment that changed visibility.
-	 *
-	 * Hiding or restoring a comment moves the post's public comment tally, which
-	 * excludes hidden (and deleted) comments. Resolve the comment's post and route
-	 * through the one counter that every other path uses, so the number can never
-	 * drift from the nightly reconcile. A no-op for a non-post comment thread.
-	 *
-	 * @param int $comment_id Comment whose parent post count should be recounted.
-	 * @return void
-	 */
-	private function reconcile_comment_post_count( int $comment_id ): void {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT object_type, object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d",
-				$comment_id
-			),
-			ARRAY_A
-		);
-
-		if ( is_array( $row ) && 'post' === (string) $row['object_type'] && function_exists( 'buddynext_service' ) ) {
-			buddynext_service( 'counters' )->recount_post_comments( (int) $row['object_id'] );
 		}
 	}
 
@@ -3600,23 +3560,14 @@ class ModerationService {
 		}
 
 		// The comment mirror of the post restore above: clearing a reported comment's
-		// reports lifts its auto-hide. The is_hidden = 1 guard restores ONLY the
-		// auto-hide, never a takedown (is_deleted), and the post's comment_count is
-		// recounted so the comment comes back into the public count with it.
+		// reports lifts its auto-hide. set_hidden() never touches a takedown
+		// (is_deleted) and recounts the post so the comment rejoins its count.
 		if ( 'comment' === (string) $target['object_type'] && in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
 			$restore_comment_id = (int) $target['object_id'];
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$restored = $wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 0, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 1",
-					$restore_comment_id
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$restored = buddynext_service( 'comments' )->set_hidden( $restore_comment_id, false );
 
-			if ( $restored > 0 ) {
-				$this->reconcile_comment_post_count( $restore_comment_id );
+			if ( $restored ) {
 				/**
 				 * Fires when an auto-hidden comment is restored after its reports are cleared.
 				 *
