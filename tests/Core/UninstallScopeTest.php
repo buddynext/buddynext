@@ -57,6 +57,35 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->assertContains( 'buddynext_pro_learnomy_backfill_chunk', $hooks );
 	}
 
+	public function test_a_subsite_opt_in_cannot_wipe_network_wide_member_meta(): void {
+		if ( ! is_multisite() ) {
+			$this->markTestSkipped( 'Multisite only: run with WP_MULTISITE=1.' );
+		}
+
+		delete_option( 'buddynext_delete_data_on_uninstall' );
+		$user_id = self::factory()->user->create();
+		update_user_meta( $user_id, 'bn_onboarding_done', '1' );
+
+		$site_id = (int) self::factory()->blog->create();
+		switch_to_blog( $site_id );
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		restore_current_blog();
+
+		$this->uninstall();
+
+		$this->assertSame( '1', get_user_meta( $user_id, 'bn_onboarding_done', true ), 'Only the network owner\'s choice reaches user meta.' );
+	}
+
+	public function test_the_main_site_opt_in_wipes_member_meta(): void {
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
+		$user_id = self::factory()->user->create();
+		update_user_meta( $user_id, 'bn_onboarding_done', '1' );
+
+		$this->uninstall();
+
+		$this->assertSame( '', get_user_meta( $user_id, 'bn_onboarding_done', true ) );
+	}
+
 	public function test_each_site_of_a_network_keeps_its_own_delete_data_choice(): void {
 		if ( ! is_multisite() ) {
 			$this->markTestSkipped( 'Multisite only: run with WP_MULTISITE=1.' );

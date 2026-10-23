@@ -122,8 +122,9 @@ $bn_purge_meta = static function ( $options_only = false ) use ( $wpdb ) {
  * EVERY uninstall regardless of the data-retention setting — leaving them
  * behind was the "211 Action Scheduler actions and transients" orphan the audit
  * flagged. Action Scheduler is not loaded during uninstall, so its rows are
- * deleted directly by our own hook prefix (every BuddyNext job hook starts
- * `buddynext`); the tables may be absent if AS never ran, hence the guard.
+ * deleted directly by our own hook prefix (every Free job hook starts
+ * `buddynext_`; Pro's are left to Pro); the tables may be absent if AS never
+ * ran, hence the guard.
  *
  * @return void
  */
@@ -173,10 +174,15 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 // deactivate-then-delete is destructive and irreversible, and matches nothing a
 // careful owner expects. Only when the owner has explicitly ticked
 // "Delete all BuddyNext data when uninstalled" do the data tables and user meta
-// go. Read per site (each site of a network makes its own choice), BEFORE the
-// option sweep, which would otherwise remove the flag before we consult it.
-// Financial data lives in Pro's tables and is retained there regardless; Pro
-// reads this same option.
+// go. Read per site for that site's own tables, pages and options, BEFORE the
+// option sweep removes the flag. User meta is one table for the whole network,
+// so it follows only the main site's choice (the network owner): one subsite
+// admin must not be able to wipe every member's data network-wide. Financial
+// data lives in Pro's tables and is retained there regardless; Pro reads this
+// same option.
+$bn_wipe_members = (bool) ( is_multisite()
+	? get_blog_option( get_main_site_id(), 'buddynext_delete_data_on_uninstall', false )
+	: get_option( 'buddynext_delete_data_on_uninstall', false ) );
 
 /**
  * Purge one site: always clear settings + infrastructure; drop member data only
@@ -194,12 +200,10 @@ $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_me
 		// pointers. Opt-in full wipe only; the default path leaves them in place.
 		\BuddyNext\Core\Installer::delete_hub_pages();
 		$bn_drop_tables( $prefix );
-		$bn_purge_meta();
-	} else {
-		// Keep member content and user meta; still remove pure settings/flags so a
-		// clean reinstall starts from defaults rather than stale options.
-		$bn_purge_meta( true );
 	}
+	// Settings and flags always go, so a clean reinstall starts from defaults.
+	// Member user meta is network-wide and handled once, below.
+	$bn_purge_meta( true );
 };
 
 if ( is_multisite() ) {
@@ -212,4 +216,8 @@ if ( is_multisite() ) {
 	}
 } else {
 	$bn_clean_site( $wpdb->prefix );
+}
+
+if ( $bn_wipe_members ) {
+	$bn_purge_meta();
 }
