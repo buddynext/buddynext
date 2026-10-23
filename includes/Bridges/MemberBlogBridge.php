@@ -209,13 +209,11 @@ class MemberBlogBridge {
 			return 0;
 		}
 
-		$statuses = $this->visible_statuses( $user_id, $viewer_id );
-
-		$query = new \WP_Query(
+				$query = new \WP_Query(
 			array(
 				'author'                 => $user_id,
 				'post_type'              => $this->tracked_types(),
-				'post_status'            => $statuses,
+				'post_status'            => 'publish',
 				'posts_per_page'         => 1,
 				'fields'                 => 'ids',
 				'ignore_sticky_posts'    => true,
@@ -266,7 +264,7 @@ class MemberBlogBridge {
 		return array(
 			'author'                 => $user_id,
 			'post_type'              => $this->tracked_types(),
-			'post_status'            => $this->visible_statuses( $user_id, $viewer_id ),
+			'post_status'            => 'publish',
 			'posts_per_page'         => $per_page,
 			'paged'                  => $paged,
 			'ignore_sticky_posts'    => true,
@@ -310,6 +308,7 @@ class MemberBlogBridge {
 				'page'            => $paged,
 				'total_pages'     => (int) $query->max_num_pages,
 				'dashboard_url'   => $this->dashboard_url( $user_id ),
+				'write_url'       => $this->write_url( $user_id ),
 			)
 		);
 
@@ -320,7 +319,7 @@ class MemberBlogBridge {
 	 * The Articles panel as a plain data array — the same posts + pagination the
 	 * profile tab renders, shaped for JSON so the app and developers read the
 	 * panel without scraping HTML. Honours the same author/type/status rules
-	 * (drafts and pending only reach the owner or an editor).
+	 * (published posts only).
 	 *
 	 * @param int $user_id   Profile owner.
 	 * @param int $viewer_id Viewer (0 = logged out).
@@ -352,7 +351,7 @@ class MemberBlogBridge {
 			array(
 				'author'                 => $user_id,
 				'post_type'              => $this->tracked_types(),
-				'post_status'            => $this->visible_statuses( $user_id, $viewer_id ),
+				'post_status'            => 'publish',
 				'posts_per_page'         => $per_page,
 				'paged'                  => $page,
 				'ignore_sticky_posts'    => true,
@@ -405,25 +404,29 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * Post statuses this viewer may see on this profile.
+	 * Where the owner starts a new post: Member Blog's own "post" page, the same
+	 * page every row's Edit resolves through, else the dashboard.
 	 *
-	 * Published only for everyone else. The owner (and anyone who can edit their
-	 * posts) also sees drafts and pending review, because the tab is where they come
-	 * to find a piece they have not finished - and Member Blog's whole submit-for-
-	 * review flow produces `pending` posts that would otherwise be invisible here.
-	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer.
-	 * @return string[]
+	 * @param int $user_id Profile owner.
+	 * @return string
 	 */
-	private function visible_statuses( int $user_id, int $viewer_id ): array {
-		$is_owner = $viewer_id > 0 && $viewer_id === $user_id;
-
-		if ( $is_owner || ( $viewer_id > 0 && user_can( $viewer_id, 'edit_others_posts' ) ) ) {
-			return array( 'publish', 'pending', 'draft', 'future' );
+	private function write_url( int $user_id ): string {
+		if ( class_exists( '\Member_Blog_Compat' ) ) {
+			$url = (string) \Member_Blog_Compat::get_create_post_url();
+			if ( '' !== $url ) {
+				return $url;
+			}
 		}
 
-		return array( 'publish' );
+		if ( function_exists( 'bp_member_blog_get_settings' ) ) {
+			$page_id = (int) bp_member_blog_get_settings( 'bp_post_page', 0 );
+			$url     = $page_id > 0 ? (string) get_permalink( $page_id ) : '';
+			if ( '' !== $url ) {
+				return $url;
+			}
+		}
+
+		return $this->dashboard_url( $user_id );
 	}
 
 	/**

@@ -19,6 +19,7 @@
  * @var int        $page            Current page (1-based).
  * @var int        $total_pages     Total pages.
  * @var string     $dashboard_url   Where the owner writes/manages ('' = no affordance).
+ * @var string     $write_url       Where the owner starts a new post (falls back to the dashboard).
  */
 
 declare( strict_types=1 );
@@ -32,6 +33,7 @@ $bn_ar_total     = isset( $article_count ) ? (int) $article_count : count( $bn_a
 $bn_ar_page      = isset( $page ) ? max( 1, (int) $page ) : 1;
 $bn_ar_pages     = isset( $total_pages ) ? max( 1, (int) $total_pages ) : 1;
 $bn_ar_dashboard = isset( $dashboard_url ) ? (string) $dashboard_url : '';
+$bn_ar_write     = isset( $write_url ) && '' !== (string) $write_url ? (string) $write_url : $bn_ar_dashboard;
 // Per-post edit address (post id => URL), from the bridge. A post without one
 // falls back to the dashboard.
 $bn_ar_edit_urls = isset( $edit_urls ) && is_array( $edit_urls ) ? $edit_urls : array();
@@ -53,7 +55,7 @@ if ( empty( $bn_ar_rows ) ) :
 		</div>
 		<?php if ( $bn_ar_manage ) : ?>
 			<div class="bn-empty-sub">
-				<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
+				<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 					<?php esc_html_e( 'Write your first article', 'buddynext' ); ?>
 				</a>
 			</div>
@@ -66,7 +68,7 @@ endif;
 
 <?php if ( $bn_ar_manage ) : ?>
 	<div class="bn-articles__manage">
-		<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
+		<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 			<?php buddynext_icon( 'edit' ); ?>
 			<?php esc_html_e( 'Write a new article', 'buddynext' ); ?>
 		</a>
