@@ -172,6 +172,14 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 	</section>
 <?php endif; ?>
 
+<?php
+// The owner's list is a router region: accepting or approving a request re-renders
+// it from the server (follow-store.js refreshPeopleList), so the new person shows
+// with live Follow / Connect buttons instead of a stale empty state.
+if ( $bn_pp_is_owner ) :
+	?>
+	<div data-wp-interactive="buddynext/connection-requests" data-wp-router-region="buddynext/profile-people">
+<?php endif; ?>
 <?php if ( ! empty( $bn_pp_members ) ) : ?>
 	<?php
 	buddynext_get_template(
@@ -210,6 +218,9 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 			}
 			?>
 		</div>
+	</div>
+<?php endif; ?>
+<?php if ( $bn_pp_is_owner ) : ?>
 	</div>
 <?php endif; ?>
 

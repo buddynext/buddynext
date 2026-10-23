@@ -181,6 +181,32 @@ function bumpMetric( id ) {
 	valueEl.textContent = String( next );
 	if ( labelEl && el.dataset.bnNextLabel ) { labelEl.textContent = el.dataset.bnNextLabel; }
 	if ( labelEl && el.hasAttribute( 'aria-label' ) ) { el.setAttribute( 'aria-label', next + ' ' + labelEl.textContent ); }
+
+	// The Network sub-tab the request was accepted on (Connections or Followers)
+	// carries the same count.
+	const tab   = document.querySelector( '.bn-subnav__item[aria-current="page"]' );
+	const count = tab && tab.querySelector( '.bn-subnav__count' );
+	if ( count ) {
+		const was = parseInt( count.textContent, 10 ) || 0;
+		count.textContent = String( was + 1 );
+		tab.setAttribute( 'aria-label', ( tab.getAttribute( 'aria-label' ) || '' ).replace( '(' + was + ')', '(' + ( was + 1 ) + ')' ) );
+	}
+}
+
+/* Re-render the owner's people list (the buddynext/profile-people router region in
+ * people-panel.php) after an accept/approve, so the new person appears with
+ * hydrated buttons. The reading position is kept: a region swap is not a page change. */
+async function refreshPeopleList() {
+	if ( ! document.querySelector( '[data-wp-router-region="buddynext/profile-people"]' ) ) { return; }
+	const scrollY = window.scrollY;
+	try {
+		const router = await import( '@wordpress/interactivity-router' );
+		await router.actions.navigate( window.location.href, { force: true, replace: true } );
+		window.scrollTo( 0, scrollY );
+	} catch ( _e ) {
+		// The request row and the header count are already updated; the list
+		// catches up on the next load.
+	}
 }
 
 /* -- Follow-request inbox store ---------------------------------------- */
@@ -210,6 +236,7 @@ store( 'buddynext/follow-requests', {
 				settleRequest( ctx );
 				bumpMetric( 'followers' );
 				bnToast( fmt( t( 'toastCanFollowYou', '@%s can now follow you' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'success' } );
+				refreshPeopleList();
 			} catch ( _e ) {
 				bnToast( t( 'toastApproveFailed', 'Could not approve request. Try again.' ), { tone: 'danger' } );
 			} finally {
@@ -267,6 +294,7 @@ store( 'buddynext/connection-requests', {
 				settleRequest( ctx );
 				bumpMetric( 'connections' );
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'success' } );
+				refreshPeopleList();
 			} catch ( _e ) {
 				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
 			} finally {

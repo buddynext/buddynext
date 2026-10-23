@@ -803,7 +803,9 @@ class AssetService {
 			// markup stays inert. Declared dynamic, exactly as @buddynext/navigate does, so
 			// the router is fetched on the first Load-more click rather than on every feed
 			// page view.
-			if ( '@buddynext/feed' === $id ) {
+			// Feed pagination, and the owner's people list after accepting a
+			// request (social/follow-store.js), re-render through the router.
+			if ( '@buddynext/feed' === $id || '@buddynext/social-buttons' === $id ) {
 				$deps[] = array(
 					'id'     => '@wordpress/interactivity-router',
 					'import' => 'dynamic',
