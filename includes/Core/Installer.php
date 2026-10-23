@@ -469,7 +469,7 @@ class Installer {
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
 	 * unedited copies to the new wording.
 	 */
-	private const EMAIL_DEFAULTS_VERSION = 2;
+	private const EMAIL_DEFAULTS_VERSION = 3;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3387,6 +3387,12 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{site_url}}">start exploring</a>.</p>',
 			),
 			array(
+				'type'         => 'bn.announcement',
+				'subject'      => 'New announcement in {{space_name}} on {{site_name}}',
+				'preview_text' => 'An announcement was posted in {{space_name}}',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>{{notification_message}}</p><p><a href="{{action_url}}">Read it</a></p>',
+			),
+			array(
 				'type'         => 'bn.new_follower',
 				'subject'      => '{{actor_name}} started following you on {{site_name}}',
 				'preview_text' => 'You have a new follower',
@@ -3578,6 +3584,15 @@ class Installer {
 				array(
 					'subject'   => 'Someone followed you on {{site_name}}',
 					'body_html' => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{action_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			// 1.2.7: the announcement email names the space and quotes the announcement; the
+			// old copy said "a space you belong to" and rendered an empty message line.
+			'bn.announcement'     => array(
+				array(
+					'subject'      => 'Announcement from your space on {{site_name}}',
+					'preview_text' => 'An announcement was posted',
+					'body_html'    => "<p>Hi {{user_name}},</p>\n<p>{{actor_name}} posted an announcement in a space you belong to.</p>\n<p>{{notification_message}}</p>\n<p><a href=\"{{action_url}}\">Read it \u{2192}</a></p>\n",
 				),
 			),
 			// 1.2.4: the welcome body ran the site name into the next sentence

@@ -271,10 +271,10 @@ class EmailEditor {
 				'bn.announcement'             => array(
 					'name'    => __( 'Space announcement', 'buddynext' ),
 					'trigger' => __( 'When a space owner posts an announcement', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Announcement from your space on {{site_name}}',
-					'preview' => 'An announcement was posted',
-					'body'    => "Hi {{user_name}},\n\n{{actor_name}} posted an announcement in a space you belong to.\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Read it →</a>",
+					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{space_name}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'subject' => 'New announcement in {{space_name}} on {{site_name}}',
+					'preview' => 'An announcement was posted in {{space_name}}',
+					'body'    => "Hi {{user_name}},\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Read it →</a>",
 				),
 				'bn.space_ownership_received' => array(
 					'name'    => __( 'Space ownership received', 'buddynext' ),

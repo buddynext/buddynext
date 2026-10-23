@@ -1583,11 +1583,28 @@ class NotificationListener implements ListenerInterface {
 		$chunk      = array_slice( $recipients, 0, $chunk_size );
 		$remaining  = array_slice( $recipients, $chunk_size );
 
+		// The email says where and what: the space, the author and a short excerpt.
+		// Without them the template's {{notification_message}} rendered empty.
+		$space   = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
+		$post    = buddynext_service( 'post_service' )->get( $post_id );
+		$excerpt = wp_trim_words( wp_strip_all_tags( (string) ( $post['content'] ?? '' ) ), 30 );
+		$names   = array(
+			'author' => (string) get_the_author_meta( 'display_name', $author_id ),
+			'space'  => (string) ( $space['name'] ?? '' ),
+		);
+		$message = 'bn.announcement' === $type
+			/* translators: 1: author name, 2: space name, 3: excerpt of the announcement. */
+			? sprintf( __( '%1$s posted an announcement in %2$s: "%3$s"', 'buddynext' ), $names['author'], $names['space'], $excerpt )
+			/* translators: 1: author name, 2: space name, 3: excerpt of the post. */
+			: sprintf( __( '%1$s posted in %2$s: "%3$s"', 'buddynext' ), $names['author'], $names['space'], $excerpt );
+
 		$data = array(
 			'type'        => $type,
 			'sender_id'   => $author_id,
 			'object_type' => 'post',
 			'object_id'   => $post_id,
+			'message'     => $message,
+			'space_name'  => $names['space'],
 		);
 
 		foreach ( $chunk as $member_id ) {
