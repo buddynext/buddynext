@@ -210,10 +210,11 @@ class MediaClient {
 	 * @return string[] MIME types.
 	 */
 	public static function dm_attachment_types(): array {
-		if ( is_callable( array( '\WPMediaVerse\Messaging\MessagingController', 'allowed_attachment_types' ) ) ) {
-			return array_values( array_filter( array_map( 'strval', \WPMediaVerse\Messaging\MessagingController::allowed_attachment_types() ) ) );
+		$types = array( '\WPMediaVerse\Messaging\MessagingController', 'allowed_attachment_types' );
+		if ( ! is_callable( $types ) ) {
+			return array();
 		}
-		return array();
+		return array_values( array_filter( array_map( 'strval', (array) call_user_func( $types ) ) ) );
 	}
 
 	/**
