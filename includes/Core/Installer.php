@@ -469,7 +469,7 @@ class Installer {
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
 	 * unedited copies to the new wording.
 	 */
-	private const EMAIL_DEFAULTS_VERSION = 4;
+	private const EMAIL_DEFAULTS_VERSION = 6;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3384,7 +3384,7 @@ class Installer {
 				'type'         => 'welcome',
 				'subject'      => 'Welcome to {{site_name}}',
 				'preview_text' => 'Your community account is ready',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{site_url}}">start exploring</a>.</p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{action_url}}">start exploring</a>.</p>',
 			),
 			array(
 				'type'         => 'bn.announcement',
@@ -3400,21 +3400,21 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.connection_requested',
-				'subject'      => 'New connection request on {{site_name}}',
-				'preview_text' => 'Someone wants to connect with you',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new connection request on {{site_name}}. <a href="{{action_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => '{{actor_name}} wants to connect on {{site_name}}',
+				'preview_text' => 'You have a new connection request',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a connection request on {{site_name}}. <a href="{{action_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.connection_accepted',
-				'subject'      => 'Connection accepted on {{site_name}}',
+				'subject'      => '{{actor_name}} accepted your connection request on {{site_name}}',
 				'preview_text' => 'You are now connected',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{action_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> accepted your connection request on {{site_name}}. <a href="{{action_url}}">View their profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.mention',
-				'subject'      => 'You were mentioned on {{site_name}}',
+				'subject'      => '{{actor_name}} mentioned you on {{site_name}}',
 				'preview_text' => 'Someone mentioned you in a post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You were mentioned in a post on {{site_name}}. <a href="{{action_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> mentioned you on {{site_name}}. <a href="{{action_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.post_reacted',
@@ -3424,33 +3424,33 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.post_commented',
-				'subject'      => 'New comment on your {{site_name}} post',
+				'subject'      => '{{actor_name}} commented on your post on {{site_name}}',
 				'preview_text' => 'Someone commented on your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your post on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.post_shared',
-				'subject'      => 'Your post was shared on {{site_name}}',
+				'subject'      => '{{actor_name}} shared your post on {{site_name}}',
 				'preview_text' => 'Someone shared your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post was shared on {{site_name}}. <a href="{{action_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> shared your post on {{site_name}}. <a href="{{action_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_invite',
-				'subject'      => 'You have been invited to a space on {{site_name}}',
+				'subject'      => '{{actor_name}} invited you to join {{space_name}}',
 				'preview_text' => 'Join this community space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have been invited to join a space on {{site_name}}. <a href="{{action_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> invited you to join <strong>{{space_name}}</strong> on {{site_name}}. <a href="{{action_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_join_requested',
-				'subject'      => 'New join request for your {{site_name}} space',
+				'subject'      => '{{actor_name}} asked to join {{space_name}}',
 				'preview_text' => 'A member wants to join your space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> asked to join <strong>{{space_name}}</strong> on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_request_approved',
-				'subject'      => 'Your {{site_name}} space join request was approved',
-				'preview_text' => 'Welcome to the space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'subject'      => 'Your request to join {{space_name}} was approved',
+				'preview_text' => 'Welcome to {{space_name}}',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join <strong>{{space_name}}</strong> on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_issued',
@@ -3508,21 +3508,21 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.new_message',
-				'subject'      => 'New message on {{site_name}}',
+				'subject'      => '{{actor_name}} sent you a message on {{site_name}}',
 				'preview_text' => 'You have a new direct message',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> sent you a direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.media_commented',
-				'subject'      => 'New comment on your media on {{site_name}}',
+				'subject'      => '{{actor_name}} commented on your media on {{site_name}}',
 				'preview_text' => 'Someone commented on your media',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Someone commented on your media on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> commented on your media on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.media_favorited',
-				'subject'      => 'Someone favorited your media on {{site_name}}',
+				'subject'      => '{{actor_name}} favorited your media on {{site_name}}',
 				'preview_text' => 'Your media received a new favorite',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Someone favorited your media on {{site_name}}. <a href="{{action_url}}">View it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p><strong>{{actor_name}}</strong> favorited your media on {{site_name}}. <a href="{{action_url}}">View it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 		);
 
@@ -3580,7 +3580,7 @@ class Installer {
 		$previous = array(
 			// 1.2.5: the new-follower email names the follower, as the bell does.
 			// "Someone followed you" read like spam and gave no reason to open it.
-			'bn.new_follower'     => array(
+			'bn.new_follower'           => array(
 				array(
 					'subject'   => 'Someone followed you on {{site_name}}',
 					'body_html' => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{action_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
@@ -3590,7 +3590,7 @@ class Installer {
 			// old copy said "a space you belong to" and rendered an empty message line. A
 			// site-wide announcement fills {{space_name}} with the community name, so the
 			// subject drops "on {{site_name}}" to avoid naming the site twice.
-			'bn.announcement'     => array(
+			'bn.announcement'           => array(
 				array( 'subject' => 'New announcement in {{space_name}} on {{site_name}}' ),
 				array(
 					'subject'      => 'Announcement from your space on {{site_name}}',
@@ -3600,11 +3600,93 @@ class Installer {
 			),
 			// 1.2.4: the welcome body ran the site name into the next sentence
 			// ("Welcome to X Your account...") and used an em-dash.
-			'welcome'             => array(
+			// 1.2.7: its button opens the community feed ({{action_url}}), not the site
+			// home page, which on most sites is a marketing page (card 10435746911).
+			'welcome'                   => array(
 				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}} Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>' ),
+				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}. Your account is all set: <a href="{{site_url}}">start exploring</a>.</p>' ),
+			),
+			// 1.2.7: these emails name the person and the space, as the bell does
+			// (card 10435757270). The accepted email's link opens the accepter's
+			// profile, so its label says so.
+			'bn.connection_accepted'    => array(
+				array(
+					'subject'   => 'Connection accepted on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{action_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.new_message'            => array(
+				array(
+					'subject'   => 'New message on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>You have a new direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.space_request_approved' => array(
+				array(
+					'subject'      => 'Your {{site_name}} space join request was approved',
+					'preview_text' => 'Welcome to the space',
+					'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			// 1.2.7: the rest of the social emails name the person (and the space) too,
+			// so none reads "someone did something" when the bell already says who.
+			'bn.connection_requested'   => array(
+				array(
+					'subject'      => 'New connection request on {{site_name}}',
+					'preview_text' => 'Someone wants to connect with you',
+					'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new connection request on {{site_name}}. <a href="{{action_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.mention'                => array(
+				array(
+					'subject'   => 'You were mentioned on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>You were mentioned in a post on {{site_name}}. <a href="{{action_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.post_commented'         => array(
+				array(
+					'subject'   => 'New comment on your {{site_name}} post',
+					'body_html' => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.post_shared'            => array(
+				array(
+					'subject'   => 'Your post was shared on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>Your post was shared on {{site_name}}. <a href="{{action_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.space_invite'           => array(
+				array(
+					'subject'   => 'You have been invited to a space on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>You have been invited to join a space on {{site_name}}. <a href="{{action_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.space_join_requested'   => array(
+				array(
+					'subject'   => 'New join request for your {{site_name}} space',
+					'body_html' => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.media_commented'        => array(
+				array(
+					'subject'   => 'New comment on your media on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>Someone commented on your media on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.media_favorited'        => array(
+				array(
+					'subject'   => 'Someone favorited your media on {{site_name}}',
+					'body_html' => '<p>Hi {{user_name}},</p><p>Someone favorited your media on {{site_name}}. <a href="{{action_url}}">View it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				),
+			),
+			'bn.space_join_declined'    => array(
+				array(
+					'subject'   => 'About your request to join on {{site_name}}',
+					'body_html' => wpautop( "Hi {{user_name}},\n\nYour request to join a space on <strong>{{site_name}}</strong> was not accepted.\n\nThere are plenty of other spaces open to you.\n\n<a href=\"{{action_url}}\">Browse spaces →</a>" ),
+				),
 			),
 			// 1.2.4: the suspension email names the reason and the end date (card 10240365173).
-			'bn.member_suspended' => array(
+			'bn.member_suspended'       => array(
 				array( 'body_html' => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>' ),
 			),
 		);

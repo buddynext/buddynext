@@ -10,7 +10,7 @@ Members trust a community that looks like the brand that invited them. A generic
 
 ## Community name
 
-Set under **Settings > General**, the **Community name** (and the **Community description** below it) is how your community refers to itself in headings and copy. If you do not upload a logo, this name is shown at the top of the navigation instead, so it is worth getting right even on a logo-free site.
+Set under **Settings > General**, the **Community name** (and the **Community description** below it) is how your community refers to itself in headings and copy. Members see it in every email, on the signup page, as the app name when they install the community to their home screen, in push notifications and in the browser tab on community pages. If you leave it blank, your WordPress Site Title is used. If you do not upload a logo, this name is shown at the top of the navigation instead, so it is worth getting right even on a logo-free site.
 
 ## Brand color
 

@@ -744,7 +744,7 @@ class CronService {
 		);
 
 		$tokens = array(
-			'{{site_name}}'         => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			'{{site_name}}'         => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 			'{{site_url}}'          => esc_url( home_url( '/' ) ),
 			'{{user_name}}'         => $user->display_name,
 			'{{notification_list}}' => $notif_list,

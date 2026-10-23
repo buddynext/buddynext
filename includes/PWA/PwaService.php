@@ -100,8 +100,8 @@ class PwaService {
 	 */
 	public function get_manifest(): array {
 		$manifest = array(
-			'name'             => get_bloginfo( 'name' ),
-			'short_name'       => substr( get_bloginfo( 'name' ), 0, 12 ),
+			'name'             => buddynext_site_name(),
+			'short_name'       => mb_substr( buddynext_site_name(), 0, 12 ),
 			'description'      => get_bloginfo( 'description' ),
 			'start_url'        => home_url( '/' ),
 			'display'          => 'standalone',
@@ -121,18 +121,20 @@ class PwaService {
 		$icon_192 = (string) get_site_icon_url( 192 );
 		$icon_512 = (string) get_site_icon_url( 512 );
 		$own      = '' === $icon_192 || '' === $icon_512;
+		// The owner's Site Icon may be a JPEG; declare what the file really is.
+		$icon_type = $own ? 'image/png' : ( wp_check_filetype( $icon_512 )['type'] ?: 'image/png' );
 
 		$manifest['icons'] = array(
 			array(
 				'src'     => $own ? $png_base . 'icon-192.png' : $icon_192,
 				'sizes'   => '192x192',
-				'type'    => 'image/png',
+				'type'    => $icon_type,
 				'purpose' => 'any',
 			),
 			array(
 				'src'     => $own ? $png_base . 'icon-512.png' : $icon_512,
 				'sizes'   => '512x512',
-				'type'    => 'image/png',
+				'type'    => $icon_type,
 				'purpose' => 'any',
 			),
 		);
@@ -564,7 +566,7 @@ JS;
 	 */
 	public function get_offline_page(): string {
 		$base  = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : '/';
-		$name  = get_bloginfo( 'name' );
+		$name  = buddynext_site_name();
 		$title = __( 'You are offline', 'buddynext' );
 		$body  = __( 'This page is not available without a connection. Your community is waiting once you are back online.', 'buddynext' );
 		$retry = __( 'Try again', 'buddynext' );

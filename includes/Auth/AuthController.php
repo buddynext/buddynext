@@ -1876,7 +1876,7 @@ class AuthController {
 	public static function brand_reset_notification_email( array $defaults, string $key, string $user_login, $user_data = null ): array {
 		unset( $user_data );
 
-		$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+		$site_name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 
 		$url = add_query_arg(
 			array(
@@ -1945,7 +1945,7 @@ class AuthController {
 			return false;
 		}
 
-		$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+		$site_name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		$url       = add_query_arg(
 			array(
 				'key'   => rawurlencode( $key ),

@@ -403,7 +403,7 @@ class AppConfigController {
 		}
 
 		return array(
-			'app_name'             => (string) get_bloginfo( 'name' ),
+			'app_name'             => buddynext_site_name(),
 			'accent_color'         => $accent,
 			'logo_url'             => (string) get_option( 'buddynext_logo_url', '' ),
 			'login_bg_url'         => '',

@@ -280,7 +280,7 @@ class RegistrationEmailListener {
 	 * @return string
 	 */
 	private function site_name(): string {
-		$name = (string) get_bloginfo( 'name' );
+		$name = buddynext_site_name();
 		return '' !== $name ? $name : __( 'our community', 'buddynext' );
 	}
 }

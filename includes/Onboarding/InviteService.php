@@ -519,7 +519,7 @@ class InviteService {
 		// the `invite` param the signup form + AuthController actually read (not
 		// wp-login.php / bn_invite, which nothing consumes).
 		$invite_url = add_query_arg( 'invite', rawurlencode( (string) ( $invite['token'] ?? '' ) ), \BuddyNext\Core\PageRouter::signup_url() );
-		$site_name  = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$site_name  = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 
 		$tokens = array(
 			'{{first_name}}' => esc_html( $first_name ),

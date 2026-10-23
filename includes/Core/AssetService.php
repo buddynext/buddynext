@@ -343,7 +343,7 @@ class AssetService {
 				array(
 					'shell'  => \BuddyNext\Notifications\EmailSender::brand_wrap( '{{BNBODY}}', '{{BNSUBJECT}}' ),
 					'sample' => array(
-						'site_name'       => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+						'site_name'       => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 						'site_url'        => home_url( '/' ),
 						'user_name'       => __( 'Alex Rivera', 'buddynext' ),
 						'first_name'      => __( 'Alex', 'buddynext' ),

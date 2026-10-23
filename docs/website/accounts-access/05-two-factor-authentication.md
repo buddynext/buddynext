@@ -71,7 +71,7 @@ You can also **require** it. Go to **BuddyNext > Members > Registration & Login*
 | Setting | What it does | Default |
 |---|---|---|
 | Require two-factor authentication | Who must use 2FA. Choose **Nobody** (members can still switch it on themselves), **Administrators**, **Administrators and editors**, or **Everyone**. | Nobody |
-| Community name in the app | The name shown next to the account inside the authenticator app, so members can tell your account apart from others. This one is a developer option (the `buddynext_2fa_issuer` filter), not a settings field. | Your site title |
+| Community name in the app | The name shown next to the account inside the authenticator app, so members can tell your account apart from others. This one is a developer option (the `buddynext_2fa_issuer` filter), not a settings field. | Your community name (or the site title when the community name is blank) |
 
 ### What "required" actually does
 

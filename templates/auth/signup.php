@@ -88,7 +88,7 @@ if ( 'invite' === $bn_reg_mode ) {
 		// mailto to the site's admin_email with the request pre-written; owners who run
 		// a waiting-list page or a form point the filter at it instead.
 		$bn_admin_email = sanitize_email( (string) get_option( 'admin_email', '' ) );
-		$bn_site_name   = wp_specialchars_decode( (string) get_option( 'blogname', '' ), ENT_QUOTES );
+		$bn_site_name   = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 
 		$bn_request_url = '';
 		if ( '' !== $bn_admin_email && is_email( $bn_admin_email ) ) {

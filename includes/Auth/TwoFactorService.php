@@ -408,7 +408,7 @@ class TwoFactorService {
 		$code = (string) wp_rand( 100000, 999999 );
 		set_transient( 'bn_2fa_email_' . $user_id, self::hash_code( $code ), self::EMAIL_TTL );
 
-		$site    = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+		$site    = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		$minutes = (int) ( self::EMAIL_TTL / 60 );
 		$subject = sprintf(
 			/* translators: %s: site name. */
@@ -644,7 +644,7 @@ class TwoFactorService {
 	public static function provisioning_uri( string $secret, string $account ): string {
 		$issuer = (string) apply_filters(
 			'buddynext_2fa_issuer',
-			wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES )
+			wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES )
 		);
 		$label  = rawurlencode( $issuer . ':' . $account );
 		return sprintf(
