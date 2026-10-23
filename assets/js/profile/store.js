@@ -1654,8 +1654,15 @@ const profileStore = store( 'buddynext/profile', {
 			var input = document.createElement( 'input' );
 			input.type   = 'file';
 			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			// Attached to the page: Safari never fires change on a detached file input.
+			input.hidden = true;
+			document.querySelectorAll( 'input[data-bn-photo-input]' ).forEach( function ( old ) { old.remove(); } );
+			input.setAttribute( 'data-bn-photo-input', '' );
+			document.body.appendChild( input );
+			input.addEventListener( 'cancel', function () { input.remove(); } );
 			input.addEventListener( 'change', function () {
 				var file = input.files && input.files[ 0 ];
+				input.remove();
 				if ( ! file ) { return; }
 				var fd = new FormData();
 				fd.append( 'avatar', file ); // Both endpoints read the file from this field.
