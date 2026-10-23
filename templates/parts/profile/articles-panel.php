@@ -119,6 +119,18 @@ endif;
 						<time datetime="<?php echo esc_attr( (string) get_the_date( 'c', $bn_ar_id ) ); ?>">
 							<?php echo esc_html( (string) get_the_date( '', $bn_ar_id ) ); ?>
 						</time>
+						<?php if ( (int) $bn_ar_post->post_author !== $bn_ar_uid ) : ?>
+							<?php // A row only reaches this profile when its author is somebody else if the member co-wrote it. ?>
+							<span class="bn-badge bn-badge--muted">
+								<?php
+								printf(
+									/* translators: %s: name of the post's lead author. */
+									esc_html__( 'Co-written with %s', 'buddynext' ),
+									esc_html( (string) get_the_author_meta( 'display_name', (int) $bn_ar_post->post_author ) )
+								);
+								?>
+							</span>
+						<?php endif; ?>
 					</div>
 
 					<?php

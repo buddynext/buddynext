@@ -209,17 +209,13 @@ class MemberBlogBridge {
 			return 0;
 		}
 
-				$query = new \WP_Query(
-			array(
-				'author'                 => $user_id,
-				'post_type'              => $this->tracked_types(),
-				'post_status'            => 'publish',
-				'posts_per_page'         => 1,
-				'fields'                 => 'ids',
-				'ignore_sticky_posts'    => true,
-				'no_found_rows'          => false,
-				'update_post_meta_cache' => false,
-				'update_post_term_cache' => false,
+		$query = new \WP_Query(
+			array_merge(
+				$this->articles_query_args( $user_id, $viewer_id, 1, 1 ),
+				array(
+					'fields'                 => 'ids',
+					'update_post_meta_cache' => false,
+				)
 			)
 		);
 
@@ -261,7 +257,7 @@ class MemberBlogBridge {
 	 * @return array<string,mixed>
 	 */
 	private function articles_query_args( int $user_id, int $viewer_id, int $per_page, int $paged ): array {
-		return array(
+		$args = array(
 			'author'                 => $user_id,
 			'post_type'              => $this->tracked_types(),
 			'post_status'            => 'publish',
@@ -270,6 +266,11 @@ class MemberBlogBridge {
 			'ignore_sticky_posts'    => true,
 			'update_post_term_cache' => false,
 		);
+
+		// Member Blog's own seam for "posts this member writes": Pro widens the query
+		// to co-authored posts in SQL (paginated, indexed) and leaves it untouched when
+		// the member co-authors nothing or Pro is off.
+		return (array) apply_filters( 'bp_member_blog_dashboard_query_args', $args, $user_id, 'publish', 'posts' );
 	}
 
 	/**
@@ -347,17 +348,7 @@ class MemberBlogBridge {
 		$page     = max( 1, $page );
 		$per_page = max( 1, min( 50, $per_page ) );
 
-		$query = new \WP_Query(
-			array(
-				'author'                 => $user_id,
-				'post_type'              => $this->tracked_types(),
-				'post_status'            => 'publish',
-				'posts_per_page'         => $per_page,
-				'paged'                  => $page,
-				'ignore_sticky_posts'    => true,
-				'update_post_term_cache' => false,
-			)
-		);
+		$query = new \WP_Query( $this->articles_query_args( $user_id, $viewer_id, $per_page, $page ) );
 
 		$items = array();
 		foreach ( $query->posts as $post ) {
@@ -366,6 +357,7 @@ class MemberBlogBridge {
 			$cover   = get_the_post_thumbnail_url( $post, 'medium' );
 			$items[] = array(
 				'id'           => (int) $post->ID,
+				'co_written'   => (int) $post->post_author !== $user_id,
 				'title'        => (string) get_the_title( $post ),
 				'url'          => (string) get_permalink( $post ),
 				'date'         => (string) get_the_date( 'c', $post ),
