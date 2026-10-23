@@ -56,6 +56,44 @@ const BN_ICONS = {
 };
 
 /**
+ * An emoji trigger button wired to one textarea, or null when the site owner has
+ * the emoji picker off (signalled by the composer's option-gated trigger being
+ * absent). The shared initEmojiPicker() handler does the click and insertion.
+ *
+ * @param {HTMLTextAreaElement} ta  The editor's textarea.
+ * @param {string}              key Unique field key for this editor.
+ * @return {HTMLButtonElement|null}
+ */
+function bnEmojiTrigger( ta, key ) {
+	if ( ! document.querySelector( '.bn-composer .bn-emoji-trigger' ) ) {
+		return null;
+	}
+	ta.dataset.bnEmojiField = key;
+	const btn = document.createElement( 'button' );
+	btn.type = 'button';
+	btn.className = 'bn-emoji-trigger bn-comment__emoji-trigger';
+	btn.dataset.bnEmojiTarget = '[data-bn-emoji-field="' + key + '"]';
+	btn.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
+	btn.setAttribute( 'aria-haspopup', 'true' );
+	btn.setAttribute( 'aria-expanded', 'false' );
+	btn.title = t( 'insertEmoji', 'Insert emoji' );
+	// The bundled "grin" SVG glyph is the trigger face so no emoji character is
+	// hardcoded; falls back to a text label.
+	const base = bnEmojiAssetBase();
+	if ( base ) {
+		const gi = document.createElement( 'img' );
+		gi.src = base + 'grin.svg';
+		gi.alt = '';
+		gi.width = 18;
+		gi.height = 18;
+		btn.appendChild( gi );
+	} else {
+		btn.textContent = t( 'emoji', 'Emoji' );
+	}
+	return btn;
+}
+
+/**
  * Fill a comment action button with an icon + a text label, so the label shows on
  * desktop and CSS swaps in the icon under 640px (the six-action row would
  * otherwise wrap onto a second line on a phone). Keeps an aria-label so the
@@ -937,30 +975,8 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			// enabled (signalled by the composer's option-gated trigger being
 			// present on the page). The shared initEmojiPicker() handler wires
 			// the click + insertion into this specific editor's textarea.
-			if ( document.querySelector( '.bn-composer .bn-emoji-trigger' ) ) {
-				const taField = 'bn-comment-edit-' + comment.id;
-				ta.dataset.bnEmojiField = taField;
-				const emojiBtn = document.createElement( 'button' );
-				emojiBtn.type = 'button';
-				emojiBtn.className = 'bn-emoji-trigger bn-comment__emoji-trigger';
-				emojiBtn.dataset.bnEmojiTarget = '[data-bn-emoji-field="' + taField + '"]';
-				emojiBtn.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
-				emojiBtn.setAttribute( 'aria-haspopup', 'true' );
-				emojiBtn.setAttribute( 'aria-expanded', 'false' );
-				emojiBtn.title = t( 'insertEmoji', 'Insert emoji' );
-				// Reuse the bundled "grin" SVG glyph as the trigger face so no
-				// emoji character is hardcoded; falls back to a text label.
-				const emojiBase = bnEmojiAssetBase();
-				if ( emojiBase ) {
-					const gi = document.createElement( 'img' );
-					gi.src = emojiBase + 'grin.svg';
-					gi.alt = '';
-					gi.width = 18;
-					gi.height = 18;
-					emojiBtn.appendChild( gi );
-				} else {
-					emojiBtn.textContent = t( 'emoji', 'Emoji' );
-				}
+			const emojiBtn = bnEmojiTrigger( ta, 'bn-comment-edit-' + comment.id );
+			if ( emojiBtn ) {
 				editActions.appendChild( emojiBtn );
 			}
 			editActions.appendChild( saveBtn );
@@ -2447,6 +2463,10 @@ store( 'buddynext/post-card', {
 			cancelBtn.dataset.size = 'sm';
 			cancelBtn.textContent = t( 'cancel', 'Cancel' );
 
+			const emojiBtn = bnEmojiTrigger( ta, 'bn-post-edit-' + ( ctx.postId || '' ) );
+			if ( emojiBtn ) {
+				bar.appendChild( emojiBtn );
+			}
 			bar.appendChild( saveBtn );
 			bar.appendChild( cancelBtn );
 			form.appendChild( bar );
