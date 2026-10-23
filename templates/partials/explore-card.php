@@ -220,16 +220,21 @@ $bn_shares    = (int) ( $bn_post['share_count'] ?? 0 );
 $bn_created   = (string) ( $bn_post['created_at'] ?? '' );
 $bn_plain     = trim( wp_strip_all_tags( (string) ( $bn_post['content'] ?? '' ) ) );
 
-// Link/discussion posts (e.g. a synced Jetonomy topic) carry the real headline
-// in link_meta['title'] while content is just the activity verb ("started a
-// discussion"). Prefer that title for the card headline; fall back to content.
+// Generated posts (a synced Jetonomy topic, an integration card) carry the real
+// headline in link_meta['title'] while content is just the activity verb
+// ("started a discussion"), so that title leads. A post a member wrote leads
+// with their own words, as Facebook and LinkedIn do: a link preview they attached
+// is what they are talking about, not their headline. Its title stands in only
+// for a bare-URL post with no words of its own.
 $bn_link_meta = $bn_post['link_meta'] ?? null;
 if ( is_string( $bn_link_meta ) && '' !== $bn_link_meta ) {
 	$bn_link_meta = json_decode( $bn_link_meta, true );
 }
 $bn_link_title = is_array( $bn_link_meta ) ? trim( (string) ( $bn_link_meta['title'] ?? '' ) ) : '';
 $bn_link_desc  = is_array( $bn_link_meta ) ? trim( (string) ( $bn_link_meta['description'] ?? '' ) ) : '';
-$bn_headline   = '' !== $bn_link_title ? $bn_link_title : $bn_plain;
+$bn_own_words  = in_array( (string) ( $bn_post['type'] ?? 'text' ), array( 'text', 'photo', 'link', 'poll', 'file', 'announcement' ), true )
+	&& '' !== trim( (string) preg_replace( '#https?://\S+#i', '', $bn_plain ) );
+$bn_headline   = ( $bn_own_words || '' === $bn_link_title ) ? $bn_plain : $bn_link_title;
 // Body excerpt: prefer a real link/discussion excerpt, else the post content
 // (but never the bare activity verb that link posts store as content).
 $bn_excerpt = '' !== $bn_link_desc ? $bn_link_desc : ( '' !== $bn_link_title ? '' : $bn_plain );
