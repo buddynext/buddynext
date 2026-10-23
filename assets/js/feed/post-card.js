@@ -18,7 +18,7 @@ import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { uploadMedia, validateMedia } from '@buddynext/upload-core';
-import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 /**
@@ -53,19 +53,21 @@ const BN_ICONS = {
 	send:   BN_ICON( '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>' ),
 	check:  BN_ICON( '<path d="M20 6 9 17l-5-5"/>' ),
 	x:      BN_ICON( '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>' ),
+	smile:  BN_ICON( '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>' ),
 };
 
 /**
  * An emoji trigger button wired to one textarea, or null when the site owner has
- * the emoji picker off (signalled by the composer's option-gated trigger being
- * absent). The shared initEmojiPicker() handler does the click and insertion.
+ * the emoji picker off (bnShellData.emojiPicker, from the owner option, so it
+ * works on pages with no composer such as a post permalink). The shared
+ * initEmojiPicker() handler does the click and insertion.
  *
  * @param {HTMLTextAreaElement} ta  The editor's textarea.
  * @param {string}              key Unique field key for this editor.
  * @return {HTMLButtonElement|null}
  */
 function bnEmojiTrigger( ta, key ) {
-	if ( ! document.querySelector( '.bn-composer .bn-emoji-trigger' ) ) {
+	if ( ! ( window.bnShellData && window.bnShellData.emojiPicker ) ) {
 		return null;
 	}
 	ta.dataset.bnEmojiField = key;
@@ -77,19 +79,8 @@ function bnEmojiTrigger( ta, key ) {
 	btn.setAttribute( 'aria-haspopup', 'true' );
 	btn.setAttribute( 'aria-expanded', 'false' );
 	btn.title = t( 'insertEmoji', 'Insert emoji' );
-	// The bundled "grin" SVG glyph is the trigger face so no emoji character is
-	// hardcoded; falls back to a text label.
-	const base = bnEmojiAssetBase();
-	if ( base ) {
-		const gi = document.createElement( 'img' );
-		gi.src = base + 'grin.svg';
-		gi.alt = '';
-		gi.width = 18;
-		gi.height = 18;
-		btn.appendChild( gi );
-	} else {
-		btn.textContent = t( 'emoji', 'Emoji' );
-	}
+	// The same line smile the comment form's server-rendered trigger uses.
+	btn.innerHTML = BN_ICONS.smile;
 	return btn;
 }
 
@@ -972,9 +963,9 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			const editActions = document.createElement( 'div' );
 			editActions.className = 'bn-comment__edit-actions';
 			// Emoji insert — shown only when the site-owner emoji picker is
-			// enabled (signalled by the composer's option-gated trigger being
-			// present on the page). The shared initEmojiPicker() handler wires
-			// the click + insertion into this specific editor's textarea.
+			// enabled (bnEmojiTrigger reads the option from bnShellData). The
+			// shared initEmojiPicker() handler wires the click + insertion into
+			// this specific editor's textarea.
 			const emojiBtn = bnEmojiTrigger( ta, 'bn-comment-edit-' + comment.id );
 			if ( emojiBtn ) {
 				editActions.appendChild( emojiBtn );

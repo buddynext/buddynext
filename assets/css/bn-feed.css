@@ -2295,6 +2295,12 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	margin-block-end: var(--bn-s2);
 }
 
+/* The input's flex: 1 (basis 0) is for the composer row; in this column it
+   collapsed the textarea to a sliver that clipped the text. Let rows size it. */
+.bn-comment__edit-form .bn-comment-form__input {
+	flex: none;
+}
+
 .bn-comment__edit-form .bn-comment-form__submit {
 	align-self: flex-start;
 	width: auto;

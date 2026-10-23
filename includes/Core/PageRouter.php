@@ -2341,6 +2341,9 @@ class PageRouter {
 			// the note itself, so the note always has a reader and the setting
 			// means what it says on every site (Basecamp 10244757451).
 			'connectRequireNote' => '1' === (string) get_option( 'buddynext_connection_require_note', '0' ),
+			// The owner's emoji-picker switch, for editors built in the browser (post
+			// and comment edit) that have no server-rendered trigger to copy.
+			'emojiPicker'        => (bool) get_option( 'buddynext_enable_emoji_picker', true ),
 		);
 		// Base config for the shared REST client module (@buddynext/rest-client).
 		// Emitted on bn-shell-extras (always enqueued on every hub) so the
