@@ -2900,8 +2900,9 @@ a.bn-space-row:hover .bn-space-name {
 }
 /* Field wrapper flagged invalid by the store (context.errors[ key ]). The
    dynamic FieldType controls don't carry .bn-input--error, so colour their
-   control here for the same red-border affordance as the hero name field. */
-.bn-ep-field--error .bn-input,
+   control here for the same red-border affordance as the hero name field.
+   The "who can see this" select beside the label is not the invalid value. */
+.bn-ep-field--error .bn-input:not(.bn-ep-field-vis__select),
 .bn-ep-field--error .bn-textarea,
 .bn-ep-field--error .bn-field-textarea {
 	border-color: var(--bn-danger) !important;
