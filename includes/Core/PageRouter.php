@@ -4199,7 +4199,9 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function return_destination(): string {
-		if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() || wp_doing_cron() ) {
+		// Before WordPress builds its query (another plugin calling wp_login_url() at
+		// plugins_loaded) no page is being viewed, and get_query_var() would fatal.
+		if ( ! isset( $GLOBALS['wp_query'] ) || is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() || wp_doing_cron() ) {
 			return '';
 		}
 		if ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
@@ -4232,7 +4234,7 @@ class PageRouter {
 
 		if ( null === $destination ) {
 			$destination = self::return_destination();
-			if ( trailingslashit( $destination ) === trailingslashit( home_url() ) || 'onboarding' === get_query_var( 'bn_hub', '' ) ) {
+			if ( '' === $destination || trailingslashit( $destination ) === trailingslashit( home_url() ) || 'onboarding' === get_query_var( 'bn_hub', '' ) ) {
 				$destination = '';
 			}
 		}
