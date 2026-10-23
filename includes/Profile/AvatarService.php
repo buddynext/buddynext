@@ -322,6 +322,27 @@ class AvatarService {
 	// ── Public helpers ────────────────────────────────────────────────────────
 
 	/**
+	 * Warm the per-user lookups a list of avatars will hit, in one query each.
+	 *
+	 * Call it with the row ids before a loop that renders avatars: a plugin that
+	 * hooks pre_get_avatar_data (Jetonomy keeps its avatar in its own table) would
+	 * otherwise cost one query per row. Jetonomy ships the batch seam; this is the
+	 * one place BuddyNext calls it, so a list never knows about the partner.
+	 *
+	 * @param int[] $user_ids User ids about to be rendered.
+	 * @return void
+	 */
+	public static function prime( array $user_ids ): void {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( count( $ids ) < 2 ) {
+			return;
+		}
+		if ( class_exists( '\Jetonomy\Avatar' ) ) {
+			\Jetonomy\Avatar::prime( $ids );
+		}
+	}
+
+	/**
 	 * Return the avatar URL for a user.
 	 *
 	 * Priority:

@@ -33,6 +33,7 @@ ob_start();
 ?>
 <ul class="bn-member-row-list">
 	<?php
+\BuddyNext\Profile\AvatarService::prime( (array) $bn_people );
 	foreach ( $bn_people as $bn_uid ) :
 		$bn_user = get_userdata( $bn_uid );
 		if ( ! $bn_user ) {

@@ -106,6 +106,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 			</p>
 		<?php else : ?>
 			<ul class="bn-space-settings__member-list" role="list">
+				<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_space_members, 'user_id' ) ); ?>
 				<?php foreach ( $bn_space_members as $bn_member ) : ?>
 					<?php
 					$bn_member_avatar_url = get_avatar_url( (int) $bn_member->user_id, array( 'size' => 72 ) );
@@ -216,6 +217,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 				</p>
 			</header>
 			<ul class="bn-space-settings__member-list" role="list">
+				<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_space_bans, 'user_id' ) ); ?>
 				<?php foreach ( $bn_space_bans as $bn_ban_member ) : ?>
 					<?php
 					$bn_ban_avatar_url = get_avatar_url( (int) $bn_ban_member->user_id, array( 'size' => 72 ) );

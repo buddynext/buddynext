@@ -28,6 +28,7 @@ $sbar_members_url = isset( $sbar_members_url ) ? (string) $sbar_members_url : ''
 	<div class="bn-sidebar-card__body">
 		<?php if ( ! empty( $sbar_suggested ) ) : ?>
 			<ul class="bn-member-row-list">
+				<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $sbar_suggested, 'ID' ) ); ?>
 				<?php foreach ( $sbar_suggested as $sbar_sug ) : ?>
 					<?php
 					$sbar_sug_id     = (int) ( $sbar_sug->ID ?? 0 );

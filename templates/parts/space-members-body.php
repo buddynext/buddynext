@@ -321,6 +321,7 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 		aria-label="<?php esc_attr_e( 'Space members', 'buddynext' ); ?>"
 	>
 		<?php if ( ! empty( $bn_member_rows ) ) : ?>
+			<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_member_rows, 'user_id' ) ); ?>
 			<?php foreach ( $bn_member_rows as $member ) : ?>
 				<?php
 				$member_id     = (int) ( $member['user_id'] ?? 0 );

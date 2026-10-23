@@ -139,6 +139,7 @@ do_action( 'buddynext_part_space_members_panel_before', $args );
 		<p class="bn-sh-members__empty"><?php echo esc_html( $bn_filter_empty_messages[ $bn_active_role ] ?? $bn_filter_empty_messages[''] ); ?></p>
 	<?php else : ?>
 		<ul class="bn-sh-members__grid" role="list">
+			<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_filtered, 'user_id' ) ); ?>
 			<?php foreach ( $bn_filtered as $bn_fm ) : ?>
 				<?php
 				$bn_fm_uid    = (int) $bn_fm->user_id;
