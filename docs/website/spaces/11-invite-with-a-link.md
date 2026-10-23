@@ -45,7 +45,7 @@ The tab shows the link, when it expires, and how many times it has been used ("E
 
 When someone opens your link:
 
-- **Already signed in** - they see the space (its name, description, and rules) with a **Join space** button, even if the space is private or secret. Joining is immediate, with no approval step.
+- **Already signed in** - they see the space (its name, description, and rules) with a **Join** button, even if the space is private or secret. Joining is immediate, with no approval step.
 - **Signed out** - they see the same page with "Log in to join" or "Sign up to join". After they sign in or create an account they come right back to the space and join.
 - **Already a member** - the link just opens the space as normal.
 - **Banned from the space** - the link never lets a banned person back in.

@@ -91,6 +91,18 @@ $bn_sh_stats[] = array(
 $bn_sh_nav       = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', $bn_sh_space_id, (int) $bn_sh_viewer, $bn_sh_is_member ? $bn_sh_role : '' ) );
 $bn_sh_nav_items = $bn_sh_nav->layer( 'primary' );
 
+// The header owns its Interactivity region, so its Join / Leave / Report /
+// notification / Invite controls work on every tab that renders it, whether or
+// not the page wraps it in a buddynext/spaces region of its own.
+// display: contents (.bn-sh-header-region) keeps the page layout unchanged.
+?>
+<div
+	class="bn-sh-header-region"
+	data-wp-interactive="buddynext/spaces"
+	data-space-id="<?php echo esc_attr( (string) $bn_sh_space_id ); ?>"
+	data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'restNonce' => wp_create_nonce( 'wp_rest' ) ) ) ); ?>"
+>
+<?php
 buddynext_get_template(
 	'parts/space-hero.php',
 	array(
@@ -110,3 +122,5 @@ buddynext_get_template(
 		'nav_items'       => $bn_sh_nav_items,
 	)
 );
+?>
+</div>

@@ -794,6 +794,11 @@
 	gap: var(--bn-s4);
 }
 
+/* The space header's own Interactivity region; adds no box of its own. */
+.bn-sh-header-region {
+	display: contents;
+}
+
 /* Hero card */
 .bn-sh-hero {
 	background: var(--bn-surface);

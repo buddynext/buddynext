@@ -300,7 +300,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<?php elseif ( \BuddyNext\Spaces\SpaceVisibility::is_unlocked_via_invite( (int) ( $bn_space->id ?? 0 ) ) ) : ?>
 				<?php
 				// A valid shareable invite link opened this space: the owner chose to
-				// let link-holders in directly, so show "Join space" wired to joinSpace
+				// let link-holders in directly, so show "Join" wired to joinSpace
 				// (which forwards the ?invite= token) regardless of type — no approval
 				// step, even on a private or secret space. The paywall gate above still
 				// runs first, so a paid space is not bypassed.
@@ -311,7 +311,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-size="sm"
 					data-current-state="join"
 					data-wp-on--click="actions.joinSpace"
-				><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
+				><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
 
 			<?php elseif ( 'invite' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_space->type ) ) : ?>
 				<?php // Invite-only: no join request; members get in by invitation (as on the directory card). ?>
@@ -323,7 +323,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-size="sm"
 					data-current-state="join"
 					data-wp-on--click="actions.joinSpace"
-				><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
+				><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
 
 			<?php else : ?>
 				<button
