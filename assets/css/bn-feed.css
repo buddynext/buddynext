@@ -3686,12 +3686,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-composer__schedule-clear:hover { color: var(--text-1); background: var(--bg-subtle); }
 .bn-composer__schedule-clear svg { width: 16px; height: 16px; }
 
-[data-bn-theme="dark"] .bn-composer__prompt,
-[data-theme="dark"] .bn-composer__prompt,
-[data-bx-mode="dark"] .bn-composer__prompt {
-	color: var(--text-1);
-}
-
 [data-bn-theme="dark"] .bn-composer__privacy,
 [data-theme="dark"] .bn-composer__privacy,
 [data-bx-mode="dark"] .bn-composer__privacy {

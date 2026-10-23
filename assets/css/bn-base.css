@@ -3449,11 +3449,26 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	.bn-rail__toggle,
 	.bn-composer__tool,
 	.bn-post-card__menu,
+	.bn-post-card__ann-dismiss,
 	.bn-modal__close,
 	.bn-composer__schedule-clear
 ) {
 	background-color: transparent;
 	color: var(--bn-ink-3);
+}
+/* An icon link on a filled chip: a theme's `a:focus` / `a:hover` colour (0,1,1)
+   would paint the glyph in the chip's own colour and hide it. */
+.bn-app .bn-pf-avatar-edit {
+	color: var(--bn-accent-fg);
+}
+/* The composer prompt is a borderless field inside the composer card: a
+   theme's `textarea` / `textarea:focus` fill, colour, radius and min-height do
+   not apply to it (Astra turned it a white box on focus, dark mode included). */
+.bn-app textarea.bn-composer__prompt {
+	border-radius: 0;
+	min-height: 48px;
+	background-color: transparent;
+	color: var(--bn-ink);
 }
 .bn-app :is( .bn-emoji-popover__option, .bn-post-card__reactors-trigger ) {
 	background-color: transparent;
