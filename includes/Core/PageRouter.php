@@ -497,7 +497,15 @@ class PageRouter {
 
 		$hub = (string) get_query_var( 'bn_hub', '' );
 		if ( '' === $hub ) {
-			return;
+			// A hub page set as the static front page matches no rewrite rule, so
+			// resolve it once here, on `wp`, ahead of every template_redirect gate
+			// (MemberHold at 8, entitlement and onboarding gates). Dispatch used to
+			// do it at priority 10, after those gates had already read an empty hub.
+			$hub = $this->hub_for_front_page();
+			if ( '' === $hub ) {
+				return;
+			}
+			set_query_var( 'bn_hub', $hub );
 		}
 
 		$page_id = self::hub_page_id( $hub );
