@@ -1972,15 +1972,6 @@ class ModerationController extends BaseRestController {
 			return $this->preserve_status( $result, 400 );
 		}
 
-		( new ModerationLogService() )->log(
-			$actor_id,
-			'space_ban',
-			array(
-				'target_user_id' => $user_id,
-				'space_id'       => $space_id,
-			)
-		);
-
 		return new WP_REST_Response(
 			array(
 				'banned'   => true,

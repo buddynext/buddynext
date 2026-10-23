@@ -62,13 +62,13 @@ class CommunityModeratorSpacePowersTest extends WP_UnitTestCase {
 
 		$spammer = $this->member();
 		$members->join( $space_id, $spammer );
-		$this->assertWPError( $members->ban( $space_id, $this->member( 'moderator' ), $spammer ), 'A community moderator from outside does not run the space.' );
-		$this->assertTrue( $members->ban( $space_id, $space_mod, $spammer, 'Posting payday-loan links' ) );
+		$this->assertWPError( $members->ban_from_space( $space_id, $spammer, $this->member( 'moderator' ) ), 'A community moderator from outside does not run the space.' );
+		$this->assertTrue( $members->ban_from_space( $space_id, $spammer, $space_mod, 'Posting payday-loan links' ) );
 
 		$second = $this->member();
 		$members->join( $space_id, $second );
-		$this->assertTrue( $members->ban( $space_id, $this->member( 'member', 'administrator' ), $second ) );
-		$this->assertWPError( $members->ban( $space_id, $space_mod, $owner ), 'The owner is never banned.' );
+		$this->assertTrue( $members->ban_from_space( $space_id, $second, $this->member( 'member', 'administrator' ) ) );
+		$this->assertWPError( $members->ban_from_space( $space_id, $owner, $space_mod ), 'The owner is never banned.' );
 	}
 
 	/**
@@ -97,10 +97,6 @@ class CommunityModeratorSpacePowersTest extends WP_UnitTestCase {
 
 		$admin = $this->member( 'member', 'administrator' );
 		$members->join( $space_id, $admin );
-
-		$banned = $members->ban( $space_id, $space_mod, $admin );
-		$this->assertWPError( $banned );
-		$this->assertSame( 'forbidden', $banned->get_error_code() );
 
 		$banned = $members->ban_from_space( $space_id, $admin, $space_mod );
 		$this->assertWPError( $banned );

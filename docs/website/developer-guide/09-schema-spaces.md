@@ -162,7 +162,7 @@ Pro reuses this Free storage rather than adding its own table: the per-space pay
 
 - **`member_count` must be maintained.** Every join, leave, and removal adjusts `bn_spaces.member_count`. Never derive the member total with `COUNT(*)` in a page render - read the column. The daily recount job reconciles any drift.
 - **Three space types, three join models.** `open` joins immediately (`status = active`), `private` creates a `pending` row that an owner/moderator approves, `secret` is invite-only (`status = invited`) and hidden from the directory.
-- **Status `banned` vs `bn_space_bans`.** A `bn_space_members.status = 'banned'` row and a `bn_space_bans` record both exist in the moderation flow; confirm which one a given query should read when extending ban logic.
+- **Status `banned` vs `bn_space_bans`.** `bn_space_bans` is the ban. Banning (`SpaceMemberService::ban_from_space()`) writes that row and deletes the membership row. Releases up to 1.2.6 could also leave a `bn_space_members.status = 'banned'` row; it is still honoured and is cleared on unban, but nothing writes it any more.
 - **`required_ability` is a Free column read only by Pro.** Do not gate Free behavior on it. It exists in the Free schema purely so Pro's entitlement/paywall integration can read it without altering the table.
 - **Categories double as a unified taxonomy.** `bn_space_categories` and `bn_member_types` share the same presentation columns and editor; keep changes to one in mind for the other.
 - See also the Schema: Content and Feed page for `bn_posts` (which references `bn_spaces.id` via `space_id`).

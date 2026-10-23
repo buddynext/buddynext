@@ -239,23 +239,16 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 		$heir = self::factory()->user->create();
 		$this->members->join( $this->space_id, $heir );
 
-		// ban() writes BOTH surfaces. To isolate the SOFT ban (status='banned' on the
-		// membership row) drop the hard-ban row directly.
-		//
-		// This used to call unban_from_space() to do it — which only left the soft ban
-		// behind because unban_from_space() was BROKEN: it cleared bn_space_bans and
-		// forgot bn_space_members.status, so an "unbanned" member stayed locked out
-		// forever. That bug is fixed, so the setup can no longer lean on it.
-		$this->assertTrue( $this->members->ban( $this->space_id, $this->owner_id, $heir ) );
-
+		// A SOFT ban only (status='banned' on the membership row, no bn_space_bans
+		// row), as releases up to 1.2.6 could leave behind.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_bans',
+		$wpdb->update(
+			$wpdb->prefix . 'bn_space_members',
+			array( 'status' => 'banned' ),
 			array(
 				'space_id' => $this->space_id,
 				'user_id'  => $heir,
-			),
-			array( '%d', '%d' )
+			)
 		);
 		wp_cache_flush();
 

@@ -312,16 +312,17 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$user_id = self::factory()->user->create();
 		$this->service->join( $this->space_id, $user_id );
 
-		$this->service->ban( $this->space_id, $this->owner_id, $user_id );
+		$this->service->ban_from_space( $this->space_id, $user_id, $this->owner_id );
 
 		$this->assertFalse( $this->service->is_member( $this->space_id, $user_id ) );
-		$this->assertSame( 'banned', $this->service->get_status( $this->space_id, $user_id ) );
+		$this->assertNull( $this->service->get_status( $this->space_id, $user_id ), 'The membership row goes; the ban lives in bn_space_bans.' );
+		$this->assertTrue( $this->service->is_banned_from_space( $this->space_id, $user_id ) );
 	}
 
 	public function test_banned_user_cannot_rejoin(): void {
 		$user_id = self::factory()->user->create();
 		$this->service->join( $this->space_id, $user_id );
-		$this->service->ban( $this->space_id, $this->owner_id, $user_id );
+		$this->service->ban_from_space( $this->space_id, $user_id, $this->owner_id );
 
 		$result = $this->service->join( $this->space_id, $user_id );
 
@@ -330,7 +331,7 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_ban_owner_returns_error(): void {
-		$result = $this->service->ban( $this->space_id, $this->owner_id, $this->owner_id );
+		$result = $this->service->ban_from_space( $this->space_id, $this->owner_id, $this->owner_id );
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'cannot_ban_owner', $result->get_error_code() );
@@ -430,7 +431,7 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 			3
 		);
 
-		$this->service->ban( $this->space_id, $this->owner_id, $user_id );
+		$this->service->ban_from_space( $this->space_id, $user_id, $this->owner_id );
 
 		$this->assertSame( array( $this->space_id, $user_id, $this->owner_id ), $captured );
 	}
@@ -563,19 +564,28 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 	/**
 	 * Unbanning must clear BOTH surfaces, or it does not actually unban.
 	 *
-	 * ban() writes the bn_space_bans row AND flips the membership row to
-	 * status='banned'. unban_from_space() used to delete only the ban row, leaving
-	 * the member soft-banned: is_space_banned() kept hard-denying every space
-	 * capability and join() kept refusing them. The member stayed locked out of a
-	 * space they had supposedly been unbanned from, with nothing to explain why.
+	 * Releases up to 1.2.6 also flipped the membership row to status='banned',
+	 * which is_space_banned() and join() still honour. An unban that cleared only
+	 * the bn_space_bans row left those members locked out with nothing to explain why.
 	 */
 	public function test_unban_clears_soft_ban_and_member_can_rejoin(): void {
 		global $wpdb;
 
 		$user_id = self::factory()->user->create();
-		$this->service->join( $this->space_id, $user_id );
+		$this->assertTrue( $this->service->ban_from_space( $this->space_id, $user_id, $this->owner_id ) );
 
-		$this->assertTrue( $this->service->ban( $this->space_id, $this->owner_id, $user_id ) );
+		// The soft-ban row an earlier release would have left behind.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id'  => $this->space_id,
+				'user_id'   => $user_id,
+				'role'      => 'member',
+				'status'    => 'banned',
+				'joined_at' => current_time( 'mysql', true ),
+			)
+		);
+		wp_cache_flush();
 		$this->assertSame( 'banned', $this->service->get_status( $this->space_id, $user_id ) );
 
 		$this->assertTrue( $this->service->unban_from_space( $this->space_id, $user_id, $this->owner_id ) );
