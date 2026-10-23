@@ -1404,6 +1404,7 @@ class SpaceService {
 		// single delete clears them — no orphaned rows after the space is gone.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->bn_spacemeta, array( 'bn_space_id' => $space_id ), array( '%d' ) );
+		wp_cache_delete( $space_id, 'bn_space_meta' );
 
 		// Back-compat: an integration that still keeps its own per-space option can
 		// register its suffix here so a deleted space leaves nothing behind. Core

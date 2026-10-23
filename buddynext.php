@@ -104,7 +104,7 @@ register_activation_hook(
 	}
 );
 
-register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'run' ) );
+register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'activate' ) );
 register_activation_hook(
 	__FILE__,
 	static function (): void {
@@ -232,6 +232,7 @@ add_action(
 // reactivate needed). Cheap no-op once the stored schema revision matches.
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
 \BuddyNext\Core\Installer::register_site_health();
+\BuddyNext\Core\Installer::register_multisite();
 
 // Keep the front-end isolation mu-plugin in sync with the plugin's generated
 // source on every update — signature-compared, so it rewrites the mu-plugin

@@ -1020,6 +1020,102 @@ class Installer {
 	}
 
 	/**
+	 * Keep each site of a network in step with BuddyNext: tables for a site added
+	 * while BuddyNext is network-active, and its tables dropped when it is deleted.
+	 *
+	 * @return void
+	 */
+	public static function register_multisite(): void {
+		if ( ! is_multisite() ) {
+			return;
+		}
+		// After core has created the new site's own tables (priority 10).
+		add_action( 'wp_initialize_site', array( self::class, 'install_new_site' ), 900 );
+		add_filter( 'wpmu_drop_tables', array( self::class, 'site_tables' ), 10, 2 );
+	}
+
+	/**
+	 * Install BuddyNext on a site just added to a network where it is network-active.
+	 *
+	 * Without this the new site had no tables until its first wp-admin visit, so
+	 * front-end requests before that failed on missing tables.
+	 *
+	 * @param \WP_Site $site The new site.
+	 * @return void
+	 */
+	public static function install_new_site( \WP_Site $site ): void {
+		if ( ! isset( ( (array) get_site_option( 'active_sitewide_plugins', array() ) )[ BUDDYNEXT_BASENAME ] ) ) {
+			return;
+		}
+		self::install_on_site( (int) $site->blog_id );
+	}
+
+	/**
+	 * Install BuddyNext on another site of the network, from this request.
+	 *
+	 * Action Scheduler builds its tables when it boots on a site, which has not
+	 * happened for a site we only switched to, so run()'s first jobs would be
+	 * dropped. Build them first.
+	 *
+	 * @param int $site_id Site to install on.
+	 * @return void
+	 */
+	private static function install_on_site( int $site_id ): void {
+		switch_to_blog( $site_id );
+		if ( class_exists( '\\ActionScheduler_StoreSchema' ) && class_exists( '\\ActionScheduler_LoggerSchema' ) ) {
+			( new \ActionScheduler_StoreSchema() )->register_tables( true );
+			( new \ActionScheduler_LoggerSchema() )->register_tables( true );
+		}
+		self::run();
+		restore_current_blog();
+	}
+
+	/**
+	 * Install BuddyNext on every existing site when it is network-activated.
+	 *
+	 * Activation otherwise installs the main site only. A large network (over
+	 * 10,000 sites) is left to each site's first wp-admin visit (maybe_upgrade),
+	 * because one request cannot install them all.
+	 *
+	 * @param bool $network_wide Whether this is a network activation.
+	 * @return void
+	 */
+	public static function activate( $network_wide = false ): void {
+		if ( ! $network_wide || ! is_multisite() ) {
+			self::run();
+			return;
+		}
+		if ( wp_is_large_network() ) {
+			self::run();
+			return;
+		}
+		foreach ( get_sites(
+			array(
+				'fields' => 'ids',
+				'number' => 0,
+			)
+		) as $site_id ) {
+			self::install_on_site( (int) $site_id );
+		}
+	}
+
+	/**
+	 * Add BuddyNext's tables to the list core drops when a site is deleted.
+	 *
+	 * @param string[] $tables  Table names core will drop.
+	 * @param int      $site_id The site being deleted.
+	 * @return string[]
+	 */
+	public static function site_tables( $tables, $site_id ): array {
+		global $wpdb;
+		$prefix = $wpdb->get_blog_prefix( (int) $site_id );
+		foreach ( array_merge( self::OWNED_TABLES, self::LEGACY_TABLES ) as $table ) {
+			$tables[] = $prefix . $table;
+		}
+		return array_values( array_unique( (array) $tables ) );
+	}
+
+	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION,
 	 * or when a table it claims to have created is missing.
 	 *

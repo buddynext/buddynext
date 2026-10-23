@@ -147,7 +147,15 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions ) {
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "DELETE FROM `{$bn_as_actions}` WHERE hook LIKE %s", $wpdb->esc_like( 'buddynext' ) . '%' ) );
+		// Free's hooks are buddynext_*; Pro's are buddynextpro_* and buddynext_pro_*,
+		// and stay for Pro to manage (DATA-LIFECYCLE: delete only what you own).
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM `{$bn_as_actions}` WHERE hook LIKE %s AND hook NOT LIKE %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->esc_like( 'buddynext_' ) . '%',
+				$wpdb->esc_like( 'buddynext_pro_' ) . '%'
+			)
+		);
 	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -165,10 +173,10 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 // deactivate-then-delete is destructive and irreversible, and matches nothing a
 // careful owner expects. Only when the owner has explicitly ticked
 // "Delete all BuddyNext data when uninstalled" do the data tables and user meta
-// go. Read BEFORE the option sweep below, which would otherwise remove the flag
-// before we consult it. Financial data lives in Pro's tables and is retained
-// there regardless; Pro reads this same option.
-$bn_delete_data = (bool) get_option( 'buddynext_delete_data_on_uninstall', false );
+// go. Read per site (each site of a network makes its own choice), BEFORE the
+// option sweep, which would otherwise remove the flag before we consult it.
+// Financial data lives in Pro's tables and is retained there regardless; Pro
+// reads this same option.
 
 /**
  * Purge one site: always clear settings + infrastructure; drop member data only
@@ -177,7 +185,8 @@ $bn_delete_data = (bool) get_option( 'buddynext_delete_data_on_uninstall', false
  * @param string $prefix Table prefix for the site being cleaned.
  * @return void
  */
-$bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_meta, $bn_purge_infrastructure, $bn_delete_data ) {
+$bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_meta, $bn_purge_infrastructure ) {
+	$bn_delete_data = (bool) get_option( 'buddynext_delete_data_on_uninstall', false );
 	$bn_purge_infrastructure();
 	if ( $bn_delete_data ) {
 		// Remove the hub backing pages (published WP pages holding [buddynext_*]
