@@ -203,6 +203,20 @@ class MediaClient {
 	}
 
 	/**
+	 * The file types a chat attachment may be, as the engine's upload route
+	 * enforces them (WPMediaVerse 2.6.2+, filterable there). Empty when the engine
+	 * is absent; the route still validates every upload either way.
+	 *
+	 * @return string[] MIME types.
+	 */
+	public static function dm_attachment_types(): array {
+		if ( is_callable( array( '\WPMediaVerse\Messaging\MessagingController', 'allowed_attachment_types' ) ) ) {
+			return array_values( array_filter( array_map( 'strval', \WPMediaVerse\Messaging\MessagingController::allowed_attachment_types() ) ) );
+		}
+		return array();
+	}
+
+	/**
 	 * The engine's bundled default video poster URL.
 	 *
 	 * Used as a fallback when a video has no server-generated poster frame so a
