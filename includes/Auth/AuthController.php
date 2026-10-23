@@ -919,7 +919,7 @@ class AuthController {
 		// this endpoint into an enumeration oracle ("that address is a real, pending
 		// account"), which is exactly what the generic 401 below exists to prevent.
 		// So verify the password ourselves, and only then explain the real reason.
-		$user = self::user_for_identifier( $user_input );
+		$user = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
 
 		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
 			return null; // Fall through to the generic credential failure.
@@ -970,7 +970,7 @@ class AuthController {
 			return $limited;
 		}
 
-		$identified = self::user_for_identifier( $user_input );
+		$identified = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
 		$login      = $identified ? $identified->user_login : $user_input;
 
 		// Verify the password (runs the full authenticate chain, including the
@@ -1801,26 +1801,6 @@ class AuthController {
 		 * @param array<string, mixed> $params  The registration request parameters.
 		 */
 		return (string) apply_filters( 'buddynext_post_register_redirect', $url, $user_id, $params );
-	}
-
-	/**
-	 * The account a sign-in identifier names: an email, a username, or the member's
-	 * handle (the @name shown everywhere in the community, which differs from
-	 * user_login whenever the email's local part held a dot).
-	 *
-	 * A real username wins over a handle, so signing in never depends on another
-	 * member's handle. Null when nothing matches.
-	 *
-	 * @param string $identifier What the member typed.
-	 * @return \WP_User|null
-	 */
-	private static function user_for_identifier( string $identifier ): ?\WP_User {
-		if ( is_email( $identifier ) ) {
-			$user = get_user_by( 'email', $identifier );
-		} else {
-			$user = get_user_by( 'login', $identifier ) ?: \BuddyNext\Profile\Handle::resolve( ltrim( $identifier, '@' ) );
-		}
-		return $user instanceof \WP_User ? $user : null;
 	}
 
 	/**

@@ -2979,18 +2979,14 @@ class SpaceController extends BaseRestController {
 		$inviter_id      = get_current_user_id();
 		$invited_user_id = absint( $request->get_param( 'user_id' ) );
 
-		// Allow invite by username or email when no numeric user_id is supplied,
+		// Allow invite by @handle, username or email when no numeric user_id is supplied,
 		// so the hero Invite modal can mirror the settings-panel invite form.
 		if ( 0 === $invited_user_id ) {
 			$identifier = sanitize_text_field( (string) ( $request->get_param( 'identifier' ) ?? '' ) );
-			// Accept an @-prefixed username — member mentions use @username across
-			// the platform, so the invite field should too. Emails never carry a
-			// leading @, so this only affects username input.
+			// The owner types what they see: the @handle on a profile, a username or an email.
 			$identifier = ltrim( $identifier, '@' );
 			if ( '' !== $identifier ) {
-				$invited_user = is_email( $identifier )
-					? get_user_by( 'email', $identifier )
-					: get_user_by( 'login', $identifier );
+				$invited_user = \BuddyNext\Profile\Handle::user_for_identifier( $identifier );
 				if ( $invited_user instanceof \WP_User ) {
 					$invited_user_id = (int) $invited_user->ID;
 				} elseif ( is_email( $identifier ) ) {
@@ -3023,7 +3019,7 @@ class SpaceController extends BaseRestController {
 				} else {
 					return new WP_Error(
 						'user_not_found',
-						__( 'No user found with that username or email.', 'buddynext' ),
+						__( 'No member found with that @handle or email.', 'buddynext' ),
 						array( 'status' => 404 )
 					);
 				}

@@ -426,16 +426,16 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			</header>
 
 			<div class="bn-modal__body">
-				<p><?php esc_html_e( 'Enter a username or email address to send an invitation to join this space.', 'buddynext' ); ?></p>
+				<p><?php esc_html_e( 'Enter a member\'s @handle or an email address to invite them to this space.', 'buddynext' ); ?></p>
 				<label class="bn-sr-only" for="bn-invite-identifier">
-					<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
+					<?php esc_html_e( '@handle or email address', 'buddynext' ); ?>
 				</label>
 				<input
 					type="text"
 					id="bn-invite-identifier"
 					class="bn-input"
 					autocomplete="off"
-					placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
+					placeholder="<?php esc_attr_e( '@handle or email address', 'buddynext' ); ?>"
 					data-bn-invite-identifier
 					data-wp-on--keydown="actions.inviteMemberKeydown"
 				>

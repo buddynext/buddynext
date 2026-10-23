@@ -261,19 +261,19 @@ $bn_sspm_ctx = (string) wp_json_encode(
 		<header class="bn-space-settings__panel-head">
 			<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Invite member', 'buddynext' ); ?></h2>
 			<p class="bn-space-settings__panel-desc">
-				<?php esc_html_e( 'Enter a username or email address to send an invitation.', 'buddynext' ); ?>
+				<?php esc_html_e( 'Enter a member\'s @handle or an email address to invite them.', 'buddynext' ); ?>
 			</p>
 		</header>
 		<form class="bn-space-settings__invite-row" data-bn-invite-form data-wp-on--submit="actions.inviteMember">
 			<label class="bn-sr-only" for="bn_invite_identifier">
-				<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
+				<?php esc_html_e( '@handle or email address', 'buddynext' ); ?>
 			</label>
 			<input
 				type="text"
 				id="bn_invite_identifier"
 				class="bn-input"
 				data-bn-invite-identifier
-				placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
+				placeholder="<?php esc_attr_e( '@handle or email address', 'buddynext' ); ?>"
 				autocomplete="off"
 			>
 			<button type="submit" class="bn-btn" data-variant="primary" data-size="md">

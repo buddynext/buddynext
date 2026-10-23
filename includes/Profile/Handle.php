@@ -212,6 +212,26 @@ final class Handle {
 	 * @return string A safe handle, or '' when none can be derived.
 	 */
 	/**
+	 * The account a typed identifier names (sign-in, invite): an email, a username, or the member's
+	 * handle (the @name shown everywhere in the community, which differs from
+	 * user_login whenever the email's local part held a dot).
+	 *
+	 * A real username wins over a handle, so signing in never depends on another
+	 * member's handle. A leading @ is ignored. Null when nothing matches.
+	 *
+	 * @param string $identifier What the member typed.
+	 * @return \WP_User|null
+	 */
+	public static function user_for_identifier( string $identifier ): ?\WP_User {
+		if ( is_email( $identifier ) ) {
+			$user = get_user_by( 'email', $identifier );
+		} else {
+			$user = get_user_by( 'login', $identifier ) ?: self::resolve( ltrim( $identifier, '@' ) );
+		}
+		return $user instanceof \WP_User ? $user : null;
+	}
+
+	/**
 	 * The member a handle refers to, or null.
 	 *
 	 * The exact inverse of {@see \BuddyNext\Core\PageRouter::member_handle()}, and
