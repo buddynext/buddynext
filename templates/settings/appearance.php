@@ -45,9 +45,9 @@ ob_start();
 			// shared community-theme check so this reads the same source of truth
 			// as the setup checklist and Get Started home.
 			if ( class_exists( '\BuddyNext\Admin\SetupChecklist' ) && \BuddyNext\Admin\SetupChecklist::using_recommended_theme() ) {
-				esc_html_e( 'Scales BuddyNext text on this device. Use the light/dark toggle in the header to switch appearance.', 'buddynext' );
+				esc_html_e( 'Scales text on this device. Use the light/dark toggle in the header to switch appearance.', 'buddynext' );
 			} else {
-				esc_html_e( 'Scales BuddyNext text on this device. Light or dark mode is set by your theme.', 'buddynext' );
+				esc_html_e( 'Scales text on this device. Light or dark mode is set by your theme.', 'buddynext' );
 			}
 			?>
 		</p>
@@ -64,7 +64,7 @@ $bn_appearance_html = (string) ob_get_clean();
 			'parts/profile-edit-section.php',
 			array(
 				'title'     => __( 'Appearance', 'buddynext' ),
-				'subtitle'  => __( 'Choose how BuddyNext looks for you on this device.', 'buddynext' ),
+				'subtitle'  => __( 'Choose how this community looks for you on this device.', 'buddynext' ),
 				'body_html' => $bn_appearance_html,
 			)
 		);

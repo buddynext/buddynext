@@ -723,7 +723,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
 					<span class="bn-ob-channel__body">
 						<span class="bn-ob-channel__name"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
-						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Bell badge and notification panel inside BuddyNext.', 'buddynext' ); ?></span>
+						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Bell badge and notification panel inside this community.', 'buddynext' ); ?></span>
 					</span>
 					<input type="checkbox"
 						class="bn-ob-channel__toggle"

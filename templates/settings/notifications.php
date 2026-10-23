@@ -220,7 +220,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 				<span class="bn-prefs-channel__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
 				<span class="bn-prefs-channel__body">
 					<span class="bn-prefs-channel__label"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
-					<span class="bn-prefs-channel__sub"><?php esc_html_e( 'Show notifications inside BuddyNext.', 'buddynext' ); ?></span>
+					<span class="bn-prefs-channel__sub"><?php esc_html_e( 'Show notifications inside this community.', 'buddynext' ); ?></span>
 				</span>
 			</label>
 
