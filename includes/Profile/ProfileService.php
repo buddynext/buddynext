@@ -2095,6 +2095,15 @@ class ProfileService {
 					}
 					$flat_fields[ $flat_fid ]['value'] = $picks;
 
+					// value_display was also built per row, so it named the first pick only.
+					$flat_fields[ $flat_fid ]['value_display'] = FieldType::display_text(
+						array(
+							'type'    => (string) ( $flat_field['type'] ?? '' ),
+							'options' => $flat_field['options'] ?? null,
+						),
+						$picks
+					);
+
 					// value_raw has to move with it. It was assigned per ROW
 					// further up, so on a set-valued field it held the FIRST
 					// pick and nothing else - and the edit form prefills from

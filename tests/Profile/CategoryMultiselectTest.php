@@ -215,6 +215,21 @@ class CategoryMultiselectTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * value_display, the text clients and the app read, lists every pick in order,
+	 * not just the first row's (card 10435781060).
+	 *
+	 * @return void
+	 */
+	public function test_value_display_lists_every_pick_in_order(): void {
+		$this->service->save_profile( $this->user_id, array( 'test_interests' => array( $this->cats['Cycling'], $this->cats['Chess'] ) ) );
+
+		$profile = $this->service->get_profile( $this->user_id, $this->user_id );
+		$display = array_column( (array) $profile['fields'], 'value_display', 'field_key' );
+
+		$this->assertSame( 'Cycling, Chess', $display['test_interests'] );
+	}
+
+	/**
 	 * The bn_field_{key} search mirror carries names, never raw IDs.
 	 *
 	 * @return void
