@@ -846,6 +846,19 @@ class EmailSender {
 	}
 
 	/**
+	 * Fill a composed email's tokens for one recipient, exactly as send_now()
+	 * does, so a test or preview shows what that member would receive.
+	 *
+	 * @param string $text              Subject or body with {{tokens}}.
+	 * @param int    $user_id           Recipient user ID.
+	 * @param string $notification_type Email type key.
+	 * @return string
+	 */
+	public function personalise( string $text, int $user_id, string $notification_type ): string {
+		return $this->render( $text, $user_id, array( 'type' => $notification_type ) );
+	}
+
+	/**
 	 * Generate an HMAC-signed unsubscribe URL for a user/type combo.
 	 *
 	 * URL format:
