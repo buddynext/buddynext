@@ -596,8 +596,18 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Members-only is an OWNER control, not a per-author one: only a site admin,
 		// or an owner/moderator of the post's space, may paywall a post. A regular
-		// member's request to set it is ignored (forced 0).
-		$bn_members_only = ( ! empty( $data['members_only'] ) && $this->can_gate_post( $user_id, (int) ( $data['space_id'] ?? 0 ) ) ) ? 1 : 0;
+		// member's request to set it is refused, never silently dropped.
+		$bn_members_only = 0;
+		if ( ! empty( $data['members_only'] ) ) {
+			if ( ! $this->can_gate_post( $user_id, (int) ( $data['space_id'] ?? 0 ) ) ) {
+				return new WP_Error(
+					'forbidden',
+					__( 'Only a site admin or a space owner or moderator can make a post members-only.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+			$bn_members_only = 1;
+		}
 
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
@@ -2365,13 +2375,20 @@ class PostService {
 		}
 		if ( array_key_exists( 'members_only', $data ) ) {
 			// Only a site admin or the space's owner/moderator may change the
-			// paywall flag; a plain author's request is ignored (the current value
-			// is left untouched rather than forced off).
+			// paywall flag. A plain author resending the current value is fine;
+			// asking for a different one is refused, not dropped.
 			$mo_existing = $this->get( $post_id );
 			$mo_space    = $mo_existing ? (int) ( $mo_existing['space_id'] ?? 0 ) : 0;
+			$mo_wanted   = ! empty( $data['members_only'] ) ? 1 : 0;
 			if ( $this->can_gate_post( $user_id, $mo_space ) ) {
-				$fields['members_only'] = ! empty( $data['members_only'] ) ? 1 : 0;
+				$fields['members_only'] = $mo_wanted;
 				$formats[]              = '%d';
+			} elseif ( $mo_wanted !== (int) ( $mo_existing['members_only'] ?? 0 ) ) {
+				return new WP_Error(
+					'forbidden',
+					__( 'Only a site admin or a space owner or moderator can change members-only on a post.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
 			}
 		}
 
