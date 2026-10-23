@@ -369,10 +369,11 @@ class JetonomyBridge {
 	 * (admin bar, user-panel block, notification deep-links) at its OWN profile
 	 * sub-screens. When BN owns identity those must land on BN's screens instead,
 	 * or a member editing their profile from a discussion ends up on a second,
-	 * disconnected editor. Only the actions BN actually provides are remapped;
-	 * `badges` and `digest` are Jetonomy-specific (its own badge system and email
-	 * digest, which BN does not mirror) so they stay on Jetonomy, exactly as the
-	 * filter's own contract advises.
+	 * disconnected editor. Only the actions BN actually provides are remapped.
+	 * `digest` (the link in Jetonomy Pro's digest email) lands on the Forum email
+	 * card BN renders in its notification settings, since Jetonomy's own edit
+	 * screen redirects to BN's, which has no digest control. `badges` is
+	 * Jetonomy's own badge system, which BN does not mirror, so it stays put.
 	 *
 	 * @param string $url     Jetonomy's default action URL.
 	 * @param string $action  Action key: profile|edit|notification-settings|badges|digest.
@@ -391,8 +392,11 @@ class JetonomyBridge {
 			case 'notification-settings':
 				$bn = \BuddyNext\Core\PageRouter::notification_prefs_url();
 				break;
+			case 'digest':
+				$bn = \BuddyNext\Core\PageRouter::notification_prefs_url() . '#forum-email';
+				break;
 			default:
-				// badges / digest: Jetonomy-specific, no BN equivalent — leave them.
+				// badges: Jetonomy-specific, no BN equivalent — leave it.
 				return (string) $url;
 		}
 		return '' !== $bn ? $bn : (string) $url;

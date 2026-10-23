@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
 
 $bn_pp_context = wp_json_encode( array( 'nonce' => wp_create_nonce( 'wp_rest' ) ) );
 ?>
-<section class="bn-card bn-prefs-card bn-partner-prefs" data-v2
+<section id="forum-email" class="bn-card bn-prefs-card bn-partner-prefs" data-v2
 	aria-labelledby="bn-partner-prefs-title"
 	data-wp-interactive="buddynext/notification-prefs"
 	data-wp-context='<?php echo esc_attr( (string) $bn_pp_context ); ?>'
