@@ -70,7 +70,7 @@ if ( ! empty( $bn_blocked_ids ) || ! empty( $bn_muted_ids ) || ! empty( $bn_rest
 			esc_attr( $action ),
 			esc_url( $avatar ),
 			esc_html( $u->display_name ),
-			esc_html( $u->user_nicename ),
+			esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $u->ID ) ),
 			esc_html( $action_label )
 		);
 	};

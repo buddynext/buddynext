@@ -224,10 +224,7 @@ $entry_has_value = static fn( array $e ): bool => (bool) array_filter(
 $work_entries = array_values( array_filter( isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array(), $entry_has_value ) );
 $edu_entries  = array_values( array_filter( isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array(), $entry_has_value ) );
 
-$profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-if ( '' === $profile_slug ) {
-	$profile_slug = $profile_user instanceof WP_User ? $profile_user->user_nicename : 'user-' . $user_id;
-}
+$profile_slug = \BuddyNext\Core\PageRouter::member_handle( (int) $user_id );
 
 // Tab-panel data is no longer fetched here. Each tab's panel is rendered through
 // the Nav registry's content seam (PanelRenderer below) by its own `render`

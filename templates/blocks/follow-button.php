@@ -32,7 +32,7 @@ $is_pending     = ! $is_following && $bn_fb_follows->has_pending_request( $viewe
 // Pass the @handle (user_nicename) so toasts read "Now following @jane" rather
 // than the "#<id>" fallback the follow store uses when targetName is absent.
 $bn_fb_user = get_userdata( $user_id );
-$bn_fb_name = $bn_fb_user ? $bn_fb_user->user_nicename : '';
+$bn_fb_name = $bn_fb_user ? \BuddyNext\Core\PageRouter::member_handle( (int) $bn_fb_user->ID ) : '';
 
 $context_json = (string) wp_json_encode(
 	array(

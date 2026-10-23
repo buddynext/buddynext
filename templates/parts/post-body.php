@@ -486,7 +486,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			<?php
 			$orig_author         = get_userdata( (int) ( $bn_shared_post['user_id'] ?? 0 ) );
 			$orig_name           = $orig_author ? esc_html( $orig_author->display_name ) : esc_html__( 'Community Member', 'buddynext' );
-			$orig_username       = $orig_author ? esc_html( $orig_author->user_nicename ) : '';
+			$orig_username       = $orig_author ? esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $orig_author->ID ) ) : '';
 			$orig_avatar         = get_avatar_url( (int) ( $bn_shared_post['user_id'] ?? 0 ), array( 'size' => 40 ) );
 			$orig_time           = buddynext_time_ago( (string) ( $bn_shared_post['created_at'] ?? '' ) );
 			$orig_content        = $bn_shared_post['content'] ?? '';

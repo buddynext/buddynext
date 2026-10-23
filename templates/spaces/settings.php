@@ -553,12 +553,13 @@ usort(
 		return strcasecmp( (string) ( $a['display_name'] ?? '' ), (string) ( $b['display_name'] ?? '' ) );
 	}
 );
+\BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_member_rows, 'user_id' ) );
 $space_members = array_map(
 	static fn( array $m ): object => (object) array(
 		'user_id'      => (int) ( $m['user_id'] ?? 0 ),
 		'role'         => (string) ( $m['role'] ?? 'member' ),
 		'display_name' => (string) ( $m['display_name'] ?? '' ),
-		'user_login'   => (string) ( $m['user_nicename'] ?? '' ),
+		'user_login'   => \BuddyNext\Core\PageRouter::member_handle( (int) ( $m['user_id'] ?? 0 ) ),
 	),
 	$bn_member_rows
 );
@@ -580,7 +581,7 @@ foreach ( (array) $bn_ban_rows as $bn_ban ) {
 	$space_bans[] = (object) array(
 		'user_id'      => $bn_ban_uid,
 		'display_name' => (string) $bn_ban_user->display_name,
-		'user_login'   => (string) $bn_ban_user->user_nicename,
+		'user_login'   => \BuddyNext\Core\PageRouter::member_handle( $bn_ban_uid ),
 		'reason'       => (string) ( is_array( $bn_ban ) ? ( $bn_ban['reason'] ?? '' ) : '' ),
 	);
 }

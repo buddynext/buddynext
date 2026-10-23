@@ -3652,19 +3652,25 @@ class PageRouter {
 			return '';
 		}
 
-		$base = self::people_url();
+		return self::people_url() . rawurlencode( self::profile_slug( $user_id ) ) . '/';
+	}
 
+	/**
+	 * The profile URL segment for a user: bn_profile_slug, then user_nicename,
+	 * then user-{ID}. The one chain behind every profile URL and the @handle.
+	 *
+	 * @param int $user_id User ID (> 0).
+	 * @return string Unencoded slug.
+	 */
+	private static function profile_slug( int $user_id ): string {
 		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 		if ( '' !== $custom_slug ) {
-			return $base . rawurlencode( $custom_slug ) . '/';
+			return $custom_slug;
 		}
 
 		$user = get_userdata( $user_id );
-		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
-			return $base . rawurlencode( $user->user_nicename ) . '/';
-		}
 
-		return $base . 'user-' . $user_id . '/';
+		return ( $user instanceof WP_User && '' !== $user->user_nicename ) ? $user->user_nicename : 'user-' . $user_id;
 	}
 
 	/**
@@ -3685,19 +3691,7 @@ class PageRouter {
 			return get_edit_profile_url( 0 );
 		}
 
-		$base = self::people_url();
-
-		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-		if ( '' !== $custom_slug ) {
-			return $base . rawurlencode( $custom_slug ) . '/edit/';
-		}
-
-		$user = get_userdata( $user_id );
-		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
-			return $base . rawurlencode( $user->user_nicename ) . '/edit/';
-		}
-
-		return $base . 'user-' . $user_id . '/edit/';
+		return self::people_url() . rawurlencode( self::profile_slug( $user_id ) ) . '/edit/';
 	}
 
 	/**
@@ -3745,20 +3739,7 @@ class PageRouter {
 			return self::people_url();
 		}
 
-		$base    = self::people_url();
-		$section = trim( $section, '/' );
-
-		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-		if ( '' !== $custom_slug ) {
-			return $base . rawurlencode( $custom_slug ) . '/' . $section . '/';
-		}
-
-		$user = get_userdata( $user_id );
-		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
-			return $base . rawurlencode( $user->user_nicename ) . '/' . $section . '/';
-		}
-
-		return $base . 'user-' . $user_id . '/' . $section . '/';
+		return self::people_url() . rawurlencode( self::profile_slug( $user_id ) ) . '/' . trim( $section, '/' ) . '/';
 	}
 
 	/**
@@ -3780,18 +3761,11 @@ class PageRouter {
 	 * @return string Public handle without the leading '@', or '' for an invalid user.
 	 */
 	public static function member_handle( int $user_id ): string {
-		if ( $user_id <= 0 ) {
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
 			return '';
 		}
 
-		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-		if ( '' !== $custom_slug ) {
-			return $custom_slug;
-		}
-
-		$user = get_userdata( $user_id );
-
-		return $user instanceof WP_User ? (string) $user->user_nicename : '';
+		return self::profile_slug( $user_id );
 	}
 
 	/**

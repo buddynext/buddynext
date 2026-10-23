@@ -84,7 +84,7 @@ $nonce = wp_create_nonce( 'wp_rest' );
 // @handle (user_nicename). Without it the store falls back to "#<id>" and
 // toasts read "Connected with #8" instead of "Connected with @jane".
 $bn_conn_user = get_userdata( $user_id );
-$bn_conn_name = $bn_conn_user ? $bn_conn_user->user_nicename : '';
+$bn_conn_name = $bn_conn_user ? \BuddyNext\Core\PageRouter::member_handle( (int) $bn_conn_user->ID ) : '';
 
 // Build the WP Interactivity API context object (esc_attr-escaped JSON string).
 $context_attr = esc_attr(

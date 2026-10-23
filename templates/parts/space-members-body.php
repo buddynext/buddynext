@@ -325,7 +325,7 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 				<?php
 				$member_id     = (int) ( $member['user_id'] ?? 0 );
 				$member_name   = (string) ( $member['display_name'] ?? '' );
-				$member_handle = '@' . (string) ( $member['user_nicename'] ?? '' );
+				$member_handle = '@' . \BuddyNext\Core\PageRouter::member_handle( (int) ( $member['user_id'] ?? 0 ) );
 				$member_role   = (string) ( $member['role'] ?? 'member' );
 				$member_avatar = get_avatar_url( $member_id, array( 'size' => 128 ) );
 				$member_inits  = AvatarService::initials_for( $member_name );

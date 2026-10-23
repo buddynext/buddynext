@@ -33,7 +33,7 @@ ob_start();
 ?>
 <ul class="bn-member-row-list">
 	<?php
-\BuddyNext\Profile\AvatarService::prime( (array) $bn_people );
+	\BuddyNext\Profile\AvatarService::prime( (array) $bn_people );
 	foreach ( $bn_people as $bn_uid ) :
 		$bn_user = get_userdata( $bn_uid );
 		if ( ! $bn_user ) {
@@ -49,7 +49,7 @@ ob_start();
 			array(
 				'row_user_id' => (int) $bn_uid,
 				'row_name'    => (string) $bn_user->display_name,
-				'row_handle'  => (string) $bn_user->user_nicename,
+				'row_handle'  => \BuddyNext\Core\PageRouter::member_handle( (int) $bn_user->ID ),
 				'row_url'     => PageRouter::profile_url( $bn_uid ),
 				'row_avatar'  => (string) get_avatar_url( $bn_uid, array( 'size' => 40 ) ),
 				'row_tone'    => $bn_tone,

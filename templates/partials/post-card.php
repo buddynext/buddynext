@@ -161,7 +161,7 @@ if ( 'share' === $bn_post_type && $shared_post_id > 0 ) {
 // ── Author ─────────────────────────────────────────────────────────────────────
 $author       = get_userdata( $post_author_id );
 $display_name = $author ? $author->display_name : __( 'Community Member', 'buddynext' );
-$username     = $author ? $author->user_nicename : '';
+$username     = $author ? PageRouter::member_handle( $post_author_id ) : '';
 $avatar_url   = get_avatar_url( $post_author_id, array( 'size' => 68 ) );
 $profile_link = $post_author_id > 0 ? PageRouter::profile_url( $post_author_id ) : '#';
 

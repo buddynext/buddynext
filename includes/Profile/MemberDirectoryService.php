@@ -1466,8 +1466,7 @@ class MemberDirectoryService {
 
 			// Public handle: the member's custom slug if set, else user_nicename
 			// (WP's public author slug). NEVER user_login — see the method docblock.
-			$custom_slug = (string) get_user_meta( $uid, 'bn_profile_slug', true );
-			$handle      = '' !== $custom_slug ? $custom_slug : (string) $row->user_nicename;
+			$handle = \BuddyNext\Core\PageRouter::member_handle( $uid );
 
 			$out[] = array(
 				'ID'           => $uid,

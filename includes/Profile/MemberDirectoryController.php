@@ -408,10 +408,7 @@ class MemberDirectoryController extends BaseRestController {
 		 *
 		 * So handle is derived the same way profile_url() derives it. One source of truth.
 		 */
-		$custom_slug = (string) get_user_meta( $uid, 'bn_profile_slug', true );
-		$handle      = '' !== $custom_slug
-			? $custom_slug
-			: ( $user instanceof \WP_User ? (string) $user->user_nicename : '' );
+		$handle = \BuddyNext\Core\PageRouter::member_handle( $uid );
 
 		// Member-type badge — built from the shared MemberTypeService::badge_for()
 		// so the directory and the profile response cannot drift. badge_for() reads

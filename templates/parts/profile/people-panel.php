@@ -100,7 +100,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 					$bn_pp_is_conn
 						? array(
 							'requesterId' => $bn_pp_rid,
-							'targetName'  => $bn_pp_req->user_nicename,
+							'targetName'  => \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ),
 							'hidden'      => false,
 							'busy'        => false,
 							'restUrl'     => rest_url( 'buddynext/v1' ),
@@ -108,7 +108,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 						)
 						: array(
 							'followerId' => $bn_pp_rid,
-							'targetName' => $bn_pp_req->user_nicename,
+							'targetName' => \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ),
 							'hidden'     => false,
 							'busy'       => false,
 							'restUrl'    => rest_url( 'buddynext/v1' ),
@@ -122,7 +122,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 					</a>
 					<div class="bn-follow-requests__id">
 						<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_pp_req->display_name ); ?></a>
-						<span class="bn-follow-requests__handle">@<?php echo esc_html( $bn_pp_req->user_nicename ); ?></span>
+						<span class="bn-follow-requests__handle">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ) ); ?></span>
 						<?php
 						$bn_pp_headline = (string) get_user_meta( $bn_pp_rid, 'bn_headline', true );
 						if ( '' !== $bn_pp_headline ) :

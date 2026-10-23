@@ -61,7 +61,7 @@ if ( $pending_sent ) {
 // Pass the @handle (user_nicename) so toasts read "Connected with @jane"
 // rather than the "#<id>" fallback the connection store uses when absent.
 $bn_cb_user = get_userdata( $user_id );
-$bn_cb_name = $bn_cb_user ? $bn_cb_user->user_nicename : '';
+$bn_cb_name = $bn_cb_user ? \BuddyNext\Core\PageRouter::member_handle( (int) $bn_cb_user->ID ) : '';
 
 $context_json = (string) wp_json_encode(
 	array(

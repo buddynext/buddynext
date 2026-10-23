@@ -88,7 +88,7 @@ if ( 'member' === $bn_kind ) {
 	}
 
 	$bn_name   = (string) $bn_user->display_name;
-	$bn_login  = (string) $bn_user->user_nicename;
+	$bn_login  = PageRouter::member_handle( $bn_user_id );
 	$bn_url    = PageRouter::profile_url( $bn_user_id );
 	$bn_av     = (string) get_avatar_url( $bn_user_id, array( 'size' => 96 ) );
 	$bn_tone   = bn_explore_tone( $bn_user_id, $bn_palette );
