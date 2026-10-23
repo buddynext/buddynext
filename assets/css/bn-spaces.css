@@ -1988,6 +1988,13 @@ a.bn-sh-statpill:focus-visible {
 	cursor: pointer;
 }
 
+/* A theme's `input[type=color]` (0,1,1) adds padding and its own radius, which
+   squeezes the swatch to a thin strip. 0,2,0 keeps the full-bleed swatch. */
+.bn-app .bn-space-settings__color {
+	padding: 0;
+	border-radius: var(--bn-r-md);
+}
+
 .bn-space-settings__color:disabled {
 	cursor: not-allowed;
 	opacity: 0.5;

@@ -711,7 +711,7 @@
 .bn-md-strip__search-input {
 	flex: 1 1 100%;
 	/* Room on the right for the clear (×) button. */
-	padding-inline-end: 32px;
+	--bn-input-pe: 32px;
 }
 /* Suppress the browser's native search clear so we don't show two ×'s. */
 .bn-md-strip__search-input::-webkit-search-cancel-button {

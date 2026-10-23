@@ -6,6 +6,20 @@
  * Tokens match CLAUDE.md `:root` block verbatim.
  */
 
+/* ── Links start neutral inside BuddyNext ────────────────────────────────────
+ * A BuddyNext link that sets no colour of its own (an avatar wrapper, a card
+ * link, a category pill, a link-styled button) took the host theme's link blue
+ * and underline: GeneratePress and Kadence both leave links underlined, Astra
+ * strips the underline globally and hid it. Stated once here, at 0,1,0 (the
+ * :where() adds nothing), so it beats a theme's bare `a` (0,0,1) but every
+ * `.bn-*` link rule that follows in any bundle wins by order. The lightbox is
+ * printed in the footer, outside .bn-app, so it is named here too. Hover and focus
+ * colours stay with the components. */
+:is( .bn-app, .bn-lightbox ) :where( a[class*="bn-"] ) {
+	color: inherit;
+	text-decoration: none;
+}
+
 /* ── Stable scrollbar gutter (BuddyNext hub pages) ───────────────────────────
  * Hub pages scroll on the document. With no reserved gutter, switching between
  * tabs whose content differs in height (e.g. a long Feed vs a short About) makes
@@ -3413,14 +3427,83 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 
 	The toggle is NOT in this list — its unchecked track is a filled control, so
 	it gets the same defense pinned to var(--bn-line-strong) next to its base
-	rule below. Button-scoped for the lightbox wildcard so the backdrop div keeps
-	its overlay. Visually a no-op under themes that don't bleed. */
+	rule below. The lightbox is not in this list: it is printed outside .bn-app,
+	so it is pinned under its own root just below. Visually a no-op under themes
+	that don't bleed. */
 .bn-app .bn-tab,
 .bn-app .bn-composer__tool,
 .bn-app .bn-more-menu-item,
-.bn-app .bn-modal__close,
-.bn-app button[class*="bn-lightbox__"] {
+.bn-app .bn-modal__close {
 	background-color: transparent;
+}
+
+/* Resting colour and fill of the icon-only and chip buttons, pinned at 0,2,0.
+   A host theme's bare `button:focus` / `button:hover` (0,1,1: white text on a
+   grey or brand fill, plus its own padding) otherwise lands on these, because
+   BuddyNext only styled :hover and :focus-visible. A mouse click leaves a button
+   focused, so the leak showed on every click, not only on keyboard focus. Each
+   control's own :hover / :active rule is 0,2,0 too and sits later in the
+   cascade, so it still wins; this layer only decides what the control looks like
+   when the theme has not been told otherwise. */
+.bn-app :is(
+	.bn-rail__toggle,
+	.bn-composer__tool,
+	.bn-post-card__menu,
+	.bn-modal__close,
+	.bn-composer__schedule-clear
+) {
+	background-color: transparent;
+	color: var(--bn-ink-3);
+}
+.bn-app :is( .bn-emoji-popover__option, .bn-post-card__reactors-trigger ) {
+	background-color: transparent;
+}
+.bn-app .bn-composer__privacy-chip {
+	background-color: var(--bn-sunken);
+	color: var(--bn-ink-3);
+}
+/* The glyph is a mask over this fill, so the fill IS the icon colour. */
+.bn-app .bn-navgroup__nav {
+	background-color: var(--bn-ink-3);
+}
+/* The lightbox is printed in the footer on <body>, outside .bn-app, so it is
+   pinned under its own root. Its header controls are a 2rem circle: a theme's
+   button padding made them 40px wide ovals, and its :focus fill turned them dark. */
+.bn-lightbox :is( .bn-lightbox__close, .bn-lightbox__fullscreen ) {
+	padding: 0;
+	background-color: var(--bn-sunken);
+	color: var(--bn-ink-3);
+}
+.bn-lightbox .bn-lightbox__action {
+	background-color: transparent;
+	color: var(--bn-ink-2);
+}
+.bn-lightbox .bn-lightbox__reaction {
+	background-color: var(--bn-sunken);
+}
+
+/* Text inputs: BuddyNext's own box, held against a theme's `input[type=text]`
+   family (0,1,1: its padding, radius, border and fill beat a bare `.bn-input`).
+   <input> only: a textarea sets its own vertical padding and no theme reaches it.
+   Geometry holds in every state so the text never jumps on focus. A variant that
+   needs more room at the end (an inset clear button) sets --bn-input-pe, the same
+   token pattern as .bn-btn above, because a literal would lose to this rule. */
+.bn-app input.bn-input {
+	padding-block: 0;
+	padding-inline: var(--bn-s3) var(--bn-input-pe, var(--bn-s3));
+	border-radius: var(--bn-r-md);
+}
+/* The fill holds in every state but disabled (a theme's `input:focus` greys the
+   field while typing); BuddyNext's focus rules never set one. The border only at
+   rest: the focus ring, invalid and error looks are BuddyNext's own 0,2,0 rules,
+   and this selector steps aside for each of them instead of out-ranking them
+   (:where() adds no specificity). The class is doubled because a theme's
+   `input[type=search]:focus` is 0,2,1 and loads after this file: a tie it would win. */
+.bn-app input.bn-input.bn-input:where( :not( :disabled ) ) {
+	background-color: var(--bn-surface);
+}
+.bn-app input.bn-input:where( :not( :focus, :disabled, [aria-invalid="true"], .bn-input--error ) ) {
+	border: 1px solid var(--bn-line-strong);
 }
 
 /* ── Toggle switch ──────────────────────────────────────────────────── */
@@ -4893,6 +4976,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	.bn-dm-emoji-pop__close,
 	.bn-emoji-popover__option,
 	.bn-lightbox__close,
+	.bn-lightbox__fullscreen,
 	.bn-lightbox__dm-btn,
 	.bn-lightbox__action {
 		min-width: 44px;
