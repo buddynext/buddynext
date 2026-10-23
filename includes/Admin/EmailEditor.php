@@ -269,10 +269,10 @@ class EmailEditor {
 					'body'    => "Hi {{user_name}},\n\nYour role in a space on <strong>{{site_name}}</strong> has changed.\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Open the space →</a>",
 				),
 				'bn.announcement'             => array(
-					'name'    => __( 'Space announcement', 'buddynext' ),
-					'trigger' => __( 'When a space owner posts an announcement', 'buddynext' ),
+					'name'    => __( 'Announcement', 'buddynext' ),
+					'trigger' => __( 'When an announcement is posted to a space or to the whole community', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{space_name}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'New announcement in {{space_name}} on {{site_name}}',
+					'subject' => 'New announcement in {{space_name}}',
 					'preview' => 'An announcement was posted in {{space_name}}',
 					'body'    => "Hi {{user_name}},\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Read it →</a>",
 				),

@@ -732,7 +732,7 @@ class NotificationListener implements ListenerInterface {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post_row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT space_id, status, scheduled_at FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				"SELECT space_id, status, scheduled_at, is_announcement FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
 				$post_id
 			),
 			ARRAY_A
@@ -746,7 +746,9 @@ class NotificationListener implements ListenerInterface {
 		$post_status  = (string) ( $post_row['status'] ?? '' );
 		$scheduled_at = (string) ( $post_row['scheduled_at'] ?? '' );
 
-		if ( 0 === $space_id ) {
+		// An announcement has its own fan-out (one bell, one email); a new-post
+		// notification on top of it doubled both.
+		if ( 0 === $space_id || ! empty( $post_row['is_announcement'] ) ) {
 			return;
 		}
 
@@ -1165,6 +1167,9 @@ class NotificationListener implements ListenerInterface {
 				'object_type'  => 'post',
 				'object_id'    => $post_id,
 				'group_key'    => $group_keys[ $rid ],
+				// The batched email stage sends the announcement email; without this the
+				// per-row email listener sent a second, empty one.
+				'defer_email'  => true,
 			);
 			/** This action is documented in includes/Notifications/NotificationService.php */
 			do_action( 'buddynext_notification_created', $notif_id, $rid, $data );
@@ -1588,9 +1593,10 @@ class NotificationListener implements ListenerInterface {
 		$space   = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
 		$post    = buddynext_service( 'post_service' )->get( $post_id );
 		$excerpt = wp_trim_words( wp_strip_all_tags( (string) ( $post['content'] ?? '' ) ), 30 );
+		// A site-wide announcement (space 0) belongs to the whole community.
 		$names   = array(
 			'author' => (string) get_the_author_meta( 'display_name', $author_id ),
-			'space'  => (string) ( $space['name'] ?? '' ),
+			'space'  => $space_id > 0 ? (string) ( $space['name'] ?? '' ) : buddynext_site_name(),
 		);
 		$message = 'bn.announcement' === $type
 			/* translators: 1: author name, 2: space name, 3: excerpt of the announcement. */

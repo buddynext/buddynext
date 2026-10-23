@@ -469,7 +469,7 @@ class Installer {
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
 	 * unedited copies to the new wording.
 	 */
-	private const EMAIL_DEFAULTS_VERSION = 3;
+	private const EMAIL_DEFAULTS_VERSION = 4;
 
 	/**
 	 * One-shot corrections of seeded field flags that have already been applied.
@@ -3388,7 +3388,7 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.announcement',
-				'subject'      => 'New announcement in {{space_name}} on {{site_name}}',
+				'subject'      => 'New announcement in {{space_name}}',
 				'preview_text' => 'An announcement was posted in {{space_name}}',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>{{notification_message}}</p><p><a href="{{action_url}}">Read it</a></p>',
 			),
@@ -3587,8 +3587,11 @@ class Installer {
 				),
 			),
 			// 1.2.7: the announcement email names the space and quotes the announcement; the
-			// old copy said "a space you belong to" and rendered an empty message line.
+			// old copy said "a space you belong to" and rendered an empty message line. A
+			// site-wide announcement fills {{space_name}} with the community name, so the
+			// subject drops "on {{site_name}}" to avoid naming the site twice.
 			'bn.announcement'     => array(
+				array( 'subject' => 'New announcement in {{space_name}} on {{site_name}}' ),
 				array(
 					'subject'      => 'Announcement from your space on {{site_name}}',
 					'preview_text' => 'An announcement was posted',
