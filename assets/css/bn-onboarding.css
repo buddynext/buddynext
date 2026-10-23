@@ -1270,6 +1270,8 @@
 	border-radius: 4px;
 }
 .bn-wizard__bulk-btn:hover { text-decoration: underline; }
+.bn-wizard__bulk-btn:hover,
+.bn-wizard__bulk-btn:focus { background: transparent; color: var(--bn-accent-text); }
 .bn-wizard__bulk-btn:focus-visible {
 	outline: 2px solid color-mix(in oklch, var(--bn-accent) 50%, transparent);
 	outline-offset: 2px;
@@ -1627,7 +1629,9 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	outline-offset: 2px;
 	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
 }
-.bn-wizard__btn-secondary {
+.bn-wizard__btn-secondary,
+.bn-wizard__btn-secondary:hover,
+.bn-wizard__btn-secondary:focus {
 	background: var(--bn-surface);
 	color: var(--bn-ink);
 	border-color: var(--bn-line);

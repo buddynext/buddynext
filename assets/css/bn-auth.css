@@ -335,6 +335,12 @@
 .bn-auth-linkbtn:hover {
 	text-decoration: none;
 }
+/* A host theme's bare `button:hover` / `:focus` fill and white text must not reach this link-style button. */
+.bn-auth-linkbtn:hover,
+.bn-auth-linkbtn:focus {
+	background: none;
+	color: var(--bn-accent-text, var(--bn-accent, #2563eb));
+}
 
 .bn-auth-linkbtn:disabled {
 	color: var(--bn-ink-3);
@@ -919,6 +925,11 @@ body.bn-hub-auth .bn-auth-page {
 }
 .bn-auth-pw__toggle:hover {
 	text-decoration: underline;
+}
+.bn-auth-pw__toggle:hover,
+.bn-auth-pw__toggle:focus {
+	background: transparent;
+	color: var(--bn-accent-text, var(--bn-accent, #2563eb));
 }
 .bn-auth-pw__toggle:focus-visible {
 	outline: 2px solid transparent;

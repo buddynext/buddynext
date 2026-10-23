@@ -1159,7 +1159,10 @@
 	cursor: pointer;
 }
 .bn-pf-bio__toggle:hover,
+.bn-pf-bio__toggle:focus,
 .bn-pf-bio__toggle:focus-visible {
+	background: none;
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 .bn-pf-meta {
