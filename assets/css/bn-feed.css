@@ -285,6 +285,8 @@
 
 /* Kebab menu trigger + dropdown. */
 .bn-post-card__menu-wrap { position: relative; flex-shrink: 0; }
+/* Follow is its only item, and Follow sits inline here: no menu to open. */
+.bn-post-card__menu-wrap--follow-only { display: none; }
 
 .bn-post-card__menu {
 	display: inline-flex;
@@ -1780,6 +1782,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	/* ...and the menu item that replaces it becomes available here. Above this
 	   breakpoint the inline pill is showing, so the menu must NOT duplicate it. */
 	.bn-post-card__menu-item--follow { display: block; }
+	.bn-post-card__menu-wrap--follow-only { display: block; }
 
 	/* Facebook-style compact byline on narrow cards: author name on row 1, then
 	   ONE meta line — "Space · time · audience-icon" — on row 2 (never a 3rd

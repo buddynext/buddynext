@@ -70,7 +70,11 @@ if ( empty( $args['can_edit'] ) && empty( $args['can_pin'] ) && empty( $args['ca
 	return;
 }
 
-$bn_classes = array_merge( array( 'bn-post-card__menu-wrap' ), array_filter( (array) $args['classes'], 'is_string' ) );
+// Follow alone is a mobile-only menu: above 640px the byline's inline Follow
+// shows and the menu item is hidden, so the kebab would open an empty menu.
+$bn_follow_only = $bn_has_follow && empty( $args['can_edit'] ) && empty( $args['can_pin'] ) && empty( $args['can_report'] ) && empty( $args['can_delete'] );
+
+$bn_classes = array_merge( array( 'bn-post-card__menu-wrap' ), $bn_follow_only ? array( 'bn-post-card__menu-wrap--follow-only' ) : array(), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
 $bn_classes = (array) apply_filters( 'buddynext_part_post_options_menu_classes', $bn_classes, $args );
 $bn_class   = trim(
