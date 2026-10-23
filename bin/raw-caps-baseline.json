@@ -15,6 +15,7 @@
  "includes/Core/Plugin.php": 3,
  "includes/Core/PresetActivation.php": 2,
  "includes/Core/RedirectSettings.php": 1,
+ "includes/Core/RoleService.php": 1,
  "includes/Demo/DemoAdmin.php": 2,
  "includes/Feed/BookmarkController.php": 2,
  "includes/Feed/FeedController.php": 2,

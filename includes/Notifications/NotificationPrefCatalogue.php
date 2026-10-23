@@ -601,7 +601,7 @@ class NotificationPrefCatalogue {
 		$bn_viewer    = get_current_user_id();
 		$can_moderate = buddynext_can( $bn_viewer, 'buddynext-moderation/review-queue' )
 			|| buddynext_service( 'space_members' )->moderates_any_space( $bn_viewer );
-		$can_manage   = user_can( $bn_viewer, 'manage_options' );
+		$can_manage   = buddynext_can( $bn_viewer, 'buddynext-community/assign-roles' );
 
 		return array_filter(
 			$this->all(),
