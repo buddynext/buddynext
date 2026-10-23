@@ -305,7 +305,7 @@ class MediaRenderer {
 				. '<button type="button" class="bn-media-tile__audio-icon bn-media-tile__audio-open" aria-label="' . esc_attr__( 'Open audio details', 'buddynext' ) . '">' . IconService::render( 'music', '' ) . '</button>'
 				. '<div class="bn-media-tile__audio-body">'
 				. $audio_title
-				. '<audio class="bn-media-tile__audio-player" controls preload="none" src="' . $full . '"></audio>'
+				. '<audio class="bn-media-tile__audio-player" controls' . ( MediaClient::downloads_allowed( (int) $id ) ? '' : ' controlsList="nodownload"' ) . ' preload="none" src="' . $full . '"></audio>'
 				. '</div>'
 				. '</div>';
 		}

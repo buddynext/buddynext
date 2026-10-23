@@ -287,10 +287,16 @@
 			// Open + Download both target the media file (signed URL) — never the
 			// MediaVerse /media/ single page. That page is MediaVerse's own UX;
 			// BuddyNext owns the UX and must not send users into the engine UI.
-			if ( m.file_url ) {
-				var dl = isDM ? panel.dmDownload : panel.download;
-				if ( dl ) { dl.setAttribute( 'href', m.file_url ); }
+			// The engine's answer (site switch + the owner's per-item opt-out) decides
+			// whether Download exists at all, and the native player's own save menu.
+			var canDownload = false !== m.allow_download;
+			var dl = isDM ? panel.dmDownload : panel.download;
+			if ( dl ) {
+				dl.hidden = ! canDownload;
+				if ( canDownload && m.file_url ) { dl.setAttribute( 'href', m.file_url ); }
 			}
+			var player = stage && stage.querySelector( 'video, audio' );
+			if ( player && ! canDownload ) { player.setAttribute( 'controlsList', 'nodownload' ); }
 		} ).catch( function () { contextDone(); } );
 
 		// DM media: no favorite / reactions / comments / view tracking. The image

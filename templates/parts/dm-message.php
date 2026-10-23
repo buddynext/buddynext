@@ -146,7 +146,7 @@ do_action( 'buddynext_part_dm_message_before', $args );
 						<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
 					</button>
 				<?php elseif ( 'audio' === $bn_m_type && '' !== $bn_m_url ) : ?>
-					<audio class="bn-dm-msg__audio" controls preload="none" src="<?php echo esc_url( $bn_m_url ); ?>"></audio>
+					<audio class="bn-dm-msg__audio" controls<?php echo \BuddyNext\Media\MediaClient::downloads_allowed( $bn_m_id ) ? '' : ' controlsList="nodownload"'; ?> preload="none" src="<?php echo esc_url( $bn_m_url ); ?>"></audio>
 				<?php else : ?>
 					<a class="bn-dm-msg__file" href="<?php echo esc_url( '' !== $bn_m_dl ? $bn_m_dl : $bn_m_url ); ?>" target="_blank" rel="noopener">
 						<?php buddynext_icon( 'paperclip' ); ?>

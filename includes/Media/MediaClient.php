@@ -186,6 +186,22 @@ class MediaClient {
 	}
 
 	/**
+	 * May this item be downloaded? The engine's one answer (site switch AND the
+	 * owner's per-item opt-out), so a BuddyNext control never offers what the
+	 * setting hid. Allowed when the engine cannot say.
+	 *
+	 * @param int $media_id Media id.
+	 * @return bool
+	 */
+	public static function downloads_allowed( int $media_id ): bool {
+		$repo = self::repo();
+		if ( ! is_object( $repo ) || ! method_exists( $repo, 'downloads_allowed' ) ) {
+			return true;
+		}
+		return (bool) $repo->downloads_allowed( $media_id );
+	}
+
+	/**
 	 * The engine's bundled default video poster URL.
 	 *
 	 * Used as a fallback when a video has no server-generated poster frame so a
