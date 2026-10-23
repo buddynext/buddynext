@@ -1483,12 +1483,20 @@ function buddynext_site_name(): string {
  * cost (the pool is cached by the caller) and it never reintroduces ORDER BY
  * RAND(). Works on any ranked array — id lists or hydrated rows.
  *
+ * A caller that knows each candidate's score passes $score. Then a candidate
+ * scoring at least half the top score is a clear match: clear matches fill the
+ * display first (up to the limit), and only their order and the remaining
+ * slots rotate. Without it, an interest-matched space could lose its place to a
+ * random weaker one whenever the window covered the whole pool. When every
+ * candidate clears the bar nothing stands out, and the plain rotation applies.
+ *
  * @param array<int,mixed> $ranked            Candidates in rank order (best first).
  * @param int              $limit             How many to display.
  * @param int              $window_multiplier Draw from the top limit*multiplier candidates.
+ * @param callable|null    $score             Optional fn( mixed $candidate ): float.
  * @return array<int,mixed> Up to $limit candidates, sampled from the top window.
  */
-function buddynext_sample_ranked( array $ranked, int $limit, int $window_multiplier = 4 ): array {
+function buddynext_sample_ranked( array $ranked, int $limit, int $window_multiplier = 4, ?callable $score = null ): array {
 	$ranked = array_values( $ranked );
 	$total  = count( $ranked );
 	$limit  = max( 1, $limit );
@@ -1498,13 +1506,32 @@ function buddynext_sample_ranked( array $ranked, int $limit, int $window_multipl
 		return $ranked;
 	}
 
-	// The window is a few times the display count (so there is genuine variety)
-	// but clamped to the pool, keeping the sample among the strongest candidates.
-	$window = min( $total, max( $limit * $window_multiplier, $limit + 6 ) );
-	$head   = array_slice( $ranked, 0, $window );
+	$strong = array();
+	$rest   = $ranked;
+	if ( null !== $score ) {
+		$scores = array_map( static fn( $candidate ): float => (float) $score( $candidate ), $ranked );
+		$top    = max( $scores );
+		$bar    = $top / 2;
+		$clear  = array_keys( array_filter( $scores, static fn( float $s ): bool => $top > 0 && $s >= $bar ) );
+		if ( count( $clear ) < $total ) {
+			$strong = array_values( array_intersect_key( $ranked, array_flip( $clear ) ) );
+			$rest   = array_values( array_diff_key( $ranked, array_flip( $clear ) ) );
+		}
+	}
+
+	shuffle( $strong );
+	if ( count( $strong ) >= $limit ) {
+		return array_slice( $strong, 0, $limit );
+	}
+
+	// The window is a few times the open slots (so there is genuine variety) but
+	// clamped to the pool, keeping the sample among the strongest candidates.
+	$open   = $limit - count( $strong );
+	$window = min( count( $rest ), max( $open * $window_multiplier, $open + 6 ) );
+	$head   = array_slice( $rest, 0, $window );
 	shuffle( $head );
 
-	return array_slice( $head, 0, $limit );
+	return array_merge( $strong, array_slice( $head, 0, $open ) );
 }
 
 /**

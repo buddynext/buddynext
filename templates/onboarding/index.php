@@ -120,8 +120,10 @@ $joined_space_ids = array_map( 'intval', (array) $bn_ob_members->spaces_for_user
 // on the 1.0.4 dist-zip journey QA: a new member "joined" a private space from
 // this list with no approval). Exclude anything the member is already in
 // (auto-joined spaces are NOT shown as "Joined" here), dedupe, cap at 6.
-$bn_ob_featured  = ( new \BuddyNext\Spaces\SpaceService() )->featured_spaces( $ob_user_id, 6, 'onboarding' );
-$bn_ob_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 6 );
+$bn_ob_featured = ( new \BuddyNext\Spaces\SpaceService() )->featured_spaces( $ob_user_id, 6, 'onboarding' );
+// Ask for twice the display count: the loop below drops private and joined
+// spaces, and a 6-space sample shrank to 4 or 5 after that filter.
+$bn_ob_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 12 );
 
 $recommended_spaces = array();
 $bn_ob_seen         = array();
