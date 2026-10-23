@@ -191,9 +191,10 @@ $bn_find_field = static function ( string $field_key ) use ( $group_data ): ?arr
 	return null;
 };
 $hero_meta     = array();
-foreach ( \BuddyNext\Profile\ProfileService::hero_meta_field_keys() as $bn_hk ) {
+$bn_header_keys = \BuddyNext\Profile\ProfileService::hero_meta_field_keys();
+foreach ( $bn_header_keys as $bn_hk ) {
 	$bn_hf = $bn_find_field( (string) $bn_hk );
-	if ( null === $bn_hf ) {
+	if ( null === $bn_hf || 0 === strpos( (string) $bn_hk, 'social_' ) ) {
 		continue;
 	}
 	$bn_hv = \BuddyNext\Profile\FieldType::display_text( $bn_hf, $bn_hf['value'] ?? '' );
@@ -404,7 +405,12 @@ $bn_pf_ctx = array(
 			'mutual_count'        => (int) $mutual_count,
 			'degree_badge'        => (string) $degree_badge,
 			'member_type'         => is_array( $member_type ) ? $member_type : array(),
-			'social_links'        => is_array( $social_links ) ? $social_links : array(),
+			// The hero shows only the social fields the owner flagged "Show in the profile
+			// header" (as chips, not as meta-row text); the sidebar card keeps the full list.
+			'social_links'        => array_filter(
+				is_array( $social_links ) ? $social_links : array(),
+				static fn( array $f ): bool => in_array( (string) ( $f['field_key'] ?? '' ), $bn_header_keys, true )
+			),
 			'strength_pct'        => (int) $bn_pf_strength_pct,
 			'is_owner'            => (bool) $is_own_profile,
 			'can_edit_any'        => (bool) $bn_can_edit_any,
