@@ -1498,11 +1498,14 @@ class AssetService {
 			array(
 				// Live-drawn bubbles print their clock like the server ones
 				// (templates/parts/dm-message.php: wp_date( time_format ) in the site zone).
-				'clock' => array(
+				'clock'     => array(
 					'offset' => (int) timezone_offset_get( wp_timezone(), new \DateTime( 'now', new \DateTimeZone( 'UTC' ) ) ),
 					'format' => (string) get_option( 'time_format', 'g:i A' ),
 				),
-				'i18n'  => array(
+				// The engine's site-wide download switch (no item = the switch alone),
+				// for live-drawn media whose payload carries no per-item answer.
+				'downloads' => \BuddyNext\Media\MediaClient::downloads_allowed( 0 ),
+				'i18n'      => array(
 					'sendFailed'                => __( 'Could not send. Try again.', 'buddynext' ),
 					'composeNewGroup'           => __( 'New group', 'buddynext' ),
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),

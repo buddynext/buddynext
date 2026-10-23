@@ -331,6 +331,9 @@ function normalizeMedia( msg ) {
 			url: s.url || s.permalink || '',
 			downloadUrl: s.download_url || s.url || s.permalink || '',
 			title: s.title || '',
+			// The item's own answer when the engine sends one; a just-sent item
+			// otherwise follows the site switch, as its per-item flag is fresh.
+			noDownload: false === s.allow_download || false === messagesStore.state.downloads,
 		};
 	}
 	if ( msg.attachment && typeof msg.attachment === 'object' ) {
@@ -424,6 +427,7 @@ function buildMessageNode( msg, viewer ) {
 			tile.setAttribute( 'data-media-type', media.type );
 			tile.setAttribute( 'data-media-src', media.url || media.thumbnail );
 			tile.setAttribute( 'data-bn-dm', '1' );
+			if ( media.noDownload ) { tile.setAttribute( 'data-no-download', '1' ); }
 			const img = document.createElement( 'img' );
 			img.className = 'bn-media-tile__img';
 			img.src = media.thumbnail || media.url;
@@ -436,6 +440,7 @@ function buildMessageNode( msg, viewer ) {
 			audio.className = 'bn-dm-msg__audio';
 			audio.controls = true;
 			audio.preload = 'none';
+			if ( media.noDownload ) { audio.setAttribute( 'controlsList', 'nodownload' ); }
 			audio.src = media.url;
 			wrapM.appendChild( audio );
 		} else if ( media.url ) {

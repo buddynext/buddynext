@@ -206,15 +206,18 @@
 			// Private DM media: the lightbox hides social chrome (reactions,
 			// comments, favorite, share) and skips those REST calls.
 			dm:     '1' === tile.getAttribute( 'data-bn-dm' ),
+			// The engine's download answer, printed on the tile so the player and
+			// the error fallback follow it before the /media fetch returns.
+			noDownload: '1' === tile.getAttribute( 'data-no-download' ),
 		};
 	}
 
-	function showVideoError( video, src ) {
+	function showVideoError( video, src, noDownload ) {
 		var tpl = overlay && overlay.querySelector( 'template[data-bn-lb-video-error]' );
 		if ( ! tpl || ! video.parentNode ) { return; }
 		var box  = tpl.content.firstElementChild.cloneNode( true );
 		var link = box.querySelector( '[data-bn-lb-error-download]' );
-		if ( link ) { link.setAttribute( 'href', src ); }
+		if ( link && noDownload ) { link.remove(); } else if ( link ) { link.setAttribute( 'href', src ); }
 		video.parentNode.replaceChild( box, video );
 	}
 
@@ -230,7 +233,7 @@
 			// A video the browser cannot play (unsupported codec, file gone,
 			// network refused) left a blank player. Swap in a plain message
 			// with a download link, from the template in media-lightbox.php.
-			el.addEventListener( 'error', function () { showVideoError( el, item.src ); } );
+			el.addEventListener( 'error', function () { showVideoError( el, item.src, item.noDownload ); } );
 			el.setAttribute( 'src', item.src );
 		} else if ( 'audio' === item.type ) {
 			// No frame to show — a labelled player on the stage. Not autoplayed:
@@ -245,6 +248,7 @@
 			el.setAttribute( 'src', item.src );
 			el.setAttribute( 'alt', item.alt || '' );
 		}
+		if ( item.noDownload && 'img' !== el.tagName.toLowerCase() ) { el.setAttribute( 'controlsList', 'nodownload' ); }
 		el.className = 'bn-lightbox__media';
 		stage.appendChild( el );
 		overlay.classList.toggle( 'bn-lightbox--has-nav', gallery.length > 1 );
@@ -271,6 +275,9 @@
 		clear( panel.comments );
 		if ( panel.views ) { panel.views.textContent = ''; }
 		setFavorite( false );
+		// Download shows only once the engine says this item allows it.
+		if ( panel.download ) { panel.download.hidden = true; }
+		if ( panel.dmDownload ) { panel.dmDownload.hidden = true; }
 
 		// Media meta (author, views, urls). DM media renders into the floating
 		// stage chrome (sender + download); social media into the side panel.

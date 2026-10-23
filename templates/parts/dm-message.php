@@ -142,7 +142,7 @@ do_action( 'buddynext_part_dm_message_before', $args );
 			<div class="bn-dm-msg__media" data-type="<?php echo esc_attr( $bn_m_type ); ?>">
 				<?php if ( ( 'image' === $bn_m_type || 'video' === $bn_m_type ) && $bn_m_id > 0 && ( '' !== $bn_m_thumb || '' !== $bn_m_url ) ) : ?>
 					<?php // Canonical BN media tile so the shared lightbox (assets/js/media/lightbox.js) opens it in-page. data-bn-dm flags it as private DM media so the lightbox hides the social chrome (reactions/comments/favorite/share). ?>
-					<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>" data-bn-dm="1">
+					<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>" data-bn-dm="1"<?php echo \BuddyNext\Media\MediaClient::downloads_allowed( $bn_m_id ) ? '' : ' data-no-download="1"'; ?>>
 						<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
 					</button>
 				<?php elseif ( 'audio' === $bn_m_type && '' !== $bn_m_url ) : ?>

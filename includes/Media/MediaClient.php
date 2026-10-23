@@ -188,9 +188,10 @@ class MediaClient {
 	/**
 	 * May this item be downloaded? The engine's one answer (site switch AND the
 	 * owner's per-item opt-out), so a BuddyNext control never offers what the
-	 * setting hid. Allowed when the engine cannot say.
+	 * setting hid. Allowed when the engine cannot say. Media id 0 asks for the
+	 * site switch alone.
 	 *
-	 * @param int $media_id Media id.
+	 * @param int $media_id Media id, or 0 for the site switch.
 	 * @return bool
 	 */
 	public static function downloads_allowed( int $media_id ): bool {
