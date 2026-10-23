@@ -60,15 +60,22 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 		update_meta_cache( 'user', $bn_pp_ids );
 	}
 	?>
-	<section class="bn-follow-requests" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
+	<?php
+	// The section is the Interactivity region and holds the pending count; each
+	// row's context inherits from it, so a row's accept/decline decrements the
+	// shared count and the section hides itself when the last row is handled.
+	?>
+	<section class="bn-follow-requests" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'pending' => count( $bn_pp_pending ) ) ) ); ?>' data-wp-bind--hidden="state.sectionHidden" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
 		<header class="bn-follow-requests__head">
 			<h3 class="bn-follow-requests__title">
 				<?php
+				// A count-neutral heading: the badge changes live as requests are
+				// handled, and a pluralized label would go stale beside it.
 				printf(
-					'%s <span class="bn-follow-requests__count">%d</span>',
+					'%s <span class="bn-follow-requests__count" data-wp-text="context.pending">%d</span>',
 					$bn_pp_is_conn
-						? esc_html( _n( 'Connection request', 'Connection requests', count( $bn_pp_pending ), 'buddynext' ) )
-						: esc_html( _n( 'Pending request', 'Pending requests', count( $bn_pp_pending ), 'buddynext' ) ),
+						? esc_html__( 'Connection requests', 'buddynext' )
+						: esc_html__( 'Pending requests', 'buddynext' ),
 					(int) count( $bn_pp_pending )
 				);
 				?>
@@ -109,7 +116,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 						)
 				);
 				?>
-				<li class="bn-follow-requests__row" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) $bn_pp_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
+				<li class="bn-follow-requests__row" data-wp-context='<?php echo esc_attr( (string) $bn_pp_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
 					<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__avatar" aria-hidden="true" tabindex="-1">
 						<img src="<?php echo esc_url( get_avatar_url( $bn_pp_rid, array( 'size' => 96 ) ) ); ?>" alt="" loading="lazy" />
 					</a>

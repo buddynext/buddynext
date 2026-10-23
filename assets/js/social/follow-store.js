@@ -159,15 +159,40 @@ const followButtonStore = store( 'buddynext/follow-button', {
 // it once here so all four social stores below share one translated table.
 I18N = ( followButtonStore && followButtonStore.state && followButtonStore.state.i18n ) || {};
 
+/* -- Request inbox shared helpers -------------------------------------- */
+/* The inbox section (templates/parts/profile/people-panel.php) holds the
+ * pending count in its own context; rows inherit it, so this write lands on
+ * the section and the badge + sectionHidden follow. */
+function settleRequest( ctx ) {
+	ctx.hidden  = true;
+	ctx.pending = Math.max( 0, ( ctx.pending || 1 ) - 1 );
+}
+
+/* Bump a server-rendered profile metric (parts/nav-metrics.php) after an
+ * accept/approve. The label for count + 1 is pre-translated by PHP.
+ * shortcut: later bumps keep that label, fine for languages whose plural form
+ * is stable above 1; emit a label table if a locale needs more. */
+function bumpMetric( id ) {
+	const el      = document.querySelector( '.bn-nav-metric[data-bn-metric="' + id + '"]' );
+	const valueEl = el && el.querySelector( '.bn-nav-metric__value' );
+	if ( ! valueEl ) { return; }
+	const next    = ( parseInt( valueEl.textContent, 10 ) || 0 ) + 1;
+	const labelEl = el.querySelector( '.bn-nav-metric__label' );
+	valueEl.textContent = String( next );
+	if ( labelEl && el.dataset.bnNextLabel ) { labelEl.textContent = el.dataset.bnNextLabel; }
+	if ( labelEl && el.hasAttribute( 'aria-label' ) ) { el.setAttribute( 'aria-label', next + ' ' + labelEl.textContent ); }
+}
+
 /* -- Follow-request inbox store ---------------------------------------- */
 /* Drives the per-row Approve / Reject buttons on the followers page
- * pending-requests section (templates/profile/followers.php). Each row
+ * pending-requests section (templates/parts/profile/people-panel.php). Each row
  * is its own Interactivity context with a followerId — the store hides
  * the row after a successful action and emits a toast either way. */
 
 store( 'buddynext/follow-requests', {
 	state: {
 		get rowHidden() { return !! getContext().hidden; },
+		get sectionHidden() { return ( getContext().pending || 0 ) <= 0; },
 	},
 	actions: {
 		async approve( event ) {
@@ -182,7 +207,8 @@ store( 'buddynext/follow-requests', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'approve_failed_' + res.status ); }
-				ctx.hidden = true;
+				settleRequest( ctx );
+				bumpMetric( 'followers' );
 				bnToast( fmt( t( 'toastCanFollowYou', '@%s can now follow you' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'success' } );
 			} catch ( _e ) {
 				bnToast( t( 'toastApproveFailed', 'Could not approve request. Try again.' ), { tone: 'danger' } );
@@ -202,7 +228,7 @@ store( 'buddynext/follow-requests', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'reject_failed_' + res.status ); }
-				ctx.hidden = true;
+				settleRequest( ctx );
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'info' } );
 			} catch ( _e ) {
 				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
@@ -215,7 +241,7 @@ store( 'buddynext/follow-requests', {
 
 /* -- Connection-request inbox store ------------------------------------ */
 /* Drives the per-row Accept / Decline buttons on the Connections tab
- * pending connection-requests section (templates/parts/profile-tab-panel.php).
+ * pending connection-requests section (templates/parts/profile/people-panel.php).
  * Each row is its own context with a requesterId — the store hides the row
  * after a successful action and emits a toast either way. Mirrors the
  * follow-requests inbox, hitting the connection accept/decline endpoints. */
@@ -223,6 +249,7 @@ store( 'buddynext/follow-requests', {
 store( 'buddynext/connection-requests', {
 	state: {
 		get rowHidden() { return !! getContext().hidden; },
+		get sectionHidden() { return ( getContext().pending || 0 ) <= 0; },
 	},
 	actions: {
 		async accept() {
@@ -237,7 +264,8 @@ store( 'buddynext/connection-requests', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
-				ctx.hidden = true;
+				settleRequest( ctx );
+				bumpMetric( 'connections' );
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'success' } );
 			} catch ( _e ) {
 				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
@@ -257,7 +285,7 @@ store( 'buddynext/connection-requests', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
-				ctx.hidden = true;
+				settleRequest( ctx );
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'info' } );
 			} catch ( _e ) {
 				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
