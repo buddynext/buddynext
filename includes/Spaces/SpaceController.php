@@ -3271,7 +3271,10 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceMemberService() )->change_role( $space_id, $target_id, $new_role, $actor_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			// Each error names its own status; 403 only when it named none.
+			if ( ! isset( ( (array) $result->get_error_data() )['status'] ) ) {
+				$result->add_data( array( 'status' => 403 ) );
+			}
 			return $result;
 		}
 

@@ -1053,9 +1053,24 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Whether a user may promote or demote this space's members.
+	 *
+	 * The space owner and site administrators. The one predicate the service, the
+	 * REST route, the Members panel and the app payload all read, so a control is
+	 * never offered that the server will refuse.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $actor_id User asking.
+	 * @return bool
+	 */
+	public function can_change_roles( int $space_id, int $actor_id ): bool {
+		return $space_id > 0 && $actor_id > 0 && buddynext_can( $actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
 	 * Change a member's role within a space.
 	 *
-	 * Only the owner or a user with manage_options can promote/demote members.
+	 * Only the owner or a site administrator can promote/demote members.
 	 *
 	 * @param int    $space_id  Space ID.
 	 * @param int    $target_id User whose role is being changed.
@@ -1068,10 +1083,13 @@ class SpaceMemberService {
 			return new WP_Error( 'invalid_role', __( 'Invalid role.', 'buddynext' ) );
 		}
 
-		$actor_role = $this->get_role( $space_id, $actor_id );
+		if ( ! $this->can_change_roles( $space_id, $actor_id ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner can change member roles.', 'buddynext' ), array( 'status' => 403 ) );
+		}
 
-		if ( 'owner' !== $actor_role && ! user_can( $actor_id, 'manage_options' ) ) {
-			return new WP_Error( 'forbidden', __( 'Only the space owner can change member roles.', 'buddynext' ) );
+		// A role belongs to an active member; changing a stranger's would report success for nothing.
+		if ( null === $this->get_role( $space_id, $target_id ) ) {
+			return new WP_Error( 'not_a_member', __( 'That person is not a member of this space.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// Ownership does not move through this method, in either direction.
@@ -2518,6 +2536,11 @@ class SpaceMemberService {
 		);
 		if ( $bn_owner_id > 0 && $bn_owner_id === $user_id ) {
 			return new WP_Error( 'cannot_ban_owner', __( 'The space owner cannot be banned from their own space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// Banning someone already banned is a no-op, not a duplicate-key error.
+		if ( $this->is_hard_banned( $space_id, $user_id ) ) {
+			return true;
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

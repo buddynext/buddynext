@@ -42,6 +42,8 @@ if ( ! $bn_space ) {
 }
 
 $bn_space_id      = isset( $args['members_data']['space_id'] ) ? (int) $args['members_data']['space_id'] : 0;
+// Promote / demote belongs to the owner and site admins; a moderator sees remove and ban only.
+$bn_can_roles     = buddynext_service( 'space_members' )->can_change_roles( $bn_space_id, get_current_user_id() );
 $bn_space_members = isset( $args['members_data']['members'] ) && is_array( $args['members_data']['members'] )
 	? $args['members_data']['members']
 	: array();
@@ -150,7 +152,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 
 						<?php if ( ! $bn_is_owner && ! $bn_outranks_viewer ) : ?>
 							<div class="bn-space-settings__member-actions">
-								<?php if ( 'member' === $bn_member_role ) : ?>
+								<?php if ( $bn_can_roles && 'member' === $bn_member_role ) : ?>
 									<button
 										type="button"
 										class="bn-btn"
@@ -162,7 +164,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 									>
 										<?php esc_html_e( 'Make moderator', 'buddynext' ); ?>
 									</button>
-								<?php elseif ( 'moderator' === $bn_member_role ) : ?>
+								<?php elseif ( $bn_can_roles && 'moderator' === $bn_member_role ) : ?>
 									<button
 										type="button"
 										class="bn-btn"

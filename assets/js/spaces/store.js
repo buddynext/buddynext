@@ -2035,6 +2035,8 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent' ), 'success' ); }
+					// The modal is reused for the next invite, so the button must be live again.
+					btn.disabled = false;
 					closeAllSpaceModals();
 				} else {
 					var data = res.data || {};

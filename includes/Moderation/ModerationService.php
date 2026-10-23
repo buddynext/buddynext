@@ -391,6 +391,13 @@ class ModerationService {
 			return $valid;
 		}
 
+		// A hidden (secret) space must not confirm it exists to someone who cannot
+		// see it: the same 404 as a missing one, from the one visibility rule.
+		if ( 'space' === $object_type
+			&& ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( ( new \BuddyNext\Spaces\SpaceService() )->get( $object_id ), $reporter_id ) ) {
+			return new WP_Error( 'object_not_found', __( 'That content no longer exists.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
 		// You cannot report your own content. Reporting yourself is either a
 		// mistake or an attempt to pad an object's report count toward auto-hide;
 		// either way it is never a real safety signal.
