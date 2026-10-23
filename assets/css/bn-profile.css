@@ -672,8 +672,10 @@
 	font-family: var(--bn-p-font-body);
 	line-height: var(--leading-snug);
 }
-.bn-more-menu-item:hover {
+.bn-more-menu-item:hover,
+.bn-more-menu-item:focus {
 	background: var(--bn-p-bg-hover);
+	color: var(--bn-p-text-1);
 }
 
 /* The overflow's narrow-viewport-only items. Hidden by default and revealed in
@@ -684,8 +686,10 @@
 .bn-more-menu-item--danger {
 	color: var(--bn-p-red);
 }
-.bn-more-menu-item--danger:hover {
+.bn-more-menu-item--danger:hover,
+.bn-more-menu-item--danger:focus {
 	background: var(--bn-p-red-bg);
+	color: var(--bn-p-red);
 }
 
 [data-bn-theme="dark"] .bn-more-menu,

@@ -178,6 +178,8 @@ function syncPager( total ) {
 function buildKebabIcon() {
 	const svgNs = 'http://www.w3.org/2000/svg';
 	const svg = document.createElementNS( svgNs, 'svg' );
+	// Same class as the server-rendered icon, so both share its sizing and flex-shrink: 0.
+	svg.setAttribute( 'class', 'bn-icon' );
 	svg.setAttribute( 'width',  '16' );
 	svg.setAttribute( 'height', '16' );
 	svg.setAttribute( 'viewBox', '0 0 24 24' );

@@ -863,6 +863,10 @@
 	min-height: 40px;
 }
 
+/* The option is a flat outlined button: a host theme's `button:hover` fill and
+   white text must not reach it (Astra: solid blue, unreadable percentage). */
+.bn-post-card__poll-option:hover,
+.bn-post-card__poll-option:focus { background: transparent; color: var(--bn-ink); }
 .bn-post-card__poll-option:hover { border-color: var(--bn-accent); }
 .bn-post-card__poll-option.is-voted {
 	border-color: var(--bn-accent);
@@ -1926,9 +1930,21 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	font-weight: 500;
 }
 
+/* Host themes paint bare `button:hover` / `button:focus` with an accent fill (Astra:
+   solid blue). These are flat text buttons, so every state keeps the transparent
+   background; only the colour changes. */
+.bn-comment__reply-btn:hover,
+.bn-comment__delete-btn:hover,
+.bn-comment__reply-cancel:hover,
+.bn-comment__reply-btn:focus,
+.bn-comment__delete-btn:focus,
+.bn-comment__reply-cancel:focus { background: transparent; }
 .bn-comment__reply-btn:hover { color: var(--bn-accent-text); }
 .bn-comment__delete-btn:hover { color: var(--bn-danger); }
 .bn-comment__reply-cancel:hover { color: var(--bn-ink); }
+.bn-comment__reply-btn:focus:not(:hover),
+.bn-comment__delete-btn:focus:not(:hover),
+.bn-comment__reply-cancel:focus:not(:hover) { color: var(--bn-ink-2); }
 
 .bn-comment__reply-form {
 	display: flex;
@@ -2146,6 +2162,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	gap: var(--bn-s1);
 }
 
+.bn-comment__like-btn:hover,
+.bn-comment__edit-btn:hover,
+.bn-comment__pin-btn:hover,
+.bn-comment__report-btn:hover,
+.bn-comment__like-btn:focus,
+.bn-comment__edit-btn:focus,
+.bn-comment__pin-btn:focus,
+.bn-comment__report-btn:focus { background: transparent; }
+.bn-comment__like-btn:focus:not(:hover),
+.bn-comment__edit-btn:focus:not(:hover),
+.bn-comment__pin-btn:focus:not(:hover),
+.bn-comment__report-btn:focus:not(:hover) { color: var(--bn-ink-2); }
 .bn-comment__like-btn:hover { color: var(--bn-danger); }
 .bn-comment__edit-btn:hover { color: var(--bn-accent-text); }
 .bn-comment__pin-btn:hover { color: var(--bn-accent-text); }
@@ -2456,8 +2484,10 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	min-height: var(--bn-tap, 40px);
 }
 
-.bn-comment-loadmore:hover {
+.bn-comment-loadmore:hover,
+.bn-comment-loadmore:focus {
 	background: var(--bn-sunken);
+	color: var(--bn-accent-text);
 }
 
 .bn-comment-loadmore:disabled {
@@ -3036,6 +3066,9 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-post-card__reactors-trigger:hover {
 	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
 }
+/* Host themes' bare `button:hover` / `:focus` colour (Astra: white) must not reach the chips' text. */
+.bn-post-card__reactors-trigger:hover,
+.bn-post-card__reactors-trigger:focus { color: var(--bn-ink-2); }
 /* On hover the trigger shows one unified pill: dissolve each chip's own
    background + border so they merge cleanly instead of stacking a grey blob
    behind bordered chips (the previous double hover effect). */
@@ -3548,6 +3581,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	justify-content: center;
 	line-height: 0;
 }
+.bn-comment__emoji-trigger:hover,
+.bn-comment__emoji-trigger:focus { background: transparent; color: var(--bn-ink-2); }
 .bn-comment__emoji-trigger img,
 .bn-comment__emoji-trigger svg { width: 18px; height: 18px; display: block; }
 
@@ -3724,7 +3759,11 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	color: var(--bn-ink-2);
 	transition: background var(--bn-dur-fast) var(--bn-ease);
 }
-.bn-composer__privacy-opt:hover { background: var(--bg-hover); }
+/* Hover and focus pin the resting colour too: a host theme's bare `button:hover`
+   (Astra paints white) otherwise wins, because the resting colour sits at lower
+   specificity and the state rule never set one. */
+.bn-composer__privacy-opt:hover,
+.bn-composer__privacy-opt:focus { background: var(--bg-hover); color: var(--bn-ink-2); }
 .bn-composer__privacy-opt .bn-icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
 .bn-composer__privacy-opt-label { display: flex; flex-direction: column; gap: 1px; }
 .bn-composer__privacy-opt-label strong { font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-ink); }
