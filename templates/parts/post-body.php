@@ -496,7 +496,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			?>
 			<blockquote class="bn-post-card__shared bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
 				<div class="bn-post-card__shared-header">
-					<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar-link" aria-hidden="true">
+					<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar-link" aria-hidden="true" tabindex="-1">
 						<?php if ( $orig_avatar ) : ?>
 							<span class="bn-avatar" data-size="sm">
 								<img src="<?php echo esc_url( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="32" height="32">

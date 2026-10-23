@@ -595,7 +595,7 @@
 
 .bn-partner-prefs legend {
 	padding: 0;
-	font-weight: var(--bn-weight-semibold, 600);
+	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
 }
 
@@ -617,11 +617,11 @@
 	gap: var(--bn-s3);
 	min-block-size: 44px;
 	padding: var(--bn-s2) var(--bn-s3);
-	border-radius: var(--bn-radius-md, 8px);
+	border-radius: var(--bn-r-md);
 	cursor: pointer;
 }
 
 .bn-partner-prefs .jt-notif-choice:hover,
 .bn-partner-prefs .jt-notif-choice:focus-within {
-	background: var(--bn-surface-2, var(--bn-bg-subtle));
+	background: var(--bn-sunken);
 }
