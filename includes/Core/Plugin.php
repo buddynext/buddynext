@@ -718,7 +718,7 @@ class Plugin {
 		// titles no longer trip WP 6.7's _load_textdomain_just_in_time notice
 		// (translations must not load before init). Activation-time consumers
 		// (Installer::create_hub_pages) self-populate via their has('feed')
-		// guard, so nothing reads the registry before init.
+		// guard; URL helpers called earlier read CoreHubs::DEFAULT_SLUGS.
 		add_action(
 			'init',
 			static function (): void {

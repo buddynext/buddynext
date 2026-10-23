@@ -22,6 +22,26 @@ namespace BuddyNext\Core;
  */
 final class CoreHubs {
 	/**
+	 * Default slug of every core hub, keyed by its slug option.
+	 *
+	 * Plain strings, so URL helpers can read them before init, when the registry
+	 * (whose descriptors carry translated titles) is not filled yet. Themes build
+	 * login links that early through the login_url filter.
+	 *
+	 * @var array<string,string>
+	 */
+	public const DEFAULT_SLUGS = array(
+		'buddynext_slug_activity'        => 'activity',
+		'buddynext_slug_people'          => 'members',
+		'buddynext_slug_spaces'          => 'spaces',
+		'buddynext_slug_messages'        => 'messages',
+		'buddynext_slug_notifications'   => 'notifications',
+		'buddynext_slug_auth'            => 'login',
+		'buddynext_slug_onboarding'      => 'onboarding',
+		'buddynext_slug_community_admin' => 'community-admin',
+	);
+
+	/**
 	 * Whether a core hub's backing page should be created yet.
 	 *
 	 * Messages requires the WPMediaVerse engine. Creating its page regardless
@@ -54,13 +74,13 @@ final class CoreHubs {
 	 * @return void
 	 */
 	public static function register( HubRegistry $reg ): void {
-		$reg->register( new HubDescriptor( 'feed', 'buddynext_slug_activity', 'activity', 'buddynext_page_activity', __( 'Activity', 'buddynext' ), '[buddynext_activity]', admin_label: __( 'Activity feed', 'buddynext' ), admin_desc: __( 'The main community feed: your community home.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_feed_rules' ), resolve_template: array( PageRouter::class, 'resolve_feed_template' ) ) );
-		$reg->register( new HubDescriptor( 'people', 'buddynext_slug_people', 'members', 'buddynext_page_people', __( 'Members', 'buddynext' ), '[buddynext_people]', admin_label: __( 'Members directory', 'buddynext' ), admin_desc: __( 'Member directory and individual profile URLs.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_people_rules' ), resolve_template: array( PageRouter::class, 'resolve_people_template' ) ) );
-		$reg->register( new HubDescriptor( 'spaces', 'buddynext_slug_spaces', 'spaces', 'buddynext_page_spaces', __( 'Spaces', 'buddynext' ), '[buddynext_spaces]', admin_label: __( 'Spaces', 'buddynext' ), admin_desc: __( 'The spaces directory, where members find and join spaces.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_spaces_rules' ), resolve_template: array( PageRouter::class, 'resolve_spaces_template' ), feature: 'spaces' ) );
-		$reg->register( new HubDescriptor( 'messages', 'buddynext_slug_messages', 'messages', 'buddynext_page_messages', __( 'Messages', 'buddynext' ), '[buddynext_messages]', admin_label: __( 'Messages', 'buddynext' ), admin_desc: __( 'Direct messages (requires WPMediaVerse).', 'buddynext' ), register_rules: array( PageRouter::class, 'register_messages_rules' ), resolve_template: array( PageRouter::class, 'resolve_messages_template' ) ) );
-		$reg->register( new HubDescriptor( 'notifications', 'buddynext_slug_notifications', 'notifications', 'buddynext_page_notifications', __( 'Notifications', 'buddynext' ), '[buddynext_notifications]', admin_label: __( 'Notifications', 'buddynext' ), admin_desc: __( 'Activity notifications.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_notifications_rules' ), resolve_template: array( PageRouter::class, 'resolve_notifications_template' ) ) );
-		$reg->register( new HubDescriptor( 'auth', 'buddynext_slug_auth', 'login', 'buddynext_page_auth', __( 'Login', 'buddynext' ), '[buddynext_auth]', admin_label: __( 'Login / Register', 'buddynext' ), admin_desc: __( 'Login, registration, and password-reset forms.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_auth_rules' ), resolve_template: array( PageRouter::class, 'resolve_auth_template' ) ) );
-		$reg->register( new HubDescriptor( 'onboarding', 'buddynext_slug_onboarding', 'onboarding', 'buddynext_page_onboarding', __( 'Onboarding', 'buddynext' ), '[buddynext_onboarding]', backing_page: false, admin_label: __( 'Onboarding', 'buddynext' ), admin_desc: __( 'First-run member setup flow.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_onboarding_rules' ), resolve_template: array( PageRouter::class, 'resolve_onboarding_template' ), feature: 'onboarding', admin_managed: false ) );
+		$reg->register( new HubDescriptor( 'feed', 'buddynext_slug_activity', self::DEFAULT_SLUGS['buddynext_slug_activity'], 'buddynext_page_activity', __( 'Activity', 'buddynext' ), '[buddynext_activity]', admin_label: __( 'Activity feed', 'buddynext' ), admin_desc: __( 'The main community feed: your community home.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_feed_rules' ), resolve_template: array( PageRouter::class, 'resolve_feed_template' ) ) );
+		$reg->register( new HubDescriptor( 'people', 'buddynext_slug_people', self::DEFAULT_SLUGS['buddynext_slug_people'], 'buddynext_page_people', __( 'Members', 'buddynext' ), '[buddynext_people]', admin_label: __( 'Members directory', 'buddynext' ), admin_desc: __( 'Member directory and individual profile URLs.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_people_rules' ), resolve_template: array( PageRouter::class, 'resolve_people_template' ) ) );
+		$reg->register( new HubDescriptor( 'spaces', 'buddynext_slug_spaces', self::DEFAULT_SLUGS['buddynext_slug_spaces'], 'buddynext_page_spaces', __( 'Spaces', 'buddynext' ), '[buddynext_spaces]', admin_label: __( 'Spaces', 'buddynext' ), admin_desc: __( 'The spaces directory, where members find and join spaces.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_spaces_rules' ), resolve_template: array( PageRouter::class, 'resolve_spaces_template' ), feature: 'spaces' ) );
+		$reg->register( new HubDescriptor( 'messages', 'buddynext_slug_messages', self::DEFAULT_SLUGS['buddynext_slug_messages'], 'buddynext_page_messages', __( 'Messages', 'buddynext' ), '[buddynext_messages]', admin_label: __( 'Messages', 'buddynext' ), admin_desc: __( 'Direct messages (requires WPMediaVerse).', 'buddynext' ), register_rules: array( PageRouter::class, 'register_messages_rules' ), resolve_template: array( PageRouter::class, 'resolve_messages_template' ) ) );
+		$reg->register( new HubDescriptor( 'notifications', 'buddynext_slug_notifications', self::DEFAULT_SLUGS['buddynext_slug_notifications'], 'buddynext_page_notifications', __( 'Notifications', 'buddynext' ), '[buddynext_notifications]', admin_label: __( 'Notifications', 'buddynext' ), admin_desc: __( 'Activity notifications.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_notifications_rules' ), resolve_template: array( PageRouter::class, 'resolve_notifications_template' ) ) );
+		$reg->register( new HubDescriptor( 'auth', 'buddynext_slug_auth', self::DEFAULT_SLUGS['buddynext_slug_auth'], 'buddynext_page_auth', __( 'Login', 'buddynext' ), '[buddynext_auth]', admin_label: __( 'Login / Register', 'buddynext' ), admin_desc: __( 'Login, registration, and password-reset forms.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_auth_rules' ), resolve_template: array( PageRouter::class, 'resolve_auth_template' ) ) );
+		$reg->register( new HubDescriptor( 'onboarding', 'buddynext_slug_onboarding', self::DEFAULT_SLUGS['buddynext_slug_onboarding'], 'buddynext_page_onboarding', __( 'Onboarding', 'buddynext' ), '[buddynext_onboarding]', backing_page: false, admin_label: __( 'Onboarding', 'buddynext' ), admin_desc: __( 'First-run member setup flow.', 'buddynext' ), register_rules: array( PageRouter::class, 'register_onboarding_rules' ), resolve_template: array( PageRouter::class, 'resolve_onboarding_template' ), feature: 'onboarding', admin_managed: false ) );
 
 		// Community Admin — a core hub wired through the addon seam (its own
 		// register_rules + resolve_template in CommunityAdminRoutes) so PageRouter
@@ -70,7 +90,7 @@ final class CoreHubs {
 			new HubDescriptor(
 				'community_admin',
 				'buddynext_slug_community_admin',
-				'community-admin',
+				self::DEFAULT_SLUGS['buddynext_slug_community_admin'],
 				'buddynext_page_community_admin',
 				__( 'Community Admin', 'buddynext' ),
 				'[buddynext_community_admin]',

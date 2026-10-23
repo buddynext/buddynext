@@ -4542,13 +4542,16 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function default_slug( string $option_name ): string {
-		// The registry is the only source of hub default slugs (community_admin
-		// included). No literal fallback map: an option no hub owns is a caller
-		// bug, not a hub with a 'community' slug.
+		// The registry covers core and addon hubs. Before init it is still empty,
+		// so core hubs fall back to their plain map; an option neither knows is a
+		// caller bug, not a hub with a 'community' slug.
 		foreach ( HubRegistry::instance()->all() as $hub ) {
 			if ( $hub->slug_option === $option_name ) {
 				return $hub->default_slug;
 			}
+		}
+		if ( isset( CoreHubs::DEFAULT_SLUGS[ $option_name ] ) ) {
+			return CoreHubs::DEFAULT_SLUGS[ $option_name ];
 		}
 		// Unknown option: surface it in debug rather than silently routing to a
 		// slug no hub owns. Empty means "no default", so hub_slug() falls back to

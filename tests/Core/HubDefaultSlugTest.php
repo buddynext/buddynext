@@ -61,6 +61,23 @@ class HubDefaultSlugTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Before init the registry is empty. Themes still build login links then
+	 * (the login_url filter), so core URLs must keep their default slug and log
+	 * nothing (card 10435804553).
+	 *
+	 * @return void
+	 */
+	public function test_core_urls_resolve_before_the_registry_is_filled(): void {
+		$ref = new \ReflectionProperty( HubRegistry::class, 'instance' );
+		$ref->setAccessible( true );
+		$ref->setValue( null, null );
+		delete_option( 'buddynext_slug_auth' );
+
+		$this->assertSame( home_url( '/login/' ), PageRouter::auth_url() );
+		$this->assertSame( home_url( '/members/' ), PageRouter::hub_url( 'buddynext_slug_people', 'buddynext_page_people' ) );
+	}
+
+	/**
 	 * An option no hub owns returns '' AND says so.
 	 *
 	 * This case used to sit in the map above expecting 'community'. PageRouter
