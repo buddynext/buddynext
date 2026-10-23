@@ -395,8 +395,14 @@
 		 * filter or a page number with it.
 		 */
 		if ( onBnScreen && document.querySelector( '.bn-notice' ) ) {
+			// A field of a filter (GET) form on this screen is state too, so a
+			// screen's own filters survive without being listed above.
+			var state = STATE_PARAMS.slice();
+			document.querySelectorAll( 'form:not([method="post" i]) [name]' ).forEach( function ( field ) {
+				state.push( field.name );
+			} );
 			url.searchParams.forEach( function ( _value, key ) {
-				if ( STATE_PARAMS.indexOf( key ) === -1 && params.indexOf( key ) === -1 ) {
+				if ( state.indexOf( key ) === -1 && params.indexOf( key ) === -1 ) {
 					params.push( key );
 				}
 			} );
