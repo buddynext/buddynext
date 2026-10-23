@@ -567,73 +567,76 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 	data-wp-on-document--keydown="actions.closePopupsOnEscape"
 	data-wp-context='
 	<?php
-		echo wp_json_encode(
-			array(
-				'postId'            => $bn_post_id,
-				'commentSubmitting' => false,
-				'spaceId'           => $bn_space_id,
-				'authorId'          => $post_author_id,
-				'currentUserId'     => $current_user_id,
-				'postType'          => $bn_post_type,
-				'showContent'       => ! $has_cw,
-				// A long text post previews its first lines; See more expands it here.
-				'bodyExpanded'      => false,
-				// Raw pin state (drives the pin/unpin action + options menu label);
-				// showPinBadge gates whether the "Pinned" label is shown on this
-				// surface. The badge is visible only when both are true — so pinning
-				// a post from the home feed never surfaces the label there.
-				'isPinned'          => $is_pinned,
-				'showPinBadge'      => in_array( $context, array( 'profile', 'space' ), true ),
-				'bookmarked'        => $is_bookmarked,
-				'hasReported'       => $has_reported,
-				'reactionType'      => $my_reaction_type,
-				// Translatable label shown on the React button: the current
-				// reaction's name when reacted, else the default "React". Kept in
-				// sync with the icon by the post-card store so picking a reaction
-				// updates the label too (data-wp-text="state.reactionLabel").
-				'reactionLabel'     => ( $my_reaction_type && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
-					? \BuddyNext\Reactions\ReactionService::label( (string) $my_reaction_type )
-					: __( 'React', 'buddynext' ),
-				'reactDefaultLabel' => __( 'React', 'buddynext' ),
-				'reactNonce'        => $react_nonce,
-				'shareNonce'        => $share_nonce,
-				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $current_user_id ),
-				'bookmarkNonce'     => $bookmark_nonce,
-				'reportNonce'       => $report_nonce,
-				'dismissNonce'      => $dismiss_nonce,
-				'pollNonce'         => $poll_nonce,
-				'pollOptions'       => $poll_options_ctx,
-				'pollVotedOptionId' => $my_voted_option_id,
-				'pollTotalVotes'    => $poll_total_votes,
-				// The permalink opens with its thread EXPANDED; every other surface
-				// starts closed.
-				//
-				// /p/{id}/ is the page whose entire purpose is the conversation, and
-				// "Someone commented on your post" notifications deep-link straight
-				// to it (NotificationMessageService resolves to PageRouter::post_url()).
-				// Landing there and seeing zero comments — with the replies you were
-				// just told about hidden behind a button — is the opposite of what the
-				// notification promised, and of what every comparable product does with
-				// a post permalink.
-				//
-				// This was previously hardcoded false on every surface because seeding
-				// 'single' open relied on the auto-load-on-mount path, which raced
-				// empty on a freshly loaded permalink. That retreat removed the
-				// behaviour rather than fixing the race, and left initPostCard()
-				// unreachable. The mount path now defers a tick and delegates to the
-				// same loader the click path uses, so there is one loader and no race.
-				'commentsOpen'      => 'single' === $context,
-				'commentCount'      => $comment_count,
-				'shareCount'        => $share_count,
-				'shareShared'       => false,
-				// Reactor "who reacted" popover — SSR-present, toggled
-				// reactively (state.reactorsHidden). reactionCount seeds the
-				// popover heading before the fetched list resolves.
-				'reactorsOpen'      => false,
-				'reactorsLoaded'    => false,
-				'reactionCount'     => $reaction_count,
-				'restUrl'           => rest_url( 'buddynext/v1' ),
-				'context'           => $context,
+		// esc_attr: the context carries member-authored text (poll options), so an apostrophe must not end the attribute.
+		echo esc_attr(
+			wp_json_encode(
+				array(
+					'postId'            => $bn_post_id,
+					'commentSubmitting' => false,
+					'spaceId'           => $bn_space_id,
+					'authorId'          => $post_author_id,
+					'currentUserId'     => $current_user_id,
+					'postType'          => $bn_post_type,
+					'showContent'       => ! $has_cw,
+					// A long text post previews its first lines; See more expands it here.
+					'bodyExpanded'      => false,
+					// Raw pin state (drives the pin/unpin action + options menu label);
+					// showPinBadge gates whether the "Pinned" label is shown on this
+					// surface. The badge is visible only when both are true — so pinning
+					// a post from the home feed never surfaces the label there.
+					'isPinned'          => $is_pinned,
+					'showPinBadge'      => in_array( $context, array( 'profile', 'space' ), true ),
+					'bookmarked'        => $is_bookmarked,
+					'hasReported'       => $has_reported,
+					'reactionType'      => $my_reaction_type,
+					// Translatable label shown on the React button: the current
+					// reaction's name when reacted, else the default "React". Kept in
+					// sync with the icon by the post-card store so picking a reaction
+					// updates the label too (data-wp-text="state.reactionLabel").
+					'reactionLabel'     => ( $my_reaction_type && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
+						? \BuddyNext\Reactions\ReactionService::label( (string) $my_reaction_type )
+						: __( 'React', 'buddynext' ),
+					'reactDefaultLabel' => __( 'React', 'buddynext' ),
+					'reactNonce'        => $react_nonce,
+					'shareNonce'        => $share_nonce,
+					'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $current_user_id ),
+					'bookmarkNonce'     => $bookmark_nonce,
+					'reportNonce'       => $report_nonce,
+					'dismissNonce'      => $dismiss_nonce,
+					'pollNonce'         => $poll_nonce,
+					'pollOptions'       => $poll_options_ctx,
+					'pollVotedOptionId' => $my_voted_option_id,
+					'pollTotalVotes'    => $poll_total_votes,
+					// The permalink opens with its thread EXPANDED; every other surface
+					// starts closed.
+					//
+					// /p/{id}/ is the page whose entire purpose is the conversation, and
+					// "Someone commented on your post" notifications deep-link straight
+					// to it (NotificationMessageService resolves to PageRouter::post_url()).
+					// Landing there and seeing zero comments — with the replies you were
+					// just told about hidden behind a button — is the opposite of what the
+					// notification promised, and of what every comparable product does with
+					// a post permalink.
+					//
+					// This was previously hardcoded false on every surface because seeding
+					// 'single' open relied on the auto-load-on-mount path, which raced
+					// empty on a freshly loaded permalink. That retreat removed the
+					// behaviour rather than fixing the race, and left initPostCard()
+					// unreachable. The mount path now defers a tick and delegates to the
+					// same loader the click path uses, so there is one loader and no race.
+					'commentsOpen'      => 'single' === $context,
+					'commentCount'      => $comment_count,
+					'shareCount'        => $share_count,
+					'shareShared'       => false,
+					// Reactor "who reacted" popover — SSR-present, toggled
+					// reactively (state.reactorsHidden). reactionCount seeds the
+					// popover heading before the fetched list resolves.
+					'reactorsOpen'      => false,
+					'reactorsLoaded'    => false,
+					'reactionCount'     => $reaction_count,
+					'restUrl'           => rest_url( 'buddynext/v1' ),
+					'context'           => $context,
+				)
 			)
 		);
 		?>
