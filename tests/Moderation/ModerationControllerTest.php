@@ -140,7 +140,8 @@ class ModerationControllerTest extends \WP_UnitTestCase {
 		$request->set_param( 'message', 'test' );
 		$response = rest_do_request( $request );
 
-		$this->assertSame( 400, $response->get_status() );
+		// No such suspension is a missing resource, not a malformed request.
+		$this->assertSame( 404, $response->get_status() );
 	}
 
 	// ── POST /appeals/{id}/resolve ──────────────────────────────────────────

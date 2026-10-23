@@ -958,14 +958,14 @@ class ModerationService {
 		$report = $this->get_report( $report_id );
 
 		if ( null === $report ) {
-			return new WP_Error( 'not_found', __( 'Report not found.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'Report not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		$object_type = sanitize_key( (string) ( $report['object_type'] ?? '' ) );
 		$object_id   = (int) ( $report['object_id'] ?? 0 );
 
 		if ( '' === $object_type || $object_id <= 0 ) {
-			return new WP_Error( 'not_found', __( 'The reported content no longer exists.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'The reported content no longer exists.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		if ( ! $this->remove_object( $object_type, $object_id, $actor_id ) ) {
@@ -2231,7 +2231,7 @@ class ModerationService {
 		// behind require_admin) or from the admin queue's own actor. A 0 can only be
 		// passed by server code.
 		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
@@ -2359,7 +2359,7 @@ class ModerationService {
 	 */
 	public function unsuspend_user( int $user_id, int $actor_id ): bool|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		global $wpdb;
@@ -2384,7 +2384,7 @@ class ModerationService {
 		// a moderator who unsuspends the wrong/already-active user sees a real
 		// notice rather than a false "Done.".
 		if ( ! $lifted ) {
-			return new WP_Error( 'bn_not_suspended', __( 'That member is not currently suspended.', 'buddynext' ) );
+			return new WP_Error( 'bn_not_suspended', __( 'That member is not currently suspended.', 'buddynext' ), array( 'status' => 409 ) );
 		}
 
 		/**
@@ -3184,7 +3184,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null === $suspension ) {
-			return new WP_Error( 'not_suspended', __( 'No matching suspension found.', 'buddynext' ) );
+			return new WP_Error( 'not_suspended', __( 'No matching suspension found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// One open appeal per suspension. There was no guard at all, so a double
@@ -3461,7 +3461,7 @@ class ModerationService {
 
 		if ( ! $target ) {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ) );
+			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// Capture the reporters of the open reports we're about to clear, so we can
@@ -3515,7 +3515,7 @@ class ModerationService {
 
 		// $wpdb->query returns false on SQL error, int (rows affected) otherwise.
 		if ( false === $updated ) {
-			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ) );
+			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		// Zero rows changed means another moderator already cleared this content's
@@ -3865,7 +3865,7 @@ class ModerationService {
 	 */
 	public function suspend( int $user_id, string $reason, int $duration_days, bool $hide_content = false, int $suspended_by = 0 ): bool|WP_Error {
 		if ( $user_id <= 0 ) {
-			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		// Same rule as suspend_user(): a person must give the member a reason.
@@ -3918,7 +3918,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( false === $inserted || '' !== $wpdb->last_error ) {
-			return new WP_Error( 'db_error', $wpdb->last_error );
+			return new WP_Error( 'db_error', __( 'Could not save the suspension. Please try again.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		// A system suspension stays attributed to the SYSTEM. Falling back to
@@ -4087,7 +4087,7 @@ class ModerationService {
 	 */
 	public function create_appeal( int $user_id, string $message ): int|WP_Error {
 		if ( $user_id <= 0 ) {
-			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		// bn_appeals.suspension_id is NOT NULL — an appeal must reference the
@@ -4097,7 +4097,8 @@ class ModerationService {
 		if ( null === $suspension ) {
 			return new WP_Error(
 				'not_suspended',
-				__( 'You do not have an active suspension to appeal.', 'buddynext' )
+				__( 'You do not have an active suspension to appeal.', 'buddynext' ),
+				array( 'status' => 409 )
 			);
 		}
 
@@ -4143,7 +4144,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( false === $inserted || '' !== $wpdb->last_error ) {
-			return new WP_Error( 'db_error', $wpdb->last_error );
+			return new WP_Error( 'db_error', __( 'Could not send your appeal. Please try again.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		$insert_id = (int) $wpdb->insert_id;
