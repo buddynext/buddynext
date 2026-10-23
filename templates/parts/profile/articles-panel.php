@@ -37,6 +37,7 @@ $bn_ar_write     = isset( $write_url ) && '' !== (string) $write_url ? (string) 
 // Per-post edit address (post id => URL), from the bridge. A post without one
 // falls back to the dashboard.
 $bn_ar_edit_urls = isset( $edit_urls ) && is_array( $edit_urls ) ? $edit_urls : array();
+$bn_ar_writers   = isset( $co_writers ) && is_array( $co_writers ) ? $co_writers : array();
 
 // The owner's route back to where they write. Shown ABOVE the list and also in the
 // empty state, because a member with nothing published is exactly who needs it.
@@ -119,14 +120,20 @@ endif;
 						<time datetime="<?php echo esc_attr( (string) get_the_date( 'c', $bn_ar_id ) ); ?>">
 							<?php echo esc_html( (string) get_the_date( '', $bn_ar_id ) ); ?>
 						</time>
-						<?php if ( (int) $bn_ar_post->post_author !== $bn_ar_uid ) : ?>
-							<?php // A row only reaches this profile when its author is somebody else if the member co-wrote it. ?>
+						<?php $bn_ar_names = (array) ( $bn_ar_writers[ $bn_ar_id ] ?? array() ); ?>
+						<?php if ( $bn_ar_names ) : ?>
+							<?php // Every other writer, named as text: the lead author's tab credits co-authors, a co-author's tab credits the lead. ?>
 							<span class="bn-badge bn-badge--muted">
 								<?php
+								$bn_ar_label = implode( ', ', array_slice( $bn_ar_names, 0, 3 ) );
+								if ( count( $bn_ar_names ) > 3 ) {
+									/* translators: %d: number of further writers not named. */
+									$bn_ar_label .= ' ' . sprintf( __( '+%d', 'buddynext' ), count( $bn_ar_names ) - 3 );
+								}
 								printf(
-									/* translators: %s: name of the post's lead author. */
+									/* translators: %s: names of the post's other writers, e.g. "Aisha, Raj". */
 									esc_html__( 'Co-written with %s', 'buddynext' ),
-									esc_html( (string) get_the_author_meta( 'display_name', (int) $bn_ar_post->post_author ) )
+									esc_html( $bn_ar_label )
 								);
 								?>
 							</span>

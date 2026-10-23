@@ -274,6 +274,27 @@ class MemberBlogBridge {
 	}
 
 	/**
+	 * The post's other writers, as seen from one member's profile: Member Blog's
+	 * `bpmb_post_writers` (lead author first, then accepted co-authors) minus that
+	 * member. Empty for a solo post on its author's own tab.
+	 *
+	 * @param \WP_Post $post        Post.
+	 * @param int      $profile_uid Profile owner.
+	 * @return array<int,array{id:int,name:string}>
+	 */
+	private function co_writers( \WP_Post $post, int $profile_uid ): array {
+		$ids = array_map( 'intval', (array) apply_filters( 'bpmb_post_writers', array( (int) $post->post_author ), (int) $post->ID ) );
+		$out = array();
+		foreach ( array_diff( array_unique( $ids ), array( $profile_uid, 0 ) ) as $id ) {
+			$out[] = array(
+				'id'   => $id,
+				'name' => (string) get_the_author_meta( 'display_name', $id ),
+			);
+		}
+		return $out;
+	}
+
+	/**
 	 * Render the Articles panel.
 	 *
 	 * @param int $user_id   Profile owner.
@@ -290,11 +311,13 @@ class MemberBlogBridge {
 
 		// Each row's Edit goes to THAT post. It used to open the dashboard for
 		// every row, leaving the owner to find the post again.
-		$edit_urls = array();
-		if ( $is_owner ) {
-			foreach ( $query->posts as $post ) {
+		$edit_urls  = array();
+		$co_writers = array();
+		foreach ( $query->posts as $post ) {
+			if ( $is_owner ) {
 				$edit_urls[ (int) $post->ID ] = $this->edit_url( (int) $post->ID, $user_id );
 			}
+			$co_writers[ (int) $post->ID ] = wp_list_pluck( $this->co_writers( $post, $user_id ), 'name' );
 		}
 
 		buddynext_get_template(
@@ -305,6 +328,7 @@ class MemberBlogBridge {
 				'is_owner'        => $is_owner,
 				'articles'        => $query->posts,
 				'edit_urls'       => $edit_urls,
+				'co_writers'      => $co_writers,
 				'article_count'   => (int) $query->found_posts,
 				'page'            => $paged,
 				'total_pages'     => (int) $query->max_num_pages,
@@ -358,6 +382,7 @@ class MemberBlogBridge {
 			$items[] = array(
 				'id'           => (int) $post->ID,
 				'co_written'   => (int) $post->post_author !== $user_id,
+				'co_writers'   => $this->co_writers( $post, $user_id ),
 				'title'        => (string) get_the_title( $post ),
 				'url'          => (string) get_permalink( $post ),
 				'date'         => (string) get_the_date( 'c', $post ),

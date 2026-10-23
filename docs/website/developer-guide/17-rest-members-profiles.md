@@ -165,7 +165,7 @@ Registered by `MemberBlogBridge` / `MemberBlogRestController`, present only when
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`). Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. |
+| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`). Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. Co-written posts (Member Blog Pro co-authors) list for every writer; each item names its other writers in `co_writers` (`id`, `name`). |
 
 ### Moderation actions targeting a user
 

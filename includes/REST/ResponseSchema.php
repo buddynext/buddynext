@@ -943,6 +943,17 @@ final class ResponseSchema {
 						'type'       => 'object',
 						'properties' => array(
 							'id'           => array( 'type' => 'integer' ),
+							'co_written'   => array( 'type' => 'boolean' ),
+							'co_writers'   => array(
+								'type'  => 'array',
+								'items' => array(
+									'type'       => 'object',
+									'properties' => array(
+										'id'   => array( 'type' => 'integer' ),
+										'name' => array( 'type' => 'string' ),
+									),
+								),
+							),
 							'title'        => array( 'type' => 'string' ),
 							'url'          => array(
 								'type'   => 'string',
@@ -957,6 +968,7 @@ final class ResponseSchema {
 							),
 							'status'       => array( 'type' => 'string' ),
 							'status_label' => array( 'type' => 'string' ),
+							'edit_url'     => array( 'type' => 'string' ),
 						),
 					),
 				),
