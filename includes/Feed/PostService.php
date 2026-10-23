@@ -2133,7 +2133,9 @@ class PostService {
 	/**
 	 * Update an existing post's content or privacy.
 	 *
-	 * Sets edited_at to the current UTC time. Only the post owner may update.
+	 * Sets edited_at to the current UTC time when what readers see changes (text,
+	 * media, link preview, content warning); a save that changes nothing writes
+	 * nothing. Only the post owner may update.
 	 * Non-admin authors are held to the buddynext_post_edit_window (minutes)
 	 * unless the post has not published yet (status = scheduled), which is exempt.
 	 *
@@ -2177,7 +2179,7 @@ class PostService {
 		// NOT exempt, because it was published before it was hidden.
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
 		if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
 			return new WP_Error(
 				'edit_window_closed',
@@ -2237,10 +2239,9 @@ class PostService {
 		global $wpdb;
 
 		$fields  = array(
-			'edited_at'  => current_time( 'mysql', true ),
 			'updated_at' => current_time( 'mysql', true ),
 		);
-		$formats = array( '%s', '%s' );
+		$formats = array( '%s' );
 
 		if ( isset( $data['content'] ) ) {
 			$fields['content'] = $data['content'];
@@ -2383,13 +2384,32 @@ class PostService {
 			if ( $this->can_gate_post( $user_id, $mo_space ) ) {
 				$fields['members_only'] = $mo_wanted;
 				$formats[]              = '%d';
-			} elseif ( $mo_wanted !== (int) ( $mo_existing['members_only'] ?? 0 ) ) {
+			} elseif ( (int) ( $mo_existing['members_only'] ?? 0 ) !== $mo_wanted ) {
 				return new WP_Error(
 					'forbidden',
 					__( 'Only a site admin or a space owner or moderator can change members-only on a post.', 'buddynext' ),
 					array( 'status' => 403 )
 				);
 			}
+		}
+
+		// "(edited)" tells readers the post they may already have reacted to now
+		// says something else, so it is set only when what they read changed. A
+		// save that changes nothing is not an edit at all, and an audience,
+		// schedule or members-only change alters who sees the post, not what it
+		// says (Facebook marks neither).
+		$changed = array();
+		foreach ( $fields as $col => $value ) {
+			if ( 'updated_at' !== $col && (string) ( $row[ $col ] ?? '' ) !== (string) ( $value ?? '' ) ) {
+				$changed[] = $col;
+			}
+		}
+		if ( empty( $changed ) ) {
+			return true;
+		}
+		if ( array_intersect( $changed, array( 'content', 'link_url', 'link_meta', 'media_ids', 'type', 'content_warning', 'content_warning_type' ) ) ) {
+			$fields['edited_at'] = $fields['updated_at'];
+			$formats[]           = '%s';
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2448,7 +2468,7 @@ class PostService {
 		 *
 		 * @param int   $post_id Post ID.
 		 * @param int   $user_id User who updated the post.
-		 * @param array $fields  Columns written this update (edited_at plus any of content, privacy, scheduled_at, content_warning, content_warning_type).
+		 * @param array $fields  Columns written this update (updated_at, edited_at when the text, media or warning changed, plus any of content, privacy, scheduled_at, content_warning, content_warning_type).
 		 */
 		do_action( 'buddynext_post_updated', $post_id, $user_id, $fields );
 

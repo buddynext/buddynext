@@ -483,6 +483,11 @@ class CommentService {
 			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
+		// Saving the same text is not an edit: no "(edited)" marker, no event.
+		if ( (string) $comment['content'] === $content ) {
+			return true;
+		}
+
 		// Re-scan on edit — a banned word (or a Pro keyword/ML blocklist hit) must
 		// not slip in via an edit any more than on create. Mirror create(): a hard
 		// block rejects the edit, a flag verdict is allowed through (reactive

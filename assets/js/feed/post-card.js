@@ -1004,7 +1004,8 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 					if ( res.ok ) {
 						const updated = res.data;
 						para.textContent = updated.content;
-						if ( ! body.querySelector( '.bn-comment__edited' ) ) {
+						// The server decides: an unchanged save is not an edit.
+						if ( updated.is_edited && ! body.querySelector( '.bn-comment__edited' ) ) {
 							const editedMark = document.createElement( 'span' );
 							editedMark.className = 'bn-comment__edited';
 							editedMark.textContent = t( 'edited', '(edited)' );
@@ -2543,7 +2544,9 @@ store( 'buddynext/post-card', {
 					if ( previewEl && removePreview ) {
 						previewEl.remove();
 					}
-					if ( ! card.querySelector( '.bn-post-card__edited' ) ) {
+					// The server decides: edited_at stays empty for an unchanged
+					// save or an audience-only change.
+					if ( res.data && res.data.edited_at && ! card.querySelector( '.bn-post-card__edited' ) ) {
 						const mark = document.createElement( 'span' );
 						mark.className = 'bn-post-card__edited';
 						mark.textContent = t( 'editedSpaced', ' (edited)' );
