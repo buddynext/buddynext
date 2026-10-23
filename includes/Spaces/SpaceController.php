@@ -1355,6 +1355,9 @@ class SpaceController extends BaseRestController {
 			$row['can_invite']     = $viewer_id > 0 && $member_svc->can_invite( $sid, $viewer_id );
 			$row['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $sid ) );
 			$row['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $sid ) );
+			// Make / remove moderator: the owner or a site admin, the same check
+			// PUT /spaces/{id}/members/{user}/role enforces.
+			$row['can_change_roles'] = $viewer_id > 0 && $member_svc->can_change_roles( $sid, $viewer_id );
 		}
 		unset( $row );
 
@@ -1795,13 +1798,14 @@ class SpaceController extends BaseRestController {
 		$space['membership_role']   = $membership['role'] ?? '';
 		$space['membership_status'] = $membership['status'] ?? '';
 
-		// Same three viewer-relative permission flags the directory rows carry, so
+		// Same viewer-relative permission flags the directory rows carry, so
 		// a card and the space header can never disagree about what the viewer may
 		// do. See the note in enrich_directory_rows() for why manage is two flags.
-		$bn_space_id             = (int) $space['id'];
-		$space['can_invite']     = $viewer_id > 0 && ( new SpaceMemberService() )->can_invite( $bn_space_id, $viewer_id );
-		$space['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $bn_space_id ) );
-		$space['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $bn_space_id ) );
+		$bn_space_id               = (int) $space['id'];
+		$space['can_invite']       = $viewer_id > 0 && ( new SpaceMemberService() )->can_invite( $bn_space_id, $viewer_id );
+		$space['can_manage']       = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $bn_space_id ) );
+		$space['can_edit_space']   = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $bn_space_id ) );
+		$space['can_change_roles'] = $viewer_id > 0 && ( new SpaceMemberService() )->can_change_roles( $bn_space_id, $viewer_id );
 
 		// The tab the app should open this space on for the current viewer — the
 		// same resolver the web space page uses, so the two never disagree. A REST

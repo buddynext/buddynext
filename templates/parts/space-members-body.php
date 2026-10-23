@@ -163,13 +163,12 @@ usort(
 
 
 // ── Viewer management capability (mirrors SpaceController permissions) ────────────
-// Remove member: owner/moderator or site admin. Change role: owner or site admin only.
-$bn_viewer_role   = $current_user_id > 0
+// Remove member: owner/moderator or site admin. Change role: can_change_roles(), the route's own check.
+$bn_viewer_role  = $current_user_id > 0
 	? $bn_member_svc->get_role( $space_id, $current_user_id )
 	: '';
-$bn_is_site_admin = $current_user_id > 0 && user_can( $current_user_id, 'manage_options' );
-$bn_can_remove    = $current_user_id > 0 && \BuddyNext\Spaces\SpaceRoles::can_moderate( $bn_viewer_role, $current_user_id );
-$bn_can_set_role  = $current_user_id > 0 && ( 'owner' === $bn_viewer_role || $bn_is_site_admin );
+$bn_can_remove   = $current_user_id > 0 && \BuddyNext\Spaces\SpaceRoles::can_moderate( $bn_viewer_role, $current_user_id );
+$bn_can_set_role = $bn_member_svc->can_change_roles( (int) $space_id, (int) $current_user_id );
 
 // "Joined via invite link" markers are visible to owners/moderators/admins only.
 // Fetched once for the whole roster (no per-row query) and only for a privileged

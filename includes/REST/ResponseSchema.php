@@ -1066,6 +1066,7 @@ final class ResponseSchema {
 				'can_invite'        => array( 'type' => 'boolean' ),
 				'can_manage'        => array( 'type' => 'boolean' ),
 				'can_edit_space'    => array( 'type' => 'boolean' ),
+				'can_change_roles'  => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -1144,6 +1145,7 @@ final class ResponseSchema {
 				'can_invite'         => array( 'type' => 'boolean' ),
 				'can_manage'         => array( 'type' => 'boolean' ),
 				'can_edit_space'     => array( 'type' => 'boolean' ),
+				'can_change_roles'   => array( 'type' => 'boolean' ),
 			),
 		);
 	}

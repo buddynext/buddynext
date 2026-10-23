@@ -19674,6 +19674,9 @@
                     },
                     "can_edit_space": {
                         "type": "boolean"
+                    },
+                    "can_change_roles": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -19966,6 +19969,9 @@
                         "type": "boolean"
                     },
                     "can_edit_space": {
+                        "type": "boolean"
+                    },
+                    "can_change_roles": {
                         "type": "boolean"
                     }
                 }
@@ -21243,6 +21249,32 @@
                                 }
                             },
                             "bn.new_report": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "bn.report_escalated": {
                                 "type": "object",
                                 "properties": {
                                     "on_site": {
