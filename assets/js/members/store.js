@@ -449,6 +449,11 @@ function paintConnectBtn( btn, state ) {
 	btn.textContent = s === 'accepted' ? t( 'connected', 'Connected' ) : ( s === 'pending-sent' ? t( 'requested', 'Requested' ) : t( 'connect', 'Connect' ) );
 	btn.setAttribute( 'data-variant', 'secondary' );
 	btn.setAttribute( 'data-state', s );
+	if ( s === 'accepted' ) {
+		btn.setAttribute( 'aria-haspopup', 'dialog' );
+	} else {
+		btn.removeAttribute( 'aria-haspopup' );
+	}
 }
 
 /* -- Delegated card handlers (drive JS-built cards from onGridClick) ----- *
@@ -512,6 +517,9 @@ async function delegatedConnect( card, btn, cfg ) {
 	}
 
 	if ( cur === 'pending-sent' || cur === 'accepted' ) {
+		// Same rule as the server-rendered card (toggleConnection): removing a
+		// connection is confirmed, withdrawing a pending request is not.
+		if ( cur === 'accepted' && ! await bnConfirmDisconnect( card.dataset.displayName || '' ) ) { return; }
 		card.dataset.connection = 'none';
 		paintConnectBtn( btn, 'none' );
 		try {
