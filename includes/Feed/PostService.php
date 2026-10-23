@@ -4078,64 +4078,18 @@ class PostService {
 	}
 
 	/**
-	 * Publish a (scheduled) post: set status='published'.
+	 * Publish a (scheduled) post: set status='published' and clear its schedule.
 	 *
 	 * Bumps created_at + last_activity_at to the publish time (UTC) so a post
 	 * that was scheduled days ago surfaces fresh in the feed when it goes live
-	 * rather than at its original, now-buried position.
+	 * rather than at its original, now-buried position. scheduled_at is cleared
+	 * because a live post that still carries one reads as pending to every client
+	 * of the post shape. The one publish write for both the cron and Publish Now.
 	 *
 	 * @param int $post_id Post id.
-	 * @return bool
+	 * @return bool True only when a row was published; false for a missing post.
 	 */
 	public function mark_published( int $post_id ): bool {
-		if ( $post_id <= 0 ) {
-			return false;
-		}
-
-		$now = current_time( 'mysql', true );
-
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'status'           => 'published',
-				'created_at'       => $now,
-				'last_activity_at' => $now,
-				'updated_at'       => $now,
-			),
-			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s', '%s' ),
-			array( '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
-
-		return false !== $updated;
-	}
-
-	/**
-	 * Publish a SCHEDULED post immediately, at now.
-	 *
-	 * Free owned every other publish transition and this one was missing, so Pro's "Publish
-	 * Now" button hand-rolled a raw UPDATE — and hand-rolled it differently. It set status and
-	 * cleared scheduled_at, and never touched created_at. Feeds order by `created_at DESC`, so
-	 * the post went live at the moment it was COMPOSED: schedule something on the 1st for the
-	 * 20th, hit Publish Now on the 5th, and it appears buried under four days of feed. The
-	 * author pressed a button called Publish Now and nobody saw the post.
-	 *
-	 * Every other publish path already bumps the timestamp for exactly this reason —
-	 * mark_published() (the cron), approve_pending() (moderation). The convention was
-	 * established everywhere except the one button whose name promises it.
-	 *
-	 * Clearing scheduled_at is load-bearing, not tidiness: a post left with a future
-	 * scheduled_at is a post the scheduling layer still believes is pending.
-	 *
-	 * @param int $post_id Post to publish.
-	 * @return bool True when the row was updated.
-	 */
-	public function publish_scheduled_now( int $post_id ): bool {
 		if ( $post_id <= 0 ) {
 			return false;
 		}
@@ -4159,11 +4113,36 @@ class PostService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( false === $updated ) {
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// update() returns 0 when no row matched; that is a missing post, not a publish.
+		return (int) $updated > 0;
+	}
+
+	/**
+	 * Publish a SCHEDULED post immediately, at now.
+	 *
+	 * Free owned every other publish transition and this one was missing, so Pro's "Publish
+	 * Now" button hand-rolled a raw UPDATE — and hand-rolled it differently. It set status and
+	 * cleared scheduled_at, and never touched created_at. Feeds order by `created_at DESC`, so
+	 * the post went live at the moment it was COMPOSED: schedule something on the 1st for the
+	 * 20th, hit Publish Now on the 5th, and it appears buried under four days of feed. The
+	 * author pressed a button called Publish Now and nobody saw the post.
+	 *
+	 * Every other publish path already bumps the timestamp for exactly this reason —
+	 * mark_published() (the cron), approve_pending() (moderation). The convention was
+	 * established everywhere except the one button whose name promises it.
+	 *
+	 * Clearing scheduled_at is load-bearing, not tidiness: a post left with a future
+	 * scheduled_at is a post the scheduling layer still believes is pending.
+	 *
+	 * @param int $post_id Post to publish.
+	 * @return bool True when the row was updated.
+	 */
+	public function publish_scheduled_now( int $post_id ): bool {
+		if ( ! $this->mark_published( $post_id ) ) {
 			return false;
 		}
-
-		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
 		// Re-arm: the cron event may still be pointing at a post that is no longer scheduled.
 		// set_schedule() and clear_schedule() both re-arm; this is the third transition and

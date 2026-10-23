@@ -142,4 +142,30 @@ class PublishScheduledNowTest extends WP_UnitTestCase {
 
 		$this->assertSame( 1, $fired );
 	}
+
+	/**
+	 * The cron path clears the schedule too: the REST post shape exposes scheduled_at, so a
+	 * post the cron published still read as pending to every client (card 10436326285).
+	 *
+	 * @return void
+	 */
+	public function test_cron_publish_clears_the_schedule(): void {
+		$post_id = $this->seed_old_scheduled_post();
+
+		$this->assertTrue( ( new PostService() )->mark_published( $post_id ) );
+
+		$row = $this->row( $post_id );
+		$this->assertSame( 'published', $row['status'] );
+		$this->assertNull( $row['scheduled_at'] );
+	}
+
+	/**
+	 * A post that does not exist is not reported as published (card 10436327695).
+	 *
+	 * @return void
+	 */
+	public function test_missing_post_is_not_reported_published(): void {
+		$this->assertFalse( ( new PostService() )->mark_published( 999999999 ) );
+		$this->assertFalse( ( new PostService() )->publish_scheduled_now( 999999999 ) );
+	}
 }
