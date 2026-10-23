@@ -2078,6 +2078,8 @@ class AssetService {
 					'broadcastsOptedOut'   => __( 'You will no longer receive newsletters or announcements.', 'buddynext' ),
 					'broadcastsOptedIn'    => __( 'You will receive newsletters and announcements again.', 'buddynext' ),
 					'broadcastsFailed'     => __( 'Could not update your broadcast email preference.', 'buddynext' ),
+					'partnerPrefSaved'     => __( 'Email preference saved.', 'buddynext' ),
+					'partnerPrefFailed'    => __( 'Could not save your email preference.', 'buddynext' ),
 				),
 			)
 		);

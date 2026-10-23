@@ -156,6 +156,10 @@ class JetonomyBridge {
 		// discussion was later deleted. See verify_discussion_card().
 		add_filter( 'buddynext_discussion_card_url', array( $this, 'verify_discussion_card' ), 10, 2 );
 
+		// Forum email choices (Jetonomy Pro's digest) live in BuddyNext's notification
+		// settings: Jetonomy renders and saves them, BuddyNext only gives them a place.
+		add_action( 'buddynext_notification_prefs_after', array( $this, 'render_partner_prefs' ), 20 );
+
 		// Inject a Discussions link into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
 
@@ -3601,5 +3605,38 @@ class JetonomyBridge {
 		}
 
 		return $discussions;
+	}
+
+	/**
+	 * Show Jetonomy's own email choices in the member's notification settings.
+	 *
+	 * Jetonomy owns the field, its markup and its storage (PATCH
+	 * /jetonomy/v1/users/me/digest-preferences); BuddyNext sends no forum email and
+	 * keeps no copy. The card renders only when Jetonomy has something to show, so
+	 * a site without Pro's digest sees nothing.
+	 *
+	 * @param int $user_id Member whose settings are open.
+	 */
+	public function render_partner_prefs( int $user_id ): void {
+		if ( $user_id <= 0 || ! has_action( 'jetonomy_profile_notification_fields' ) ) {
+			return;
+		}
+
+		ob_start();
+		do_action( 'jetonomy_profile_notification_fields', $user_id );
+		$fields = trim( (string) ob_get_clean() );
+		if ( '' === $fields ) {
+			return;
+		}
+
+		buddynext_get_template(
+			'parts/settings-partner-prefs.php',
+			array(
+				'bn_pp_fields' => $fields,
+				'bn_pp_rest'   => rest_url( 'jetonomy/v1/users/me/digest-preferences' ),
+				'bn_pp_field'  => 'digest_frequency',
+				'bn_pp_key'    => 'frequency',
+			)
+		);
 	}
 }

@@ -579,3 +579,49 @@
 	}
 }
 
+
+/* A partner plugin's own email choices (e.g. the forum digest) inside the settings
+ * card. The partner owns the markup; these rules only lay its rows out in the card. */
+.bn-partner-prefs {
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-partner-prefs fieldset {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	min-inline-size: 0;
+}
+
+.bn-partner-prefs legend {
+	padding: 0;
+	font-weight: var(--bn-weight-semibold, 600);
+	color: var(--bn-ink);
+}
+
+.bn-partner-prefs .jt-form-hint {
+	margin: var(--bn-s1) 0 var(--bn-s3);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-partner-prefs .jt-notif-prefs {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+
+.bn-partner-prefs .jt-notif-choice {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	min-block-size: 44px;
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-radius-md, 8px);
+	cursor: pointer;
+}
+
+.bn-partner-prefs .jt-notif-choice:hover,
+.bn-partner-prefs .jt-notif-choice:focus-within {
+	background: var(--bn-surface-2, var(--bn-bg-subtle));
+}
