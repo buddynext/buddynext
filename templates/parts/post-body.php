@@ -381,21 +381,30 @@ do_action( 'buddynext_part_post_body_before', $args );
 						<?php // Every option names itself: the fill and percentage below redraw from it on hydration, for a viewer who cannot vote too. ?>
 						<?php // The option text is member-authored, so the context attribute is built (and escaped) by core. ?>
 						<?php
+						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core escapes the attribute.
 						echo wp_interactivity_data_wp_context(
 							array(
 								'optionId'   => $opt_id,
 								'optionText' => (string) $opt_text,
 							)
-						); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core escapes the attribute. 
+						);
 						?>
 						<?php if ( $bn_poll_votable ) : ?>
 						data-wp-bind--class="state.pollOptionBtnClass"
 						data-wp-on--click="actions.votePoll"
+						aria-pressed="<?php echo $opt_voted ? 'true' : 'false'; ?>"
+						data-wp-bind--aria-pressed="state.pollOptionPressed"
 						<?php else : ?>
 						disabled
 						<?php endif; ?>
 						data-option-id="<?php echo absint( $opt_id ); ?>"
-						aria-label="<?php echo esc_attr( sprintf( '%s: %d%%', $opt_text, $opt_pct ) ); ?>"
+						<?php
+						$bn_opt_label = $opt_voted
+							/* translators: 1: poll option text, 2: percentage of votes. */
+							? sprintf( __( '%1$s: %2$d%%, your vote', 'buddynext' ), $opt_text, $opt_pct )
+							: sprintf( '%s: %d%%', $opt_text, $opt_pct );
+						?>
+						aria-label="<?php echo esc_attr( $bn_opt_label ); ?>"
 						data-wp-bind--aria-label="state.pollOptionLabel"
 					>
 						<div

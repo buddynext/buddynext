@@ -1268,6 +1268,8 @@ class AssetService {
 					'viewMoreComments'          => __( 'View more comments', 'buddynext' ),
 					'loadingComments'           => __( 'Loading…', 'buddynext' ),
 					'oneVote'                   => __( '1 vote', 'buddynext' ),
+					/* translators: 1: poll option text, 2: percentage of votes. */
+					'pollOptionYourVote'        => __( '%1$s: %2$d%%, your vote', 'buddynext' ),
 					/* translators: %d: number of votes. */
 					'manyVotes'                 => __( '%d votes', 'buddynext' ),
 					'pollNeedsQuestion'         => __( 'Add a question for your poll.', 'buddynext' ),

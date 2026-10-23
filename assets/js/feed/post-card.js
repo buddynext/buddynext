@@ -1555,13 +1555,25 @@ store( 'buddynext/post-card', {
 				return opt ? opt.pct + '%' : '0%';
 			} catch ( _e ) { return '0%'; }
 		},
-		// "Option text: 42%" - the label a screen reader hears, redrawn with the live percentage.
+		// "Option text: 42%" - the label a screen reader hears, redrawn with the live
+		// percentage. The member's own choice adds "your vote", so it is never told
+		// by colour alone.
 		get pollOptionLabel() {
 			try {
-				const ctx  = getContext();
-				const opt  = ( ctx.pollOptions || [] ).find( ( o ) => o.id === ctx.optionId );
-				return ( ctx.optionText || '' ) + ': ' + ( opt ? opt.pct : 0 ) + '%';
+				const ctx = getContext();
+				const opt = ( ctx.pollOptions || [] ).find( ( o ) => o.id === ctx.optionId );
+				const pct = opt ? opt.pct : 0;
+				if ( ctx.pollVotedOptionId && ctx.pollVotedOptionId === ctx.optionId ) {
+					return fmt( t( 'pollOptionYourVote', '%1$s: %2$d%%, your vote' ), ctx.optionText || '', pct );
+				}
+				return ( ctx.optionText || '' ) + ': ' + pct + '%';
 			} catch ( _e ) { return ''; }
+		},
+		get pollOptionPressed() {
+			try {
+				const ctx = getContext();
+				return ctx.pollVotedOptionId && ctx.pollVotedOptionId === ctx.optionId ? 'true' : 'false';
+			} catch ( _e ) { return 'false'; }
 		},
 		get pollFillStyle() {
 			try {
