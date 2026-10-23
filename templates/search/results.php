@@ -379,7 +379,7 @@ foreach ( $bn_extra_types as $bn_xt ) {
 <?php
 // Interactivity context. restNonce / restUrl let the saved-search controls talk
 // to the Pro REST collection without a page reload. savedSearchUrl points at the
-// Pro namespace; the store degrades to a clear notice if Pro is inactive (404).
+// Pro namespace; the card only renders when Pro provides those routes.
 // currentArgs is the exact query_args payload "Save current search" POSTs.
 $bn_search_ctx = array(
 	'query'          => $raw_query,
@@ -824,10 +824,11 @@ $bn_search_ctx = array(
 					// ── Saved searches (Pro) ──────────────────────────────
 					// Bound to the existing buddynext-pro/v1/me/saved-searches
 					// REST routes via the search Interactivity store. The list
-					// is fetched on hydrate; save / run / delete are live. When
-					// Pro is inactive the collection 404s and the store renders
-					// a single "requires BuddyNext Pro" line — never fatal.
-					if ( $bn_search_ctx['isLoggedIn'] ) :
+					// is fetched on hydrate; save / run / delete are live. The
+					// card shows only when an extension provides the routes
+					// (Pro turns buddynext_search_saved_searches on): members are
+					// never shown a control they cannot use.
+					if ( $bn_search_ctx['isLoggedIn'] && (bool) apply_filters( 'buddynext_search_saved_searches', false ) ) :
 						?>
 						<div class="bn-card bn-search-aside__card bn-search-saved"
 							data-interactive

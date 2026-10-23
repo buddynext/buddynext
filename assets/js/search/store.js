@@ -119,7 +119,7 @@ const searchStore = store( 'buddynext/search', {
 					const reason = res.data && res.data.message;
 					ctx.savedMsg = ( 404 !== res.status && reason )
 						? reason
-						: t( 'searchSaveProRequired', 'Could not save. Saved searches require BuddyNext Pro.' );
+						: t( 'searchSaveProRequired', 'Saving searches is not available right now.' );
 					return;
 				}
 				ctx.savedName = '';

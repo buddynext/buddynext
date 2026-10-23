@@ -1072,7 +1072,7 @@ class FieldType {
 				</div>',
 				esc_attr( $name ),
 				esc_attr( (string) $value ),
-				esc_html__( 'This field needs BuddyNext Pro to edit. Your saved value is kept.', 'buddynext' )
+				esc_html__( 'This field cannot be edited here. Your saved value is kept.', 'buddynext' )
 			);
 		}
 

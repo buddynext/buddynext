@@ -2101,7 +2101,7 @@ class AssetService {
 				'i18n' => array(
 					'nameSearchFirst'       => __( 'Please name this search first.', 'buddynext' ),
 					'searchSaved'           => __( 'Search saved.', 'buddynext' ),
-					'searchSaveProRequired' => __( 'Could not save. Saved searches require BuddyNext Pro.', 'buddynext' ),
+					'searchSaveProRequired' => __( 'Saving searches is not available right now.', 'buddynext' ),
 					'searchSaveFailed'      => __( 'Could not save this search. Try again.', 'buddynext' ),
 					'recentSearchesLabel'   => __( 'Recent searches', 'buddynext' ),
 					'recentSearchesTitle'   => __( 'Recent:', 'buddynext' ),

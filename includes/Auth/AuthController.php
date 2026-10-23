@@ -1059,7 +1059,7 @@ class AuthController {
 		}
 
 		$name  = sanitize_text_field( $name );
-		$label = '' !== $name ? $name : __( 'BuddyNext app', 'buddynext' );
+		$label = '' !== $name ? $name : sprintf( /* translators: %s: community name. */ __( '%s app', 'buddynext' ), buddynext_site_name() );
 
 		// The app's stable per-install UUID, same semantics as WP core's
 		// authorize-application flow: with it, the site shows ONE credential
