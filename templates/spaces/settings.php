@@ -67,32 +67,13 @@ $bn_actor_id       = get_current_user_id();
 // panels' own "read-only for a moderator" comments were false (card 10264293210).
 $bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) );
 
-// Services own every read/write below; the template holds no SQL. The
-// settings parts expect `$space` as an object carrying the joined
-// `category_name`/`category_slug`, so each fresh load runs through this
-// closure: SpaceService::get() (canonical hydrate + cache) enriched with the
-// category row via SpaceCategoryService, then cast to an object.
+// Services own every read/write below; the template holds no SQL. The settings
+// parts read `$space` as SpaceService::get_object() shapes it, with the category
+// name and slug resolved.
 $bn_space_service    = new \BuddyNext\Spaces\SpaceService();
 $bn_category_service = new \BuddyNext\Spaces\SpaceCategoryService();
 
-$bn_load_space = static function ( int $sid ) use ( $bn_space_service, $bn_category_service ): ?object {
-	$row = $bn_space_service->get( $sid );
-	if ( null === $row ) {
-		return null;
-	}
-	$row['category_name'] = null;
-	$row['category_slug'] = null;
-	if ( ! empty( $row['category_id'] ) ) {
-		$cat = $bn_category_service->get_by_id( (int) $row['category_id'] );
-		if ( null !== $cat ) {
-			$row['category_name'] = $cat['name'] ?? null;
-			$row['category_slug'] = $cat['slug'] ?? null;
-		}
-	}
-	return (object) $row;
-};
-
-$space = $bn_load_space( $space_id );
+$space = $bn_space_service->get_object( $space_id );
 
 if ( ! $space ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
@@ -343,7 +324,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		}
 
 		// Re-fetch fresh space data through the service (cache busted above).
-		$space = $bn_load_space( $space_id );
+		$space = $bn_space_service->get_object( $space_id );
 	}
 }
 

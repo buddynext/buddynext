@@ -24,12 +24,11 @@ if ( $bn_sh_space_id <= 0 ) {
 	return;
 }
 
-$bn_sh_record = ( new \BuddyNext\Spaces\SpaceService() )->get( $bn_sh_space_id );
-if ( null === $bn_sh_record ) {
+// get_object() carries category_slug, which the hero needs for the category icon on a space with no avatar.
+$bn_sh_space = ( new \BuddyNext\Spaces\SpaceService() )->get_object( $bn_sh_space_id );
+if ( null === $bn_sh_space ) {
 	return;
 }
-// get_object() carries category_slug, which the hero needs for the category icon on a space with no avatar.
-$bn_sh_space  = ( new \BuddyNext\Spaces\SpaceService() )->get_object( $bn_sh_space_id );
 $bn_sh_active = isset( $active_tab ) && '' !== (string) $active_tab ? (string) $active_tab : 'feed';
 $bn_sh_viewer = get_current_user_id();
 
@@ -62,7 +61,7 @@ $bn_sh_is_invited = 'invited' === $bn_sh_status;
 $bn_sh_is_guest   = 0 === (int) $bn_sh_viewer;
 
 // Header stats — Members / Posts (when > 0) / Created, mirroring the space home.
-$bn_sh_member_count = (int) ( $bn_sh_record['member_count'] ?? 0 );
+$bn_sh_member_count = (int) ( $bn_sh_space->member_count ?? 0 );
 $bn_sh_post_count   = (int) buddynext_service( 'feed' )->space_post_count( $bn_sh_space_id, $bn_sh_viewer );
 $bn_sh_stats        = array();
 if ( $bn_sh_member_count > 0 ) {

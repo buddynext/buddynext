@@ -186,7 +186,7 @@ class MemberBlogBridge {
 				'priority'  => 65,
 				'condition' => $enabled,
 				'url'       => static fn( NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'articles/',
-				'count'     => fn( NavContext $c ): int => $this->article_count( $c->subject_id, $c->viewer_id ),
+				'count'     => fn( NavContext $c ): int => $this->article_count( $c->subject_id ),
 				'render'    => function ( NavContext $c ): void {
 					$this->render_profile_articles_panel( $c->subject_id, $c->viewer_id );
 				},
@@ -195,23 +195,22 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * How many articles this viewer may see from this member.
+	 * How many published articles this member has.
 	 *
 	 * Counted with a dedicated COUNT query rather than by measuring the list: the
 	 * badge must not pull a prolific author's whole archive into memory to print a
 	 * number.
 	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @param int $user_id Profile owner.
 	 */
-	public function article_count( int $user_id, int $viewer_id ): int {
+	public function article_count( int $user_id ): int {
 		if ( $user_id <= 0 ) {
 			return 0;
 		}
 
 		$query = new \WP_Query(
 			array_merge(
-				$this->articles_query_args( $user_id, $viewer_id, 1, 1 ),
+				$this->articles_query_args( $user_id, 1, 1 ),
 				array(
 					'fields'                 => 'ids',
 					'update_post_meta_cache' => false,
@@ -232,31 +231,30 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * How many articles this viewer can see on this member's tab.
+	 * How many articles are on this member's tab.
 	 *
 	 * The same query the panel renders, counted, so the router's past-the-end
 	 * check and the panel can never disagree about the last page.
 	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @param int $user_id Profile owner.
 	 * @return int
 	 */
-	public function article_total( int $user_id, int $viewer_id ): int {
-		$args           = $this->articles_query_args( $user_id, $viewer_id, 1, 1 );
+	public function article_total( int $user_id ): int {
+		$args           = $this->articles_query_args( $user_id, 1, 1 );
 		$args['fields'] = 'ids';
 		return (int) ( new \WP_Query( $args ) )->found_posts;
 	}
 
 	/**
-	 * WP_Query args for a member's articles as this viewer sees them.
+	 * WP_Query args for a member's articles: published only, for every viewer,
+	 * owner included. Drafts are managed in the Member Blog dashboard.
 	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer.
-	 * @param int $per_page  Page size.
-	 * @param int $paged     Page.
+	 * @param int $user_id  Profile owner.
+	 * @param int $per_page Page size.
+	 * @param int $paged    Page.
 	 * @return array<string,mixed>
 	 */
-	private function articles_query_args( int $user_id, int $viewer_id, int $per_page, int $paged ): array {
+	private function articles_query_args( int $user_id, int $per_page, int $paged ): array {
 		$args = array(
 			'author'                 => $user_id,
 			'post_type'              => $this->tracked_types(),
@@ -306,7 +304,7 @@ class MemberBlogBridge {
 		$paged    = max( 1, absint( get_query_var( 'paged', 0 ) ) );
 		$per_page = self::articles_per_page();
 
-		$query    = new \WP_Query( $this->articles_query_args( $user_id, $viewer_id, $per_page, $paged ) );
+		$query    = new \WP_Query( $this->articles_query_args( $user_id, $per_page, $paged ) );
 		$is_owner = $viewer_id > 0 && $viewer_id === $user_id;
 
 		// Each row's Edit goes to THAT post. It used to open the dashboard for
@@ -372,12 +370,10 @@ class MemberBlogBridge {
 		$page     = max( 1, $page );
 		$per_page = max( 1, min( 50, $per_page ) );
 
-		$query = new \WP_Query( $this->articles_query_args( $user_id, $viewer_id, $per_page, $page ) );
+		$query = new \WP_Query( $this->articles_query_args( $user_id, $per_page, $page ) );
 
 		$items = array();
 		foreach ( $query->posts as $post ) {
-			$status  = (string) $post->post_status;
-			$obj     = get_post_status_object( $status );
 			$cover   = get_the_post_thumbnail_url( $post, 'medium' );
 			$items[] = array(
 				'id'           => (int) $post->ID,
@@ -389,8 +385,9 @@ class MemberBlogBridge {
 				'date_display' => (string) get_the_date( '', $post ),
 				'excerpt'      => wp_trim_words( wp_strip_all_tags( (string) get_the_excerpt( $post ) ), 28 ),
 				'cover'        => $cover ? (string) $cover : null,
-				'status'       => $status,
-				'status_label' => $obj ? (string) $obj->label : $status,
+				// Kept in the REST shape; the list is published-only, so always "publish".
+				'status'       => 'publish',
+				'status_label' => __( 'Published', 'buddynext' ),
 				// Where the owner edits THIS post; '' for everyone else.
 				'edit_url'     => $is_owner ? $this->edit_url( (int) $post->ID, $user_id ) : '',
 			);

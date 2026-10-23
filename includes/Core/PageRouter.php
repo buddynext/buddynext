@@ -1691,7 +1691,7 @@ class PageRouter {
 			$user_id = (int) ( $context['user_id'] ?? 0 );
 			if ( 'articles' === $action ) {
 				return $user_id > 0
-					&& ( new \BuddyNext\Bridges\MemberBlogBridge() )->article_total( $user_id, $viewer ) <= ( $page - 1 ) * \BuddyNext\Bridges\MemberBlogBridge::articles_per_page();
+					&& ( new \BuddyNext\Bridges\MemberBlogBridge() )->article_total( $user_id ) <= ( $page - 1 ) * \BuddyNext\Bridges\MemberBlogBridge::articles_per_page();
 			}
 			if ( '' === $action || in_array( $action, self::PROFILE_SINGLE_PAGE_TABS, true ) ) {
 				return true;

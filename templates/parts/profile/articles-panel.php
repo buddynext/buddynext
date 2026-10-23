@@ -86,12 +86,11 @@ endif;
 			continue;
 		}
 
-		$bn_ar_id     = (int) $bn_ar_post->ID;
-		$bn_ar_link   = (string) get_permalink( $bn_ar_id );
-		$bn_ar_title  = get_the_title( $bn_ar_id );
-		$bn_ar_title  = '' !== trim( (string) $bn_ar_title ) ? $bn_ar_title : __( '(untitled)', 'buddynext' );
-		$bn_ar_thumb  = (string) get_the_post_thumbnail_url( $bn_ar_id, 'medium' );
-		$bn_ar_status = (string) $bn_ar_post->post_status;
+		$bn_ar_id    = (int) $bn_ar_post->ID;
+		$bn_ar_link  = (string) get_permalink( $bn_ar_id );
+		$bn_ar_title = get_the_title( $bn_ar_id );
+		$bn_ar_title = '' !== trim( (string) $bn_ar_title ) ? $bn_ar_title : __( '(untitled)', 'buddynext' );
+		$bn_ar_thumb = (string) get_the_post_thumbnail_url( $bn_ar_id, 'medium' );
 		?>
 		<li class="bn-articles__item">
 			<article class="bn-card bn-article-card">
@@ -104,16 +103,6 @@ endif;
 				<div class="bn-article-card__body">
 					<h3 class="bn-article-card__title">
 						<a href="<?php echo esc_url( $bn_ar_link ); ?>"><?php echo esc_html( $bn_ar_title ); ?></a>
-						<?php if ( 'publish' !== $bn_ar_status ) : ?>
-							<?php
-							// Only the owner (and editors) ever reach a non-published row -
-							// the bridge does not return them to anyone else - but the badge
-							// is what stops an unfinished draft reading as live.
-							$bn_ar_obj   = get_post_status_object( $bn_ar_status );
-							$bn_ar_label = $bn_ar_obj->label ?? $bn_ar_status;
-							?>
-							<span class="bn-badge bn-badge--muted"><?php echo esc_html( $bn_ar_label ); ?></span>
-						<?php endif; ?>
 					</h3>
 
 					<div class="bn-article-card__meta">
