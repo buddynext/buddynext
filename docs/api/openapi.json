@@ -7518,6 +7518,49 @@
                 ]
             }
         },
+        "/members/{id}/portfolio": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_members_id_portfolio",
+                "summary": "GET /buddynext/v1/members/{id}/portfolio",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MembersPortfolio"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/moderation/log": {
             "get": {
                 "tags": [
@@ -17030,6 +17073,49 @@
                 "type": "object",
                 "description": "Result of a write operation. The fields depend on the operation.",
                 "additionalProperties": true
+            },
+            "MembersPortfolio": {
+                "type": "object",
+                "properties": {
+                    "member_id": {
+                        "type": "integer"
+                    },
+                    "is_owner": {
+                        "type": "boolean"
+                    },
+                    "panels": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "icon": {
+                                    "type": "string"
+                                },
+                                "count": {
+                                    "type": "integer"
+                                },
+                                "cta": {
+                                    "type": [
+                                        "array",
+                                        "object"
+                                    ]
+                                },
+                                "owner_cta": {
+                                    "type": "object"
+                                },
+                                "items": {
+                                    "type": "array"
+                                }
+                            }
+                        }
+                    }
+                }
             },
             "AuthRegisterConfig": {
                 "type": "object",
