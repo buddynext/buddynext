@@ -116,6 +116,7 @@ final class FixtureAddon extends AbstractAddon {
 			new Modules\Search(),
 			new Modules\Settings(),
 			new Modules\Discovery(),
+			new Modules\Panels(),
 		);
 	}
 }

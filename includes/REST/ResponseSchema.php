@@ -481,6 +481,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/members/{id}/portfolio',
+				'resource' => 'members_portfolio',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/members/{id}/discussions',
 				'resource' => 'members_discussions',
 				'shape'    => 'item',
@@ -4867,6 +4873,60 @@ final class ResponseSchema {
 				),
 				'bookmarked' => array(
 					'type' => 'boolean',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Schema for GET /members/{id}/portfolio.
+	 *
+	 * @since 1.2.7
+	 * @return array<string,mixed>
+	 */
+	public static function members_portfolio(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'members-portfolio',
+			'type'       => 'object',
+			'properties' => array(
+				'member_id' => array(
+					'type' => 'integer',
+				),
+				'is_owner'  => array(
+					'type' => 'boolean',
+				),
+				'panels'    => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'key'       => array(
+								'type' => 'string',
+							),
+							'label'     => array(
+								'type' => 'string',
+							),
+							'icon'      => array(
+								'type' => 'string',
+							),
+							'count'     => array(
+								'type' => 'integer',
+							),
+							'cta'       => array(
+								'type' => array(
+									'array',
+									'object',
+								),
+							),
+							'owner_cta' => array(
+								'type' => 'object',
+							),
+							'items'     => array(
+								'type' => 'array',
+							),
+						),
+					),
 				),
 			),
 		);

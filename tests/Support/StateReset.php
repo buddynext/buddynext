@@ -65,6 +65,10 @@ final class StateReset implements BeforeTestHook {
 	public const MEMOS = array(
 		// Sprite mode is per page render; a test that opens it must not leave the next
 		// test's icons as <use> references to a sprite that was never printed.
+		// Modules switched off by a failure last only for the request that failed.
+		\BuddyNext\Addons\ModuleWiring::class          => array(
+			'disabled' => array(),
+		),
 		\BuddyNext\Core\IconService::class              => array(
 			'sprite_open'       => false,
 			'symbols'           => array(),
@@ -195,6 +199,7 @@ final class StateReset implements BeforeTestHook {
 	 * @var array<string, string>
 	 */
 	public const PERSISTENT = array(
+		'BuddyNext\Addons\AddonRegistry::instance'           => 'Registered from code at boot, not from the database. Tests that need a clean registry call AddonRegistry::reset().',
 		'BuddyNext\Core\Plugin::booted'                        => 'Resetting this would re-run the whole boot on the next test, registering every hook a second time.',
 		'BuddyNext\Core\Container::instance'                   => 'The service container IS the application; rebuilding it per test would discard every binding the bootstrap made.',
 		'BuddyNext\Core\IconService::icons_dir'                => 'A filesystem path resolved once. Not derived from the database.',

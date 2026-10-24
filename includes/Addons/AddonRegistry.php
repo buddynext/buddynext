@@ -202,11 +202,11 @@ final class AddonRegistry {
 			switch ( $info['reason'] ) {
 				case 'api_too_new':
 					/* translators: %s: addon name. */
-					$text = sprintf( __( '%s needs a newer BuddyNext. Update BuddyNext to turn it on.', 'buddynext' ), $info['label'] );
+					$text = sprintf( __( '%s needs a newer version of the community plugin. Update it to turn this on.', 'buddynext' ), $info['label'] );
 					break;
 				case 'api_too_old':
 					/* translators: %s: addon name. */
-					$text = sprintf( __( '%s was built for an older BuddyNext and needs an update from its author.', 'buddynext' ), $info['label'] );
+					$text = sprintf( __( '%s was built for an older version of the community plugin and needs an update from its author.', 'buddynext' ), $info['label'] );
 					break;
 				default:
 					/* translators: 1: addon name, 2: minimum partner version. */

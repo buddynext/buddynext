@@ -72,6 +72,7 @@ class Router {
 
 		( new AccessWebhookController() )->register_routes();
 		( new RoleController() )->register_routes();
+		( new \BuddyNext\Profile\PortfolioController() )->register_routes();
 		( new AuthController() )->register_routes();
 		( new TwoFactorController() )->register_routes();
 		( new InviteController() )->register_routes();

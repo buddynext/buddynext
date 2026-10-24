@@ -50,6 +50,7 @@ An addon uses only the interfaces it needs. Labels may be translated: modules ar
 | `NotificationSource` | - | hook carrying the payload, prefix, icon, types, a visibility answer | Registers the source and adopts the notification contract, so the bell, push and realtime pick it up |
 | `SearchSource` | Include in search | types, result link, next ids to re-index, index one | Runs the re-index when the owner switches search on, removes the index when it is switched off |
 | `SettingsModule` | - | `Field` objects with option keys that start with `buddynext_<slug>_` | Renders them inside your card on Integration Settings, saves each through its own sanitiser, lists them for search and defaults |
+| `ProfilePanelModule` | Show in navigation | `panels( $member_id )`: key, label, icon, count, items, `cta`, `owner_cta`, `owner_only` | Adds a sub-tab under the member's Portfolio tab and serves the same data to the app at `GET /buddynext/v1/members/{id}/portfolio` |
 | `DiscoveryModule` | - | a banner for the space header, paths that must load in full | Shows the banner under the space header and adds your paths to the client-nav deny list |
 
 ### Feed cards
@@ -75,6 +76,10 @@ Fire your hook with the contract payload as its **last** argument. Declare each 
 
 ### Settings
 
+### Profile panels
+
+Panels are cached for "the member viewing their own profile" and "anyone else", not per viewer. A panel that is not `owner_only` must return the same data to every viewer; mark anything that depends on who is looking `owner_only`, and it is dropped for everyone else. When the member's data changes, call `do_action( 'buddynext_suite_panels_changed', $member_id )`.
+
 Do not add an admin tab. Declare fields and they appear in your card. Prefer a filter to a setting where an opinionated default will do.
 
 ## Hooks
@@ -82,6 +87,9 @@ Do not add an admin tab. Declare fields and they appear in your card. Prefer a f
 | Hook | When |
 |---|---|
 | `buddynext_register_addons` (action, `AddonRegistry $registry`) | Register your addon here. Fires once, at `buddynext_load_bridges`. |
+| `buddynext_member_suite_panels` (filter, `array $panels`, `int $member_id`) | Collects the Portfolio panels for a member. Prefer `ProfilePanelModule`; use the filter only from a plugin that is not an addon. |
+| `buddynext_suite_panels_changed` (action, `int $member_id`) | Call it when a member's panel data changes so the cached panels are rebuilt. |
+| `buddynext_suite_panels_ttl` (filter, `int $seconds`) | How long panels are cached. Default 5 minutes. |
 | `buddynext_addon_module_failed` (action, `string $slug`, `string $module`, `Throwable $error`) | A module threw and has been switched off for the rest of the request. The error is also written to the PHP error log. |
 
 ## Keeping it stable

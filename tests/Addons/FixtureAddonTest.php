@@ -86,10 +86,14 @@ class FixtureAddonTest extends WP_UnitTestCase {
 		$this->assertSame( 'api_too_new', AddonRegistry::instance()->refused()['fixture']['reason'] );
 		$this->assertNull( IntegrationRegistry::instance()->get( 'fixture' ) );
 
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin ); // Only a network admin holds activate_plugins on a network.
+		}
+		wp_set_current_user( $admin );
 		ob_start();
 		AddonRegistry::instance()->render_notices();
-		$this->assertStringContainsString( 'needs a newer BuddyNext', (string) ob_get_clean() );
+		$this->assertStringContainsString( 'needs a newer version of the community plugin', (string) ob_get_clean() );
 	}
 
 	public function test_a_partner_below_the_floor_is_listed_for_the_badge_but_its_modules_stay_off(): void {
@@ -351,5 +355,36 @@ class FixtureAddonTest extends WP_UnitTestCase {
 
 		$this->assertSame( 'Kept', get_option( 'buddynext_fixture_greeting' ) );
 		$this->assertSame( '1', get_option( 'buddynext_integration_fixture_feed' ) );
+	}
+
+	public function test_profile_panels_reach_the_portfolio_and_the_owner_only_one_stays_off_other_views(): void {
+		$this->wired();
+		$entry = IntegrationRegistry::instance()->get( 'fixture' );
+		$this->assertTrue( $entry['has_nav'] );
+
+		$member = self::factory()->user->create();
+		$other  = self::factory()->user->create();
+		$host   = new \BuddyNext\Profile\SuitePanelHost();
+		\BuddyNext\Profile\SuitePanelHost::flush( $member );
+
+		wp_set_current_user( $member );
+		$own = wp_list_pluck( $host->panels( $member ), 'key' );
+		$this->assertContains( 'fixture_public', $own );
+		$this->assertContains( 'fixture_private', $own );
+
+		wp_set_current_user( $other );
+		$request  = new \WP_REST_Request( 'GET', "/buddynext/v1/members/{$member}/portfolio" );
+		$response = rest_do_request( $request );
+		$keys     = wp_list_pluck( $response->get_data()['panels'], 'key' );
+		$this->assertSame( array( 'fixture_public' ), $keys );
+	}
+
+	public function test_profile_panels_go_quiet_when_the_navigation_switch_is_off(): void {
+		$this->wired();
+		update_option( 'buddynext_integration_fixture_nav', 0 );
+		$member = self::factory()->user->create();
+		\BuddyNext\Profile\SuitePanelHost::flush( $member );
+
+		$this->assertSame( array(), ( new \BuddyNext\Profile\SuitePanelHost() )->panels( $member ) );
 	}
 }

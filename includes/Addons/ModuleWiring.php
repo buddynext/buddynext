@@ -56,6 +56,9 @@ final class ModuleWiring {
 			if ( $module instanceof DiscoveryModule ) {
 				self::discovery( $addon, $module );
 			}
+			if ( $module instanceof ProfilePanelModule ) {
+				self::profile_panels( $addon, $module );
+			}
 		} catch ( \Throwable $e ) {
 			self::fail( $addon, $module, $e );
 		}
@@ -416,6 +419,31 @@ final class ModuleWiring {
 					return $deny;
 				}
 			)
+		);
+	}
+
+	/**
+	 * Profile: the addon's panels on the member's Portfolio tab.
+	 *
+	 * @param AbstractAddon      $addon  The addon.
+	 * @param ProfilePanelModule $module The module.
+	 * @return void
+	 */
+	private static function profile_panels( AbstractAddon $addon, ProfilePanelModule $module ): void {
+		add_filter(
+			'buddynext_member_suite_panels',
+			self::guard(
+				$addon,
+				$module,
+				static function ( $panels, $member_id = 0 ) use ( $addon, $module ) {
+					if ( ! buddynext_integration_enabled( $addon->slug(), 'nav' ) ) {
+						return $panels;
+					}
+					return array_merge( (array) $panels, array_values( array_filter( $module->panels( (int) $member_id ), 'is_array' ) ) );
+				}
+			),
+			10,
+			2
 		);
 	}
 }

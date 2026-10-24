@@ -784,6 +784,8 @@ class Plugin {
 
 		// Addons register after the first-party bridges have wired, so an addon can rely on them.
 		add_action( 'buddynext_load_bridges', array( \BuddyNext\Addons\AddonRegistry::instance(), 'boot' ), 20 );
+		// The Portfolio profile tab every integration's panels register into.
+		( new \BuddyNext\Profile\SuitePanelHost() )->register();
 
 		add_action(
 			'buddynext_load_bridges',

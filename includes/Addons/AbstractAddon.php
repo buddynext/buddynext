@@ -210,6 +210,7 @@ abstract class AbstractAddon {
 			'tested_version'   => $this->tested_version(),
 			'feature_versions' => $this->feature_versions(),
 			'nav_label'        => $this->nav_label(),
+			'has_nav'          => $has( ProfilePanelModule::class ),
 			'has_feed'         => $has( FeedCardModule::class ),
 			'has_search'       => $has( SearchSource::class ),
 		);
