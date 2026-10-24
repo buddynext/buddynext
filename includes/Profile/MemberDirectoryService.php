@@ -844,12 +844,12 @@ class MemberDirectoryService {
 	 * moderation_exclude_sql() — that is the hide_posts content gate, a different rule.
 	 *
 	 * @param string $user_col Correlated user-id column for the outer query.
-	 * @return string[] Three `NOT EXISTS (...)` clause strings.
+	 * @return string[] The `NOT EXISTS (...)` clause strings, plus the network member scope.
 	 */
 	private function directory_exclusion_subqueries( string $user_col ): array {
 		global $wpdb;
 
-		return array(
+		$clauses = array(
 			"NOT EXISTS (
 			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
 			    WHERE s_ex.user_id = {$user_col}
@@ -869,6 +869,14 @@ class MemberDirectoryService {
 			      AND um_dir.meta_value = '0'
 			  )",
 		);
+
+		// Network only: a member is a user with a role on the main site.
+		$scope = buddynext_member_scope_sql( $user_col );
+		if ( '' !== $scope ) {
+			$clauses[] = $scope;
+		}
+
+		return $clauses;
 	}
 
 	/**

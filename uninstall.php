@@ -174,18 +174,17 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 // deactivate-then-delete is destructive and irreversible, and matches nothing a
 // careful owner expects. Only when the owner has explicitly ticked
 // "Delete all BuddyNext data when uninstalled" do the data tables and user meta
-// go. Read per site for that site's own tables, pages and options, BEFORE the
-// option sweep removes the flag. User meta is one table for the whole network,
-// so it follows only the main site's choice (the network owner): one subsite
-// admin must not be able to wipe every member's data network-wide. Financial
-// data lives in Pro's tables and is retained there regardless; Pro reads this
-// same option.
-$bn_wipe_members = (bool) ( is_multisite()
-	? get_blog_option( get_main_site_id(), 'buddynext_delete_data_on_uninstall', false )
-	: get_option( 'buddynext_delete_data_on_uninstall', false ) );
+// go. On a network the community lives on the main site only, so uninstall runs
+// once, on the main site, and only the main site's choice counts; a subsite
+// admin has no say over the shared member meta. Financial data lives in Pro's
+// tables and is retained there regardless; Pro reads this same option.
+if ( is_multisite() ) {
+	switch_to_blog( get_main_site_id() );
+}
+$bn_wipe_members = (bool) get_option( 'buddynext_delete_data_on_uninstall', false );
 
 /**
- * Purge one site: always clear settings + infrastructure; drop member data only
+ * Purge the community site: always clear settings + infrastructure; drop member data only
  * when the owner opted in.
  *
  * @param string $prefix Table prefix for the site being cleaned.
@@ -206,18 +205,12 @@ $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_me
 	$bn_purge_meta( true );
 };
 
-if ( is_multisite() ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$bn_blog_ids = $wpdb->get_col( "SELECT blog_id FROM {$wpdb->blogs}" );
-	foreach ( (array) $bn_blog_ids as $bn_blog_id ) {
-		switch_to_blog( (int) $bn_blog_id );
-		$bn_clean_site( $wpdb->prefix );
-		restore_current_blog();
-	}
-} else {
-	$bn_clean_site( $wpdb->prefix );
-}
+$bn_clean_site( $wpdb->prefix );
 
 if ( $bn_wipe_members ) {
 	$bn_purge_meta();
+}
+
+if ( is_multisite() ) {
+	restore_current_blog();
 }

@@ -1020,99 +1020,24 @@ class Installer {
 	}
 
 	/**
-	 * Keep each site of a network in step with BuddyNext: tables for a site added
-	 * while BuddyNext is network-active, and its tables dropped when it is deleted.
+	 * Install once if nothing has installed BuddyNext yet.
+	 *
+	 * Activating from a subsite address (WP-CLI --url=, or a network activation
+	 * started from a subsite screen) loads the plugin on that subsite, where
+	 * BuddyNext defines nothing and cannot install. The first request on the
+	 * community site then installs it. One autoloaded option read once installed.
+	 * Honours the same refusals as activation: a database that cannot hold the
+	 * schema, and the hourly back-off after a failed attempt.
 	 *
 	 * @return void
 	 */
-	public static function register_multisite(): void {
-		if ( ! is_multisite() ) {
+	public static function install_if_missing(): void {
+		if ( false !== get_option( 'buddynext_schema_version' )
+			|| '' !== self::unsupported_db_reason()
+			|| self::schema_failure_is_recent() ) {
 			return;
-		}
-		// After core has created the new site's own tables (priority 10).
-		add_action( 'wp_initialize_site', array( self::class, 'install_new_site' ), 900 );
-		add_filter( 'wpmu_drop_tables', array( self::class, 'site_tables' ), 10, 2 );
-	}
-
-	/**
-	 * Install BuddyNext on a site just added to a network where it is network-active.
-	 *
-	 * Without this the new site had no tables until its first wp-admin visit, so
-	 * front-end requests before that failed on missing tables.
-	 *
-	 * @param \WP_Site $site The new site.
-	 * @return void
-	 */
-	public static function install_new_site( \WP_Site $site ): void {
-		if ( ! isset( ( (array) get_site_option( 'active_sitewide_plugins', array() ) )[ BUDDYNEXT_BASENAME ] ) ) {
-			return;
-		}
-		self::install_on_site( (int) $site->blog_id );
-	}
-
-	/**
-	 * Install BuddyNext on another site of the network, from this request.
-	 *
-	 * Action Scheduler builds its tables when it boots on a site, which has not
-	 * happened for a site we only switched to, so run()'s first jobs would be
-	 * dropped. Build them first.
-	 *
-	 * @param int $site_id Site to install on.
-	 * @return void
-	 */
-	private static function install_on_site( int $site_id ): void {
-		switch_to_blog( $site_id );
-		if ( class_exists( '\\ActionScheduler_StoreSchema' ) && class_exists( '\\ActionScheduler_LoggerSchema' ) ) {
-			( new \ActionScheduler_StoreSchema() )->register_tables( true );
-			( new \ActionScheduler_LoggerSchema() )->register_tables( true );
 		}
 		self::run();
-		restore_current_blog();
-	}
-
-	/**
-	 * Install BuddyNext on every existing site when it is network-activated.
-	 *
-	 * Activation otherwise installs the main site only. A large network (over
-	 * 10,000 sites) is left to each site's first wp-admin visit (maybe_upgrade),
-	 * because one request cannot install them all.
-	 *
-	 * @param bool $network_wide Whether this is a network activation.
-	 * @return void
-	 */
-	public static function activate( $network_wide = false ): void {
-		if ( ! $network_wide || ! is_multisite() ) {
-			self::run();
-			return;
-		}
-		if ( wp_is_large_network() ) {
-			self::run();
-			return;
-		}
-		foreach ( get_sites(
-			array(
-				'fields' => 'ids',
-				'number' => 0,
-			)
-		) as $site_id ) {
-			self::install_on_site( (int) $site_id );
-		}
-	}
-
-	/**
-	 * Add BuddyNext's tables to the list core drops when a site is deleted.
-	 *
-	 * @param string[] $tables  Table names core will drop.
-	 * @param int      $site_id The site being deleted.
-	 * @return string[]
-	 */
-	public static function site_tables( $tables, $site_id ): array {
-		global $wpdb;
-		$prefix = $wpdb->get_blog_prefix( (int) $site_id );
-		foreach ( array_merge( self::OWNED_TABLES, self::LEGACY_TABLES ) as $table ) {
-			$tables[] = $prefix . $table;
-		}
-		return array_values( array_unique( (array) $tables ) );
 	}
 
 	/**
@@ -5251,6 +5176,12 @@ if ( is_admin() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
 	return;
 }
 
+// On a network the community lives on the main site only; every other site loads
+// exactly the plugins it always did.
+if ( is_multisite() && ! is_main_site() ) {
+	return;
+}
+
 /**
  * Determine whether the current HTTP request targets a BuddyNext front-end route.
  *
@@ -5363,19 +5294,31 @@ if ( buddynext_mu_is_bn_request() ) {
 	 * @param string[]|mixed $plugins List of active plugin paths from wp_options.
 	 * @return string[] Filtered list.
 	 */
-	add_filter(
-		'option_active_plugins',
-		static function ( $plugins ) {
-			if ( ! is_array( $plugins ) ) {
+	$bn_strip_plugins = static function ( $plugins ) {
+			static $busy = false;
+
+			// The guard below reads both plugin lists, which runs this same filter
+			// again; the inner pass must return the raw list untouched.
+			if ( $busy || ! is_array( $plugins ) ) {
 				return $plugins;
 			}
 
-			// Self-guard: if BuddyNext itself is not active, do nothing. A
-			// mu-plugin left behind after BuddyNext is deactivated must never
-			// strip plugins on /members/, /spaces/ etc. (it matches those paths
-			// by slug and cannot tell BuddyNext is gone) — that would break the
-			// site. With BuddyNext inactive the mu-plugin is inert.
-			if ( ! in_array( 'buddynext/buddynext.php', $plugins, true ) ) {
+			// On a network BuddyNext is network-activated, so its row is in
+			// active_sitewide_plugins (keyed by plugin file) and the site's own
+			// active_plugins holds the rest. Both lists are filtered here.
+			$sitewide = 'site_option_active_sitewide_plugins' === current_filter();
+			$names    = $sitewide ? array_keys( $plugins ) : $plugins;
+
+			// Self-guard: if BuddyNext itself is not active (on this site or
+			// network-wide), do nothing. A mu-plugin left behind after BuddyNext is
+			// deactivated must never strip plugins on /members/, /spaces/ etc. (it
+			// matches those paths by slug and cannot tell BuddyNext is gone) — that
+			// would break the site. With BuddyNext inactive the mu-plugin is inert.
+			$busy      = true;
+			$site_list = (array) get_option( 'active_plugins', array() );
+			$net_list  = is_multisite() ? array_keys( (array) get_site_option( 'active_sitewide_plugins', array() ) ) : array();
+			$busy      = false;
+			if ( ! in_array( 'buddynext/buddynext.php', array_merge( $site_list, $net_list ), true ) ) {
 				return $plugins;
 			}
 
@@ -5443,7 +5386,7 @@ if ( buddynext_mu_is_bn_request() ) {
 			// per-request static still avoids re-reading within a request, since
 			// option_active_plugins is filtered many times.
 			static $bn_required_slugs_cache = array();
-			$scan     = array_values( array_diff( array_diff( $plugins, $strip ), $essentials ) );
+			$scan     = array_values( array_diff( array_diff( $names, $strip ), $essentials ) );
 			$scan_key = md5( implode( '|', $scan ) );
 			if ( ! isset( $bn_required_slugs_cache[ $scan_key ] ) ) {
 				$required_slugs = array();
@@ -5482,9 +5425,13 @@ if ( buddynext_mu_is_bn_request() ) {
 			}
 
 			// Keep every active plugin except the owner's explicit strip choices.
-			return array_values( array_diff( $plugins, $strip ) );
-		}
-	);
+			$kept = array_values( array_diff( $names, $strip ) );
+			return $sitewide ? array_intersect_key( $plugins, array_flip( $kept ) ) : $kept;
+	};
+	add_filter( 'option_active_plugins', $bn_strip_plugins );
+	if ( is_multisite() ) {
+		add_filter( 'site_option_active_sitewide_plugins', $bn_strip_plugins );
+	}
 }
 MUPLUGIN;
 		// phpcs:enable Squiz.Strings.DoubleQuoteUsage.NotRequired

@@ -33,7 +33,7 @@ jobs:
           fail=0
           while IFS= read -r -d '' f; do
             php -l "$f" >/dev/null 2>/tmp/lint.err || { echo "::error file=$f::$(cat /tmp/lint.err)"; fail=1; }
-          done < <(find buddynext.php includes templates blocks -name '*.php' -print0)
+          done < <(find buddynext.php bootstrap.php includes templates blocks -name '*.php' -print0)
           exit $fail
 
   static-analysis:

@@ -82,6 +82,10 @@ class BlogCommentSync implements ListenerInterface {
 	 * @return void
 	 */
 	public function sync_wp_comment_to_card( $comment_id, $comment ): void {
+		// Switched to another site of a network: the community tables are not there.
+		if ( ! buddynext_is_community_site() ) {
+			return;
+		}
 		if ( self::$syncing || ! $this->sync_enabled() || ! $comment instanceof \WP_Comment ) {
 			return;
 		}

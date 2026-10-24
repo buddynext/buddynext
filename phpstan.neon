@@ -12,6 +12,7 @@ parameters:
         - dev
     scanFiles:
         - buddynext.php
+        - bootstrap.php
         # Action Scheduler is BUNDLED (libs/action-scheduler) but sits outside the analysed
         # `paths`, so PHPStan could not see the as_* functions. Every call site guards with
         # function_exists(), and PHPStan understands that idiom when guard and call share a

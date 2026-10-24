@@ -1260,7 +1260,7 @@ class FollowService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		$rows  = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT value, COUNT(*) AS c FROM {$wpdb->prefix}bn_profile_values
@@ -1269,8 +1269,8 @@ class FollowService {
 			),
 			ARRAY_A
 		);
-		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' WHERE ' ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 		$counts = array();
 		foreach ( (array) $rows as $row ) {

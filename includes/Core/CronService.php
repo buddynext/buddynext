@@ -274,10 +274,6 @@ class CronService {
 			return;
 		}
 
-		if ( ! function_exists( 'wp_delete_user' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/user.php';
-		}
-
 		foreach ( $ids as $raw_id ) {
 			$uid = (int) $raw_id;
 
@@ -305,7 +301,7 @@ class CronService {
 				continue;
 			}
 
-			wp_delete_user( $uid );
+			buddynext_remove_member( $uid );
 		}
 	}
 

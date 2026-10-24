@@ -63,6 +63,10 @@ No. BuddyNext is a standalone community platform and does not depend on BuddyPre
 
 Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout, advanced moderation, email automation, analytics, AI, and more. Free and Pro are released in lockstep.
 
+= Does BuddyNext work on a multisite network? =
+
+Yes. Network Activate it (BuddyNext first, then Pro). One community runs on the network's main site and every other site is left unchanged. Settings and checkout are on the main site, a network user joins the community on their first action, and changing the main site is not supported. Blocks and shortcodes placed in other sites render nothing.
+
 = Does messaging require another plugin? =
 
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.

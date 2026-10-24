@@ -505,10 +505,10 @@ class AdminHub {
 		$yesterday_start = $site_today->modify( '-1 day' )->setTimezone( $utc )->format( 'Y-m-d H:i:s' );
 		$yesterday_end   = $site_today->modify( '-1 second' )->setTimezone( $utc )->format( 'Y-m-d H:i:s' );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 		$members_new_today = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s",
+				"SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ),
 				$today_start
 			)
 		);
@@ -527,7 +527,7 @@ class AdminHub {
 				$yesterday_end
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
 		$posts_pct = $posts_yesterday > 0
 			? (int) round( ( ( $posts_today - $posts_yesterday ) / $posts_yesterday ) * 100 )

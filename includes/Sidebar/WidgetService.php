@@ -543,7 +543,7 @@ class WidgetService {
 					'SELECT u.ID
 					 FROM ' . $wpdb->users . ' u
 					 WHERE u.ID ' . $op . ' %d
-					   AND u.ID NOT IN (' . $skip_ph . ')
+					   AND u.ID NOT IN (' . $skip_ph . ') ' . buddynext_member_scope_sql( 'u.ID', ' AND ' ) . '
 					   AND NOT EXISTS (
 						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
 						   WHERE f.follower_id = %d AND f.following_id = u.ID

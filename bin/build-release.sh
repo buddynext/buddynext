@@ -39,7 +39,7 @@ DIST="${1:-$HOME/Documents/work-artifacts/scratch}"
 
 # The ONLY paths that ship (libs/ carries the committed runtime deps).
 # Optional ones (languages, uninstall.php, readme.txt) are copied only if present.
-RUNTIME=( buddynext.php includes templates assets blocks libs )
+RUNTIME=( buddynext.php bootstrap.php includes templates assets blocks libs )
 OPTIONAL=( languages uninstall.php readme.txt )
 
 # 0. Release gate — never package a build that fails the quality bar. Aborts on a

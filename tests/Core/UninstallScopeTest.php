@@ -1,6 +1,6 @@
 <?php
 /**
- * Free's uninstall deletes only Free's jobs, and each site keeps its own choice.
+ * Free's uninstall deletes only Free's jobs, and on a network only the main site counts.
  *
  * @package BuddyNext\Tests\Core
  */
@@ -11,7 +11,7 @@ namespace BuddyNext\Tests\Core;
 
 /**
  * The jobs sweep matched `buddynext%`, which is also Pro's prefix, and the
- * delete-data opt-in was read once on the main site for the whole network.
+ * delete-data opt-in was read per site although the community lives on one.
  * The network case runs with WP_MULTISITE=1.
  *
  * @runTestsInSeparateProcesses
@@ -86,28 +86,30 @@ class UninstallScopeTest extends \WP_UnitTestCase {
 		$this->assertSame( '', get_user_meta( $user_id, 'bn_onboarding_done', true ) );
 	}
 
-	public function test_each_site_of_a_network_keeps_its_own_delete_data_choice(): void {
+	public function test_uninstall_on_a_network_cleans_the_main_site_and_leaves_subsites_alone(): void {
 		if ( ! is_multisite() ) {
 			$this->markTestSkipped( 'Multisite only: run with WP_MULTISITE=1.' );
 		}
 
-		// Main site opted in; a second site did not. Hub pages go only on opt-in.
 		update_option( 'buddynext_delete_data_on_uninstall', '1' );
 		$main_page = self::factory()->post->create( array( 'post_type' => 'page' ) );
 		update_option( 'buddynext_page_activity', $main_page );
 
+		// A subsite has no community, so nothing of ours is there to clean, even
+		// if someone set the option by hand.
 		$site_id = (int) self::factory()->blog->create();
 		switch_to_blog( $site_id );
-		delete_option( 'buddynext_delete_data_on_uninstall' );
+		update_option( 'buddynext_delete_data_on_uninstall', '1' );
 		$site_page = self::factory()->post->create( array( 'post_type' => 'page' ) );
 		update_option( 'buddynext_page_activity', $site_page );
 		restore_current_blog();
 
 		$this->uninstall();
 
-		$this->assertNull( get_post( $main_page ), 'The site that opted in is wiped.' );
+		$this->assertNull( get_post( $main_page ), 'The main site, where the community lives, is wiped.' );
 		switch_to_blog( $site_id );
-		$this->assertNotNull( get_post( $site_page ), 'The site that did not opt in keeps its pages.' );
+		$this->assertNotNull( get_post( $site_page ), 'A subsite page is not touched.' );
+		$this->assertSame( (string) $site_page, (string) get_option( 'buddynext_page_activity' ), 'A subsite option is not touched.' );
 		restore_current_blog();
 	}
 }

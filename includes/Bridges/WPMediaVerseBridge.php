@@ -3496,6 +3496,10 @@ class WPMediaVerseBridge {
 	 * @return void
 	 */
 	public function withdraw_lightbox_comment( $comment_id ): void {
+		// Switched to another site of a network: the community tables are not there.
+		if ( ! buddynext_is_community_site() ) {
+			return;
+		}
 		$comment  = get_comment( (int) $comment_id );
 		$media_id = $comment ? (int) get_comment_meta( (int) $comment->comment_ID, 'mvs_media_id', true ) : 0;
 		if ( ! $comment || $media_id <= 0 || ! function_exists( 'buddynext_service' ) ) {

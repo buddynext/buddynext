@@ -206,6 +206,9 @@ class VerificationListener implements ListenerInterface {
 	 * @param int $user_id Newly registered WordPress user ID.
 	 */
 	public function on_user_register( int $user_id ): void {
+		if ( buddynext_is_network_provisioning() ) {
+			return;
+		}
 		if ( ! self::feature_active() ) {
 			return;
 		}

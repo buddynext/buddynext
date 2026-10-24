@@ -71,7 +71,8 @@ default. Speed and stability come first on every change.
 |-------|-----------|
 | PHP | 8.1+ strict types everywhere |
 | WordPress | 6.9+ |
-| Autoloader | Hand-written PSR-4 (`BuddyNext\` → `includes/`) in `buddynext.php`; runtime never touches Composer. `vendor/` is dev-only and gitignored. |
+| Main file | `buddynext.php` holds only the header, `buddynext_is_community_site()` and a conditional `require` of `bootstrap.php` (multisite: subsites load nothing else). |
+| Autoloader | Hand-written PSR-4 (`BuddyNext\` → `includes/`) in `bootstrap.php`; runtime never touches Composer. `vendor/` is dev-only and gitignored. |
 | Architecture | DI Service Container |
 | Permissions | WordPress Abilities API — `buddynext_can( $user_id, 'ability-slug' )` |
 | Frontend reactivity | WordPress Interactivity API — no React, no build step |

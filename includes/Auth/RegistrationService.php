@@ -131,6 +131,16 @@ class RegistrationService {
 			);
 		}
 
+		// On a network, the owner's banned names (Network Admin > Settings) apply to the
+		// username too. The email domain rules are checked with the other domain rules.
+		if ( is_multisite() && in_array( strtolower( (string) $data['user_login'] ), (array) get_site_option( 'illegal_names', array() ), true ) ) {
+			return new WP_Error(
+				'bn_reg_name',
+				__( 'That username is not allowed.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
 		$values = $policy->validate_data( $data );
 		if ( is_wp_error( $values ) ) {
 			return $values;

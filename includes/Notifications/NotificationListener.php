@@ -977,7 +977,7 @@ class NotificationListener implements ListenerInterface {
 		// notification_pref; a site-wide announcement reads all users (no per-space
 		// pref, so nobody is suppressed for "none"). Keyset-paged like the space-post
 		// fan-out, so each batch is O(limit) regardless of depth.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		if ( $space_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
@@ -996,9 +996,9 @@ class NotificationListener implements ListenerInterface {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT ID AS user_id, NULL AS notification_pref FROM {$wpdb->users}
-					 WHERE ID != %d AND ID > %d
+					 WHERE ID != %d AND ID > %d" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ) . '
 					 ORDER BY ID ASC
-					 LIMIT %d",
+					 LIMIT %d',
 					$author_id,
 					$after_user_id,
 					$limit
@@ -1006,7 +1006,7 @@ class NotificationListener implements ListenerInterface {
 				ARRAY_A
 			);
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 		if ( empty( $rows ) ) {
 			return array(

@@ -34,6 +34,7 @@ final class AutoJoinListener implements ListenerInterface {
 	public function register(): void {
 		// Priority 20: after VerificationListener so the account row is settled.
 		add_action( 'user_register', array( $this, 'on_user_register' ), 20, 1 );
+		add_action( 'buddynext_network_user_joined', array( $this, 'on_user_register' ), 20, 1 );
 		add_action( 'buddynext_member_type_assigned', array( $this, 'on_member_type_assigned' ), 20, 3 );
 	}
 
@@ -44,6 +45,9 @@ final class AutoJoinListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_user_register( int $user_id ): void {
+		if ( buddynext_is_network_provisioning() ) {
+			return;
+		}
 		if ( $user_id <= 0 ) {
 			return;
 		}

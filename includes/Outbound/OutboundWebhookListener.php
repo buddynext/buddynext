@@ -29,6 +29,7 @@ class OutboundWebhookListener implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_action( 'user_register', array( $this, 'on_webhook_member_registered' ), 10, 1 );
+		add_action( 'buddynext_network_user_joined', array( $this, 'on_webhook_member_registered' ), 10, 1 );
 		add_action( 'buddynext_post_created', array( $this, 'on_webhook_post_created' ), 10, 3 );
 		add_action( 'buddynext_post_deleted', array( $this, 'on_webhook_post_deleted' ), 10, 2 );
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_webhook_space_joined' ), 10, 3 );
@@ -50,6 +51,9 @@ class OutboundWebhookListener implements ListenerInterface {
 	 * @param int $user_id Newly created user ID.
 	 */
 	public function on_webhook_member_registered( int $user_id ): void {
+		if ( buddynext_is_network_provisioning() ) {
+			return;
+		}
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
 			return;

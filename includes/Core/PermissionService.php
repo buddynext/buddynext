@@ -255,6 +255,9 @@ class PermissionService {
 			$result = false;
 		} elseif ( $user && $user->has_cap( 'manage_options' ) ) {
 			$result = true;
+		} elseif ( ( new NetworkMembership() )->refuses( $user_id ) ) {
+			// Network only: awaiting approval, or not a member of a closed community.
+			$result = false;
 		} elseif ( $this->is_write_capability( $capability ) && $this->writer_is_held( $user_id ) ) {
 			// A suspended member keeps read access and the appeal flow but is denied
 			// every write ability. Enforced at this single seam - every permission

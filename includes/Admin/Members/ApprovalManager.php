@@ -154,8 +154,7 @@ class ApprovalManager {
 		 */
 		do_action( 'buddynext_member_rejected', $user_id );
 
-		require_once ABSPATH . 'wp-admin/includes/user.php';
-		wp_delete_user( $user_id );
+		buddynext_remove_member( $user_id, get_current_user_id() );
 
 		wp_safe_redirect( add_query_arg( 'bn_notice', 'rejected', $redirect ) );
 		exit;

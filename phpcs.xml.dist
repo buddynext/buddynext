@@ -18,6 +18,7 @@
 		they reached customers without the gate ever reading a line of them.
 	-->
 	<file>buddynext.php</file>
+	<file>bootstrap.php</file>
 	<file>uninstall.php</file>
 	<file>includes/</file>
 	<file>templates/</file>

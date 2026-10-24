@@ -1,6 +1,6 @@
 <?php
 /**
- * A site added to or deleted from a network gets, or loses, its BuddyNext tables.
+ * On a network, BuddyNext installs on the main site only.
  *
  * @package BuddyNext\Tests\Core
  */
@@ -12,9 +12,8 @@ namespace BuddyNext\Tests\Core;
 use BuddyNext\Core\Installer;
 
 /**
- * Network-activated BuddyNext used to create tables for a new site only on its
- * first wp-admin visit, so front-end requests before that hit missing tables, and
- * a deleted site left every bn_* table behind. Run with WP_MULTISITE=1.
+ * One community lives on the network's main site. Adding a site creates nothing,
+ * and network activation installs the main site once. Run with WP_MULTISITE=1.
  */
 class InstallerMultisiteTest extends \WP_UnitTestCase {
 
@@ -34,75 +33,49 @@ class InstallerMultisiteTest extends \WP_UnitTestCase {
 		return $ok;
 	}
 
-	public function test_site_tables_lists_every_owned_and_legacy_table_with_the_site_prefix(): void {
-		global $wpdb;
-
-		$tables = Installer::site_tables( array( 'core_table' ), 7 );
-		$prefix = $wpdb->get_blog_prefix( 7 );
-
-		$this->assertContains( 'core_table', $tables, 'Core\'s own list is kept.' );
-		foreach ( array_merge( Installer::OWNED_TABLES, Installer::LEGACY_TABLES ) as $table ) {
-			$this->assertContains( $prefix . $table, $tables );
-		}
-	}
-
-	public function test_a_new_site_gets_its_tables_and_a_deleted_site_drops_them(): void {
+	public function test_a_site_added_to_the_network_gets_no_tables(): void {
 		if ( ! is_multisite() ) {
 			$this->markTestSkipped( 'Multisite only: run with WP_MULTISITE=1.' );
 		}
 		global $wpdb;
 
-		$network_plugins                     = (array) get_site_option( 'active_sitewide_plugins', array() );
-		$network_plugins[ BUDDYNEXT_BASENAME ] = time();
-		update_site_option( 'active_sitewide_plugins', $network_plugins );
-
+		Installer::run();
 		$site_id = (int) self::factory()->blog->create();
-		$table   = $wpdb->get_blog_prefix( $site_id ) . 'bn_posts';
+		$prefix  = $wpdb->get_blog_prefix( $site_id );
 
-		$this->assertTrue( $this->table_exists( $table ), 'Created with the site.' );
-		switch_to_blog( $site_id );
-		$this->assertTrue( as_has_scheduled_action( 'buddynext_reindex_all' ), 'First-run jobs are queued on the new site, not dropped.' );
-		restore_current_blog();
-
-		wp_delete_site( $site_id );
-
-		$this->assertFalse( $this->table_exists( $table ), 'Dropped with the site.' );
-	}
-
-	public function test_network_activation_installs_every_existing_site(): void {
-		if ( ! is_multisite() ) {
-			$this->markTestSkipped( 'Multisite only: run with WP_MULTISITE=1.' );
+		$this->assertTrue( $this->table_exists( $wpdb->get_blog_prefix( get_main_site_id() ) . 'bn_posts' ), 'The main site is installed.' );
+		foreach ( Installer::OWNED_TABLES as $table ) {
+			$this->assertFalse( $this->table_exists( $prefix . $table ), "{$table} must not exist on a subsite." );
 		}
-		global $wpdb;
-
-		$network_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
-		unset( $network_plugins[ BUDDYNEXT_BASENAME ] );
-		update_site_option( 'active_sitewide_plugins', $network_plugins );
-
-		$site_id = (int) self::factory()->blog->create();
-		$table   = $wpdb->get_blog_prefix( $site_id ) . 'bn_posts';
-		$this->assertFalse( $this->table_exists( $table ), 'Not installed before activation.' );
-
-		Installer::activate( true );
-
-		$this->assertTrue( $this->table_exists( $table ), 'Installed by network activation.' );
+		$this->assertFalse( $this->table_exists( $prefix . 'actionscheduler_actions' ), 'No Action Scheduler tables on a subsite.' );
 		wp_delete_site( $site_id );
 	}
 
-	public function test_a_new_site_on_a_network_without_buddynext_active_is_left_alone(): void {
-		if ( ! is_multisite() ) {
-			$this->markTestSkipped( 'Multisite only: run with WP_MULTISITE=1.' );
-		}
-		global $wpdb;
+	public function test_the_per_site_install_hooks_are_gone(): void {
+		$this->assertFalse( method_exists( Installer::class, 'register_multisite' ) );
+		$this->assertFalse( method_exists( Installer::class, 'install_new_site' ) );
+		$this->assertFalse( method_exists( Installer::class, 'site_tables' ) );
+		$this->assertFalse( has_action( 'wp_initialize_site', array( Installer::class, 'install_new_site' ) ) );
+	}
 
-		$network_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
-		unset( $network_plugins[ BUDDYNEXT_BASENAME ] );
-		update_site_option( 'active_sitewide_plugins', $network_plugins );
+	public function test_install_if_missing_installs_once_and_then_does_nothing(): void {
+		delete_option( 'buddynext_schema_version' );
 
-		$site_id = (int) self::factory()->blog->create();
-		$table   = $wpdb->get_blog_prefix( $site_id ) . 'bn_posts';
+		Installer::install_if_missing();
+		$stamped = get_option( 'buddynext_schema_version' );
+		$this->assertNotFalse( $stamped, 'First call installs and stamps the schema version.' );
 
-		$this->assertFalse( $this->table_exists( $table ) );
-		wp_delete_site( $site_id );
+		$calls = 0;
+		add_filter(
+			'query',
+			static function ( $sql ) use ( &$calls ) {
+				if ( preg_match( '/^\s*CREATE TABLE/i', (string) $sql ) ) {
+					++$calls;
+				}
+				return $sql;
+			}
+		);
+		Installer::install_if_missing();
+		$this->assertSame( 0, $calls, 'Once installed it is a single option read.' );
 	}
 }
