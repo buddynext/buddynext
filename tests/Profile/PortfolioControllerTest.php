@@ -84,4 +84,13 @@ class PortfolioControllerTest extends \WP_UnitTestCase {
 		$data = $this->get_portfolio( 99999999 )->get_data();
 		$this->assertSame( array(), $data['panels'] );
 	}
+
+	public function test_a_missing_member_answers_in_the_same_shape_as_a_hidden_one(): void {
+		wp_set_current_user( self::factory()->user->create() );
+
+		$missing = rest_do_request( new \WP_REST_Request( 'GET', '/buddynext/v1/members/99999999/portfolio' ) )->get_data();
+		$this->assertSame( array( 'member_id', 'is_owner', 'panels' ), array_keys( $missing ) );
+		$this->assertFalse( $missing['is_owner'] );
+		$this->assertSame( array(), $missing['panels'] );
+	}
 }

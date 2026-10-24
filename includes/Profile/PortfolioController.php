@@ -69,7 +69,14 @@ class PortfolioController extends BaseRestController {
 	public function get_portfolio( WP_REST_Request $request ): WP_REST_Response {
 		$member_id = (int) $request['id'];
 		if ( $member_id <= 0 || ! get_userdata( $member_id ) ) {
-			return new WP_REST_Response( array( 'panels' => array() ), 200 );
+			return new WP_REST_Response(
+				array(
+					'member_id' => $member_id,
+					'is_owner'  => false,
+					'panels'    => array(),
+				),
+				200
+			);
 		}
 
 		$viewer_id = get_current_user_id();
