@@ -47,7 +47,8 @@ class NetworkMembership {
 			return true;
 		}
 
-		if ( ! $this->is_write_request() ) {
+		// Only the person acting joins; a check about someone else never adds them.
+		if ( get_current_user_id() !== $user_id || ! $this->is_write_request() ) {
 			return false;
 		}
 
