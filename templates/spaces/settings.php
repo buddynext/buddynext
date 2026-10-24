@@ -661,6 +661,24 @@ if ( $bn_can_invite ) {
 	);
 }
 
+// Linked-to tab — shown only while the space is linked to something (a course, a
+// group, a store), so the typical owner never sees an empty tab. Before Danger zone.
+$bn_space_links = \BuddyNext\Spaces\SpaceLinksController::describe( $space_id );
+if ( $bn_space_links ) {
+	array_splice(
+		$builtin_tabs,
+		count( $builtin_tabs ) - 1,
+		0,
+		array(
+			array(
+				'slug'  => 'links',
+				'label' => __( 'Linked to', 'buddynext' ),
+				'icon'  => 'link',
+			),
+		)
+	);
+}
+
 // Apply the canonical tab-registry filter once at composer level so Pro and
 // bridge-registered tabs (e.g. P6.2 Brand tab) are recognized as valid
 // `bn_stab` values before the active-tab validator runs. The part fires the
@@ -940,6 +958,16 @@ foreach ( $builtin_tabs as $bn_t ) {
 						// SSR the current link so the panel renders its real state with
 						// no loading flash; create/reset reload the tab to re-render.
 						'invite_link' => ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->get( $space_id ),
+					),
+				),
+			),
+			'links'         => array(
+				'parts/space-settings-panel-links.php',
+				array(
+					'space'          => $space,
+					'links_settings' => array(
+						'space_id' => $space_id,
+						'links'    => $bn_space_links,
 					),
 				),
 			),

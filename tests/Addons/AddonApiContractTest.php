@@ -68,6 +68,10 @@ class AddonApiContractTest extends WP_UnitTestCase {
 			'DiscoveryModule::space_banner(int $space_id, int $viewer_id): string abstract',
 			'DiscoveryModule::nav_deny_paths(): array abstract',
 			'ProfilePanelModule::panels(int $member_id): array abstract',
+			'SpaceLinkSource::link_types(): array abstract',
+			'SpaceLinkSource::link_label(string $type, int $object_id): array abstract',
+			'SpaceLinkSource::link_roster(string $type, int $object_id, int $after, int $limit): array abstract',
+			'SpaceLinkSource::link_grants_access(string $type, int $object_id, int $user_id): bool abstract',
 		);
 	}
 
@@ -78,7 +82,7 @@ class AddonApiContractTest extends WP_UnitTestCase {
 	 */
 	private function current(): array {
 		$out = array();
-		foreach ( array( 'AbstractAddon', 'AddonRegistry', 'FeedCardModule', 'NotificationSource', 'SearchSource', 'SettingsModule', 'DiscoveryModule', 'ProfilePanelModule' ) as $name ) {
+		foreach ( array( 'AbstractAddon', 'AddonRegistry', 'FeedCardModule', 'NotificationSource', 'SearchSource', 'SettingsModule', 'DiscoveryModule', 'ProfilePanelModule', 'SpaceLinkSource' ) as $name ) {
 			$class = new ReflectionClass( 'BuddyNext\\Addons\\' . $name );
 			foreach ( $class->getMethods( ReflectionMethod::IS_PUBLIC ) as $method ) {
 				$params = array();

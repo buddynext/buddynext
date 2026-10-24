@@ -786,6 +786,7 @@ class Plugin {
 		add_action( 'buddynext_load_bridges', array( \BuddyNext\Addons\AddonRegistry::instance(), 'boot' ), 20 );
 		// The Portfolio profile tab every integration's panels register into.
 		( new \BuddyNext\Profile\SuitePanelHost() )->register();
+		( new \BuddyNext\Spaces\SpaceLinkService() )->register();
 
 		add_action(
 			'buddynext_load_bridges',

@@ -59,6 +59,9 @@ final class ModuleWiring {
 			if ( $module instanceof ProfilePanelModule ) {
 				self::profile_panels( $addon, $module );
 			}
+			if ( $module instanceof SpaceLinkSource ) {
+				self::space_links( $addon, $module );
+			}
 		} catch ( \Throwable $e ) {
 			self::fail( $addon, $module, $e );
 		}
@@ -444,6 +447,28 @@ final class ModuleWiring {
 			),
 			10,
 			2
+		);
+	}
+
+	/**
+	 * Space links: offer the addon's objects to the link service.
+	 *
+	 * @param AbstractAddon   $addon  The addon.
+	 * @param SpaceLinkSource $module The module.
+	 * @return void
+	 */
+	private static function space_links( AbstractAddon $addon, SpaceLinkSource $module ): void {
+		add_filter(
+			'buddynext_space_link_sources',
+			self::guard(
+				$addon,
+				$module,
+				static function ( $sources ) use ( $addon, $module ) {
+					$sources                   = (array) $sources;
+					$sources[ $addon->slug() ] = $module;
+					return $sources;
+				}
+			)
 		);
 	}
 }

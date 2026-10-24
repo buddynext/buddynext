@@ -613,6 +613,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/spaces/{id}/links',
+				'resource' => 'spaces_links',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/spaces/{id}/members',
 				'resource' => 'spaces_members',
 				'shape'    => 'array',
@@ -1033,6 +1039,11 @@ final class ResponseSchema {
 				'linked_source'     => array(
 					'type'        => array( 'object', 'null' ),
 					'description' => 'Pro + Learnomy: the course or Learnomy Space this community belongs to.',
+				),
+				'linked_sources'    => array(
+					'type'        => 'array',
+					'items'       => self::linked_source_item(),
+					'description' => 'Everything this space is linked to, from every addon.',
 				),
 				'post_count'        => array( 'type' => 'integer' ),
 				'brand_color'       => array( 'type' => 'string' ),
@@ -5700,6 +5711,47 @@ final class ResponseSchema {
 				'pref' => array(
 					'type' => 'string',
 				),
+			),
+		);
+	}
+
+	/**
+	 * Response of GET/DELETE /spaces/{id}/links.
+	 *
+	 * @since 1.2.7
+	 * @return array<string,mixed>
+	 */
+	public static function spaces_links(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'spaces-links',
+			'type'       => 'object',
+			'properties' => array(
+				'links' => array(
+					'type'  => 'array',
+					'items' => self::linked_source_item(),
+				),
+			),
+		);
+	}
+
+	/**
+	 * One link from a space to an object in another plugin.
+	 *
+	 * @since 1.2.7
+	 * @return array<string,mixed>
+	 */
+	public static function linked_source_item(): array {
+		return array(
+			'type'       => 'object',
+			'properties' => array(
+				'source'    => array( 'type' => 'string' ),
+				'type'      => array( 'type' => 'string' ),
+				'id'        => array( 'type' => 'integer' ),
+				'name'      => array( 'type' => 'string' ),
+				'url'       => array( 'type' => 'string' ),
+				'available' => array( 'type' => 'boolean' ),
+				'managed'   => array( 'type' => 'boolean' ),
 			),
 		);
 	}

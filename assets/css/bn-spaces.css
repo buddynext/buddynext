@@ -4127,3 +4127,53 @@ a.bn-sh-statpill:focus-visible {
 		flex: 0 0 auto;
 	}
 }
+
+/* ── Linked-to settings panel ───────────────────────────────────────────────
+   The "Linked to" space-settings tab: one row per link with a remove button.
+   Token-driven, so dark mode and RTL follow the shared foundation. */
+.bn-links-panel__list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bn-links-panel__row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-border);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+}
+
+.bn-links-panel__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+	flex: 1 1 14rem;
+}
+
+.bn-links-panel__name {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow-wrap: anywhere;
+}
+
+.bn-links-panel__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+}
+
+@media (max-width: 480px) {
+	.bn-links-panel__row > .bn-btn {
+		width: 100%;
+	}
+}

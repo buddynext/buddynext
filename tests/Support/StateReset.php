@@ -65,6 +65,10 @@ final class StateReset implements BeforeTestHook {
 	public const MEMOS = array(
 		// Sprite mode is per page render; a test that opens it must not leave the next
 		// test's icons as <use> references to a sprite that was never printed.
+		// A system join in progress cannot outlive the request that started it.
+		\BuddyNext\Spaces\SpaceLinkService::class     => array(
+			'system_depth' => 0,
+		),
 		// Modules switched off by a failure last only for the request that failed.
 		\BuddyNext\Addons\ModuleWiring::class          => array(
 			'disabled' => array(),

@@ -954,6 +954,41 @@ var storeInstance = store( 'buddynext/spaces', {
 		},
 
 		/**
+		 * Remove one link from the "Linked to" panel after a confirm. The space and
+		 * its members stay; the tab reloads to show what is left.
+		 */
+		removeSpaceLink: async function ( event ) {
+			var btn  = event && event.target && event.target.closest( '[data-bn-link-remove]' );
+			var root = btn && btn.closest( '[data-bn-links-panel]' );
+			if ( ! root ) { return; }
+			if ( window.bnConfirm ) {
+				var ok = await window.bnConfirm( {
+					tone:         'danger',
+					title:        t( 'linkRemoveTitle', 'Remove this link?' ),
+					body:         t( 'linkRemoveBody', 'Members stay in the space. New people who get access to it will no longer be added, and nobody is removed when they lose it.' ),
+					confirmLabel: t( 'linkRemoveConfirm', 'Remove link' ),
+				} );
+				if ( ! ok ) { return; }
+			}
+			btn.disabled = true;
+			try {
+				var q   = '?source=' + encodeURIComponent( btn.getAttribute( 'data-source' ) ) +
+					'&type=' + encodeURIComponent( btn.getAttribute( 'data-type' ) ) +
+					'&object=' + encodeURIComponent( btn.getAttribute( 'data-object' ) );
+				var res = await restFetch( '/spaces/' + root.getAttribute( 'data-space-id' ) + '/links' + q, { method: 'DELETE', nonce: resolveNonce(), toastOnError: false } );
+				if ( res.ok ) {
+					bnReloadWithToast( t( 'linkRemoved', 'Link removed.' ), 'success' );
+					return;
+				}
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( ( res.data && res.data.message ) || t( 'linkRemoveFailed', 'Could not remove the link.' ), 'danger' ); }
+			} catch ( _e ) {
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
+			}
+		},
+
+		/**
 		 * Select the whole invite URL when the read-only field is focused, so a
 		 * keyboard/manual copy grabs the full link. Replaces an inline onfocus
 		 * handler (CSP-friendly).

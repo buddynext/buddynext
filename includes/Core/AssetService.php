@@ -1434,6 +1434,12 @@ class AssetService {
 					'inviteRevokeBody'                => __( 'The current link stops working immediately and can’t be restored. People who already joined stay members.', 'buddynext' ),
 					'inviteRevokeConfirm'             => __( 'Turn off link', 'buddynext' ),
 					'inviteRevoked'                   => __( 'Invite link turned off.', 'buddynext' ),
+					// Linked-to panel (space settings).
+					'linkRemoveTitle'                 => __( 'Remove this link?', 'buddynext' ),
+					'linkRemoveBody'                  => __( 'Members stay in the space. New people who get access to it will no longer be added, and nobody is removed when they lose it.', 'buddynext' ),
+					'linkRemoveConfirm'               => __( 'Remove link', 'buddynext' ),
+					'linkRemoved'                     => __( 'Link removed.', 'buddynext' ),
+					'linkRemoveFailed'                => __( 'Could not remove the link.', 'buddynext' ),
 					// requestJoin's failure branch. It suppresses the shared error
 					// toast, so without this a rejected request (a banned member, say)
 					// only flickered the button and said nothing.

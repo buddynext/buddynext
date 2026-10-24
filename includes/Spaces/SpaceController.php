@@ -1832,7 +1832,8 @@ class SpaceController extends BaseRestController {
 		 * @param array<string,mixed> $space     The space item.
 		 * @param int                 $viewer_id Current viewer (0 = guest).
 		 */
-		$space = (array) apply_filters( 'buddynext_rest_space_item', $space, $viewer_id );
+		$space['linked_sources'] = SpaceLinksController::describe( $bn_space_id );
+		$space                   = (array) apply_filters( 'buddynext_rest_space_item', $space, $viewer_id );
 
 		return new WP_REST_Response( $space, 200 );
 	}

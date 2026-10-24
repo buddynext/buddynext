@@ -112,6 +112,10 @@ class OutboundWebhookListener implements ListenerInterface {
 	 * @param string $role     Role assigned to the new member.
 	 */
 	public function on_webhook_space_joined( int $space_id, int $user_id, string $role ): void {
+		// A join a linked object caused is the partner's event, not a member choosing to join.
+		if ( \BuddyNext\Spaces\SpaceLinkService::is_system_join() ) {
+			return;
+		}
 		buddynext_service( 'webhooks' )->dispatch(
 			'space.joined',
 			array(

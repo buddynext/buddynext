@@ -51,6 +51,7 @@ An addon uses only the interfaces it needs. Labels may be translated: modules ar
 | `SearchSource` | Include in search | types, result link, next ids to re-index, index one | Runs the re-index when the owner switches search on, removes the index when it is switched off |
 | `SettingsModule` | - | `Field` objects with option keys that start with `buddynext_<slug>_` | Renders them inside your card on Integration Settings, saves each through its own sanitiser, lists them for search and defaults |
 | `ProfilePanelModule` | Show in navigation | `panels( $member_id )`: key, label, icon, count, items, `cta`, `owner_cta`, `owner_only` | Adds a sub-tab under the member's Portfolio tab and serves the same data to the app at `GET /buddynext/v1/members/{id}/portfolio` |
+| `SpaceLinkSource` | - | `link_types()`, `link_label()`, `link_roster()`, `link_grants_access()` | Lists your links on the space's Linked to tab, backfills the roster in batches, and answers who may be removed when access ends |
 | `DiscoveryModule` | - | a banner for the space header, paths that must load in full | Shows the banner under the space header and adds your paths to the client-nav deny list |
 
 ### Feed cards
@@ -80,6 +81,20 @@ Fire your hook with the contract payload as its **last** argument. Declare each 
 
 Panels are cached for "the member viewing their own profile" and "anyone else", not per viewer. A panel that is not `owner_only` must return the same data to every viewer; mark anything that depends on who is looking `owner_only`, and it is dropped for everyone else. When the member's data changes, call `do_action( 'buddynext_suite_panels_changed', $member_id )`.
 
+### Space links
+
+A space can be linked to an object in your plugin (a course, a group, a store). While it is linked, everyone the object grants access to is added to the space; the space's Linked to tab lists every link from every addon and lets the space owner remove one.
+
+Declare a `SpaceLinkSource` module, then call `BuddyNext\Spaces\SpaceLinkService` from your own screens and events:
+
+- `link( $space_id, $slug, $type, $object_id )` links and backfills the current roster. An object feeds at most one space.
+- `create_and_link( $slug, $type, $object_id, $owner_id )` creates a private space named after the object and links it. Such a space is *managed*.
+- `join_from_source( $space_id, $user_id )` adds a member who gained access. It passes the space's join gate for that one join, honours bans and archives, and stays quiet: no owner notification and no webhook.
+- `leave_from_source( $space_id, $user_id, $slug, $type, $object_id )` handles lost access. It removes the member only from a managed space, never the owner, and only if none of the space's other links still grants access. A hand-linked space never loses a member.
+- `unlink( ... )` and `release_object( $slug, $type, $object_id )` (the object was deleted) keep the space and its members.
+
+Removing an addon or the partner plugin changes nothing: the links stay, shown as "Plugin not active", and nobody is removed until the addon is back.
+
 Do not add an admin tab. Declare fields and they appear in your card. Prefer a filter to a setting where an opinionated default will do.
 
 ## Hooks
@@ -90,6 +105,10 @@ Do not add an admin tab. Declare fields and they appear in your card. Prefer a f
 | `buddynext_member_suite_panels` (filter, `array $panels`, `int $member_id`) | Collects the Portfolio panels for a member. Prefer `ProfilePanelModule`; use the filter only from a plugin that is not an addon. |
 | `buddynext_suite_panels_changed` (action, `int $member_id`) | Call it when a member's panel data changes so the cached panels are rebuilt. |
 | `buddynext_suite_panels_ttl` (filter, `int $seconds`) | How long panels are cached. Default 5 minutes. |
+| `buddynext_space_link_sources` (filter, `array<string,SpaceLinkSource> $sources`) | Offers objects a space can be linked to. A `SpaceLinkSource` module is added for you. |
+| `buddynext_space_linked` (action, `int $space_id`, `string $source`, `string $type`, `int $object_id`) | A space was linked to an object. |
+| `buddynext_space_unlinked` (action, `int $space_id`, `string $source`, `string $type`, `int $object_id`) | A link was removed. The space and its members are untouched. |
+| `buddynext_space_link_backfill_chunk_size` (filter, `int $size`, `string $source`, `string $type`, `int $object_id`) | Members added per backfill run. Default 500, at least 1. |
 | `buddynext_addon_module_failed` (action, `string $slug`, `string $module`, `Throwable $error`) | A module threw and has been switched off for the rest of the request. The error is also written to the PHP error log. |
 
 ## Keeping it stable

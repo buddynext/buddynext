@@ -164,6 +164,11 @@ class NotificationListener implements ListenerInterface {
 	public function on_space_member_joined( int $space_id, int $user_id, string $_role ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_role required by hook contract.
 		global $wpdb;
 
+		// A join a linked object caused (a whole class enrolling) is not news to the owner.
+		if ( \BuddyNext\Spaces\SpaceLinkService::is_system_join() ) {
+			return;
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$owner_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
