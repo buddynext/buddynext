@@ -72,6 +72,43 @@ class AddonApiContractTest extends WP_UnitTestCase {
 			'SpaceLinkSource::link_label(string $type, int $object_id): array abstract',
 			'SpaceLinkSource::link_roster(string $type, int $object_id, int $after, int $limit): array abstract',
 			'SpaceLinkSource::link_grants_access(string $type, int $object_id, int $user_id): bool abstract',
+			'IntegrationRegistry::instance(): BuddyNext\\Integrations\\IntegrationRegistry static',
+			'IntegrationRegistry::all(): array',
+			'IntegrationRegistry::get(string $key): ?array',
+			'IntegrationRegistry::reset(): void',
+			'IntegrationRegistry::features_needing_update(array $entry): array static',
+			'SpaceLinkService::register(): void',
+			'SpaceLinkService::is_system_join(): bool static',
+			'SpaceLinkService::sources(): array',
+			'SpaceLinkService::source(string $slug): ?BuddyNext\\Addons\\SpaceLinkSource',
+			'SpaceLinkService::links(int $space_id): array',
+			'SpaceLinkService::links_for_source(int $space_id, string $source): array',
+			'SpaceLinkService::spaces_for_object(string $source, string $type, int $object_id): array',
+			'SpaceLinkService::spaces_for_user(int $user_id, string $source): array',
+			'SpaceLinkService::linked_elsewhere(string $source, string $type, int $object_id, int $except_space_id=): bool',
+			'SpaceLinkService::is_managed(int $space_id): bool',
+			'SpaceLinkService::link(int $space_id, string $source, string $type, int $object_id): bool',
+			'SpaceLinkService::unlink(int $space_id, string $source, string $type, int $object_id): void',
+			'SpaceLinkService::release_object(string $source, string $type, int $object_id): array',
+			'SpaceLinkService::create_and_link(string $source, string $type, int $object_id, int $owner_id): int',
+			'SpaceLinkService::join_from_source(int $space_id, int $user_id): bool',
+			'SpaceLinkService::leave_from_source(int $space_id, int $user_id, string $source, string $type, int $object_id): bool',
+			'SpaceLinkService::backfill(int $space_id, string $source, string $type, int $object_id, int $after=): int',
+			'SpaceLinkService::run_backfill_chunk(mixed $space_id=, mixed $source=, mixed $type=, mixed $object_id=, mixed $after=): void',
+			'IntegrationActivity::publish(int $member_id, string $content, string $link_url, string $link_title=, string $type=, string $excerpt=, int $space_id=, array $meta=): mixed static',
+			'IntegrationActivity::remove(string $link_url, string $type=): int static',
+			'IntegrationActivity::withdraw(string $link_url, string $type=): bool static',
+			'IntegrationActivity::restore(string $link_url, string $type=): bool static',
+			'IntegrationActivity::refresh(string $link_url, string $type, array $meta): bool static',
+			'IntegrationActivity::refresh_by_meta(string $type, string $meta_key, int $value, array $meta): int static',
+			'IntegrationActivity::remove_by_meta(string $type, string $meta_key, int $value): int static',
+			'IntegrationActivity::withdraw_by_meta(string $type, string $meta_key, int $value): int static',
+			'IntegrationActivity::restore_by_meta(string $type, string $meta_key, int $value): int static',
+			'IntegrationActivity::rewrite_by_meta(string $type, string $meta_key, int $value, string $content, string $link_url, string $link_title=, string $excerpt=, array $meta=): int static',
+			'IntegrationActivity::rewrite(string $old_link_url, string $type, string $content, string $link_url, string $link_title=, string $excerpt=, array $meta=): int static',
+			'IntegrationActivity::set_space_by_meta(string $type, string $meta_key, int $value, int $space_id): int static',
+			'IntegrationActivity::card_types(): array static',
+			'IntegrationActivity::render_bridge_card(array $args, string $icon=, string $label=): string static',
 		);
 	}
 
@@ -82,16 +119,36 @@ class AddonApiContractTest extends WP_UnitTestCase {
 	 */
 	private function current(): array {
 		$out = array();
-		foreach ( array( 'AbstractAddon', 'AddonRegistry', 'FeedCardModule', 'NotificationSource', 'SearchSource', 'SettingsModule', 'DiscoveryModule', 'ProfilePanelModule', 'SpaceLinkSource' ) as $name ) {
-			$class = new ReflectionClass( 'BuddyNext\\Addons\\' . $name );
-			foreach ( $class->getMethods( ReflectionMethod::IS_PUBLIC ) as $method ) {
-				$params = array();
-				foreach ( $method->getParameters() as $param ) {
-					$params[] = ( $param->getType() ? $param->getType() : 'mixed' ) . ' $' . $param->getName() . ( $param->isOptional() ? '=' : '' );
-				}
-				$out[] = $name . '::' . $method->getName() . '(' . implode( ', ', $params ) . '): ' . ( $method->getReturnType() ? $method->getReturnType() : 'mixed' )
-					. ( $method->isStatic() ? ' static' : '' ) . ( $method->isFinal() ? ' final' : '' ) . ( $method->isAbstract() ? ' abstract' : '' );
+		// Whole classes: every public method is promised.
+		foreach ( array( 'Addons\\AbstractAddon', 'Addons\\AddonRegistry', 'Addons\\FeedCardModule', 'Addons\\NotificationSource', 'Addons\\SearchSource', 'Addons\\SettingsModule', 'Addons\\DiscoveryModule', 'Addons\\ProfilePanelModule', 'Addons\\SpaceLinkSource', 'Integrations\\IntegrationRegistry', 'Spaces\\SpaceLinkService' ) as $name ) {
+			$out = array_merge( $out, $this->signatures( new ReflectionClass( 'BuddyNext\\' . $name ), false ) );
+		}
+		// Classes that are mostly plumbing: only the methods marked @api are promised.
+		foreach ( array( 'Feed\\IntegrationActivity' ) as $name ) {
+			$out = array_merge( $out, $this->signatures( new ReflectionClass( 'BuddyNext\\' . $name ), true ) );
+		}
+		return $out;
+	}
+
+	/**
+	 * Public signatures of one class.
+	 *
+	 * @param ReflectionClass $class    Class.
+	 * @param bool            $api_only Only methods whose docblock carries @api.
+	 * @return string[]
+	 */
+	private function signatures( ReflectionClass $class, bool $api_only ): array {
+		$out = array();
+		foreach ( $class->getMethods( ReflectionMethod::IS_PUBLIC ) as $method ) {
+			if ( $api_only && false === strpos( (string) $method->getDocComment(), '@api' ) ) {
+				continue;
 			}
+			$params = array();
+			foreach ( $method->getParameters() as $param ) {
+				$params[] = ( $param->getType() ? $param->getType() : 'mixed' ) . ' $' . $param->getName() . ( $param->isOptional() ? '=' : '' );
+			}
+			$out[] = $class->getShortName() . '::' . $method->getName() . '(' . implode( ', ', $params ) . '): ' . ( $method->getReturnType() ? $method->getReturnType() : 'mixed' )
+				. ( $method->isStatic() ? ' static' : '' ) . ( $method->isFinal() ? ' final' : '' ) . ( $method->isAbstract() ? ' abstract' : '' );
 		}
 		return $out;
 	}

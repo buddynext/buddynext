@@ -28,6 +28,11 @@ use BuddyNext\Support\Monogram;
 
 /**
  * Aggregates per-integration profile panels into one Portfolio tab.
+ *
+ * Public to addons: `flush()` and the `buddynext_member_suite_panels` /
+ * `buddynext_suite_panels_changed` hooks. The rest is internal.
+ *
+ * @since 1.2.7
  */
 class SuitePanelHost {
 

@@ -113,6 +113,17 @@ Do not add an admin tab. Declare fields and they appear in your card. Prefer a f
 
 ## Keeping it stable
 
+The public API is exactly these, and `tests/Addons/AddonApiContractTest.php` fails any change to their signatures:
+
+| Class | What is public |
+|---|---|
+| `BuddyNext\Addons\*` interfaces and `AbstractAddon` | Every public method |
+| `BuddyNext\Integrations\IntegrationRegistry` | Every public method |
+| `BuddyNext\Spaces\SpaceLinkService` | Every public method |
+| `BuddyNext\Feed\IntegrationActivity` | Only the methods tagged `@api`: publish, remove, withdraw, restore, refresh, rewrite and their `_by_meta` forms, `set_space_by_meta`, `card_types`, `render_bridge_card` |
+
+`SuitePanelHost` is not public: add panels through `ProfilePanelModule` or the `buddynext_member_suite_panels` filter.
+
 - Use only `@api` classes and `@since` hooks. A symbol that is not marked may change in any release.
 - A breaking change bumps `BUDDYNEXT_ADDON_API`. The old shape keeps working for two minor releases, with `_deprecated_function()` naming the replacement.
 - Deactivating the partner or your addon deletes nothing. The owner can switch an addon's surfaces off from Integration Settings, and data is exactly as it was when it comes back.
