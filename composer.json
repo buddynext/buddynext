@@ -23,7 +23,8 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "BuddyNext\\Tests\\": "tests/"
+      "BuddyNext\\Tests\\": "tests/",
+      "BuddyNext\\Dev\\AddonFixture\\": "dev/addon-fixture/"
     }
   },
   "scripts": {

@@ -782,6 +782,9 @@ class Plugin {
 			25
 		);
 
+		// Addons register after the first-party bridges have wired, so an addon can rely on them.
+		add_action( 'buddynext_load_bridges', array( \BuddyNext\Addons\AddonRegistry::instance(), 'boot' ), 20 );
+
 		add_action(
 			'buddynext_load_bridges',
 			function (): void {

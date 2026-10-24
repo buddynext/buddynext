@@ -225,6 +225,7 @@ class IntegrationControlsAdmin {
 									<?php endforeach; ?>
 								</div>
 							<?php endif; ?>
+							<?php ( new \BuddyNext\Addons\AddonSettingsForm() )->render( (string) $key ); ?>
 						</div>
 					</div>
 				<?php endforeach; ?>
@@ -356,6 +357,7 @@ class IntegrationControlsAdmin {
 				$on  = isset( $subtab[ $key ] ) && is_array( $subtab[ $key ] ) && ! empty( $subtab[ $key ][ $sub ] );
 				$ok  = $this->write_flag( "buddynext_integration_{$key}_subtab_{$sub}", $on ) && $ok;
 			}
+			$ok = ( new \BuddyNext\Addons\AddonSettingsForm() )->save( $key ) && $ok;
 		}
 
 		wp_safe_redirect( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integration-controls', array( 'bn_intctl' => $ok ? '1' : 'error' ) ) );
