@@ -76,10 +76,21 @@ class SpaceLinksController extends BaseRestController {
 		if ( null === ( new SpaceService() )->get( $space_id ) ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
-		if ( ! buddynext_service( 'permissions' )->can( get_current_user_id(), 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+		if ( ! self::viewer_can_manage( get_current_user_id(), $space_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to manage this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
+	}
+
+	/**
+	 * Whether a member may see and remove a space's links.
+	 *
+	 * @param int $user_id  Viewer (0 = guest).
+	 * @param int $space_id Space.
+	 * @return bool
+	 */
+	public static function viewer_can_manage( int $user_id, int $space_id ): bool {
+		return $user_id > 0 && buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) );
 	}
 
 	/**

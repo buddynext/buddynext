@@ -85,7 +85,7 @@ One shareable invite link per space, managed by anyone who may manage the space 
 | GET | `/spaces/{id}/invite-link` | Auth (manage settings) | Return the current link, or `{"invite_link": null}` when none exists. |
 | POST | `/spaces/{id}/invite-link` | Auth (manage settings) | Create or reset the link (a reset issues a fresh token, killing the old one). Body: `expires` (`1d`\|`7d`\|`30d`\|`never`, default `7d`), `max_uses` (`0`\|`1`\|`10`\|`100`, `0` = unlimited). |
 | DELETE | `/spaces/{id}/invite-link` | Auth (manage settings) | Revoke the link. Returns `{"invite_link": null}`. |
-| GET | `/spaces/{id}/links` | Auth (manage space) | What the space is linked to by any addon: `{ links: [ { source, type, id, name, url, available, managed } ] }`. `available` is false while the addon is not active; `name` is empty when the object is gone. The single-space item carries the same list as `linked_sources`. |
+| GET | `/spaces/{id}/links` | Auth (manage space) | What the space is linked to by any addon: `{ links: [ { source, type, id, name, url, available, managed } ] }`. `available` is false while the addon is not active; `name` is empty when the object is gone. The single-space item carries the same list as `linked_sources`, empty for a viewer who cannot manage the space. |
 | DELETE | `/spaces/{id}/links` | Auth (manage space) | Remove one link. Query: `source`, `type`, `object`. The space and its members stay. Returns the remaining `links`. |
 
 All three routes use the `require_auth` permission callback; the manage-settings check is enforced inside the handler, so a non-manager receives a `403` (and a space the viewer cannot see answers `404`). The link object is:

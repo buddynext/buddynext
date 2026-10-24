@@ -26812,7 +26812,7 @@
                     },
                     "linked_sources": {
                         "type": "array",
-                        "description": "Everything this space is linked to, from every addon.",
+                        "description": "Everything this space is linked to, from every addon. Empty unless the viewer can manage the space.",
                         "items": {
                             "type": "object",
                             "properties": {

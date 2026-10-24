@@ -281,5 +281,9 @@ class SpaceLinkServiceTest extends WP_UnitTestCase {
 
 		$this->assertSame( 'fixture', $item['linked_sources'][0]['source'] );
 		$this->assertSame( 7, $item['linked_sources'][0]['id'] );
+
+		wp_set_current_user( self::factory()->user->create() );
+		$item = rest_do_request( new \WP_REST_Request( 'GET', "/buddynext/v1/spaces/{$space}" ) )->get_data();
+		$this->assertSame( array(), $item['linked_sources'], 'a viewer who cannot manage the space does not see what it links to' );
 	}
 }

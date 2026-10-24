@@ -1043,7 +1043,7 @@ final class ResponseSchema {
 				'linked_sources'    => array(
 					'type'        => 'array',
 					'items'       => self::linked_source_item(),
-					'description' => 'Everything this space is linked to, from every addon.',
+					'description' => 'Everything this space is linked to, from every addon. Empty unless the viewer can manage the space.',
 				),
 				'post_count'        => array( 'type' => 'integer' ),
 				'brand_color'       => array( 'type' => 'string' ),

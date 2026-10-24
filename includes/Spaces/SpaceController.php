@@ -1832,7 +1832,9 @@ class SpaceController extends BaseRestController {
 		 * @param array<string,mixed> $space     The space item.
 		 * @param int                 $viewer_id Current viewer (0 = guest).
 		 */
-		$space['linked_sources'] = SpaceLinksController::describe( $bn_space_id );
+		// Same gate as GET /spaces/{id}/links: the list names objects (a private course)
+		// that a viewer of the space may not be allowed to see.
+		$space['linked_sources'] = SpaceLinksController::viewer_can_manage( $viewer_id, $bn_space_id ) ? SpaceLinksController::describe( $bn_space_id ) : array();
 		$space                   = (array) apply_filters( 'buddynext_rest_space_item', $space, $viewer_id );
 
 		return new WP_REST_Response( $space, 200 );
