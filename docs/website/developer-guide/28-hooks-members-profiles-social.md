@@ -252,6 +252,21 @@ Narrower hooks that did not fit the sections above. Same table shape.
 | `buddynext_rest_member_item` | filter | A member item is shaped for REST (directory and space roster rows). Only add fields; roster rows carry fewer keys. | `array $item, int $user_id` |
 | `buddynext_member_card_cover_tone` | filter | A member card picks its cover tone (`sky`, `cyan`, `emerald`, `lime`, `amber`, `coral`). | `string $tone, int $member_id` |
 
+### Member edit screen (wp-admin)
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_after_edit_member_form` | action | The wp-admin edit-member form has rendered. Print an extra panel under it (an add-on's per-member settings or history); it sits outside the form, so save through your own REST route or admin-post handler. | `int $user_id, WP_User $wp_user` |
+
+```php
+add_action( 'buddynext_after_edit_member_form', function ( int $user_id, WP_User $wp_user ): void {
+	if ( ! current_user_can( 'edit_user', $user_id ) ) {
+		return;
+	}
+	printf( '<p>%s</p>', esc_html( sprintf( 'Loyalty tier for %s: gold', $wp_user->display_name ) ) );
+}, 10, 2 );
+```
+
 ### Follow, connection, and restrict
 
 | Hook | Type | Fired when | Parameters |
