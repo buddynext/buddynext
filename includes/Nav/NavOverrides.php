@@ -418,7 +418,20 @@ final class NavOverrides {
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function apply_mobile_items( $items, $active = '' ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $active is part of the buddynext_mobile_nav_items filter signature (accepted_args=2).
-		$items     = (array) $items;
+		$items = (array) $items;
+
+		// The bar follows the Visibility the owner set for the section on the main
+		// Navigation tab, so "Admins only" is set once and the rail, the bar and the
+		// page agree. The mobile scope still owns hidden, label and order.
+		$main = $this->overrides( 'main' );
+		foreach ( $items as &$entry ) {
+			$main_key = is_array( $entry ) ? sanitize_key( (string) ( $entry['key'] ?? '' ) ) : '';
+			if ( '' !== $main_key && isset( $main[ $main_key ] ) && is_array( $main[ $main_key ] ) && $this->tab_denied( $main[ $main_key ] ) ) {
+				$entry['show'] = false;
+			}
+		}
+		unset( $entry );
+
 		$overrides = $this->overrides( 'mobile' );
 		if ( empty( $overrides ) ) {
 			return $items;

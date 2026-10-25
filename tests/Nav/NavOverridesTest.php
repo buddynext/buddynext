@@ -102,4 +102,27 @@ class NavOverridesTest extends \WP_UnitTestCase {
 		wp_set_current_user( 0 );
 		$this->assertTrue( $nav->denies_hub( 'spaces' ), 'a guest is denied logged-in only' );
 	}
+
+	/**
+	 * The phone bottom bar follows the main-scope Visibility, so a section set to
+	 * Admins only has no tab there for a member.
+	 *
+	 * @return void
+	 */
+	public function test_mobile_bar_follows_main_visibility(): void {
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$items  = array(
+			array( 'key' => 'feed', 'label' => 'Activity', 'show' => true ),
+			array( 'key' => 'spaces', 'label' => 'Spaces', 'show' => true ),
+		);
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
+		$shown = static fn( array $out ): array => array_column( array_filter( $out, static fn( $i ) => false !== ( $i['show'] ?? true ) ), 'key' );
+
+		wp_set_current_user( $member );
+		$this->assertSame( array( 'feed' ), array_values( $shown( ( new NavOverrides() )->apply_mobile_items( $items ) ) ) );
+
+		wp_set_current_user( $admin );
+		$this->assertSame( array( 'feed', 'spaces' ), array_values( $shown( ( new NavOverrides() )->apply_mobile_items( $items ) ) ) );
+	}
 }
