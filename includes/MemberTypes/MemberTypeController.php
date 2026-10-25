@@ -317,29 +317,6 @@ class MemberTypeController extends BaseRestController {
 	}
 
 	/**
-	 * May this member change the type they currently hold?
-	 *
-	 * Yes when they hold none, or when the one they hold is self-selectable — a
-	 * type they could have chosen for themselves is one they may change. No when
-	 * an owner assigned them something self_select = 0, which is exactly the
-	 * "Set by the community" state the profile UI already describes.
-	 *
-	 * Admins bypass this; the caller checks manage_options first.
-	 *
-	 * @param int $user_id Member whose type is being changed.
-	 * @return bool
-	 */
-	private function may_change_own_type( int $user_id ): bool {
-		$current = $this->service->get_user_type( $user_id );
-
-		if ( ! is_array( $current ) || empty( $current['slug'] ) ) {
-			return true;
-		}
-
-		return ! empty( $current['self_select'] );
-	}
-
-	/**
 	 * PUT /users/{id}/member-type — assign a type to a user.
 	 *
 	 * Allowed when:
@@ -369,7 +346,7 @@ class MemberTypeController extends BaseRestController {
 		 * staff, moderator, verified. A badge the holder can quietly remove is not a
 		 * classification the community controls, which is the whole point of it.
 		 */
-		if ( ! current_user_can( 'manage_options' ) && ! $this->may_change_own_type( $user_id ) ) {
+		if ( ! current_user_can( 'manage_options' ) && ! $this->service->may_change_own_type( $user_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Your member type was set by the community. Contact an admin to change it.', 'buddynext' ),

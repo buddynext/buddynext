@@ -7,7 +7,7 @@
  * classification and the pivot a future engine uses for per-type layouts, so:
  *   - only self_select = 1 types are offered / accepted (admin-only types never),
  *   - saving assigns the system type (directory filter works),
- *   - it is set-once: a member's own edit never changes an existing classification,
+ *   - a member may switch while their type is self-selectable; a type the community assigned is locked,
  *   - it never writes a bn_profile_values row.
  *
  * @package BuddyNext\Tests\Profile
@@ -197,16 +197,14 @@ class MemberTypeFieldTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Set-once: a member's own edit never overrides an existing classification.
+	 * A member whose type is self-selectable may switch to another self-selectable one.
 	 *
 	 * @return void
 	 */
-	public function test_member_cannot_change_type_once_set(): void {
-		// First self-selection sticks.
+	public function test_member_can_switch_between_self_selectable_types(): void {
 		$this->service->save_profile( $this->user_id, array( 'member_type' => 'mt_open' ) );
 		$this->assertSame( 'mt_open', $this->member_types->get_user_type( $this->user_id )['slug'] );
 
-		// Add a second self-selectable type, then try to switch to it.
 		$this->member_types->create(
 			array(
 				'slug'        => 'mt_mentor',
@@ -216,10 +214,35 @@ class MemberTypeFieldTest extends \WP_UnitTestCase {
 		);
 		$this->service->save_profile( $this->user_id, array( 'member_type' => 'mt_mentor' ) );
 
-		$this->assertSame(
-			'mt_open',
-			$this->member_types->get_user_type( $this->user_id )['slug'],
-			'Once set, a member cannot change their own type — only an admin can.'
-		);
+		$this->assertSame( 'mt_mentor', $this->member_types->get_user_type( $this->user_id )['slug'] );
+	}
+
+	/**
+	 * A type the community assigned (self_select = 0) is locked: the member cannot replace it.
+	 *
+	 * @return void
+	 */
+	public function test_member_cannot_replace_a_type_the_community_assigned(): void {
+		$this->member_types->assign_type( $this->user_id, $this->locked_type, 1 );
+
+		$this->service->save_profile( $this->user_id, array( 'member_type' => 'mt_open' ) );
+
+		$this->assertSame( 'mt_locked', $this->member_types->get_user_type( $this->user_id )['slug'] );
+		$this->assertFalse( $this->member_types->may_change_own_type( $this->user_id ) );
+	}
+
+	/**
+	 * Edit Profile: a self-selectable type shows the choices with the current one ticked;
+	 * an assigned type shows the read-only badge.
+	 *
+	 * @return void
+	 */
+	public function test_edit_profile_shows_choices_or_the_locked_badge(): void {
+		$field = array( 'type' => 'member_type' );
+		$call  = static fn( string $current ): string => FieldType::render_input( $field, $current, 'member_type' );
+
+		$this->assertMatchesRegularExpression( '/value="mt_open"\s+checked/', $call( 'mt_open' ) );
+		$this->assertStringNotContainsString( 'Set by the community', $call( 'mt_open' ) );
+		$this->assertStringContainsString( 'Set by the community', $call( 'mt_locked' ) );
 	}
 }

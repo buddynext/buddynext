@@ -4361,10 +4361,10 @@ class ProfileService {
 	 * because member type is a public classification and the pivot a member must not
 	 * be able to flip:
 	 *   - Empty pick → no-op (never clears an existing classification).
-	 *   - Member ALREADY has a type → no-op. Set-once: only an admin re-assigns
-	 *     (Members → Member Types, or the REST assign route). This is what keeps the
-	 *     future per-type layout / conditional-field pivot stable across a member's
-	 *     own profile edits.
+	 *   - Member holds an admin-assigned type (self_select = 0) → no-op: only an admin
+	 *     re-assigns it (Members → Member Types, or the REST assign route). A member
+	 *     whose type is self-selectable may switch to another one, the same rule the
+	 *     REST route applies (MemberTypeService::may_change_own_type()).
 	 *   - The picked type must exist AND be self_select = 1. sanitize() already
 	 *     dropped anything else to '', but re-checking here means even a direct
 	 *     save_profile() caller cannot smuggle an admin-only type past the gate.
@@ -4383,12 +4383,17 @@ class ProfileService {
 		if ( ! is_object( $service ) || ! method_exists( $service, 'assign_type' ) ) {
 			return;
 		}
-		// Set-once: a member's own edit never overrides an existing classification.
-		if ( method_exists( $service, 'get_user_type' ) && $service->get_user_type( $user_id ) ) {
+		// A member's own edit never overrides a type the community assigned.
+		if ( method_exists( $service, 'may_change_own_type' ) && ! $service->may_change_own_type( $user_id ) ) {
 			return;
 		}
 		$type = method_exists( $service, 'get_by_slug' ) ? $service->get_by_slug( $slug ) : null;
 		if ( ! is_array( $type ) || empty( $type['self_select'] ) || empty( $type['id'] ) ) {
+			return;
+		}
+		// Re-submitting the type they already hold is not a change.
+		$current = method_exists( $service, 'get_user_type' ) ? $service->get_user_type( $user_id ) : null;
+		if ( is_array( $current ) && ( $current['slug'] ?? '' ) === $slug ) {
 			return;
 		}
 		$service->assign_type( $user_id, (int) $type['id'], $user_id );

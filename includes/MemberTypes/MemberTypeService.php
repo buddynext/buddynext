@@ -367,6 +367,28 @@ class MemberTypeService {
 	// ── User assignment ───────────────────────────────────────────────────────
 
 	/**
+	 * May this member change the type they currently hold?
+	 *
+	 * Yes when they hold none, or when the one they hold is self-selectable: a type
+	 * they could have chosen for themselves is one they may change. No when an owner
+	 * assigned them something self_select = 0 (staff, moderator, verified), which the
+	 * profile shows as "Set by the community". Admins bypass this; callers check
+	 * manage_options first.
+	 *
+	 * @param int $user_id Member whose type is being changed.
+	 * @return bool
+	 */
+	public function may_change_own_type( int $user_id ): bool {
+		$current = $this->get_user_type( $user_id );
+
+		if ( ! is_array( $current ) || empty( $current['slug'] ) ) {
+			return true;
+		}
+
+		return ! empty( $current['self_select'] );
+	}
+
+	/**
 	 * Return the single member type assigned to a user, or null.
 	 *
 	 * Read path (ordered by speed):
