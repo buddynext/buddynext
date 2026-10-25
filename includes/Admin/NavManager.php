@@ -1689,6 +1689,13 @@ class NavManager extends AdminPageBase {
 						<?php esc_html_e( 'Custom capability', 'buddynext' ); ?>
 					</option>
 				</select>
+				<span class="bn-cf-hint">
+					<?php
+					echo $has_routing
+						? esc_html__( 'Who can see this item. Anyone it is hidden from also cannot open its page and sees a "not available" notice instead.', 'buddynext' )
+						: esc_html__( 'Who can see this item. It is hidden from everyone else.', 'buddynext' );
+					?>
+				</span>
 			</div>
 
 			<?php // Free-text capability is a developer-grade control — kept behind an Advanced disclosure; opens automatically when Visibility is already "Custom capability". ?>
