@@ -34,6 +34,11 @@ final class CompanionInstaller {
 	private const STORE_URL = 'https://wbcomdesigns.com';
 
 	/**
+	 * The only host a wordpress.org package may download from.
+	 */
+	private const WPORG_DOWNLOAD_HOST = 'downloads.wordpress.org';
+
+	/**
 	 * HTTP timeout (seconds) for store calls.
 	 */
 	private const TIMEOUT = 20;
@@ -60,9 +65,10 @@ final class CompanionInstaller {
 		}
 
 		$config  = is_array( $entry['free'] ?? null ) ? $entry['free'] : array();
+		$wporg   = (string) ( $config['wporg'] ?? '' );
 		$item_id = (int) ( $config['item_id'] ?? 0 );
 		$key     = (string) ( $config['key'] ?? '' );
-		if ( $item_id <= 0 || '' === $key ) {
+		if ( '' === $wporg && ( $item_id <= 0 || '' === $key ) ) {
 			return new WP_Error( 'buddynext_no_item', __( 'This integration cannot be installed automatically. Visit the store.', 'buddynext' ) );
 		}
 
@@ -70,6 +76,16 @@ final class CompanionInstaller {
 		$basename = (string) ( $config['basename'] ?? '' );
 		if ( '' !== $basename && file_exists( trailingslashit( WP_PLUGIN_DIR ) . $basename ) ) {
 			return self::activate( $basename );
+		}
+
+		// A free addon on wordpress.org: core resolves the package, no license.
+		if ( '' !== $wporg ) {
+			$package = self::resolve_wporg_package( $wporg );
+			if ( is_wp_error( $package ) ) {
+				return $package;
+			}
+			$installed = self::install_package( $package );
+			return is_wp_error( $installed ) ? $installed : self::activate( '' !== $basename ? $basename : (string) $installed );
 		}
 
 		// EDD Software Licensing only authorizes the download once the license is
@@ -227,6 +243,38 @@ final class CompanionInstaller {
 		$host = (string) wp_parse_url( $package, PHP_URL_HOST );
 		if ( '' === $host || ! ( 'wbcomdesigns.com' === $host || str_ends_with( $host, '.wbcomdesigns.com' ) ) ) {
 			return new WP_Error( 'buddynext_bad_package_host', __( 'The download URL was not on the trusted store host.', 'buddynext' ) );
+		}
+
+		return $package;
+	}
+
+	/**
+	 * Resolve a wordpress.org slug to its package through core's plugins_api().
+	 *
+	 * The package must come from downloads.wordpress.org over https; anything else
+	 * (a filtered or spoofed response) is refused before it reaches the upgrader.
+	 *
+	 * @param string $slug wordpress.org plugin slug.
+	 * @return string|WP_Error Package URL, or WP_Error.
+	 */
+	private static function resolve_wporg_package( string $slug ) {
+		require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+
+		$info = plugins_api(
+			'plugin_information',
+			array(
+				'slug'   => $slug,
+				'fields' => array( 'sections' => false ),
+			)
+		);
+		if ( is_wp_error( $info ) ) {
+			return new WP_Error( 'buddynext_wporg_lookup', __( 'Could not reach wordpress.org to find this plugin. Try again, or install it from the Plugins screen.', 'buddynext' ) );
+		}
+
+		$package = (string) ( $info->download_link ?? '' );
+		$parts   = wp_parse_url( $package );
+		if ( 'https' !== ( $parts['scheme'] ?? '' ) || self::WPORG_DOWNLOAD_HOST !== ( $parts['host'] ?? '' ) ) {
+			return new WP_Error( 'buddynext_wporg_host', __( 'The download did not come from wordpress.org, so it was not installed.', 'buddynext' ) );
 		}
 
 		return $package;

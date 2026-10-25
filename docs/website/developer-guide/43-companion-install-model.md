@@ -120,6 +120,12 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/companions/install" \
   -d '{"slug":"jetonomy"}'
 ```
 
+## The wordpress.org source
+
+A companion whose free addon is published on wordpress.org declares `free.wporg` (the plugin slug) instead of an EDD `item_id` and `key`. The installer then asks core's `plugins_api( 'plugin_information' )` for the package, downloads it through the same `Plugin_Upgrader`, and activates it. The same states and the same `install_plugins` gate apply, and no license is involved.
+
+> **Warning:** The package must be an `https` URL on `downloads.wordpress.org`. Any other host or scheme is refused with `buddynext_wporg_host` before the upgrader runs.
+
 ## The EDD-backed installer
 
 `CompanionInstaller::install()` is the no-manual-upload engine. It is idempotent and host-locked:
