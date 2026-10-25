@@ -3,7 +3,7 @@ import { test, expect } from '../_fixtures/auth.fixture';
 /**
  * J-819-admin-menu-ia-order.
  *
- * Covers: cap-work-through-the-site-owner-journey-in-order
+ * Covers: cap-administer-everything-from-one-menu
  * Roles: admin
  *
  * The owner reads the BuddyNext admin top to bottom, so the sections follow the
