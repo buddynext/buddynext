@@ -32,8 +32,8 @@ export const sel = {
     composer: '.bn-composer',
     composerTextarea: '.bn-composer__prompt, .bn-composer textarea',
     composerSubmit: 'button.bn-composer__submit',
-    composerModePoll: '[data-composer-mode="poll"], [data-wp-on--click="actions.openPoll"]',
-    composerModeEvent: '[data-composer-mode="event"], [data-wp-on--click="actions.openEvent"]',
+    composerModePoll: '[data-composer-mode="poll"]',
+    composerModeEvent: '[data-composer-mode="event"]',
 
     // Posts (post card actions use Interactivity directives).
     // Child selectors below are SCOPED — use them via parent.locator(...)
@@ -43,14 +43,14 @@ export const sel = {
     postReact: '[data-wp-on--click="actions.toggleReactionPicker"]',
     postReactPicker: '.bn-post-card__emoji-picker',
     postReactEmoji: '.bn-post-card__emoji-btn',
-    postReactCount: '.bn-post-card__react-count, .bn-post-card__reaction-summary',
+    postReactCount: '.bn-post-card__reaction-summary',
     postComment: '[data-wp-on--click="actions.openComments"]',
     postBookmark: '[data-wp-on--click="actions.toggleBookmark"]',
     postShare: '[data-wp-on--click="actions.openShare"]',
     postMore: '[data-wp-on--click="actions.toggleOptionsMenu"]',
 
     // Comments
-    commentList: '.bn-comment-list, .bn-comments, .bn-post-card__comments',
+    commentList: '.bn-comment-list, .bn-post-card__comments',
     commentForm: '.bn-comment-form',
     commentInput: '.bn-comment-form__input, .bn-comment-form textarea, .bn-comment-form input[type="text"]',
 
@@ -68,7 +68,7 @@ export const sel = {
     authPage: '.bn-auth, .bn-auth-page, body.login',
     loginUser: '#bn-login-user, #user_login',
     loginPass: '#bn-login-password, #user_pass',
-    loginSubmit: '.bn-auth-form button[type="submit"], #wp-submit, .bn-auth__submit',
+    loginSubmit: '.bn-auth-form button[type="submit"], #wp-submit',
     signupUser: '#bn-signup-username',
     signupEmail: '#bn-signup-email, #user_email, [name="user_email"]',
     signupPass: '#bn-signup-password',
@@ -102,7 +102,7 @@ export const sel = {
     directorySearch: '.bn-md-strip__search-input',
 
     // Profile (live markup uses .bn-pf-* prefix)
-    profileHero: '.bn-pf-hero, .bn-profile__hero, .bn-profile-hero',
+    profileHero: '.bn-pf-hero',
     // Stat counts are the metric row inside the hero: .bn-nav-metrics.bn-pf-metricrow
     // wrapping one .bn-nav-metric anchor per count. The old .bn-pf-stats never
     // rendered, so every assertion on it failed regardless of the feature working.
@@ -110,7 +110,7 @@ export const sel = {
     // Profile tabs render as .bn-navgroup > .bn-tabs[role="tablist"] > a.bn-tab.
     // There is no .bn-pf-tabs wrapper; scoping by role keeps this honest without
     // matching the feed's own .bn-tabs on a different surface.
-    profileTab: '.bn-navgroup .bn-tabs [role="tab"], .bn-pf-tabs .bn-tab, .bn-profile__tabs [role="tab"]',
+    profileTab: '.bn-navgroup .bn-tabs [role="tab"], .bn-pf-tabs .bn-tab',
     // Pro's who-viewed widget renders .bn-pf-views (it never emitted
     // data-widget="profile-views"). It deliberately returns early when the member
     // has zero views (ProfileViewsWidget.php:116), so a spec must seed a view.
@@ -138,7 +138,7 @@ export const sel = {
     // The card carries no [data-action]; the join control is keyed on
     // data-current-state (templates/parts/space-directory-card.php:195).
     spaceJoin: '.bn-sd-card [data-current-state="join"]',
-    spaceHero: '.bn-sh-hero, .bn-space__hero, .bn-space-hero',
+    spaceHero: '.bn-sh-hero',
     // Live markup is .bn-sh-tab inside .bn-sh-tabs — not the generic .bn-tab.
     spaceTab: '.bn-sh-tabs .bn-sh-tab, .bn-sh-hero__tabs .bn-sh-tab',
     spaceMemberCard: '.bn-sh-members__card, .bn-sh-side-member, .bn-member-card',
@@ -149,7 +149,7 @@ export const sel = {
     // The wizard shows its position via step heads (.bn-ob-form-head__step and
     // .bn-ob-step), not a progress bar. .bn-progress has never existed, so this
     // assertion could only ever fail.
-    onboardingProgress: '.bn-ob-form-head__step, .bn-ob-step, .bn-ob-progress',
+    onboardingProgress: '.bn-ob-form-head__step, .bn-ob-step',
 
     // Hashtags
     hashtagChip: '.bn-hashtag-chip, [data-hashtag]',

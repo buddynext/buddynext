@@ -1,4 +1,5 @@
 import { test, expect } from '../_fixtures/auth.fixture';
+import { restList } from '../_fixtures/effects';
 
 /**
  * J-127 every space control sits inside an Interactivity region.
@@ -30,6 +31,13 @@ test.describe( 'spaces / directive regions contract', () => {
 			return match ? match.pathname : '';
 		} );
 		expect( spaceHref, 'the spaces directory lists at least one space' ).not.toBe( '' );
+
+		// Effect: the space the page links to is a real space the REST directory returns,
+		// so the tabs below are asserted on live data and not on an empty shell.
+		const slug = spaceHref.split( '/' ).filter( Boolean ).pop();
+		const directory = await restList( page, '/spaces?per_page=100' );
+		expect( directory.status, 'spaces REST directory answers' ).toBe( 200 );
+		expect( directory.items.map( ( s ) => s.slug ), 'the linked space is in the REST directory' ).toContain( slug );
 
 		await page.goto( spaceHref );
 		const tabs = await page.evaluate( ( base ) => {

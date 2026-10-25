@@ -53,8 +53,8 @@ const memberUrl = (login: string) => `/members/${login}/`;
 
 const HERO = '.bn-pf-hero';
 const CONNECT_BTN = 'button[data-wp-on--click="actions.connect"]';
-const DM_THREAD = '.bn-dm-thread, .bn-dm-thread-messages, [data-dm-thread]';
-const DM_BLOCKED_NOTICE = '.bn-dm-blocked, .bn-dm-unavailable, .bn-dm-notice';
+const DM_THREAD = '.bn-dm-thread, [data-dm-thread]';
+const DM_BLOCKED_NOTICE = '.bn-dm-empty';
 
 let A_ID = 0;
 let B_ID = 0;

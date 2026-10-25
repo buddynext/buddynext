@@ -1568,18 +1568,25 @@ class AdminHub {
 		// Tools" merged into Moderation, card 10114177928) still has live bookmarks
 		// and doc links to ?page=<old-slug>. Keep the slug REACHABLE as an unlinked
 		// page — same null-parent idiom as above, so it populates $_registered_pages
-		// and WP serves it instead of a 403 — and redirect on render, when every tab
-		// is registered, to the tab's new home (or the successor section for a bare
-		// URL). Doing it in the render callback, not admin_init, is what makes the tab
-		// lookup reliable: the placement + registration are complete by then.
+		// and WP serves it instead of a 403 — and redirect from `load-<hook>`, which
+		// runs after every tab is registered but BEFORE admin-header.php prints. A
+		// redirect from the render callback comes too late: on a host without output
+		// buffering the headers are already sent and the visitor gets an empty page.
 		foreach ( self::RETIRED_SECTION_SLUGS as $bn_retired_slug => $bn_retired_dest ) {
 			$bn_dest = (string) $bn_retired_dest;
-			add_submenu_page(
+			$bn_hook = add_submenu_page(
 				'', // No parent: a hidden page, registered only to own its slug for the redirect below.
 				'',
 				'',
 				'manage_options',
 				$bn_retired_slug,
+				'__return_null'
+			);
+			if ( ! is_string( $bn_hook ) || '' === $bn_hook ) {
+				continue;
+			}
+			add_action(
+				'load-' . $bn_hook,
 				static function () use ( $bn_dest ): void {
 					// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET routing of a retired page slug; changes no state.
 					$bn_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
