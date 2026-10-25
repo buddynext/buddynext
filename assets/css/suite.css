@@ -263,7 +263,7 @@ a.bn-suite-panel__item-link:focus-visible {
 	   title gets the full width and the salary still reads prominently. */
 	.bn-suite-panel__item-line {
 		flex-direction: column;
-		align-items: flex-start;
+		align-items: stretch;
 		gap: 0.1rem;
 	}
 

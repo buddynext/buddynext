@@ -75,7 +75,7 @@ do_action( 'buddynext_part_space_settings_panel_links_before', $args );
 						</span>
 					<?php endif; ?>
 					<span class="bn-links-panel__meta">
-						<span class="bn-badge"><?php echo esc_html( ucfirst( str_replace( '_', ' ', (string) $bn_row['source'] ) ) ); ?></span>
+						<span class="bn-badge"><?php echo esc_html( (string) $bn_row['source_label'] ); ?></span>
 						<?php if ( ! empty( $bn_row['managed'] ) ) : ?>
 							<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Created for this link', 'buddynext' ); ?></span>
 						<?php endif; ?>

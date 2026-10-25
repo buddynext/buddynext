@@ -134,14 +134,17 @@ class SpaceLinksController extends BaseRestController {
 				'name' => '',
 				'url'  => '',
 			);
-			$out[]  = array(
-				'source'    => $link['source'],
-				'type'      => $link['type'],
-				'id'        => $link['id'],
-				'name'      => (string) $label['name'],
-				'url'       => (string) $label['url'],
-				'available' => null !== $source,
-				'managed'   => $managed,
+			// The addon's own name ("Book Club"), not its slug; the slug only if the addon is gone.
+			$entry = \BuddyNext\Integrations\IntegrationRegistry::instance()->get( $link['source'] );
+			$out[] = array(
+				'source'       => $link['source'],
+				'source_label' => is_array( $entry ) ? (string) $entry['label'] : ucfirst( str_replace( '_', ' ', $link['source'] ) ),
+				'type'         => $link['type'],
+				'id'           => $link['id'],
+				'name'         => (string) $label['name'],
+				'url'          => (string) $label['url'],
+				'available'    => null !== $source,
+				'managed'      => $managed,
 			);
 		}
 		return $out;

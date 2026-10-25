@@ -5746,13 +5746,14 @@ final class ResponseSchema {
 		return array(
 			'type'       => 'object',
 			'properties' => array(
-				'source'    => array( 'type' => 'string' ),
-				'type'      => array( 'type' => 'string' ),
-				'id'        => array( 'type' => 'integer' ),
-				'name'      => array( 'type' => 'string' ),
-				'url'       => array( 'type' => 'string' ),
-				'available' => array( 'type' => 'boolean' ),
-				'managed'   => array( 'type' => 'boolean' ),
+				'source'       => array( 'type' => 'string' ),
+				'source_label' => array( 'type' => 'string' ),
+				'type'         => array( 'type' => 'string' ),
+				'id'           => array( 'type' => 'integer' ),
+				'name'         => array( 'type' => 'string' ),
+				'url'          => array( 'type' => 'string' ),
+				'available'    => array( 'type' => 'boolean' ),
+				'managed'      => array( 'type' => 'boolean' ),
 			),
 		);
 	}

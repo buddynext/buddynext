@@ -17249,6 +17249,9 @@
                                 "source": {
                                     "type": "string"
                                 },
+                                "source_label": {
+                                    "type": "string"
+                                },
                                 "type": {
                                     "type": "string"
                                 },
@@ -20110,6 +20113,9 @@
                             "type": "object",
                             "properties": {
                                 "source": {
+                                    "type": "string"
+                                },
+                                "source_label": {
                                     "type": "string"
                                 },
                                 "type": {

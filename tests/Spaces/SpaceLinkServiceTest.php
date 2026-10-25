@@ -273,6 +273,24 @@ class SpaceLinkServiceTest extends WP_UnitTestCase {
 		$this->assertSame( 999, $after['links'][0]['id'] );
 	}
 
+	public function test_a_link_row_names_the_addon_not_its_slug(): void {
+		// A label that differs from the capitalised slug, so a slug fallback would fail.
+		add_filter(
+			'buddynext_integrations',
+			static function ( $all ) {
+				$all['fixture']['label'] = 'Fixture Book Club';
+				return $all;
+			},
+			99
+		);
+		IntegrationRegistry::instance()->reset();
+
+		$space = $this->links->create_and_link( 'fixture', 'group', 7, $this->owner );
+		$rows  = \BuddyNext\Spaces\SpaceLinksController::describe( $space );
+
+		$this->assertSame( 'Fixture Book Club', $rows[0]['source_label'] );
+	}
+
 	public function test_the_space_item_carries_linked_sources(): void {
 		$space = $this->links->create_and_link( 'fixture', 'group', 7, $this->owner );
 		wp_set_current_user( $this->owner );
