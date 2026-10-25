@@ -3155,15 +3155,19 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					</label>
 				</div>
 
+				<?php if ( $needs_https ) : ?>
+					<p class="bn-field-hint bn-social-card__warning">
+						<?php
+						/* translators: %s: provider name (e.g. Apple). */
+						echo esc_html( sprintf( __( '%s sign-in returns to your site over a secure cross-site request, so it only works on HTTPS. This site is not using HTTPS, so the button will stay hidden even when configured.', 'buddynext' ), $label ) );
+						?>
+					</p>
+				<?php endif; ?>
+
+				<?php // Collapsed whatever the status: the row above already says what is connected, and the fields stay in the form so one Save still saves them. ?>
+				<details class="bn-social-card__more">
+					<summary><?php esc_html_e( 'Keys and setup', 'buddynext' ); ?></summary>
 				<div class="bn-social-card__body">
-					<?php if ( $needs_https ) : ?>
-						<p class="bn-field-hint bn-social-card__warning">
-							<?php
-							/* translators: %s: provider name (e.g. Apple). */
-							echo esc_html( sprintf( __( '%s sign-in returns to your site over a secure cross-site request, so it only works on HTTPS. This site is not using HTTPS, so the button will stay hidden even when configured.', 'buddynext' ), $label ) );
-							?>
-						</p>
-					<?php endif; ?>
 
 					<?php
 					foreach ( $cred_fields as $cred_key => $descriptor ) :
@@ -3239,6 +3243,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						</details>
 					<?php endif; ?>
 				</div>
+				</details>
 			</div>
 			<?php
 		}

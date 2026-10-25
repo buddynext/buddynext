@@ -3168,20 +3168,23 @@ button.bn-btn-danger:hover {
 	border-top: 1px dashed var(--bn-a-border-soft);
 	padding-top: var(--bn-a-s3);
 }
-.bn-social-help > summary {
+.bn-social-help > summary,
+.bn-social-card__more > summary {
 	cursor: pointer;
 	font-weight: 600;
 	color: var(--bn-a-brand);
 	list-style: none;
 }
-.bn-social-help > summary::-webkit-details-marker { display: none; }
+.bn-social-help > summary::-webkit-details-marker,
+.bn-social-card__more > summary::-webkit-details-marker { display: none; }
 /* Disclosure caret drawn in CSS (no glyph character) — a triangle pointing along
    the inline direction (right under LTR) that rotates to point down when the
    details is open. The solid edge is border-inline-start, so under RTL the
    triangle mirrors to point left on its own. The open-state rotation must then
    flip too: rotating a left-pointing triangle +90deg would aim it UP, so RTL
    rotates the other way to land on the same downward caret. */
-.bn-social-help > summary::before {
+.bn-social-help > summary::before,
+.bn-social-card__more > summary::before {
 	content: "";
 	display: inline-block;
 	width: 0;
@@ -3193,8 +3196,12 @@ button.bn-btn-danger:hover {
 	vertical-align: middle;
 	transition: transform 0.15s ease;
 }
-.bn-social-help[open] > summary::before { transform: rotate(90deg); }
-[dir="rtl"] .bn-social-help[open] > summary::before { transform: rotate(-90deg); }
+.bn-social-help[open] > summary::before,
+.bn-social-card__more[open] > summary::before { transform: rotate(90deg); }
+[dir="rtl"] .bn-social-help[open] > summary::before,
+[dir="rtl"] .bn-social-card__more[open] > summary::before { transform: rotate(-90deg); }
+.bn-social-card__more > summary { padding: var(--bn-a-s3) var(--bn-a-s4); }
+.bn-social-card__warning { margin: 0; padding: var(--bn-a-s3) var(--bn-a-s4) 0; }
 .bn-social-help__steps {
 	margin: var(--bn-a-s3) 0;
 	padding-inline-start: var(--bn-a-s5);
