@@ -190,4 +190,31 @@ class RolesTabTest extends \WP_UnitTestCase {
 		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
 	}
+
+	/**
+	 * The Spaces-tab select shows the rule that is enforced, so a Roles & Capabilities
+	 * choice is not contradicted by it (and an unchanged save there cannot undo it).
+	 *
+	 * @return void
+	 */
+	public function test_spaces_tab_shows_the_enforced_rule(): void {
+		$field = static function (): \BuddyNext\Admin\Settings\Field {
+			$settings = ( new \ReflectionClass( \BuddyNext\Admin\Settings::class ) )->newInstanceWithoutConstructor();
+			$method   = new \ReflectionMethod( $settings, 'fields_spaces' );
+			foreach ( $method->invoke( $settings ) as $section ) {
+				foreach ( $section->fields as $f ) {
+					if ( 'buddynext_space_creation_role' === $f->key ) {
+						return $f;
+					}
+				}
+			}
+			throw new \RuntimeException( 'field missing' );
+		};
+
+		$this->assertSame( 'member', $field()->display_value() );
+
+		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'admin' ), false );
+		$this->forget_role_map();
+		$this->assertSame( 'admin', $field()->display_value(), 'Roles says admins only, so the Spaces tab must not say Any member' );
+	}
 }

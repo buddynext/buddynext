@@ -190,7 +190,7 @@ class ProfileSidebarProvider {
 
 		// Card: Member of — the profile owner's spaces (public membership info; not
 		// owner-editable field-group schema). Shows on own + other profiles.
-		if ( ! empty( $member_spaces ) ) {
+		if ( ! empty( $member_spaces ) && ! ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( 'spaces' ) ) {
 			$descriptors[] = array(
 				'id'       => 'profile-member-of',
 				'priority' => 40,

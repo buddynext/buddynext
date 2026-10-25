@@ -1342,15 +1342,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_space_creation_role',
-							'type'    => 'select',
-							'label'   => __( 'Who can create spaces', 'buddynext' ),
-							'default' => 'member',
-							'choices' => array(
+							'key'            => 'buddynext_space_creation_role',
+							'type'           => 'select',
+							'label'          => __( 'Who can create spaces', 'buddynext' ),
+							'default'        => 'member',
+							// Shows the rule that is enforced, which Members > Roles & Capabilities
+							// can also change, not only the value last saved here.
+							'value_callback' => static fn() => 'member' === ( \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] ?? 'member' ) ? 'member' : 'admin',
+							'choices'        => array(
 								'member' => __( 'Any member', 'buddynext' ),
 								'admin'  => __( 'Admins only', 'buddynext' ),
 							),
-							'hint'    => __( 'Restricting to admins prevents members from creating unmoderated spaces.', 'buddynext' ),
+							'hint'           => __( 'Restricting to admins prevents members from creating unmoderated spaces. Also set under Members > Roles & Capabilities.', 'buddynext' ),
 						)
 					),
 					new Field(

@@ -168,11 +168,13 @@ do_action( 'buddynext_part_post_byline_before', $args );
 				$bn_space = buddynext_service( 'spaces' )->get( $bn_space_id );
 				if ( $bn_space && ! empty( $bn_space['name'] ) && ! empty( $bn_space['slug'] ) ) {
 					$bn_space_url = \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( (string) $bn_space['slug'] ) . '/';
+					// A section the owner closed to this viewer keeps the space name but not the link.
+					$bn_space_tag = ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( 'spaces' ) ? 'span' : 'a';
 					?>
-					<a class="bn-post-card__space-link" href="<?php echo esc_url( $bn_space_url ); ?>">
+					<<?php echo esc_attr( $bn_space_tag ); ?> class="bn-post-card__space-link"<?php echo 'a' === $bn_space_tag ? ' href="' . esc_url( $bn_space_url ) . '"' : ''; ?>>
 						<?php buddynext_icon( 'users' ); ?>
 						<span class="bn-post-card__space-name"><?php echo esc_html( (string) $bn_space['name'] ); ?></span>
-					</a>
+					</<?php echo esc_attr( $bn_space_tag ); ?>>
 					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 					<?php
 				}

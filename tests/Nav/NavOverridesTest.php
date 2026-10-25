@@ -125,4 +125,18 @@ class NavOverridesTest extends \WP_UnitTestCase {
 		wp_set_current_user( $admin );
 		$this->assertSame( array( 'feed', 'spaces' ), array_values( $shown( ( new NavOverrides() )->apply_mobile_items( $items ) ) ) );
 	}
+
+	/**
+	 * Header and menu links to Spaces disappear for a viewer the section is closed to.
+	 *
+	 * @return void
+	 */
+	public function test_spaces_link_token_is_dropped_for_a_closed_section(): void {
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $member );
+		$this->assertNotSame( '', \BuddyNext\Nav\UserLinks::resolve( '#bn-spaces', $member ) );
+
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
+		$this->assertSame( '', \BuddyNext\Nav\UserLinks::resolve( '#bn-spaces', $member ), 'a closed section must not be linked from the menu' );
+	}
 }

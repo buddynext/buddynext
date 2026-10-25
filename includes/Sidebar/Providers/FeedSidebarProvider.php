@@ -139,7 +139,7 @@ class FeedSidebarProvider {
 			'priority'  => 50,
 			'surfaces'  => self::SURFACES,
 			'condition' => static function () use ( $spaces_on ): bool {
-				return $spaces_on;
+				return $spaces_on && ! ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( 'spaces' );
 			},
 			'chrome'    => false,
 			'render'    => static function () use ( $service, $uid ): void {

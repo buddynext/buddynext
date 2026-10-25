@@ -328,7 +328,8 @@ final class UserLinks {
 			case '#bn-bookmarks':
 				return PageRouter::bookmarks_url();
 			case '#bn-spaces':
-				return PageRouter::spaces_url();
+				// '' drops the item: a section the owner closed to this viewer is not linked.
+				return ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( 'spaces' ) ? '' : PageRouter::spaces_url();
 			case '#bn-settings':
 				return PageRouter::settings_url();
 			case '#bn-logout':
