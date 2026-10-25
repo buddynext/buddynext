@@ -1285,6 +1285,13 @@ select.bn-text-input {
 	   one doubled line - visible on Payment Gateways (Tax), Push (Test push),
 	   Paywall (Gate a Space Behind a Plan) and AI Moderation. */
 	margin-bottom: var(--bn-a-s5);
+
+	/* Stays in view while a long settings tab scrolls, so Save is never a whole
+	   page away (Registration & Login is ~6,500px with one Save at the bottom). */
+	position: sticky;
+	bottom: var(--bn-a-s3);
+	z-index: 5;
+	box-shadow: var(--bn-a-shadow-md);
 }
 
 /* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
