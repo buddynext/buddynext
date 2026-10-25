@@ -105,6 +105,21 @@ class TransactionalEmailTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * An email the member can switch off carries the link to do it, even when the
+	 * body has no {{unsubscribe_url}}; an account email does not.
+	 */
+	public function test_optional_email_gets_a_stop_link_and_transactional_does_not(): void {
+		$this->sender->send_now( $this->user_id, 'bn.comment_reply', array( 'type' => 'bn.comment_reply', 'message' => 'Hi' ) );
+		$this->assertCount( 1, $this->sent );
+		$this->assertStringContainsString( 'bn_unsub=1', (string) $this->sent[0]['message'] );
+
+		$this->sent = array();
+		$this->sender->send_now( $this->user_id, 'welcome', array( 'type' => 'welcome' ) );
+		$this->assertCount( 1, $this->sent );
+		$this->assertStringNotContainsString( 'bn_unsub=1', (string) $this->sent[0]['message'] );
+	}
+
+	/**
 	 * A disabled welcome template suppresses the send (owner turned it off).
 	 */
 	public function test_disabled_welcome_template_suppresses_send(): void {

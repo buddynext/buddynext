@@ -305,6 +305,23 @@ class EmailSender {
 		$subject = $this->render( $subject_src, $user_id, $data );
 		$body    = $this->render( $body_src, $user_id, $data );
 
+		// A member-controlled email always carries a way to turn it off. Many default
+		// and owner-edited bodies carry no {{unsubscribe_url}}, so add the link here
+		// once instead of relying on every template to remember it.
+		if ( false === strpos( $body_src, '{{unsubscribe_url}}' )
+			&& ! in_array( $notification_type, $this->transactional_types(), true )
+			&& ! in_array( $notification_type, self::COMPOSED_EMAIL_TYPES, true )
+		) {
+			$body .= '<p style="margin:24px 0 0;font-size:12px;color:#6b7280;">'
+				. sprintf(
+					/* translators: %s: link text. */
+					esc_html__( 'You get this email because of your notification settings. %s', 'buddynext' ),
+					'<a href="' . esc_url( $this->unsubscribe_url( $user_id, $notification_type ) ) . '" style="color:#6b7280;">'
+					. esc_html__( 'Stop emails like this', 'buddynext' ) . '</a>'
+				)
+				. '</p>';
+		}
+
 		// Preview text (inbox preheader): inline data wins, else the template's
 		// configured preview_text. Rendered through the same token replacer.
 		$preview_src = isset( $data['preview_text'] )
