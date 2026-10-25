@@ -30,6 +30,33 @@ final class MenuRenderer {
 		// The same login-state honesty, applied to the fallback nav. See
 		// exclude_unusable_pages().
 		add_filter( 'wp_list_pages_excludes', array( $this, 'exclude_unusable_pages' ) );
+
+		// Block themes list pages with the core/page-list block, which calls
+		// get_pages() directly and never reads wp_list_pages_excludes. Inside a
+		// navigation block it is rendered without pre_render_block, so there is no
+		// hook scoped to it; the filter is limited to the front end instead.
+		add_filter( 'get_pages', array( $this, 'drop_unusable_pages' ) );
+	}
+
+	/**
+	 * Remove the pages exclude_unusable_pages() names from a get_pages() result.
+	 *
+	 * @param \WP_Post[] $pages Pages found.
+	 * @return \WP_Post[]
+	 */
+	public function drop_unusable_pages( $pages ): array {
+		$pages = is_array( $pages ) ? $pages : array();
+		if ( is_admin() || wp_is_json_request() ) {
+			return $pages;
+		}
+		$drop = $this->exclude_unusable_pages( array() );
+
+		return array_values(
+			array_filter(
+				$pages,
+				static fn( $page ) => ! in_array( (int) $page->ID, array_map( 'intval', $drop ), true )
+			)
+		);
 	}
 
 	/**
@@ -81,6 +108,13 @@ final class MenuRenderer {
 		);
 
 		$hubs = \BuddyNext\Core\HubRegistry::instance();
+
+		// A hub the owner closed to this visitor (Settings > Navigation > Visibility) is
+		// a dead end for them too, so the theme does not list it.
+		$nav = new NavOverrides();
+		foreach ( array_keys( $hubs->all() ) as $hub_key ) {
+			$rules[ $hub_key ] = ( $rules[ $hub_key ] ?? false ) || $nav->denies_hub( (string) $hub_key );
+		}
 
 		foreach ( $rules as $hub_key => $unusable ) {
 			if ( ! $unusable ) {
