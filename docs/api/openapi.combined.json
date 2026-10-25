@@ -24311,6 +24311,9 @@
                     "integrations": {
                         "type": "object"
                     },
+                    "card_types": {
+                        "type": "object"
+                    },
                     "limits": {
                         "type": "object"
                     },

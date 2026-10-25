@@ -111,6 +111,10 @@ Do not add an admin tab. Declare fields and they appear in your card. Prefer a f
 | `buddynext_space_link_backfill_chunk_size` (filter, `int $size`, `string $source`, `string $type`, `int $object_id`) | Members added per backfill run. Default 500, at least 1. |
 | `buddynext_addon_module_failed` (action, `string $slug`, `string $module`, `Throwable $error`) | A module threw and has been switched off for the rest of the request. The error is also written to the PHP error log. |
 
+## What the app sees
+
+`GET /app/config` lists your addon under `integrations.<slug>` with `profile_panels: true` when it supplies a `ProfilePanelModule`, and your typed feed cards under `card_types`. Both keys are additive; an older server omits them.
+
 ## Keeping it stable
 
 The public API is exactly these, and `tests/Addons/AddonApiContractTest.php` fails any change to their signatures:

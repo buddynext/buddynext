@@ -1781,6 +1781,7 @@ final class ResponseSchema {
 				'branding'         => array( 'type' => 'object' ),
 				'features'         => array( 'type' => 'object' ),
 				'integrations'     => array( 'type' => 'object' ),
+				'card_types'       => array( 'type' => 'object' ),
 				'limits'           => array( 'type' => 'object' ),
 				'time'             => array( 'type' => 'object' ),
 				'locale'           => array( 'type' => 'object' ),
