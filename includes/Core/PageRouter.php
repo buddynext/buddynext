@@ -908,9 +908,11 @@ class PageRouter {
 			// the option appeared to do nothing for hubs like Spaces — enforce it at
 			// the route. Explore keeps its own public-explore gate above, so it is
 			// exempt here even if the Feed tab is marked login-required.
-			$nav_overrides  = (array) get_option( 'buddynext_nav_overrides', array() );
-			$hub_override   = isset( $nav_overrides[ $hub ] ) ? (array) $nav_overrides[ $hub ] : array();
-			$override_login = ! empty( $hub_override['login_required'] ) && ! $is_explore;
+			$nav_overrides = (array) get_option( 'buddynext_nav_overrides', array() );
+			$hub_override  = isset( $nav_overrides[ $hub ] ) ? (array) $nav_overrides[ $hub ] : array();
+			// A section limited to members, admins or a capability also sends a guest to
+			// log in first (a member who then lacks access sees the page below).
+			$override_login = ( ! empty( $hub_override['login_required'] ) || 'all' !== (string) ( $hub_override['visibility'] ?? 'all' ) ) && ! $is_explore;
 
 			// Public explore landing: when "Public explore feed" is on and the Feed
 			// tab is not explicitly login-required, a guest hitting the personalised
@@ -1107,6 +1109,22 @@ class PageRouter {
 			return;
 		}
 
+		// ── Navigation visibility gate ────────────────────────────────────
+		// Settings → Navigation "Visibility" (Admins only / Logged-in / capability)
+		// used to hide the link and nothing else, so the page stayed open by URL.
+		// Guests were already sent to log in above; a signed-in viewer who lacks
+		// access gets an explained page, not a bounce or a bare 404.
+		$bn_not_available = false;
+		if ( is_user_logged_in()
+			&& ! ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_action', '' ) )
+			&& ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( $hub )
+		) {
+			$bn_not_available = true;
+			nocache_headers();
+			add_filter( 'wp_robots', 'wp_robots_no_robots' );
+			$template = 'parts/not-available.php';
+		}
+
 		// ── Past-the-end gate ─────────────────────────────────────────────
 		// /members/page/999/ answered 200 with an empty grid: a soft 404 for
 		// crawlers, and old /page/N/ links indexed from the 1.2.2 redirects reach
@@ -1227,7 +1245,7 @@ class PageRouter {
 		$wp_query->found_posts       = 1;
 
 		// A page past the end of its list keeps the 404 set above.
-		status_header( $bn_past_last_page ? 404 : 200 );
+		status_header( $bn_past_last_page ? 404 : ( $bn_not_available ? 403 : 200 ) );
 
 		// Set the document <title> via the standard wp_title parts filter.
 		$hub_titles = array(

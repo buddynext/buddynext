@@ -101,6 +101,19 @@ final class NavOverrides {
 	}
 
 	/**
+	 * Whether the viewer may not open a main-nav section, per its Settings →
+	 * Navigation visibility. The route calls this so "Admins only" keeps the page
+	 * closed, not just its link. Same check the rail uses, so the two agree.
+	 *
+	 * @param string $hub Hub slug (the main-scope override key).
+	 * @return bool
+	 */
+	public function denies_hub( string $hub ): bool {
+		$overrides = $this->overrides( 'main' );
+		return isset( $overrides[ $hub ] ) && is_array( $overrides[ $hub ] ) && $this->tab_denied( $overrides[ $hub ] );
+	}
+
+	/**
 	 * Apply main-scope overrides to the left-rail item list.
 	 *
 	 * Each rail item carries a `key` that matches a NavManager main-scope slug
