@@ -64,6 +64,30 @@ class NetworkRegistrationNoticeTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'Ask a network administrator', $this->notice_for( $site_admin ) );
 	}
 
+	public function test_network_signup_follows_the_invite_only_mode(): void {
+		( new CoreRegistration() )->register();
+		update_site_option( 'registration', 'user' );
+		update_option( 'buddynext_reg_mode', 'invite' );
+		wp_set_current_user( 0 );
+
+		$result = wpmu_validate_user_signup( 'newperson', 'newperson@example.test' );
+
+		$this->assertContains( 'bn_reg_invite', $result['errors']->get_error_codes(), 'wp-signup.php must not be a way around invite-only' );
+	}
+
+	public function test_a_super_admin_adding_a_user_is_not_blocked_by_the_signup_mode(): void {
+		( new CoreRegistration() )->register();
+		update_site_option( 'registration', 'user' );
+		update_option( 'buddynext_reg_mode', 'invite' );
+		$super = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		grant_super_admin( $super );
+		wp_set_current_user( $super );
+
+		$result = wpmu_validate_user_signup( 'addedbyadmin', 'addedbyadmin@example.test' );
+
+		$this->assertNotContains( 'bn_reg_invite', $result['errors']->get_error_codes() );
+	}
+
 	public function test_opening_accounts_keeps_the_site_creation_half(): void {
 		$method = new \ReflectionMethod( CoreRegistration::class, 'network_registration' );
 

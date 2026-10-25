@@ -52,6 +52,9 @@ class CoreRegistration {
 	public function register(): void {
 		add_action( 'login_form_register', array( $this, 'maybe_redirect_to_buddynext' ) );
 		add_filter( 'registration_errors', array( $this, 'apply_policy' ), 10, 3 );
+		// A network's public signup (wp-signup.php) never reaches registration_errors, so the
+		// same policy has to be asked there too, or opening the network option would bypass it.
+		add_filter( 'wpmu_validate_user_signup', array( $this, 'apply_network_policy' ) );
 
 		// Mirror the registration mode onto WP core's users_can_register. This used
 		// to live in Admin\Settings, so it only ran inside wp-admin — a mode set by
@@ -474,6 +477,24 @@ class CoreRegistration {
 
 		wp_safe_redirect( \BuddyNext\Core\PageRouter::signup_url() );
 		exit;
+	}
+
+	/**
+	 * Run the shared registration policy on a network's public signup.
+	 *
+	 * Someone who can create users (a super admin on Network Admin > Add New) is adding
+	 * an account, not signing up, so the policy does not apply to them.
+	 *
+	 * @param mixed $result wpmu_validate_user_signup() result: user_name, user_email, errors.
+	 * @return mixed
+	 */
+	public function apply_network_policy( $result ) {
+		if ( ! is_array( $result ) || current_user_can( 'create_users' ) ) {
+			return $result;
+		}
+
+		$result['errors'] = $this->apply_policy( $result['errors'] ?? null, (string) ( $result['user_name'] ?? '' ), (string) ( $result['user_email'] ?? '' ) );
+		return $result;
 	}
 
 	/**
