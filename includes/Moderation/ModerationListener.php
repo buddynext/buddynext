@@ -834,7 +834,10 @@ class ModerationListener implements ListenerInterface {
 		// daily check always used the hardcoded threshold of 20 and ignored the
 		// admin's configured alert email.
 		$threshold   = (int) get_option( 'buddynext_mod_queue_alert_threshold', 20 );
-		$alert_email = (string) get_option( 'buddynext_admin_alert_email', get_option( 'admin_email' ) );
+		$alert_email = (string) get_option( 'buddynext_admin_alert_email', '' );
+		if ( '' === trim( $alert_email ) ) {
+			$alert_email = (string) get_option( 'admin_email' ); // A cleared field means "use the admin email".
+		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		$count = (int) $wpdb->get_var(

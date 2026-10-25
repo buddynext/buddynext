@@ -1108,9 +1108,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						array(
 							'key'     => 'buddynext_enable_community_nav',
 							'type'    => 'toggle',
-							'label'   => __( 'Auto-place the community menu in your theme', 'buddynext' ),
+							'label'   => __( 'Community navigation (theme menu, rail and mobile bar)', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Drops the Feed / Members / Spaces menu into your theme automatically. Turn off to use your theme\'s own menu instead. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
+							'hint'    => __( 'Drops the Feed / Members / Spaces menu into your theme and shows the desktop rail and mobile bottom bar. Turn off to use only your theme\'s own menu: the rail and bottom bar go too. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1212,7 +1212,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							// locked CTA — a silent no-op. A members-only preview always
 							// keeps something back (card 10285238883).
 							'max'     => 95,
-							'hint'    => __( 'How much of a members-only post a non-member sees as a preview, as a percentage of its length. Capped at 95% so the gate always keeps something back; 0 shows only the lock notice. The preview is never shorter than a few words.', 'buddynext' ),
+							'hint'    => __( 'How much of a members-only post a non-member sees as a preview, as a percentage of its length. Capped at 95% so the gate always keeps something back; 0 shows only the lock notice. Posts under 40 words show no preview.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1750,7 +1750,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'          => __( 'Admin alert email', 'buddynext' ),
 							'sanitize'       => 'sanitize_email',
 							'value_callback' => static fn() => (string) get_option( 'buddynext_admin_alert_email', get_option( 'admin_email', '' ) ),
-							'hint'           => __( 'Receives daily alerts when the moderation queue or pending registration count is high. Defaults to WordPress admin email.', 'buddynext' ),
+							'hint'           => __( 'Receives the daily alert when the moderation queue is long. Leave it empty to use the WordPress admin email.', 'buddynext' ),
 						)
 					),
 				)
@@ -1916,7 +1916,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default_callback' => array( '\BuddyNext\Auth\RegistrationPolicy', 'terms_default' ),
 							'type'             => 'toggle',
 							'label'            => __( 'Require members to accept your terms', 'buddynext' ),
-							'hint'             => __( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+							'hint'             => __( 'Shows a consent checkbox on every sign-up route. On once a Terms page is chosen under Legal pages below; it has no effect until then.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -2808,7 +2808,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$this->render_toggle_row(
 			'buddynext_require_terms',
 			__( 'Require members to accept your terms', 'buddynext' ),
-			__( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+			__( 'Shows a consent checkbox on every sign-up route. On once a Terms page is chosen under Legal pages below; it has no effect until then.', 'buddynext' ),
 			(bool) get_option( 'buddynext_require_terms', \BuddyNext\Auth\RegistrationPolicy::terms_default() )
 		);
 

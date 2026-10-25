@@ -61,6 +61,7 @@ class QueueAlertThresholdTest extends WP_UnitTestCase {
 		remove_filter( 'pre_wp_mail', array( $this, 'capture_mail' ), 10 );
 
 		delete_option( 'buddynext_mod_queue_alert_threshold' );
+		delete_option( 'buddynext_admin_alert_email' );
 
 		parent::tear_down();
 	}
@@ -163,5 +164,22 @@ class QueueAlertThresholdTest extends WP_UnitTestCase {
 		$this->run_check();
 
 		$this->assertCount( 1, $this->mails, 'The queue reached the threshold and no alert was sent.' );
+	}
+
+	/**
+	 * Clearing the "Admin alert email" field saves an empty string; the alert then
+	 * goes to the WordPress admin email, as the field says, not to nobody.
+	 *
+	 * @return void
+	 */
+	public function test_a_cleared_alert_email_uses_the_admin_email(): void {
+		update_option( 'buddynext_mod_queue_alert_threshold', 3 );
+		update_option( 'buddynext_admin_alert_email', '' );
+		$this->queue_reports( 3 );
+
+		$this->run_check();
+
+		$this->assertCount( 1, $this->mails );
+		$this->assertContains( get_option( 'admin_email' ), (array) $this->mails[0]['to'] );
 	}
 }
