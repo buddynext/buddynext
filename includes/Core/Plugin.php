@@ -173,6 +173,19 @@ class Plugin {
 			}
 		);
 
+		// Saving "Who can create spaces" on the Spaces tab is the owner's latest word,
+		// so it replaces an older Roles & Capabilities row for the same ability.
+		$drop_create_override = static function (): void {
+			$overrides = get_option( 'bn_role_map_overrides', array() );
+			if ( is_array( $overrides ) && array_key_exists( 'buddynext-spaces/create', $overrides ) ) {
+				unset( $overrides['buddynext-spaces/create'] );
+				update_option( 'bn_role_map_overrides', $overrides, false );
+			}
+		};
+		// The first save of the setting adds the option; later ones update it.
+		add_action( 'add_option_buddynext_space_creation_role', $drop_create_override );
+		add_action( 'update_option_buddynext_space_creation_role', $drop_create_override );
+
 		// Apply admin Appearance options on the front-end (accent colour, default
 		// theme, custom CSS). Registered everywhere — branding is not admin-only.
 		( new \BuddyNext\Theme\Appearance() )->register();

@@ -116,4 +116,78 @@ class RolesTabTest extends \WP_UnitTestCase {
 			$payload['changes'] ?? null
 		);
 	}
+
+	/**
+	 * Drop the memoised role map so the next check rebuilds it.
+	 *
+	 * @return void
+	 */
+	private function forget_role_map(): void {
+		$memo = new \ReflectionProperty( \BuddyNext\Core\PermissionService::class, 'role_map_cache' );
+		$memo->setValue( null, null );
+	}
+
+	/**
+	 * Post the whole matrix the way the form does, as an admin, and return.
+	 *
+	 * @param array<string,string> $cap Capability => role rows to post.
+	 * @return void
+	 */
+	private function save_matrix( array $cap ): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_POST['cap']        = $cap;
+		$_POST['_wpnonce']   = wp_create_nonce( 'bn_roles_save' );
+		$_REQUEST['_wpnonce'] = $_POST['_wpnonce'];
+		$stop                = static function (): never {
+			throw new \RuntimeException( 'redirected' );
+		};
+		add_filter( 'wp_redirect', $stop );
+		try {
+			( new RolesTab() )->handle_save();
+		} catch ( \RuntimeException $e ) {
+			unset( $e );
+		}
+		remove_filter( 'wp_redirect', $stop );
+		$this->forget_role_map();
+	}
+
+	/**
+	 * A save with nothing changed stores nothing, so it cannot freeze a capability
+	 * and the Spaces-tab "who can create spaces" keeps working afterwards.
+	 *
+	 * @return void
+	 */
+	public function test_saving_an_unchanged_matrix_stores_no_overrides(): void {
+		$this->save_matrix( array( 'buddynext-spaces/create' => 'member', 'buddynext-spaces/join' => 'member' ) );
+		$this->assertSame( array(), get_option( 'bn_role_map_overrides', array() ) );
+
+		update_option( 'buddynext_space_creation_role', 'admin' );
+		$this->forget_role_map();
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
+	}
+
+	/**
+	 * Only a row the owner really changed is stored.
+	 *
+	 * @return void
+	 */
+	public function test_only_a_changed_row_is_stored(): void {
+		$this->save_matrix( array( 'buddynext-spaces/create' => 'moderator', 'buddynext-spaces/join' => 'member' ) );
+		$this->assertSame( array( 'buddynext-spaces/create' => 'moderator' ), get_option( 'bn_role_map_overrides' ) );
+	}
+
+	/**
+	 * Saving the Spaces-tab setting replaces an older Roles row for the same ability.
+	 *
+	 * @return void
+	 */
+	public function test_spaces_setting_replaces_an_older_roles_row(): void {
+		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'member' ), false );
+		update_option( 'buddynext_space_creation_role', 'admin' );
+		$this->forget_role_map();
+		$this->assertArrayNotHasKey( 'buddynext-spaces/create', (array) get_option( 'bn_role_map_overrides' ) );
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
+	}
 }
