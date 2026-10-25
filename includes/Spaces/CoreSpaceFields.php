@@ -64,13 +64,12 @@ final class CoreSpaceFields {
 		// The tab a space opens on. The tab BAR stays site-wide (Settings >
 		// Navigation owns order, labels and visibility); only the STARTING tab can
 		// differ per space. Empty means "use the site default" (the first tab in the
-		// Navigation order). Options are the site-wide space tabs the home template
-		// paints INLINE — the dedicated-page tabs (Members, Moderation) have their
-		// own URLs and are not landing targets here. The General settings panel
-		// renders the select with the owner's resolved labels and hides any tab
-		// turned off site-wide; these registered options are the save-time
-		// validation set. SpaceService::landing_tab() reads this value and falls
-		// back to the first inline tab if the stored choice is later hidden.
+		// Navigation order). The choices are the inline tabs of the space's own nav
+		// (SpaceService::landing_tab_choices): core, bridge and add-on tabs alike, so an
+		// add-on tab needs no registration here. The dedicated-page tabs (Members,
+		// Moderation) have their own URLs and are not landing targets. The same list is
+		// the save-time check, and landing_tab() falls back to the first inline tab if
+		// the stored choice is later hidden.
 		$registry->register(
 			'default_tab',
 			array(
@@ -78,13 +77,8 @@ final class CoreSpaceFields {
 				'description' => __( 'The tab people land on when they open this space. Links to a specific tab or post are not affected.', 'buddynext' ),
 				'type'        => 'select',
 				'default'     => '',
-				'options'     => array(
-					''          => __( 'Site default', 'buddynext' ),
-					'feed'      => __( 'Feed', 'buddynext' ),
-					'about'     => __( 'About', 'buddynext' ),
-					'subspaces' => __( 'Sub-spaces', 'buddynext' ),
-					'media'     => __( 'Media', 'buddynext' ),
-				),
+				'options'     => array( '' => __( 'Site default', 'buddynext' ) ),
+				'options_for' => static fn( int $space_id ): array => array( '' => __( 'Site default', 'buddynext' ) ) + ( new SpaceService() )->landing_tab_choices( $space_id ),
 				'section'     => 'general',
 				'sort_order'  => 6,
 				'visibility'  => 'members',

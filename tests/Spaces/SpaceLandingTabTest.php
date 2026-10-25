@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace BuddyNext\Tests\Spaces;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Spaces\SpaceFieldRegistry;
 use BuddyNext\Spaces\SpaceService;
 use WP_UnitTestCase;
 
@@ -101,6 +102,47 @@ class SpaceLandingTabTest extends WP_UnitTestCase {
 		update_space_meta( $this->open_space, 'default_tab', 'members' );
 		$nav = $this->nav( array( 'feed' => true, 'members' => false, 'about' => true ) );
 		$this->assertSame( 'feed', $this->spaces->landing_tab( $this->row( $this->open_space ), $this->owner_id, $nav, '' ) );
+	}
+
+	/**
+	 * Register an inline add-on tab on every space.
+	 *
+	 * @return void
+	 */
+	private function add_addon_tab(): void {
+		add_filter(
+			'buddynext_nav_items',
+			static function ( array $items ): array {
+				$items[] = array(
+					'id'       => 'bookclub',
+					'surface'  => 'space',
+					'layer'    => 'primary',
+					'label'    => 'Book Club',
+					'priority' => 40,
+					'url'      => 'https://example.test/bookclub/',
+					'render'   => static function (): void {},
+				);
+				return $items;
+			}
+		);
+	}
+
+	public function test_an_addon_tab_is_offered_and_can_be_saved_as_the_landing_tab(): void {
+		$this->add_addon_tab();
+
+		$this->assertArrayHasKey( 'bookclub', $this->spaces->landing_tab_choices( $this->open_space ) );
+
+		$result = SpaceFieldRegistry::instance()->save_for_space( $this->open_space, array( 'default_tab' => 'bookclub' ), $this->owner_id );
+
+		$this->assertSame( array(), $result['errors'] );
+		$this->assertSame( 'bookclub', get_space_meta( $this->open_space, 'default_tab', true ) );
+		remove_all_filters( 'buddynext_nav_items' );
+	}
+
+	public function test_a_tab_the_space_does_not_have_is_refused(): void {
+		$result = SpaceFieldRegistry::instance()->save_for_space( $this->open_space, array( 'default_tab' => 'bookclub' ), $this->owner_id );
+
+		$this->assertArrayHasKey( 'default_tab', $result['errors'], 'no add-on tab registered, so the slug is not a valid landing tab' );
 	}
 
 	public function test_filter_applies_to_default_but_not_to_url(): void {

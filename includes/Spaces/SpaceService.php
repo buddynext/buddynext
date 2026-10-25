@@ -3345,6 +3345,32 @@ class SpaceService {
 	}
 
 	/**
+	 * The tabs a space can open on: the inline tabs of its own navigation.
+	 *
+	 * Built from the same unified nav the space home uses (core tabs, bridges and
+	 * add-on tabs, ordered and hidden by Settings > Navigation), for the owner. It is
+	 * the one list behind the "Space opens on" select, its save check and landing_tab().
+	 *
+	 * @param int $space_id Space id.
+	 * @return array<string,string> Tab id => label, in nav order.
+	 */
+	public function landing_tab_choices( int $space_id ): array {
+		$space = $this->get( $space_id );
+		if ( null === $space ) {
+			return array();
+		}
+
+		$nav     = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', $space_id, (int) $space['owner_id'], 'owner' ) );
+		$choices = array();
+		foreach ( $nav->layer( 'primary' ) as $item ) {
+			if ( $item->has_render() ) {
+				$choices[ (string) $item->id ] = (string) $item->label;
+			}
+		}
+		return $choices;
+	}
+
+	/**
 	 * The default landing tab (steps 2-4 of landing_tab()).
 	 *
 	 * @param array<string,mixed>               $space     Space row (needs id).

@@ -287,27 +287,12 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 	<div class="bn-space-settings__field">
 		<label for="space_default_tab"><?php esc_html_e( 'Space opens on', 'buddynext' ); ?></label>
 		<?php
-		// The starting tab for this space. The tab bar itself is site-wide (Settings >
-		// Navigation), so the choices are the site-wide space tabs, in the owner's
-		// order, minus any turned off site-wide. Empty = follow the site default (the
-		// first tab). Owner-only, like Category above; the registry re-checks on save.
+		// The starting tab for this space. The choices are the inline tabs of the space's own
+		// navigation (core, bridge and add-on tabs, in the Settings > Navigation order), the
+		// same list the save check and landing_tab() use. Empty = follow the site default
+		// (the first tab). Owner-only, like Category above; the registry re-checks on save.
 		$bn_default_tab = (string) buddynext_get_space_field( (int) ( $bn_space->id ?? 0 ), 'default_tab' );
-		// The valid landing tabs are the field's registered options (the inline
-		// tabs); intersect with the resolved nav for the owner's labels + to drop
-		// any tab turned off site-wide.
-		$bn_dt_field  = \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_field( 'default_tab' );
-		$bn_dt_valid  = is_array( $bn_dt_field ) && is_array( $bn_dt_field['options'] ?? null ) ? $bn_dt_field['options'] : array();
-		$bn_land_tabs = array();
-		foreach ( (array) buddynext_service( 'admin_nav' )->get_tabs_for_scope( 'space' ) as $bn_lt ) {
-			if ( ! empty( $bn_lt['hidden'] ) ) {
-				continue;
-			}
-			$bn_lt_slug = sanitize_key( (string) ( $bn_lt['slug'] ?? '' ) );
-			if ( '' === $bn_lt_slug || ! array_key_exists( $bn_lt_slug, $bn_dt_valid ) ) {
-				continue;
-			}
-			$bn_land_tabs[ $bn_lt_slug ] = (string) ( $bn_lt['label'] ?? $bn_lt_slug );
-		}
+		$bn_land_tabs   = ( new \BuddyNext\Spaces\SpaceService() )->landing_tab_choices( (int) ( $bn_space->id ?? 0 ) );
 		$bn_first_slug  = (string) ( array_key_first( $bn_land_tabs ) ?? '' );
 		$bn_first_label = '' !== $bn_first_slug ? $bn_land_tabs[ $bn_first_slug ] : __( 'the first tab', 'buddynext' );
 		?>
