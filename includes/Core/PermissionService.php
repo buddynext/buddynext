@@ -191,8 +191,9 @@ class PermissionService {
 		// role map so it composes with the Roles & Capabilities tab instead of
 		// fighting it. An existing "admins only" choice is preserved; the
 		// default ('member') leaves the map default untouched.
-		if ( 'admin' === (string) get_option( 'buddynext_space_creation_role', 'member' ) ) {
-			$map['buddynext-spaces/create'] = 'admin';
+		$creation_role = (string) get_option( 'buddynext_space_creation_role', 'member' );
+		if ( in_array( $creation_role, array( 'moderator', 'admin' ), true ) ) {
+			$map['buddynext-spaces/create'] = $creation_role;
 		}
 
 		return (array) apply_filters( 'buddynext_role_map', $map );

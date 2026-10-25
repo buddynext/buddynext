@@ -216,5 +216,14 @@ class RolesTabTest extends \WP_UnitTestCase {
 		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'admin' ), false );
 		$this->forget_role_map();
 		$this->assertSame( 'admin', $field()->display_value(), 'Roles says admins only, so the Spaces tab must not say Any member' );
+
+		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'moderator' ), false );
+		$this->forget_role_map();
+		$this->assertSame( 'moderator', $field()->display_value(), 'Moderators & up must not be shown as Admins only' );
+
+		delete_option( 'bn_role_map_overrides' );
+		update_option( 'buddynext_space_creation_role', 'moderator' );
+		$this->forget_role_map();
+		$this->assertSame( 'moderator', \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] );
 	}
 }
