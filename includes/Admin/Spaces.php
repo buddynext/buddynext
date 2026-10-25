@@ -57,6 +57,7 @@ class Spaces extends AdminPageBase {
 		add_action( 'admin_post_bn_delete_space', array( $this, 'handle_delete' ) );
 		add_action( 'admin_post_bn_archive_space', array( $this, 'handle_archive' ) );
 		add_action( 'admin_post_bn_feature_space', array( $this, 'handle_feature' ) );
+		add_action( 'admin_post_bn_transfer_space', array( $this, 'handle_transfer' ) );
 		add_action( 'admin_post_bn_bulk_spaces', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_space_category', array( $this, 'handle_save_category' ) );
 		add_action( 'admin_post_bn_delete_space_category', array( $this, 'handle_delete_category' ) );
@@ -271,6 +272,19 @@ class Spaces extends AdminPageBase {
 		?>
 
 		<?php
+		// Change-owner result (handle_transfer redirects with ?owner=changed or ?owner_error=code).
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only flag from a redirect.
+		$bn_owner_error = sanitize_key( wp_unslash( $_GET['owner_error'] ?? '' ) );
+		if ( 'changed' === sanitize_key( wp_unslash( $_GET['owner'] ?? '' ) ) ) {
+			AdminPageBase::render_notice( __( 'Owner changed.', 'buddynext' ), 'success' );
+		} elseif ( '' !== $bn_owner_error ) {
+			$bn_owner_errors = array(
+				'not_found'   => __( 'No user has that username or email.', 'buddynext' ),
+				'heir_banned' => __( 'A banned member cannot be made the owner of this space.', 'buddynext' ),
+			);
+			AdminPageBase::render_notice( $bn_owner_errors[ $bn_owner_error ] ?? __( 'The owner could not be changed.', 'buddynext' ), 'error' );
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only notice from a post/redirect.
 		if ( 'limit' === sanitize_key( wp_unslash( $_GET['feature_error'] ?? '' ) ) ) {
 			printf(
@@ -640,6 +654,13 @@ class Spaces extends AdminPageBase {
 															<?php echo $bn_is_featured ? esc_html__( 'Unfeature', 'buddynext' ) : esc_html__( 'Feature', 'buddynext' ); ?>
 														</button>
 													</form>
+													<?php // Change owner opens a small dialog that asks who; the dialog's own form posts bn_transfer_space. ?>
+													<button type="button" class="bn-dropdown-item" role="menuitem"
+															data-bn-owner-trigger
+															data-space-id="<?php echo esc_attr( (string) $space['id'] ); ?>"
+															data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
+														<?php esc_html_e( 'Change owner', 'buddynext' ); ?>
+													</button>
 													<form method="post"
 															action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 															class="bn-delete-space-form">
@@ -690,6 +711,7 @@ class Spaces extends AdminPageBase {
 		</div><!-- .bn-settings-section -->
 
 		<?php $this->render_delete_modal(); ?>
+		<?php $this->render_owner_modal(); ?>
 		<?php
 	}
 
@@ -982,6 +1004,44 @@ class Spaces extends AdminPageBase {
 		<?php
 	}
 
+	/**
+	 * Render the change-owner dialog (opened from a row's kebab by assets/js/admin/spaces.js).
+	 *
+	 * @return void
+	 */
+	private function render_owner_modal(): void {
+		?>
+		<div class="bn-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="bn-owner-space-title" hidden data-bn-modal="change-owner"
+				data-rest="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
+			<form class="bn-modal__panel" data-size="sm" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<?php wp_nonce_field( 'bn_transfer_space' ); ?>
+				<input type="hidden" name="action" value="bn_transfer_space">
+				<input type="hidden" name="space_id" value="" data-bn-owner-space-id>
+				<header class="bn-modal__head">
+					<h2 class="bn-modal__title" id="bn-owner-space-title"><?php esc_html_e( 'Change owner', 'buddynext' ); ?></h2>
+					<button type="button" class="bn-modal__close" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>" data-bn-modal-close>
+						<?php echo \BuddyNext\Core\IconService::render( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses()-sanitized SVG. ?>
+					</button>
+				</header>
+				<div class="bn-modal__body">
+					<p data-bn-owner-space-name></p>
+					<label for="bn-owner-new"><?php esc_html_e( 'New owner', 'buddynext' ); ?></label>
+					<div class="bn-featured-picker__add">
+						<input type="hidden" name="new_owner_id" value="" data-bn-owner-id>
+						<input type="search" id="bn-owner-new" name="new_owner" class="bn-input" autocomplete="off" required placeholder="<?php esc_attr_e( 'Type 3 letters of a name', 'buddynext' ); ?>">
+						<div class="bn-featured-picker__results" data-bn-owner-results hidden role="listbox"></div>
+					</div>
+					<p class="description"><?php esc_html_e( 'Pick from the list. A full username or email also works. Any user who is not banned from this space can be the owner; the current owner becomes a member.', 'buddynext' ); ?></p>
+				</div>
+				<div class="bn-modal__foot">
+					<button type="button" class="bn-btn" data-variant="ghost" data-size="md" data-bn-modal-close><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+					<button type="submit" class="bn-btn" data-variant="primary" data-size="md"><?php esc_html_e( 'Change owner', 'buddynext' ); ?></button>
+				</div>
+			</form>
+		</div>
+		<?php
+	}
+
 	// ── Query ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -1261,6 +1321,44 @@ class Spaces extends AdminPageBase {
 			} else {
 				\BuddyNext\Spaces\FeaturedSpaces::set_ids( array_values( array_diff( $current, array( $space_id ) ) ) );
 				$args['featured'] = '0';
+			}
+		}
+
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/**
+	 * Make another user the owner of a space (admin_post_bn_transfer_space).
+	 *
+	 * The new owner is picked from a name search (or typed as a username or email) and may be any user who is not banned
+	 * from the space; SpaceService::assign_owner() adds them as a member if they are not
+	 * one and demotes the previous owner.
+	 *
+	 * @return void
+	 */
+	public function handle_transfer(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_transfer_space' );
+
+		$space_id = absint( wp_unslash( $_POST['space_id'] ?? 0 ) );
+		$who      = sanitize_text_field( wp_unslash( $_POST['new_owner'] ?? '' ) );
+		// The picked suggestion sends an id; a typed username or email is the fallback.
+		$picked = absint( wp_unslash( $_POST['new_owner_id'] ?? 0 ) );
+		$user   = $picked > 0 ? get_userdata( $picked ) : ( get_user_by( 'login', $who ) ?: get_user_by( 'email', $who ) );
+		$args   = array( 'page' => 'buddynext-spaces' );
+
+		if ( ! $user ) {
+			$args['owner_error'] = 'not_found';
+		} else {
+			$result = ( new \BuddyNext\Spaces\SpaceService() )->assign_owner( $space_id, (int) $user->ID, get_current_user_id() );
+			if ( is_wp_error( $result ) ) {
+				$args['owner_error'] = $result->get_error_code();
+			} else {
+				$args['owner'] = 'changed';
 			}
 		}
 

@@ -111,6 +111,19 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The admin Spaces list's Change owner: a site admin who is not in the space can hand it to any user.
+	 */
+	public function test_site_admin_can_hand_a_space_to_any_user(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$heir  = self::factory()->user->create();
+
+		$this->assertTrue( $this->spaces->assign_owner( $this->space_id, $heir, $admin ) );
+
+		$this->assertSame( $heir, (int) $this->spaces->get( $this->space_id )['owner_id'] );
+		$this->assertSame( 'member', $this->members->get_role( $this->space_id, $this->owner_id ), 'the previous owner stays as a member' );
+	}
+
+	/**
 	 * THE SECURITY BUG: a moderator must not be able to seize the Space.
 	 */
 	public function test_moderator_cannot_assign_owner(): void {

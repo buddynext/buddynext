@@ -117,6 +117,67 @@
 		}
 	} );
 
+	// Change owner: the kebab item fills and opens the dialog; its own form posts.
+	var ownerModal = document.querySelector( '[data-bn-modal="change-owner"]' );
+	if ( ownerModal ) {
+		var ownerInput   = ownerModal.querySelector( 'input[name="new_owner"]' );
+		var ownerId      = ownerModal.querySelector( '[data-bn-owner-id]' );
+		var ownerResults = ownerModal.querySelector( '[data-bn-owner-results]' );
+		var ownerTimer   = null;
+		// Suggest members once 3 letters are typed; a large community never gets a full list.
+		ownerInput.addEventListener( 'input', function () {
+			window.clearTimeout( ownerTimer );
+			ownerId.value = ''; // Editing the text drops an earlier pick.
+			var q = ownerInput.value.trim();
+			if ( q.length < 3 ) { ownerResults.hidden = true; return; }
+			ownerTimer = window.setTimeout( function () {
+				fetch( ownerModal.getAttribute( 'data-rest' ) + '/search/members?per_page=8&q=' + encodeURIComponent( q ), {
+					credentials: 'same-origin',
+					headers: { 'X-WP-Nonce': ownerModal.getAttribute( 'data-nonce' ) }
+				} ).then( function ( r ) { return r.ok ? r.json() : Promise.reject( r ); } )
+					.then( function ( data ) {
+						ownerResults.textContent = '';
+						( data.items || [] ).forEach( function ( m ) {
+							var opt = document.createElement( 'button' );
+							opt.type = 'button';
+							opt.className = 'bn-featured-picker__result';
+							opt.setAttribute( 'role', 'option' );
+							opt.textContent = m.display_name;
+							opt.addEventListener( 'click', function () {
+								ownerId.value = String( m.user_id );
+								ownerInput.value = m.display_name;
+								ownerResults.hidden = true;
+							} );
+							ownerResults.appendChild( opt );
+						} );
+						ownerResults.hidden = ! ownerResults.children.length;
+					} )
+					.catch( function () { ownerResults.hidden = true; } );
+			}, 250 );
+		} );
+		var closeOwner = function () { ownerModal.hidden = true; };
+		document.querySelectorAll( '[data-bn-owner-trigger]' ).forEach( function ( btn ) {
+			btn.addEventListener( 'click', function () {
+				ownerModal.querySelector( '[data-bn-owner-space-id]' ).value = btn.getAttribute( 'data-space-id' );
+				ownerModal.querySelector( '[data-bn-owner-space-name]' ).textContent = btn.getAttribute( 'data-space-name' );
+				ownerInput.value = '';
+				ownerId.value    = '';
+				ownerResults.hidden = true;
+				ownerModal.hidden = false;
+				ownerInput.focus();
+			} );
+		} );
+		ownerModal.querySelectorAll( '[data-bn-modal-close]' ).forEach( function ( btn ) {
+			btn.addEventListener( 'click', closeOwner );
+		} );
+		ownerModal.addEventListener( 'click', function ( e ) {
+			if ( e.target === ownerModal ) { closeOwner(); }
+		} );
+		document.addEventListener( 'keydown', function ( e ) {
+			if ( 'Escape' === e.key && ! ownerModal.hidden ) { closeOwner(); }
+		} );
+	}
+
 	var modal = document.querySelector( '[data-bn-modal="delete-space"]' );
 	if ( ! modal ) {
 		return;
