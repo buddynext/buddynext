@@ -493,7 +493,16 @@ class CoreRegistration {
 			return $result;
 		}
 
-		$result['errors'] = $this->apply_policy( $result['errors'] ?? null, (string) ( $result['user_name'] ?? '' ), (string) ( $result['user_email'] ?? '' ) );
+		$errors  = $result['errors'] instanceof WP_Error ? $result['errors'] : new WP_Error();
+		$refused = $this->apply_policy( new WP_Error(), (string) ( $result['user_name'] ?? '' ), (string) ( $result['user_email'] ?? '' ) );
+		foreach ( $refused->get_error_codes() as $code ) {
+			foreach ( $refused->get_error_messages( $code ) as $message ) {
+				$errors->add( $code, $message );
+				// wp-signup.php prints only user_name, user_email and generic, so the reason goes under generic too.
+				$errors->add( 'generic', $message );
+			}
+		}
+		$result['errors'] = $errors;
 		return $result;
 	}
 

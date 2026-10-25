@@ -88,6 +88,15 @@ jobs:
         run: vendor/bin/phpunit
         env:
           WP_TESTS_DIR: /tmp/wordpress-tests-lib
+      # The multisite classes skip on a single site, so run them again as a network.
+      # Only these: the full suite under WP_MULTISITE has known single-site failures.
+      - name: PHPUnit (multisite classes)
+        run: |
+          for f in $(grep -rl 'is_multisite()' tests | xargs grep -l markTestSkipped | sort); do
+            WP_MULTISITE=1 vendor/bin/phpunit "$f" || exit 1
+          done
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
 
   journey-catalogue:
     name: Journey catalogue ↔ spec reconcile

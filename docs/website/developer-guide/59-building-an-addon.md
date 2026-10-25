@@ -81,6 +81,27 @@ Do not add an admin tab. Declare fields and they appear in your card. Prefer a f
 
 ### Profile panels
 
+A panel is an array with `key`, `label`, `icon`, `count`, `priority`, `items`, and optional `cta` and `owner_cta` (the latter shown only to the profile owner). Each item needs a `title`; everything else is optional:
+
+```php
+array(
+	'key'       => 'jobs',
+	'label'     => __( 'Jobs', 'my-addon' ),
+	'items'     => array(
+		array(
+			'title'     => 'Field Researcher',
+			'url'       => 'https://example.test/jobs/1',
+			'image'     => 'https://example.test/logo.png',
+			'meta'      => 'Acme Research',
+			'facts'     => array( 'Remote', 'Part-time' ),
+			'highlight' => '$40-50/h',
+		),
+	),
+	'cta'       => array( 'label' => __( 'See all jobs', 'my-addon' ), 'url' => 'https://example.test/jobs' ),
+	'owner_cta' => array( 'label' => __( 'Manage jobs', 'my-addon' ), 'url' => 'https://example.test/dashboard' ),
+)
+```
+
 Panels are cached for "the member viewing their own profile" and "anyone else", not per viewer. A panel that is not `owner_only` must return the same data to every viewer; mark anything that depends on who is looking `owner_only`, and it is dropped for everyone else. When the member's data changes, call `do_action( 'buddynext_suite_panels_changed', $member_id )`.
 
 ### Space links

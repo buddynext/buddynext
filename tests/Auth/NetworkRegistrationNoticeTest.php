@@ -73,6 +73,7 @@ class NetworkRegistrationNoticeTest extends \WP_UnitTestCase {
 		$result = wpmu_validate_user_signup( 'newperson', 'newperson@example.test' );
 
 		$this->assertContains( 'bn_reg_invite', $result['errors']->get_error_codes(), 'wp-signup.php must not be a way around invite-only' );
+		$this->assertNotSame( '', $result['errors']->get_error_message( 'generic' ), 'wp-signup.php prints only the generic message, so the reason must be there' );
 	}
 
 	public function test_a_super_admin_adding_a_user_is_not_blocked_by_the_signup_mode(): void {
