@@ -196,7 +196,7 @@ class CoreRegistration {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return array{headline:string,title:string,summary:string,explain:string,mode:string,core_open:bool,action:string}|null
+	 * @return array{headline:string,title:string,summary:string,explain:string,mode:string,core_open:bool,setting:string,setting_url:string,action:string}|null
 	 */
 	public static function desync_state(): ?array {
 		if ( ! self::is_desynced() ) {
@@ -240,19 +240,28 @@ class CoreRegistration {
 			$summary = __( 'WordPress registration is off, so every signup is being refused.', 'buddynext' );
 		}
 
+		// On a network, signups follow the network-wide "Allow new registrations" option,
+		// not this site's "Anyone can register" (core overrides it), and it covers every site.
+		$network = is_multisite();
+		if ( $network ) {
+			$explain .= ' ' . __( 'On this network the setting is Network Admin > Settings > Allow new registrations, and it applies to every site on the network.', 'buddynext' );
+		}
+
 		return array(
-			'headline'  => $headline,
+			'headline'    => $headline,
 			// Sentence-case, no "BuddyNext:" prefix and no trailing stop: this is a
 			// heading inside our own panel, where the prefix is noise and the eye
 			// wants the problem first.
-			'title'     => $title,
-			'summary'   => $summary,
-			'explain'   => $explain,
-			'mode'      => $mode,
-			'core_open' => $core_open,
-			'action'    => $bn_wants_off
-				? __( 'Turn WordPress registration off', 'buddynext' )
-				: __( 'Turn WordPress registration on', 'buddynext' ),
+			'title'       => $title,
+			'summary'     => $summary,
+			'explain'     => $explain,
+			'mode'        => $mode,
+			'core_open'   => $core_open,
+			'setting'     => $network ? __( 'Network "Allow new registrations"', 'buddynext' ) : __( 'WordPress "Anyone can register"', 'buddynext' ),
+			'setting_url' => $network ? network_admin_url( 'settings.php' ) : admin_url( 'options-general.php' ),
+			'action'      => $network
+				? ( $bn_wants_off ? __( 'Turn off new user accounts on the whole network', 'buddynext' ) : __( 'Allow new user accounts on the whole network', 'buddynext' ) )
+				: ( $bn_wants_off ? __( 'Turn WordPress registration off', 'buddynext' ) : __( 'Turn WordPress registration on', 'buddynext' ) ),
 		);
 	}
 
@@ -278,17 +287,16 @@ class CoreRegistration {
 			<p>
 				<?php
 				printf(
-					/* translators: 1: BuddyNext registration mode, 2: WordPress "Anyone can register" state. */
-					esc_html__( 'BuddyNext mode: %1$s. WordPress "Anyone can register": %2$s.', 'buddynext' ),
+					/* translators: 1: BuddyNext registration mode, 2: name of the core registration setting, 3: on/off. */
+					esc_html__( 'BuddyNext mode: %1$s. %2$s: %3$s.', 'buddynext' ),
 					'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+					esc_html( $state['setting'] ),
 					'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
 				);
 				?>
 			</p>
 			<p>
-				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
-					<?php echo esc_html( $state['action'] ); ?>
-				</a>
+				<?php self::render_reconcile_action( $state, 'button button-primary' ); ?>
 			</p>
 		</div>
 		<?php
@@ -327,22 +335,62 @@ class CoreRegistration {
 				<p class="bn-alert__meta">
 					<?php
 					printf(
-						/* translators: 1: registration mode, 2: on/off, 3: link to WordPress Settings > General. */
-						esc_html__( 'Mode %1$s - WordPress "Anyone can register" is %2$s, in %3$s', 'buddynext' ),
+						/* translators: 1: registration mode, 2: name of the core registration setting, 3: on/off, 4: link to where that setting lives. */
+						esc_html__( 'Mode %1$s - %2$s is %3$s, in %4$s', 'buddynext' ),
 						'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						esc_html( $state['setting'] ),
 						'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
-						'<a href="' . esc_url( admin_url( 'options-general.php' ) ) . '">' . esc_html__( 'Settings > General', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						'<a href="' . esc_url( $state['setting_url'] ) . '">' . esc_html( is_multisite() ? __( 'Network Admin > Settings', 'buddynext' ) : __( 'Settings > General', 'buddynext' ) ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
 					);
 					?>
 				</p>
 			</div>
 			<span class="bn-alert__action">
-				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
-					<?php echo esc_html( $state['action'] ); ?>
-				</a>
+				<?php self::render_reconcile_action( $state, 'button button-primary' ); ?>
 			</span>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Who may flip the core setting: on a network that is the super admin, since it
+	 * decides signups for every site.
+	 *
+	 * @return bool
+	 */
+	private static function can_reconcile(): bool {
+		return current_user_can( is_multisite() ? 'manage_network_options' : 'manage_options' );
+	}
+
+	/**
+	 * The fix button, or a plain pointer for someone who may not use it.
+	 *
+	 * @param array<string,mixed> $state The desync state.
+	 * @param string              $classes CSS classes for the button.
+	 * @return void
+	 */
+	private static function render_reconcile_action( array $state, string $classes ): void {
+		if ( self::can_reconcile() ) {
+			printf( '<a class="%s" href="%s">%s</a>', esc_attr( $classes ), esc_url( self::reconcile_url() ), esc_html( (string) $state['action'] ) );
+			return;
+		}
+		esc_html_e( 'Ask a network administrator to change it.', 'buddynext' );
+	}
+
+	/**
+	 * The network "Allow new registrations" value that keeps the site-creation half as it is.
+	 *
+	 * Values: none | user (accounts) | blog (sites) | all. Only the accounts half changes.
+	 *
+	 * @param bool $accounts_open Whether new user accounts should be allowed.
+	 * @return string
+	 */
+	private static function network_registration( bool $accounts_open ): string {
+		$sites_open = in_array( (string) get_site_option( 'registration', 'none' ), array( 'blog', 'all' ), true );
+		if ( $accounts_open ) {
+			return $sites_open ? 'all' : 'user';
+		}
+		return $sites_open ? 'blog' : 'none';
 	}
 
 	/**
@@ -367,14 +415,19 @@ class CoreRegistration {
 	 * @return void
 	 */
 	public function handle_reconcile(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_reconcile() ) {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'buddynext' ), '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( self::ACTION_RECONCILE );
 
 		$mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
-		update_option( 'users_can_register', 'closed' === $mode ? '0' : '1' );
+		if ( is_multisite() ) {
+			// The network option is what core reads; this site's users_can_register is overridden.
+			update_site_option( 'registration', self::network_registration( 'closed' !== $mode ) );
+		} else {
+			update_option( 'users_can_register', 'closed' === $mode ? '0' : '1' );
+		}
 
 		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url() );
 		exit;
