@@ -909,10 +909,13 @@ class PageRouter {
 			// the route. Explore keeps its own public-explore gate above, so it is
 			// exempt here even if the Feed tab is marked login-required.
 			$nav_overrides = (array) get_option( 'buddynext_nav_overrides', array() );
-			$hub_override  = isset( $nav_overrides[ $hub ] ) ? (array) $nav_overrides[ $hub ] : array();
+			// Explore is a sub-route of the feed hub with its own Navigation row, so it is
+			// judged by that row, not by the Feed's.
+			$nav_key      = $is_explore ? 'explore' : $hub;
+			$hub_override = isset( $nav_overrides[ $nav_key ] ) ? (array) $nav_overrides[ $nav_key ] : array();
 			// A section limited to members, admins or a capability also sends a guest to
 			// log in first (a member who then lacks access sees the page below).
-			$override_login = ( ! empty( $hub_override['login_required'] ) || 'all' !== (string) ( $hub_override['visibility'] ?? 'all' ) ) && ! $is_explore;
+			$override_login = ! empty( $hub_override['login_required'] ) || 'all' !== (string) ( $hub_override['visibility'] ?? 'all' );
 
 			// Public explore landing: when "Public explore feed" is on and the Feed
 			// tab is not explicitly login-required, a guest hitting the personalised
@@ -1116,8 +1119,7 @@ class PageRouter {
 		// access gets an explained page, not a bounce or a bare 404.
 		$bn_not_available = false;
 		if ( is_user_logged_in()
-			&& ! ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_action', '' ) )
-			&& ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( $hub )
+			&& ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_action', '' ) ? 'explore' : $hub )
 		) {
 			$bn_not_available = true;
 			nocache_headers();

@@ -779,47 +779,92 @@ class ToolsTab {
 			$this->redirect_back( 'import_failed' );
 		}
 
-		// Whitelist: only overwrite keys that already exist (known BN options).
-		$known   = $this->collect_options();
+		// Only keys the export itself would carry are written, so a tampered file
+		// cannot inject arbitrary options. A key the target has never saved is fine.
 		$applied = 0;
+		$skipped = 0;
 		foreach ( $data['options'] as $key => $value ) {
-			$key = (string) $key;
-			if ( array_key_exists( $key, $known ) ) {
-				update_option( $key, $value );
+			if ( $this->is_exportable( (string) $key ) ) {
+				update_option( (string) $key, $value );
 				++$applied;
+			} else {
+				++$skipped;
 			}
 		}
 
 		( new CacheService() )->forget_group();
-		$this->redirect_back( $applied > 0 ? 'imported' : 'import_empty' );
+		$this->redirect_back(
+			$applied > 0 ? 'imported' : 'import_empty',
+			array(
+				'bn_n'       => $applied,
+				'bn_skipped' => $skipped,
+			)
+		);
 	}
 
 	// ── Helpers ─────────────────────────────────────────────────────────────
 
 	/**
-	 * Every BuddyNext option (prefix buddynext_ or bn_) as key => value.
+	 * Options that are the site's own bookkeeping, not settings: schema and
+	 * version markers, "already seeded" flags, setup state and the hub page IDs.
+	 * Moving them to another site would roll its migrations back or point its hub
+	 * pages at pages that do not exist there.
+	 */
+	private const INTERNAL_STATE = '/(_version|_v|_seeded|_migrated|_migration|_schema_alters|_sig|setup_complete|_gate_since|_last_reindex|_preset_activated|_email_defaults|_flag_convergence)$|^buddynext_(pro_)?page_/';
+
+	/**
+	 * Whether a settings export carries this option, and an import may write it.
+	 * One rule for both directions, so a file can never write what it would not
+	 * have exported.
+	 *
+	 * @param string $name Option name.
+	 * @return bool
+	 */
+	private function is_exportable( string $name ): bool {
+		/**
+		 * Filter the option-name prefixes the settings export covers. Pro adds its own.
+		 *
+		 * @param string[] $prefixes Option-name prefixes.
+		 */
+		$prefixes = (array) apply_filters( 'buddynext_export_option_prefixes', array( 'buddynext_', 'bn_' ) );
+		$matches  = false;
+		foreach ( $prefixes as $prefix ) {
+			if ( str_starts_with( $name, (string) $prefix ) ) {
+				$matches = true;
+				break;
+			}
+		}
+
+		return $matches
+			&& 'bn_demo_manifest' !== $name
+			&& ! preg_match( self::INTERNAL_STATE, $name )
+			&& ! $this->is_sensitive_option( $name );
+	}
+
+	/**
+	 * Every exportable option as key => value.
 	 *
 	 * @return array<string,mixed>
 	 */
 	private function collect_options(): array {
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$names = $wpdb->get_col(
-			"SELECT option_name FROM {$wpdb->options}
-			 WHERE option_name LIKE 'buddynext\_%' OR option_name LIKE 'bn\_%'"
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		// Never export the demo manifest or transient-ish internal bookkeeping.
-		$skip = array( 'bn_demo_manifest' );
+		$prefixes = (array) apply_filters( 'buddynext_export_option_prefixes', array( 'buddynext_', 'bn_' ) );
+		$likes    = array();
+		foreach ( $prefixes as $prefix ) {
+			$likes[] = $wpdb->prepare( 'option_name LIKE %s', $wpdb->esc_like( (string) $prefix ) . '%' );
+		}
+		if ( ! $likes ) {
+			return array();
+		}
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- each LIKE above went through prepare().
+		$names = $wpdb->get_col( "SELECT option_name FROM {$wpdb->options} WHERE " . implode( ' OR ', $likes ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 		$out = array();
 		foreach ( (array) $names as $name ) {
-			$name = (string) $name;
-			if ( in_array( $name, $skip, true ) || $this->is_sensitive_option( $name ) ) {
-				continue;
+			if ( $this->is_exportable( (string) $name ) ) {
+				$out[ (string) $name ] = get_option( (string) $name );
 			}
-			$out[ $name ] = get_option( $name );
 		}
 		return $out;
 	}
@@ -833,7 +878,7 @@ class ToolsTab {
 	 * @return bool
 	 */
 	private function is_sensitive_option( string $name ): bool {
-		$needles   = array( 'secret', 'api_key', 'apikey', 'license_key', 'private_key', 'access_token', 'service_account', 'password', '_salt' );
+		$needles   = array( 'token', 'secret', 'api_key', 'apikey', 'license_key', 'private_key', 'access_token', 'service_account', 'password', '_salt' );
 		$sensitive = false;
 		foreach ( $needles as $needle ) {
 			if ( false !== strpos( $name, $needle ) ) {
@@ -936,6 +981,16 @@ class ToolsTab {
 	}
 
 	/**
+	 * How many import entries were left alone (bn_skipped on the redirect).
+	 *
+	 * @return int
+	 */
+	private function skipped_count(): int {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice value.
+		return isset( $_GET['bn_skipped'] ) ? absint( wp_unslash( $_GET['bn_skipped'] ) ) : 0;
+	}
+
+	/**
 	 * Map a result flag to a human message.
 	 *
 	 * @param string $result Result slug.
@@ -966,7 +1021,8 @@ class ToolsTab {
 			case 'uninstall_wipe_off':
 				return __( 'Saved. Deleting BuddyNext will keep your community data so a reinstall restores it.', 'buddynext' );
 			case 'imported':
-				return __( 'Settings imported.', 'buddynext' );
+				/* translators: 1: settings applied, 2: settings skipped. */
+				return sprintf( __( 'Settings imported: %1$d applied, %2$d skipped (this site keeps its own version, page and setup state).', 'buddynext' ), $this->result_count(), $this->skipped_count() );
 			case 'import_empty':
 				return __( 'Import file had no recognised BuddyNext settings.', 'buddynext' );
 			case 'import_failed':

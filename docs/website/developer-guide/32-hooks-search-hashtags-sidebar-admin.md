@@ -170,6 +170,7 @@ Narrower hooks around the admin screens, URL routing, the page head, and renderi
 | `buddynext_settings_tabs` | filter | The Settings hub tab strip is built. Register your own section as `slug => label`; the slug must resolve through `PageRouter::settings_url()` and you provide the template. | `array $tabs, string $active` |
 | `buddynext_settings_tab_reset` | action | An admin resets a settings tab to its declared defaults. | `string $tab, string[] $keys, int $user_id` |
 | `buddynext_export_option_is_sensitive` | filter | The settings export decides whether a BuddyNext option is sensitive and must be left out. | `bool $sensitive, string $name` |
+| `buddynext_export_option_prefixes` | filter | The settings export decides which option-name prefixes it covers, and the import writes only options with one of them. Pro adds its own. | `string[] $prefixes` |
 | `buddynext_webhook_event_catalogue` | filter | The outbound-webhook event list is built for the settings screen (`slug => label`). Pro adds its membership and payment events here. | `array $catalogue` |
 | `buddynext_pro_upgrade_url` | filter | The "Upgrade to Pro" link is built. | `string $url` |
 | `buddynext_recommended_defaults` | filter | The recommended first-run option values are read. | `array $map` (option name => value) |
