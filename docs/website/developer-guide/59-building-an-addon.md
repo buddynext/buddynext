@@ -77,6 +77,8 @@ Fire your hook with the contract payload as its **last** argument. Declare each 
 
 ### Settings
 
+Do not add an admin tab. Declare fields and they appear in your card. Prefer a filter to a setting where an opinionated default will do.
+
 ### Profile panels
 
 Panels are cached for "the member viewing their own profile" and "anyone else", not per viewer. A panel that is not `owner_only` must return the same data to every viewer; mark anything that depends on who is looking `owner_only`, and it is dropped for everyone else. When the member's data changes, call `do_action( 'buddynext_suite_panels_changed', $member_id )`.
@@ -85,7 +87,14 @@ Panels are cached for "the member viewing their own profile" and "anyone else", 
 
 A space can be linked to an object in your plugin (a course, a group, a store). While it is linked, everyone the object grants access to is added to the space; the space's Linked to tab lists every link from every addon and lets the space owner remove one.
 
-Declare a `SpaceLinkSource` module, then call `BuddyNext\Spaces\SpaceLinkService` from your own screens and events:
+Declare a `SpaceLinkSource` module with four methods:
+
+- `link_types(): string[]` - the object types you link (for example `course`).
+- `link_label( string $type, int $object_id ): array{name:string,url:string}` - the name and URL shown in the Linked to tab; empty strings when the object is gone.
+- `link_roster( string $type, int $object_id, int $after, int $limit ): int[]` - one page of user ids that have access, ascending, after the last id seen; used to backfill a new link.
+- `link_grants_access( string $type, int $object_id, int $user_id ): bool` - whether one member still has access.
+
+Then call `BuddyNext\Spaces\SpaceLinkService` from your own screens and events:
 
 - `link( $space_id, $slug, $type, $object_id )` links and backfills the current roster. An object feeds at most one space.
 - `create_and_link( $slug, $type, $object_id, $owner_id )` creates a private space named after the object and links it. Such a space is *managed*.
@@ -94,8 +103,6 @@ Declare a `SpaceLinkSource` module, then call `BuddyNext\Spaces\SpaceLinkService
 - `unlink( ... )` and `release_object( $slug, $type, $object_id )` (the object was deleted) keep the space and its members.
 
 Removing an addon or the partner plugin changes nothing: the links stay, shown as "Plugin not active", and nobody is removed until the addon is back.
-
-Do not add an admin tab. Declare fields and they appear in your card. Prefer a filter to a setting where an opinionated default will do.
 
 ## Hooks
 
