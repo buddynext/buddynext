@@ -185,6 +185,12 @@ class PermissionService {
 	 * @return array<string, string|null>
 	 */
 	public static function build_role_map(): array {
+		// An auto-updated site may serve requests before admin_init runs the schema 70
+		// step; converge on first read so a stricter "who can create spaces" never lapses.
+		if ( false !== get_option( 'buddynext_space_creation_role' ) ) {
+			Installer::maybe_migrate_space_creation_role();
+		}
+
 		return (array) apply_filters( 'buddynext_role_map', self::ROLE_MAP );
 	}
 

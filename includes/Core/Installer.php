@@ -2271,7 +2271,7 @@ class Installer {
 	 *
 	 * @return void
 	 */
-	private static function maybe_migrate_space_creation_role(): void {
+	public static function maybe_migrate_space_creation_role(): void {
 		$legacy = get_option( 'buddynext_space_creation_role', null );
 		if ( null === $legacy ) {
 			return;

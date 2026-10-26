@@ -56,6 +56,16 @@ class SpaceCreationRoleMigrationTest extends \WP_UnitTestCase {
 		$this->assertFalse( get_option( 'buddynext_space_creation_role' ) );
 	}
 
+	public function test_the_rule_holds_before_admin_init_runs_the_upgrade(): void {
+		update_option( 'buddynext_space_creation_role', 'admin' );
+		( new \ReflectionProperty( \BuddyNext\Core\PermissionService::class, 'role_map_cache' ) )->setValue( null, null );
+
+		// No migrate() call: a front-end request on an auto-updated site.
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
+		$this->assertFalse( get_option( 'buddynext_space_creation_role' ) );
+	}
+
 	public function test_the_migrated_rule_is_enforced(): void {
 		update_option( 'buddynext_space_creation_role', 'admin' );
 		$this->migrate();
