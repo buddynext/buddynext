@@ -63,7 +63,7 @@ class Theme extends Handler {
 	 */
 	public function auto_updater() {
 
-		if ( ! current_user_can( 'manage_options' ) && ! wp_doing_cron() ) {
+		if ( ! $this->can_auto_update() ) {
 			return;
 		}
 
