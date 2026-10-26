@@ -3,7 +3,7 @@
  * BuddyNext companion installer.
  *
  * Installs a companion plugin by reusing the EDD delivery channel the companions
- * already speak: POST the store with `edd_action=get_version` + item_id + key,
+ * already speak: ask the store (buddynext_licence_request()) for `get_version` + item_id + key,
  * take the signed package URL it returns, and hand it to WP core's
  * Plugin_Upgrader. Free companions install with the baked-in free distribution
  * key (the same key in the companion's own main file); the store only authorizes
@@ -11,7 +11,7 @@
  *
  * Security: install_plugins capability required; only catalog slugs are
  * installable; the download URL is resolved through EDD, never client input; the
- * store host is locked to wbcomdesigns.com. BuddyNext's job ends at activation —
+ * download host is locked to wbcomdesigns.com and its subdomains. BuddyNext's job ends at activation —
  * the companion's own bundled SDK then manages its updates.
  *
  * @package BuddyNext\Integrations
@@ -29,12 +29,7 @@ use WP_Error;
 final class CompanionInstaller {
 
 	/**
-	 * The only host the installer will ever talk to or download from.
-	 */
-	private const STORE_URL = 'https://wbcomdesigns.com';
-
-	/**
-	 * HTTP timeout (seconds) for store calls.
+	 * HTTP timeout (seconds) for the package probe.
 	 */
 	private const TIMEOUT = 20;
 
@@ -94,57 +89,6 @@ final class CompanionInstaller {
 	}
 
 	/**
-	 * POST the store with one short retry on transient failures.
-	 *
-	 * The setup wizard installs companions back-to-back, so the store sees a
-	 * burst of license/version calls in seconds. A single throttled or
-	 * slow-to-respond call would otherwise fail the whole install with "couldn't
-	 * reach the store" — typically the LAST plugin in the run. Retrying once
-	 * after a brief pause clears a transient timeout (WP_Error), a rate-limit
-	 * (429), or a momentary 5xx; a genuine outage still surfaces as a WP_Error
-	 * so the caller's own messaging is unchanged.
-	 *
-	 * @param array<string, mixed> $body Request body (edd_action + params).
-	 * @return array|WP_Error The HTTP response array, or WP_Error after retries.
-	 */
-	private static function store_post( array $body ) {
-		$attempts = 2;
-		$last     = null;
-
-		for ( $attempt = 1; $attempt <= $attempts; $attempt++ ) {
-			if ( $attempt > 1 ) {
-				// Brief backoff so a throttle window passes before retrying.
-				sleep( 1 );
-			}
-
-			$response = wp_remote_post(
-				self::STORE_URL,
-				array(
-					'timeout' => self::TIMEOUT,
-					'body'    => $body,
-				)
-			);
-
-			if ( is_wp_error( $response ) ) {
-				$last = $response;
-				continue;
-			}
-
-			// 429 (throttle) and 5xx (transient server) are worth one more try;
-			// anything else (2xx success, or a 4xx the retry won't change) returns.
-			$code = (int) wp_remote_retrieve_response_code( $response );
-			if ( 429 !== $code && $code < 500 ) {
-				return $response;
-			}
-			$last = $response;
-		}
-
-		return is_wp_error( $last )
-			? $last
-			: new WP_Error( 'buddynext_store_unreachable', __( 'The store did not respond after a retry. Try again.', 'buddynext' ), array( 'status' => 502 ) );
-	}
-
-	/**
 	 * Activate the free license for this domain (EDD authorizes the download only
 	 * after this). Returns true on valid/active; a WP_Error carrying the store's
 	 * own reason otherwise.
@@ -154,24 +98,18 @@ final class CompanionInstaller {
 	 * @return true|WP_Error
 	 */
 	private static function activate_license( int $item_id, string $key ) {
-		$response = self::store_post(
+		// Same host and fallback as update checks (buddynext_licence_request() in bootstrap.php).
+		$reply = \buddynext_licence_request(
 			array(
-				'edd_action'  => 'activate_license',
-				'item_id'     => $item_id,
-				'license'     => $key,
-				'url'         => home_url(),
-				'environment' => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'production',
+				'edd_action' => 'activate_license',
+				'item_id'    => $item_id,
+				'license'    => $key,
 			)
 		);
-
-		if ( is_wp_error( $response ) ) {
+		if ( false === $reply ) {
 			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store to activate the license. Try again.', 'buddynext' ), array( 'status' => 502 ) );
 		}
-
-		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
-		if ( ! is_array( $body ) ) {
-			return new WP_Error( 'buddynext_store_bad_response', __( 'The store returned an unexpected response while activating the license.', 'buddynext' ), array( 'status' => 502 ) );
-		}
+		$body = (array) $reply;
 
 		$status = (string) ( $body['license'] ?? '' );
 		if ( in_array( $status, array( 'valid', 'active' ), true ) ) {
@@ -201,23 +139,17 @@ final class CompanionInstaller {
 	 * @return string|WP_Error Package URL, or WP_Error.
 	 */
 	private static function resolve_package_url( int $item_id, string $key ) {
-		$response = self::store_post(
+		$reply = \buddynext_licence_request(
 			array(
 				'edd_action' => 'get_version',
 				'item_id'    => $item_id,
 				'license'    => $key,
-				'url'        => home_url(),
 			)
 		);
-
-		if ( is_wp_error( $response ) ) {
+		if ( false === $reply ) {
 			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store. Try again.', 'buddynext' ), array( 'status' => 502 ) );
 		}
-
-		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
-		if ( ! is_array( $body ) ) {
-			return new WP_Error( 'buddynext_store_bad_response', __( 'The store returned an unexpected response.', 'buddynext' ), array( 'status' => 502 ) );
-		}
+		$body = (array) $reply;
 
 		$package = (string) ( $body['download_link'] ?? ( $body['package'] ?? '' ) );
 		if ( '' === $package ) {
