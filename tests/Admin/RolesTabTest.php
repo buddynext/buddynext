@@ -226,4 +226,44 @@ class RolesTabTest extends \WP_UnitTestCase {
 		$this->forget_role_map();
 		$this->assertSame( 'moderator', \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] );
 	}
+
+	/**
+	 * QA's steps: Spaces = moderator, then Roles = member, then Spaces = moderator again.
+	 * The stored option is already moderator, so update_option() fires no update hook;
+	 * the stale Roles row must still go.
+	 *
+	 * @return void
+	 */
+	public function test_choosing_the_stored_value_again_still_replaces_a_roles_row(): void {
+		update_option( 'buddynext_space_creation_role', 'moderator' );
+		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'member' ), false );
+		$this->forget_role_map();
+		$this->assertSame( 'member', \BuddyNext\Core\PermissionService::space_creation_choice() );
+
+		update_option( 'buddynext_space_creation_role', 'moderator' );
+		$this->forget_role_map();
+
+		$this->assertArrayNotHasKey( 'buddynext-spaces/create', (array) get_option( 'bn_role_map_overrides' ) );
+		$this->assertSame( 'moderator', \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] );
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
+	}
+
+	/**
+	 * Off on Roles shows as Admins only on the Spaces tab; saving that tab unchanged
+	 * must leave Off in place, not loosen it to community admins.
+	 *
+	 * @return void
+	 */
+	public function test_an_unchanged_spaces_save_keeps_off_from_roles(): void {
+		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => null ), false );
+		$this->forget_role_map();
+		$this->assertSame( 'admin', \BuddyNext\Core\PermissionService::space_creation_choice() );
+
+		update_option( 'buddynext_space_creation_role', 'admin' );
+		$this->forget_role_map();
+
+		$this->assertArrayHasKey( 'buddynext-spaces/create', (array) get_option( 'bn_role_map_overrides' ) );
+		$this->assertNull( \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] );
+	}
 }

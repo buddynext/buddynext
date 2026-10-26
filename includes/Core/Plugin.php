@@ -173,18 +173,28 @@ class Plugin {
 			}
 		);
 
-		// Saving "Who can create spaces" on the Spaces tab is the owner's latest word,
-		// so it replaces an older Roles & Capabilities row for the same ability.
-		$drop_create_override = static function (): void {
-			$overrides = get_option( 'bn_role_map_overrides', array() );
-			if ( is_array( $overrides ) && array_key_exists( 'buddynext-spaces/create', $overrides ) ) {
-				unset( $overrides['buddynext-spaces/create'] );
-				update_option( 'bn_role_map_overrides', $overrides, false );
-			}
-		};
-		// The first save of the setting adds the option; later ones update it.
-		add_action( 'add_option_buddynext_space_creation_role', $drop_create_override );
-		add_action( 'update_option_buddynext_space_creation_role', $drop_create_override );
+		// Choosing a different "Who can create spaces" on the Spaces tab is the owner's
+		// latest word, so it replaces an older Roles & Capabilities row for the ability.
+		// Compared with the rule the tab SHOWS, not the stored option: update_option()
+		// skips its update hooks when the value is unchanged, which left a stale Roles
+		// row in force. pre_update runs on every save, including the first one.
+		add_filter(
+			'pre_update_option_buddynext_space_creation_role',
+			static function ( $value, $old_value ) {
+				if ( \BuddyNext\Core\PermissionService::space_creation_choice() === $value ) {
+					// Unchanged on the form: keep the rule as it is (a Roles row, even Off).
+					return $old_value;
+				}
+				$overrides = get_option( 'bn_role_map_overrides', array() );
+				if ( is_array( $overrides ) && array_key_exists( 'buddynext-spaces/create', $overrides ) ) {
+					unset( $overrides['buddynext-spaces/create'] );
+					update_option( 'bn_role_map_overrides', $overrides, false );
+				}
+				return $value;
+			},
+			10,
+			2
+		);
 
 		// Apply admin Appearance options on the front-end (accent colour, default
 		// theme, custom CSS). Registered everywhere — branding is not admin-only.

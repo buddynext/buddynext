@@ -1348,7 +1348,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default'        => 'member',
 							// Shows the rule that is enforced, which Members > Roles & Capabilities
 							// can also change, not only the value last saved here.
-							'value_callback' => static fn() => in_array( \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] ?? 'member', array( 'member', 'moderator' ), true ) ? \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] : 'admin',
+							'value_callback' => static fn() => \BuddyNext\Core\PermissionService::space_creation_choice(),
 							'choices'        => array(
 								'member'    => __( 'Any member', 'buddynext' ),
 								'moderator' => __( 'Moderators & up', 'buddynext' ),
