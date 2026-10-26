@@ -3165,6 +3165,13 @@ a.bn-sh-statpill:focus-visible {
 	border-radius: var(--bn-r-sm);
 }
 
+/* The "See plans" link on a plan-limit refusal: same red, underlined so it reads as a link. */
+.bn-create-space-form__error--global a {
+	color: inherit;
+	font-weight: 600;
+	text-decoration: underline;
+}
+
 /* ── Space home: notif popover, members grid, moderation ─────────────── */
 
 .bn-sh-notif {

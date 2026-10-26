@@ -805,7 +805,7 @@ class SpaceController extends BaseRestController {
 
 		if ( is_wp_error( $result ) ) {
 			$status = ( 'invalid_pref' === $result->get_error_code() ) ? 422 : 403;
-			$result->add_data( array( 'status' => $status ) );
+			$this->merge_error_data( $result, array( 'status' => $status ) );
 			return $result;
 		}
 
@@ -1637,7 +1637,8 @@ class SpaceController extends BaseRestController {
 			// Keep a status the service already chose (parent_archived and
 			// parent_not_found are 422); add_data() would only append a second one.
 			$status = is_array( $data ) && ! empty( $data['status'] ) ? (int) $data['status'] : ( ( 'slug_taken' === $code ) ? 422 : 400 );
-			$result->add_data(
+			$this->merge_error_data(
+				$result,
 				array(
 					'status' => $status,
 					'params' => ( 'slug_taken' === $code )
@@ -2171,7 +2172,7 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceService() )->delete( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
@@ -3054,7 +3055,7 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceMemberService() )->invite( $space_id, $inviter_id, $invited_user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
@@ -3208,7 +3209,7 @@ class SpaceController extends BaseRestController {
 
 		if ( is_wp_error( $result ) ) {
 			$status_code = 'no_pending_request' === $result->get_error_code() ? 404 : 403;
-			$result->add_data( array( 'status' => $status_code ) );
+			$this->merge_error_data( $result, array( 'status' => $status_code ) );
 			return $result;
 		}
 
@@ -3248,7 +3249,7 @@ class SpaceController extends BaseRestController {
 
 		if ( is_wp_error( $result ) ) {
 			$status_code = 'no_pending_request' === $result->get_error_code() ? 404 : 403;
-			$result->add_data( array( 'status' => $status_code ) );
+			$this->merge_error_data( $result, array( 'status' => $status_code ) );
 			return $result;
 		}
 
@@ -3276,7 +3277,7 @@ class SpaceController extends BaseRestController {
 		if ( is_wp_error( $result ) ) {
 			// Each error names its own status; 403 only when it named none.
 			if ( ! isset( ( (array) $result->get_error_data() )['status'] ) ) {
-				$result->add_data( array( 'status' => 403 ) );
+				$this->merge_error_data( $result, array( 'status' => 403 ) );
 			}
 			return $result;
 		}
@@ -3514,7 +3515,7 @@ class SpaceController extends BaseRestController {
 		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
 		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => $stored ) );
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
@@ -3599,7 +3600,7 @@ class SpaceController extends BaseRestController {
 		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
 		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => '' ) );
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
