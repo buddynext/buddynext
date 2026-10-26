@@ -195,6 +195,7 @@ Narrower hooks around the admin screens, URL routing, the page head, and renderi
 | `buddynext_head_meta_image` | filter | The fallback social image is chosen for a surface with no image of its own. | `string $url` |
 | `buddynext_template_html` | filter | A BuddyNext template's rendered HTML. Only runs when a callback is attached. The template has already escaped its output; you own the safety of what you return. | `string $html, string $relative, string $path` |
 | `buddynext_theme_token_map` | filter | The host-theme token map is built. Return `--bn-token => value` pairs to point BuddyNext's tokens at a theme's variables; an empty array means no adoption. | `array $map, string $template` |
+| `buddynext_host_themes_with_color_mode` | filter | Appearance > Default theme is rendered. Return the theme slugs whose own light/dark mode beats the Default theme; those themes get a note on the field. | `string[] $slugs` |
 | `buddynext_asset_isolation_enabled` | filter | Asset isolation on BuddyNext routes is about to run (default `true`). | `bool $enabled` |
 | `buddynext_late_print_script_modules` | filter | The late script-module print pass is about to run. | `bool $enabled` |
 | `buddynext_time_ago_date_format` | filter | A timestamp is too old for relative time and needs a date format (default `j F`, or `j F Y` outside the current year). | `string $format, bool $is_current_year, string $gmt_datetime` |
