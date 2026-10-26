@@ -21,6 +21,8 @@ define( 'BUDDYNEXT_FILE', __DIR__ . '/buddynext.php' );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( BUDDYNEXT_FILE ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( BUDDYNEXT_FILE ) );
 define( 'BUDDYNEXT_BASENAME', plugin_basename( BUDDYNEXT_FILE ) );
+// Licence and update host for BuddyNext and BuddyNext Pro; the SDK falls back to https://wbcomdesigns.com.
+define( 'BUDDYNEXT_LICENCE_HOST', 'https://updates.wbcomdesigns.com' );
 
 // Autoloader — PSR-4 for the BuddyNext\ namespace (includes/). Hand-written so
 // runtime never depends on Composer: vendor/ is dev tooling only and is
@@ -149,16 +151,41 @@ add_action(
 	static function ( $registry ): void {
 		$registry->register(
 			array(
-				'id'      => 'buddynext',
-				'url'     => 'https://wbcomdesigns.com',
-				'item_id' => 1664401,
-				'version' => BUDDYNEXT_VERSION,
-				'file'    => BUDDYNEXT_FILE,
-				'license' => 'buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55',
+				'id'           => 'buddynext',
+				'url'          => BUDDYNEXT_LICENCE_HOST,
+				'fallback_url' => 'https://wbcomdesigns.com',
+				'item_id'      => 1664401,
+				'version'      => BUDDYNEXT_VERSION,
+				'file'         => BUDDYNEXT_FILE,
+				'license'      => 'buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55',
 			)
 		);
 	}
 );
+
+/**
+ * One licence-server request (activate, deactivate, check or get_version) for BuddyNext and BuddyNext Pro.
+ *
+ * Goes through the bundled SDK, so it uses the same host as update checks and falls back to the old host when
+ * the new one cannot be reached. A licence "no" is a normal reply; false means no host answered (or the SDK
+ * is not loaded).
+ *
+ * @since 1.2.7
+ *
+ * @param array<string, mixed> $params EDD Software Licensing parameters (edd_action, license, item_id). The SDK adds url and environment.
+ * @return object|false
+ */
+function buddynext_licence_request( array $params ) {
+	if ( ! class_exists( '\\EasyDigitalDownloads\\Updater\\Requests\\API' ) ) {
+		return false;
+	}
+	// Name the fallback here as well: on an early request (plugin activation) the SDK registry has not run yet.
+	if ( method_exists( '\\EasyDigitalDownloads\\Updater\\Requests\\API', 'set_fallback' ) ) {
+		\EasyDigitalDownloads\Updater\Requests\API::set_fallback( BUDDYNEXT_LICENCE_HOST, 'https://wbcomdesigns.com' );
+	}
+	$reply = ( new \EasyDigitalDownloads\Updater\Requests\API( BUDDYNEXT_LICENCE_HOST ) )->make_request( $params );
+	return is_object( $reply ) ? $reply : false;
+}
 
 // Action Scheduler — bundled so async background work (search reindex, space
 // fan-out, async notifications) runs on a standalone install with nothing else

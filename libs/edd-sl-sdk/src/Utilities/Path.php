@@ -49,14 +49,42 @@ class Path {
 		self::$sdk_dir     = dirname( $file );
 		self::$sdk_version = $version;
 
-		// Resolve the asset URL through WordPress so it is correct on every host.
-		// The previous approach derived the URL from $_SERVER['DOCUMENT_ROOT'],
-		// which breaks wherever realpath() resolves a symlink or the document root
-		// does not prefix-match the plugin path (many live hosts, LocalWP): the
-		// str_replace strips nothing, the full filesystem path leaks into the URL,
-		// and the SDK assets 404. plugins_url() handles HTTPS, host, subdirectory
-		// installs, symlinks and multisite correctly.
-		self::$sdk_url = trailingslashit( plugins_url( '', $file ) );
+		self::$sdk_url = trailingslashit( self::url_for( self::$sdk_dir, $file ) );
+	}
+
+	/**
+	 * Works out the public URL of the SDK folder wherever it is bundled.
+	 *
+	 * Wbcom: upstream only strips WP_CONTENT_DIR, which breaks when the plugin or theme folder is a symlink
+	 * (__FILE__ is then the real path outside wp-content, and the asset URL 404s).
+	 *
+	 * @param string $dir  The SDK folder.
+	 * @param string $file The SDK main file.
+	 * @return string
+	 */
+	private static function url_for( $dir, $file ) {
+		$dir     = wp_normalize_path( $dir );
+		$content = wp_normalize_path( WP_CONTENT_DIR );
+
+		// Plugin or theme inside wp-content: the common case.
+		if ( 0 === strpos( $dir, trailingslashit( $content ) ) ) {
+			return content_url( substr( $dir, strlen( $content ) ) );
+		}
+
+		// Theme folder that is a symlink: match the real path of the active theme and its parent.
+		$themes = array(
+			array( get_stylesheet_directory(), get_stylesheet_directory_uri() ),
+			array( get_template_directory(), get_template_directory_uri() ),
+		);
+		foreach ( $themes as $theme ) {
+			$real = realpath( $theme[0] );
+			if ( $real && 0 === strpos( $dir, trailingslashit( wp_normalize_path( $real ) ) ) ) {
+				return $theme[1] . substr( $dir, strlen( wp_normalize_path( $real ) ) );
+			}
+		}
+
+		// Plugin folder that is a symlink: WordPress maps the real path back to the plugin URL.
+		return plugins_url( '', $file );
 	}
 
 	/**

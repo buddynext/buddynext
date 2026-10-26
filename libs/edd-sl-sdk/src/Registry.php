@@ -93,6 +93,11 @@ class Registry extends \ArrayObject {
 			);
 		}
 
+		// Wbcom: optional second host for licence and update requests (see Requests\API::make_request()).
+		if ( ! empty( $integration['fallback_url'] ) ) {
+			\EasyDigitalDownloads\Updater\Requests\API::set_fallback( $integration['url'], $integration['fallback_url'] );
+		}
+
 		// Handle custom messenger class.
 		$messenger = $this->get_messenger( $integration );
 

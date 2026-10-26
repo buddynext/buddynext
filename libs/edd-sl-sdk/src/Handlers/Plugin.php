@@ -33,14 +33,14 @@ class Plugin extends Handler {
 		add_filter( "plugin_action_links_{$plugin_basename}", array( $this, 'plugin_links' ), 100, 3 );
 	}
 
-		/**
+	/**
 	 * Auto updater
 	 *
 	 * @return  void
 	 */
 	public function auto_updater() {
 
-		if ( ! current_user_can( 'manage_options' ) && ! wp_doing_cron() ) {
+		if ( ! $this->can_auto_update() ) {
 			return;
 		}
 

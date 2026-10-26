@@ -3,7 +3,7 @@
  * One-time activation of the baked-in preset licence key against the store.
  *
  * Update downloads are authorised by a preset key that must be activated once
- * per site. The activation is a remote POST to wbcomdesigns.com, so it must
+ * per site. The activation is a remote call to the licence server, so it must
  * never run on the owner's admin page load: the original code fired a blocking
  * wp_remote_post( timeout: 15 ) on EVERY admin_init until it succeeded, adding
  * up to 15s to every wp-admin page forever when the store was unreachable.
@@ -210,20 +210,23 @@ class PresetActivation {
 
 		update_option( 'buddynext_license_key', self::PRESET_KEY, false );
 
-		$response = wp_remote_post(
-			'https://wbcomdesigns.com',
+		// Same host and fallback as update checks (buddynext_licence_request() in bootstrap.php). The SDK's own
+		// timeout is 15s per host; cap it to the owner-accepted TIMEOUT for this call only.
+		$cap_timeout = static function ( array $args ): array {
+			$args['timeout'] = min( (float) ( $args['timeout'] ?? self::TIMEOUT ), (float) self::TIMEOUT );
+			return $args;
+		};
+		add_filter( 'http_request_args', $cap_timeout );
+		$reply = buddynext_licence_request(
 			array(
-				'timeout' => self::TIMEOUT,
-				'body'    => array(
-					'edd_action' => 'activate_license',
-					'license'    => self::PRESET_KEY,
-					'item_id'    => self::ITEM_ID,
-					'url'        => home_url(),
-				),
+				'edd_action' => 'activate_license',
+				'license'    => self::PRESET_KEY,
+				'item_id'    => self::ITEM_ID,
 			)
 		);
+		remove_filter( 'http_request_args', $cap_timeout );
 
-		$body   = is_wp_error( $response ) ? null : json_decode( wp_remote_retrieve_body( $response ), true );
+		$body   = false === $reply ? null : (array) $reply;
 		$status = is_array( $body ) ? (string) ( $body['license'] ?? '' ) : '';
 
 		if ( 'valid' === $status ) {

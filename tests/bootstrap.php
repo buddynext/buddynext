@@ -258,6 +258,21 @@ if ( ! class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
 	class_alias( BuddyNext_Test_Addon_Stub::class, 'WPMediaVerse\Core\Plugin' );
 }
 
+// Tests never reach the live store. Refuse both licence hosts so no test (or admin_init preset activation) can
+// send an activation as http://example.org. Tests that need a store reply add their own pre_http_request
+// filter at a later priority, which overrides this one.
+tests_add_filter(
+	'pre_http_request',
+	static function ( $pre, $args, $url ) {
+		$host = (string) wp_parse_url( $url, PHP_URL_HOST );
+		return in_array( $host, array( 'wbcomdesigns.com', 'updates.wbcomdesigns.com' ), true )
+			? new WP_Error( 'buddynext_tests_no_store', 'Tests do not call the live store.' )
+			: $pre;
+	},
+	1,
+	3
+);
+
 /**
  * Manually load the plugin before the test suite boots.
  */

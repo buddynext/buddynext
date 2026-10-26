@@ -28,6 +28,26 @@ class API {
 	private $api_url;
 
 	/**
+	 * Fallback API URLs, keyed by the registered API URL (Wbcom: `fallback_url` registration arg).
+	 *
+	 * @var array<string,string>
+	 */
+	private static $fallbacks = array();
+
+	/**
+	 * Remembers the fallback for an API URL. Called by the registry for each integration.
+	 *
+	 * @param string $url      The registered API URL.
+	 * @param string $fallback The URL to try when the registered one cannot be reached.
+	 * @return void
+	 */
+	public static function set_fallback( $url, $fallback ) {
+		if ( $url && $fallback && $url !== $fallback ) {
+			self::$fallbacks[ $url ] = $fallback;
+		}
+	}
+
+	/**
 	 * The class constructor.
 	 *
 	 * @since 1.0.0
@@ -59,22 +79,42 @@ class API {
 			return false;
 		}
 
+		$result = $this->request( $this->api_url, $api_params );
+
+		// Wbcom: the registered host could not be reached (network error, timeout or a non-200 reply), so try
+		// the fallback host once. A licence "no" is a 200 reply and is never retried.
+		$fallback = self::$fallbacks[ $this->api_url ] ?? '';
+		if ( false === $result && $fallback ) {
+			$result = $this->request( $fallback, $api_params );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Makes one request to one API URL. A failure pauses that URL, and only that URL, for an hour.
+	 *
+	 * @param string $api_url    The API URL.
+	 * @param array  $api_params The parameters for the API request.
+	 * @return false|stdClass
+	 */
+	private function request( $api_url, array $api_params ) {
 		// If a request has recently failed, don't try again.
-		if ( $this->request_recently_failed() ) {
+		if ( $this->request_recently_failed( $api_url ) ) {
 			return false;
 		}
 
 		$request = wp_remote_get(
-			add_query_arg( $this->get_body( $api_params ), $this->api_url ),
+			add_query_arg( $this->get_body( $api_params ), $api_url ),
 			array(
 				'timeout'   => 15,
-				'sslverify' => apply_filters( 'https_ssl_verify', true, $this->api_url ),
+				'sslverify' => apply_filters( 'https_ssl_verify', true, $api_url ),
 			)
 		);
 
 		// If there was an API error, return false.
 		if ( is_wp_error( $request ) || ( 200 !== wp_remote_retrieve_response_code( $request ) ) ) {
-			$this->log_failed_request();
+			$this->log_failed_request( $api_url );
 
 			return false;
 		}
@@ -141,8 +181,8 @@ class API {
 	 *
 	 * @return bool
 	 */
-	private function request_recently_failed() {
-		$failed_request_details = get_option( $this->get_failed_request_cache_key() );
+	private function request_recently_failed( $api_url ) {
+		$failed_request_details = get_option( $this->get_failed_request_cache_key( $api_url ) );
 
 		// Request has never failed.
 		if ( empty( $failed_request_details ) || ! is_numeric( $failed_request_details ) ) {
@@ -154,7 +194,7 @@ class API {
 		 * This means we're allowed to try again.
 		 */
 		if ( time() > $failed_request_details ) {
-			delete_option( $this->get_failed_request_cache_key() );
+			delete_option( $this->get_failed_request_cache_key( $api_url ) );
 
 			return false;
 		}
@@ -171,8 +211,8 @@ class API {
 	 *
 	 * @since 1.0.0
 	 */
-	private function log_failed_request() {
-		update_option( $this->get_failed_request_cache_key(), strtotime( '+1 hour' ), false );
+	private function log_failed_request( $api_url ) {
+		update_option( $this->get_failed_request_cache_key( $api_url ), strtotime( '+1 hour' ), false );
 	}
 
 	/**
@@ -181,7 +221,7 @@ class API {
 	 * @since 1.0.0
 	 * @return string The cache key for failed requests.
 	 */
-	private function get_failed_request_cache_key() {
-		return 'eddsdk_failed_request_' . md5( $this->api_url );
+	private function get_failed_request_cache_key( $api_url ) {
+		return 'eddsdk_failed_request_' . md5( $api_url );
 	}
 }

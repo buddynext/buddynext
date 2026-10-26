@@ -149,7 +149,7 @@ class License {
 			);
 		}
 
-		update_option( $this->get_key_option_name(), $license_key );
+		update_option( $this->get_key_option_name(), $license_key, false );
 		$this->save( $license_data );
 
 		wp_send_json_success(
@@ -251,7 +251,7 @@ class License {
 			'timestamp' => time(),
 		);
 
-		update_option( $option_name, $data );
+		update_option( $option_name, $data, false );
 
 		$message = $allow_tracking
 			? $this->messenger->get_tracking_enabled_message()
@@ -321,7 +321,7 @@ class License {
 	 * @return void
 	 */
 	public function save( $license_data ) {
-		update_option( $this->get_status_option_name(), $license_data );
+		update_option( $this->get_status_option_name(), $license_data, false );
 	}
 
 	/**
