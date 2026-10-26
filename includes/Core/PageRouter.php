@@ -525,6 +525,14 @@ class PageRouter {
 		$wp_query->is_singular       = true;
 		$wp_query->is_home           = false;
 		$wp_query->is_404            = false;
+
+		// is_singular() with no $post makes `wp` consumers (Divi's dynamic assets at 999)
+		// read ->ID on null. Back it with the mapped page until dispatch swaps in the
+		// virtual post, which carries the same ID.
+		if ( ! $wp_query->post instanceof \WP_Post ) {
+			$GLOBALS['post'] = $page; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- see above.
+			$wp_query->post  = $page;
+		}
 	}
 
 	/**
