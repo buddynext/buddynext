@@ -104,6 +104,7 @@ $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
 <article class="bn-single-post"
 	data-bn-rest-nonce="<?php echo esc_attr( $bn_rest_nonce ); ?>"
 	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
+	data-bn-feed-url="<?php echo esc_url( PageRouter::activity_url() ); ?>"
 	data-post-id="<?php echo absint( $bn_post_record['id'] ); ?>">
 
 	<nav class="bn-single-post__breadcrumb" aria-label="<?php esc_attr_e( 'Breadcrumb', 'buddynext' ); ?>">

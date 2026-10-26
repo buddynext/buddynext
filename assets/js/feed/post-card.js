@@ -58,6 +58,41 @@ const BN_ICONS = {
 };
 
 /**
+ * Replace a reported post's own page with a short reported state.
+ *
+ * In a feed the reported card just leaves and the other posts fill the space; on the post's
+ * own page nothing else is there, so the post (and its thread) is swapped for a message and a
+ * link back, keeping the breadcrumb.
+ *
+ * @param {HTMLElement} page The .bn-single-post article.
+ * @return {void}
+ */
+function showReportedState( page ) {
+	const crumbs = page.querySelector( '.bn-single-post__breadcrumb' );
+	const box    = document.createElement( 'div' );
+	box.className = 'bn-feed-empty';
+	box.setAttribute( 'role', 'status' );
+	box.dataset.state = 'reported';
+
+	const title = document.createElement( 'div' );
+	title.className = 'bn-feed-empty__title';
+	title.textContent = t( 'reportedPostTitle', 'You reported this post.' );
+
+	const text = document.createElement( 'p' );
+	text.className = 'bn-feed-empty__text';
+	text.textContent = t( 'reportedPostText', 'Moderators will review it. Thanks for keeping the community safe.' );
+
+	const back = document.createElement( 'a' );
+	back.className = 'bn-btn bn-feed-empty__cta';
+	back.dataset.variant = 'primary';
+	back.href = page.dataset.bnFeedUrl || '/';
+	back.textContent = t( 'backToFeed', 'Back to feed' );
+
+	box.append( title, text, back );
+	page.replaceChildren( ...( crumbs ? [ crumbs ] : [] ), box );
+}
+
+/**
  * An emoji trigger button wired to one textarea, or null when the site owner has
  * the emoji picker off (bnShellData.emojiPicker, from the owner option, so it
  * works on pages with no composer such as a post permalink). The shared
@@ -2163,7 +2198,11 @@ store( 'buddynext/post-card', {
 					// Facebook, X, Instagram). Collapse with a short fade so the removal
 					// reads as intentional rather than a glitch.
 					const card = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
-					if ( card ) {
+					if ( card && card.classList.contains( 'bn-single-post' ) ) {
+						// On the post's own page the card IS the page: removing it leaves a blank
+						// screen. Swap the post for a short reported state and a way back.
+						showReportedState( card );
+					} else if ( card ) {
 						card.style.transition = 'opacity 0.2s ease, max-height 0.3s ease';
 						card.style.overflow   = 'hidden';
 						card.style.maxHeight  = card.offsetHeight + 'px';
