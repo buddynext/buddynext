@@ -1502,6 +1502,7 @@ class AssetService {
 					'creating'                        => __( 'Creating…', 'buddynext' ),
 					'spaceCreated'                    => __( 'Space created.', 'buddynext' ),
 					'couldNotCreateSpace'             => __( 'Could not create the space.', 'buddynext' ),
+					'seePlans'                        => __( 'See plans', 'buddynext' ),
 					'createSpace'                     => __( 'Create space', 'buddynext' ),
 					'confirmClose'                    => __( 'Close', 'buddynext' ),
 					'pleaseConfirm'                   => __( 'Please confirm', 'buddynext' ),

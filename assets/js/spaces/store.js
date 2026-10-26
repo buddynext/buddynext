@@ -2280,12 +2280,14 @@ var storeInstance = store( 'buddynext/spaces', {
 					return;
 				}
 
-				if ( data && data.data && data.data.params ) {
+				// An empty params array is truthy, so test for real field errors: a refusal
+				// with no field (limit reached, sub-spaces off) must reach its message.
+				if ( data && data.data && data.data.params && Object.keys( data.data.params ).length ) {
 					Object.keys( data.data.params ).forEach( function ( field ) {
 						showCreateSpaceError( form, field, data.data.params[ field ] );
 					} );
 				} else if ( data && data.message ) {
-					showCreateSpaceError( form, '_global', data.message );
+					showCreateSpaceError( form, '_global', data.message, data.data && data.data.upgrade_url );
 				} else {
 					showCreateSpaceError( form, '_global', t( 'couldNotCreateSpace', 'Could not create the space.' ) );
 				}
@@ -2816,13 +2818,20 @@ function clearCreateSpaceErrors( form ) {
 	}
 }
 
-function showCreateSpaceError( form, field, message ) {
+function showCreateSpaceError( form, field, message, upgradeUrl ) {
 	var node = form.querySelector( '[data-bn-error-for="' + field + '"]' );
 	if ( ! node ) {
 		node = form.querySelector( '[data-bn-error-for="_global"]' );
 	}
 	if ( ! node ) { return; }
 	node.textContent = String( message );
+	// A plan-limit refusal carries the page that lifts it.
+	if ( upgradeUrl ) {
+		var link = document.createElement( 'a' );
+		link.href = upgradeUrl;
+		link.textContent = t( 'seePlans', 'See plans' );
+		node.append( ' ', link );
+	}
 	node.removeAttribute( 'hidden' );
 }
 
