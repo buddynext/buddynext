@@ -737,7 +737,7 @@ class ModerationListener implements ListenerInterface {
 			// this list is here because they moderate THIS space, so they get the
 			// space's own reports tab — a page they can actually open.
 			$recipient_url = $queue_url;
-			if ( $space_id > 0 && ! buddynext_can( $recipient_id, 'buddynext-spaces/moderate' ) ) {
+			if ( $space_id > 0 && ! buddynext_can( $recipient_id, 'buddynext-moderation/review-queue' ) ) {
 				$space_link = PageRouter::space_url( $space_id );
 				if ( PageRouter::spaces_url() !== $space_link ) {
 					$recipient_url = add_query_arg( 'bn_mtab', 'reports', $space_link . 'moderation/' );

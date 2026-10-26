@@ -312,7 +312,7 @@ class ShortcodeService {
 	 * Render the Community Admin Panel shortcode.
 	 *
 	 * Site-wide admin overview for community managers. Requires manage_options
-	 * or the buddynext-spaces/moderate ability.
+	 * or the buddynext-moderation/review-queue ability.
 	 *
 	 * @param array<string, mixed>|string $_atts Shortcode attributes (unused).
 	 * @return string HTML output.

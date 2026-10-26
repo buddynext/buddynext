@@ -1021,7 +1021,7 @@ class NotificationMessageService {
 				// A report inside a space fans out to that space's owners and
 				// moderators as well as to site admins (ModerationListener::
 				// on_report_created()). The community-admin hub is gated on the
-				// SITE-WIDE ability buddynext-spaces/moderate (PageRouter:598-602),
+				// SITE-WIDE ability buddynext-moderation/review-queue (PageRouter),
 				// which a space owner does not have — so the one notification a
 				// space owner ever receives about their own space opened a 404
 				// (Basecamp 10264117698). Their queue is the space's own moderation
@@ -1031,7 +1031,7 @@ class NotificationMessageService {
 				$report_space_id = isset( $data['space_id'] ) ? (int) $data['space_id'] : 0;
 				$report_viewer   = $viewer_id > 0 ? $viewer_id : get_current_user_id();
 				if ( $report_space_id > 0
-					&& ! buddynext_can( $report_viewer, 'buddynext-spaces/moderate' ) ) {
+					&& ! buddynext_can( $report_viewer, 'buddynext-moderation/review-queue' ) ) {
 					$report_space_link = PageRouter::space_url( $report_space_id );
 					// space_url() falls back to the spaces hub for a missing space;
 					// only append the moderation segment to a real space URL.

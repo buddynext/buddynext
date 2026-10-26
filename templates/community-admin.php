@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // ── Permission gate ───────────────────────────────────────────────────────────
 
-if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
+if ( ! buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' ) ) {
 	wp_die( esc_html__( 'You do not have permission to access the Community Admin Panel.', 'buddynext' ) );
 }
 

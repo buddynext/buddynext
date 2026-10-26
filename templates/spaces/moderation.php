@@ -53,7 +53,7 @@ $bn_mod_svc     = new ModerationService();
 $bn_mod_log_svc = new ModerationLogService();
 $bn_member_svc  = new SpaceMemberService();
 // A site moderator may warn anyone; a space-only moderator only this space's members.
-$bn_mod_site_mod = buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' );
+$bn_mod_site_mod = buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' );
 $bn_space_row    = ( new SpaceService() )->get( $space_id );
 
 if ( null === $bn_space_row ) {
@@ -628,7 +628,7 @@ $mod_privacy = array(
 						 *
 						 * This panel exists to tell a SPACE moderator what they cannot do,
 						 * and the hub it linked to is gated on the site-wide ability
-						 * buddynext-spaces/moderate (PageRouter:598-602). So the link 404d
+						 * buddynext-moderation/review-queue (PageRouter). So the link 404d
 						 * for its entire audience: a site admin never reads this panel, and
 						 * nobody else can open the destination. Found alongside the report
 						 * notification with the same cause (Basecamp 10264117698).
@@ -636,7 +636,7 @@ $mod_privacy = array(
 						 * A site moderator who does land here still gets the link. Everyone
 						 * else gets the sentence without a dead end attached.
 						 */
-						if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) :
+						if ( buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' ) ) :
 							?>
 							<a href="<?php echo esc_url( buddynext_community_admin_url() ); ?>" class="bn-space-mod__scope-link">
 								<?php esc_html_e( 'Open Community admin', 'buddynext' ); ?>

@@ -1107,7 +1107,8 @@ class PageRouter {
 		}
 
 		// ── Community Admin gate ──────────────────────────────────────────
-		// Moderators (community role) and administrators only. This is the same
+		// Whoever may review the moderation queue (Roles tab row; community
+		// moderators by default) and administrators. This is the same
 		// check the panel template uses at templates/community-admin.php:23, so
 		// route, nav visibility and template gate never drift: buddynext_can()
 		// already treats manage_options as an allow (PermissionService::can()),
@@ -1115,7 +1116,7 @@ class PageRouter {
 		// filter — things a bare RoleService::is_moderator() call would miss.
 		// A logged-out user resolves to false and gets a clean 404, not a fatal.
 		if ( 'community_admin' === $hub
-			&& ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
+			&& ! buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' ) ) {
 			$this->send_404();
 			return;
 		}
