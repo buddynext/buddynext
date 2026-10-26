@@ -166,7 +166,8 @@ export const sel = {
     // value matched nothing, so messages/list.spec.ts's bridge-ACTIVE branch had
     // never run green — it only ever passed via the bridge-absent path.
     dmList: '.bn-dm-rail__list, [data-dm-list]',
-    dmEmpty: '.bn-dm-rail__empty',
+    // Unread/Requests tabs keep .bn-dm-rail__empty; an empty All tab renders the shared parts/empty-state.php.
+    dmEmpty: '.bn-dm-rail__empty, .bn-dm-rail .bn-empty-state__title',
     dmThread: '.bn-dm-thread, [data-dm-thread]',
     dmInput: '.bn-dm-input textarea, [data-dm-input]',
 

@@ -75,7 +75,7 @@ test.describe('messages / list', () => {
                 }
                 // An empty inbox says so, rather than rendering a blank rail.
                 if (routeIds.length === 0) {
-                    await expect(page.locator(sel.dmEmpty)).toBeVisible();
+                    await expect(page.locator(sel.dmEmpty).first()).toBeVisible();
                 }
             } else {
                 // Messaging switched off in WPMediaVerse: the page must say so, not show a rail.
