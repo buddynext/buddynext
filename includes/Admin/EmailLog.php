@@ -75,6 +75,26 @@ class EmailLog {
 	}
 
 	/**
+	 * Whether a send succeeded after the most recent failure.
+	 *
+	 * Once mail works again the warning is stale, so the banner clears at the
+	 * first good send instead of lingering until the failures age out of 24h.
+	 *
+	 * @return bool
+	 */
+	private function mail_recovered(): bool {
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_email_log';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is a trusted {$wpdb->prefix} literal; admin-only read.
+		$last_failed = (string) $wpdb->get_var( "SELECT MAX(sent_at) FROM {$table} WHERE status = 'failed'" );
+		$last_sent   = (string) $wpdb->get_var( "SELECT MAX(sent_at) FROM {$table} WHERE status = 'sent'" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return '' !== $last_failed && $last_sent > $last_failed;
+	}
+
+	/**
 	 * Proactive banner on BuddyNext admin screens when email is failing.
 	 *
 	 * The whole point of the failed-send tracking is that the owner finds out
@@ -104,7 +124,7 @@ class EmailLog {
 		 */
 		$threshold = (int) apply_filters( 'buddynext_email_failure_alert_threshold', 5 );
 		$failed    = $this->failed_last_24h();
-		if ( $threshold <= 0 || $failed < $threshold ) {
+		if ( $threshold <= 0 || $failed < $threshold || $this->mail_recovered() ) {
 			return;
 		}
 
