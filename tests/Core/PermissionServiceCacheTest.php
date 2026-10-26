@@ -150,6 +150,41 @@ class PermissionServiceCacheTest extends WP_UnitTestCase {
 	 * @param string $status  Status.
 	 * @return void
 	 */
+	public function test_a_member_keeps_their_community_rank_inside_the_space(): void {
+		$ctx = array( 'space_id' => $this->space_id );
+		update_option(
+			'bn_role_map_overrides',
+			array(
+				'buddynext-spaces/post'     => 'moderator',
+				'buddynext-spaces/moderate' => 'admin',
+			)
+		);
+		( new \ReflectionProperty( PermissionService::class, 'role_map_cache' ) )->setValue( null, null );
+
+		$community_admin = self::factory()->user->create();
+		update_user_meta( $community_admin, 'bn_community_role', 'admin' );
+		$this->seed_member( $community_admin, 'member', 'active' );
+
+		$space_mod = self::factory()->user->create();
+		$this->seed_member( $space_mod, 'moderator', 'active' );
+
+		$owner = self::factory()->user->create();
+		$this->seed_member( $owner, 'owner', 'active' );
+
+		$outsider = self::factory()->user->create();
+		update_user_meta( $outsider, 'bn_community_role', 'admin' );
+
+		$this->assertTrue( $this->service->can( $community_admin, 'buddynext-spaces/post', $ctx ), 'community admin member meets Moderators & up' );
+		$this->assertTrue( $this->service->can( $community_admin, 'buddynext-spaces/moderate', $ctx ), 'community admin member meets Admins only' );
+		$this->assertTrue( $this->service->can( $space_mod, 'buddynext-spaces/post', $ctx ), 'space moderator meets Moderators & up' );
+		$this->assertFalse( $this->service->can( $space_mod, 'buddynext-spaces/moderate', $ctx ), 'space moderator is below Admins only' );
+		$this->assertTrue( $this->service->can( $owner, 'buddynext-spaces/moderate', $ctx ), 'space owner meets Admins only' );
+		$this->assertFalse( $this->service->can( $outsider, 'buddynext-spaces/post', $ctx ), 'a non-member is refused whatever their rank' );
+
+		delete_option( 'bn_role_map_overrides' );
+		( new \ReflectionProperty( PermissionService::class, 'role_map_cache' ) )->setValue( null, null );
+	}
+
 	private function seed_member( int $user_id, string $role, string $status ): void {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

@@ -372,9 +372,16 @@ class PermissionService {
 			// flow, so this never lets anyone into private or secret spaces.
 			&& 'buddynext-spaces/join' !== $capability
 		) {
-			$space_role = $this->get_space_role( $user_id, (int) $context['space_id'] );
-			$user_level = self::ROLE_HIERARCHY[ $space_role ] ?? 0;
-			return $user_level >= $req_level;
+			$space_role  = $this->get_space_role( $user_id, (int) $context['space_id'] );
+			$space_level = self::ROLE_HIERARCHY[ $space_role ] ?? 0;
+			// Membership is the floor: a non-member does nothing inside the space.
+			if ( $space_level <= 0 ) {
+				return false;
+			}
+			// A member keeps their community rank inside every space they belong to, so
+			// the higher of the two roles meets the Roles tab's member/moderator/admin scale.
+			$community_level = self::ROLE_HIERARCHY[ (string) get_user_meta( $user_id, 'bn_community_role', true ) ] ?? 1;
+			return max( $space_level, $community_level ) >= $req_level;
 		}
 
 		$user_role  = (string) ( get_user_meta( $user_id, 'bn_community_role', true ) ?: 'member' ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found
