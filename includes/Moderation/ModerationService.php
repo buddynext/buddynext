@@ -239,7 +239,7 @@ class ModerationService {
 	 * This is what a severity=flag rule DOES: the content publishes, and a report
 	 * lands in the moderation queue so a human reviews it after the fact. Reporter
 	 * id 0 marks the report as system-generated; 'inappropriate' is the closest
-	 * valid reason for an automated flag, and the rule's own message is preserved
+	 * valid default reason for an automated flag, and the rule's own message is preserved
 	 * as free-text notes so the reviewer can see which rule fired and why.
 	 *
 	 * Static, because all five content surfaces (posts, post edits, comments,
@@ -251,9 +251,11 @@ class ModerationService {
 	 * @param int    $object_id   Object that was flagged.
 	 * @param string $reason      Human-readable flag message, stored as notes.
 	 * @param int    $space_id    Space context (0 = none).
+	 * @param string $report_reason Reason slug the report is filed under; 'inappropriate' unless the
+	 *                              rule that fired says otherwise (see SafeguardService::report_reason()).
 	 * @return void
 	 */
-	public static function auto_flag( string $object_type, int $object_id, string $reason, int $space_id = 0 ): void {
+	public static function auto_flag( string $object_type, int $object_id, string $reason, int $space_id = 0, string $report_reason = 'inappropriate' ): void {
 		if ( $object_id <= 0 || '' === trim( $reason ) ) {
 			return;
 		}
@@ -266,7 +268,7 @@ class ModerationService {
 			return;
 		}
 
-		$moderation->report( 0, $object_type, $object_id, 'inappropriate', $space_id, $reason );
+		$moderation->report( 0, $object_type, $object_id, $report_reason, $space_id, $reason );
 	}
 
 	/**

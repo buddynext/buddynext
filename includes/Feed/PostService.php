@@ -442,6 +442,7 @@ class PostService {
 			$target_space_id
 		);
 		$flag_reason      = '';
+		$flag_filed       = 'inappropriate';
 		if ( is_wp_error( $safeguard_result ) ) {
 			if ( SafeguardService::is_flag_verdict( $safeguard_result ) ) {
 				// Reactive moderation (FB / LinkedIn model — members post freely, no
@@ -455,6 +456,7 @@ class PostService {
 				// neither see nor approve it. A hard block (422) still rejects outright
 				// via the else branch.
 				$flag_reason = (string) $safeguard_result->get_error_message();
+				$flag_filed  = SafeguardService::report_reason( $safeguard_result );
 
 				// Append which rule fired + the term it matched so the moderation
 				// report records the cause (Pro stamps rule_name/matched_term onto the
@@ -697,7 +699,7 @@ class PostService {
 		// until it goes live. The hook re-fires on approval (approve_pending) /
 		// scheduled publish, so the live edge is the right one.
 		if ( 'published' === $status ) {
-			$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
+			$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason, $flag_filed );
 		} elseif ( 'scheduled' === $status ) {
 			// Arm the on-demand publisher for this post's due time. Free owns
 			// scheduled-post publishing so this works with Pro absent.
@@ -719,9 +721,10 @@ class PostService {
 	 * @param string               $type        Post type.
 	 * @param array<string, mixed> $data        Post data (content, space_id).
 	 * @param string               $flag_reason Auto-moderation flag reason, or ''.
+	 * @param string               $flag_filed  Report reason slug the flag is filed under.
 	 * @return void
 	 */
-	private function run_post_published_effects( int $post_id, int $user_id, string $type, array $data, string $flag_reason = '' ): void {
+	private function run_post_published_effects( int $post_id, int $user_id, string $type, array $data, string $flag_reason = '', string $flag_filed = 'inappropriate' ): void {
 		// Keep the space's denormalized activity stamp current (one indexed
 		// UPDATE) - the admin roster sorts/filters on it, so the owner can tell
 		// alive from dead spaces without a GROUP BY over bn_posts at request time.
@@ -803,7 +806,7 @@ class PostService {
 		// ModerationService::report() also fans out buddynext_moderation_auto_actions,
 		// so threshold-based auto-actions can still fire on the auto-flag.
 		if ( '' !== $flag_reason ) {
-			ModerationService::auto_flag( 'post', $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ) );
+			ModerationService::auto_flag( 'post', $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ), $flag_filed );
 		}
 
 		// Parse @username mentions and fire buddynext_user_mentioned for each.
@@ -875,9 +878,11 @@ class PostService {
 		// pending_review hold) publishes and files a system report — it does not
 		// retroactively block a post that was authored and scheduled earlier.
 		$flag_reason = '';
+		$flag_filed  = 'inappropriate';
 		$result      = $this->get_safeguard()->check( $user_id, $data['content'], $data['link_url'], $data['space_id'] );
 		if ( SafeguardService::is_flag_verdict( $result ) ) {
 			$flag_reason = (string) $result->get_error_message();
+			$flag_filed  = SafeguardService::report_reason( $result );
 			$flag_data   = $result->get_error_data();
 			if ( is_array( $flag_data ) ) {
 				$flag_bits = array();
@@ -893,7 +898,7 @@ class PostService {
 			}
 		}
 
-		$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
+		$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason, $flag_filed );
 	}
 
 	/**

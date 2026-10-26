@@ -451,7 +451,10 @@ class SafeguardService {
 			return new WP_Error(
 				'pending_review',
 				__( 'Your post has been submitted for review.', 'buddynext' ),
-				array( 'status' => 202 )
+				array(
+					'status'        => 202,
+					'report_reason' => 'other',
+				)
 			);
 		}
 
@@ -574,11 +577,29 @@ class SafeguardService {
 			return new WP_Error(
 				'pending_review',
 				__( 'This looks like a duplicate of a recent post and has been submitted for review.', 'buddynext' ),
-				array( 'status' => 202 )
+				array(
+					'status'        => 202,
+					'report_reason' => 'spam',
+				)
 			);
 		}
 
 		return true;
+	}
+
+	/**
+	 * The report reason a flag verdict is filed under.
+	 *
+	 * A duplicate-post hold reads as spam and a new-member hold as other, so a moderator
+	 * triaging by reason does not meet them as "inappropriate". A rule-engine flag (Pro) keeps
+	 * the default.
+	 *
+	 * @param mixed $verdict A safeguard verdict (WP_Error) or anything else.
+	 * @return string A reason slug.
+	 */
+	public static function report_reason( $verdict ): string {
+		$data = $verdict instanceof WP_Error ? $verdict->get_error_data() : null;
+		return is_array( $data ) && ! empty( $data['report_reason'] ) ? (string) $data['report_reason'] : 'inappropriate';
 	}
 
 	/**

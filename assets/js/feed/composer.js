@@ -1472,15 +1472,18 @@ store( 'buddynext/post-composer', {
 					return;
 				}
 				const data = res.data;
-				// A 401/403 (or rest_forbidden) means the user cannot post here —
-				// retrying will always fail, so show a permission message and hide
-				// the Retry affordance. Other errors stay retryable.
-				const nonRetryable = res.status === 401 || res.status === 403 || ( data && data.code === 'rest_forbidden' );
+				// A 401/403 (or rest_forbidden) means the user cannot post here, so show a
+				// permission message. Whether Retry is offered is decided below.
+				const noPermission = res.status === 401 || res.status === 403 || ( data && data.code === 'rest_forbidden' );
+				// Retry is for a failure that can pass on a second try: the server (5xx), a request
+				// timeout, or a rate limit. A 4xx answer (banned word, blocked link, bad input) is a
+				// refusal of THIS text; the member edits it, and the text is kept.
+				const nonRetryable = noPermission || ( res.status >= 400 && res.status < 500 && 408 !== res.status && 429 !== res.status );
 				// An unverified email is a recoverable block: the member can resend
 				// the verification link and post once verified. Surface a resend
 				// affordance instead of a dead-end permission message.
 				const emailUnverified = !! ( data && data.code === 'email_unverified' );
-				let msg = nonRetryable
+				let msg = noPermission
 					? t( 'noPermissionToPost', 'You don’t have permission to post here.' )
 					: t( 'postPublishFailed', 'Could not publish your post. Try again.' );
 				if ( data && data.message ) { msg = data.message; }
