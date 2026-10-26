@@ -305,6 +305,23 @@ class EmailSender {
 		$subject = $this->render( $subject_src, $user_id, $data );
 		$body    = $this->render( $body_src, $user_id, $data );
 
+		// A member-controlled email always carries a way to turn it off. Many default
+		// and owner-edited bodies carry no {{unsubscribe_url}}, so add the link here
+		// once instead of relying on every template to remember it.
+		if ( false === strpos( $body_src, '{{unsubscribe_url}}' )
+			&& ! in_array( $notification_type, $this->transactional_types(), true )
+			&& ! in_array( $notification_type, self::COMPOSED_EMAIL_TYPES, true )
+		) {
+			$body .= '<p style="margin:24px 0 0;font-size:12px;color:#6b7280;">'
+				. sprintf(
+					/* translators: %s: link text. */
+					esc_html__( 'You get this email because of your notification settings. %s', 'buddynext' ),
+					'<a href="' . esc_url( $this->unsubscribe_url( $user_id, $notification_type ) ) . '" style="color:#6b7280;">'
+					. esc_html__( 'Stop emails like this', 'buddynext' ) . '</a>'
+				)
+				. '</p>';
+		}
+
 		// Preview text (inbox preheader): inline data wins, else the template's
 		// configured preview_text. Rendered through the same token replacer.
 		$preview_src = isset( $data['preview_text'] )
@@ -748,10 +765,13 @@ class EmailSender {
 			. '<body style="margin:0;padding:0;background:#f3f4f6;'
 			. '-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">'
 			. $preheader_html
-			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">'
+			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 12px;">'
 			. '<tr><td align="center">'
-			. '<table role="presentation" width="600" cellpadding="0" cellspacing="0" '
-			. 'style="width:600px;max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;'
+			// Fluid up to 600px so a phone shows the whole card; Outlook, which ignores
+			// max-width, gets the fixed 600px ghost table instead.
+			. '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"><tr><td><![endif]-->'
+			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+			. 'style="width:100%;max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;'
 			. 'box-shadow:0 1px 3px rgba(0,0,0,0.08);border-top:3px solid ' . $brand_esc . ';">'
 			// Header — light background so any logo (light, dark, or transparent)
 			// reads well; a thin brand-colour strip on the card top keeps a touch
@@ -766,7 +786,7 @@ class EmailSender {
 			. '<tr><td style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
 			. $footer_html
 			. '</td></tr>'
-			. '</table></td></tr></table></body></html>';
+			. '</table><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>';
 	}
 
 	/**
@@ -834,7 +854,17 @@ class EmailSender {
 			'{{notification_message}}' => (string) ( $data['message'] ?? '' ),
 			'{{unsubscribe_url}}'      => $this->unsubscribe_url( $user_id, $notification_type ),
 			'{{current_year}}'         => gmdate( 'Y' ),
+			'{{recipient_name}}'       => $display_name,
 		);
+
+		// A notification about a space names it and links to it, whatever its type,
+		// so no space email ships {{space_name}} as text. A caller's own value wins below.
+		if ( 'space' === ( $data['object_type'] ?? '' ) && (int) ( $data['object_id'] ?? 0 ) > 0 ) {
+			$space_id                 = (int) $data['object_id'];
+			$space                    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			$tokens['{{space_name}}'] = '' !== (string) ( $space['name'] ?? '' ) ? (string) $space['name'] : __( 'a space', 'buddynext' );
+			$tokens['{{space_url}}']  = esc_url( \BuddyNext\Core\PageRouter::space_url( $space_id ) );
+		}
 
 		foreach ( $data as $key => $value ) {
 			if ( is_scalar( $value ) ) {
@@ -843,6 +873,19 @@ class EmailSender {
 		}
 
 		return str_replace( array_keys( $tokens ), array_values( $tokens ), $template );
+	}
+
+	/**
+	 * Fill a composed email's tokens for one recipient, exactly as send_now()
+	 * does, so a test or preview shows what that member would receive.
+	 *
+	 * @param string $text              Subject or body with {{tokens}}.
+	 * @param int    $user_id           Recipient user ID.
+	 * @param string $notification_type Email type key.
+	 * @return string
+	 */
+	public function personalise( string $text, int $user_id, string $notification_type ): string {
+		return $this->render( $text, $user_id, array( 'type' => $notification_type ) );
 	}
 
 	/**

@@ -39,7 +39,7 @@ DIST="${1:-$HOME/Documents/work-artifacts/scratch}"
 
 # The ONLY paths that ship (libs/ carries the committed runtime deps).
 # Optional ones (languages, uninstall.php, readme.txt) are copied only if present.
-RUNTIME=( buddynext.php includes templates assets blocks libs )
+RUNTIME=( buddynext.php bootstrap.php includes templates assets blocks libs )
 OPTIONAL=( languages uninstall.php readme.txt )
 
 # 0. Release gate — never package a build that fails the quality bar. Aborts on a
@@ -144,6 +144,16 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 		echo "    manifest + CAPABILITIES current; no stale labels"
 	fi
 
+	# The CI-parity battery (lint, WPCS, PHPStan, UX audit and the contract
+	# gates). Its own header says release runs it; until 1.2.7 nothing did, so a
+	# WPCS error committed past a missing pre-commit hook could ship.
+	echo "release gate: bin/check.sh…"
+	if ! bash bin/check.sh >/tmp/bn-release-check.log 2>&1; then
+		tail -30 /tmp/bn-release-check.log >&2
+		echo "release gate FAILED: bin/check.sh is red — full log /tmp/bn-release-check.log" >&2
+		exit 1
+	fi
+
 	# Unit suite. CI runs it on every PR, but nothing stopped THIS script packaging
 	# a zip with a red suite — so the contract tests (field-type conformance, and
 	# every other test written to stop a regression returning) could not block a
@@ -155,7 +165,9 @@ if [ "${SKIP_RELEASE_GATE:-0}" != 1 ]; then
 		echo "release gate: phpunit BYPASSED (SKIP_PHPUNIT=1)" >&2
 	elif [ -x vendor/bin/phpunit ]; then
 		echo "release gate: phpunit…"
-		if ! vendor/bin/phpunit >/dev/null 2>&1; then
+		# PHPRC from a Local/MAMP shell points the separate-process tests at another
+		# PHP's extensions; the suite must run on this PHP's own config.
+		if ! env -u PHPRC vendor/bin/phpunit >/dev/null 2>&1; then
 			echo "release gate FAILED: unit suite is red — run: vendor/bin/phpunit" >&2
 			exit 1
 		fi

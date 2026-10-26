@@ -88,7 +88,7 @@ if ( 'invite' === $bn_reg_mode ) {
 		// mailto to the site's admin_email with the request pre-written; owners who run
 		// a waiting-list page or a form point the filter at it instead.
 		$bn_admin_email = sanitize_email( (string) get_option( 'admin_email', '' ) );
-		$bn_site_name   = wp_specialchars_decode( (string) get_option( 'blogname', '' ), ENT_QUOTES );
+		$bn_site_name   = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 
 		$bn_request_url = '';
 		if ( '' !== $bn_admin_email && is_email( $bn_admin_email ) ) {
@@ -398,7 +398,7 @@ if ( 'invite' === $bn_reg_mode ) {
 							id="bn-signup-email"
 							name="email"
 							autocomplete="email"
-							placeholder="you@example.com"
+							placeholder="<?php esc_attr_e( 'you@example.com', 'buddynext' ); ?>"
 							value="<?php echo esc_attr( $bn_prefill_email ); ?>"
 							required
 							data-wp-bind--value="context.email"
@@ -457,14 +457,14 @@ if ( 'invite' === $bn_reg_mode ) {
 								id="bn-signup-username"
 								name="user_login"
 								autocomplete="username"
-								placeholder="@username"
+								placeholder="<?php esc_attr_e( 'username', 'buddynext' ); ?>"
 								aria-describedby="bn-signup-username-hint"
 								required
 								data-wp-bind--disabled="state.submitting"
 								data-wp-bind--aria-invalid="state.usernameInvalid"
 								data-wp-on--input="actions.setUserLogin" />
 							<span class="bn-auth-hint" id="bn-signup-username-hint">
-								<?php esc_html_e( '3–24 characters: letters, numbers, underscore.', 'buddynext' ); ?>
+								<?php echo esc_html( \BuddyNext\Profile\Handle::hint() ); ?>
 							</span>
 							<span class="bn-auth-field__msg"
 								data-wp-bind--hidden="!state.usernameError"

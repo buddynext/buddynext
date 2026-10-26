@@ -27,7 +27,7 @@ If you would rather jump straight to a setting by name, the admin has a command 
 | Screen | What you configure | Learn more |
 | --- | --- | --- |
 | Directory | Browse spaces; feature or unfeature a space for new members. | [Spaces](../spaces/01-spaces-overview.md), [Feature Spaces for New Members](../spaces/12-featured-spaces.md) |
-| Settings | Space defaults: who can create spaces, categories, and space-wide behavior. | [Creating and Managing a Space](../spaces/02-creating-a-space.md), [Space Categories](../spaces/08-space-categories.md) |
+| Settings | Space defaults: categories, limits, and space-wide behavior. | [Creating and Managing a Space](../spaces/02-creating-a-space.md), [Space Categories](../spaces/08-space-categories.md) |
 
 ## Engagement
 

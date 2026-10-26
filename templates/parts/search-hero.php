@@ -90,7 +90,7 @@ do_action( 'buddynext_part_search_hero_before', $args );
 		if ( '' !== $bn_query && $bn_total > 0 ) {
 			printf(
 				/* translators: %1$s = count, %2$s = search query (escaped). */
-				esc_html__( '%1$s results for %2$s', 'buddynext' ),
+				esc_html( _n( '%1$s result for %2$s', '%1$s results for %2$s', $bn_total, 'buddynext' ) ),
 				'<strong>' . esc_html( (string) $bn_total ) . '</strong>',
 				'<strong>"' . esc_html( $bn_query ) . '"</strong>'
 			); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped.

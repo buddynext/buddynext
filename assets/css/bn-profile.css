@@ -672,8 +672,10 @@
 	font-family: var(--bn-p-font-body);
 	line-height: var(--leading-snug);
 }
-.bn-more-menu-item:hover {
+.bn-more-menu-item:hover,
+.bn-more-menu-item:focus {
 	background: var(--bn-p-bg-hover);
+	color: var(--bn-p-text-1);
 }
 
 /* The overflow's narrow-viewport-only items. Hidden by default and revealed in
@@ -684,8 +686,10 @@
 .bn-more-menu-item--danger {
 	color: var(--bn-p-red);
 }
-.bn-more-menu-item--danger:hover {
+.bn-more-menu-item--danger:hover,
+.bn-more-menu-item--danger:focus {
 	background: var(--bn-p-red-bg);
+	color: var(--bn-p-red);
 }
 
 [data-bn-theme="dark"] .bn-more-menu,
@@ -1155,7 +1159,10 @@
 	cursor: pointer;
 }
 .bn-pf-bio__toggle:hover,
+.bn-pf-bio__toggle:focus,
 .bn-pf-bio__toggle:focus-visible {
+	background: none;
+	color: var(--bn-accent-text);
 	text-decoration: underline;
 }
 .bn-pf-meta {
@@ -2243,13 +2250,12 @@ a.bn-space-row:hover .bn-space-name {
 }
 .bn-ep-hero-name {
 	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-xl);
+	--bn-input-fs: var(--bn-text-xl);
 	font-weight: 700;
 	letter-spacing: var(--bn-ls-tight);
 	color: var(--bn-ink);
 }
 .bn-ep-hero-headline {
-	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
 }
 .bn-ep-hero-handle {
@@ -2894,8 +2900,9 @@ a.bn-space-row:hover .bn-space-name {
 }
 /* Field wrapper flagged invalid by the store (context.errors[ key ]). The
    dynamic FieldType controls don't carry .bn-input--error, so colour their
-   control here for the same red-border affordance as the hero name field. */
-.bn-ep-field--error .bn-input,
+   control here for the same red-border affordance as the hero name field.
+   The "who can see this" select beside the label is not the invalid value. */
+.bn-ep-field--error .bn-input:not(.bn-ep-field-vis__select),
 .bn-ep-field--error .bn-textarea,
 .bn-ep-field--error .bn-field-textarea {
 	border-color: var(--bn-danger) !important;
@@ -2935,11 +2942,11 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-social-chip svg { width: 14px; height: 14px; }
 /* Each network's own colour, mixed toward the ink so the NAME can be read: the raw
    brand colours are logo colours (Twitter blue is about 2.7:1 as text). */
-.bn-pf-social-chip[data-social="social_twitter"]   { color: color-mix(in oklch, #1da1f2 55%, var(--bn-ink)); }
-.bn-pf-social-chip[data-social="social_linkedin"]  { color: color-mix(in oklch, #0a66c2 80%, var(--bn-ink)); }
+.bn-pf-social-chip[data-social="social_twitter"]   { color: color-mix(in oklab, #1da1f2 55%, var(--bn-ink)); }
+.bn-pf-social-chip[data-social="social_linkedin"]  { color: color-mix(in oklab, #0a66c2 80%, var(--bn-ink)); }
 .bn-pf-social-chip[data-social="social_github"]    { color: var(--bn-ink); }
-.bn-pf-social-chip[data-social="social_instagram"] { color: color-mix(in oklch, #e1306c 75%, var(--bn-ink)); }
-.bn-pf-social-chip[data-social="social_youtube"]   { color: color-mix(in oklch, #ff0000 75%, var(--bn-ink)); }
+.bn-pf-social-chip[data-social="social_instagram"] { color: color-mix(in oklab, #e1306c 75%, var(--bn-ink)); }
+.bn-pf-social-chip[data-social="social_youtube"]   { color: color-mix(in oklab, #ff0000 75%, var(--bn-ink)); }
 
 /* Brand colours are fixed by definition, but the darker ones (LinkedIn,
    Twitter) lose contrast on a dark surface — lift their lightness in dark mode

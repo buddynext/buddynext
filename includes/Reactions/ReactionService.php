@@ -778,7 +778,7 @@ class ReactionService {
 
 		// One priming pass for every face on the page, so the hydrate below is O(1).
 		if ( ! empty( $survivors ) ) {
-			cache_users( array_values( array_unique( $survivors ) ) );
+			\BuddyNext\Profile\AvatarService::prime( array_values( array_unique( $survivors ) ) );
 		}
 
 		foreach ( $map as $oid => $user_ids ) {

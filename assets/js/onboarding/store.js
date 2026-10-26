@@ -9,6 +9,7 @@
  */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '@buddynext/rest-client';
+import { initials } from '@buddynext/initials';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -188,8 +189,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			return String( ctx().bio || '' ).trim() || t( 'previewBio', "Add a short bio so people know what you're into." );
 		},
 		get previewInitial() {
-			const dn = String( ctx().displayName || '' ).trim();
-			return dn ? dn.charAt( 0 ).toUpperCase() : '?';
+			return initials( ctx().displayName );
 		},
 		get previewAvatar() {
 			return String( ctx().avatarUrl || '' );

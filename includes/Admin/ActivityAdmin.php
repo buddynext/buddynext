@@ -591,7 +591,7 @@ class ActivityAdmin implements ListenerInterface {
 	private function prime_authors( array $items ): void {
 		$ids = array_values( array_unique( array_map( static fn( $r ) => (int) $r['user_id'], $items ) ) );
 		if ( ! empty( $ids ) ) {
-			cache_users( $ids );
+			\BuddyNext\Profile\AvatarService::prime( $ids );
 		}
 	}
 

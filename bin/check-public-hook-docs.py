@@ -24,6 +24,13 @@ the gate off in the meantime, so they are listed in the baseline file beside thi
 script. The gate blocks anything NEW. The baseline only shrinks: document one,
 remove its line.
 
+SECOND CHECK (every hook). The @since gate cannot see a hook nobody tagged, which is how
+four shipped unmentioned. So every literal `buddynext_*` hook fired in includes/ or
+templates/ must also be named somewhere in the developer guide, @since or not. Template
+part hooks (`buddynext_part_*`, hundreds of them) are covered by the pattern documented in
+guide 26 instead of one line each; the gate checks that the pattern is still there.
+Hooks fired through a variable name are not literal and are not seen.
+
 Usage: python3 bin/check-public-hook-docs.py     (exit 1 on a new undocumented hook)
 """
 
@@ -44,6 +51,38 @@ HOOK = re.compile(
     r"(apply_filters|do_action)\(\s*'([a-z_]+)'",
     re.S,
 )
+
+
+FIRED = re.compile(r"(?:apply_filters|do_action)(?:_ref_array)?\(\s*'(buddynext_[a-z0-9_]+)'")
+
+
+def every_hook_check(guide_text: str) -> int:
+    """Every literal hook fired anywhere must be named in the guide (parts by pattern)."""
+    fired: dict[str, str] = {}
+    for folder in ("includes", "templates"):
+        for path in sorted((ROOT / folder).rglob("*.php")):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for m in FIRED.finditer(text):
+                fired.setdefault(m.group(1), str(path.relative_to(ROOT)))
+
+    guide26 = sorted(GUIDE.glob("26-*.md"))
+    if not guide26 or "buddynext_part_" not in guide26[0].read_text(encoding="utf-8", errors="ignore"):
+        print("✗ guide 26 no longer documents the buddynext_part_* hook pattern", file=sys.stderr)
+        return 1
+
+    missing = sorted(h for h in fired if not h.startswith("buddynext_part_") and h not in guide_text)
+    if missing:
+        print(f"\n✗ {len(missing)} hook(s) are fired but named nowhere in docs/website/developer-guide/:", file=sys.stderr)
+        for h in missing:
+            print(f"    {h}  ({fired[h]})", file=sys.stderr)
+        print(
+            "\n  Add each to the right per-domain page: signature, when it fires, an example.\n"
+            "  A hook that is private plumbing should not be named buddynext_* — rename it or\n"
+            "  document it. There is no baseline for this check.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
 
 
 def main() -> int:
@@ -98,6 +137,10 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    status = every_hook_check(guide_text)
+    if status:
+        return status
 
     print(
         f"✓ public hook docs conform — {len(promised)} @since hooks, "

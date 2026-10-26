@@ -562,122 +562,6 @@ class SpaceMemberService {
 	}
 
 	/**
-	 * Ban a user from a space.
-	 *
-	 * The owner cannot be banned. Only the owner, a moderator, or a user with
-	 * manage_options can ban members. Banning an active member decrements the
-	 * member count. The ban is also written to bn_space_bans so it persists if
-	 * the membership row is later deleted.
-	 *
-	 * @param int    $space_id Space ID.
-	 * @param int    $actor_id User performing the ban.
-	 * @param int    $user_id  User to ban.
-	 * @param string $reason   Optional reason for the ban.
-	 * @return true|WP_Error
-	 */
-	public function ban( int $space_id, int $actor_id, int $user_id, string $reason = '' ): bool|WP_Error {
-		$actor_role = $this->get_role( $space_id, $actor_id );
-
-		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only the space owner or a moderator can ban members.', 'buddynext' )
-			);
-		}
-
-		// A space moderator cannot ban the administrators above them.
-		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
-		if ( null !== $outranked ) {
-			return $outranked;
-		}
-
-		$target_role = $this->get_role( $space_id, $user_id );
-
-		if ( 'owner' === $target_role ) {
-			return new WP_Error(
-				'cannot_ban_owner',
-				__( 'The space owner cannot be banned.', 'buddynext' )
-			);
-		}
-
-		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
-
-		global $wpdb;
-
-		$current_status = $this->get_status( $space_id, $user_id );
-
-		if ( null !== $current_status ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_space_members',
-				array( 'status' => 'banned' ),
-				array(
-					'space_id' => $space_id,
-					'user_id'  => $user_id,
-				),
-				array( '%s' ),
-				array( '%d', '%d' )
-			);
-		} else {
-			// No existing row — insert banned record to block future joins.
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->query(
-				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
-					 VALUES (%d, %d, 'member', 'banned', %s)",
-					$space_id,
-					$user_id,
-					current_time( 'mysql', true )
-				)
-			);
-		}
-
-		// Record in permanent ban table so the ban persists if membership row is deleted.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason, created_at) VALUES (%d, %d, %d, %s, UTC_TIMESTAMP())",
-				$space_id,
-				$user_id,
-				$actor_id,
-				$reason
-			)
-		);
-
-		if ( $was_active ) {
-			$this->adjust_member_count( $space_id, -1 );
-		}
-
-		$this->invalidate_cache( $space_id, $user_id );
-
-		/**
-		 * Fires after a member is removed from a space (the ban also removes the
-		 * membership). Kept so removal listeners — e.g. sidebar cache busting —
-		 * react regardless of WHY the member left.
-		 *
-		 * @param int $space_id   Space ID.
-		 * @param int $user_id    Removed user.
-		 * @param int $actor_id   User who performed the removal.
-		 */
-		do_action( 'buddynext_space_member_removed', $space_id, $user_id, $actor_id );
-
-		/**
-		 * Fires after a user is banned from a space. Distinct from the removal
-		 * event above: this is ban-specific so listeners (notifications, the
-		 * banned-users list) fire on the settings-UI ban path too, matching the
-		 * REST moderation path (ban_from_space()). Previously only _removed fired
-		 * here, so ban-specific listeners missed bans issued from space settings.
-		 *
-		 * @param int $space_id Space ID.
-		 * @param int $user_id  Banned user.
-		 * @param int $actor_id User who issued the ban.
-		 */
-		do_action( 'buddynext_space_user_banned', $space_id, $user_id, $actor_id );
-
-		return true;
-	}
-
-	/**
 	 * Leave a space.
 	 *
 	 * The owner of a space cannot leave.
@@ -1040,7 +924,7 @@ class SpaceMemberService {
 		/**
 		 * Fires after a member is forcefully removed from a space.
 		 *
-		 * Canonical removal hook (also fired by ban()); consumed by the sidebar
+		 * Canonical removal hook (also fired by ban_from_space()); consumed by the sidebar
 		 * widget cache buster. Replaces the orphan buddynext_member_removed_from_space.
 		 *
 		 * @param int $space_id       Space ID.
@@ -1053,9 +937,24 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Whether a user may promote or demote this space's members.
+	 *
+	 * The space owner and site administrators. The one predicate the service, the
+	 * REST route, the Members panel and the app payload all read, so a control is
+	 * never offered that the server will refuse.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $actor_id User asking.
+	 * @return bool
+	 */
+	public function can_change_roles( int $space_id, int $actor_id ): bool {
+		return $space_id > 0 && $actor_id > 0 && buddynext_can( $actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
 	 * Change a member's role within a space.
 	 *
-	 * Only the owner or a user with manage_options can promote/demote members.
+	 * Only the owner or a site administrator can promote/demote members.
 	 *
 	 * @param int    $space_id  Space ID.
 	 * @param int    $target_id User whose role is being changed.
@@ -1068,10 +967,13 @@ class SpaceMemberService {
 			return new WP_Error( 'invalid_role', __( 'Invalid role.', 'buddynext' ) );
 		}
 
-		$actor_role = $this->get_role( $space_id, $actor_id );
+		if ( ! $this->can_change_roles( $space_id, $actor_id ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner can change member roles.', 'buddynext' ), array( 'status' => 403 ) );
+		}
 
-		if ( 'owner' !== $actor_role && ! user_can( $actor_id, 'manage_options' ) ) {
-			return new WP_Error( 'forbidden', __( 'Only the space owner can change member roles.', 'buddynext' ) );
+		// A role belongs to an active member; changing a stranger's would report success for nothing.
+		if ( null === $this->get_role( $space_id, $target_id ) ) {
+			return new WP_Error( 'not_a_member', __( 'That person is not a member of this space.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// Ownership does not move through this method, in either direction.
@@ -1867,7 +1769,7 @@ class SpaceMemberService {
 		);
 
 		if ( ! empty( $ids ) ) {
-			cache_users( $ids );
+			\BuddyNext\Profile\AvatarService::prime( $ids );
 		}
 	}
 
@@ -2466,28 +2368,31 @@ class SpaceMemberService {
 	// ── Block 2 — service-layer ban API (callers own capability checks) ─────
 
 	/**
-	 * Ban a user from a space by inserting into bn_space_bans, removing them
-	 * from bn_space_members if they are an active member, and adjusting the
-	 * member count accordingly.
+	 * Ban a user from a space. The one ban path: the REST moderation route, space
+	 * settings and automated moderation all land here.
 	 *
-	 * Callers are responsible for capability checks before calling this method.
+	 * Writes the bn_space_bans row (the authoritative ban), removes any membership
+	 * row and its count, revokes what membership granted (member_removed), records
+	 * the actor's ban in the moderation log, and fires the banned hook. Repeating a
+	 * ban, or two requests racing, changes nothing and logs nothing.
 	 *
 	 * @param int    $space_id  Space ID.
 	 * @param int    $user_id   User to ban.
 	 * @param int    $banned_by Actor user ID (0 = system).
 	 * @param string $reason    Optional ban reason.
-	 * @return bool|WP_Error True on success or WP_Error on validation/DB failure.
+	 * @return bool|WP_Error True when the user is banned (now or already), WP_Error otherwise.
 	 */
 	public function ban_from_space( int $space_id, int $user_id, int $banned_by = 0, string $reason = '' ): bool|WP_Error {
 		if ( $space_id <= 0 || $user_id <= 0 ) {
 			return new WP_Error( 'invalid_args', __( 'Invalid space or user ID.', 'buddynext' ) );
 		}
 
-		// Defense-in-depth: an actor-initiated ban must come from someone who can
-		// moderate the space (owner / moderator / site admin). $banned_by === 0 is
-		// a system ban (automated moderation) and is exempt. The REST route also
-		// gates this, but the service primitive must not be bypassable by any
-		// other / future caller.
+		if ( ! get_userdata( $user_id ) ) {
+			return new WP_Error( 'invalid_user', __( 'That member does not exist.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// An actor-initiated ban must come from someone who can moderate the space
+		// (owner / moderator / site admin). $banned_by === 0 is a system ban.
 		if ( $banned_by > 0 && ! buddynext_service( 'permissions' )->can( $banned_by, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to ban members from this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
@@ -2500,16 +2405,10 @@ class SpaceMemberService {
 
 		global $wpdb;
 
-		// Invariant: the space owner can NEVER be banned from their own space —
-		// not by a moderator, not by automated/system moderation ($banned_by === 0).
-		// The sibling ban() (members-screen path) refuses target_role === 'owner',
-		// but this REST moderation primitive had only the capability check above, so
-		// a moderator (holding buddynext-moderate-space) could ban the owner. That
-		// then $wpdb->delete()s the owner's bn_space_members row below, and
-		// PermissionService::get_space_role() reads role from that row with no
-		// bn_spaces.owner_id fallback — the owner loses buddynext-own/manage-space
-		// permanently. Guard on the AUTHORITATIVE owner_id, not the deletable role
-		// row, so a stale/missing role row cannot defeat it.
+		// The space owner can never be banned from their own space, not even by
+		// automated moderation. Guard on the authoritative bn_spaces.owner_id, not
+		// the membership role row this method deletes below: losing that row would
+		// strip the owner's own/manage-space rights permanently.
 		$bn_owner_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT owner_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2520,28 +2419,30 @@ class SpaceMemberService {
 			return new WP_Error( 'cannot_ban_owner', __( 'The space owner cannot be banned from their own space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$inserted = $wpdb->insert(
-			$wpdb->prefix . 'bn_space_bans',
-			array(
-				'space_id'   => $space_id,
-				'user_id'    => $user_id,
-				'banned_by'  => max( 0, $banned_by ),
-				'reason'     => sanitize_textarea_field( $reason ),
-				'created_at' => current_time( 'mysql', true ),
-			),
-			array( '%d', '%d', '%d', '%s', '%s' )
+		// INSERT IGNORE on the (space_id, user_id) key: a repeat or a racing second
+		// request inserts nothing, and only the request that wrote the row goes on.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason, created_at) VALUES (%d, %d, %d, %s, %s)",
+				$space_id,
+				$user_id,
+				max( 0, $banned_by ),
+				sanitize_textarea_field( $reason ),
+				current_time( 'mysql', true )
+			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( false === $inserted || '' !== $wpdb->last_error ) {
+		if ( false === $inserted ) {
 			return new WP_Error( 'db_error', $wpdb->last_error );
 		}
+		if ( 0 === (int) $inserted ) {
+			return true; // Already banned.
+		}
 
-		// Remove from active membership and adjust the count if they were a member.
-		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
+		$status = $this->get_status( $space_id, $user_id );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_space_members',
 			array(
@@ -2550,20 +2451,35 @@ class SpaceMemberService {
 			),
 			array( '%d', '%d' )
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( $was_active ) {
+		if ( 'active' === $status ) {
 			$this->adjust_member_count( $space_id, -1 );
 		}
 
 		$this->invalidate_cache( $space_id, $user_id );
 
+		if ( $banned_by > 0 ) {
+			( new \BuddyNext\Moderation\ModerationLogService() )->log(
+				$banned_by,
+				'space_ban',
+				array(
+					'target_user_id' => $user_id,
+					'space_id'       => $space_id,
+				)
+			);
+		}
+
+		if ( null !== $status ) {
+			/** This action is documented in includes/Spaces/SpaceMemberService.php */
+			do_action( 'buddynext_space_member_removed', $space_id, $user_id, $banned_by );
+		}
+
 		/**
-		 * Fires after a user is banned from a space.
+		 * Fires after a user is banned from a space (once per ban, never on a repeat).
 		 *
 		 * @param int $space_id  Space ID.
 		 * @param int $user_id   Banned user.
-		 * @param int $banned_by Actor user ID.
+		 * @param int $banned_by Actor user ID (0 = system).
 		 */
 		do_action( 'buddynext_space_user_banned', $space_id, $user_id, $banned_by );
 
@@ -2611,19 +2527,11 @@ class SpaceMemberService {
 			return false;
 		}
 
-		// Clear the SOFT ban too, or the unban does not actually unban.
-		//
-		// ban() writes to BOTH tables — it inserts the bn_space_bans row AND flips
-		// the member row to status='banned'. Unban only ever deleted the ban row, so
-		// the member row was left banned: is_space_banned() kept hard-denying every
-		// space capability and join() kept refusing them. The member stayed locked
-		// out of a space they had supposedly been unbanned from, with no way back and
-		// nothing in the UI to explain it.
-		//
-		// Delete the row rather than reviving it to 'active': being unbanned restores
-		// the right to ASK, not a membership they no longer hold. They can now join
-		// (or request to join) exactly like anyone else — which is what decline_request()
-		// does with the row it clears.
+		// Clear any SOFT ban row too. Releases up to 1.2.6 banned through a second
+		// path that flipped the member row to status='banned', which is_space_banned()
+		// and join() still honour, so leaving it would keep the member locked out.
+		// Delete it rather than revive it: an unban restores the right to ask, not
+		// the old membership.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_space_members',

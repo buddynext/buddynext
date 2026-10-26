@@ -711,7 +711,7 @@
 .bn-md-strip__search-input {
 	flex: 1 1 100%;
 	/* Room on the right for the clear (×) button. */
-	padding-inline-end: 32px;
+	--bn-input-pe: 32px;
 }
 /* Suppress the browser's native search clear so we don't show two ×'s. */
 .bn-md-strip__search-input::-webkit-search-cancel-button {
@@ -981,6 +981,10 @@
 .bn-md-card__menu {
 	width: 30px;
 	height: 30px;
+	/* Reset the host theme's global button padding (Astra: 15px 30px), which
+	   stretched the chip to 62px wide and squeezed the icon out. */
+	padding: 0;
+	flex-shrink: 0;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;

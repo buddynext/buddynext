@@ -106,7 +106,6 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 		'buddynext_post_edit_window',
 		'buddynext_connection_require_note',
 		// Spaces.
-		'buddynext_space_creation_role',
 		'buddynext_space_max_sub_spaces',
 		'buddynext_space_max_per_member',
 		'buddynext_space_allow_sub',

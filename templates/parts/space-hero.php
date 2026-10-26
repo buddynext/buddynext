@@ -300,7 +300,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<?php elseif ( \BuddyNext\Spaces\SpaceVisibility::is_unlocked_via_invite( (int) ( $bn_space->id ?? 0 ) ) ) : ?>
 				<?php
 				// A valid shareable invite link opened this space: the owner chose to
-				// let link-holders in directly, so show "Join space" wired to joinSpace
+				// let link-holders in directly, so show "Join" wired to joinSpace
 				// (which forwards the ?invite= token) regardless of type — no approval
 				// step, even on a private or secret space. The paywall gate above still
 				// runs first, so a paid space is not bypassed.
@@ -311,7 +311,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-size="sm"
 					data-current-state="join"
 					data-wp-on--click="actions.joinSpace"
-				><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
+				><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
 
 			<?php elseif ( 'invite' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_space->type ) ) : ?>
 				<?php // Invite-only: no join request; members get in by invitation (as on the directory card). ?>
@@ -323,7 +323,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-size="sm"
 					data-current-state="join"
 					data-wp-on--click="actions.joinSpace"
-				><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
+				><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
 
 			<?php else : ?>
 				<button
@@ -333,6 +333,17 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-current-state="request"
 					data-wp-on--click="actions.requestJoin"
 				><?php esc_html_e( 'Request to join', 'buddynext' ); ?></button>
+			<?php endif; ?>
+
+			<?php if ( ! $bn_is_guest && ! $bn_is_owner && buddynext_can( get_current_user_id(), 'buddynext-moderation/report' ) ) : ?>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="sm"
+					data-wp-on--click="actions.reportSpace"
+					aria-label="<?php esc_attr_e( 'Report this space', 'buddynext' ); ?>"
+				><?php buddynext_icon( 'flag' ); ?> <?php esc_html_e( 'Report', 'buddynext' ); ?></button>
 			<?php endif; ?>
 		</div>
 	</div>
@@ -415,16 +426,16 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			</header>
 
 			<div class="bn-modal__body">
-				<p><?php esc_html_e( 'Enter a username or email address to send an invitation to join this space.', 'buddynext' ); ?></p>
+				<p><?php esc_html_e( 'Enter a member\'s @handle or an email address to invite them to this space.', 'buddynext' ); ?></p>
 				<label class="bn-sr-only" for="bn-invite-identifier">
-					<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
+					<?php esc_html_e( '@handle or email address', 'buddynext' ); ?>
 				</label>
 				<input
 					type="text"
 					id="bn-invite-identifier"
 					class="bn-input"
 					autocomplete="off"
-					placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
+					placeholder="<?php esc_attr_e( '@handle or email address', 'buddynext' ); ?>"
 					data-bn-invite-identifier
 					data-wp-on--keydown="actions.inviteMemberKeydown"
 				>

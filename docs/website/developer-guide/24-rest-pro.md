@@ -1,6 +1,6 @@
 # REST: Pro namespace
 
-The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with over 70 registered routes (across the controllers under `includes/`) and growing - read `/wp-json/buddynext-pro/v1` on a live install rather than trusting a count in prose. This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and plans, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
+The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with over 70 registered routes (across the controllers under `includes/`) and growing - read `/wp-json/buddynext-pro/v1` on a live install rather than trusting a count in prose. This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and plans, moderation rules, AI assistance, scheduled posts, push, saved searches, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
 
 ![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-general.webp)
 
@@ -185,12 +185,6 @@ Two rules that make the difference between a correct client and a plausible one:
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/profile-conditions` | Public | Every field's show/hide rule (`field_id`, `field_key`, `condition {key, kind, op, values}`, `summary`). Rules that no longer apply are left out for visitors; administrators also get them with a `problem`. Read-only; rules are edited in the Profile Fields screen. See [Conditional Logic for Profile Fields](../pro/27-conditional-profile-fields.md). |
-
-### Member portfolio
-
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/members/{id}/portfolio` | Public | Read a member's aggregated portfolio (`Suite/Controllers/PortfolioController`). |
 
 ### Learnomy course links
 

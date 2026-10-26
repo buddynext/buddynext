@@ -59,7 +59,7 @@ The Auth hub. Logged-in users are redirected to the Activity hub immediately; gu
 
 ### `[buddynext_community_admin]`
 
-The Community Admin panel - a front-end, site-wide overview for community managers (including an Appeals approve/deny surface). Requires login plus `manage_options` or the `buddynext-spaces/moderate` ability. It enqueues the `moderation` bundle so the Appeals controls work.
+The Community Admin panel - a front-end, site-wide overview for community managers (including an Appeals approve/deny surface). Requires login plus `manage_options` or the `buddynext-moderation/review-queue` ability (the Roles tab's "Review the moderation queue" row). It enqueues the `moderation` bundle so the Appeals controls work.
 
 - **Attributes:** none.
 - **Use vs block:** No block equivalent. Place it with this shortcode for managers who work from the front end rather than wp-admin.

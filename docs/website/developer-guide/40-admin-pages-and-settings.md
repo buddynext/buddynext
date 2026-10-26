@@ -111,7 +111,7 @@ This is why a feature can register `growth:broadcasts` while the tab actually re
 
 ## The options-wiring model
 
-BuddyNext wires a large set of option keys, the great majority prefixed `buddynext_` (a few legacy `bn_*` avatar keys and the core `admin_email` also appear). Each is read at its consumption point and written from its admin tab. Examples: `buddynext_site_name`, `buddynext_default_post_privacy`, `buddynext_space_creation_role`, `buddynext_banned_words`, `buddynext_enabled_reactions`.
+BuddyNext wires a large set of option keys, the great majority prefixed `buddynext_` (a few legacy `bn_*` avatar keys and the core `admin_email` also appear). Each is read at its consumption point and written from its admin tab. Examples: `buddynext_site_name`, `buddynext_default_post_privacy`, `buddynext_banned_words`, `buddynext_enabled_reactions`.
 
 Settings are registered in `Admin/Settings.php::register_settings()`, which calls `SettingsDriver::register_page( $this, 'buddynext' )`. `SettingsDriver` walks the page's field descriptors (`Settings::settings_fields()`) and issues one `register_setting()` per field under a per-tab group named `buddynext_{tab}`, so a save only touches the active tab's options - and `SettingsDriver::save_group_of( $key, 'buddynext' )` answers which group saves a given key. This descriptor-driven approach replaces the old hand-maintained `SETTINGS_MAP` + `TAB_OPTIONS` lists. The tab groups derived from the descriptors are:
 

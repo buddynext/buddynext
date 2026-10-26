@@ -86,10 +86,40 @@ class ReportSystemActorTest extends \WP_UnitTestCase {
 	public function test_system_resolved_by_records_zero_not_the_admin(): void {
 		$report_id = $this->seed_report( 9001 );
 
-		$result = $this->service->escalate( $report_id, $this->admin, 0 );
+		$result = $this->service->resolve( $report_id, $this->admin, 0 );
 
-		$this->assertTrue( $result, 'The admin should be authorised to escalate.' );
+		$this->assertTrue( $result, 'The admin should be authorised to resolve.' );
 		$this->assertSame( 0, $this->resolved_by( $report_id ), 'The report must be stamped with the system (0), not the admin.' );
+	}
+
+	/**
+	 * Escalation is not a resolution: it stamps no resolved_by.
+	 *
+	 * @return void
+	 */
+	public function test_escalate_stamps_no_resolver(): void {
+		$report_id = $this->seed_report( 9001 );
+
+		$this->assertTrue( $this->service->escalate( $report_id, $this->admin, 0 ) );
+		$this->assertNull( $this->resolved_by( $report_id ), 'An escalated report has not been resolved by anyone.' );
+	}
+
+	/**
+	 * Only a pending report escalates: a second escalate is a 409, and the
+	 * escalated report can still be resolved.
+	 *
+	 * @return void
+	 */
+	public function test_second_escalate_conflicts_and_escalated_report_still_resolves(): void {
+		$report_id = $this->seed_report( 9003 );
+
+		$this->assertTrue( $this->service->escalate( $report_id, $this->admin, 0 ) );
+		$again = $this->service->escalate( $report_id, $this->admin, 0 );
+		$this->assertWPError( $again );
+		$this->assertSame( 409, $again->get_error_data()['status'] ?? null );
+
+		$this->assertTrue( $this->service->resolve( $report_id, $this->admin ) );
+		$this->assertSame( $this->admin, $this->resolved_by( $report_id ) );
 	}
 
 	/**
@@ -189,6 +219,38 @@ class ReportSystemActorTest extends \WP_UnitTestCase {
 		$this->assertCount( 1, $ai_rows, 'An AI dismiss must write exactly one audit row.' );
 		$this->assertSame( 'ai_dismiss', $ai_rows[0]['action'], 'The AI action slug is preserved.' );
 		$this->assertSame( 0, (int) $ai_rows[0]['actor_id'], 'The AI action records the system actor (0).' );
+	}
+
+	/**
+	 * A report decision records the member it is about, not just the report id.
+	 *
+	 * @return void
+	 */
+	public function test_report_decision_logs_the_target_member(): void {
+		global $wpdb;
+
+		$member = self::factory()->user->create();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_reports',
+			array(
+				'object_type' => 'user',
+				'object_id'   => $member,
+				'reporter_id' => self::factory()->user->create(),
+				'reason'      => 'spam',
+				'status'      => 'pending',
+				'created_at'  => current_time( 'mysql', true ),
+			)
+		);
+		$report = (int) $wpdb->insert_id;
+
+		$this->assertTrue( $this->service->dismiss( $report, $this->admin ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$target = $wpdb->get_var(
+			$wpdb->prepare( "SELECT target_user_id FROM {$wpdb->prefix}bn_mod_log WHERE object_type = 'report' AND object_id = %d", $report )
+		);
+		$this->assertSame( $member, (int) $target );
 	}
 
 	/**

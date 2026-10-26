@@ -52,6 +52,7 @@ class SearchIndexListener implements ListenerInterface {
 		// but a member who never edits their profile would otherwise never be
 		// indexed and stay unsearchable in the members directory / global search.
 		add_action( 'user_register', array( $this, 'on_index_user' ), 20, 1 );
+		add_action( 'buddynext_network_user_joined', array( $this, 'on_index_user' ), 20, 1 );
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 		// Re-index on edit: a post's content OR its privacy can change, and the
 		// index must follow — otherwise an edited post keeps its stale text and a
@@ -200,6 +201,9 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_index_user( int $user_id ): void {
+		if ( buddynext_is_network_provisioning() ) {
+			return;
+		}
 		// Inline, not queued: indexing ONE member is a single-row upsert, and
 		// queuing it makes member searchability depend on Action Scheduler
 		// actually running. On hosts with broken loopback (wp-cron/AS runner
@@ -699,15 +703,15 @@ class SearchIndexListener implements ListenerInterface {
 		$profiles_service = buddynext_service( 'profiles' );
 		$after_user       = 0;
 		do {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 			$user_ids = $wpdb->get_col(
 				$wpdb->prepare(
-					"SELECT ID FROM {$wpdb->users} WHERE ID > %d ORDER BY ID ASC LIMIT %d",
+					"SELECT ID FROM {$wpdb->users} WHERE ID > %d" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ) . ' ORDER BY ID ASC LIMIT %d',
 					$after_user,
 					$batch_size
 				)
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 			foreach ( (array) $user_ids as $uid ) {
 				$after_user = (int) $uid;

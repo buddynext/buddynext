@@ -134,7 +134,9 @@ $privacy_rows = array(
 	array( 'select', 'bn_privacy_mention', __( 'Who can @mention me', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', __( 'Controls who can notify you with a mention, in posts and comments. Others can still type your name.', 'buddynext' ), $privacy_audiences ),
 	array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( 'Only approved followers see your posts. New follows arrive as requests you can accept or decline.', 'buddynext' ), array() ),
 	array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to keep your profile out of the Members directory.', 'buddynext' ), array() ),
-	array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', $bn_search_hint, array(), ! $bn_profiles_indexable ),
+	// Shown off while the community keeps profiles out of search; the member's own
+	// choice stays stored (a disabled toggle never saves) for when the owner allows it.
+	array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $bn_profiles_indexable && $privacy_search_indexable, 'bn-ep-privacy-search-lbl', $bn_search_hint, array(), ! $bn_profiles_indexable ),
 );
 
 if ( $bn_dm_options ) {

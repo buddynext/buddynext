@@ -42,6 +42,22 @@ namespace {
 }
 
 namespace Jetonomy {
+	if ( ! class_exists( 'Jetonomy\\Avatar' ) ) {
+		/**
+		 * Stub for Jetonomy's avatar resolver (signature copied from
+		 * includes/class-avatar.php). AvatarService calls prime() behind method_exists().
+		 */
+		class Avatar {
+			/**
+			 * Prime the avatar lookup for many users in one query.
+			 *
+			 * @param int[] $user_ids User ids.
+			 * @return void
+			 */
+			public static function prime( array $user_ids ): void {} // phpcs:ignore
+		}
+	}
+
 	if ( ! function_exists( 'Jetonomy\\route_url' ) ) {
 		/**
 		 * Stub for Jetonomy's route helper. BuddyNext calls it only after

@@ -145,7 +145,7 @@ class SpaceSuccessionTest extends \WP_UnitTestCase {
 		$mod = self::factory()->user->create();
 		$this->members->join( $this->space_id, $mod );
 		$this->members->change_role( $this->space_id, $mod, 'moderator', $this->owner_id );
-		$this->members->ban( $this->space_id, $this->owner_id, $mod );
+		$this->members->ban_from_space( $this->space_id, $mod, $this->owner_id );
 		self::factory()->user->create( array( 'role' => 'administrator' ) );
 
 		wp_delete_user( $this->owner_id );

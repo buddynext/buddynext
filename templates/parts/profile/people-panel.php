@@ -60,15 +60,22 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 		update_meta_cache( 'user', $bn_pp_ids );
 	}
 	?>
-	<section class="bn-follow-requests" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
+	<?php
+	// The section is the Interactivity region and holds the pending count; each
+	// row's context inherits from it, so a row's accept/decline decrements the
+	// shared count and the section hides itself when the last row is handled.
+	?>
+	<section class="bn-follow-requests" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'pending' => count( $bn_pp_pending ) ) ) ); ?>' data-wp-bind--hidden="state.sectionHidden" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
 		<header class="bn-follow-requests__head">
 			<h3 class="bn-follow-requests__title">
 				<?php
+				// A count-neutral heading: the badge changes live as requests are
+				// handled, and a pluralized label would go stale beside it.
 				printf(
-					'%s <span class="bn-follow-requests__count">%d</span>',
+					'%s <span class="bn-follow-requests__count" data-wp-text="context.pending">%d</span>',
 					$bn_pp_is_conn
-						? esc_html( _n( 'Connection request', 'Connection requests', count( $bn_pp_pending ), 'buddynext' ) )
-						: esc_html( _n( 'Pending request', 'Pending requests', count( $bn_pp_pending ), 'buddynext' ) ),
+						? esc_html__( 'Connection requests', 'buddynext' )
+						: esc_html__( 'Pending requests', 'buddynext' ),
 					(int) count( $bn_pp_pending )
 				);
 				?>
@@ -93,7 +100,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 					$bn_pp_is_conn
 						? array(
 							'requesterId' => $bn_pp_rid,
-							'targetName'  => $bn_pp_req->user_nicename,
+							'targetName'  => \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ),
 							'hidden'      => false,
 							'busy'        => false,
 							'restUrl'     => rest_url( 'buddynext/v1' ),
@@ -101,7 +108,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 						)
 						: array(
 							'followerId' => $bn_pp_rid,
-							'targetName' => $bn_pp_req->user_nicename,
+							'targetName' => \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ),
 							'hidden'     => false,
 							'busy'       => false,
 							'restUrl'    => rest_url( 'buddynext/v1' ),
@@ -109,13 +116,13 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 						)
 				);
 				?>
-				<li class="bn-follow-requests__row" data-wp-interactive="<?php echo esc_attr( $bn_pp_store ); ?>" data-wp-context='<?php echo esc_attr( (string) $bn_pp_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
+				<li class="bn-follow-requests__row" data-wp-context='<?php echo esc_attr( (string) $bn_pp_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
 					<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__avatar" aria-hidden="true" tabindex="-1">
 						<img src="<?php echo esc_url( get_avatar_url( $bn_pp_rid, array( 'size' => 96 ) ) ); ?>" alt="" loading="lazy" />
 					</a>
 					<div class="bn-follow-requests__id">
 						<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_pp_req->display_name ); ?></a>
-						<span class="bn-follow-requests__handle">@<?php echo esc_html( $bn_pp_req->user_nicename ); ?></span>
+						<span class="bn-follow-requests__handle">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ) ); ?></span>
 						<?php
 						$bn_pp_headline = (string) get_user_meta( $bn_pp_rid, 'bn_headline', true );
 						if ( '' !== $bn_pp_headline ) :
@@ -165,6 +172,14 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 	</section>
 <?php endif; ?>
 
+<?php
+// The owner's list is a router region: accepting or approving a request re-renders
+// it from the server (follow-store.js refreshPeopleList), so the new person shows
+// with live Follow / Connect buttons instead of a stale empty state.
+if ( $bn_pp_is_owner ) :
+	?>
+	<div data-wp-interactive="buddynext/connection-requests" data-wp-router-region="buddynext/profile-people">
+<?php endif; ?>
 <?php if ( ! empty( $bn_pp_members ) ) : ?>
 	<?php
 	buddynext_get_template(
@@ -203,6 +218,9 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 			}
 			?>
 		</div>
+	</div>
+<?php endif; ?>
+<?php if ( $bn_pp_is_owner ) : ?>
 	</div>
 <?php endif; ?>
 

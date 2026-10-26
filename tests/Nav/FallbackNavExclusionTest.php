@@ -181,4 +181,34 @@ class FallbackNavExclusionTest extends \WP_UnitTestCase {
 
 		$this->assertContains( 4242, $result, 'another plugin\'s exclusion must survive' );
 	}
+
+	/**
+	 * A hub the owner closed to the visitor is left out of the theme's page list.
+	 *
+	 * @return void
+	 */
+	public function test_a_hub_closed_by_visibility_is_excluded_for_a_member_only(): void {
+		$page_id = (int) get_option( 'buddynext_page_spaces', 0 );
+		$this->assertGreaterThan( 0, $page_id );
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->assertContains( $page_id, $this->renderer->exclude_unusable_pages( array() ) );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->assertNotContains( $page_id, $this->renderer->exclude_unusable_pages( array() ) );
+		delete_option( 'buddynext_nav_overrides' );
+	}
+
+	public function test_the_page_list_block_drops_a_hub_closed_by_visibility(): void {
+		$page_id = (int) get_option( 'buddynext_page_spaces', 0 );
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->renderer->register();
+
+		$html = do_blocks( '<!-- wp:page-list /-->' );
+		$this->assertStringNotContainsString( get_permalink( $page_id ), $html );
+
+		delete_option( 'buddynext_nav_overrides' );
+	}
 }

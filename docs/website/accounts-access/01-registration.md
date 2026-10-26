@@ -34,7 +34,7 @@ Registration is how people create an account and join your community. BuddyNext 
 
 > **Note:** If you restrict registration to certain email domains, an address outside those domains is rejected at sign-up.
 
-> **Note:** The Terms of Service checkbox only appears if you have both switched **Require members to accept your terms** on (it is on by default) **and** chosen a Terms page. BuddyNext will not ask a member to agree to a document that does not exist.
+> **Note:** The Terms of Service checkbox only appears if you have both switched **Require members to accept your terms** on (it is on by default) **and** chosen a published Terms page. BuddyNext will not ask a member to agree to a document they cannot open, so a draft, private, password-protected or trashed page counts as no page, and a warning tells you so.
 
 ## What happens after submit
 

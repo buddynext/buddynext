@@ -143,7 +143,7 @@ $bn_community_total = $bn_directory_service->directory_total(
 // uncached query on every load and both surfaces invalidate together. We hydrate the
 // WP_User objects the grid needs from the primed user cache.
 $bn_page_ids = $bn_directory_service->ssr_page_user_ids( $current_user_id, $user_query_args, $bn_directory_filters );
-cache_users( $bn_page_ids );
+\BuddyNext\Profile\AvatarService::prime( $bn_page_ids );
 $members     = array_values( array_filter( array_map( 'get_userdata', $bn_page_ids ) ) );
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 

@@ -24,6 +24,7 @@ The action and filter seams for unified search, the hashtag system, the search i
 | `buddynext_search_entitled_space_limit` | filter | How many entitled-but-unjoined spaces a single search will verify. Each costs a space fetch and an ability check, so the list is cut rather than allowed to grow. Default `200` | `int $limit, int $viewer_id` |
 | `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line. Return pre-escaped HTML. | `string $html, int $member_id` |
 | `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | `int $current_user_id` |
+| `buddynext_search_saved_searches` | filter | The search page decides whether to show the Saved searches card to a signed-in member. Default `false`; return `true` only when you serve the saved-search routes the card talks to (Pro does). The card is never shown without it, so members never see a control that cannot work | `bool $enabled` |
 | `buddynext_search_space_object_type` | filter | A space is (re)indexed. Return another slug to list that space in its own search section and tab instead of Spaces (since 1.2.2) | `string $type = 'space', array $space_row` |
 | `buddynext_route_core_search` | filter | A front-end core `?s=` search runs (not a BuddyNext hub). Return `true` to redirect it to the community search page. Default `false` since 1.2.4: core, theme and WooCommerce search stay with WordPress, and the theme's results page links to community results instead | `bool $route` |
 | `buddynext_search_type_labels` | filter | The search page names its extra-type sections and tabs | `array<string,string> $labels` (type slug => plural label) |
@@ -78,7 +79,7 @@ add_filter( 'buddynext_search_query_args', function ( array $args, string $query
 | `buddynext_hashtag_pattern` | filter | The regex used to extract hashtags from content (default `/#([\p{L}][\p{L}\p{N}_]{0,49})/u`) | `string $pattern` |
 | `buddynext_hashtag_used` | action | A hashtag is recorded against a piece of content (fires once per tag) | `string $tag, int $object_id, int $user_id` |
 | `buddynext_hashtag_related_discussions` | filter | The "related discussions" list on a hashtag feed is built (Jetonomy supplies discussions here) | `array $discussions, string $hashtag_slug` |
-| `buddynext_hashtag_feed_before` / `_after` | action | Around the hashtag feed body | - |
+| `buddynext_hashtag_feed_before` / `buddynext_hashtag_feed_after` | action | Before and after the hashtag feed page body. Use `_after` to add a block under the feed | - |
 
 The hashtag system also exposes the full `buddynext_part_hashtag_*` template-part family (hero, posts list, sidebar-about, sidebar-related, sidebar-top-contributors, empty-state), each with the standard `_before` / `_after` / `_args` / `_classes` four-hook contract. See Hooks: Template Parts for that convention.
 
@@ -98,7 +99,7 @@ The right sidebar is the main surface a gamification plugin augments. The greeti
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_right_sidebar` | action | Inside the right-sidebar column, on every hub that opts in | `string $hub` |
-| `buddynext_leaderboard_before` / `_after` | action | Around the leaderboard page body | - |
+| `buddynext_leaderboard_before` / `buddynext_leaderboard_after` | action | Before and after the leaderboard page body. Use `_after` to add a section under the standings | - |
 | `buddynext_greeting_string` | filter | The personalised greeting line in the sidebar card is built | `string $greeting, int $hour, WP_User $user` |
 | `buddynext_profile_hero_badges_html` | filter | The badge strip on a profile hero renders (return pre-escaped HTML; default empty) | `string $html, int $user_id` |
 
@@ -169,6 +170,7 @@ Narrower hooks around the admin screens, URL routing, the page head, and renderi
 | `buddynext_settings_tabs` | filter | The Settings hub tab strip is built. Register your own section as `slug => label`; the slug must resolve through `PageRouter::settings_url()` and you provide the template. | `array $tabs, string $active` |
 | `buddynext_settings_tab_reset` | action | An admin resets a settings tab to its declared defaults. | `string $tab, string[] $keys, int $user_id` |
 | `buddynext_export_option_is_sensitive` | filter | The settings export decides whether a BuddyNext option is sensitive and must be left out. | `bool $sensitive, string $name` |
+| `buddynext_export_option_prefixes` | filter | The settings export decides which option-name prefixes it covers, and the import writes only options with one of them. Pro adds its own. | `string[] $prefixes` |
 | `buddynext_webhook_event_catalogue` | filter | The outbound-webhook event list is built for the settings screen (`slug => label`). Pro adds its membership and payment events here. | `array $catalogue` |
 | `buddynext_pro_upgrade_url` | filter | The "Upgrade to Pro" link is built. | `string $url` |
 | `buddynext_recommended_defaults` | filter | The recommended first-run option values are read. | `array $map` (option name => value) |
@@ -193,6 +195,7 @@ Narrower hooks around the admin screens, URL routing, the page head, and renderi
 | `buddynext_head_meta_image` | filter | The fallback social image is chosen for a surface with no image of its own. | `string $url` |
 | `buddynext_template_html` | filter | A BuddyNext template's rendered HTML. Only runs when a callback is attached. The template has already escaped its output; you own the safety of what you return. | `string $html, string $relative, string $path` |
 | `buddynext_theme_token_map` | filter | The host-theme token map is built. Return `--bn-token => value` pairs to point BuddyNext's tokens at a theme's variables; an empty array means no adoption. | `array $map, string $template` |
+| `buddynext_host_themes_with_color_mode` | filter | Appearance > Default theme is rendered. Return the theme slugs whose own light/dark mode beats the Default theme; those themes get a note on the field. | `string[] $slugs` |
 | `buddynext_asset_isolation_enabled` | filter | Asset isolation on BuddyNext routes is about to run (default `true`). | `bool $enabled` |
 | `buddynext_late_print_script_modules` | filter | The late script-module print pass is about to run. | `bool $enabled` |
 | `buddynext_time_ago_date_format` | filter | A timestamp is too old for relative time and needs a date format (default `j F`, or `j F Y` outside the current year). | `string $format, bool $is_current_year, string $gmt_datetime` |

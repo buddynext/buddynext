@@ -267,6 +267,11 @@ class RegistrationGuard {
 			return true;
 		}
 
+		$network = $this->network_domain_error( $email );
+		if ( $network instanceof WP_Error ) {
+			return $network;
+		}
+
 		if ( ! $this->domain_allowed( $email ) ) {
 			return new WP_Error(
 				'bn_reg_domain',
@@ -282,6 +287,38 @@ class RegistrationGuard {
 		}
 
 		return true;
+	}
+
+	/**
+	 * On a network, follow the sign-up rules the network owner set in Network Admin
+	 * (banned email domains, limited email domains).
+	 *
+	 * @param string $email Candidate email address.
+	 * @return WP_Error|null Error when the network refuses the address.
+	 */
+	private function network_domain_error( string $email ): ?WP_Error {
+		if ( ! is_multisite() ) {
+			return null;
+		}
+
+		$refused = new WP_Error(
+			'bn_reg_domain',
+			__( 'That email address cannot be used to sign up here.', 'buddynext' )
+		);
+
+		if ( is_email_address_unsafe( $email ) ) {
+			return $refused;
+		}
+
+		$limited = get_site_option( 'limited_email_domains' );
+		if ( is_array( $limited ) && ! empty( $limited ) ) {
+			$domain = strtolower( substr( $email, 1 + (int) strpos( $email, '@' ) ) );
+			if ( ! in_array( $domain, $limited, true ) ) {
+				return $refused;
+			}
+		}
+
+		return null;
 	}
 
 	/**

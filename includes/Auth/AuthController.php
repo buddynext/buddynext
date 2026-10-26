@@ -919,9 +919,7 @@ class AuthController {
 		// this endpoint into an enumeration oracle ("that address is a real, pending
 		// account"), which is exactly what the generic 401 below exists to prevent.
 		// So verify the password ourselves, and only then explain the real reason.
-		$user = is_email( $user_input )
-			? get_user_by( 'email', $user_input )
-			: get_user_by( 'login', $user_input );
+		$user = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
 
 		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
 			return null; // Fall through to the generic credential failure.
@@ -972,7 +970,8 @@ class AuthController {
 			return $limited;
 		}
 
-		$login = is_email( $user_input ) ? $this->resolve_login_for_email( $user_input ) : $user_input;
+		$identified = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
+		$login      = $identified ? $identified->user_login : $user_input;
 
 		// Verify the password (runs the full authenticate chain, including the
 		// pending-approval gate) WITHOUT setting an auth cookie yet — so a 2FA
@@ -1060,7 +1059,7 @@ class AuthController {
 		}
 
 		$name  = sanitize_text_field( $name );
-		$label = '' !== $name ? $name : __( 'BuddyNext app', 'buddynext' );
+		$label = '' !== $name ? $name : sprintf( /* translators: %s: community name. */ __( '%s app', 'buddynext' ), buddynext_site_name() );
 
 		// The app's stable per-install UUID, same semantics as WP core's
 		// authorize-application flow: with it, the site shows ONE credential
@@ -1805,17 +1804,6 @@ class AuthController {
 	}
 
 	/**
-	 * Resolve a username for a given email address.
-	 *
-	 * @param string $email Email.
-	 * @return string Username or original input if no match.
-	 */
-	private function resolve_login_for_email( string $email ): string {
-		$user = get_user_by( 'email', $email );
-		return $user ? $user->user_login : $email;
-	}
-
-	/**
 	 * POST /auth/lost-password — request a password-reset link.
 	 *
 	 * Drives WordPress core retrieve_password() so the secure reset key and
@@ -1888,7 +1876,7 @@ class AuthController {
 	public static function brand_reset_notification_email( array $defaults, string $key, string $user_login, $user_data = null ): array {
 		unset( $user_data );
 
-		$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+		$site_name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 
 		$url = add_query_arg(
 			array(
@@ -1957,7 +1945,7 @@ class AuthController {
 			return false;
 		}
 
-		$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+		$site_name = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 		$url       = add_query_arg(
 			array(
 				'key'   => rawurlencode( $key ),

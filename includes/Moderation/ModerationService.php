@@ -239,7 +239,7 @@ class ModerationService {
 	 * This is what a severity=flag rule DOES: the content publishes, and a report
 	 * lands in the moderation queue so a human reviews it after the fact. Reporter
 	 * id 0 marks the report as system-generated; 'inappropriate' is the closest
-	 * valid reason for an automated flag, and the rule's own message is preserved
+	 * valid default reason for an automated flag, and the rule's own message is preserved
 	 * as free-text notes so the reviewer can see which rule fired and why.
 	 *
 	 * Static, because all five content surfaces (posts, post edits, comments,
@@ -251,9 +251,11 @@ class ModerationService {
 	 * @param int    $object_id   Object that was flagged.
 	 * @param string $reason      Human-readable flag message, stored as notes.
 	 * @param int    $space_id    Space context (0 = none).
+	 * @param string $report_reason Reason slug the report is filed under; 'inappropriate' unless the
+	 *                              rule that fired says otherwise (see SafeguardService::report_reason()).
 	 * @return void
 	 */
-	public static function auto_flag( string $object_type, int $object_id, string $reason, int $space_id = 0 ): void {
+	public static function auto_flag( string $object_type, int $object_id, string $reason, int $space_id = 0, string $report_reason = 'inappropriate' ): void {
 		if ( $object_id <= 0 || '' === trim( $reason ) ) {
 			return;
 		}
@@ -266,7 +268,7 @@ class ModerationService {
 			return;
 		}
 
-		$moderation->report( 0, $object_type, $object_id, 'inappropriate', $space_id, $reason );
+		$moderation->report( 0, $object_type, $object_id, $report_reason, $space_id, $reason );
 	}
 
 	/**
@@ -289,6 +291,12 @@ class ModerationService {
 
 		if ( 'user' === $object_type ) {
 			return $object_id;
+		}
+
+		if ( 'space' === $object_type ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return (int) $wpdb->get_var( $wpdb->prepare( "SELECT owner_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $object_id ) );
 		}
 
 		if ( ! function_exists( 'buddynext_service' ) ) {
@@ -383,6 +391,13 @@ class ModerationService {
 		$valid   = buddynext_validate_object_target( $object_type, $object_id, $allowed );
 		if ( is_wp_error( $valid ) ) {
 			return $valid;
+		}
+
+		// A hidden (secret) space must not confirm it exists to someone who cannot
+		// see it: the same 404 as a missing one, from the one visibility rule.
+		if ( 'space' === $object_type
+			&& ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( ( new \BuddyNext\Spaces\SpaceService() )->get( $object_id ), $reporter_id ) ) {
+			return new WP_Error( 'object_not_found', __( 'That content no longer exists.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// You cannot report your own content. Reporting yourself is either a
@@ -834,19 +849,7 @@ class ModerationService {
 	 * @return void
 	 */
 	private function auto_hide_comment( int $comment_id ): void {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 1, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 0 AND is_deleted = 0",
-				$comment_id
-			)
-		);
-
-		if ( $updated > 0 ) {
-			$this->reconcile_comment_post_count( $comment_id );
-
+		if ( buddynext_service( 'comments' )->set_hidden( $comment_id, true ) ) {
 			/**
 			 * Fires when a comment is auto-hidden after reaching the report threshold.
 			 *
@@ -854,34 +857,6 @@ class ModerationService {
 			 * @param int $actor_id   Who hid it (0 = the automatic report threshold).
 			 */
 			do_action( 'buddynext_comment_hidden', $comment_id, 0 );
-		}
-	}
-
-	/**
-	 * Recount the parent post's comment_count for a comment that changed visibility.
-	 *
-	 * Hiding or restoring a comment moves the post's public comment tally, which
-	 * excludes hidden (and deleted) comments. Resolve the comment's post and route
-	 * through the one counter that every other path uses, so the number can never
-	 * drift from the nightly reconcile. A no-op for a non-post comment thread.
-	 *
-	 * @param int $comment_id Comment whose parent post count should be recounted.
-	 * @return void
-	 */
-	private function reconcile_comment_post_count( int $comment_id ): void {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT object_type, object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d",
-				$comment_id
-			),
-			ARRAY_A
-		);
-
-		if ( is_array( $row ) && 'post' === (string) $row['object_type'] && function_exists( 'buddynext_service' ) ) {
-			buddynext_service( 'counters' )->recount_post_comments( (int) $row['object_id'] );
 		}
 	}
 
@@ -985,14 +960,14 @@ class ModerationService {
 		$report = $this->get_report( $report_id );
 
 		if ( null === $report ) {
-			return new WP_Error( 'not_found', __( 'Report not found.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'Report not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		$object_type = sanitize_key( (string) ( $report['object_type'] ?? '' ) );
 		$object_id   = (int) ( $report['object_id'] ?? 0 );
 
 		if ( '' === $object_type || $object_id <= 0 ) {
-			return new WP_Error( 'not_found', __( 'The reported content no longer exists.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'The reported content no longer exists.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		if ( ! $this->remove_object( $object_type, $object_id, $actor_id ) ) {
@@ -1211,6 +1186,10 @@ class ModerationService {
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false !== $updated ) {
+			wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+		}
 
 		return false !== $updated;
 	}
@@ -1723,7 +1702,7 @@ class ModerationService {
 				        MAX(space_id) AS space_id,
 				        MAX(reason) AS reason,
 				        MAX(notes) AS notes,
-				        MAX(status) AS status,
+				        IF( SUM( status = 'escalated' ) > 0, 'escalated', 'pending' ) AS status,
 				        COUNT(*) AS report_count,
 				        COUNT(DISTINCT reporter_id) AS reporter_count,
 				        GROUP_CONCAT(DISTINCT reason ORDER BY reason SEPARATOR ', ') AS reasons,
@@ -2094,7 +2073,7 @@ class ModerationService {
 	 * @return string[]
 	 */
 	public static function reportable_types(): array {
-		return array_values( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'message', 'media' ) ) ) );
+		return array_values( array_map( 'sanitize_key', (array) apply_filters( 'buddynext_reportable_object_types', array( 'post', 'comment', 'user', 'space', 'message', 'media' ) ) ) );
 	}
 
 	/**
@@ -2254,7 +2233,7 @@ class ModerationService {
 		// behind require_admin) or from the admin queue's own actor. A 0 can only be
 		// passed by server code.
 		if ( $actor_id > 0 && ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend members.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $user_id, $actor_id );
@@ -2282,7 +2261,7 @@ class ModerationService {
 		if ( $actor_id > 0 && $bn_duration_opt <= 0 && ! buddynext_can( $actor_id, 'buddynext-moderation/suspend-indefinitely' ) ) {
 			return new WP_Error(
 				'forbidden',
-				__( 'Only an administrator can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
+				__( 'Only a community or site admin can suspend a member indefinitely. Set a duration to suspend as a moderator.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -2382,7 +2361,7 @@ class ModerationService {
 	 */
 	public function unsuspend_user( int $user_id, int $actor_id ): bool|WP_Error {
 		if ( ! $this->is_site_moderator( $actor_id, 'buddynext-moderation/suspend-user' ) ) {
-			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		global $wpdb;
@@ -2407,7 +2386,7 @@ class ModerationService {
 		// a moderator who unsuspends the wrong/already-active user sees a real
 		// notice rather than a false "Done.".
 		if ( ! $lifted ) {
-			return new WP_Error( 'bn_not_suspended', __( 'That member is not currently suspended.', 'buddynext' ) );
+			return new WP_Error( 'bn_not_suspended', __( 'That member is not currently suspended.', 'buddynext' ), array( 'status' => 409 ) );
 		}
 
 		/**
@@ -3207,7 +3186,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null === $suspension ) {
-			return new WP_Error( 'not_suspended', __( 'No matching suspension found.', 'buddynext' ) );
+			return new WP_Error( 'not_suspended', __( 'No matching suspension found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// One open appeal per suspension. There was no guard at all, so a double
@@ -3484,7 +3463,7 @@ class ModerationService {
 
 		if ( ! $target ) {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ) );
+			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		// Capture the reporters of the open reports we're about to clear, so we can
@@ -3504,23 +3483,41 @@ class ModerationService {
 			)
 			: array();
 
-		$updated = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_reports
-				 SET status = %s, resolved_by = %d, resolved_at = %s
-				 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
-				$status,
-				$recorded_actor,
-				current_time( 'mysql', true ), // UTC, to match created_at and the resolved_today query.
-				(string) $target['object_type'],
-				(int) $target['object_id']
-			)
-		);
+		// Escalating hands the report to senior review: it is still open, so it is
+		// not "resolved" by anyone and carries no resolved_by / resolved_at. Only a
+		// pending report can be escalated, so a second escalate matches no rows and
+		// returns 409 below instead of writing a second audit row.
+		$escalating = 'escalated' === $status;
+		if ( $escalating ) {
+			$updated = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_reports
+					 SET status = %s, resolved_by = NULL, resolved_at = NULL
+					 WHERE object_type = %s AND object_id = %d AND status = 'pending'",
+					$status,
+					(string) $target['object_type'],
+					(int) $target['object_id']
+				)
+			);
+		} else {
+			$updated = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_reports
+					 SET status = %s, resolved_by = %d, resolved_at = %s
+					 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
+					$status,
+					$recorded_actor,
+					current_time( 'mysql', true ), // UTC, to match created_at and the resolved_today query.
+					(string) $target['object_type'],
+					(int) $target['object_id']
+				)
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		// $wpdb->query returns false on SQL error, int (rows affected) otherwise.
 		if ( false === $updated ) {
-			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ) );
+			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		// Zero rows changed means another moderator already cleared this content's
@@ -3531,9 +3528,15 @@ class ModerationService {
 		if ( 0 === (int) $updated ) {
 			return new WP_Error(
 				'already_resolved',
-				__( 'This report was already actioned by another moderator.', 'buddynext' ),
+				$escalating
+					? __( 'This report was already escalated or actioned by another moderator.', 'buddynext' )
+					: __( 'This report was already actioned by another moderator.', 'buddynext' ),
 				array( 'status' => 409 )
 			);
+		}
+
+		if ( $escalating ) {
+			$this->notify_escalation( $recorded_actor, (string) $target['object_type'], (int) $target['object_id'] );
 		}
 
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
@@ -3571,23 +3574,14 @@ class ModerationService {
 		}
 
 		// The comment mirror of the post restore above: clearing a reported comment's
-		// reports lifts its auto-hide. The is_hidden = 1 guard restores ONLY the
-		// auto-hide, never a takedown (is_deleted), and the post's comment_count is
-		// recounted so the comment comes back into the public count with it.
+		// reports lifts its auto-hide. set_hidden() never touches a takedown
+		// (is_deleted) and recounts the post so the comment rejoins its count.
 		if ( 'comment' === (string) $target['object_type'] && in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
 			$restore_comment_id = (int) $target['object_id'];
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$restored = $wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_comments SET is_hidden = 0, updated_at = UTC_TIMESTAMP() WHERE id = %d AND is_hidden = 1",
-					$restore_comment_id
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$restored = buddynext_service( 'comments' )->set_hidden( $restore_comment_id, false );
 
-			if ( $restored > 0 ) {
-				$this->reconcile_comment_post_count( $restore_comment_id );
+			if ( $restored ) {
 				/**
 				 * Fires when an auto-hidden comment is restored after its reports are cleared.
 				 *
@@ -3638,6 +3632,12 @@ class ModerationService {
 			if ( ! empty( $audit['note'] ) ) {
 				$context['note'] = (string) $audit['note'];
 			}
+			// The member the decision is about: the author of the reported content, so the log
+			// can answer "what was done about Alex" (the report row itself names no member).
+			$target_user = $this->report_target_author( (string) $target['object_type'], (int) $target['object_id'] );
+			if ( $target_user > 0 ) {
+				$context['target_user_id'] = $target_user;
+			}
 			( new ModerationLogService() )->log(
 				$recorded_actor,
 				(string) ( $audit['action'] ?? ( $default_slug[ $status ] ?? $status ) ),
@@ -3646,6 +3646,74 @@ class ModerationService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Everyone who holds a moderation ability site-wide, for "who gets told" fan-outs.
+	 *
+	 * WordPress administrators plus community-role holders the ability admits, so a
+	 * remapped role map is honoured. One resolver for every moderation alert (new
+	 * report, escalation, appeal) so the audiences cannot drift. Community roles are
+	 * read from the indexed bn_community_role meta, never a full user scan.
+	 *
+	 * @param string $ability buddynext_can() ability a community-role holder must pass.
+	 * @return int[] Unique user IDs.
+	 */
+	public function staff_recipients( string $ability ): array {
+		$ids = array_map(
+			'intval',
+			(array) get_users(
+				array(
+					'role'   => 'administrator',
+					'fields' => 'ID',
+				)
+			)
+		);
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- indexed meta_key; the community-staff set is small.
+		$community = get_users(
+			array(
+				'meta_key'     => 'bn_community_role',
+				'meta_value'   => array( 'moderator', 'admin' ),
+				'meta_compare' => 'IN',
+				'fields'       => 'ID',
+			)
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		foreach ( (array) $community as $user_id ) {
+			if ( buddynext_can( (int) $user_id, $ability ) ) {
+				$ids[] = (int) $user_id;
+			}
+		}
+		return array_values( array_unique( $ids ) );
+	}
+
+	/**
+	 * Tell senior reviewers a report was escalated (bell only, never the escalator).
+	 *
+	 * @param int    $escalator   Recorded actor; 0 for a system escalation.
+	 * @param string $object_type Reported object type.
+	 * @param int    $object_id   Reported object ID.
+	 */
+	private function notify_escalation( int $escalator, string $object_type, int $object_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$notifications = buddynext_service( 'notifications' );
+		foreach ( $this->staff_recipients( 'buddynext-moderation/resolve-appeals' ) as $recipient_id ) {
+			if ( $recipient_id === $escalator ) {
+				continue;
+			}
+			$notifications->create(
+				array(
+					'recipient_id' => $recipient_id,
+					'sender_id'    => $escalator,
+					'type'         => 'bn.report_escalated',
+					'object_type'  => $object_type,
+					'object_id'    => $object_id,
+					'group_key'    => 'report_escalated_' . $object_type . '_' . $object_id,
+				)
+			);
+		}
 	}
 
 	/**
@@ -3805,7 +3873,7 @@ class ModerationService {
 	 */
 	public function suspend( int $user_id, string $reason, int $duration_days, bool $hide_content = false, int $suspended_by = 0 ): bool|WP_Error {
 		if ( $user_id <= 0 ) {
-			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		// Same rule as suspend_user(): a person must give the member a reason.
@@ -3858,7 +3926,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( false === $inserted || '' !== $wpdb->last_error ) {
-			return new WP_Error( 'db_error', $wpdb->last_error );
+			return new WP_Error( 'db_error', __( 'Could not save the suspension. Please try again.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		// A system suspension stays attributed to the SYSTEM. Falling back to
@@ -4027,7 +4095,7 @@ class ModerationService {
 	 */
 	public function create_appeal( int $user_id, string $message ): int|WP_Error {
 		if ( $user_id <= 0 ) {
-			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		// bn_appeals.suspension_id is NOT NULL — an appeal must reference the
@@ -4037,7 +4105,8 @@ class ModerationService {
 		if ( null === $suspension ) {
 			return new WP_Error(
 				'not_suspended',
-				__( 'You do not have an active suspension to appeal.', 'buddynext' )
+				__( 'You do not have an active suspension to appeal.', 'buddynext' ),
+				array( 'status' => 409 )
 			);
 		}
 
@@ -4083,7 +4152,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( false === $inserted || '' !== $wpdb->last_error ) {
-			return new WP_Error( 'db_error', $wpdb->last_error );
+			return new WP_Error( 'db_error', __( 'Could not send your appeal. Please try again.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
 		$insert_id = (int) $wpdb->insert_id;

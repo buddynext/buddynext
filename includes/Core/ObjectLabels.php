@@ -271,7 +271,7 @@ final class ObjectLabels {
 		// Prime WordPress' own user cache so buddynext_member_label()'s
 		// get_userdata() calls do not each hit the database.
 		if ( ! empty( $user_ids ) ) {
-			cache_users( array_values( array_unique( $user_ids ) ) );
+			\BuddyNext\Profile\AvatarService::prime( array_values( array_unique( $user_ids ) ) );
 		}
 
 		foreach ( $by_type as $type => $ids ) {

@@ -1320,6 +1320,16 @@
 	border-radius: var(--bn-r-md);
 }
 
+/* A video with no engine poster has no image to size the tile, so it takes a
+   fixed 16:9 frame on the dark no-poster surface (bn-media.css) under the play overlay. */
+.bn-dm-msg__media .bn-media-tile--no-poster {
+	position: relative;
+	width: 240px;
+	max-width: 100%;
+	aspect-ratio: 16 / 9;
+	background: oklch( 22% 0.01 var( --bn-hue, 264 ) );
+}
+
 .bn-dm-msg__media .bn-media-tile__img {
 	display: block;
 	width: auto;

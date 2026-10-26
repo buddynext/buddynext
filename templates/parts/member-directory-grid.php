@@ -168,6 +168,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 	data-wp-on--click="actions.onGridClick"
 	<?php echo empty( $bn_members ) ? 'hidden' : ''; ?>
 >
+	<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_members, 'ID' ) ); ?>
 	<?php foreach ( $bn_members as $bn_member_obj ) : ?>
 		<?php
 		$bn_member_id    = (int) $bn_member_obj->ID;

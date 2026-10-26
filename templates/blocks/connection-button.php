@@ -61,7 +61,7 @@ if ( $pending_sent ) {
 // Pass the @handle (user_nicename) so toasts read "Connected with @jane"
 // rather than the "#<id>" fallback the connection store uses when absent.
 $bn_cb_user = get_userdata( $user_id );
-$bn_cb_name = $bn_cb_user ? $bn_cb_user->user_nicename : '';
+$bn_cb_name = $bn_cb_user ? \BuddyNext\Core\PageRouter::member_handle( (int) $bn_cb_user->ID ) : '';
 
 $context_json = (string) wp_json_encode(
 	array(
@@ -127,8 +127,7 @@ $context_json = (string) wp_json_encode(
 		data-user-id="<?php echo absint( $user_id ); ?>"
 		data-wp-on--click="actions.disconnect"
 		data-wp-bind--hidden="!state.showConnected"
-		aria-pressed="true"
-		aria-label="<?php esc_attr_e( 'Disconnect from member', 'buddynext' ); ?>"
+		aria-haspopup="dialog"
 		<?php echo 'accepted' === $bn_status ? '' : 'hidden'; ?>
 	>
 		<?php esc_html_e( 'Connected', 'buddynext' ); ?>

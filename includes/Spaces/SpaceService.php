@@ -1404,6 +1404,7 @@ class SpaceService {
 		// single delete clears them — no orphaned rows after the space is gone.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->bn_spacemeta, array( 'bn_space_id' => $space_id ), array( '%d' ) );
+		wp_cache_delete( $space_id, 'bn_space_meta' );
 
 		// Back-compat: an integration that still keeps its own per-space option can
 		// register its suffix here so a deleted space leaves nothing behind. Core
@@ -3341,6 +3342,32 @@ class SpaceService {
 		 * @param int                 $viewer_id The viewer.
 		 */
 		return (string) apply_filters( 'buddynext_space_default_tab', $tab, $space, $viewer_id );
+	}
+
+	/**
+	 * The tabs a space can open on: the inline tabs of its own navigation.
+	 *
+	 * Built from the same unified nav the space home uses (core tabs, bridges and
+	 * add-on tabs, ordered and hidden by Settings > Navigation), for the owner. It is
+	 * the one list behind the "Space opens on" select, its save check and landing_tab().
+	 *
+	 * @param int $space_id Space id.
+	 * @return array<string,string> Tab id => label, in nav order.
+	 */
+	public function landing_tab_choices( int $space_id ): array {
+		$space = $this->get( $space_id );
+		if ( null === $space ) {
+			return array();
+		}
+
+		$nav     = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', $space_id, (int) $space['owner_id'], 'owner' ) );
+		$choices = array();
+		foreach ( $nav->layer( 'primary' ) as $item ) {
+			if ( $item->has_render() ) {
+				$choices[ (string) $item->id ] = (string) $item->label;
+			}
+		}
+		return $choices;
 	}
 
 	/**

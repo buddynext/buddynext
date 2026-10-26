@@ -234,6 +234,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// ?settings-updated=true after a save; surface the confirmation.
 		if ( isset( $_GET['settings-updated'] ) && 'true' === sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
+			// Sanitizers report under their own option key and options.php carries those across
+			// the redirect, but only core's Settings screens print them; surface them here too.
+			foreach ( get_settings_errors() as $bn_error ) {
+				if ( ! in_array( $bn_error['setting'], array( 'general', 'buddynext_messages' ), true ) ) {
+					add_settings_error( 'buddynext_messages', $bn_error['code'], $bn_error['message'], $bn_error['type'] );
+				}
+			}
 		}
 		// Restore-defaults confirmation — the handler redirects back with ?bn_reset=N.
 		if ( isset( $_GET['bn_reset'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -1108,9 +1115,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						array(
 							'key'     => 'buddynext_enable_community_nav',
 							'type'    => 'toggle',
-							'label'   => __( 'Auto-place the community menu in your theme', 'buddynext' ),
+							'label'   => __( 'Community navigation (theme menu, rail and mobile bar)', 'buddynext' ),
 							'default' => true,
-							'hint'    => __( 'Drops the Feed / Members / Spaces menu into your theme automatically. Turn off to use your theme\'s own menu instead. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
+							'hint'    => __( 'Drops the Feed / Members / Spaces menu into your theme and shows the desktop rail and mobile bottom bar. Turn off to use only your theme\'s own menu: the rail and bottom bar go too. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1212,7 +1219,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							// locked CTA — a silent no-op. A members-only preview always
 							// keeps something back (card 10285238883).
 							'max'     => 95,
-							'hint'    => __( 'How much of a members-only post a non-member sees as a preview, as a percentage of its length. Capped at 95% so the gate always keeps something back; 0 shows only the lock notice. The preview is never shorter than a few words.', 'buddynext' ),
+							'hint'    => __( 'How much of a members-only post a non-member sees as a preview, as a percentage of its length. Capped at 95% so the gate always keeps something back; 0 shows only the lock notice. Posts under 40 words show no preview.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1285,6 +1292,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * Point "Who can create spaces" at Members > Roles & Capabilities, which owns it.
+	 *
+	 * @return void
+	 */
+	public function render_space_creation_row(): void {
+		?>
+		<div class="bn-field">
+			<span class="bn-tl-title"><?php esc_html_e( 'Who can create spaces', 'buddynext' ); ?></span>
+			<span class="bn-tl-desc"><?php esc_html_e( 'Set under Members > Roles & Capabilities.', 'buddynext' ); ?></span>
+			<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'roles' ) ); ?>"><?php esc_html_e( 'Change in Roles & Capabilities', 'buddynext' ); ?></a>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render the reaction-palette control (bespoke composite, wired to the
 	 * buddynext_enabled_reactions array option). Extracted from the former
 	 * render_tab_social() so it can be a `custom` field in fields_social().
@@ -1342,15 +1364,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'     => 'buddynext_space_creation_role',
-							'type'    => 'select',
-							'label'   => __( 'Who can create spaces', 'buddynext' ),
-							'default' => 'member',
-							'choices' => array(
-								'member' => __( 'Any member', 'buddynext' ),
-								'admin'  => __( 'Admins only', 'buddynext' ),
-							),
-							'hint'    => __( 'Restricting to admins prevents members from creating unmoderated spaces.', 'buddynext' ),
+							// One rule, one place: Members > Roles & Capabilities owns it (card 10441139540).
+							'key'             => 'buddynext_space_creation_managed',
+							'type'            => 'custom',
+							'render_callback' => array( $this, 'render_space_creation_row' ),
 						)
 					),
 					new Field(
@@ -1750,7 +1767,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'label'          => __( 'Admin alert email', 'buddynext' ),
 							'sanitize'       => 'sanitize_email',
 							'value_callback' => static fn() => (string) get_option( 'buddynext_admin_alert_email', get_option( 'admin_email', '' ) ),
-							'hint'           => __( 'Receives daily alerts when the moderation queue or pending registration count is high. Defaults to WordPress admin email.', 'buddynext' ),
+							'hint'           => __( 'Receives the daily alert when the moderation queue is long. Leave it empty to use the WordPress admin email.', 'buddynext' ),
 						)
 					),
 				)
@@ -1916,7 +1933,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default_callback' => array( '\BuddyNext\Auth\RegistrationPolicy', 'terms_default' ),
 							'type'             => 'toggle',
 							'label'            => __( 'Require members to accept your terms', 'buddynext' ),
-							'hint'             => __( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+							'hint'             => __( 'Shows a consent checkbox on every sign-up route. On once a Terms page is chosen under Legal pages below; it has no effect until then.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -2808,7 +2825,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$this->render_toggle_row(
 			'buddynext_require_terms',
 			__( 'Require members to accept your terms', 'buddynext' ),
-			__( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+			__( 'Shows a consent checkbox on every sign-up route. On once a Terms page is chosen under Legal pages below; it has no effect until then.', 'buddynext' ),
 			(bool) get_option( 'buddynext_require_terms', \BuddyNext\Auth\RegistrationPolicy::terms_default() )
 		);
 
@@ -3155,15 +3172,19 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					</label>
 				</div>
 
+				<?php if ( $needs_https ) : ?>
+					<p class="bn-field-hint bn-social-card__warning">
+						<?php
+						/* translators: %s: provider name (e.g. Apple). */
+						echo esc_html( sprintf( __( '%s sign-in returns to your site over a secure cross-site request, so it only works on HTTPS. This site is not using HTTPS, so the button will stay hidden even when configured.', 'buddynext' ), $label ) );
+						?>
+					</p>
+				<?php endif; ?>
+
+				<?php // Collapsed whatever the status: the row above already says what is connected, and the fields stay in the form so one Save still saves them. ?>
+				<details class="bn-social-card__more">
+					<summary><?php esc_html_e( 'Keys and setup', 'buddynext' ); ?></summary>
 				<div class="bn-social-card__body">
-					<?php if ( $needs_https ) : ?>
-						<p class="bn-field-hint bn-social-card__warning">
-							<?php
-							/* translators: %s: provider name (e.g. Apple). */
-							echo esc_html( sprintf( __( '%s sign-in returns to your site over a secure cross-site request, so it only works on HTTPS. This site is not using HTTPS, so the button will stay hidden even when configured.', 'buddynext' ), $label ) );
-							?>
-						</p>
-					<?php endif; ?>
 
 					<?php
 					foreach ( $cred_fields as $cred_key => $descriptor ) :
@@ -3239,6 +3260,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						</details>
 					<?php endif; ?>
 				</div>
+				</details>
 			</div>
 			<?php
 		}
@@ -3595,7 +3617,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		</div>
 		<?php
 		$bn_recent = \BuddyNext\Outbound\WebhookLog::recent( 10 );
-		cache_users( array_filter( array_map( static fn( $r ) => (int) $r['user_id'], $bn_recent ) ) );
+		\BuddyNext\Profile\AvatarService::prime( array_filter( array_map( static fn( $r ) => (int) $r['user_id'], $bn_recent ) ) );
 		?>
 		<div class="bn-field">
 			<span class="bn-label"><?php esc_html_e( 'Recent requests', 'buddynext' ); ?></span>

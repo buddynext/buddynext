@@ -79,7 +79,7 @@ $space_unread    = $tab_unread['space'];
 $message_unread  = $tab_unread['message'];
 
 // Message composer service: composes per-row copy/url/icon/tone/label AND
-// primes the WP user cache (compose_batch -> cache_users), so the actor avatar
+// primes the WP user cache (compose_batch -> AvatarService::prime), so the actor avatar
 // lookups below resolve without N+1 get_userdata() round-trips.
 $message_service = null;
 if ( function_exists( 'buddynext_service' ) ) {
@@ -123,7 +123,9 @@ foreach ( $composed_rows as $payload ) {
 
 // Recent actors - last 6 distinct senders who triggered a notification.
 $recent_actors = array();
-foreach ( $notification_service->recent_actor_ids( $current_user_id, 6 ) as $actor_id ) {
+$bn_recent_ids = array_map( 'intval', (array) $notification_service->recent_actor_ids( $current_user_id, 6 ) );
+AvatarService::prime( array_diff( $bn_recent_ids, array_keys( $actor_data ) ) );
+foreach ( $bn_recent_ids as $actor_id ) {
 	$actor_id = (int) $actor_id;
 	if ( isset( $actor_data[ $actor_id ] ) ) {
 		$recent_actors[ $actor_id ] = $actor_data[ $actor_id ];
@@ -292,6 +294,15 @@ $initial_context = wp_json_encode(
 			'follow'   => $follow_unread,
 			'space'    => $space_unread,
 			'message'  => $message_unread,
+		),
+		// Type -> tab, from the one server map, so a mark-read or delete moves
+		// the right tab badge without a second copy of the map in JS.
+		'tabOfType'     => array_merge(
+			...array_map(
+				static fn( string $tab, array $types ): array => array_fill_keys( $types, $tab ),
+				array_keys( NotificationService::TAB_TYPES ),
+				NotificationService::TAB_TYPES
+			)
 		),
 	)
 );

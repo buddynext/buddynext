@@ -164,6 +164,11 @@ class NotificationListener implements ListenerInterface {
 	public function on_space_member_joined( int $space_id, int $user_id, string $_role ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_role required by hook contract.
 		global $wpdb;
 
+		// A join a linked object caused (a whole class enrolling) is not news to the owner.
+		if ( \BuddyNext\Spaces\SpaceLinkService::is_system_join() ) {
+			return;
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$owner_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -407,19 +412,43 @@ class NotificationListener implements ListenerInterface {
 			)
 		);
 
-		if ( 0 === $owner_id || $owner_id === $user_id ) {
-			return;
-		}
-
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
 
-		if ( $this->is_blocked( $owner_id, $user_id ) ) {
+		// A reply tells the parent comment's author; when that is also the post
+		// owner they get the reply notice alone, never two for one comment.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$parent_author = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT p.user_id FROM {$wpdb->prefix}bn_comments c JOIN {$wpdb->prefix}bn_comments p ON p.id = c.parent_id WHERE c.id = %d",
+				$comment_id
+			)
+		);
+
+		$notifications = buddynext_service( 'notifications' );
+		$told          = array();
+
+		if ( $parent_author > 0 && $parent_author !== $user_id && ! $this->is_blocked( $parent_author, $user_id ) ) {
+			$notifications->create(
+				array(
+					'recipient_id' => $parent_author,
+					'sender_id'    => $user_id,
+					'type'         => 'bn.comment_reply',
+					'object_type'  => 'post',
+					'object_id'    => $post_id,
+					'group_key'    => 'comment_replies_' . $comment_id,
+					'data'         => array( 'comment_id' => $comment_id ),
+				)
+			);
+			$told[ $parent_author ] = true;
+		}
+
+		if ( 0 === $owner_id || $owner_id === $user_id || isset( $told[ $owner_id ] ) || $this->is_blocked( $owner_id, $user_id ) ) {
 			return;
 		}
 
-		buddynext_service( 'notifications' )->create(
+		$notifications->create(
 			array(
 				'recipient_id' => $owner_id,
 				'sender_id'    => $user_id,
@@ -497,6 +526,13 @@ class NotificationListener implements ListenerInterface {
 		}
 
 		if ( $this->is_blocked( $mentioned_user_id, $mentioner_id ) ) {
+			return;
+		}
+
+		// Tagging someone does not let them into a post they may not see: a bell row
+		// that opens a 404 is a dead end, and its text would still hint at the post.
+		$posts = buddynext_service( 'post_service' );
+		if ( $posts instanceof \BuddyNext\Feed\PostService && null !== $posts->visibility_error( $context_id, $mentioned_user_id ) ) {
 			return;
 		}
 
@@ -701,7 +737,7 @@ class NotificationListener implements ListenerInterface {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post_row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT space_id, status, scheduled_at FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				"SELECT space_id, status, scheduled_at, is_announcement FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
 				$post_id
 			),
 			ARRAY_A
@@ -715,7 +751,9 @@ class NotificationListener implements ListenerInterface {
 		$post_status  = (string) ( $post_row['status'] ?? '' );
 		$scheduled_at = (string) ( $post_row['scheduled_at'] ?? '' );
 
-		if ( 0 === $space_id ) {
+		// An announcement has its own fan-out (one bell, one email); a new-post
+		// notification on top of it doubled both.
+		if ( 0 === $space_id || ! empty( $post_row['is_announcement'] ) ) {
 			return;
 		}
 
@@ -944,7 +982,7 @@ class NotificationListener implements ListenerInterface {
 		// notification_pref; a site-wide announcement reads all users (no per-space
 		// pref, so nobody is suppressed for "none"). Keyset-paged like the space-post
 		// fan-out, so each batch is O(limit) regardless of depth.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		if ( $space_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
@@ -963,9 +1001,9 @@ class NotificationListener implements ListenerInterface {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT ID AS user_id, NULL AS notification_pref FROM {$wpdb->users}
-					 WHERE ID != %d AND ID > %d
+					 WHERE ID != %d AND ID > %d" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ) . '
 					 ORDER BY ID ASC
-					 LIMIT %d",
+					 LIMIT %d',
 					$author_id,
 					$after_user_id,
 					$limit
@@ -973,7 +1011,7 @@ class NotificationListener implements ListenerInterface {
 				ARRAY_A
 			);
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 		if ( empty( $rows ) ) {
 			return array(
@@ -1126,7 +1164,7 @@ class NotificationListener implements ListenerInterface {
 		foreach ( (array) $inserted as $row ) {
 			$rid      = (int) $row['recipient_id'];
 			$notif_id = (int) $row['id'];
-			wp_cache_delete( "unread_{$rid}", 'buddynext_notifications' );
+			buddynext_service( 'notifications' )->forget_counts_for( array( $rid ) );
 			$data = array(
 				'recipient_id' => $rid,
 				'sender_id'    => $author_id,
@@ -1134,6 +1172,9 @@ class NotificationListener implements ListenerInterface {
 				'object_type'  => 'post',
 				'object_id'    => $post_id,
 				'group_key'    => $group_keys[ $rid ],
+				// The batched email stage sends the announcement email; without this the
+				// per-row email listener sent a second, empty one.
+				'defer_email'  => true,
 			);
 			/** This action is documented in includes/Notifications/NotificationService.php */
 			do_action( 'buddynext_notification_created', $notif_id, $rid, $data );
@@ -1388,7 +1429,7 @@ class NotificationListener implements ListenerInterface {
 			if ( $notif_id <= 0 ) {
 				continue;
 			}
-			wp_cache_delete( "unread_{$member_id}", 'buddynext_notifications' );
+			buddynext_service( 'notifications' )->forget_counts_for( array( $member_id ) );
 			/** This action is documented in includes/Notifications/NotificationService.php */
 			do_action( 'buddynext_notification_created', $notif_id, $member_id, $data );
 		}
@@ -1552,11 +1593,29 @@ class NotificationListener implements ListenerInterface {
 		$chunk      = array_slice( $recipients, 0, $chunk_size );
 		$remaining  = array_slice( $recipients, $chunk_size );
 
+		// The email says where and what: the space, the author and a short excerpt.
+		// Without them the template's {{notification_message}} rendered empty.
+		$space   = $space_id > 0 ? ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id ) : null;
+		$post    = buddynext_service( 'post_service' )->get( $post_id );
+		$excerpt = wp_trim_words( wp_strip_all_tags( (string) ( $post['content'] ?? '' ) ), 30 );
+		// A site-wide announcement (space 0) belongs to the whole community.
+		$names   = array(
+			'author' => (string) get_the_author_meta( 'display_name', $author_id ),
+			'space'  => $space_id > 0 ? (string) ( $space['name'] ?? '' ) : buddynext_site_name(),
+		);
+		$message = 'bn.announcement' === $type
+			/* translators: 1: author name, 2: space name, 3: excerpt of the announcement. */
+			? sprintf( __( '%1$s posted an announcement in %2$s: "%3$s"', 'buddynext' ), $names['author'], $names['space'], $excerpt )
+			/* translators: 1: author name, 2: space name, 3: excerpt of the post. */
+			: sprintf( __( '%1$s posted in %2$s: "%3$s"', 'buddynext' ), $names['author'], $names['space'], $excerpt );
+
 		$data = array(
 			'type'        => $type,
 			'sender_id'   => $author_id,
 			'object_type' => 'post',
 			'object_id'   => $post_id,
+			'message'     => $message,
+			'space_name'  => $names['space'],
 		);
 
 		foreach ( $chunk as $member_id ) {

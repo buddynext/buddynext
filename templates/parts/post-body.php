@@ -379,15 +379,33 @@ do_action( 'buddynext_part_post_body_before', $args );
 						type="button"
 						class="bn-post-card__poll-option<?php echo $opt_voted ? ' is-voted' : ''; ?><?php echo $bn_poll_closed ? ' is-closed' : ''; ?>"
 						<?php // Every option names itself: the fill and percentage below redraw from it on hydration, for a viewer who cannot vote too. ?>
-						data-wp-context='<?php echo wp_json_encode( array( 'optionId' => $opt_id ) ); ?>'
+						<?php // The option text is member-authored, so the context attribute is built (and escaped) by core. ?>
+						<?php
+						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core escapes the attribute.
+						echo wp_interactivity_data_wp_context(
+							array(
+								'optionId'   => $opt_id,
+								'optionText' => (string) $opt_text,
+							)
+						);
+						?>
 						<?php if ( $bn_poll_votable ) : ?>
 						data-wp-bind--class="state.pollOptionBtnClass"
 						data-wp-on--click="actions.votePoll"
+						aria-pressed="<?php echo $opt_voted ? 'true' : 'false'; ?>"
+						data-wp-bind--aria-pressed="state.pollOptionPressed"
 						<?php else : ?>
 						disabled
 						<?php endif; ?>
 						data-option-id="<?php echo absint( $opt_id ); ?>"
-						aria-label="<?php echo esc_attr( sprintf( '%s: %d%%', $opt_text, $opt_pct ) ); ?>"
+						<?php
+						$bn_opt_label = $opt_voted
+							/* translators: 1: poll option text, 2: percentage of votes. */
+							? sprintf( __( '%1$s: %2$d%%, your vote', 'buddynext' ), $opt_text, $opt_pct )
+							: sprintf( '%s: %d%%', $opt_text, $opt_pct );
+						?>
+						aria-label="<?php echo esc_attr( $bn_opt_label ); ?>"
+						data-wp-bind--aria-label="state.pollOptionLabel"
 					>
 						<div
 							class="bn-post-card__poll-fill"
@@ -477,7 +495,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			<?php
 			$orig_author         = get_userdata( (int) ( $bn_shared_post['user_id'] ?? 0 ) );
 			$orig_name           = $orig_author ? esc_html( $orig_author->display_name ) : esc_html__( 'Community Member', 'buddynext' );
-			$orig_username       = $orig_author ? esc_html( $orig_author->user_nicename ) : '';
+			$orig_username       = $orig_author ? esc_html( \BuddyNext\Core\PageRouter::member_handle( (int) $orig_author->ID ) ) : '';
 			$orig_avatar         = get_avatar_url( (int) ( $bn_shared_post['user_id'] ?? 0 ), array( 'size' => 40 ) );
 			$orig_time           = buddynext_time_ago( (string) ( $bn_shared_post['created_at'] ?? '' ) );
 			$orig_content        = $bn_shared_post['content'] ?? '';
@@ -487,7 +505,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			?>
 			<blockquote class="bn-post-card__shared bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
 				<div class="bn-post-card__shared-header">
-					<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar-link" aria-hidden="true">
+					<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar-link" aria-hidden="true" tabindex="-1">
 						<?php if ( $orig_avatar ) : ?>
 							<span class="bn-avatar" data-size="sm">
 								<img src="<?php echo esc_url( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="32" height="32">

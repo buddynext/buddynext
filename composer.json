@@ -23,12 +23,15 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "BuddyNext\\Tests\\": "tests/"
+      "BuddyNext\\Tests\\": "tests/",
+      "BuddyNext\\Dev\\AddonFixture\\": "dev/addon-fixture/"
     }
   },
   "scripts": {
     "lint": "phpcs",
-    "lint-fix": "phpcbf"
+    "lint-fix": "phpcbf",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "post-install-cmd": "@hooks:install"
   },
   "config": {
     "optimize-autoloader": true,

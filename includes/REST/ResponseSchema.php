@@ -481,6 +481,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/members/{id}/portfolio',
+				'resource' => 'members_portfolio',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/members/{id}/discussions',
 				'resource' => 'members_discussions',
 				'shape'    => 'item',
@@ -603,6 +609,12 @@ final class ResponseSchema {
 				'method'   => 'GET',
 				'path'     => '/spaces/{id}/invite-link',
 				'resource' => 'spaces_invite_link',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
+				'path'     => '/spaces/{id}/links',
+				'resource' => 'spaces_links',
 				'shape'    => 'item',
 			),
 			array(
@@ -943,6 +955,17 @@ final class ResponseSchema {
 						'type'       => 'object',
 						'properties' => array(
 							'id'           => array( 'type' => 'integer' ),
+							'co_written'   => array( 'type' => 'boolean' ),
+							'co_writers'   => array(
+								'type'  => 'array',
+								'items' => array(
+									'type'       => 'object',
+									'properties' => array(
+										'id'   => array( 'type' => 'integer' ),
+										'name' => array( 'type' => 'string' ),
+									),
+								),
+							),
 							'title'        => array( 'type' => 'string' ),
 							'url'          => array(
 								'type'   => 'string',
@@ -957,6 +980,7 @@ final class ResponseSchema {
 							),
 							'status'       => array( 'type' => 'string' ),
 							'status_label' => array( 'type' => 'string' ),
+							'edit_url'     => array( 'type' => 'string' ),
 						),
 					),
 				),
@@ -1016,6 +1040,11 @@ final class ResponseSchema {
 					'type'        => array( 'object', 'null' ),
 					'description' => 'Pro + Learnomy: the course or Learnomy Space this community belongs to.',
 				),
+				'linked_sources'    => array(
+					'type'        => 'array',
+					'items'       => self::linked_source_item(),
+					'description' => 'Everything this space is linked to, from every addon. Empty unless the viewer can manage the space.',
+				),
 				'post_count'        => array( 'type' => 'integer' ),
 				'brand_color'       => array( 'type' => 'string' ),
 				'cover_focal'       => array(
@@ -1066,6 +1095,7 @@ final class ResponseSchema {
 				'can_invite'        => array( 'type' => 'boolean' ),
 				'can_manage'        => array( 'type' => 'boolean' ),
 				'can_edit_space'    => array( 'type' => 'boolean' ),
+				'can_change_roles'  => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -1144,6 +1174,7 @@ final class ResponseSchema {
 				'can_invite'         => array( 'type' => 'boolean' ),
 				'can_manage'         => array( 'type' => 'boolean' ),
 				'can_edit_space'     => array( 'type' => 'boolean' ),
+				'can_change_roles'   => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -1750,6 +1781,7 @@ final class ResponseSchema {
 				'branding'         => array( 'type' => 'object' ),
 				'features'         => array( 'type' => 'object' ),
 				'integrations'     => array( 'type' => 'object' ),
+				'card_types'       => array( 'type' => 'object' ),
 				'limits'           => array( 'type' => 'object' ),
 				'time'             => array( 'type' => 'object' ),
 				'locale'           => array( 'type' => 'object' ),
@@ -3968,6 +4000,32 @@ final class ResponseSchema {
 								),
 							),
 						),
+						'bn.report_escalated'              => array(
+							'type'       => 'object',
+							'properties' => array(
+								'on_site'     => array(
+									'type' => 'boolean',
+								),
+								'email_freq'  => array(
+									'type' => 'string',
+								),
+								'label'       => array(
+									'type' => 'string',
+								),
+								'group'       => array(
+									'type' => 'string',
+								),
+								'can_email'   => array(
+									'type' => 'boolean',
+								),
+								'email_only'  => array(
+									'type' => 'boolean',
+								),
+								'description' => array(
+									'type' => 'string',
+								),
+							),
+						),
 						'bn.post_approved'                 => array(
 							'type'       => 'object',
 							'properties' => array(
@@ -4833,6 +4891,60 @@ final class ResponseSchema {
 	}
 
 	/**
+	 * Schema for GET /members/{id}/portfolio.
+	 *
+	 * @since 1.2.7
+	 * @return array<string,mixed>
+	 */
+	public static function members_portfolio(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'members-portfolio',
+			'type'       => 'object',
+			'properties' => array(
+				'member_id' => array(
+					'type' => 'integer',
+				),
+				'is_owner'  => array(
+					'type' => 'boolean',
+				),
+				'panels'    => array(
+					'type'  => 'array',
+					'items' => array(
+						'type'       => 'object',
+						'properties' => array(
+							'key'       => array(
+								'type' => 'string',
+							),
+							'label'     => array(
+								'type' => 'string',
+							),
+							'icon'      => array(
+								'type' => 'string',
+							),
+							'count'     => array(
+								'type' => 'integer',
+							),
+							'cta'       => array(
+								'type' => array(
+									'array',
+									'object',
+								),
+							),
+							'owner_cta' => array(
+								'type' => 'object',
+							),
+							'items'     => array(
+								'type' => 'array',
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
 	 * Response of GET /members/{id}/discussions (authored from the live response).
 	 *
 	 * @return array<string,mixed>
@@ -4911,6 +5023,10 @@ final class ResponseSchema {
 						'properties' => array(
 							'id'             => array(
 								'type' => 'integer',
+							),
+							'space_id'       => array(
+								'type'        => array( 'integer', 'null' ),
+								'description' => 'Space the action happened in; 0 or null for a site-wide action.',
 							),
 							'actor_id'       => array(
 								'type' => 'integer',
@@ -5596,6 +5712,48 @@ final class ResponseSchema {
 				'pref' => array(
 					'type' => 'string',
 				),
+			),
+		);
+	}
+
+	/**
+	 * Response of GET/DELETE /spaces/{id}/links.
+	 *
+	 * @since 1.2.7
+	 * @return array<string,mixed>
+	 */
+	public static function spaces_links(): array {
+		return array(
+			'$schema'    => 'http://json-schema.org/draft-04/schema#',
+			'title'      => 'spaces-links',
+			'type'       => 'object',
+			'properties' => array(
+				'links' => array(
+					'type'  => 'array',
+					'items' => self::linked_source_item(),
+				),
+			),
+		);
+	}
+
+	/**
+	 * One link from a space to an object in another plugin.
+	 *
+	 * @since 1.2.7
+	 * @return array<string,mixed>
+	 */
+	public static function linked_source_item(): array {
+		return array(
+			'type'       => 'object',
+			'properties' => array(
+				'source'       => array( 'type' => 'string' ),
+				'source_label' => array( 'type' => 'string' ),
+				'type'         => array( 'type' => 'string' ),
+				'id'           => array( 'type' => 'integer' ),
+				'name'         => array( 'type' => 'string' ),
+				'url'          => array( 'type' => 'string' ),
+				'available'    => array( 'type' => 'boolean' ),
+				'managed'      => array( 'type' => 'boolean' ),
 			),
 		);
 	}

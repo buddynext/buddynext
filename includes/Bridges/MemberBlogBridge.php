@@ -148,7 +148,7 @@ class MemberBlogBridge {
 				// get_dashboard_url, bp_member_blog_get_settings) are unchanged, and
 				// 4.1.0's additions are Member-Blog-internal (composer/email/REST),
 				// none consumed here. Tested against 4.3.0: checked against the partner code at that tag (every hook and API the bridge uses) on 2026-10-06.
-				'tested_version' => self::available() ? '4.4.0' : ( $existing['tested_version'] ?? null ),
+				'tested_version' => self::available() ? '4.5.0' : ( $existing['tested_version'] ?? null ),
 			)
 		);
 
@@ -186,7 +186,7 @@ class MemberBlogBridge {
 				'priority'  => 65,
 				'condition' => $enabled,
 				'url'       => static fn( NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'articles/',
-				'count'     => fn( NavContext $c ): int => $this->article_count( $c->subject_id, $c->viewer_id ),
+				'count'     => fn( NavContext $c ): int => $this->article_count( $c->subject_id ),
 				'render'    => function ( NavContext $c ): void {
 					$this->render_profile_articles_panel( $c->subject_id, $c->viewer_id );
 				},
@@ -195,33 +195,26 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * How many articles this viewer may see from this member.
+	 * How many published articles this member has.
 	 *
 	 * Counted with a dedicated COUNT query rather than by measuring the list: the
 	 * badge must not pull a prolific author's whole archive into memory to print a
 	 * number.
 	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @param int $user_id Profile owner.
 	 */
-	public function article_count( int $user_id, int $viewer_id ): int {
+	public function article_count( int $user_id ): int {
 		if ( $user_id <= 0 ) {
 			return 0;
 		}
 
-		$statuses = $this->visible_statuses( $user_id, $viewer_id );
-
 		$query = new \WP_Query(
-			array(
-				'author'                 => $user_id,
-				'post_type'              => $this->tracked_types(),
-				'post_status'            => $statuses,
-				'posts_per_page'         => 1,
-				'fields'                 => 'ids',
-				'ignore_sticky_posts'    => true,
-				'no_found_rows'          => false,
-				'update_post_meta_cache' => false,
-				'update_post_term_cache' => false,
+			array_merge(
+				$this->articles_query_args( $user_id, 1, 1 ),
+				array(
+					'fields'                 => 'ids',
+					'update_post_meta_cache' => false,
+				)
 			)
 		);
 
@@ -238,40 +231,65 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * How many articles this viewer can see on this member's tab.
+	 * How many articles are on this member's tab.
 	 *
 	 * The same query the panel renders, counted, so the router's past-the-end
 	 * check and the panel can never disagree about the last page.
 	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @param int $user_id Profile owner.
 	 * @return int
 	 */
-	public function article_total( int $user_id, int $viewer_id ): int {
-		$args           = $this->articles_query_args( $user_id, $viewer_id, 1, 1 );
+	public function article_total( int $user_id ): int {
+		$args           = $this->articles_query_args( $user_id, 1, 1 );
 		$args['fields'] = 'ids';
 		return (int) ( new \WP_Query( $args ) )->found_posts;
 	}
 
 	/**
-	 * WP_Query args for a member's articles as this viewer sees them.
+	 * WP_Query args for a member's articles: published only, for every viewer,
+	 * owner included. Drafts are managed in the Member Blog dashboard.
 	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer.
-	 * @param int $per_page  Page size.
-	 * @param int $paged     Page.
+	 * @param int $user_id  Profile owner.
+	 * @param int $per_page Page size.
+	 * @param int $paged    Page.
 	 * @return array<string,mixed>
 	 */
-	private function articles_query_args( int $user_id, int $viewer_id, int $per_page, int $paged ): array {
-		return array(
+	private function articles_query_args( int $user_id, int $per_page, int $paged ): array {
+		$args = array(
 			'author'                 => $user_id,
 			'post_type'              => $this->tracked_types(),
-			'post_status'            => $this->visible_statuses( $user_id, $viewer_id ),
+			'post_status'            => 'publish',
 			'posts_per_page'         => $per_page,
 			'paged'                  => $paged,
 			'ignore_sticky_posts'    => true,
 			'update_post_term_cache' => false,
 		);
+
+		// Member Blog's own seam for "posts this member writes": Pro widens the query
+		// to co-authored posts in SQL (paginated, indexed) and leaves it untouched when
+		// the member co-authors nothing or Pro is off.
+		return (array) apply_filters( 'bp_member_blog_dashboard_query_args', $args, $user_id, 'publish', 'posts' );
+	}
+
+	/**
+	 * The post's other writers, as seen from one member's profile: Member Blog's
+	 * `bpmb_post_writers` (lead author first, then accepted co-authors) minus that
+	 * member. Empty for a solo post on its author's own tab.
+	 *
+	 * @param \WP_Post $post        Post.
+	 * @param int      $profile_uid Profile owner.
+	 * @return array<int,array{id:int,name:string}>
+	 */
+	private function co_writers( \WP_Post $post, int $profile_uid ): array {
+		$ids = array_map( 'intval', (array) apply_filters( 'bpmb_post_writers', array( (int) $post->post_author ), (int) $post->ID ) );
+		$out = array();
+		foreach ( array_diff( array_unique( $ids ), array( $profile_uid, 0 ) ) as $id ) {
+			$out[] = array(
+				'id'   => $id,
+				'name' => (string) get_the_author_meta( 'display_name', $id ),
+			);
+		}
+		return $out;
 	}
 
 	/**
@@ -286,16 +304,18 @@ class MemberBlogBridge {
 		$paged    = max( 1, absint( get_query_var( 'paged', 0 ) ) );
 		$per_page = self::articles_per_page();
 
-		$query    = new \WP_Query( $this->articles_query_args( $user_id, $viewer_id, $per_page, $paged ) );
+		$query    = new \WP_Query( $this->articles_query_args( $user_id, $per_page, $paged ) );
 		$is_owner = $viewer_id > 0 && $viewer_id === $user_id;
 
 		// Each row's Edit goes to THAT post. It used to open the dashboard for
 		// every row, leaving the owner to find the post again.
-		$edit_urls = array();
-		if ( $is_owner ) {
-			foreach ( $query->posts as $post ) {
+		$edit_urls  = array();
+		$co_writers = array();
+		foreach ( $query->posts as $post ) {
+			if ( $is_owner ) {
 				$edit_urls[ (int) $post->ID ] = $this->edit_url( (int) $post->ID, $user_id );
 			}
+			$co_writers[ (int) $post->ID ] = wp_list_pluck( $this->co_writers( $post, $user_id ), 'name' );
 		}
 
 		buddynext_get_template(
@@ -306,10 +326,12 @@ class MemberBlogBridge {
 				'is_owner'        => $is_owner,
 				'articles'        => $query->posts,
 				'edit_urls'       => $edit_urls,
+				'co_writers'      => $co_writers,
 				'article_count'   => (int) $query->found_posts,
 				'page'            => $paged,
 				'total_pages'     => (int) $query->max_num_pages,
 				'dashboard_url'   => $this->dashboard_url( $user_id ),
+				'write_url'       => $this->write_url( $user_id ),
 			)
 		);
 
@@ -320,7 +342,7 @@ class MemberBlogBridge {
 	 * The Articles panel as a plain data array — the same posts + pagination the
 	 * profile tab renders, shaped for JSON so the app and developers read the
 	 * panel without scraping HTML. Honours the same author/type/status rules
-	 * (drafts and pending only reach the owner or an editor).
+	 * (published posts only).
 	 *
 	 * @param int $user_id   Profile owner.
 	 * @param int $viewer_id Viewer (0 = logged out).
@@ -348,33 +370,24 @@ class MemberBlogBridge {
 		$page     = max( 1, $page );
 		$per_page = max( 1, min( 50, $per_page ) );
 
-		$query = new \WP_Query(
-			array(
-				'author'                 => $user_id,
-				'post_type'              => $this->tracked_types(),
-				'post_status'            => $this->visible_statuses( $user_id, $viewer_id ),
-				'posts_per_page'         => $per_page,
-				'paged'                  => $page,
-				'ignore_sticky_posts'    => true,
-				'update_post_term_cache' => false,
-			)
-		);
+		$query = new \WP_Query( $this->articles_query_args( $user_id, $per_page, $page ) );
 
 		$items = array();
 		foreach ( $query->posts as $post ) {
-			$status  = (string) $post->post_status;
-			$obj     = get_post_status_object( $status );
 			$cover   = get_the_post_thumbnail_url( $post, 'medium' );
 			$items[] = array(
 				'id'           => (int) $post->ID,
+				'co_written'   => (int) $post->post_author !== $user_id,
+				'co_writers'   => $this->co_writers( $post, $user_id ),
 				'title'        => (string) get_the_title( $post ),
 				'url'          => (string) get_permalink( $post ),
 				'date'         => (string) get_the_date( 'c', $post ),
 				'date_display' => (string) get_the_date( '', $post ),
 				'excerpt'      => wp_trim_words( wp_strip_all_tags( (string) get_the_excerpt( $post ) ), 28 ),
 				'cover'        => $cover ? (string) $cover : null,
-				'status'       => $status,
-				'status_label' => $obj ? (string) $obj->label : $status,
+				// Kept in the REST shape; the list is published-only, so always "publish".
+				'status'       => 'publish',
+				'status_label' => __( 'Published', 'buddynext' ),
 				// Where the owner edits THIS post; '' for everyone else.
 				'edit_url'     => $is_owner ? $this->edit_url( (int) $post->ID, $user_id ) : '',
 			);
@@ -405,25 +418,29 @@ class MemberBlogBridge {
 	}
 
 	/**
-	 * Post statuses this viewer may see on this profile.
+	 * Where the owner starts a new post: Member Blog's own "post" page, the same
+	 * page every row's Edit resolves through, else the dashboard.
 	 *
-	 * Published only for everyone else. The owner (and anyone who can edit their
-	 * posts) also sees drafts and pending review, because the tab is where they come
-	 * to find a piece they have not finished - and Member Blog's whole submit-for-
-	 * review flow produces `pending` posts that would otherwise be invisible here.
-	 *
-	 * @param int $user_id   Profile owner.
-	 * @param int $viewer_id Viewer.
-	 * @return string[]
+	 * @param int $user_id Profile owner.
+	 * @return string
 	 */
-	private function visible_statuses( int $user_id, int $viewer_id ): array {
-		$is_owner = $viewer_id > 0 && $viewer_id === $user_id;
-
-		if ( $is_owner || ( $viewer_id > 0 && user_can( $viewer_id, 'edit_others_posts' ) ) ) {
-			return array( 'publish', 'pending', 'draft', 'future' );
+	private function write_url( int $user_id ): string {
+		if ( class_exists( '\Member_Blog_Compat' ) ) {
+			$url = (string) \Member_Blog_Compat::get_create_post_url();
+			if ( '' !== $url ) {
+				return $url;
+			}
 		}
 
-		return array( 'publish' );
+		if ( function_exists( 'bp_member_blog_get_settings' ) ) {
+			$page_id = (int) bp_member_blog_get_settings( 'bp_post_page', 0 );
+			$url     = $page_id > 0 ? (string) get_permalink( $page_id ) : '';
+			if ( '' !== $url ) {
+				return $url;
+			}
+		}
+
+		return $this->dashboard_url( $user_id );
 	}
 
 	/**

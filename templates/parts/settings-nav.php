@@ -45,7 +45,7 @@ $bn_settings_tabs = PageRouter::settings_tabs( $bn_settings_active );
 	// It is a manager surface, so it is gated to moderators/admins and links out
 	// to the routed hub rather than a /settings/{slug}/ section — hence rendered
 	// as a special tab outside the slug -> settings_url() loop above.
-	if ( function_exists( 'buddynext_can' ) && buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) :
+	if ( function_exists( 'buddynext_can' ) && buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' ) ) :
 		?>
 		<a
 			class="bn-tab bn-settings-tabs__manage"

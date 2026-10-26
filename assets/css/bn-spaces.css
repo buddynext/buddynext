@@ -794,6 +794,11 @@
 	gap: var(--bn-s4);
 }
 
+/* The space header's own Interactivity region; adds no box of its own. */
+.bn-sh-header-region {
+	display: contents;
+}
+
 /* Hero card */
 .bn-sh-hero {
 	background: var(--bn-surface);
@@ -1988,6 +1993,13 @@ a.bn-sh-statpill:focus-visible {
 	cursor: pointer;
 }
 
+/* A theme's `input[type=color]` (0,1,1) adds padding and its own radius, which
+   squeezes the swatch to a thin strip. 0,2,0 keeps the full-bleed swatch. */
+.bn-app .bn-space-settings__color {
+	padding: 0;
+	border-radius: var(--bn-r-md);
+}
+
 .bn-space-settings__color:disabled {
 	cursor: not-allowed;
 	opacity: 0.5;
@@ -2478,8 +2490,10 @@ a.bn-sh-statpill:focus-visible {
 	flex-wrap: wrap;
 }
 
+/* Auto basis: on a phone the badges wrap below instead of squeezing the
+   reporter line into a one-word column. */
 .bn-space-mod__report-who {
-	flex: 1;
+	flex: 1 1 auto;
 	min-inline-size: 0;
 }
 
@@ -3149,6 +3163,13 @@ a.bn-sh-statpill:focus-visible {
 	background: var(--bn-danger-bg, #fef2f2);
 	border: 1px solid color-mix(in oklch, var(--bn-danger) 30%, var(--bn-surface));
 	border-radius: var(--bn-r-sm);
+}
+
+/* The "See plans" link on a plan-limit refusal: same red, underlined so it reads as a link. */
+.bn-create-space-form__error--global a {
+	color: inherit;
+	font-weight: 600;
+	text-decoration: underline;
 }
 
 /* ── Space home: notif popover, members grid, moderation ─────────────── */
@@ -4111,5 +4132,55 @@ a.bn-sh-statpill:focus-visible {
 
 	.bn-tabs.bn-sd-chips .bn-sd-chip {
 		flex: 0 0 auto;
+	}
+}
+
+/* ── Linked-to settings panel ───────────────────────────────────────────────
+   The "Linked to" space-settings tab: one row per link with a remove button.
+   Token-driven, so dark mode and RTL follow the shared foundation. */
+.bn-links-panel__list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bn-links-panel__row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-border);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+}
+
+.bn-links-panel__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-width: 0;
+	flex: 1 1 14rem;
+}
+
+.bn-links-panel__name {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow-wrap: anywhere;
+}
+
+.bn-links-panel__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+}
+
+@media (max-width: 480px) {
+	.bn-links-panel__row > .bn-btn {
+		width: 100%;
 	}
 }

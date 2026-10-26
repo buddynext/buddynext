@@ -329,6 +329,45 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 			}
 		},
 
+		/**
+		 * Save a partner plugin's own email choice (rendered inside
+		 * [data-bn-partner-pref]) through the partner's REST endpoint, rolling the
+		 * input back when the save fails.
+		 *
+		 * @param {Event} event change event from one of the partner's inputs.
+		 */
+		async setPartnerPref( event ) {
+			var ctx = getContext();
+			var el  = event.target.closest( '[data-bn-partner-pref]' );
+			var inp = event.target;
+			if ( ! ctx || ! el || ! el.dataset.restUrl || inp.name !== el.dataset.field ) { return; }
+
+			// The last saved choice: the one we saved this visit, else the one the page loaded with.
+			var sel  = '[name="' + inp.name + '"]';
+			var prev = el.querySelector( sel + '[data-bn-saved]' ) || Array.prototype.find.call( el.querySelectorAll( sel ), function ( i ) { return i.defaultChecked; } );
+			var body = {};
+			body[ el.dataset.bodyKey ] = inp.value;
+
+			try {
+				var res = await restFetch( '', {
+					base: el.dataset.restUrl,
+					nonce: ctx.nonce,
+					method: 'PATCH',
+					body: body,
+					toastOnError: false,
+				} );
+				if ( ! res.ok ) {
+					throw new Error( 'http_' + res.status );
+				}
+				el.querySelectorAll( '[name="' + inp.name + '"]' ).forEach( function ( i ) { delete i.dataset.bnSaved; } );
+				inp.dataset.bnSaved = '1';
+				toast( t( 'partnerPrefSaved', 'Email preference saved.' ), 'success' );
+			} catch ( _e ) {
+				if ( prev ) { prev.checked = true; }
+				toast( t( 'partnerPrefFailed', 'Could not save your email preference.' ), 'error' );
+			}
+		},
+
 		async setSpacePref( event ) {
 			var ctx = getContext();
 			var btn = event.target.closest( '[data-space-id][data-pref]' );

@@ -179,7 +179,7 @@ test.describe('pro / sell a plan during onboarding', () => {
             await terms.check().catch(() => undefined);
         }
 
-        const submit = page.locator('.bn-auth-form button[type="submit"], #wp-submit, .bn-auth__submit').first();
+        const submit = page.locator('.bn-auth-form button[type="submit"], #wp-submit').first();
 
         // RegistrationGuard's time-trap refuses a form sent within 2 seconds of
         // loading; a person filling it takes longer. Keep the protection on.

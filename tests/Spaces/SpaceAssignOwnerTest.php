@@ -111,6 +111,19 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The admin Spaces list's Change owner: a site admin who is not in the space can hand it to any user.
+	 */
+	public function test_site_admin_can_hand_a_space_to_any_user(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$heir  = self::factory()->user->create();
+
+		$this->assertTrue( $this->spaces->assign_owner( $this->space_id, $heir, $admin ) );
+
+		$this->assertSame( $heir, (int) $this->spaces->get( $this->space_id )['owner_id'] );
+		$this->assertSame( 'member', $this->members->get_role( $this->space_id, $this->owner_id ), 'the previous owner stays as a member' );
+	}
+
+	/**
 	 * THE SECURITY BUG: a moderator must not be able to seize the Space.
 	 */
 	public function test_moderator_cannot_assign_owner(): void {
@@ -239,23 +252,16 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 		$heir = self::factory()->user->create();
 		$this->members->join( $this->space_id, $heir );
 
-		// ban() writes BOTH surfaces. To isolate the SOFT ban (status='banned' on the
-		// membership row) drop the hard-ban row directly.
-		//
-		// This used to call unban_from_space() to do it — which only left the soft ban
-		// behind because unban_from_space() was BROKEN: it cleared bn_space_bans and
-		// forgot bn_space_members.status, so an "unbanned" member stayed locked out
-		// forever. That bug is fixed, so the setup can no longer lean on it.
-		$this->assertTrue( $this->members->ban( $this->space_id, $this->owner_id, $heir ) );
-
+		// A SOFT ban only (status='banned' on the membership row, no bn_space_bans
+		// row), as releases up to 1.2.6 could leave behind.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_bans',
+		$wpdb->update(
+			$wpdb->prefix . 'bn_space_members',
+			array( 'status' => 'banned' ),
 			array(
 				'space_id' => $this->space_id,
 				'user_id'  => $heir,
-			),
-			array( '%d', '%d' )
+			)
 		);
 		wp_cache_flush();
 

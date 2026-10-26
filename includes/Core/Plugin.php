@@ -718,7 +718,7 @@ class Plugin {
 		// titles no longer trip WP 6.7's _load_textdomain_just_in_time notice
 		// (translations must not load before init). Activation-time consumers
 		// (Installer::create_hub_pages) self-populate via their has('feed')
-		// guard, so nothing reads the registry before init.
+		// guard; URL helpers called earlier read CoreHubs::DEFAULT_SLUGS.
 		add_action(
 			'init',
 			static function (): void {
@@ -781,6 +781,12 @@ class Plugin {
 			},
 			25
 		);
+
+		// Addons register after the first-party bridges have wired, so an addon can rely on them.
+		add_action( 'buddynext_load_bridges', array( \BuddyNext\Addons\AddonRegistry::instance(), 'boot' ), 20 );
+		// The Portfolio profile tab every integration's panels register into.
+		( new \BuddyNext\Profile\SuitePanelHost() )->register();
+		( new \BuddyNext\Spaces\SpaceLinkService() )->register();
 
 		add_action(
 			'buddynext_load_bridges',

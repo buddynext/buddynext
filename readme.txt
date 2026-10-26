@@ -5,7 +5,7 @@ Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires MySQL: 5.7.8 (or MariaDB 10.2.7)
-Stable tag: 1.2.6
+Stable tag: 1.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,11 +63,65 @@ No. BuddyNext is a standalone community platform and does not depend on BuddyPre
 
 Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout, advanced moderation, email automation, analytics, AI, and more. Free and Pro are released in lockstep.
 
+= Does BuddyNext work on a multisite network? =
+
+Yes. Network Activate it (BuddyNext first, then Pro). One community runs on the network's main site and every other site is left unchanged. Settings and checkout are on the main site, a network user joins the community on their first action, and changing the main site is not supported. Blocks and shortcodes placed in other sites render nothing.
+
 = Does messaging require another plugin? =
 
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.2.7 - October 2026 =
+
+Multisite support, an addon framework, hand-off moderation roles that hold up inside spaces, and a long list of fixes from two QA rounds. Lockstep with BuddyNext Pro 1.2.7 - install and test both together.
+
+* New      - Multisite: one community runs on the network's main site, BuddyNext is Network Activated, and nothing of it loads on a subsite.
+* New      - Addon framework: a partner addon lists its modules and BuddyNext wires each one behind a guard, with a Building an Addon guide and a public API table.
+* New      - Profile panels and the Portfolio tab now live in BuddyNext itself, so any addon can add a panel to a member's profile.
+* New      - A space can be linked to a partner object, such as a Learnomy course, with a Linked to tab in space settings and a Remove action that keeps every member.
+* New      - Space owners can choose which of the space's tabs it opens on, including tabs added by addons.
+* New      - Site owners can change a space's owner from the Spaces list.
+* New      - Every optional email ends with a Stop emails like this link; welcome, verification and billing emails do not.
+* Improve  - Post in spaces and Moderate spaces count a member's community role inside the spaces they belong to, so a community Admin who is a plain member can still post when the rule is Moderators and up.
+* Improve  - Community Admin, its invites, report links and its menu entry follow Review the moderation queue, so a stricter Moderate spaces rule no longer locks community moderators out.
+* Improve  - Who can create spaces is set in one place, Members > Roles & Capabilities, and the update moves a stricter earlier choice there.
+* Improve  - Navigation Visibility closes a section everywhere it appears: header menu, theme page list, sidebar, profile, mobile bar and post bylines, with a clear not-available page.
+* Improve  - Escalated reports show as escalated, escalating twice does nothing, and community admins get a bell notification.
+* Improve  - Members can report a space, and every member who can decide appeals is told about a new one.
+* Improve  - Emails name who did what and where, use the community name everywhere and fit a phone screen.
+* Improve  - Announcement and new space post emails name the space and quote the post.
+* Improve  - Settings export leaves out versions and setup state, covers Pro settings and keeps secrets out; import reports what it applied and skipped.
+* Improve  - Each social login provider is one row with its keys collapsed, and the Save bar stays in view on long settings tabs.
+* Improve  - With BuddyX, BuddyX Pro or Reign active, the colour mode setting says the theme's own setting wins and links to it.
+* Improve  - Searching a member's exact handle in the directory lists that member first.
+* Improve  - Dates follow the site language, and sign-in accepts a member's handle.
+* Improve  - BuddyNext's inputs, links, buttons and lightbox keep their own look on Astra, GeneratePress, Kadence and Blocksy.
+* Improve  - The members directory loads Jetonomy avatars in one query instead of one per member.
+* Fix      - A comment on a forum discussion card sends one email, not two, and mirrored writes between a feed card and a Jetonomy topic send no duplicate notification.
+* Fix      - Divi Theme Builder headers keep their styling on BuddyNext pages.
+* Fix      - A Terms page that is a draft, private, password protected or in the trash now warns the owner instead of breaking sign-up.
+* Fix      - Settings warnings, such as a choice that is not available, now show after saving instead of a plain Settings saved.
+* Fix      - Editing a member in the admin with an invalid email address now says so instead of silently keeping the old one.
+* Fix      - Report retention counts from when a report was closed, not when it was filed.
+* Fix      - Clearing the sign-in panel image shows the gradient instead of an empty image.
+* Fix      - The upgrade link in the plan-limit error when creating a space opens the plans page.
+* Fix      - Reporting from a single post page confirms the report and shows the post as reported.
+* Fix      - Comment replies notify the parent comment's author once, and a member who cannot see a post gets no mention notification.
+* Fix      - Scheduled posts clear their schedule when published, and the admin Cancel and Publish actions keep the page and show a real error.
+* Fix      - The Articles tab lists published posts only, and co-written posts show a Co-written with badge.
+* Fix      - The post editor has the emoji picker, poll option labels follow the live percentage, and Download follows the media's download setting.
+* Fix      - The photo picker works in Safari.
+* Fix      - A video without a poster shows as a playable tile in messages, and the picker offers audio files.
+* Fix      - Moderation errors carry their proper status and never show database text to members.
+* Fix      - The invite dialog can send another invite after a successful one, and banning an already banned member no longer errors.
+* Fix      - Changing the role of someone who is not a member of the space is refused.
+* Fix      - The retired bulk moderation admin page redirects to Automation instead of showing an empty page.
+* Dev      - New hooks buddynext_register_addons, buddynext_addon_module_failed, buddynext_space_link_sources, buddynext_space_linked, buddynext_space_unlinked, buddynext_member_suite_panels and buddynext_export_option_prefixes.
+* Dev      - New REST routes GET members/{id}/portfolio and GET and DELETE spaces/{id}/links, and /app/config adds profile panels and card types.
+* Dev      - The Abilities catalog lists Interact with posts and Dismiss reports, matching Roles & Capabilities.
+* Compat   - Requires WPMediaVerse 2.6.2 or later for messages. Aligned with BuddyNext Pro 1.2.7. Install the updates together.
 
 = 1.2.6 - October 2026 =
 
@@ -76,7 +130,7 @@ Fixes for mentions, polls, Explore covers, linked forums and moderation reasons,
 * New      - Developers can send every BuddyNext Log in link and guest gate to their own login page with the buddynext_login_url filter.
 * New      - Space owners can unlink a space's discussion; the forum and every space member stay, and Discussion can be turned on again later.
 * New      - The installable app uses your WordPress Site Icon, with the BuddyNext icons as the fallback when none is set.
-* Improve  - Community moderators can remove any comment, bulk-moderate and review posts from suspended or shadow-banned members without being WordPress administrators.
+* Improve  - Community moderators can remove any comment and review posts from suspended or shadow-banned members without being WordPress administrators.
 * Improve  - Open-ended suspensions, appeals, editing other members' posts and comments, site-wide announcements and role changes are now permissions you can hand to community admins or moderators under Roles & Capabilities.
 * Improve  - Anyone you give "Edit anyone's profile" can now also change a member's self-chosen member type and open the profile editor from a page using the members shortcode.
 * Improve  - Explore shows each integration activity as its own card: events with their date, place and cover, badges with their artwork, and jobs, listings, courses and "open to work" with their details.

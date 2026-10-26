@@ -314,7 +314,40 @@ final class Field {
 			};
 		}
 
+		if ( 'select' === $this->type ) {
+			$field = $this;
+			return static function ( $value ) use ( $field ) {
+				return $field->sanitize_select( $value );
+			};
+		}
+
 		return FieldTypes::sanitizer( $this->type );
+	}
+
+	/**
+	 * Store a select value only when it is one of the field's choices.
+	 *
+	 * Anything else keeps the value already saved (or the default when none is), so a
+	 * tampered or stale POST cannot silently change a setting such as registration mode.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_select( $value ): string {
+		$value   = sanitize_key( (string) $value );
+		$allowed = array_map( 'strval', array_keys( $this->choices() ) );
+		// No declared choices (a list built at render time that came back empty): nothing to check against.
+		if ( array() === $allowed || in_array( $value, $allowed, true ) ) {
+			return $value;
+		}
+
+		$codes = wp_list_pluck( get_settings_errors( $this->key ), 'code' );
+		if ( ! in_array( 'invalid_choice', $codes, true ) ) {
+			add_settings_error( $this->key, 'invalid_choice', __( 'That choice is not available, so the setting was not changed.', 'buddynext' ) );
+		}
+
+		$saved = (string) get_option( $this->key, (string) $this->resolve_default() );
+		return in_array( $saved, $allowed, true ) ? $saved : (string) $this->resolve_default();
 	}
 
 	/**

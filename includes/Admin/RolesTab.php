@@ -69,13 +69,13 @@ class RolesTab extends AdminPageBase {
 				'buddynext-profile/edit-any' => __( "Edit anyone's profile", 'buddynext' ),
 			),
 			__( 'Moderation', 'buddynext' )       => array(
-				'buddynext-moderation/report'       => __( 'Report content', 'buddynext' ),
-				'buddynext-moderation/review-queue' => __( 'Review the report queue', 'buddynext' ),
-				'buddynext-moderation/dismiss'      => __( 'Resolve reports', 'buddynext' ),
-				'buddynext-moderation/issue-strike' => __( 'Issue strikes', 'buddynext' ),
-				'buddynext-moderation/suspend-user' => __( 'Suspend members', 'buddynext' ),
+				'buddynext-moderation/report'          => __( 'Report content', 'buddynext' ),
+				'buddynext-moderation/review-queue'    => __( 'Review the report queue', 'buddynext' ),
+				'buddynext-moderation/dismiss'         => __( 'Resolve reports', 'buddynext' ),
+				'buddynext-moderation/issue-strike'    => __( 'Issue strikes', 'buddynext' ),
+				'buddynext-moderation/suspend-user'    => __( 'Suspend members', 'buddynext' ),
 				'buddynext-moderation/suspend-indefinitely' => __( 'Suspend members with no end date', 'buddynext' ),
-				'buddynext-moderation/resolve-appeals'      => __( 'Decide appeals', 'buddynext' ),
+				'buddynext-moderation/resolve-appeals' => __( 'Decide appeals', 'buddynext' ),
 			),
 		);
 	}
@@ -283,6 +283,11 @@ class RolesTab extends AdminPageBase {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
 		$submitted = isset( $_POST['cap'] ) && is_array( $_POST['cap'] ) ? wp_unslash( $_POST['cap'] ) : array();
 
+		// Store only the rows that differ from the defaults. The form posts the whole
+		// matrix, and keeping every row froze each capability at its value on the
+		// day of the save, so later changes elsewhere (the Spaces-tab "who can
+		// create spaces") stopped having any effect.
+		$defaults  = self::map_after_reset();
 		$overrides = array();
 		foreach ( $submitted as $cap => $role ) {
 			$cap = (string) $cap;
@@ -291,7 +296,11 @@ class RolesTab extends AdminPageBase {
 			}
 			$role = sanitize_key( (string) $role );
 			// Empty/unknown role → null = "off (admins only)".
-			$overrides[ $cap ] = in_array( $role, $valid_roles, true ) ? $role : null;
+			$role = in_array( $role, $valid_roles, true ) ? $role : null;
+			if ( ( array_key_exists( $cap, $defaults ) ? $defaults[ $cap ] : 'member' ) === $role ) {
+				continue;
+			}
+			$overrides[ $cap ] = $role;
 		}
 
 		// Only report success when the write actually persisted. update_option()

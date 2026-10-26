@@ -805,7 +805,7 @@ class SpaceController extends BaseRestController {
 
 		if ( is_wp_error( $result ) ) {
 			$status = ( 'invalid_pref' === $result->get_error_code() ) ? 422 : 403;
-			$result->add_data( array( 'status' => $status ) );
+			$this->merge_error_data( $result, array( 'status' => $status ) );
 			return $result;
 		}
 
@@ -1355,6 +1355,9 @@ class SpaceController extends BaseRestController {
 			$row['can_invite']     = $viewer_id > 0 && $member_svc->can_invite( $sid, $viewer_id );
 			$row['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $sid ) );
 			$row['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $sid ) );
+			// Make / remove moderator: the owner or a site admin, the same check
+			// PUT /spaces/{id}/members/{user}/role enforces.
+			$row['can_change_roles'] = $viewer_id > 0 && $member_svc->can_change_roles( $sid, $viewer_id );
 		}
 		unset( $row );
 
@@ -1364,9 +1367,8 @@ class SpaceController extends BaseRestController {
 	/**
 	 * Permission gate for space creation.
 	 *
-	 * Enforces the Settings → Spaces → "Who can create spaces" setting
-	 * (buddynext_space_creation_role): 'member' = any logged-in user, 'admin' =
-	 * site administrators only. Defaults to 'member'.
+	 * Enforces the buddynext-spaces/create rule set under Members > Roles &
+	 * Capabilities (any member by default).
 	 *
 	 * @return true|WP_Error
 	 */
@@ -1376,10 +1378,7 @@ class SpaceController extends BaseRestController {
 			return $auth;
 		}
 
-		// Single source of truth: the role map (Roles & Capabilities tab). The
-		// legacy buddynext_space_creation_role option is folded into the map in
-		// PermissionService::get_role_map(), so an existing "admins only" setting
-		// is preserved while the Roles tab toggle now actually governs creation.
+		// Single source of truth: the role map (Roles & Capabilities tab).
 		return $this->require_cap( 'buddynext-spaces/create' );
 	}
 
@@ -1634,7 +1633,8 @@ class SpaceController extends BaseRestController {
 			// Keep a status the service already chose (parent_archived and
 			// parent_not_found are 422); add_data() would only append a second one.
 			$status = is_array( $data ) && ! empty( $data['status'] ) ? (int) $data['status'] : ( ( 'slug_taken' === $code ) ? 422 : 400 );
-			$result->add_data(
+			$this->merge_error_data(
+				$result,
 				array(
 					'status' => $status,
 					'params' => ( 'slug_taken' === $code )
@@ -1795,13 +1795,14 @@ class SpaceController extends BaseRestController {
 		$space['membership_role']   = $membership['role'] ?? '';
 		$space['membership_status'] = $membership['status'] ?? '';
 
-		// Same three viewer-relative permission flags the directory rows carry, so
+		// Same viewer-relative permission flags the directory rows carry, so
 		// a card and the space header can never disagree about what the viewer may
 		// do. See the note in enrich_directory_rows() for why manage is two flags.
-		$bn_space_id             = (int) $space['id'];
-		$space['can_invite']     = $viewer_id > 0 && ( new SpaceMemberService() )->can_invite( $bn_space_id, $viewer_id );
-		$space['can_manage']     = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $bn_space_id ) );
-		$space['can_edit_space'] = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $bn_space_id ) );
+		$bn_space_id               = (int) $space['id'];
+		$space['can_invite']       = $viewer_id > 0 && ( new SpaceMemberService() )->can_invite( $bn_space_id, $viewer_id );
+		$space['can_manage']       = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-spaces/manage-settings', array( 'space_id' => $bn_space_id ) );
+		$space['can_edit_space']   = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-manage-space', array( 'space_id' => $bn_space_id ) );
+		$space['can_change_roles'] = $viewer_id > 0 && ( new SpaceMemberService() )->can_change_roles( $bn_space_id, $viewer_id );
 
 		// The tab the app should open this space on for the current viewer — the
 		// same resolver the web space page uses, so the two never disagree. A REST
@@ -1828,7 +1829,10 @@ class SpaceController extends BaseRestController {
 		 * @param array<string,mixed> $space     The space item.
 		 * @param int                 $viewer_id Current viewer (0 = guest).
 		 */
-		$space = (array) apply_filters( 'buddynext_rest_space_item', $space, $viewer_id );
+		// Same gate as GET /spaces/{id}/links: the list names objects (a private course)
+		// that a viewer of the space may not be allowed to see.
+		$space['linked_sources'] = SpaceLinksController::viewer_can_manage( $viewer_id, $bn_space_id ) ? SpaceLinksController::describe( $bn_space_id ) : array();
+		$space                   = (array) apply_filters( 'buddynext_rest_space_item', $space, $viewer_id );
 
 		return new WP_REST_Response( $space, 200 );
 	}
@@ -2164,7 +2168,7 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceService() )->delete( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
@@ -2492,10 +2496,10 @@ class SpaceController extends BaseRestController {
 
 		// Enrich each request with the requester's name + avatar so an owner can recognise
 		// who is asking to join — the raw rows carry only user_id. Bounded by per_page and
-		// primed in one pass (cache_users), so no per-row user lookup.
+		// primed in one pass (AvatarService::prime), so no per-row user lookup.
 		$user_ids = array_values( array_filter( array_map( static fn( $r ) => (int) ( $r['user_id'] ?? 0 ), $requests ) ) );
 		if ( ! empty( $user_ids ) ) {
-			cache_users( $user_ids );
+			\BuddyNext\Profile\AvatarService::prime( $user_ids );
 		}
 		$requests = array_map(
 			static function ( $r ) {
@@ -2979,18 +2983,14 @@ class SpaceController extends BaseRestController {
 		$inviter_id      = get_current_user_id();
 		$invited_user_id = absint( $request->get_param( 'user_id' ) );
 
-		// Allow invite by username or email when no numeric user_id is supplied,
+		// Allow invite by @handle, username or email when no numeric user_id is supplied,
 		// so the hero Invite modal can mirror the settings-panel invite form.
 		if ( 0 === $invited_user_id ) {
 			$identifier = sanitize_text_field( (string) ( $request->get_param( 'identifier' ) ?? '' ) );
-			// Accept an @-prefixed username — member mentions use @username across
-			// the platform, so the invite field should too. Emails never carry a
-			// leading @, so this only affects username input.
+			// The owner types what they see: the @handle on a profile, a username or an email.
 			$identifier = ltrim( $identifier, '@' );
 			if ( '' !== $identifier ) {
-				$invited_user = is_email( $identifier )
-					? get_user_by( 'email', $identifier )
-					: get_user_by( 'login', $identifier );
+				$invited_user = \BuddyNext\Profile\Handle::user_for_identifier( $identifier );
 				if ( $invited_user instanceof \WP_User ) {
 					$invited_user_id = (int) $invited_user->ID;
 				} elseif ( is_email( $identifier ) ) {
@@ -3023,7 +3023,7 @@ class SpaceController extends BaseRestController {
 				} else {
 					return new WP_Error(
 						'user_not_found',
-						__( 'No user found with that username or email.', 'buddynext' ),
+						__( 'No member found with that @handle or email.', 'buddynext' ),
 						array( 'status' => 404 )
 					);
 				}
@@ -3051,7 +3051,7 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceMemberService() )->invite( $space_id, $inviter_id, $invited_user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
@@ -3205,7 +3205,7 @@ class SpaceController extends BaseRestController {
 
 		if ( is_wp_error( $result ) ) {
 			$status_code = 'no_pending_request' === $result->get_error_code() ? 404 : 403;
-			$result->add_data( array( 'status' => $status_code ) );
+			$this->merge_error_data( $result, array( 'status' => $status_code ) );
 			return $result;
 		}
 
@@ -3245,7 +3245,7 @@ class SpaceController extends BaseRestController {
 
 		if ( is_wp_error( $result ) ) {
 			$status_code = 'no_pending_request' === $result->get_error_code() ? 404 : 403;
-			$result->add_data( array( 'status' => $status_code ) );
+			$this->merge_error_data( $result, array( 'status' => $status_code ) );
 			return $result;
 		}
 
@@ -3271,7 +3271,10 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceMemberService() )->change_role( $space_id, $target_id, $new_role, $actor_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			// Each error names its own status; 403 only when it named none.
+			if ( ! isset( ( (array) $result->get_error_data() )['status'] ) ) {
+				$this->merge_error_data( $result, array( 'status' => 403 ) );
+			}
 			return $result;
 		}
 
@@ -3508,7 +3511,7 @@ class SpaceController extends BaseRestController {
 		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
 		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => $stored ) );
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 
@@ -3593,7 +3596,7 @@ class SpaceController extends BaseRestController {
 		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
 		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => '' ) );
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
+			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
 

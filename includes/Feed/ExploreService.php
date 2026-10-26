@@ -128,6 +128,7 @@ class ExploreService {
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( is_array( $cached ) ) {
+			self::prime_card_users( (array) ( $cached['items'] ?? array() ) );
 			return $cached;
 		}
 
@@ -151,8 +152,27 @@ class ExploreService {
 		$result['filter'] = $filter;
 
 		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+		self::prime_card_users( (array) ( $result['items'] ?? array() ) );
 
 		return $result;
+	}
+
+	/**
+	 * Warm the users and avatars a deck renders: member cards and post authors.
+	 *
+	 * Runs on a cache hit too, because the deck cache holds rows, not the user
+	 * and avatar caches the cards read.
+	 *
+	 * @param array<int,array<string,mixed>> $items Deck cards.
+	 * @return void
+	 */
+	private static function prime_card_users( array $items ): void {
+		$ids = array();
+		foreach ( $items as $card ) {
+			$ids[] = (int) ( $card['user_id'] ?? 0 );
+			$ids[] = (int) ( $card['post']['user_id'] ?? 0 );
+		}
+		\BuddyNext\Profile\AvatarService::prime( $ids );
 	}
 
 	/**
@@ -549,28 +569,13 @@ class ExploreService {
 			return array();
 		}
 
-		$ids     = array();
-		$authors = array();
+		$ids = array();
 
 		foreach ( $posts as $post ) {
 			$pid = (int) ( $post['id'] ?? 0 );
 			if ( $pid > 0 ) {
 				$ids[] = $pid;
 			}
-
-			$author = (int) ( $post['user_id'] ?? 0 );
-			if ( $author > 0 ) {
-				$authors[] = $author;
-			}
-		}
-
-		// Prime the author users in ONE query. Each card renders its author's avatar, and
-		// get_avatar_url() resolves the user behind the id — so a 12-card deck was up to 12
-		// separate user lookups on the busiest discovery surface on the site. This is the
-		// same batch-prime the comment and reaction lists already do.
-		$authors = array_values( array_unique( $authors ) );
-		if ( ! empty( $authors ) ) {
-			cache_users( $authors );
 		}
 
 		$hashtags = $this->first_hashtags_map( $ids );

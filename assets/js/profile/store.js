@@ -1,8 +1,9 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
+import { foldAccents } from '@buddynext/slug';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1654,8 +1655,15 @@ const profileStore = store( 'buddynext/profile', {
 			var input = document.createElement( 'input' );
 			input.type   = 'file';
 			input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+			// Attached to the page: Safari never fires change on a detached file input.
+			input.hidden = true;
+			document.querySelectorAll( 'input[data-bn-photo-input]' ).forEach( function ( old ) { old.remove(); } );
+			input.setAttribute( 'data-bn-photo-input', '' );
+			document.body.appendChild( input );
+			input.addEventListener( 'cancel', function () { input.remove(); } );
 			input.addEventListener( 'change', function () {
 				var file = input.files && input.files[ 0 ];
+				input.remove();
 				if ( ! file ) { return; }
 				var fd = new FormData();
 				fd.append( 'avatar', file ); // Both endpoints read the file from this field.
@@ -1688,7 +1696,9 @@ const profileStore = store( 'buddynext/profile', {
 			// hyphen and underscore. A space becomes a hyphen; anything else is
 			// dropped. Leading and trailing hyphens are left alone here, or a hyphen
 			// could never be typed: the server trims them on save.
-			var slug = input.value.toLowerCase()
+			// Accents fold first, with the table Handle::make_safe() uses.
+			var slug = foldAccents( input.value )
+			                .toLowerCase()
 			                .replace( /\s+/g, '-' )
 			                .replace( /[^a-z0-9_-]/g, '' );
 
@@ -2115,6 +2125,7 @@ const profileStore = store( 'buddynext/profile', {
 
 		async disconnectUser() {
 			var ctx = getContext();
+			if ( ! await bnConfirmDisconnect( ctx.displayName || '' ) ) { return; }
 			try {
 				var res = await restFetch( '/users/' + ctx.profileUserId + '/connect', {
 					method:       'DELETE',

@@ -737,6 +737,17 @@
 	color: var(--bn-a-text-1);
 }
 
+.bn-ss-heading {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.bn-ss-sub {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+}
+
 .bn-ss-body {
 	/* Sides + bottom keep the card's s5 gutter; top is tighter so the first row
 	   binds to the section header instead of floating below an empty gap. The
@@ -1274,6 +1285,13 @@ select.bn-text-input {
 	   one doubled line - visible on Payment Gateways (Tax), Push (Test push),
 	   Paywall (Gate a Space Behind a Plan) and AI Moderation. */
 	margin-bottom: var(--bn-a-s5);
+
+	/* Stays in view while a long settings tab scrolls, so Save is never a whole
+	   page away (Registration & Login is ~6,500px with one Save at the bottom). */
+	position: sticky;
+	bottom: var(--bn-a-s3);
+	z-index: 5;
+	box-shadow: var(--bn-a-shadow-md);
 }
 
 /* Legacy .bn-stats-row / .bn-stat-card component removed — every stat surface
@@ -2554,8 +2572,8 @@ button.bn-btn-danger:hover {
 }
 
 .bn-modal__actions .bn-btn[data-variant="danger"]:hover {
-	background: color-mix(in oklch, var(--bn-a-red) 85%, var(--bn-ink));
-	border-color: color-mix(in oklch, var(--bn-a-red) 85%, var(--bn-ink));
+	background: color-mix(in oklab, var(--bn-a-red) 85%, var(--bn-ink));
+	border-color: color-mix(in oklab, var(--bn-a-red) 85%, var(--bn-ink));
 }
 
 .bn-modal__actions .bn-btn[data-variant="ghost"] {
@@ -3150,20 +3168,23 @@ button.bn-btn-danger:hover {
 	border-top: 1px dashed var(--bn-a-border-soft);
 	padding-top: var(--bn-a-s3);
 }
-.bn-social-help > summary {
+.bn-social-help > summary,
+.bn-social-card__more > summary {
 	cursor: pointer;
 	font-weight: 600;
 	color: var(--bn-a-brand);
 	list-style: none;
 }
-.bn-social-help > summary::-webkit-details-marker { display: none; }
+.bn-social-help > summary::-webkit-details-marker,
+.bn-social-card__more > summary::-webkit-details-marker { display: none; }
 /* Disclosure caret drawn in CSS (no glyph character) — a triangle pointing along
    the inline direction (right under LTR) that rotates to point down when the
    details is open. The solid edge is border-inline-start, so under RTL the
    triangle mirrors to point left on its own. The open-state rotation must then
    flip too: rotating a left-pointing triangle +90deg would aim it UP, so RTL
    rotates the other way to land on the same downward caret. */
-.bn-social-help > summary::before {
+.bn-social-help > summary::before,
+.bn-social-card__more > summary::before {
 	content: "";
 	display: inline-block;
 	width: 0;
@@ -3175,8 +3196,12 @@ button.bn-btn-danger:hover {
 	vertical-align: middle;
 	transition: transform 0.15s ease;
 }
-.bn-social-help[open] > summary::before { transform: rotate(90deg); }
-[dir="rtl"] .bn-social-help[open] > summary::before { transform: rotate(-90deg); }
+.bn-social-help[open] > summary::before,
+.bn-social-card__more[open] > summary::before { transform: rotate(90deg); }
+[dir="rtl"] .bn-social-help[open] > summary::before,
+[dir="rtl"] .bn-social-card__more[open] > summary::before { transform: rotate(-90deg); }
+.bn-social-card__more > summary { padding: var(--bn-a-s3) var(--bn-a-s4); }
+.bn-social-card__warning { margin: 0; padding: var(--bn-a-s3) var(--bn-a-s4) 0; }
 .bn-social-help__steps {
 	margin: var(--bn-a-s3) 0;
 	padding-inline-start: var(--bn-a-s5);

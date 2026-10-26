@@ -163,13 +163,12 @@ usort(
 
 
 // ── Viewer management capability (mirrors SpaceController permissions) ────────────
-// Remove member: owner/moderator or site admin. Change role: owner or site admin only.
-$bn_viewer_role   = $current_user_id > 0
+// Remove member: owner/moderator or site admin. Change role: can_change_roles(), the route's own check.
+$bn_viewer_role  = $current_user_id > 0
 	? $bn_member_svc->get_role( $space_id, $current_user_id )
 	: '';
-$bn_is_site_admin = $current_user_id > 0 && user_can( $current_user_id, 'manage_options' );
-$bn_can_remove    = $current_user_id > 0 && \BuddyNext\Spaces\SpaceRoles::can_moderate( $bn_viewer_role, $current_user_id );
-$bn_can_set_role  = $current_user_id > 0 && ( 'owner' === $bn_viewer_role || $bn_is_site_admin );
+$bn_can_remove   = $current_user_id > 0 && \BuddyNext\Spaces\SpaceRoles::can_moderate( $bn_viewer_role, $current_user_id );
+$bn_can_set_role = $bn_member_svc->can_change_roles( (int) $space_id, (int) $current_user_id );
 
 // "Joined via invite link" markers are visible to owners/moderators/admins only.
 // Fetched once for the whole roster (no per-row query) and only for a privileged
@@ -321,11 +320,12 @@ $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged', 'bn
 		aria-label="<?php esc_attr_e( 'Space members', 'buddynext' ); ?>"
 	>
 		<?php if ( ! empty( $bn_member_rows ) ) : ?>
+			<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_member_rows, 'user_id' ) ); ?>
 			<?php foreach ( $bn_member_rows as $member ) : ?>
 				<?php
 				$member_id     = (int) ( $member['user_id'] ?? 0 );
 				$member_name   = (string) ( $member['display_name'] ?? '' );
-				$member_handle = '@' . (string) ( $member['user_nicename'] ?? '' );
+				$member_handle = '@' . \BuddyNext\Core\PageRouter::member_handle( (int) ( $member['user_id'] ?? 0 ) );
 				$member_role   = (string) ( $member['role'] ?? 'member' );
 				$member_avatar = get_avatar_url( $member_id, array( 'size' => 128 ) );
 				$member_inits  = AvatarService::initials_for( $member_name );

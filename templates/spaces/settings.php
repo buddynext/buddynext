@@ -67,32 +67,13 @@ $bn_actor_id       = get_current_user_id();
 // panels' own "read-only for a moderator" comments were false (card 10264293210).
 $bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-own-space', array( 'space_id' => $space_id ) );
 
-// Services own every read/write below; the template holds no SQL. The
-// settings parts expect `$space` as an object carrying the joined
-// `category_name`/`category_slug`, so each fresh load runs through this
-// closure: SpaceService::get() (canonical hydrate + cache) enriched with the
-// category row via SpaceCategoryService, then cast to an object.
+// Services own every read/write below; the template holds no SQL. The settings
+// parts read `$space` as SpaceService::get_object() shapes it, with the category
+// name and slug resolved.
 $bn_space_service    = new \BuddyNext\Spaces\SpaceService();
 $bn_category_service = new \BuddyNext\Spaces\SpaceCategoryService();
 
-$bn_load_space = static function ( int $sid ) use ( $bn_space_service, $bn_category_service ): ?object {
-	$row = $bn_space_service->get( $sid );
-	if ( null === $row ) {
-		return null;
-	}
-	$row['category_name'] = null;
-	$row['category_slug'] = null;
-	if ( ! empty( $row['category_id'] ) ) {
-		$cat = $bn_category_service->get_by_id( (int) $row['category_id'] );
-		if ( null !== $cat ) {
-			$row['category_name'] = $cat['name'] ?? null;
-			$row['category_slug'] = $cat['slug'] ?? null;
-		}
-	}
-	return (object) $row;
-};
-
-$space = $bn_load_space( $space_id );
+$space = $bn_space_service->get_object( $space_id );
 
 if ( ! $space ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
@@ -343,7 +324,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		}
 
 		// Re-fetch fresh space data through the service (cache busted above).
-		$space = $bn_load_space( $space_id );
+		$space = $bn_space_service->get_object( $space_id );
 	}
 }
 
@@ -553,12 +534,13 @@ usort(
 		return strcasecmp( (string) ( $a['display_name'] ?? '' ), (string) ( $b['display_name'] ?? '' ) );
 	}
 );
+\BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_member_rows, 'user_id' ) );
 $space_members = array_map(
 	static fn( array $m ): object => (object) array(
 		'user_id'      => (int) ( $m['user_id'] ?? 0 ),
 		'role'         => (string) ( $m['role'] ?? 'member' ),
 		'display_name' => (string) ( $m['display_name'] ?? '' ),
-		'user_login'   => (string) ( $m['user_nicename'] ?? '' ),
+		'user_login'   => \BuddyNext\Core\PageRouter::member_handle( (int) ( $m['user_id'] ?? 0 ) ),
 	),
 	$bn_member_rows
 );
@@ -580,7 +562,7 @@ foreach ( (array) $bn_ban_rows as $bn_ban ) {
 	$space_bans[] = (object) array(
 		'user_id'      => $bn_ban_uid,
 		'display_name' => (string) $bn_ban_user->display_name,
-		'user_login'   => (string) $bn_ban_user->user_nicename,
+		'user_login'   => \BuddyNext\Core\PageRouter::member_handle( $bn_ban_uid ),
 		'reason'       => (string) ( is_array( $bn_ban ) ? ( $bn_ban['reason'] ?? '' ) : '' ),
 	);
 }
@@ -673,6 +655,24 @@ if ( $bn_can_invite ) {
 			array(
 				'slug'  => 'invite',
 				'label' => __( 'Invite link', 'buddynext' ),
+				'icon'  => 'link',
+			),
+		)
+	);
+}
+
+// Linked-to tab — shown only while the space is linked to something (a course, a
+// group, a store), so the typical owner never sees an empty tab. Before Danger zone.
+$bn_space_links = \BuddyNext\Spaces\SpaceLinksController::describe( $space_id );
+if ( $bn_space_links ) {
+	array_splice(
+		$builtin_tabs,
+		count( $builtin_tabs ) - 1,
+		0,
+		array(
+			array(
+				'slug'  => 'links',
+				'label' => __( 'Linked to', 'buddynext' ),
 				'icon'  => 'link',
 			),
 		)
@@ -958,6 +958,16 @@ foreach ( $builtin_tabs as $bn_t ) {
 						// SSR the current link so the panel renders its real state with
 						// no loading flash; create/reset reload the tab to re-render.
 						'invite_link' => ( new \BuddyNext\Spaces\SpaceInviteLinkService() )->get( $space_id ),
+					),
+				),
+			),
+			'links'         => array(
+				'parts/space-settings-panel-links.php',
+				array(
+					'space'          => $space,
+					'links_settings' => array(
+						'space_id' => $space_id,
+						'links'    => $bn_space_links,
 					),
 				),
 			),

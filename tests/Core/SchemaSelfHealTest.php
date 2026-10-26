@@ -184,6 +184,8 @@ class SchemaSelfHealTest extends \WP_UnitTestCase {
 		// maybe_upgrade() proceeds while one is pending (that is its whole point), so
 		// the no-op invariant only holds once the stamp is current too.
 		update_option( 'buddynext_profile_flag_convergence', $this->current_flag_convergence() );
+		// Likewise the email-default wording marker: a pending wording refresh is real work.
+		update_option( 'buddynext_email_defaults', ( new \ReflectionClass( Installer::class ) )->getConstant( 'EMAIL_DEFAULTS_VERSION' ) );
 
 		$queries_before = get_num_queries();
 		Installer::maybe_upgrade();

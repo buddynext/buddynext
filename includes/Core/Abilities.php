@@ -31,6 +31,7 @@ class Abilities {
 		'buddynext-feed/edit-any-post',
 		'buddynext-feed/announce',
 		'buddynext-feed/schedule-post',
+		'buddynext-feed/interact',
 		// Enforced by PermissionService::ROLE_MAP but registered nowhere, so it could not be
 		// granted or revoked through the Abilities API or the Roles tab, and RolesTab::handle_save()
 		// silently dropped it if it was ever submitted. The only lever was the buddynext_role_map
@@ -47,6 +48,7 @@ class Abilities {
 		'buddynext-connections/connect',
 		'buddynext-moderation/report',
 		'buddynext-moderation/review-queue',
+		'buddynext-moderation/dismiss',
 		'buddynext-moderation/issue-strike',
 		'buddynext-moderation/suspend-user',
 		'buddynext-moderation/suspend-indefinitely',

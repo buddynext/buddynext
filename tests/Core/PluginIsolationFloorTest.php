@@ -103,7 +103,7 @@ class PluginIsolationFloorTest extends \WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'buddynext/buddynext.php', $content );
 		$this->assertStringContainsString( 'wpmediaverse/wpmediaverse.php', $content );
-		$this->assertStringContainsString( 'array_diff( $plugins, $strip )', $content );
+		$this->assertStringContainsString( 'array_diff( $names, $strip )', $content );
 	}
 
 	/**
@@ -119,7 +119,7 @@ class PluginIsolationFloorTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'get_file_data', $content );
 		$this->assertStringContainsString( '$required_slugs', $content );
 		$this->assertMatchesRegularExpression(
-			'/required_slugs.*array_diff\(\s*\$plugins,\s*\$strip\s*\)/s',
+			'/required_slugs.*array_diff\(\s*\$names,\s*\$strip\s*\)/s',
 			$content,
 			'The dependency fail-safe must run BEFORE the final strip diff, or a stripped parent still fatals its kept dependant.'
 		);
@@ -138,7 +138,7 @@ class PluginIsolationFloorTest extends \WP_UnitTestCase {
 		$content = $this->mu_plugin_source();
 
 		// The scan set is kept MINUS the essentials floor.
-		$this->assertStringContainsString( 'array_diff( array_diff( $plugins, $strip ), $essentials )', $content );
+		$this->assertStringContainsString( 'array_diff( array_diff( $names, $strip ), $essentials )', $content );
 		// And it does NOT reach for a persistent option cache / front-end write.
 		$this->assertStringNotContainsString( 'buddynext_isolation_required_slugs', $content );
 	}

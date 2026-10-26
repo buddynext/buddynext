@@ -102,13 +102,17 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 	// message textarea, so this input had no accessible name at all - a screen
 	// reader reached a file picker announced as an unnamed button, and it is
 	// visually hidden, so there was nothing on screen to infer it from either.
+	// The picker offers what MediaVerse's upload route accepts, never a BN copy of it.
+	$bn_dm_accept = implode( ',', \BuddyNext\Media\MediaClient::dm_attachment_types() );
 	?>
 	<input
 		type="file"
 		id="bn-dm-file"
 		class="bn-visually-hidden"
-		accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
-		aria-label="<?php esc_attr_e( 'Attach an image or video', 'buddynext' ); ?>"
+		<?php if ( '' !== $bn_dm_accept ) : ?>
+		accept="<?php echo esc_attr( $bn_dm_accept ); ?>"
+		<?php endif; ?>
+		aria-label="<?php esc_attr_e( 'Attach a photo, video or audio file', 'buddynext' ); ?>"
 		data-wp-on--change="actions.onFileSelected"
 	>
 

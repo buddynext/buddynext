@@ -30,6 +30,9 @@ namespace BuddyNext\Integrations;
 
 /**
  * Process-wide registry of owner-controllable integrations.
+ *
+ * @api
+ * @since 1.2.7
  */
 final class IntegrationRegistry {
 

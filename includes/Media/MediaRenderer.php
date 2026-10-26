@@ -271,6 +271,11 @@ class MediaRenderer {
 			}
 		}
 
+		// Players follow the engine's download answer: the native save menu here,
+		// and the lightbox reads data-no-download before its own fetch returns.
+		$no_download      = in_array( $type, array( 'video', 'audio' ), true ) && ! MediaClient::downloads_allowed( (int) $id );
+		$no_download_attr = $no_download ? ' data-no-download="1"' : '';
+
 		if ( 'video' === $type ) {
 			// Only paint a poster <img> when the engine produced a real
 			// thumbnail. With no poster (e.g. no server-side frame extraction)
@@ -281,7 +286,7 @@ class MediaRenderer {
 				: '';
 
 			return '<button type="button" class="bn-media-tile bn-media-tile--video' . ( '' === $poster ? ' bn-media-tile--no-poster' : '' ) . '" '
-				. 'data-bn-media-id="' . $id . '" data-media-type="video" data-media-src="' . $full . '"' . $more_attr . $post_attr . ' '
+				. 'data-bn-media-id="' . $id . '" data-media-type="video" data-media-src="' . $full . '"' . $more_attr . $post_attr . $no_download_attr . ' '
 				. 'aria-label="' . esc_attr__( 'Play video', 'buddynext' ) . '">'
 				. $poster
 				. '<span class="bn-media-tile__play" aria-hidden="true">' . IconService::render( 'play', 'bn-media-tile__play-icon' ) . '</span>'
@@ -301,11 +306,11 @@ class MediaRenderer {
 			// same spot" is unchanged — and so both the collage and single-post-card
 			// grid layouts, which target .bn-media-tile__audio-icon directly, are
 			// untouched. data-media-src gives the lightbox the file to load.
-			return '<div class="bn-media-tile bn-media-tile--audio" data-bn-media-id="' . $id . '" data-media-type="audio" data-media-src="' . $full . '"' . $post_attr . '>'
+			return '<div class="bn-media-tile bn-media-tile--audio" data-bn-media-id="' . $id . '" data-media-type="audio" data-media-src="' . $full . '"' . $post_attr . $no_download_attr . '>'
 				. '<button type="button" class="bn-media-tile__audio-icon bn-media-tile__audio-open" aria-label="' . esc_attr__( 'Open audio details', 'buddynext' ) . '">' . IconService::render( 'music', '' ) . '</button>'
 				. '<div class="bn-media-tile__audio-body">'
 				. $audio_title
-				. '<audio class="bn-media-tile__audio-player" controls preload="none" src="' . $full . '"></audio>'
+				. '<audio class="bn-media-tile__audio-player" controls' . ( $no_download ? ' controlsList="nodownload"' : '' ) . ' preload="none" src="' . $full . '"></audio>'
 				. '</div>'
 				. '</div>';
 		}

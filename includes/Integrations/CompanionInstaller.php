@@ -63,7 +63,7 @@ final class CompanionInstaller {
 		$item_id = (int) ( $config['item_id'] ?? 0 );
 		$key     = (string) ( $config['key'] ?? '' );
 		if ( $item_id <= 0 || '' === $key ) {
-			return new WP_Error( 'buddynext_no_item', __( 'This integration cannot be installed automatically. Visit the store.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_no_item', __( 'This integration cannot be installed automatically. Visit the store.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		// Installed but inactive → just activate it (idempotent, never re-download).
@@ -141,7 +141,7 @@ final class CompanionInstaller {
 
 		return is_wp_error( $last )
 			? $last
-			: new WP_Error( 'buddynext_store_unreachable', __( 'The store did not respond after a retry. Try again.', 'buddynext' ) );
+			: new WP_Error( 'buddynext_store_unreachable', __( 'The store did not respond after a retry. Try again.', 'buddynext' ), array( 'status' => 502 ) );
 	}
 
 	/**
@@ -165,12 +165,12 @@ final class CompanionInstaller {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store to activate the license. Try again.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store to activate the license. Try again.', 'buddynext' ), array( 'status' => 502 ) );
 		}
 
 		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $body ) ) {
-			return new WP_Error( 'buddynext_store_bad_response', __( 'The store returned an unexpected response while activating the license.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_store_bad_response', __( 'The store returned an unexpected response while activating the license.', 'buddynext' ), array( 'status' => 502 ) );
 		}
 
 		$status = (string) ( $body['license'] ?? '' );
@@ -188,7 +188,8 @@ final class CompanionInstaller {
 				/* translators: %s: the store's activation error reason. */
 				__( 'The store would not activate this free license for your site (reason: %s). This is a store-side license configuration issue, not a site error.', 'buddynext' ),
 				$reason
-			)
+			),
+			array( 'status' => 502 )
 		);
 	}
 
@@ -210,23 +211,23 @@ final class CompanionInstaller {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store. Try again.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_store_unreachable', __( 'Could not reach the store. Try again.', 'buddynext' ), array( 'status' => 502 ) );
 		}
 
 		$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $body ) ) {
-			return new WP_Error( 'buddynext_store_bad_response', __( 'The store returned an unexpected response.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_store_bad_response', __( 'The store returned an unexpected response.', 'buddynext' ), array( 'status' => 502 ) );
 		}
 
 		$package = (string) ( $body['download_link'] ?? ( $body['package'] ?? '' ) );
 		if ( '' === $package ) {
-			return new WP_Error( 'buddynext_no_package', __( 'The store did not return a download for this plugin.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_no_package', __( 'The store did not return a download for this plugin.', 'buddynext' ), array( 'status' => 502 ) );
 		}
 
 		// Lock the download to the store host — never follow a redirect off-domain.
 		$host = (string) wp_parse_url( $package, PHP_URL_HOST );
 		if ( '' === $host || ! ( 'wbcomdesigns.com' === $host || str_ends_with( $host, '.wbcomdesigns.com' ) ) ) {
-			return new WP_Error( 'buddynext_bad_package_host', __( 'The download URL was not on the trusted store host.', 'buddynext' ) );
+			return new WP_Error( 'buddynext_bad_package_host', __( 'The download URL was not on the trusted store host.', 'buddynext' ), array( 'status' => 502 ) );
 		}
 
 		return $package;
@@ -269,7 +270,8 @@ final class CompanionInstaller {
 							__( 'The store rejected the download (HTTP %1$d: %2$s). This is a store-side license/entitlement issue.', 'buddynext' ),
 							$code,
 							'' !== $reason ? mb_substr( $reason, 0, 120 ) : __( 'no reason given', 'buddynext' )
-						)
+						),
+						array( 'status' => 502 )
 					);
 				}
 			}

@@ -53,7 +53,7 @@ class DesignTokenReferenceTest extends WP_UnitTestCase {
 			$this->files( 'templates', array( 'php' ) ),
 			$this->files( 'blocks', array( 'php', 'js' ) ),
 			$this->files( 'assets/js', array( 'js' ) ),
-			array( dirname( __DIR__, 2 ) . '/buddynext.php' )
+			array( dirname( __DIR__, 2 ) . '/buddynext.php', dirname( __DIR__, 2 ) . '/bootstrap.php' )
 		);
 		foreach ( $sources as $file ) {
 			$text = (string) file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents

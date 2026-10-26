@@ -147,6 +147,10 @@ class WPMediaVerseBridge {
 		// profile.
 		add_filter( 'mvs_user_profile_url', array( $this, 'member_profile_url' ), 10, 2 );
 
+		// The DM inbox warms its participants in one pass; prime their avatars with
+		// it so an avatar plugin (Jetonomy) costs one query, not one per row.
+		add_action( 'mvs_users_primed', array( \BuddyNext\Profile\AvatarService::class, 'prime' ), 10, 1 );
+
 		// Space albums decide media privacy themselves — opt out of the engine's
 		// album-privacy inheritance for them.
 		add_filter( 'mvs_album_inherit_privacy', array( $this, 'skip_inherit_for_space_albums' ), 10, 2 );
@@ -358,8 +362,14 @@ class WPMediaVerseBridge {
 		add_filter(
 			'buddynext_integration_card_types',
 			static function ( array $types ): array {
-				$types['media'] = array( 'label' => __( 'Media', 'buddynext' ), 'icon' => 'image' );
-				$types['document'] = array( 'label' => __( 'Document', 'buddynext' ), 'icon' => 'file-text' );
+				$types['media']    = array(
+					'label' => __( 'Media', 'buddynext' ),
+					'icon'  => 'image',
+				);
+				$types['document'] = array(
+					'label' => __( 'Document', 'buddynext' ),
+					'icon'  => 'file-text',
+				);
 				return $types;
 			}
 		);
@@ -642,6 +652,12 @@ class WPMediaVerseBridge {
 		return (array) ( $this->hydrate_media_preview( array( 'link_preview' => $meta ) )['link_preview'] ?? $meta );
 	}
 
+	/**
+	 * Fill a media card's link preview from the MediaVerse item it points at.
+	 *
+	 * @param array $args Post args carrying `link_preview` with a `media_id`.
+	 * @return array The args, with the preview hydrated when the item resolves.
+	 */
 	private function hydrate_media_preview( array $args ): array {
 		$link     = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
 		$media_id = (int) ( $link['media_id'] ?? 0 );
@@ -3480,6 +3496,10 @@ class WPMediaVerseBridge {
 	 * @return void
 	 */
 	public function withdraw_lightbox_comment( $comment_id ): void {
+		// Switched to another site of a network: the community tables are not there.
+		if ( ! buddynext_is_community_site() ) {
+			return;
+		}
 		$comment  = get_comment( (int) $comment_id );
 		$media_id = $comment ? (int) get_comment_meta( (int) $comment->comment_ID, 'mvs_media_id', true ) : 0;
 		if ( ! $comment || $media_id <= 0 || ! function_exists( 'buddynext_service' ) ) {

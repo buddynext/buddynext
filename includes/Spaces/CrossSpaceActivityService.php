@@ -320,7 +320,7 @@ class CrossSpaceActivityService {
 		// Prime the whole set's user + usermeta cache in one pass so the loop below
 		// reads from cache instead of firing get_userdata() per row — a 20-row page
 		// over 5 spaces was issuing ~21 user queries (card 10276234812).
-		cache_users( $ids );
+		\BuddyNext\Profile\AvatarService::prime( $ids );
 
 		$avatars = new AvatarService();
 		$map     = array();

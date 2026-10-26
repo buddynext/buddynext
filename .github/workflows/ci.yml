@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # CI runs at release, not per fix: fixes on a version branch are checked locally,
+  # and the release step runs this workflow on that branch (gh workflow run CI --ref 1.x.y)
+  # before it merges. master still runs on every push.
   push:
-    branches: [ master, '1.*' ]  # version branches get CI on every push: fixes land there without a PR
+    branches: [ master ]
   pull_request:
   workflow_dispatch:
 
@@ -17,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: [ '8.1', '8.2', '8.3', '8.4' ]
+        php: [ '8.1', '8.2', '8.3', '8.4', '8.5' ]
     steps:
       - uses: actions/checkout@v4
       - name: Setup PHP ${{ matrix.php }}
@@ -30,7 +33,7 @@ jobs:
           fail=0
           while IFS= read -r -d '' f; do
             php -l "$f" >/dev/null 2>/tmp/lint.err || { echo "::error file=$f::$(cat /tmp/lint.err)"; fail=1; }
-          done < <(find buddynext.php includes templates blocks -name '*.php' -print0)
+          done < <(find buddynext.php bootstrap.php includes templates blocks -name '*.php' -print0)
           exit $fail
 
   static-analysis:
@@ -83,6 +86,15 @@ jobs:
         run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1:3306 latest true
       - name: PHPUnit
         run: vendor/bin/phpunit
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+      # The multisite classes skip on a single site, so run them again as a network.
+      # Only these: the full suite under WP_MULTISITE has known single-site failures.
+      - name: PHPUnit (multisite classes)
+        run: |
+          for f in $(grep -rl 'is_multisite()' tests | xargs grep -l markTestSkipped | sort); do
+            WP_MULTISITE=1 vendor/bin/phpunit "$f" || exit 1
+          done
         env:
           WP_TESTS_DIR: /tmp/wordpress-tests-lib
 

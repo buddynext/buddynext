@@ -455,19 +455,12 @@ $bn_ctx = wp_json_encode(
 					<?php esc_html_e( 'Back to messages', 'buddynext' ); ?>
 				</a>
 			</div>
-		<?php else : ?>
+		<?php elseif ( ! empty( $convs['pinned'] ) || ! empty( $convs['recent'] ) || 'all' !== $active_tab ) : ?>
+			<?php // No pane placeholder for a member with no conversations at all: the rail already carries the one empty state and its New message action. ?>
 			<div class="bn-dm-empty">
 				<span class="bn-dm-empty__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
 				<h2 class="bn-dm-empty__title"><?php esc_html_e( 'Your messages', 'buddynext' ); ?></h2>
-				<p class="bn-dm-empty__body">
-					<?php
-					echo esc_html(
-						empty( $convs['pinned'] ) && empty( $convs['recent'] ) && 'all' === $active_tab
-							? __( 'Your conversations will open here.', 'buddynext' )
-							: __( 'Select a conversation or start a new one.', 'buddynext' )
-					);
-					?>
-				</p>
+				<p class="bn-dm-empty__body"><?php esc_html_e( 'Select a conversation or start a new one.', 'buddynext' ); ?></p>
 			</div>
 		<?php endif; ?>
 	</section>

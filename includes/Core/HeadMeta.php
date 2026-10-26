@@ -384,7 +384,7 @@ final class HeadMeta {
 
 		printf( "<meta property=\"og:type\" content=\"%s\" />\n", esc_attr( $type ) );
 		printf( "<meta property=\"og:url\" content=\"%s\" />\n", esc_url( $url ) );
-		printf( "<meta property=\"og:site_name\" content=\"%s\" />\n", esc_attr( get_bloginfo( 'name' ) ) );
+		printf( "<meta property=\"og:site_name\" content=\"%s\" />\n", esc_attr( buddynext_site_name() ) );
 
 		if ( '' !== $title ) {
 			printf( "<meta property=\"og:title\" content=\"%s\" />\n", esc_attr( $title ) );

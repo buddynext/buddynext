@@ -331,6 +331,9 @@ function normalizeMedia( msg ) {
 			url: s.url || s.permalink || '',
 			downloadUrl: s.download_url || s.url || s.permalink || '',
 			title: s.title || '',
+			// The item's own answer when the engine sends one; a just-sent item
+			// otherwise follows the site switch, as its per-item flag is fresh.
+			noDownload: false === s.allow_download || false === messagesStore.state.downloads,
 		};
 	}
 	if ( msg.attachment && typeof msg.attachment === 'object' ) {
@@ -394,6 +397,31 @@ function siteClock( date ) {
  * @param {number} viewer Viewing user ID.
  * @return {HTMLElement} The bubble node.
  */
+/**
+ * The play overlay on a video tile, as MediaRenderer prints it (assets/icons/play.svg).
+ *
+ * @return {HTMLElement} Overlay span.
+ */
+function buildPlayOverlay() {
+	const svgNs = 'http://www.w3.org/2000/svg';
+	const svg = document.createElementNS( svgNs, 'svg' );
+	svg.setAttribute( 'class', 'bn-icon bn-media-tile__play-icon' );
+	svg.setAttribute( 'viewBox', '0 0 24 24' );
+	svg.setAttribute( 'fill', 'none' );
+	svg.setAttribute( 'stroke', 'currentColor' );
+	svg.setAttribute( 'stroke-width', '2' );
+	svg.setAttribute( 'stroke-linecap', 'round' );
+	svg.setAttribute( 'stroke-linejoin', 'round' );
+	const path = document.createElementNS( svgNs, 'path' );
+	path.setAttribute( 'd', 'M6 3 L20 12 L6 21 Z' );
+	svg.appendChild( path );
+	const span = document.createElement( 'span' );
+	span.className = 'bn-media-tile__play';
+	span.setAttribute( 'aria-hidden', 'true' );
+	span.appendChild( svg );
+	return span;
+}
+
 function buildMessageNode( msg, viewer ) {
 	const isMine = parseInt( msg.sender_id, 10 ) === parseInt( viewer, 10 );
 	const body   = msg.body != null ? msg.body : ( msg.content || '' );
@@ -413,7 +441,29 @@ function buildMessageNode( msg, viewer ) {
 		const wrapM = document.createElement( 'div' );
 		wrapM.className = 'bn-dm-msg__media';
 		wrapM.dataset.type = media.type;
-		if ( ( 'image' === media.type || 'video' === media.type ) && media.id && ( media.thumbnail || media.url ) ) {
+		if ( 'video' === media.type && media.id && media.url ) {
+			// Mirrors templates/parts/dm-message.php: a poster only when the engine
+			// made one (a video URL is not an image), the play overlay either way.
+			const tile = document.createElement( 'button' );
+			tile.type = 'button';
+			tile.className = 'bn-media-tile bn-media-tile--video' + ( media.thumbnail ? '' : ' bn-media-tile--no-poster' );
+			tile.setAttribute( 'data-bn-media-id', String( media.id ) );
+			tile.setAttribute( 'data-media-type', 'video' );
+			tile.setAttribute( 'data-media-src', media.url );
+			tile.setAttribute( 'data-bn-dm', '1' );
+			tile.setAttribute( 'aria-label', t( 'playVideo', 'Play video' ) );
+			if ( media.noDownload ) { tile.setAttribute( 'data-no-download', '1' ); }
+			if ( media.thumbnail ) {
+				const poster = document.createElement( 'img' );
+				poster.className = 'bn-media-tile__img';
+				poster.src = media.thumbnail;
+				poster.alt = media.title || '';
+				poster.loading = 'lazy';
+				tile.appendChild( poster );
+			}
+			tile.appendChild( buildPlayOverlay() );
+			wrapM.appendChild( tile );
+		} else if ( 'image' === media.type && media.id && ( media.thumbnail || media.url ) ) {
 			// Canonical BN media tile so the shared lightbox
 			// (assets/js/media/lightbox.js) opens it IN-PAGE. data-bn-dm flags it
 			// as private DM media so the lightbox hides the social chrome.
@@ -424,6 +474,7 @@ function buildMessageNode( msg, viewer ) {
 			tile.setAttribute( 'data-media-type', media.type );
 			tile.setAttribute( 'data-media-src', media.url || media.thumbnail );
 			tile.setAttribute( 'data-bn-dm', '1' );
+			if ( media.noDownload ) { tile.setAttribute( 'data-no-download', '1' ); }
 			const img = document.createElement( 'img' );
 			img.className = 'bn-media-tile__img';
 			img.src = media.thumbnail || media.url;
@@ -436,6 +487,7 @@ function buildMessageNode( msg, viewer ) {
 			audio.className = 'bn-dm-msg__audio';
 			audio.controls = true;
 			audio.preload = 'none';
+			if ( media.noDownload ) { audio.setAttribute( 'controlsList', 'nodownload' ); }
 			audio.src = media.url;
 			wrapM.appendChild( audio );
 		} else if ( media.url ) {
@@ -1653,7 +1705,10 @@ const messagesStore = store( 'buddynext/messages', {
 				}
 				const media = res.data || {};
 				ctx.attachmentId = parseInt( media.id || media.media_id || 0, 10 ) || 0;
-				const thumb = media.thumbnail || media.thumbnail_url || media.thumb_large || media.source_url || media.file_url || media.url || '';
+				// The file's own URL is a usable preview only for an image; a video or
+				// audio URL in the chip's <img> is a broken image.
+				const isImage = 0 === file.type.indexOf( 'image/' );
+				const thumb = media.thumbnail || media.thumbnail_url || media.thumb_large || ( isImage ? ( media.source_url || media.file_url || media.url ) : '' ) || '';
 				if ( thumb ) {
 					ctx.attachmentPreview = thumb;
 				}

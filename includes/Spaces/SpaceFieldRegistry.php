@@ -140,6 +140,9 @@ final class SpaceFieldRegistry {
 			'section'        => isset( $args['section'] ) ? sanitize_key( (string) $args['section'] ) : 'general',
 			'sort_order'     => isset( $args['sort_order'] ) ? (int) $args['sort_order'] : 10,
 			'options'        => isset( $args['options'] ) && is_array( $args['options'] ) ? $args['options'] : array(),
+			// Optional callable( int $space_id ): array, for options that depend on the space
+			// (its tabs). Read through options_for(); `options` is the fallback.
+			'options_for'    => isset( $args['options_for'] ) && is_callable( $args['options_for'] ) ? $args['options_for'] : null,
 			'is_required'    => ! empty( $args['is_required'] ),
 			// Text/textarea fields are scanned for banned words on save (card
 			// 10264294340). A field that is itself safeguard config, not member prose
@@ -202,6 +205,11 @@ final class SpaceFieldRegistry {
 				'sanitize_callback' => static function ( $value ) use ( $field ) {
 					// WP stores whatever this returns, so an invalid value (WP_Error)
 					// becomes '' (unset → field default), never a serialized error.
+					// Per-space options cannot be checked here (no space id); save_for_space()
+					// already did. The reader (landing_tab) re-validates on every load.
+					if ( null !== $field['options_for'] ) {
+						return sanitize_key( (string) $value );
+					}
 					$clean = FieldType::sanitize( $field, $value );
 					return is_wp_error( $clean ) ? '' : $clean;
 				},
@@ -215,6 +223,20 @@ final class SpaceFieldRegistry {
 				},
 			)
 		);
+	}
+
+	/**
+	 * A field with its options resolved for one space.
+	 *
+	 * @param array<string,mixed> $field    Registered field.
+	 * @param int                 $space_id Space id.
+	 * @return array<string,mixed> The field, `options` replaced when it has an `options_for` callable.
+	 */
+	public function options_for( array $field, int $space_id ): array {
+		if ( null !== $field['options_for'] ) {
+			$field['options'] = ( $field['options_for'] )( $space_id );
+		}
+		return $field;
 	}
 
 	/**
@@ -422,7 +444,7 @@ final class SpaceFieldRegistry {
 				// Through the engine, never $field['options'] directly: a live-optioned
 				// type (member_type_multiselect) stores no options at registration, so
 				// the raw definition would advertise an empty pick list to the client.
-				'options'     => FieldType::choices( $field ),
+				'options'     => FieldType::choices( $this->options_for( $field, $space_id ) ),
 				'section'     => $field['section'],
 				'sort_order'  => $field['sort_order'],
 				'visibility'  => $field['visibility'],
@@ -525,7 +547,7 @@ final class SpaceFieldRegistry {
 				continue;
 			}
 
-			$clean = FieldType::sanitize( $field, $raw );
+			$clean = FieldType::sanitize( $this->options_for( $field, $space_id ), $raw );
 
 			// FieldType::sanitize returns a WP_Error for an invalid value (bad
 			// select option, malformed email/url/number, …).

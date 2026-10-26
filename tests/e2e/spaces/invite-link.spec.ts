@@ -12,7 +12,7 @@ import { resolveOtherMemberSlug } from '../_fixtures/precondition';
  *   1. The owner opens a PRIVATE space's Settings → Invite link tab and clicks
  *      "Create invite link" (actions.createInviteLink → POST /invite-link). The
  *      readonly URL field appears with a usable link.
- *   2. A second member opens that link and clicks "Join space" — the hero shows
+ *   2. A second member opens that link and clicks "Join" — the hero shows
  *      the direct-join CTA (not "Request to join"), and the join is immediate.
  *   3. EFFECT (REST truth): the second member is now an ACTIVE member of the
  *      private space, with no approval step.
@@ -81,7 +81,7 @@ test.describe('spaces / invite link (J-611)', () => {
 			// The hero offers a DIRECT join (not "Request to join") because the link
 			// unlocked it — click it and the join is immediate.
 			const cta = second.page.locator(joinCta).first();
-			await expect(cta, 'expected a direct "Join space" CTA on the invite-linked space').toBeVisible({ timeout: 10_000 });
+			await expect(cta, 'expected a direct "Join" CTA on the invite-linked space').toBeVisible({ timeout: 10_000 });
 			await cta.click();
 
 			// 3. EFFECT: REST truth — the second member is now an active member.

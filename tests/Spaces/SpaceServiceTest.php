@@ -177,6 +177,23 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		$this->assertFalse( get_option( "bn_space_{$space_id}_require_join_approval" ) );
 	}
 
+	public function test_delete_clears_the_space_meta_cache(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Cached',
+				'slug' => 'cached',
+				'type' => 'open',
+			)
+		);
+		update_metadata( 'bn_space', $space_id, 'bn_test_key', 'kept' );
+		get_metadata( 'bn_space', $space_id ); // Prime the meta cache.
+
+		$this->service->delete( $space_id, $this->owner_id );
+
+		$this->assertFalse( wp_cache_get( $space_id, 'bn_space_meta' ), 'A deleted space leaves no cached meta behind.' );
+	}
+
 	public function test_delete_by_non_owner_returns_error(): void {
 		$space_id   = $this->service->create(
 			$this->owner_id,

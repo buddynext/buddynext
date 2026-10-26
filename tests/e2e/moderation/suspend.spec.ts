@@ -44,7 +44,12 @@ async function liftTarget(uid: number): Promise<void> {
  */
 async function openRowMenu(page: Page, row: Locator): Promise<Locator> {
     await expandRow(row);
-    await row.locator('.bn-more-btn').click();
+    // Scroll first and let it settle: more-menu.js closes open menus on any scroll, and the
+    // scroll Playwright does inside click() lands after the menu has opened.
+    const btn = row.locator('.bn-more-btn');
+    await btn.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
+    await btn.click();
     // more-menu.js moves the open dropdown to <body> (so the table cannot clip it): look
     // for it on the page, not inside the row.
     const menu = page.locator('.bn-more-dropdown.is-open[role="menu"]');

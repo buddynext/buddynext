@@ -51,8 +51,8 @@ export function t( k, fb ) {
 export function fmt( tpl, ...vals ) {
 	let i = 0;
 	return String( null == tpl ? '' : tpl ).replace(
-		/%(?:(\d+)\$)?[sd]/g,
-		( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' )
+		/%%|%(?:(\d+)\$)?[sd]/g,
+		( m, pos ) => ( '%%' === m ? '%' : String( vals[ pos ? pos - 1 : i++ ] ?? '' ) )
 	);
 }
 

@@ -234,13 +234,12 @@ class MembersSidebarProvider {
 			if ( ! $uid ) {
 				continue;
 			}
-			$user = get_userdata( $uid );
 			buddynext_get_template(
 				'parts/sidebar-member-row.php',
 				array(
 					'row_user_id' => $uid,
 					'row_name'    => (string) ( $row['display_name'] ?? '' ),
-					'row_handle'  => $user ? (string) $user->user_nicename : '',
+					'row_handle'  => PageRouter::member_handle( $uid ),
 					'row_url'     => PageRouter::profile_url( $uid ),
 					'row_avatar'  => (string) ( $row['avatar_url'] ?? '' ),
 					'row_tone'    => \BuddyNext\Profile\AvatarService::identity_tone_for( $uid ),
@@ -266,7 +265,6 @@ class MembersSidebarProvider {
 		if ( ! $uid ) {
 			return;
 		}
-		$user      = get_userdata( $uid );
 		$followers = (int) ( $member['follower_count'] ?? 0 );
 		if ( $followers > 0 ) {
 			/* translators: %s: formatted follower count. */
@@ -280,7 +278,7 @@ class MembersSidebarProvider {
 			array(
 				'row_user_id' => $uid,
 				'row_name'    => (string) ( $member['display_name'] ?? '' ),
-				'row_handle'  => $user ? (string) $user->user_nicename : '',
+				'row_handle'  => PageRouter::member_handle( $uid ),
 				'row_url'     => PageRouter::profile_url( $uid ),
 				'row_avatar'  => (string) ( $member['avatar_url'] ?? '' ),
 				'row_tone'    => \BuddyNext\Profile\AvatarService::identity_tone_for( $uid ),

@@ -1072,7 +1072,7 @@ class FieldType {
 				</div>',
 				esc_attr( $name ),
 				esc_attr( (string) $value ),
-				esc_html__( 'This field needs BuddyNext Pro to edit. Your saved value is kept.', 'buddynext' )
+				esc_html__( 'This field cannot be edited here. Your saved value is kept.', 'buddynext' )
 			);
 		}
 
@@ -1332,8 +1332,10 @@ class FieldType {
 		unset( $field );
 		$current = sanitize_key( (string) $value );
 
-		// Already classified — read-only badge, no editable control, nothing resubmitted.
-		if ( '' !== $current ) {
+		// A type the community assigned (not self-selectable) is a read-only badge with
+		// nothing resubmitted. Same rule as MemberTypeService::may_change_own_type(): a
+		// member whose type is self-selectable gets the choices below, current one ticked.
+		if ( '' !== $current && ! isset( self::member_type_self_select_options()[ $current ] ) ) {
 			$all   = self::member_type_options();
 			$label = $all[ $current ] ?? $current;
 			return sprintf(
@@ -1343,7 +1345,7 @@ class FieldType {
 			);
 		}
 
-		// Unclassified — offer only the types a member may self-assign.
+		// Offer only the types a member may self-assign, the current one ticked.
 		$options = self::member_type_self_select_options();
 		if ( array() === $options ) {
 			return '<span class="bn-field-value">' . esc_html__( 'No member types are available to choose.', 'buddynext' ) . '</span>';
@@ -1354,11 +1356,12 @@ class FieldType {
 		foreach ( $options as $slug => $label ) {
 			$opt_id = $id . '-' . (string) $i;
 			$html  .= sprintf(
-				'<label class="bn-field-radio" for="%1$s"><input type="radio" id="%1$s" name="%2$s" value="%3$s" /> <span>%4$s</span></label>',
+				'<label class="bn-field-radio" for="%1$s"><input type="radio" id="%1$s" name="%2$s" value="%3$s"%5$s /> <span>%4$s</span></label>',
 				esc_attr( $opt_id ),
 				esc_attr( $name ),
 				esc_attr( $slug ),
-				esc_html( $label )
+				esc_html( $label ),
+				checked( $slug, $current, false )
 			);
 			++$i;
 		}

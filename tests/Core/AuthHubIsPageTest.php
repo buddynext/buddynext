@@ -70,6 +70,18 @@ class AuthHubIsPageTest extends WP_UnitTestCase {
 		$this->assertSame( $this->login_page, get_queried_object_id() );
 	}
 
+	public function test_the_singular_hub_has_a_post_on_wp(): void {
+		global $wp_query, $post;
+		$wp_query->post = null;
+		$post           = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the state the rewrite leaves.
+		$this->align_for_hub( 'auth' );
+
+		// Divi's dynamic assets read $post->ID on `wp` whenever is_singular() is true.
+		$this->assertInstanceOf( \WP_Post::class, $post );
+		$this->assertSame( $this->login_page, $post->ID );
+		$this->assertSame( $post, $wp_query->post );
+	}
+
 	public function test_a_hub_with_no_mapped_page_is_left_untouched(): void {
 		delete_option( 'buddynext_page_auth' );
 		$this->align_for_hub( 'auth' );

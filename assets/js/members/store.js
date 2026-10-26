@@ -14,7 +14,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnBlockConfirm, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnBlockConfirm, bnConfirmDisconnect, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 
@@ -178,6 +178,8 @@ function syncPager( total ) {
 function buildKebabIcon() {
 	const svgNs = 'http://www.w3.org/2000/svg';
 	const svg = document.createElementNS( svgNs, 'svg' );
+	// Same class as the server-rendered icon, so both share its sizing and flex-shrink: 0.
+	svg.setAttribute( 'class', 'bn-icon' );
 	svg.setAttribute( 'width',  '16' );
 	svg.setAttribute( 'height', '16' );
 	svg.setAttribute( 'viewBox', '0 0 24 24' );
@@ -447,6 +449,11 @@ function paintConnectBtn( btn, state ) {
 	btn.textContent = s === 'accepted' ? t( 'connected', 'Connected' ) : ( s === 'pending-sent' ? t( 'requested', 'Requested' ) : t( 'connect', 'Connect' ) );
 	btn.setAttribute( 'data-variant', 'secondary' );
 	btn.setAttribute( 'data-state', s );
+	if ( s === 'accepted' ) {
+		btn.setAttribute( 'aria-haspopup', 'dialog' );
+	} else {
+		btn.removeAttribute( 'aria-haspopup' );
+	}
 }
 
 /* -- Delegated card handlers (drive JS-built cards from onGridClick) ----- *
@@ -510,6 +517,9 @@ async function delegatedConnect( card, btn, cfg ) {
 	}
 
 	if ( cur === 'pending-sent' || cur === 'accepted' ) {
+		// Same rule as the server-rendered card (toggleConnection): removing a
+		// connection is confirmed, withdrawing a pending request is not.
+		if ( cur === 'accepted' && ! await bnConfirmDisconnect( card.dataset.displayName || '' ) ) { return; }
 		card.dataset.connection = 'none';
 		paintConnectBtn( btn, 'none' );
 		try {
@@ -1002,6 +1012,7 @@ const membersStore = store( 'buddynext/members', {
 				return;
 			}
 			if ( cur === 'accepted' ) {
+				if ( ! await bnConfirmDisconnect( ctx.displayName || '' ) ) { return; }
 				ctx.busy = true;
 				ctx.connection = 'none';
 				try {

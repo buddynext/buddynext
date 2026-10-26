@@ -20,7 +20,7 @@ These live in the admin area under **BuddyNext > Members > Privacy & Data**.
 | Setting | What it controls | Default |
 |---|---|---|
 | Show cookie consent notice | Shows a cookie consent notice to visitors. Turn on where local law requires a consent prompt. | Off |
-| Delete records after a set time / Data retention (days) | Automatically deletes records older than this many days: closed moderation reports and (with Pro) analytics events. Open reports and the moderation log are never deleted. It does not delete member profiles or posts. | 365 |
+| Delete records after a set time / Data retention (days) | Automatically deletes records older than this many days: closed moderation reports (counted from when they were closed) and (with Pro) analytics events. Open reports and the moderation log are never deleted. It does not delete member profiles or posts. | 365 |
 | Notification and email log retention | How long read notifications and email-log entries are kept: 30, 60 or 90 days. Unread notifications are always kept for 90 days, whatever you choose. This permanently deletes the older entries. | 60 days |
 | Allow members to export their data | Lets members download a copy of their own data from their settings. Turning this off removes the Export control for members. | On |
 | Allow members to delete their account | Lets members permanently delete their own account from their settings. Turning this off removes the Delete account control for members. Admins can always delete accounts. | On |

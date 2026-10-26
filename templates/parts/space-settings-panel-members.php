@@ -41,7 +41,9 @@ if ( ! $bn_space ) {
 	return;
 }
 
-$bn_space_id      = isset( $args['members_data']['space_id'] ) ? (int) $args['members_data']['space_id'] : 0;
+$bn_space_id = isset( $args['members_data']['space_id'] ) ? (int) $args['members_data']['space_id'] : 0;
+// Promote / demote belongs to the owner and site admins; a moderator sees remove and ban only.
+$bn_can_roles     = buddynext_service( 'space_members' )->can_change_roles( $bn_space_id, get_current_user_id() );
 $bn_space_members = isset( $args['members_data']['members'] ) && is_array( $args['members_data']['members'] )
 	? $args['members_data']['members']
 	: array();
@@ -104,6 +106,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 			</p>
 		<?php else : ?>
 			<ul class="bn-space-settings__member-list" role="list">
+				<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_space_members, 'user_id' ) ); ?>
 				<?php foreach ( $bn_space_members as $bn_member ) : ?>
 					<?php
 					$bn_member_avatar_url = get_avatar_url( (int) $bn_member->user_id, array( 'size' => 72 ) );
@@ -150,7 +153,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 
 						<?php if ( ! $bn_is_owner && ! $bn_outranks_viewer ) : ?>
 							<div class="bn-space-settings__member-actions">
-								<?php if ( 'member' === $bn_member_role ) : ?>
+								<?php if ( $bn_can_roles && 'member' === $bn_member_role ) : ?>
 									<button
 										type="button"
 										class="bn-btn"
@@ -162,7 +165,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 									>
 										<?php esc_html_e( 'Make moderator', 'buddynext' ); ?>
 									</button>
-								<?php elseif ( 'moderator' === $bn_member_role ) : ?>
+								<?php elseif ( $bn_can_roles && 'moderator' === $bn_member_role ) : ?>
 									<button
 										type="button"
 										class="bn-btn"
@@ -214,6 +217,7 @@ $bn_sspm_ctx = (string) wp_json_encode(
 				</p>
 			</header>
 			<ul class="bn-space-settings__member-list" role="list">
+				<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_space_bans, 'user_id' ) ); ?>
 				<?php foreach ( $bn_space_bans as $bn_ban_member ) : ?>
 					<?php
 					$bn_ban_avatar_url = get_avatar_url( (int) $bn_ban_member->user_id, array( 'size' => 72 ) );
@@ -257,19 +261,19 @@ $bn_sspm_ctx = (string) wp_json_encode(
 		<header class="bn-space-settings__panel-head">
 			<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Invite member', 'buddynext' ); ?></h2>
 			<p class="bn-space-settings__panel-desc">
-				<?php esc_html_e( 'Enter a username or email address to send an invitation.', 'buddynext' ); ?>
+				<?php esc_html_e( 'Enter a member\'s @handle or an email address to invite them.', 'buddynext' ); ?>
 			</p>
 		</header>
 		<form class="bn-space-settings__invite-row" data-bn-invite-form data-wp-on--submit="actions.inviteMember">
 			<label class="bn-sr-only" for="bn_invite_identifier">
-				<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
+				<?php esc_html_e( '@handle or email address', 'buddynext' ); ?>
 			</label>
 			<input
 				type="text"
 				id="bn_invite_identifier"
 				class="bn-input"
 				data-bn-invite-identifier
-				placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
+				placeholder="<?php esc_attr_e( '@handle or email address', 'buddynext' ); ?>"
 				autocomplete="off"
 			>
 			<button type="submit" class="bn-btn" data-variant="primary" data-size="md">

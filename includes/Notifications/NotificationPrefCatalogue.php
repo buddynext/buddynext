@@ -386,6 +386,16 @@ class NotificationPrefCatalogue {
 				// hidden from members who could never receive it.
 				'moderator_only'     => true,
 			),
+			'bn.report_escalated'         => array(
+				'label'              => __( 'Escalated reports', 'buddynext' ),
+				'description'        => __( 'A moderator escalated a report for senior review.', 'buddynext' ),
+				'group'              => self::GROUP_MODERATION,
+				'default_on_site'    => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
+				// Sent only to site and community admins (ModerationService::notify_escalation).
+				'moderator_only'     => true,
+			),
 			'bn.post_approved'            => array(
 				'label'              => __( 'Post approved', 'buddynext' ),
 				'description'        => __( 'Your post was approved and is now live.', 'buddynext' ),
@@ -601,7 +611,7 @@ class NotificationPrefCatalogue {
 		$bn_viewer    = get_current_user_id();
 		$can_moderate = buddynext_can( $bn_viewer, 'buddynext-moderation/review-queue' )
 			|| buddynext_service( 'space_members' )->moderates_any_space( $bn_viewer );
-		$can_manage   = user_can( $bn_viewer, 'manage_options' );
+		$can_manage   = buddynext_can( $bn_viewer, 'buddynext-community/assign-roles' );
 
 		return array_filter(
 			$this->all(),

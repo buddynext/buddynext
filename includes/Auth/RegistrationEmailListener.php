@@ -48,6 +48,7 @@ class RegistrationEmailListener {
 		// - approval mode    → the on_member_approved email above IS the welcome.
 		// A one-time usermeta guard (bn_welcome_sent) makes it idempotent.
 		add_action( 'user_register', array( $this, 'maybe_welcome_on_register' ), 20 );
+		add_action( 'buddynext_network_user_joined', array( $this, 'maybe_welcome_on_register' ), 20, 1 );
 		add_action( 'buddynext_user_verified', array( $this, 'send_welcome' ) );
 
 		// Brand WordPress core's password-reset email on EVERY reset path
@@ -66,6 +67,9 @@ class RegistrationEmailListener {
 	 * @return void
 	 */
 	public function maybe_welcome_on_register( int $user_id ): void {
+		if ( buddynext_is_network_provisioning() ) {
+			return;
+		}
 		$reg_mode = (string) get_option( 'buddynext_reg_mode', function_exists( 'buddynext_default_reg_mode' ) ? buddynext_default_reg_mode() : 'open' );
 		if ( 'approval' === $reg_mode ) {
 			return;
@@ -280,7 +284,7 @@ class RegistrationEmailListener {
 	 * @return string
 	 */
 	private function site_name(): string {
-		$name = (string) get_bloginfo( 'name' );
+		$name = buddynext_site_name();
 		return '' !== $name ? $name : __( 'our community', 'buddynext' );
 	}
 }

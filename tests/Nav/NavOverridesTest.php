@@ -73,4 +73,70 @@ class NavOverridesTest extends \WP_UnitTestCase {
 		$this->assertSame( 'Discover', $explore['label'], 'a label override must relabel the explore rail row' );
 		$this->assertSame( 5, $explore['order'], 'an order override must reorder the explore rail row' );
 	}
+
+	/**
+	 * The route asks this, so "Admins only" closes the page and not only its link.
+	 *
+	 * @return void
+	 */
+	public function test_denies_hub_follows_the_visibility_setting(): void {
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$nav    = new NavOverrides();
+
+		$this->assertFalse( $nav->denies_hub( 'spaces' ), 'no override: open to everyone' );
+
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
+		wp_set_current_user( $member );
+		$this->assertTrue( $nav->denies_hub( 'spaces' ), 'a member is denied an admins-only section' );
+		$this->assertFalse( $nav->denies_hub( 'people' ), 'other sections stay open' );
+		wp_set_current_user( $admin );
+		$this->assertFalse( $nav->denies_hub( 'spaces' ), 'an admin is let in' );
+
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'cap', 'capability' => 'manage_options' ) ) );
+		wp_set_current_user( $member );
+		$this->assertTrue( $nav->denies_hub( 'spaces' ), 'a member lacking the capability is denied' );
+
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'logged_in' ) ) );
+		$this->assertFalse( $nav->denies_hub( 'spaces' ), 'a signed-in member passes logged-in only' );
+		wp_set_current_user( 0 );
+		$this->assertTrue( $nav->denies_hub( 'spaces' ), 'a guest is denied logged-in only' );
+	}
+
+	/**
+	 * The phone bottom bar follows the main-scope Visibility, so a section set to
+	 * Admins only has no tab there for a member.
+	 *
+	 * @return void
+	 */
+	public function test_mobile_bar_follows_main_visibility(): void {
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$admin  = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$items  = array(
+			array( 'key' => 'feed', 'label' => 'Activity', 'show' => true ),
+			array( 'key' => 'spaces', 'label' => 'Spaces', 'show' => true ),
+		);
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
+		$shown = static fn( array $out ): array => array_column( array_filter( $out, static fn( $i ) => false !== ( $i['show'] ?? true ) ), 'key' );
+
+		wp_set_current_user( $member );
+		$this->assertSame( array( 'feed' ), array_values( $shown( ( new NavOverrides() )->apply_mobile_items( $items ) ) ) );
+
+		wp_set_current_user( $admin );
+		$this->assertSame( array( 'feed', 'spaces' ), array_values( $shown( ( new NavOverrides() )->apply_mobile_items( $items ) ) ) );
+	}
+
+	/**
+	 * Header and menu links to Spaces disappear for a viewer the section is closed to.
+	 *
+	 * @return void
+	 */
+	public function test_spaces_link_token_is_dropped_for_a_closed_section(): void {
+		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $member );
+		$this->assertNotSame( '', \BuddyNext\Nav\UserLinks::resolve( '#bn-spaces', $member ) );
+
+		update_option( 'buddynext_nav_overrides', array( 'spaces' => array( 'visibility' => 'admins' ) ) );
+		$this->assertSame( '', \BuddyNext\Nav\UserLinks::resolve( '#bn-spaces', $member ), 'a closed section must not be linked from the menu' );
+	}
 }

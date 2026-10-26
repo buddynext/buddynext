@@ -52,6 +52,9 @@ class CoreRegistration {
 	public function register(): void {
 		add_action( 'login_form_register', array( $this, 'maybe_redirect_to_buddynext' ) );
 		add_filter( 'registration_errors', array( $this, 'apply_policy' ), 10, 3 );
+		// A network's public signup (wp-signup.php) never reaches registration_errors, so the
+		// same policy has to be asked there too, or opening the network option would bypass it.
+		add_filter( 'wpmu_validate_user_signup', array( $this, 'apply_network_policy' ) );
 
 		// Mirror the registration mode onto WP core's users_can_register. This used
 		// to live in Admin\Settings, so it only ran inside wp-admin — a mode set by
@@ -95,7 +98,31 @@ class CoreRegistration {
 			return false;
 		}
 
-		return (int) get_option( 'buddynext_terms_page_id', 0 ) < 1;
+		// Unreadable counts too: RegistrationPolicy drops the gate for a draft, private,
+		// trashed or password-protected page, so the owner must hear about it the same way.
+		return '' === RegistrationPolicy::legal_page_url( (int) get_option( 'buddynext_terms_page_id', 0 ) );
+	}
+
+	/**
+	 * Whether this request is the Members > Registration tab.
+	 *
+	 * That tab shows the terms and desync warnings inline beside their settings, so the
+	 * global notices stand down there instead of repeating them.
+	 *
+	 * @return bool
+	 */
+	private static function on_registration_tab(): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen check.
+		return 'buddynext-members' === sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) && 'registration' === sanitize_key( wp_unslash( $_GET['tab'] ?? '' ) );
+	}
+
+	/**
+	 * Whether the terms gap is a chosen page that cannot be read (vs no page at all).
+	 *
+	 * @return bool
+	 */
+	private static function terms_page_unreadable(): bool {
+		return (int) get_option( 'buddynext_terms_page_id', 0 ) > 0;
 	}
 
 	/**
@@ -118,8 +145,13 @@ class CoreRegistration {
 		<div class="bn-alert">
 			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
 			<div class="bn-alert__body">
-				<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but no Terms page is set', 'buddynext' ); ?></p>
-				<p class="bn-alert__text"><?php esc_html_e( 'Members would agree to a document that does not exist, so consent is not being collected. Choose a Terms page below, or switch this off.', 'buddynext' ); ?></p>
+				<?php if ( self::terms_page_unreadable() ) : ?>
+					<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but your Terms page is not published', 'buddynext' ); ?></p>
+					<p class="bn-alert__text"><?php esc_html_e( 'The page is a draft, private, password-protected or in the trash, so visitors cannot open it and consent is not being collected. Publish it, choose another page below, or switch this off.', 'buddynext' ); ?></p>
+				<?php else : ?>
+					<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but no Terms page is set', 'buddynext' ); ?></p>
+					<p class="bn-alert__text"><?php esc_html_e( 'Members would agree to a document that does not exist, so consent is not being collected. Choose a Terms page below, or switch this off.', 'buddynext' ); ?></p>
+				<?php endif; ?>
 			</div>
 		</div>
 		<?php
@@ -128,13 +160,13 @@ class CoreRegistration {
 	/**
 	 * The consent warning as a global admin notice.
 	 *
-	 * Suppressed on BuddyNext's own screens by AdminHub, which is why
-	 * {@see self::render_terms_inline()} exists for the panel that owns the setting.
+	 * Skipped on the Registration tab, where {@see self::render_terms_inline()} shows it
+	 * beside the setting.
 	 *
 	 * @return void
 	 */
 	public function render_terms_notice(): void {
-		if ( ! current_user_can( 'manage_options' ) || ! self::has_terms_gap() ) {
+		if ( ! current_user_can( 'manage_options' ) || self::on_registration_tab() || ! self::has_terms_gap() ) {
 			return;
 		}
 		?>
@@ -147,8 +179,13 @@ class CoreRegistration {
 		?>
 		<div class="notice notice-warning is-dismissible">
 			<p>
-				<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
-				<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
+				<?php if ( self::terms_page_unreadable() ) : ?>
+					<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but your Terms page is not published.', 'buddynext' ); ?></strong>
+					<?php esc_html_e( 'Visitors cannot open it, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
+				<?php else : ?>
+					<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
+					<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
+				<?php endif; ?>
 			</p>
 			<p>
 				<a href="<?php echo esc_url( $bn_terms_url ); ?>" class="button button-primary">
@@ -196,7 +233,7 @@ class CoreRegistration {
 	 *
 	 * @since 1.1.0
 	 *
-	 * @return array{headline:string,title:string,summary:string,explain:string,mode:string,core_open:bool,action:string}|null
+	 * @return array{headline:string,title:string,summary:string,explain:string,mode:string,core_open:bool,setting:string,setting_url:string,action:string}|null
 	 */
 	public static function desync_state(): ?array {
 		if ( ! self::is_desynced() ) {
@@ -240,19 +277,28 @@ class CoreRegistration {
 			$summary = __( 'WordPress registration is off, so every signup is being refused.', 'buddynext' );
 		}
 
+		// On a network, signups follow the network-wide "Allow new registrations" option,
+		// not this site's "Anyone can register" (core overrides it), and it covers every site.
+		$network = is_multisite();
+		if ( $network ) {
+			$explain .= ' ' . __( 'On this network the setting is Network Admin > Settings > Allow new registrations, and it applies to every site on the network.', 'buddynext' );
+		}
+
 		return array(
-			'headline'  => $headline,
+			'headline'    => $headline,
 			// Sentence-case, no "BuddyNext:" prefix and no trailing stop: this is a
 			// heading inside our own panel, where the prefix is noise and the eye
 			// wants the problem first.
-			'title'     => $title,
-			'summary'   => $summary,
-			'explain'   => $explain,
-			'mode'      => $mode,
-			'core_open' => $core_open,
-			'action'    => $bn_wants_off
-				? __( 'Turn WordPress registration off', 'buddynext' )
-				: __( 'Turn WordPress registration on', 'buddynext' ),
+			'title'       => $title,
+			'summary'     => $summary,
+			'explain'     => $explain,
+			'mode'        => $mode,
+			'core_open'   => $core_open,
+			'setting'     => $network ? __( 'Network "Allow new registrations"', 'buddynext' ) : __( 'WordPress "Anyone can register"', 'buddynext' ),
+			'setting_url' => $network ? network_admin_url( 'settings.php' ) : admin_url( 'options-general.php' ),
+			'action'      => $network
+				? ( $bn_wants_off ? __( 'Turn off new user accounts on the whole network', 'buddynext' ) : __( 'Allow new user accounts on the whole network', 'buddynext' ) )
+				: ( $bn_wants_off ? __( 'Turn WordPress registration off', 'buddynext' ) : __( 'Turn WordPress registration on', 'buddynext' ) ),
 		);
 	}
 
@@ -265,7 +311,7 @@ class CoreRegistration {
 	 * @return void
 	 */
 	public function render_desync_notice(): void {
-		$state = current_user_can( 'manage_options' ) ? self::desync_state() : null;
+		$state = current_user_can( 'manage_options' ) && ! self::on_registration_tab() ? self::desync_state() : null;
 		if ( null === $state ) {
 			return;
 		}
@@ -278,17 +324,16 @@ class CoreRegistration {
 			<p>
 				<?php
 				printf(
-					/* translators: 1: BuddyNext registration mode, 2: WordPress "Anyone can register" state. */
-					esc_html__( 'BuddyNext mode: %1$s. WordPress "Anyone can register": %2$s.', 'buddynext' ),
+					/* translators: 1: BuddyNext registration mode, 2: name of the core registration setting, 3: on/off. */
+					esc_html__( 'BuddyNext mode: %1$s. %2$s: %3$s.', 'buddynext' ),
 					'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+					esc_html( $state['setting'] ),
 					'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
 				);
 				?>
 			</p>
 			<p>
-				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
-					<?php echo esc_html( $state['action'] ); ?>
-				</a>
+				<?php self::render_reconcile_action( $state, 'button button-primary' ); ?>
 			</p>
 		</div>
 		<?php
@@ -297,16 +342,8 @@ class CoreRegistration {
 	/**
 	 * The same desync warning, rendered INSIDE the Registration panel.
 	 *
-	 * AdminHub clears `admin_notices` on every BuddyNext screen so third-party
-	 * setup nags do not crowd the settings UI — deliberate, and staying. But
-	 * `remove_all_actions()` cannot tell a foreign nag from one of ours, so this
-	 * warning vanished on the one screen where the owner is configuring the very
-	 * setting it is about. The Setup Checklist even links them here, so the
-	 * guidance disappeared at the moment they acted on it.
-	 *
-	 * Rendering it inline fixes that without touching the suppression: the warning
-	 * sits beside the control it concerns, which is better than a global banner
-	 * anyway.
+	 * The warning sits beside the control it concerns, which is better than a
+	 * global banner; the global notice stands down on this tab so it is not shown twice.
 	 *
 	 * @since 1.1.0
 	 *
@@ -327,22 +364,62 @@ class CoreRegistration {
 				<p class="bn-alert__meta">
 					<?php
 					printf(
-						/* translators: 1: registration mode, 2: on/off, 3: link to WordPress Settings > General. */
-						esc_html__( 'Mode %1$s - WordPress "Anyone can register" is %2$s, in %3$s', 'buddynext' ),
+						/* translators: 1: registration mode, 2: name of the core registration setting, 3: on/off, 4: link to where that setting lives. */
+						esc_html__( 'Mode %1$s - %2$s is %3$s, in %4$s', 'buddynext' ),
 						'<code>' . esc_html( $state['mode'] ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						esc_html( $state['setting'] ),
 						'<code>' . esc_html( $state['core_open'] ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
-						'<a href="' . esc_url( admin_url( 'options-general.php' ) ) . '">' . esc_html__( 'Settings > General', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+						'<a href="' . esc_url( $state['setting_url'] ) . '">' . esc_html( is_multisite() ? __( 'Network Admin > Settings', 'buddynext' ) : __( 'Settings > General', 'buddynext' ) ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
 					);
 					?>
 				</p>
 			</div>
 			<span class="bn-alert__action">
-				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
-					<?php echo esc_html( $state['action'] ); ?>
-				</a>
+				<?php self::render_reconcile_action( $state, 'button button-primary' ); ?>
 			</span>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Who may flip the core setting: on a network that is the super admin, since it
+	 * decides signups for every site.
+	 *
+	 * @return bool
+	 */
+	private static function can_reconcile(): bool {
+		return current_user_can( is_multisite() ? 'manage_network_options' : 'manage_options' );
+	}
+
+	/**
+	 * The fix button, or a plain pointer for someone who may not use it.
+	 *
+	 * @param array<string,mixed> $state The desync state.
+	 * @param string              $classes CSS classes for the button.
+	 * @return void
+	 */
+	private static function render_reconcile_action( array $state, string $classes ): void {
+		if ( self::can_reconcile() ) {
+			printf( '<a class="%s" href="%s">%s</a>', esc_attr( $classes ), esc_url( self::reconcile_url() ), esc_html( (string) $state['action'] ) );
+			return;
+		}
+		esc_html_e( 'Ask a network administrator to change it.', 'buddynext' );
+	}
+
+	/**
+	 * The network "Allow new registrations" value that keeps the site-creation half as it is.
+	 *
+	 * Values: none | user (accounts) | blog (sites) | all. Only the accounts half changes.
+	 *
+	 * @param bool $accounts_open Whether new user accounts should be allowed.
+	 * @return string
+	 */
+	private static function network_registration( bool $accounts_open ): string {
+		$sites_open = in_array( (string) get_site_option( 'registration', 'none' ), array( 'blog', 'all' ), true );
+		if ( $accounts_open ) {
+			return $sites_open ? 'all' : 'user';
+		}
+		return $sites_open ? 'blog' : 'none';
 	}
 
 	/**
@@ -367,14 +444,19 @@ class CoreRegistration {
 	 * @return void
 	 */
 	public function handle_reconcile(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_reconcile() ) {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'buddynext' ), '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( self::ACTION_RECONCILE );
 
 		$mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
-		update_option( 'users_can_register', 'closed' === $mode ? '0' : '1' );
+		if ( is_multisite() ) {
+			// The network option is what core reads; this site's users_can_register is overridden.
+			update_site_option( 'registration', self::network_registration( 'closed' !== $mode ) );
+		} else {
+			update_option( 'users_can_register', 'closed' === $mode ? '0' : '1' );
+		}
 
 		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url() );
 		exit;
@@ -421,6 +503,33 @@ class CoreRegistration {
 
 		wp_safe_redirect( \BuddyNext\Core\PageRouter::signup_url() );
 		exit;
+	}
+
+	/**
+	 * Run the shared registration policy on a network's public signup.
+	 *
+	 * Someone who can create users (a super admin on Network Admin > Add New) is adding
+	 * an account, not signing up, so the policy does not apply to them.
+	 *
+	 * @param mixed $result wpmu_validate_user_signup() result: user_name, user_email, errors.
+	 * @return mixed
+	 */
+	public function apply_network_policy( $result ) {
+		if ( ! is_array( $result ) || current_user_can( 'create_users' ) ) {
+			return $result;
+		}
+
+		$errors  = $result['errors'] instanceof WP_Error ? $result['errors'] : new WP_Error();
+		$refused = $this->apply_policy( new WP_Error(), (string) ( $result['user_name'] ?? '' ), (string) ( $result['user_email'] ?? '' ) );
+		foreach ( $refused->get_error_codes() as $code ) {
+			foreach ( $refused->get_error_messages( $code ) as $message ) {
+				$errors->add( $code, $message );
+				// wp-signup.php prints only user_name, user_email and generic, so the reason goes under generic too.
+				$errors->add( 'generic', $message );
+			}
+		}
+		$result['errors'] = $errors;
+		return $result;
 	}
 
 	/**

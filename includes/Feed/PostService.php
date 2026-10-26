@@ -82,7 +82,7 @@ class PostService {
 		// under_review — see below.
 		'pending'      => array(
 			'label_key'       => 'Pending',
-			'tone'            => 'warning',
+			'tone'            => 'warn',
 			'admin_filter'    => true,
 			'readable'        => false,
 			'pre_publication' => true,
@@ -96,7 +96,7 @@ class PostService {
 		// still open, and rejecting it deleted the post and orphaned them.
 		'under_review' => array(
 			'label_key'       => 'Under review',
-			'tone'            => 'warning',
+			'tone'            => 'warn',
 			'admin_filter'    => true,
 			'readable'        => false,
 			'pre_publication' => false,
@@ -442,6 +442,7 @@ class PostService {
 			$target_space_id
 		);
 		$flag_reason      = '';
+		$flag_filed       = 'inappropriate';
 		if ( is_wp_error( $safeguard_result ) ) {
 			if ( SafeguardService::is_flag_verdict( $safeguard_result ) ) {
 				// Reactive moderation (FB / LinkedIn model — members post freely, no
@@ -455,6 +456,7 @@ class PostService {
 				// neither see nor approve it. A hard block (422) still rejects outright
 				// via the else branch.
 				$flag_reason = (string) $safeguard_result->get_error_message();
+				$flag_filed  = SafeguardService::report_reason( $safeguard_result );
 
 				// Append which rule fired + the term it matched so the moderation
 				// report records the cause (Pro stamps rule_name/matched_term onto the
@@ -596,8 +598,18 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Members-only is an OWNER control, not a per-author one: only a site admin,
 		// or an owner/moderator of the post's space, may paywall a post. A regular
-		// member's request to set it is ignored (forced 0).
-		$bn_members_only = ( ! empty( $data['members_only'] ) && $this->can_gate_post( $user_id, (int) ( $data['space_id'] ?? 0 ) ) ) ? 1 : 0;
+		// member's request to set it is refused, never silently dropped.
+		$bn_members_only = 0;
+		if ( ! empty( $data['members_only'] ) ) {
+			if ( ! $this->can_gate_post( $user_id, (int) ( $data['space_id'] ?? 0 ) ) ) {
+				return new WP_Error(
+					'forbidden',
+					__( 'Only a site admin or a space owner or moderator can make a post members-only.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+			$bn_members_only = 1;
+		}
 
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
@@ -687,7 +699,7 @@ class PostService {
 		// until it goes live. The hook re-fires on approval (approve_pending) /
 		// scheduled publish, so the live edge is the right one.
 		if ( 'published' === $status ) {
-			$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
+			$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason, $flag_filed );
 		} elseif ( 'scheduled' === $status ) {
 			// Arm the on-demand publisher for this post's due time. Free owns
 			// scheduled-post publishing so this works with Pro absent.
@@ -709,9 +721,10 @@ class PostService {
 	 * @param string               $type        Post type.
 	 * @param array<string, mixed> $data        Post data (content, space_id).
 	 * @param string               $flag_reason Auto-moderation flag reason, or ''.
+	 * @param string               $flag_filed  Report reason slug the flag is filed under.
 	 * @return void
 	 */
-	private function run_post_published_effects( int $post_id, int $user_id, string $type, array $data, string $flag_reason = '' ): void {
+	private function run_post_published_effects( int $post_id, int $user_id, string $type, array $data, string $flag_reason = '', string $flag_filed = 'inappropriate' ): void {
 		// Keep the space's denormalized activity stamp current (one indexed
 		// UPDATE) - the admin roster sorts/filters on it, so the owner can tell
 		// alive from dead spaces without a GROUP BY over bn_posts at request time.
@@ -793,7 +806,7 @@ class PostService {
 		// ModerationService::report() also fans out buddynext_moderation_auto_actions,
 		// so threshold-based auto-actions can still fire on the auto-flag.
 		if ( '' !== $flag_reason ) {
-			ModerationService::auto_flag( 'post', $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ) );
+			ModerationService::auto_flag( 'post', $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ), $flag_filed );
 		}
 
 		// Parse @username mentions and fire buddynext_user_mentioned for each.
@@ -865,9 +878,11 @@ class PostService {
 		// pending_review hold) publishes and files a system report — it does not
 		// retroactively block a post that was authored and scheduled earlier.
 		$flag_reason = '';
+		$flag_filed  = 'inappropriate';
 		$result      = $this->get_safeguard()->check( $user_id, $data['content'], $data['link_url'], $data['space_id'] );
 		if ( SafeguardService::is_flag_verdict( $result ) ) {
 			$flag_reason = (string) $result->get_error_message();
+			$flag_filed  = SafeguardService::report_reason( $result );
 			$flag_data   = $result->get_error_data();
 			if ( is_array( $flag_data ) ) {
 				$flag_bits = array();
@@ -883,7 +898,7 @@ class PostService {
 			}
 		}
 
-		$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
+		$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason, $flag_filed );
 	}
 
 	/**
@@ -2123,7 +2138,9 @@ class PostService {
 	/**
 	 * Update an existing post's content or privacy.
 	 *
-	 * Sets edited_at to the current UTC time. Only the post owner may update.
+	 * Sets edited_at to the current UTC time when what readers see changes (text,
+	 * media, link preview, content warning); a save that changes nothing writes
+	 * nothing. Only the post owner may update.
 	 * Non-admin authors are held to the buddynext_post_edit_window (minutes)
 	 * unless the post has not published yet (status = scheduled), which is exempt.
 	 *
@@ -2167,7 +2184,7 @@ class PostService {
 		// NOT exempt, because it was published before it was hidden.
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
 		if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
 			return new WP_Error(
 				'edit_window_closed',
@@ -2227,10 +2244,9 @@ class PostService {
 		global $wpdb;
 
 		$fields  = array(
-			'edited_at'  => current_time( 'mysql', true ),
 			'updated_at' => current_time( 'mysql', true ),
 		);
-		$formats = array( '%s', '%s' );
+		$formats = array( '%s' );
 
 		if ( isset( $data['content'] ) ) {
 			$fields['content'] = $data['content'];
@@ -2365,14 +2381,40 @@ class PostService {
 		}
 		if ( array_key_exists( 'members_only', $data ) ) {
 			// Only a site admin or the space's owner/moderator may change the
-			// paywall flag; a plain author's request is ignored (the current value
-			// is left untouched rather than forced off).
+			// paywall flag. A plain author resending the current value is fine;
+			// asking for a different one is refused, not dropped.
 			$mo_existing = $this->get( $post_id );
 			$mo_space    = $mo_existing ? (int) ( $mo_existing['space_id'] ?? 0 ) : 0;
+			$mo_wanted   = ! empty( $data['members_only'] ) ? 1 : 0;
 			if ( $this->can_gate_post( $user_id, $mo_space ) ) {
-				$fields['members_only'] = ! empty( $data['members_only'] ) ? 1 : 0;
+				$fields['members_only'] = $mo_wanted;
 				$formats[]              = '%d';
+			} elseif ( (int) ( $mo_existing['members_only'] ?? 0 ) !== $mo_wanted ) {
+				return new WP_Error(
+					'forbidden',
+					__( 'Only a site admin or a space owner or moderator can change members-only on a post.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
 			}
+		}
+
+		// "(edited)" tells readers the post they may already have reacted to now
+		// says something else, so it is set only when what they read changed. A
+		// save that changes nothing is not an edit at all, and an audience,
+		// schedule or members-only change alters who sees the post, not what it
+		// says (Facebook marks neither).
+		$changed = array();
+		foreach ( $fields as $col => $value ) {
+			if ( 'updated_at' !== $col && (string) ( $row[ $col ] ?? '' ) !== (string) ( $value ?? '' ) ) {
+				$changed[] = $col;
+			}
+		}
+		if ( empty( $changed ) ) {
+			return true;
+		}
+		if ( array_intersect( $changed, array( 'content', 'link_url', 'link_meta', 'media_ids', 'type', 'content_warning', 'content_warning_type' ) ) ) {
+			$fields['edited_at'] = $fields['updated_at'];
+			$formats[]           = '%s';
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2431,7 +2473,7 @@ class PostService {
 		 *
 		 * @param int   $post_id Post ID.
 		 * @param int   $user_id User who updated the post.
-		 * @param array $fields  Columns written this update (edited_at plus any of content, privacy, scheduled_at, content_warning, content_warning_type).
+		 * @param array $fields  Columns written this update (updated_at, edited_at when the text, media or warning changed, plus any of content, privacy, scheduled_at, content_warning, content_warning_type).
 		 */
 		do_action( 'buddynext_post_updated', $post_id, $user_id, $fields );
 
@@ -4041,64 +4083,18 @@ class PostService {
 	}
 
 	/**
-	 * Publish a (scheduled) post: set status='published'.
+	 * Publish a (scheduled) post: set status='published' and clear its schedule.
 	 *
 	 * Bumps created_at + last_activity_at to the publish time (UTC) so a post
 	 * that was scheduled days ago surfaces fresh in the feed when it goes live
-	 * rather than at its original, now-buried position.
+	 * rather than at its original, now-buried position. scheduled_at is cleared
+	 * because a live post that still carries one reads as pending to every client
+	 * of the post shape. The one publish write for both the cron and Publish Now.
 	 *
 	 * @param int $post_id Post id.
-	 * @return bool
+	 * @return bool True only when a row was published; false for a missing post.
 	 */
 	public function mark_published( int $post_id ): bool {
-		if ( $post_id <= 0 ) {
-			return false;
-		}
-
-		$now = current_time( 'mysql', true );
-
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'status'           => 'published',
-				'created_at'       => $now,
-				'last_activity_at' => $now,
-				'updated_at'       => $now,
-			),
-			array( 'id' => $post_id ),
-			array( '%s', '%s', '%s', '%s' ),
-			array( '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
-
-		return false !== $updated;
-	}
-
-	/**
-	 * Publish a SCHEDULED post immediately, at now.
-	 *
-	 * Free owned every other publish transition and this one was missing, so Pro's "Publish
-	 * Now" button hand-rolled a raw UPDATE — and hand-rolled it differently. It set status and
-	 * cleared scheduled_at, and never touched created_at. Feeds order by `created_at DESC`, so
-	 * the post went live at the moment it was COMPOSED: schedule something on the 1st for the
-	 * 20th, hit Publish Now on the 5th, and it appears buried under four days of feed. The
-	 * author pressed a button called Publish Now and nobody saw the post.
-	 *
-	 * Every other publish path already bumps the timestamp for exactly this reason —
-	 * mark_published() (the cron), approve_pending() (moderation). The convention was
-	 * established everywhere except the one button whose name promises it.
-	 *
-	 * Clearing scheduled_at is load-bearing, not tidiness: a post left with a future
-	 * scheduled_at is a post the scheduling layer still believes is pending.
-	 *
-	 * @param int $post_id Post to publish.
-	 * @return bool True when the row was updated.
-	 */
-	public function publish_scheduled_now( int $post_id ): bool {
 		if ( $post_id <= 0 ) {
 			return false;
 		}
@@ -4122,11 +4118,36 @@ class PostService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( false === $updated ) {
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// update() returns 0 when no row matched; that is a missing post, not a publish.
+		return (int) $updated > 0;
+	}
+
+	/**
+	 * Publish a SCHEDULED post immediately, at now.
+	 *
+	 * Free owned every other publish transition and this one was missing, so Pro's "Publish
+	 * Now" button hand-rolled a raw UPDATE — and hand-rolled it differently. It set status and
+	 * cleared scheduled_at, and never touched created_at. Feeds order by `created_at DESC`, so
+	 * the post went live at the moment it was COMPOSED: schedule something on the 1st for the
+	 * 20th, hit Publish Now on the 5th, and it appears buried under four days of feed. The
+	 * author pressed a button called Publish Now and nobody saw the post.
+	 *
+	 * Every other publish path already bumps the timestamp for exactly this reason —
+	 * mark_published() (the cron), approve_pending() (moderation). The convention was
+	 * established everywhere except the one button whose name promises it.
+	 *
+	 * Clearing scheduled_at is load-bearing, not tidiness: a post left with a future
+	 * scheduled_at is a post the scheduling layer still believes is pending.
+	 *
+	 * @param int $post_id Post to publish.
+	 * @return bool True when the row was updated.
+	 */
+	public function publish_scheduled_now( int $post_id ): bool {
+		if ( ! $this->mark_published( $post_id ) ) {
 			return false;
 		}
-
-		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
 		// Re-arm: the cron event may still be pointing at a post that is no longer scheduled.
 		// set_schedule() and clear_schedule() both re-arm; this is the third transition and

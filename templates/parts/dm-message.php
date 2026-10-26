@@ -140,13 +140,21 @@ do_action( 'buddynext_part_dm_message_before', $args );
 			$bn_m_title = (string) ( $media['title'] ?? '' );
 			?>
 			<div class="bn-dm-msg__media" data-type="<?php echo esc_attr( $bn_m_type ); ?>">
-				<?php if ( ( 'image' === $bn_m_type || 'video' === $bn_m_type ) && $bn_m_id > 0 && ( '' !== $bn_m_thumb || '' !== $bn_m_url ) ) : ?>
+				<?php if ( 'video' === $bn_m_type && $bn_m_id > 0 && '' !== $bn_m_url ) : ?>
+					<?php // Same tile as MediaRenderer: a poster only when the engine made one (a video URL is not an image), the dark no-poster surface otherwise, and the play overlay either way. ?>
+					<button type="button" class="bn-media-tile bn-media-tile--video<?php echo '' === $bn_m_thumb ? ' bn-media-tile--no-poster' : ''; ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="video" data-media-src="<?php echo esc_url( $bn_m_url ); ?>" data-bn-dm="1"<?php echo \BuddyNext\Media\MediaClient::downloads_allowed( $bn_m_id ) ? '' : ' data-no-download="1"'; ?> aria-label="<?php esc_attr_e( 'Play video', 'buddynext' ); ?>">
+						<?php if ( '' !== $bn_m_thumb ) : ?>
+							<img class="bn-media-tile__img" src="<?php echo esc_url( $bn_m_thumb ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
+						<?php endif; ?>
+						<span class="bn-media-tile__play" aria-hidden="true"><?php echo \BuddyNext\Core\IconService::render( 'play', 'bn-media-tile__play-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::render() returns wp_kses()-sanitized SVG. ?></span>
+					</button>
+				<?php elseif ( 'image' === $bn_m_type && $bn_m_id > 0 && ( '' !== $bn_m_thumb || '' !== $bn_m_url ) ) : ?>
 					<?php // Canonical BN media tile so the shared lightbox (assets/js/media/lightbox.js) opens it in-page. data-bn-dm flags it as private DM media so the lightbox hides the social chrome (reactions/comments/favorite/share). ?>
-					<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>" data-bn-dm="1">
+					<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>" data-bn-dm="1"<?php echo \BuddyNext\Media\MediaClient::downloads_allowed( $bn_m_id ) ? '' : ' data-no-download="1"'; ?>>
 						<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
 					</button>
 				<?php elseif ( 'audio' === $bn_m_type && '' !== $bn_m_url ) : ?>
-					<audio class="bn-dm-msg__audio" controls preload="none" src="<?php echo esc_url( $bn_m_url ); ?>"></audio>
+					<audio class="bn-dm-msg__audio" controls<?php echo \BuddyNext\Media\MediaClient::downloads_allowed( $bn_m_id ) ? '' : ' controlsList="nodownload"'; ?> preload="none" src="<?php echo esc_url( $bn_m_url ); ?>"></audio>
 				<?php else : ?>
 					<a class="bn-dm-msg__file" href="<?php echo esc_url( '' !== $bn_m_dl ? $bn_m_dl : $bn_m_url ); ?>" target="_blank" rel="noopener">
 						<?php buddynext_icon( 'paperclip' ); ?>

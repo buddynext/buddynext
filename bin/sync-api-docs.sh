@@ -59,7 +59,7 @@ fi
 
 if [ -f "${PLUGIN_DIR}/tests/audit/rest-reachability.php" ]; then
 	echo "• Running REST reachability audit…"
-	if ! wp "${WP_ARGS[@]}" eval "require '${PLUGIN_DIR}/tests/audit/rest-reachability.php';"; then
+	if ! wp ${WP_ARGS[@]+"${WP_ARGS[@]}"} eval "require '${PLUGIN_DIR}/tests/audit/rest-reachability.php';"; then
 		echo "✗ sync-api-docs: reachability audit failed." >&2
 		exit 1
 	fi

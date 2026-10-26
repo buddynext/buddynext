@@ -128,8 +128,8 @@ class NotificationMessageService {
 			}
 		}
 		if ( ! empty( $actor_ids ) ) {
-			// Cache_users primes the user cache so subsequent get_userdata calls are O(1).
-			cache_users( array_keys( $actor_ids ) );
+			// One pass warms users and avatars, so per-row lookups are cache hits.
+			\BuddyNext\Profile\AvatarService::prime( array_keys( $actor_ids ) );
 		}
 
 		$out = array();
@@ -381,6 +381,9 @@ class NotificationMessageService {
 
 			case 'bn.new_report':
 				return __( 'New content was reported and is awaiting review.', 'buddynext' );
+
+			case 'bn.report_escalated':
+				return __( 'A report was escalated for senior review.', 'buddynext' );
 
 			case 'bn.post_approved':
 				return __( 'Your post was approved and is now live.', 'buddynext' );
@@ -756,8 +759,33 @@ class NotificationMessageService {
 				),
 				'bn.new_report'               => array(
 					'icon'  => 'flag',
-					'tone'  => 'warning',
+					'tone'  => 'warn',
 					'label' => __( 'New report', 'buddynext' ),
+				),
+				'bn.announcement'             => array(
+					'icon'  => 'megaphone',
+					'tone'  => 'accent',
+					'label' => __( 'Announcement', 'buddynext' ),
+				),
+				'bn.post_approved'            => array(
+					'icon'  => 'check-circle',
+					'tone'  => 'success',
+					'label' => __( 'Post approved', 'buddynext' ),
+				),
+				'bn.post_rejected'            => array(
+					'icon'  => 'x-circle',
+					'tone'  => 'danger',
+					'label' => __( 'Post not approved', 'buddynext' ),
+				),
+				'bn.space_media_unlinked'     => array(
+					'icon'  => 'image',
+					'tone'  => 'warn',
+					'label' => __( 'Media unlinked', 'buddynext' ),
+				),
+				'bn.report_escalated'         => array(
+					'icon'  => 'flag',
+					'tone'  => 'danger',
+					'label' => __( 'Report escalated', 'buddynext' ),
 				),
 				'bn.onboarding_nudge'         => array(
 					'icon'  => 'sparkles',
@@ -899,6 +927,7 @@ class NotificationMessageService {
 			case 'bn.post_shared':
 			case 'bn.mention':
 			case 'bn.space_new_post':
+			case 'bn.announcement':
 			case 'bn.post_approved':
 				// object_id is a bn_posts row id — deep-link to the canonical
 				// single-post permalink (/p/{id}/), not the generic feed. The
@@ -992,7 +1021,7 @@ class NotificationMessageService {
 				// A report inside a space fans out to that space's owners and
 				// moderators as well as to site admins (ModerationListener::
 				// on_report_created()). The community-admin hub is gated on the
-				// SITE-WIDE ability buddynext-spaces/moderate (PageRouter:598-602),
+				// SITE-WIDE ability buddynext-moderation/review-queue (PageRouter),
 				// which a space owner does not have — so the one notification a
 				// space owner ever receives about their own space opened a 404
 				// (Basecamp 10264117698). Their queue is the space's own moderation
@@ -1002,7 +1031,7 @@ class NotificationMessageService {
 				$report_space_id = isset( $data['space_id'] ) ? (int) $data['space_id'] : 0;
 				$report_viewer   = $viewer_id > 0 ? $viewer_id : get_current_user_id();
 				if ( $report_space_id > 0
-					&& ! buddynext_can( $report_viewer, 'buddynext-spaces/moderate' ) ) {
+					&& ! buddynext_can( $report_viewer, 'buddynext-moderation/review-queue' ) ) {
 					$report_space_link = PageRouter::space_url( $report_space_id );
 					// space_url() falls back to the spaces hub for a missing space;
 					// only append the moderation segment to a real space URL.
@@ -1010,6 +1039,11 @@ class NotificationMessageService {
 						return add_query_arg( 'bn_mtab', 'reports', $report_space_link . 'moderation/' );
 					}
 				}
+				return PageRouter::community_admin_moderation_url();
+
+			case 'bn.report_escalated':
+				// Senior-review hand-off: only site-level reviewers receive it, and the
+				// aggregate queue is where the escalated row sits.
 				return PageRouter::community_admin_moderation_url();
 
 			case 'bn.onboarding_nudge':

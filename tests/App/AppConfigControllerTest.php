@@ -418,6 +418,27 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Partner panels and typed cards are advertised to the app.
+	 *
+	 * @return void
+	 */
+	public function test_config_advertises_profile_panels_and_card_types(): void {
+		$this->register_integration( 'testkit', '1.0.0' );
+		add_filter(
+			'buddynext_integration_card_types',
+			static fn() => array( 'testkit_item' => array( 'label' => 'Item', 'icon' => 'book' ) )
+		);
+
+		$config = $this->get_config();
+
+		$this->assertArrayHasKey( 'profile_panels', $config['integrations']['testkit'] );
+		$this->assertArrayHasKey( 'testkit_item', (array) $config['card_types'] );
+
+		remove_all_filters( 'buddynext_integration_card_types' );
+		$this->reset_integrations();
+	}
+
+	/**
 	 * An integration that declares no version reports null, never a guess.
 	 *
 	 * Core cannot look the version up — partners name their constants differently —

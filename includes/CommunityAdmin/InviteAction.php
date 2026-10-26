@@ -36,7 +36,7 @@ final class InviteAction {
 	 * @return void
 	 */
 	public function handle(): void {
-		if ( ! function_exists( 'buddynext_can' ) || ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
+		if ( ! function_exists( 'buddynext_can' ) || ! buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' ) ) {
 			wp_die( esc_html__( 'You are not allowed to send invites.', 'buddynext' ), 403 );
 		}
 

@@ -28,7 +28,7 @@ Defined in `buddynext.php`, it resolves the `permissions` service from the conta
 | Layer | Source | Effect |
 |-------|--------|--------|
 | 1. WP site admin | `manage_options` | Holders pass every check (`$result = true`). Logged-out visitors resolve to `false` before this layer. |
-| 2. Community / space role | `ROLE_MAP` + role hierarchy | The capability needs a minimum role; the user's community role (or in-space role when `space_id` is in context) must meet or exceed it. |
+| 2. Community / space role | `ROLE_MAP` + role hierarchy | The capability needs a minimum role; the user's community role must meet or exceed it. With a `space_id` in context the user must be an active member of that space, and for the Roles tab rows (`spaces/post`, `spaces/moderate`) the higher of their in-space role and their community role counts (a space owner ranks above Admin). The owner-scoped `spaces/manage-settings` and `spaces/delete` use the in-space role alone. |
 | 3. Explicit ability grant | `bn_ability_{slug}` user meta | A per-user grant with an expiry (`0` = never, otherwise a unix timestamp). Checked only when the role check fails. |
 | 4. Developer filter | `buddynext_user_can` | Runs on every check and can flip the resolved result in either direction. Always the final word. |
 
@@ -65,7 +65,7 @@ There are **three** lists in code and they are not the same list. Know which one
 
 Enforcement is the list that matters for `buddynext_can()`. The other two only decide whether an owner gets a control for it.
 
-The role map holds 29 generic capabilities:
+The role map holds 28 generic capabilities:
 
 | Capability | Default required role |
 |------------|----------------------|
@@ -78,20 +78,20 @@ The role map holds 29 generic capabilities:
 | `buddynext-feed/announce` | `admin` (post and end site-wide announcements; "Post site-wide announcements"; a space announcement follows the space role) |
 | `buddynext-feed/edit-any-post` | `admin` (edit any post or comment, hide a post, edit past the edit window; "Edit anyone's post or comment"). Anyone but a site administrator acts only on posts they can already read, and a post's audience changes only when its author edits it |
 | `buddynext-feed/schedule-post` | `member` |
-| `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes; not in `Abilities::CATALOG`) |
+| `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes) |
 | `buddynext-comments/create` | `member` |
 | `buddynext-spaces/create` | `member` (see note) |
 | `buddynext-spaces/join` | `member` |
 | `buddynext-spaces/join-gated` | none |
 | `buddynext-spaces/post` | `member` |
-| `buddynext-spaces/moderate` | `moderator` (without a `space_id`: the community moderation team, who open Community Admin and review reports from every space; with a `space_id`: the in-space owner or moderator only. Approving, banning and removing inside a space is never granted site-wide except to WordPress administrators) |
+| `buddynext-spaces/moderate` | `moderator` (always checked with a `space_id`: who may work the space's report queue. Community Admin opens on `buddynext-moderation/review-queue` instead, so a stricter Moderate spaces row never locks the moderation team out of it. Approving, banning and removing members inside a space stays with the space's own owner and moderators, plus WordPress administrators) |
 | `buddynext-spaces/manage-settings` | `moderator` |
 | `buddynext-spaces/delete` | `moderator` |
 | `buddynext-connections/follow` | `member` |
 | `buddynext-connections/connect` | `member` |
 | `buddynext-moderation/report` | `member` |
 | `buddynext-moderation/review-queue` | `moderator` |
-| `buddynext-moderation/dismiss` | `moderator` (acting on a report; on the Roles tab as "Resolve reports"; not in `Abilities::CATALOG`) |
+| `buddynext-moderation/dismiss` | `moderator` (acting on a report; on the Roles tab as "Resolve reports") |
 | `buddynext-moderation/issue-strike` | `moderator` |
 | `buddynext-moderation/suspend-user` | `moderator` (for a set number of days) |
 | `buddynext-moderation/suspend-indefinitely` | `admin` (a suspension with no end date; "Suspend members with no end date") |
@@ -100,7 +100,7 @@ The role map holds 29 generic capabilities:
 
 > **A site-wide moderator holds day-to-day moderation authority without being a WordPress administrator.** Clearing the queue, removing any post or comment, issuing strikes and warnings, suspending for a set time, shadow-banning, bulk moderation, and seeing posts from suspended or shadow-banned members are all moderator powers. Open-ended suspensions, appeals, editing other members' content, site-wide announcements and role changes default to the community `admin` role; an owner can move all but role changes on the Roles tab. Granting the community Admin role itself, and site configuration in wp-admin, stay with WordPress administrators (`manage_options`). Everyone holding `buddynext-moderation/review-queue` gets the new-report notification, linked to the front-end Community Admin queue. Whether a viewer may read a hidden author's post is answered in one place, `ModerationService::hides_author_from( $author_id, $viewer_id )`, which the feed, the post page and the REST read all use.
 
-> **`buddynext-spaces/create` has one option that overrides its default.** The legacy Spaces-tab "who can create spaces" setting is folded into the role map: when `get_option( 'buddynext_space_creation_role' )` is `'admin'`, the map default flips from `member` to `admin`. The default (`'member'`) leaves the map untouched. It is applied inside `role_map()` so it composes with the Roles and Capabilities tab instead of fighting it.
+> **`buddynext-spaces/create` is set here and nowhere else.** The Spaces > Settings tab links to this tab instead of keeping its own "Who can create spaces" select. Version 1.2.7 retired the old `buddynext_space_creation_role` option: on upgrade, a stored moderator or admin choice is copied into `bn_role_map_overrides` (unless this tab already had a row for the ability) and the option is deleted.
 
 > **`buddynext-comments/create` is grantable from the admin.** It is present in `PermissionService::ROLE_MAP`, in `Abilities::CATALOG`, and in `RolesTab::catalog()`, so it is registered with the WordPress Abilities API and renders a row ("Comment on posts") on the Roles and Capabilities tab like any other capability. The filter also works if you want to set the role in code:
 >
@@ -192,7 +192,7 @@ update_user_meta(
 - **No custom roles to clean up.** Because BuddyNext registers no `WP_Role`, there is nothing to remove on deactivation and no capability bloat on the `administrator` role. Authority lives in user meta and `bn_space_members`.
 - **`manage_options` is the admin gate, not a BuddyNext role.** Site admins pass every `buddynext_can()` check by virtue of layer 1, and every BuddyNext admin screen checks `manage_options` directly.
 - **`buddynext_role_map` fires once and is memoised** per request; `buddynext_user_can` fires on every check. Put baseline role mappings in the role map and per-decision logic in the filter.
-- **Space context matters.** For `buddynext-spaces/*` capabilities, pass `['space_id' => N]` so the in-space role (from `bn_space_members`) is used. The `join` capability is the exception - a non-member has no in-space role yet, so `join` is gated by the community role, with space type (open/request/invite) enforced separately in the join flow.
+- **Space context matters.** For `buddynext-spaces/*` capabilities, pass `['space_id' => N]`: only an active member of that space passes, and on a Roles tab row the higher of their in-space role (from `bn_space_members`) and their community role counts; `manage-settings` and `delete` read the in-space role alone. The `join` capability is the exception - a non-member has no in-space role yet, so `join` is gated by the community role, with space type (open/request/invite) enforced separately in the join flow.
 - **Free / Pro boundary.** The catalog and the four-layer model live entirely in free. Pro consumes `buddynext_can()` like any other caller and does not add custom roles or its own permission engine.
 
 See also Admin Pages and Settings for how the admin surface gates on `manage_options`, and the REST contract page for how controllers resolve `buddynext_can()` before serving a request.

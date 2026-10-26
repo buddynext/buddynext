@@ -107,7 +107,7 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Suppress BuddyNext notifications raised by a mirror write.
+	 * Suppress BuddyNext and Jetonomy notifications raised by a mirror write.
 	 *
 	 * @param bool $should Whether to send.
 	 * @return bool
@@ -155,6 +155,10 @@ class JetonomyBridge {
 		// Jetonomy, or a card published before post_id was stamped (2026-09-19) whose
 		// discussion was later deleted. See verify_discussion_card().
 		add_filter( 'buddynext_discussion_card_url', array( $this, 'verify_discussion_card' ), 10, 2 );
+
+		// Forum email choices (Jetonomy Pro's digest) live in BuddyNext's notification
+		// settings: Jetonomy renders and saves them, BuddyNext only gives them a place.
+		add_action( 'buddynext_notification_prefs_after', array( $this, 'render_partner_prefs' ), 20 );
 
 		// Inject a Discussions link into the BuddyNext left navigation rail.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
@@ -235,6 +239,9 @@ class JetonomyBridge {
 		// one notification, so a forum reply is one Jetonomy row and a card comment
 		// one BuddyNext row, never both (card 10344414409, decision 10062150983).
 		add_filter( 'buddynext_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
+		// Same rule on Jetonomy's side: the mirrored reply fires Jetonomy's own listeners,
+		// so its bell row, email and mention notices are muted for the write too.
+		add_filter( 'jetonomy_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
 		// A forum reply's comment on the card follows the reply in and out of
 		// publish: create, approve, restore, trash, purge (card 10344390418).
 		add_action( 'jetonomy_reply_publish_transition', array( $this, 'sync_reply_mirror' ), 10, 3 );
@@ -365,10 +372,11 @@ class JetonomyBridge {
 	 * (admin bar, user-panel block, notification deep-links) at its OWN profile
 	 * sub-screens. When BN owns identity those must land on BN's screens instead,
 	 * or a member editing their profile from a discussion ends up on a second,
-	 * disconnected editor. Only the actions BN actually provides are remapped;
-	 * `badges` and `digest` are Jetonomy-specific (its own badge system and email
-	 * digest, which BN does not mirror) so they stay on Jetonomy, exactly as the
-	 * filter's own contract advises.
+	 * disconnected editor. Only the actions BN actually provides are remapped.
+	 * `digest` (the link in Jetonomy Pro's digest email) lands on the Forum email
+	 * card BN renders in its notification settings, since Jetonomy's own edit
+	 * screen redirects to BN's, which has no digest control. `badges` is
+	 * Jetonomy's own badge system, which BN does not mirror, so it stays put.
 	 *
 	 * @param string $url     Jetonomy's default action URL.
 	 * @param string $action  Action key: profile|edit|notification-settings|badges|digest.
@@ -387,8 +395,11 @@ class JetonomyBridge {
 			case 'notification-settings':
 				$bn = \BuddyNext\Core\PageRouter::notification_prefs_url();
 				break;
+			case 'digest':
+				$bn = \BuddyNext\Core\PageRouter::notification_prefs_url() . '#forum-email';
+				break;
 			default:
-				// badges / digest: Jetonomy-specific, no BN equivalent — leave them.
+				// badges: Jetonomy-specific, no BN equivalent — leave it.
 				return (string) $url;
 		}
 		return '' !== $bn ? $bn : (string) $url;
@@ -1393,6 +1404,9 @@ class JetonomyBridge {
 		$space_id = (int) $space_id;
 		$user_id  = (int) $user_id;
 		$granted  = (array) get_user_meta( $user_id, self::GRANTED_META, false );
+		if ( empty( $granted ) || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
+			return;
+		}
 
 		// The forum linked now AND any this space unlinked earlier: unlinking leaves
 		// the roster alone, so a member banned afterwards must still lose the old
@@ -1425,7 +1439,7 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	private function put_on_forum( int $forum_id, int $user_id, string $bn_role ): void {
-		if ( $user_id <= 0 ) {
+		if ( $user_id <= 0 || ! class_exists( '\\Jetonomy\\Models\\SpaceMember' ) ) {
 			return;
 		}
 		$role    = in_array( $bn_role, array( 'owner', 'admin' ), true ) ? 'admin' : ( 'moderator' === $bn_role ? 'moderator' : 'member' );
@@ -2826,7 +2840,7 @@ class JetonomyBridge {
 				// the partner code at that tag on 2026-10-19 (all present; hook argument
 				// lists unchanged; Space::create() and Space::update() may return a
 				// WP_Error, handled where the result is read).
-				'tested_version'   => '2.0.3',
+				'tested_version'   => '2.0.5',
 				// Forum notifications reach the BuddyNext bell through a contract
 				// Jetonomy offers from 2.0.1 (jetonomy_community_notification_types).
 				// On 2.0.0 the forum still notifies in its own list and the bell
@@ -3601,5 +3615,38 @@ class JetonomyBridge {
 		}
 
 		return $discussions;
+	}
+
+	/**
+	 * Show Jetonomy's own email choices in the member's notification settings.
+	 *
+	 * Jetonomy owns the field, its markup and its storage (PATCH
+	 * /jetonomy/v1/users/me/digest-preferences); BuddyNext sends no forum email and
+	 * keeps no copy. The card renders only when Jetonomy has something to show, so
+	 * a site without Pro's digest sees nothing.
+	 *
+	 * @param int $user_id Member whose settings are open.
+	 */
+	public function render_partner_prefs( int $user_id ): void {
+		if ( $user_id <= 0 || ! has_action( 'jetonomy_profile_notification_fields' ) ) {
+			return;
+		}
+
+		ob_start();
+		do_action( 'jetonomy_profile_notification_fields', $user_id );
+		$fields = trim( (string) ob_get_clean() );
+		if ( '' === $fields ) {
+			return;
+		}
+
+		buddynext_get_template(
+			'parts/settings-partner-prefs.php',
+			array(
+				'bn_pp_fields' => $fields,
+				'bn_pp_rest'   => rest_url( 'jetonomy/v1/users/me/digest-preferences' ),
+				'bn_pp_field'  => 'digest_frequency',
+				'bn_pp_key'    => 'frequency',
+			)
+		);
 	}
 }

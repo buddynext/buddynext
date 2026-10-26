@@ -44,7 +44,8 @@ defined( 'ABSPATH' ) || exit;
 $bn_csm_categories = isset( $categories ) && is_array( $categories ) ? $categories : array();
 // Root spaces the current user manages — eligible parents for a sub-space.
 // Empty (field hidden) unless the render site supplies them.
-$bn_csm_parents = isset( $parent_spaces ) && is_array( $parent_spaces ) ? $parent_spaces : array();
+// With sub-spaces switched off the service refuses any parent, so the form must not offer one.
+$bn_csm_parents = isset( $parent_spaces ) && is_array( $parent_spaces ) && '0' !== (string) get_option( 'buddynext_space_allow_sub', '1' ) ? $parent_spaces : array();
 // Fixed parent — when the modal is opened from a parent space's "Add sub-space"
 // CTA, the parent is locked to that space (object with ->id, ->name). The picker
 // is replaced by a read-only context line + a hidden parent_id, and the modal

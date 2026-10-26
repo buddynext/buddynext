@@ -31,6 +31,13 @@ class AssetService {
 	private const VERSION = BUDDYNEXT_VERSION;
 
 	/**
+	 * Accent folding map for this request, built once by slug_fold_map().
+	 *
+	 * @var array<string, string>|null
+	 */
+	private static ?array $slug_fold_map = null;
+
+	/**
 	 * Base URL for plugin assets (with trailing slash).
 	 *
 	 * @var string
@@ -82,6 +89,7 @@ class AssetService {
 		// Cache-bust every BuddyNext asset by its file mtime so CSS/JS edits
 		// always reach the browser (the plugin version string stays fixed
 		// pre-release). One filter covers all BN handles — front-end + admin.
+		add_filter( 'script_module_data_@buddynext/slug', array( $this, 'slug_module_data' ) );
 		add_filter( 'style_loader_src', array( $this, 'version_by_mtime' ), 20 );
 		add_filter( 'script_loader_src', array( $this, 'version_by_mtime' ), 20 );
 	}
@@ -261,6 +269,7 @@ class AssetService {
 			true
 		);
 		wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+		wp_add_inline_script( 'bn-admin-taxonomy', 'var bnSlugFold = ' . wp_json_encode( self::slug_fold_map() ) . ';', 'before' );
 		if ( false !== strpos( $hook_suffix, 'buddynext-members' )
 			|| false !== strpos( $hook_suffix, 'buddynext-spaces' ) ) {
 			wp_enqueue_style(
@@ -341,7 +350,7 @@ class AssetService {
 				array(
 					'shell'  => \BuddyNext\Notifications\EmailSender::brand_wrap( '{{BNBODY}}', '{{BNSUBJECT}}' ),
 					'sample' => array(
-						'site_name'       => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+						'site_name'       => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 						'site_url'        => home_url( '/' ),
 						'user_name'       => __( 'Alex Rivera', 'buddynext' ),
 						'first_name'      => __( 'Alex', 'buddynext' ),
@@ -588,6 +597,15 @@ class AssetService {
 			$this->module_version( 'js/shell/popover.js' )
 		);
 
+		// `@buddynext/slug` folds accents in live slug previews with the table
+		// sanitize_title() uses, so a previewed address is the saved one.
+		wp_register_script_module(
+			'@buddynext/slug',
+			$this->assets_url . 'js/shell/slug.js',
+			array(),
+			$this->module_version( 'js/shell/slug.js' )
+		);
+
 		// `@buddynext/modal-a11y` is the ONE modal keyboard-accessibility primitive:
 		// focus-in, focus-trap, focus-return and Escape-to-close for every
 		// .bn-modal-backdrop, store-agnostic, so features render modal markup and do
@@ -686,6 +704,14 @@ class AssetService {
 			),
 			$this->module_version( 'js/feed/share-modal.js' )
 		);
+		// `@buddynext/initials` mirrors AvatarService::initials_for() for avatar
+		// placeholders a store draws, so they match the server-rendered ones.
+		wp_register_script_module(
+			'@buddynext/initials',
+			$this->assets_url . 'js/shell/initials.js',
+			array(),
+			$this->module_version( 'js/shell/initials.js' )
+		);
 		wp_register_script_module(
 			'@buddynext/feed-post-card',
 			$this->assets_url . 'js/feed/post-card.js',
@@ -696,6 +722,7 @@ class AssetService {
 				array( 'id' => '@buddynext/upload-core' ),
 				array( 'id' => '@buddynext/feed-shared' ),
 				array( 'id' => '@buddynext/popover' ),
+				array( 'id' => '@buddynext/initials' ),
 			),
 			$this->module_version( 'js/feed/post-card.js' )
 		);
@@ -779,10 +806,15 @@ class AssetService {
 			if ( '@buddynext/spaces' === $id ) {
 				$deps[] = array( 'id' => '@buddynext/popover' );
 			}
+			if ( '@buddynext/onboarding' === $id ) {
+				$deps[] = array( 'id' => '@buddynext/initials' );
+			}
 			// Profile and space covers share one reposition modal (drag-to-pan /
 			// scroll-to-zoom), so both import @buddynext/cover-reposition.
 			if ( '@buddynext/profile' === $id || '@buddynext/spaces' === $id ) {
 				$deps[] = array( 'id' => '@buddynext/cover-reposition' );
+				// The handle box and the new-space address preview their slug.
+				$deps[] = array( 'id' => '@buddynext/slug' );
 			}
 			// The feed paginates by letting the Interactivity Router swap its region
 			// (actions.loadMore) — the only supported way to add cards that are actually
@@ -790,7 +822,9 @@ class AssetService {
 			// markup stays inert. Declared dynamic, exactly as @buddynext/navigate does, so
 			// the router is fetched on the first Load-more click rather than on every feed
 			// page view.
-			if ( '@buddynext/feed' === $id ) {
+			// Feed pagination, and the owner's people list after accepting a
+			// request (social/follow-store.js), re-render through the router.
+			if ( '@buddynext/feed' === $id || '@buddynext/social-buttons' === $id ) {
 				$deps[] = array(
 					'id'     => '@wordpress/interactivity-router',
 					'import' => 'dynamic',
@@ -836,6 +870,42 @@ class AssetService {
 				$this->module_version( 'js/' . $path . '.js' )
 			);
 		}
+	}
+
+	/**
+	 * Hand the slug module its fold table (script_module_data_@buddynext/slug).
+	 *
+	 * @param array<string, mixed> $data Module data.
+	 * @return array<string, mixed>
+	 */
+	public function slug_module_data( array $data ): array {
+		$data['fold'] = self::slug_fold_map();
+		return $data;
+	}
+
+	/**
+	 * What remove_accents() makes of each accented Latin letter, for this site's
+	 * locale: the exact folding sanitize_title() applies on save, including the
+	 * letters Unicode does not decompose (Ø, Ł, Æ, ß) and locale rules (de: ä => ae).
+	 *
+	 * @return array<string, string> Letter => replacement.
+	 */
+	public static function slug_fold_map(): array {
+		if ( null !== self::$slug_fold_map ) {
+			return self::$slug_fold_map;
+		}
+		$map = array();
+		foreach ( array( array( 0xC0, 0x24F ), array( 0x1E00, 0x1EFF ) ) as $range ) {
+			for ( $cp = $range[0]; $cp <= $range[1]; $cp++ ) {
+				$char = mb_chr( $cp, 'UTF-8' );
+				$out  = remove_accents( $char );
+				if ( $out !== $char ) {
+					$map[ $char ] = $out;
+				}
+			}
+		}
+		self::$slug_fold_map = $map;
+		return $map;
 	}
 
 	/**
@@ -1102,6 +1172,9 @@ class AssetService {
 					'manyComments'              => __( '%d comments', 'buddynext' ),
 					'reportPost'                => __( 'Report this post', 'buddynext' ),
 					'reportSubmitted'           => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
+					'reportedPostTitle'         => __( 'You reported this post.', 'buddynext' ),
+					'reportedPostText'          => __( 'Moderators will review it. Thanks for keeping the community safe.', 'buddynext' ),
+					'backToFeed'                => __( 'Back to feed', 'buddynext' ),
 					'reportFailed'              => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'saved'                     => __( 'Saved', 'buddynext' ),
 					'removedFromSaved'          => __( 'Removed from saved', 'buddynext' ),
@@ -1217,6 +1290,8 @@ class AssetService {
 					'viewMoreComments'          => __( 'View more comments', 'buddynext' ),
 					'loadingComments'           => __( 'Loading…', 'buddynext' ),
 					'oneVote'                   => __( '1 vote', 'buddynext' ),
+					/* translators: 1: poll option text, 2: percentage of votes. */
+					'pollOptionYourVote'        => __( '%1$s: %2$d%%, your vote', 'buddynext' ),
 					/* translators: %d: number of votes. */
 					'manyVotes'                 => __( '%d votes', 'buddynext' ),
 					'pollNeedsQuestion'         => __( 'Add a question for your poll.', 'buddynext' ),
@@ -1362,6 +1437,12 @@ class AssetService {
 					'inviteRevokeBody'                => __( 'The current link stops working immediately and can’t be restored. People who already joined stay members.', 'buddynext' ),
 					'inviteRevokeConfirm'             => __( 'Turn off link', 'buddynext' ),
 					'inviteRevoked'                   => __( 'Invite link turned off.', 'buddynext' ),
+					// Linked-to panel (space settings).
+					'linkRemoveTitle'                 => __( 'Remove this link?', 'buddynext' ),
+					'linkRemoveBody'                  => __( 'Members stay in the space. New people who get access to it will no longer be added, and nobody is removed when they lose it.', 'buddynext' ),
+					'linkRemoveConfirm'               => __( 'Remove link', 'buddynext' ),
+					'linkRemoved'                     => __( 'Link removed.', 'buddynext' ),
+					'linkRemoveFailed'                => __( 'Could not remove the link.', 'buddynext' ),
 					// requestJoin's failure branch. It suppresses the shared error
 					// toast, so without this a rejected request (a banned member, say)
 					// only flickered the button and said nothing.
@@ -1424,6 +1505,7 @@ class AssetService {
 					'creating'                        => __( 'Creating…', 'buddynext' ),
 					'spaceCreated'                    => __( 'Space created.', 'buddynext' ),
 					'couldNotCreateSpace'             => __( 'Could not create the space.', 'buddynext' ),
+					'seePlans'                        => __( 'See plans', 'buddynext' ),
 					'createSpace'                     => __( 'Create space', 'buddynext' ),
 					'confirmClose'                    => __( 'Close', 'buddynext' ),
 					'pleaseConfirm'                   => __( 'Please confirm', 'buddynext' ),
@@ -1431,6 +1513,9 @@ class AssetService {
 					'leaveSpaceTitle'                 => __( 'Leave this space?', 'buddynext' ),
 					'leaveSpaceConfirm'               => __( 'You will stop seeing its posts and can join again later.', 'buddynext' ),
 					'leaveSpaceOk'                    => __( 'Leave', 'buddynext' ),
+					'reportSpaceTitle'                => __( 'Report this space', 'buddynext' ),
+					'toastReportSubmitted'            => __( 'Report submitted. Thanks for keeping the community safe.', 'buddynext' ),
+					'toastCouldNotReport'             => __( 'Could not submit report. Try again.', 'buddynext' ),
 					// Directory subtitle count, kept in sync by the store after a
 					// client-side re-render (SSR count would otherwise go stale on
 					// search — card 10297104779). Singular/plural pairs so the JS can
@@ -1495,11 +1580,14 @@ class AssetService {
 			array(
 				// Live-drawn bubbles print their clock like the server ones
 				// (templates/parts/dm-message.php: wp_date( time_format ) in the site zone).
-				'clock' => array(
+				'clock'     => array(
 					'offset' => (int) timezone_offset_get( wp_timezone(), new \DateTime( 'now', new \DateTimeZone( 'UTC' ) ) ),
 					'format' => (string) get_option( 'time_format', 'g:i A' ),
 				),
-				'i18n'  => array(
+				// The engine's site-wide download switch (no item = the switch alone),
+				// for live-drawn media whose payload carries no per-item answer.
+				'downloads' => \BuddyNext\Media\MediaClient::downloads_allowed( 0 ),
+				'i18n'      => array(
 					'sendFailed'                => __( 'Could not send. Try again.', 'buddynext' ),
 					'composeNewGroup'           => __( 'New group', 'buddynext' ),
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),
@@ -1524,6 +1612,7 @@ class AssetService {
 					'groupLeaveOk'              => __( 'Leave', 'buddynext' ),
 					'attachment'                => __( 'Attachment', 'buddynext' ),
 					'attachmentGone'            => __( 'This attachment is no longer available.', 'buddynext' ),
+					'playVideo'                 => __( 'Play video', 'buddynext' ),
 					// DM attachment upload failed (too large, disallowed type, quota).
 					// Fallback only — the server's own reason is preferred when present.
 					'attachmentUploadFailed'    => __( 'Could not attach that file. Try a different one.', 'buddynext' ),
@@ -2075,6 +2164,8 @@ class AssetService {
 					'broadcastsOptedOut'   => __( 'You will no longer receive newsletters or announcements.', 'buddynext' ),
 					'broadcastsOptedIn'    => __( 'You will receive newsletters and announcements again.', 'buddynext' ),
 					'broadcastsFailed'     => __( 'Could not update your broadcast email preference.', 'buddynext' ),
+					'partnerPrefSaved'     => __( 'Email preference saved.', 'buddynext' ),
+					'partnerPrefFailed'    => __( 'Could not save your email preference.', 'buddynext' ),
 				),
 			)
 		);
@@ -2093,7 +2184,7 @@ class AssetService {
 				'i18n' => array(
 					'nameSearchFirst'       => __( 'Please name this search first.', 'buddynext' ),
 					'searchSaved'           => __( 'Search saved.', 'buddynext' ),
-					'searchSaveProRequired' => __( 'Could not save. Saved searches require BuddyNext Pro.', 'buddynext' ),
+					'searchSaveProRequired' => __( 'Saving searches is not available right now.', 'buddynext' ),
 					'searchSaveFailed'      => __( 'Could not save this search. Try again.', 'buddynext' ),
 					'recentSearchesLabel'   => __( 'Recent searches', 'buddynext' ),
 					'recentSearchesTitle'   => __( 'Recent:', 'buddynext' ),
@@ -2243,7 +2334,7 @@ class AssetService {
 					'strengthFair'     => __( 'Fair', 'buddynext' ),
 					'strengthGood'     => __( 'Good', 'buddynext' ),
 					'strengthStrong'   => __( 'Strong', 'buddynext' ),
-					'fillRequired'     => __( 'Please fill in your email, username, and password.', 'buddynext' ),
+					'fillRequired'     => __( 'Please fill in your email and password.', 'buddynext' ),
 					'agreeTerms'       => __( 'Please agree to the Terms of Service and Privacy Policy to continue.', 'buddynext' ),
 					'answerChallenge'  => __( 'Please answer the verification question.', 'buddynext' ),
 					'createFailed'     => __( 'Could not create your account.', 'buddynext' ),

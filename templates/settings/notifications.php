@@ -220,7 +220,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 				<span class="bn-prefs-channel__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
 				<span class="bn-prefs-channel__body">
 					<span class="bn-prefs-channel__label"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
-					<span class="bn-prefs-channel__sub"><?php esc_html_e( 'Show notifications inside BuddyNext.', 'buddynext' ); ?></span>
+					<span class="bn-prefs-channel__sub"><?php esc_html_e( 'Show notifications inside this community.', 'buddynext' ); ?></span>
 				</span>
 			</label>
 
@@ -380,7 +380,8 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 
 									<?php if ( $can_email || $email_only ) : ?>
 										<span class="bn-prefs-freq__caption" id="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>"><?php esc_html_e( 'Email', 'buddynext' ); ?></span>
-										<div class="bn-prefs-freq" role="radiogroup" aria-labelledby="bn-prefs-freq-cap-<?php echo esc_attr( $type_slug ); ?>">
+										<?php // A group of toggle buttons named for its type, so a screen reader hears "Email for New follower", not "Email" forty times. ?>
+										<div class="bn-prefs-freq" role="group" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: notification type, e.g. "New follower". */ __( 'Email for %s', 'buddynext' ), (string) ( $entry['label'] ?? $type_slug ) ) ); ?>">
 											<?php
 											// The digest row is a switch, not a schedule: each type above
 											// chooses its own Daily or Weekly, and this row only decides

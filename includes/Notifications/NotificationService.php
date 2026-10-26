@@ -30,11 +30,22 @@ class NotificationService {
 	 * @var array<string,string[]>
 	 */
 	public const TAB_TYPES = array(
-		'reaction' => array( 'bn.post_reacted', 'mediaverse.media_reaction' ),
-		'comment'  => array( 'bn.post_commented', 'bn.media_commented' ),
+		'reaction' => array( 'bn.post_reacted', 'bn.comment_reacted', 'mediaverse.media_reaction' ),
+		'comment'  => array( 'bn.post_commented', 'bn.comment_reply', 'bn.media_commented' ),
 		'mention'  => array( 'bn.mention', 'mediaverse.media_mention' ),
-		'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
-		'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
+		'follow'   => array( 'bn.new_follower', 'bn.follow_requested', 'bn.connection_accepted', 'bn.connection_requested' ),
+		'space'    => array(
+			'bn.space_invite',
+			'bn.space_join_requested',
+			'bn.space_new_post',
+			'bn.space_join',
+			'bn.space_request_approved',
+			'bn.space_join_declined',
+			'bn.space_ownership_received',
+			'bn.space_role_changed',
+			'bn.bulk_invite',
+			'bn.space_media_unlinked',
+		),
 		'message'  => array( 'bn.new_message' ),
 	);
 
@@ -246,10 +257,13 @@ class NotificationService {
 	 * "gone". The page's objects are primed first so this is a few queries per type,
 	 * not one per row.
 	 *
+	 * The email digest reads the same gate (CronService), so the bell and the
+	 * email can never disagree about what a member may see.
+	 *
 	 * @param array<int,array<string,mixed>> $rows Raw notification rows.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function filter_resolvable( array $rows ): array {
+	public function filter_resolvable( array $rows ): array {
 		if ( empty( $rows ) || ! function_exists( 'buddynext_object_exists' ) ) {
 			return $rows;
 		}

@@ -260,7 +260,7 @@ class MemberDirectoryController extends BaseRestController {
 		$blocked_either = array();
 		$muted_set      = array();
 		if ( $page_ids ) {
-			cache_users( $page_ids );
+			\BuddyNext\Profile\AvatarService::prime( $page_ids );
 			update_meta_cache( 'user', $page_ids );
 
 			if ( $viewer_id > 0 ) {
@@ -318,7 +318,7 @@ class MemberDirectoryController extends BaseRestController {
 
 		// Batch-prime the same lookups the directory listing primes, so shape_item()
 		// resolves from cache instead of issuing a query per row.
-		cache_users( $ids );
+		\BuddyNext\Profile\AvatarService::prime( $ids );
 		update_meta_cache( 'user', $ids );
 
 		$following_set  = array();
@@ -408,10 +408,7 @@ class MemberDirectoryController extends BaseRestController {
 		 *
 		 * So handle is derived the same way profile_url() derives it. One source of truth.
 		 */
-		$custom_slug = (string) get_user_meta( $uid, 'bn_profile_slug', true );
-		$handle      = '' !== $custom_slug
-			? $custom_slug
-			: ( $user instanceof \WP_User ? (string) $user->user_nicename : '' );
+		$handle = \BuddyNext\Core\PageRouter::member_handle( $uid );
 
 		// Member-type badge — built from the shared MemberTypeService::badge_for()
 		// so the directory and the profile response cannot drift. badge_for() reads

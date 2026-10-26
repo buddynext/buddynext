@@ -64,8 +64,9 @@ final class SpaceSuggestionService {
 		}
 
 		// Sample the display set from the top of the ranked pool so the suggestion
-		// widget rotates each load instead of showing the identical top-N.
-		$rows = buddynext_sample_ranked( $pool, $limit );
+		// widget rotates each load instead of showing the identical top-N. The score
+		// keeps clear matches (an interest or a connection's space) always shown.
+		$rows = buddynext_sample_ranked( $pool, $limit, 4, static fn( array $row ): float => (float) ( $row['_bn_score'] ?? 0 ) );
 		return $this->apply_suggestions_filter( $rows, $user_id, $limit );
 	}
 

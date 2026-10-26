@@ -502,7 +502,7 @@ if bn_heavy_gate_skipped "full PHPUnit suite"; then
 	:
 elif [ -f "$BN_WTL/includes/functions.php" ] && [ -f vendor/bin/phpunit ]; then
 	PURC=0
-	WP_TESTS_DIR="$BN_WTL" vendor/bin/phpunit --no-coverage >/tmp/bn-phpunit.log 2>&1 || PURC=$?
+	WP_TESTS_DIR="$BN_WTL" env -u PHPRC vendor/bin/phpunit --no-coverage >/tmp/bn-phpunit.log 2>&1 || PURC=$?
 	if [ "$PURC" -eq 0 ]; then
 		echo "  phpunit: green"
 	else

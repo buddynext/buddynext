@@ -108,4 +108,18 @@ class HandleValidationTest extends \WP_UnitTestCase {
 		$this->assertFalse( PageRouter::is_slug_available( 'ab', $user ) );
 		$this->assertTrue( PageRouter::is_slug_available( 'a-fine-handle', $user ) );
 	}
+
+	/**
+	 * Every handle field shows one hint, built from the bounds validate() enforces,
+	 * so a filtered bound changes the words members read (card 10435748775).
+	 *
+	 * @return void
+	 */
+	public function test_the_hint_states_the_enforced_bounds(): void {
+		$this->assertStringContainsString( Handle::MIN_LENGTH . '-' . Handle::MAX_LENGTH, Handle::hint() );
+
+		add_filter( 'buddynext_handle_length_bounds', static fn(): array => array( 5, 30 ) );
+		$this->assertStringContainsString( '5-30', Handle::hint() );
+		$this->assertSame( 'handle_too_short', $this->code( 'abcd' ) );
+	}
 }

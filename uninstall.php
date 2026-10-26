@@ -122,8 +122,9 @@ $bn_purge_meta = static function ( $options_only = false ) use ( $wpdb ) {
  * EVERY uninstall regardless of the data-retention setting — leaving them
  * behind was the "211 Action Scheduler actions and transients" orphan the audit
  * flagged. Action Scheduler is not loaded during uninstall, so its rows are
- * deleted directly by our own hook prefix (every BuddyNext job hook starts
- * `buddynext`); the tables may be absent if AS never ran, hence the guard.
+ * deleted directly by our own hook prefix (every Free job hook starts
+ * `buddynext_`; Pro's are left to Pro); the tables may be absent if AS never
+ * ran, hence the guard.
  *
  * @return void
  */
@@ -147,7 +148,15 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bn_as_actions ) ) === $bn_as_actions ) {
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( $wpdb->prepare( "DELETE FROM `{$bn_as_actions}` WHERE hook LIKE %s", $wpdb->esc_like( 'buddynext' ) . '%' ) );
+		// Free's hooks are buddynext_*; Pro's are buddynextpro_* and buddynext_pro_*,
+		// and stay for Pro to manage (DATA-LIFECYCLE: delete only what you own).
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM `{$bn_as_actions}` WHERE hook LIKE %s AND hook NOT LIKE %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->esc_like( 'buddynext_' ) . '%',
+				$wpdb->esc_like( 'buddynext_pro_' ) . '%'
+			)
+		);
 	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -165,19 +174,24 @@ $bn_purge_infrastructure = static function () use ( $wpdb ) {
 // deactivate-then-delete is destructive and irreversible, and matches nothing a
 // careful owner expects. Only when the owner has explicitly ticked
 // "Delete all BuddyNext data when uninstalled" do the data tables and user meta
-// go. Read BEFORE the option sweep below, which would otherwise remove the flag
-// before we consult it. Financial data lives in Pro's tables and is retained
-// there regardless; Pro reads this same option.
-$bn_delete_data = (bool) get_option( 'buddynext_delete_data_on_uninstall', false );
+// go. On a network the community lives on the main site only, so uninstall runs
+// once, on the main site, and only the main site's choice counts; a subsite
+// admin has no say over the shared member meta. Financial data lives in Pro's
+// tables and is retained there regardless; Pro reads this same option.
+if ( is_multisite() ) {
+	switch_to_blog( get_main_site_id() );
+}
+$bn_wipe_members = (bool) get_option( 'buddynext_delete_data_on_uninstall', false );
 
 /**
- * Purge one site: always clear settings + infrastructure; drop member data only
+ * Purge the community site: always clear settings + infrastructure; drop member data only
  * when the owner opted in.
  *
  * @param string $prefix Table prefix for the site being cleaned.
  * @return void
  */
-$bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_meta, $bn_purge_infrastructure, $bn_delete_data ) {
+$bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_meta, $bn_purge_infrastructure ) {
+	$bn_delete_data = (bool) get_option( 'buddynext_delete_data_on_uninstall', false );
 	$bn_purge_infrastructure();
 	if ( $bn_delete_data ) {
 		// Remove the hub backing pages (published WP pages holding [buddynext_*]
@@ -185,22 +199,18 @@ $bn_clean_site = static function ( $prefix ) use ( $bn_drop_tables, $bn_purge_me
 		// pointers. Opt-in full wipe only; the default path leaves them in place.
 		\BuddyNext\Core\Installer::delete_hub_pages();
 		$bn_drop_tables( $prefix );
-		$bn_purge_meta();
-	} else {
-		// Keep member content and user meta; still remove pure settings/flags so a
-		// clean reinstall starts from defaults rather than stale options.
-		$bn_purge_meta( true );
 	}
+	// Settings and flags always go, so a clean reinstall starts from defaults.
+	// Member user meta is network-wide and handled once, below.
+	$bn_purge_meta( true );
 };
 
+$bn_clean_site( $wpdb->prefix );
+
+if ( $bn_wipe_members ) {
+	$bn_purge_meta();
+}
+
 if ( is_multisite() ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$bn_blog_ids = $wpdb->get_col( "SELECT blog_id FROM {$wpdb->blogs}" );
-	foreach ( (array) $bn_blog_ids as $bn_blog_id ) {
-		switch_to_blog( (int) $bn_blog_id );
-		$bn_clean_site( $wpdb->prefix );
-		restore_current_blog();
-	}
-} else {
-	$bn_clean_site( $wpdb->prefix );
+	restore_current_blog();
 }

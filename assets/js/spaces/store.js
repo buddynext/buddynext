@@ -4,7 +4,8 @@ import { restFetch } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
-import { bnConfirm, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { foldAccents } from '@buddynext/slug';
+import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -953,6 +954,41 @@ var storeInstance = store( 'buddynext/spaces', {
 		},
 
 		/**
+		 * Remove one link from the "Linked to" panel after a confirm. The space and
+		 * its members stay; the tab reloads to show what is left.
+		 */
+		removeSpaceLink: async function ( event ) {
+			var btn  = event && event.target && event.target.closest( '[data-bn-link-remove]' );
+			var root = btn && btn.closest( '[data-bn-links-panel]' );
+			if ( ! root ) { return; }
+			if ( window.bnConfirm ) {
+				var ok = await window.bnConfirm( {
+					tone:         'danger',
+					title:        t( 'linkRemoveTitle', 'Remove this link?' ),
+					body:         t( 'linkRemoveBody', 'Members stay in the space. New people who get access to it will no longer be added, and nobody is removed when they lose it.' ),
+					confirmLabel: t( 'linkRemoveConfirm', 'Remove link' ),
+				} );
+				if ( ! ok ) { return; }
+			}
+			btn.disabled = true;
+			try {
+				var q   = '?source=' + encodeURIComponent( btn.getAttribute( 'data-source' ) ) +
+					'&type=' + encodeURIComponent( btn.getAttribute( 'data-type' ) ) +
+					'&object=' + encodeURIComponent( btn.getAttribute( 'data-object' ) );
+				var res = await restFetch( '/spaces/' + root.getAttribute( 'data-space-id' ) + '/links' + q, { method: 'DELETE', nonce: resolveNonce(), toastOnError: false } );
+				if ( res.ok ) {
+					bnReloadWithToast( t( 'linkRemoved', 'Link removed.' ), 'success' );
+					return;
+				}
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( ( res.data && res.data.message ) || t( 'linkRemoveFailed', 'Could not remove the link.' ), 'danger' ); }
+			} catch ( _e ) {
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error. Try again.' ), 'danger' ); }
+			}
+		},
+
+		/**
 		 * Select the whole invite URL when the read-only field is focused, so a
 		 * keyboard/manual copy grabs the full link. Replaces an inline onfocus
 		 * handler (CSP-friendly).
@@ -1100,6 +1136,28 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * Reverts the button to "Join" (public) or "Request to join"
 		 * (private/secret) and decrements the displayed member count.
 		 */
+		/**
+		 * Report this space to the site moderators (the site queue only).
+		 */
+		reportSpace: async function ( event ) {
+			var spaceId = resolveSpaceId( event && event.target && event.target.closest( 'button' ) );
+			if ( ! spaceId ) { return; }
+			var result = await bnReportDialog( { title: t( 'reportSpaceTitle', 'Report this space' ) } );
+			if ( ! result ) { return; }
+			var res = await restFetch( '/reports', {
+				method:       'POST',
+				nonce:        resolveNonce(),
+				toastOnError: false,
+				body:         { object_type: 'space', object_id: parseInt( spaceId, 10 ), reason: result.reason || 'other', notes: result.notes || '' },
+			} );
+			if ( res.ok || 201 === res.status ) {
+				bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+				return;
+			}
+			var data = res.data || {};
+			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+		},
+
 		leaveSpace: async function ( event ) {
 			if ( routeMembership( event, 'joined' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
@@ -2013,6 +2071,8 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent' ), 'success' ); }
+					// The modal is reused for the next invite, so the button must be live again.
+					btn.disabled = false;
 					closeAllSpaceModals();
 				} else {
 					var data = res.data || {};
@@ -2220,12 +2280,14 @@ var storeInstance = store( 'buddynext/spaces', {
 					return;
 				}
 
-				if ( data && data.data && data.data.params ) {
+				// An empty params array is truthy, so test for real field errors: a refusal
+				// with no field (limit reached, sub-spaces off) must reach its message.
+				if ( data && data.data && data.data.params && Object.keys( data.data.params ).length ) {
 					Object.keys( data.data.params ).forEach( function ( field ) {
 						showCreateSpaceError( form, field, data.data.params[ field ] );
 					} );
 				} else if ( data && data.message ) {
-					showCreateSpaceError( form, '_global', data.message );
+					showCreateSpaceError( form, '_global', data.message, data.data && data.data.upgrade_url );
 				} else {
 					showCreateSpaceError( form, '_global', t( 'couldNotCreateSpace', 'Could not create the space.' ) );
 				}
@@ -2756,13 +2818,20 @@ function clearCreateSpaceErrors( form ) {
 	}
 }
 
-function showCreateSpaceError( form, field, message ) {
+function showCreateSpaceError( form, field, message, upgradeUrl ) {
 	var node = form.querySelector( '[data-bn-error-for="' + field + '"]' );
 	if ( ! node ) {
 		node = form.querySelector( '[data-bn-error-for="_global"]' );
 	}
 	if ( ! node ) { return; }
 	node.textContent = String( message );
+	// A plan-limit refusal carries the page that lifts it.
+	if ( upgradeUrl ) {
+		var link = document.createElement( 'a' );
+		link.href = upgradeUrl;
+		link.textContent = t( 'seePlans', 'See plans' );
+		node.append( ' ', link );
+	}
 	node.removeAttribute( 'hidden' );
 }
 
@@ -3003,7 +3072,8 @@ function initSpacesImperative() {
 		} );
 		nameInput.addEventListener( 'input', function () {
 			if ( slugTouched ) { return; }
-			slugInput.value = nameInput.value
+			// Accents fold first, with the table sanitize_title() uses on save.
+			slugInput.value = foldAccents( nameInput.value )
 				.toLowerCase()
 				.replace( /[^a-z0-9]+/g, '-' )
 				.replace( /^-+|-+$/g, '' )

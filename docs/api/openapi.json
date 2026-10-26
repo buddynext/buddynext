@@ -11,7 +11,7 @@
             "name": "GPL-2.0-or-later",
             "identifier": "GPL-2.0-or-later"
         },
-        "version": "1.2.6"
+        "version": "1.2.7"
     },
     "servers": [
         {
@@ -7518,6 +7518,49 @@
                 ]
             }
         },
+        "/members/{id}/portfolio": {
+            "get": {
+                "tags": [
+                    "Members and Profiles"
+                ],
+                "operationId": "get_members_id_portfolio",
+                "summary": "GET /buddynext/v1/members/{id}/portfolio",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MembersPortfolio"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {},
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/moderation/log": {
             "get": {
                 "tags": [
@@ -13180,6 +13223,127 @@
                 ]
             }
         },
+        "/spaces/{id}/links": {
+            "get": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "get_spaces_id_links",
+                "summary": "GET /buddynext/v1/spaces/{id}/links",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SpacesLinks"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Spaces"
+                ],
+                "operationId": "delete_spaces_id_links",
+                "summary": "DELETE /buddynext/v1/spaces/{id}/links",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "source",
+                        "in": "query",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "object",
+                        "in": "query",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
         "/spaces/{id}/media": {
             "get": {
                 "tags": [
@@ -17031,6 +17195,86 @@
                 "description": "Result of a write operation. The fields depend on the operation.",
                 "additionalProperties": true
             },
+            "MembersPortfolio": {
+                "type": "object",
+                "properties": {
+                    "member_id": {
+                        "type": "integer"
+                    },
+                    "is_owner": {
+                        "type": "boolean"
+                    },
+                    "panels": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "icon": {
+                                    "type": "string"
+                                },
+                                "count": {
+                                    "type": "integer"
+                                },
+                                "cta": {
+                                    "type": [
+                                        "array",
+                                        "object"
+                                    ]
+                                },
+                                "owner_cta": {
+                                    "type": "object"
+                                },
+                                "items": {
+                                    "type": "array"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "SpacesLinks": {
+                "type": "object",
+                "properties": {
+                    "links": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "source": {
+                                    "type": "string"
+                                },
+                                "source_label": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string"
+                                },
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string"
+                                },
+                                "available": {
+                                    "type": "boolean"
+                                },
+                                "managed": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "AuthRegisterConfig": {
                 "type": "object",
                 "properties": {
@@ -17358,6 +17602,9 @@
                         "type": "object"
                     },
                     "integrations": {
+                        "type": "object"
+                    },
+                    "card_types": {
                         "type": "object"
                     },
                     "limits": {
@@ -19674,6 +19921,9 @@
                     },
                     "can_edit_space": {
                         "type": "boolean"
+                    },
+                    "can_change_roles": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -19856,6 +20106,39 @@
                         ],
                         "description": "Pro + Learnomy: the course or Learnomy Space this community belongs to."
                     },
+                    "linked_sources": {
+                        "type": "array",
+                        "description": "Everything this space is linked to, from every addon. Empty unless the viewer can manage the space.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "source": {
+                                    "type": "string"
+                                },
+                                "source_label": {
+                                    "type": "string"
+                                },
+                                "type": {
+                                    "type": "string"
+                                },
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string"
+                                },
+                                "available": {
+                                    "type": "boolean"
+                                },
+                                "managed": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    },
                     "post_count": {
                         "type": "integer"
                     },
@@ -19966,6 +20249,9 @@
                         "type": "boolean"
                     },
                     "can_edit_space": {
+                        "type": "boolean"
+                    },
+                    "can_change_roles": {
                         "type": "boolean"
                     }
                 }
@@ -21268,6 +21554,32 @@
                                     }
                                 }
                             },
+                            "bn.report_escalated": {
+                                "type": "object",
+                                "properties": {
+                                    "on_site": {
+                                        "type": "boolean"
+                                    },
+                                    "email_freq": {
+                                        "type": "string"
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "group": {
+                                        "type": "string"
+                                    },
+                                    "can_email": {
+                                        "type": "boolean"
+                                    },
+                                    "email_only": {
+                                        "type": "boolean"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
                             "bn.post_approved": {
                                 "type": "object",
                                 "properties": {
@@ -22474,6 +22786,13 @@
                                 "id": {
                                     "type": "integer"
                                 },
+                                "space_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "Space the action happened in; 0 or null for a site-wide action."
+                                },
                                 "actor_id": {
                                     "type": "integer"
                                 },
@@ -23353,6 +23672,23 @@
                                 "id": {
                                     "type": "integer"
                                 },
+                                "co_written": {
+                                    "type": "boolean"
+                                },
+                                "co_writers": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer"
+                                            },
+                                            "name": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
                                 "title": {
                                     "type": "string"
                                 },
@@ -23380,6 +23716,9 @@
                                     "type": "string"
                                 },
                                 "status_label": {
+                                    "type": "string"
+                                },
+                                "edit_url": {
                                     "type": "string"
                                 }
                             }

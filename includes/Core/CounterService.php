@@ -228,6 +228,8 @@ class CounterService {
 			),
 			array( 'id' => $post_id )
 		);
+		// PostService caches the row; drop it so the new count shows on the next read.
+		wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
 	}
 
 	// ── Post comment count ────────────────────────────────────────────────────
@@ -261,6 +263,8 @@ class CounterService {
 			),
 			array( 'id' => $post_id )
 		);
+		// PostService caches the row; drop it so the new count shows on the next read.
+		wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
 	}
 
 	// ── Space member count ────────────────────────────────────────────────────

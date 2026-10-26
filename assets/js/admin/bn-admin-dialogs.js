@@ -8,7 +8,7 @@
  * Usage:
  *   1. Declarative (no JS): add `data-bn-confirm="Are you sure?"` to any
  *      <a>, <button>, or <form>. Click is intercepted; user gets a modal.
- *      Optional: data-bn-confirm-tone="danger" | "warning" | "neutral",
+ *      Optional: data-bn-confirm-tone="danger" | "warn" | "neutral",
  *                data-bn-confirm-title="…",
  *                data-bn-confirm-ok="Delete",
  *                data-bn-confirm-cancel="Cancel".
@@ -395,8 +395,14 @@
 		 * filter or a page number with it.
 		 */
 		if ( onBnScreen && document.querySelector( '.bn-notice' ) ) {
+			// A field of a filter (GET) form on this screen is state too, so a
+			// screen's own filters survive without being listed above.
+			var state = STATE_PARAMS.slice();
+			document.querySelectorAll( 'form:not([method="post" i]) [name]' ).forEach( function ( field ) {
+				state.push( field.name );
+			} );
 			url.searchParams.forEach( function ( _value, key ) {
-				if ( STATE_PARAMS.indexOf( key ) === -1 && params.indexOf( key ) === -1 ) {
+				if ( state.indexOf( key ) === -1 && params.indexOf( key ) === -1 ) {
 					params.push( key );
 				}
 			} );
@@ -556,7 +562,7 @@
 			title:       t.title || __( 'Restore default settings?', 'buddynext' ),
 			message:     message,
 			html:        true,
-			tone:        'warning',
+			tone:        'warn',
 			okLabel:     t.confirm || __( 'Restore defaults', 'buddynext' ),
 			cancelLabel: t.cancel || __( 'Cancel', 'buddynext' ),
 		} ).then( function ( ok ) {

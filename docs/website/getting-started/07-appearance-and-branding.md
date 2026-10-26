@@ -10,7 +10,7 @@ Members trust a community that looks like the brand that invited them. A generic
 
 ## Community name
 
-Set under **Settings > General**, the **Community name** (and the **Community description** below it) is how your community refers to itself in headings and copy. If you do not upload a logo, this name is shown at the top of the navigation instead, so it is worth getting right even on a logo-free site.
+Set under **Settings > General**, the **Community name** (and the **Community description** below it) is how your community refers to itself in headings and copy. Members see it in every email, on the signup page, as the app name when they install the community to their home screen, in push notifications and in the browser tab on community pages. If you leave it blank, your WordPress Site Title is used. If you do not upload a logo, this name is shown at the top of the navigation instead, so it is worth getting right even on a logo-free site.
 
 ## Brand color
 
@@ -23,6 +23,8 @@ Under **Settings > Appearance**, the **Logo** (labelled **Logo image** on the fi
 ## Default theme (auto, light, or dark)
 
 The **Default theme** setting chooses what new visitors see to start with. It offers three choices - **Auto** (follow the visitor's own device setting), **Light**, and **Dark** - and defaults to Auto, so someone whose phone or laptop is in dark mode sees a dark community without doing anything. It applies only to people who have not picked a theme for themselves - once a member chooses, their choice sticks.
+
+On BuddyX, BuddyX Pro and Reign the theme sets light or dark mode for the whole site, and its own color mode setting wins over this one. The field says so and links to that setting in the Customizer.
 
 BuddyNext does not add its own light/dark switch. Instead it follows the toggle your WordPress theme already provides. If your site runs a theme with a color-mode toggle, such as BuddyX or Reign, flipping that toggle switches BuddyNext along with it, with no extra setup. Dark mode reaches the whole community - including form controls, profile skill chips, and badges - so a dark layout stays dark end to end.
 

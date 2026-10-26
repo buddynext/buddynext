@@ -407,7 +407,7 @@ class CommentController extends BaseRestController {
 		array_map( $collect, $result['items'] );
 
 		if ( ! empty( $bn_author_ids ) ) {
-			cache_users( array_values( array_unique( array_filter( $bn_author_ids ) ) ) );
+			\BuddyNext\Profile\AvatarService::prime( array_values( array_unique( array_filter( $bn_author_ids ) ) ) );
 		}
 		if ( $viewer_id > 0 ) {
 			$reactions->get_user_emoji_map( $viewer_id, 'comment', $bn_comment_ids );

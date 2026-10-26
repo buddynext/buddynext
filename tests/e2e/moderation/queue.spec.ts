@@ -23,7 +23,7 @@ test.describe('moderation / queue', () => {
             return;
         }
         const queue = page.locator(sel.adminModQueue).first();
-        const fallbackTable = page.locator('.wp-list-table, .bn-admin__table').first();
+        const fallbackTable = page.locator('.wp-list-table').first();
         const anyVisible = (await queue.isVisible().catch(() => false)) || (await fallbackTable.isVisible().catch(() => false));
         expect(anyVisible).toBeTruthy();
         // EFFECT: the screen counts the same pending reports the queue route answers.

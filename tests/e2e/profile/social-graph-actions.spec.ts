@@ -334,7 +334,8 @@ test.describe('profile / social-graph actions (effect-based)', () => {
                     r.request().method() === 'DELETE',
                 { timeout: 10_000 }
             ),
-            disconnect.click(),
+            // Removing a connection asks first (bnConfirmDisconnect); confirm it.
+            disconnect.click().then(() => page.getByRole('button', { name: 'Remove connection' }).click()),
         ]);
         expect(await connectionCount('accepted', A_ID, B_ID), 'disconnect must remove the accepted row').toBe(0);
         // EFFECT: the status and connections routes read the pair as not connected.

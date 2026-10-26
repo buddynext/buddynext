@@ -158,6 +158,10 @@ class BlogPostListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_after_insert( $post_id, $post, $update, $post_before ): void {
+		// Switched to another site of a network: the community tables are not there.
+		if ( ! buddynext_is_community_site() ) {
+			return;
+		}
 		if ( ! $post instanceof \WP_Post || ! in_array( $post->post_type, $this->tracked_types(), true ) ) {
 			return;
 		}
@@ -381,6 +385,10 @@ class BlogPostListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_delete( $post_id ): void {
+		// Switched to another site of a network: the community tables are not there.
+		if ( ! buddynext_is_community_site() ) {
+			return;
+		}
 		$post = get_post( (int) $post_id );
 		if ( $post instanceof \WP_Post && in_array( $post->post_type, $this->tracked_types(), true ) ) {
 			$this->retract( $post );

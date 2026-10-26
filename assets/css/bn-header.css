@@ -193,6 +193,11 @@
 }
 
 .bn-header-user__caret:hover,
+.bn-header-user__caret:focus {
+	background: transparent;
+}
+
+.bn-header-user__caret:hover,
 .bn-header-user__caret:focus-visible {
 	color: var(--bn-ink, #0f172a);
 }

@@ -290,4 +290,23 @@ class PwaServiceTest extends \WP_UnitTestCase {
 
 		remove_all_filters( 'buddynext_pwa_shell_assets' );
 	}
+
+	/**
+	 * The app is named after the community, so a blank Site Title (common when an
+	 * SEO plugin owns titles) no longer blanks the name and blocks install
+	 * (card 10436265906).
+	 */
+	public function test_manifest_is_named_after_the_community(): void {
+		$saved = get_option( 'blogname' );
+		update_option( 'blogname', '' );
+		update_option( 'buddynext_site_name', 'Weesocio Community Hub' );
+
+		$manifest = $this->pwa->get_manifest();
+
+		update_option( 'blogname', $saved );
+		delete_option( 'buddynext_site_name' );
+
+		$this->assertSame( 'Weesocio Community Hub', $manifest['name'] );
+		$this->assertSame( 'Weesocio Com', $manifest['short_name'] );
+	}
 }

@@ -127,19 +127,61 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Each catalogue entry has the required keys.
+	 * Each catalogue entry has the required keys, and each email has ONE default:
+	 * the seed list's wording, or the catalogue's when the seed list does not name
+	 * the type. Two sources drifted (card 10435746911): the catalogue's welcome copy
+	 * linked to the login page while the email sent linked to the site home.
 	 */
 	public function test_each_template_has_required_keys(): void {
+		$seeds = array();
+		foreach ( \BuddyNext\Core\Installer::email_template_seeds() as $seed ) {
+			$seeds[ $seed['type'] ] = $seed;
+		}
+
 		$catalogue = $this->editor->get_catalogue();
 		foreach ( $catalogue as $templates ) {
 			foreach ( $templates as $slug => $def ) {
 				$this->assertArrayHasKey( 'name', $def, "Template {$slug} missing 'name'" );
 				$this->assertArrayHasKey( 'trigger', $def, "Template {$slug} missing 'trigger'" );
 				$this->assertArrayHasKey( 'tokens', $def, "Template {$slug} missing 'tokens'" );
-				$this->assertArrayHasKey( 'subject', $def, "Template {$slug} missing 'subject'" );
-				$this->assertArrayHasKey( 'body', $def, "Template {$slug} missing 'body'" );
+				$this->assertNotSame( '', (string) ( $seeds[ $slug ]['subject'] ?? '' ), "Template {$slug} has no default subject" );
+				$this->assertNotSame( '', (string) ( $seeds[ $slug ]['body_html'] ?? '' ), "Template {$slug} has no default body" );
+				if ( isset( $def['body'] ) ) {
+					$this->assertSame( wpautop( (string) $def['body'] ), $seeds[ $slug ]['body_html'], "Template {$slug} carries wording the seed list overrides" );
+				}
 			}
 		}
+	}
+
+	/**
+	 * A test send fills every token the shipped templates carry. An unfilled one
+	 * reaches the owner as raw {{braces}} and the template reads as broken.
+	 */
+	public function test_send_test_fills_every_shipped_token(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$sent = array();
+		add_filter(
+			'pre_wp_mail',
+			static function ( $short, array $atts ) use ( &$sent ) {
+				$sent[] = (string) $atts['subject'] . ' ' . (string) $atts['message'];
+				return true;
+			},
+			10,
+			2
+		);
+
+		$raw = array();
+		foreach ( $this->editor->get_catalogue() as $templates ) {
+			foreach ( array_keys( $templates ) as $slug ) {
+				$sent = array();
+				$this->editor->send_test( (string) $slug, 'owner@example.org' );
+				if ( preg_match_all( '/\{\{[a-z_]+\}\}/', implode( ' ', $sent ), $m ) ) {
+					$raw[ $slug ] = array_values( array_unique( $m[0] ) );
+				}
+			}
+		}
+
+		$this->assertSame( array(), $raw );
 	}
 
 	// ── save() + get_saved() ──────────────────────────────────────────────────

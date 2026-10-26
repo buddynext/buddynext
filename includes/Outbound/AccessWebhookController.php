@@ -195,8 +195,7 @@ class AccessWebhookController {
 			if ( $response instanceof WP_Error ) {
 				// The account existed only to receive this grant. Nothing was
 				// granted, so nothing is left behind and no email goes out.
-				require_once ABSPATH . 'wp-admin/includes/user.php';
-				wp_delete_user( $user->ID );
+				buddynext_remove_member( (int) $user->ID );
 			} else {
 				\BuddyNext\Auth\AuthController::send_set_password_email( $user );
 				$response['member_created'] = true;
@@ -342,8 +341,7 @@ class AccessWebhookController {
 				if ( ! $held ) {
 					// Without the hold this request could not safely take the account
 					// away again later, so it does not keep one it cannot guard.
-					require_once ABSPATH . 'wp-admin/includes/user.php';
-					wp_delete_user( (int) $user_id );
+					buddynext_remove_member( (int) $user_id );
 					$user_id = new WP_Error( 'busy', __( 'Another request for this member is still being processed. Try again.', 'buddynext' ), array( 'status' => 409 ) );
 				}
 			}

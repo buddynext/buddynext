@@ -57,7 +57,7 @@
 				: {
 					title:       __( 'Hide posts?', 'buddynext' ),
 					message:     sprintf( _n( 'Hide %d post from the feed?', 'Hide %d posts from the feed?', count, 'buddynext' ), count ),
-					tone:        'warning',
+					tone:        'warn',
 					okLabel:     __( 'Hide', 'buddynext' ),
 					cancelLabel: __( 'Cancel', 'buddynext' ),
 				};

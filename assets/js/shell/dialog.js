@@ -344,6 +344,23 @@ export function bnBlockConfirm( displayName ) {
 }
 
 /**
+ * Confirm removing a connection. Every "Connected" control routes here, so a
+ * single click never removes a connection that takes the other person's
+ * approval to restore. Resolves true on confirm.
+ *
+ * @param {string} displayName The member's display name ('' for a generic title).
+ * @return {Promise<boolean>}
+ */
+export function bnConfirmDisconnect( displayName ) {
+	return bnConfirm( {
+		title:        displayName ? si( 'disconnectTitleNamed', 'Remove your connection with %s?' ).replace( '%s', displayName ) : si( 'disconnectTitleGeneric', 'Remove this connection?' ),
+		body:         si( 'disconnectBody', 'To connect again you will need to send a new request and wait for them to accept.' ),
+		confirmLabel: si( 'disconnectConfirm', 'Remove connection' ),
+		tone:         'danger',
+	} );
+}
+
+/**
  * Present a prompt dialog with a text input. Resolves the entered string
  * on confirm (possibly empty), null on cancel.
  *

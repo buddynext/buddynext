@@ -351,11 +351,15 @@
 	transition: background var(--bn-mu-transition), color var(--bn-mu-transition);
 }
 
-.bn-media-subnav__tab:hover {
+.bn-media-subnav__tab:hover,
+.bn-media-subnav__tab:focus {
+	background: transparent;
 	color: var(--bn-ink);
 }
 
-.bn-media-subnav__tab--active {
+.bn-media-subnav__tab--active,
+.bn-media-subnav__tab--active:hover,
+.bn-media-subnav__tab--active:focus {
 	background: var(--bn-surface);
 	color: var(--bn-ink);
 	box-shadow: var(--bn-shadow-xs);

@@ -37,6 +37,7 @@ class OnboardingListener implements ListenerInterface {
 		// NOT grow the autoloaded WP-Cron option the way the retired per-user
 		// wp_schedule_single_event() calls did.
 		add_action( 'user_register', array( $this, 'enqueue_nudges' ), 17, 1 );
+		add_action( 'buddynext_network_user_joined', array( $this, 'enqueue_nudges' ), 17, 1 );
 		add_action( 'buddynext_onboarding_completed', array( $this, 'on_onboarding_completed_cancel_nudges' ), 10, 1 );
 		// The per-user nudge hooks. Action Scheduler fires these with array( $user_id );
 		// pre-1.2.0 WP-Cron single events fire the same hooks until they age out.
@@ -76,6 +77,9 @@ class OnboardingListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function enqueue_nudges( int $user_id ): void {
+		if ( buddynext_is_network_provisioning() ) {
+			return;
+		}
 		$user_id = (int) $user_id;
 		if ( $user_id <= 0 || ! function_exists( 'as_schedule_single_action' ) ) {
 			return;

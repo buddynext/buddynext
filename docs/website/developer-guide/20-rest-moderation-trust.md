@@ -28,7 +28,7 @@ A report is filed by a member against an object (post, reply, user, etc.). Admin
 | GET | `/reports` | Moderator | List reports for a given `object_type` + `object_id` (both required). |
 | GET | `/reports/queue` | Queue | Paginated moderation queue (pending + escalated). Query: `space_id`, `object_type`, `reason`, `page`, `per_page` (default 20). Space mods see only their spaces. |
 | POST | `/reports/{id}/dismiss` | Auth + report scope | Dismiss the report (no action warranted). |
-| PUT | `/reports/{id}/escalate` | Auth + report scope | Escalate the report to site-admin review. |
+| PUT | `/reports/{id}/escalate` | Auth + report scope | Escalate the report to site-admin review. The report stays open (no resolver is stamped), site and community admins get a `bn.report_escalated` bell notification (never the escalator), and escalating it again returns `409`. |
 | PUT | `/reports/{id}/resolve` | Auth + report scope | Resolve the report (handled). |
 | POST | `/reports/{id}/remove` | Auth + report scope | Remove the reported content. |
 
@@ -154,7 +154,7 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/users/42/suspend" \
       }'
 ```
 
-A reason is required (since 1.2.4): send `reason_code` from `GET /moderation/suspension-reasons` (with an optional `note`, required for `other`, max 300 characters), or a free-text `reason`. The member is shown the composed reason. A suspension with no reason returns `400 reason_required`. Omit `duration_days` for an indefinite suspension (administrators only), and set `hide_posts` to `true` to hide the user's content for the duration. Lift the suspension with `DELETE /users/42/suspend`.
+A reason is required (since 1.2.4): send `reason_code` from `GET /moderation/suspension-reasons` (with an optional `note`, required for `other`, max 300 characters), or a free-text `reason`. The member is shown the composed reason. A suspension with no reason returns `400 reason_required`. Omit `duration_days` for an indefinite suspension (community or site admins only; a moderator gets `403` and must set a duration), and set `hide_posts` to `true` to hide the user's content for the duration. Lift the suspension with `DELETE /users/42/suspend`.
 
 `GET /moderation/suspension-reasons` (moderators) returns `{ items: [{ code, label, note_required }], note_max }`, the same list the web dialogs use.
 

@@ -116,4 +116,81 @@ class RolesTabTest extends \WP_UnitTestCase {
 			$payload['changes'] ?? null
 		);
 	}
+
+	/**
+	 * Drop the memoised role map so the next check rebuilds it.
+	 *
+	 * @return void
+	 */
+	private function forget_role_map(): void {
+		$memo = new \ReflectionProperty( \BuddyNext\Core\PermissionService::class, 'role_map_cache' );
+		$memo->setValue( null, null );
+	}
+
+	/**
+	 * Post the whole matrix the way the form does, as an admin, and return.
+	 *
+	 * @param array<string,string> $cap Capability => role rows to post.
+	 * @return void
+	 */
+	private function save_matrix( array $cap ): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_POST['cap']        = $cap;
+		$_POST['_wpnonce']   = wp_create_nonce( 'bn_roles_save' );
+		$_REQUEST['_wpnonce'] = $_POST['_wpnonce'];
+		$stop                = static function (): never {
+			throw new \RuntimeException( 'redirected' );
+		};
+		add_filter( 'wp_redirect', $stop );
+		try {
+			( new RolesTab() )->handle_save();
+		} catch ( \RuntimeException $e ) {
+			unset( $e );
+		}
+		remove_filter( 'wp_redirect', $stop );
+		$this->forget_role_map();
+	}
+
+	/**
+	 * A save with nothing changed stores nothing, so it cannot freeze a capability.
+	 *
+	 * @return void
+	 */
+	public function test_saving_an_unchanged_matrix_stores_no_overrides(): void {
+		$this->save_matrix( array( 'buddynext-spaces/create' => 'member', 'buddynext-spaces/join' => 'member' ) );
+		$this->assertSame( array(), get_option( 'bn_role_map_overrides', array() ) );
+	}
+
+	/**
+	 * Only a row the owner really changed is stored.
+	 *
+	 * @return void
+	 */
+	public function test_only_a_changed_row_is_stored(): void {
+		$this->save_matrix( array( 'buddynext-spaces/create' => 'moderator', 'buddynext-spaces/join' => 'member' ) );
+		$this->assertSame( array( 'buddynext-spaces/create' => 'moderator' ), get_option( 'bn_role_map_overrides' ) );
+	}
+
+	/**
+	 * The Spaces tab no longer has its own "Who can create spaces" control; it links
+	 * to this tab, so the rule has one home.
+	 *
+	 * @return void
+	 */
+	public function test_spaces_tab_links_here_instead_of_its_own_select(): void {
+		$settings = ( new \ReflectionClass( \BuddyNext\Admin\Settings::class ) )->newInstanceWithoutConstructor();
+		$keys     = array();
+		foreach ( ( new \ReflectionMethod( $settings, 'fields_spaces' ) )->invoke( $settings ) as $section ) {
+			foreach ( $section->fields as $f ) {
+				$keys[ $f->key ] = $f->type;
+			}
+		}
+		$this->assertArrayNotHasKey( 'buddynext_space_creation_role', $keys );
+		$this->assertSame( 'custom', $keys['buddynext_space_creation_managed'] ?? '' );
+
+		ob_start();
+		$settings->render_space_creation_row();
+		$html = (string) ob_get_clean();
+		$this->assertStringContainsString( 'tab=roles', $html );
+	}
 }

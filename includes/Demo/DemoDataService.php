@@ -1945,22 +1945,19 @@ class DemoDataService {
 		}
 
 		$say( 'Removing members…' );
-		if ( ! function_exists( 'wp_delete_user' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/user.php';
-		}
 		foreach ( (array) ( $manifest['users'] ?? array() ) as $user_id ) {
 			$user_id = (int) $user_id;
 			// Safety net: only delete users we flagged as demo accounts.
 			if ( ! get_user_meta( $user_id, self::USER_FLAG, true ) ) {
 				continue;
 			}
-			// wp_delete_user() below fires `deleted_user` → UserCleanupListener,
+			// buddynext_remove_member() below runs the UserCleanupListener purge,
 			// which now purges this member's profile values, bookmarks, follows,
 			// connections, space memberships and notifications platform-wide — so
 			// the demo cleanup no longer needs per-table passes for those.
 			$storage->delete( 'avatar', 'user', $user_id );
 			$storage->delete( 'cover', 'user', $user_id );
-			if ( wp_delete_user( $user_id ) ) {
+			if ( buddynext_remove_member( $user_id ) ) {
 				++$removed['users'];
 			}
 		}

@@ -18,8 +18,9 @@ import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { uploadMedia, validateMedia } from '@buddynext/upload-core';
-import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue, bnEmojiAssetBase } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, siteTzOffset, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
+import { initials as initialsFor } from '@buddynext/initials';
 
 /**
  * Neutral reaction glyph for a slug with no vendored emoji asset. Mirrors the SSR
@@ -53,7 +54,71 @@ const BN_ICONS = {
 	send:   BN_ICON( '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>' ),
 	check:  BN_ICON( '<path d="M20 6 9 17l-5-5"/>' ),
 	x:      BN_ICON( '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>' ),
+	smile:  BN_ICON( '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>' ),
 };
+
+/**
+ * Replace a reported post's own page with a short reported state.
+ *
+ * In a feed the reported card just leaves and the other posts fill the space; on the post's
+ * own page nothing else is there, so the post (and its thread) is swapped for a message and a
+ * link back, keeping the breadcrumb.
+ *
+ * @param {HTMLElement} page The .bn-single-post article.
+ * @return {void}
+ */
+function showReportedState( page ) {
+	const crumbs = page.querySelector( '.bn-single-post__breadcrumb' );
+	const box    = document.createElement( 'div' );
+	box.className = 'bn-feed-empty';
+	box.setAttribute( 'role', 'status' );
+	box.dataset.state = 'reported';
+
+	const title = document.createElement( 'div' );
+	title.className = 'bn-feed-empty__title';
+	title.textContent = t( 'reportedPostTitle', 'You reported this post.' );
+
+	const text = document.createElement( 'p' );
+	text.className = 'bn-feed-empty__text';
+	text.textContent = t( 'reportedPostText', 'Moderators will review it. Thanks for keeping the community safe.' );
+
+	const back = document.createElement( 'a' );
+	back.className = 'bn-btn bn-feed-empty__cta';
+	back.dataset.variant = 'primary';
+	back.href = page.dataset.bnFeedUrl || '/';
+	back.textContent = t( 'backToFeed', 'Back to feed' );
+
+	box.append( title, text, back );
+	page.replaceChildren( ...( crumbs ? [ crumbs ] : [] ), box );
+}
+
+/**
+ * An emoji trigger button wired to one textarea, or null when the site owner has
+ * the emoji picker off (bnShellData.emojiPicker, from the owner option, so it
+ * works on pages with no composer such as a post permalink). The shared
+ * initEmojiPicker() handler does the click and insertion.
+ *
+ * @param {HTMLTextAreaElement} ta  The editor's textarea.
+ * @param {string}              key Unique field key for this editor.
+ * @return {HTMLButtonElement|null}
+ */
+function bnEmojiTrigger( ta, key ) {
+	if ( ! ( window.bnShellData && window.bnShellData.emojiPicker ) ) {
+		return null;
+	}
+	ta.dataset.bnEmojiField = key;
+	const btn = document.createElement( 'button' );
+	btn.type = 'button';
+	btn.className = 'bn-emoji-trigger bn-comment__emoji-trigger';
+	btn.dataset.bnEmojiTarget = '[data-bn-emoji-field="' + key + '"]';
+	btn.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
+	btn.setAttribute( 'aria-haspopup', 'true' );
+	btn.setAttribute( 'aria-expanded', 'false' );
+	btn.title = t( 'insertEmoji', 'Insert emoji' );
+	// The same line smile the comment form's server-rendered trigger uses.
+	btn.innerHTML = BN_ICONS.smile;
+	return btn;
+}
 
 /**
  * Fill a comment action button with an icon + a text label, so the label shows on
@@ -541,7 +606,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	const avatar = document.createElement( 'div' );
 	avatar.className = 'bn-comment__avatar';
 	avatar.setAttribute( 'aria-hidden', 'true' );
-	const initials = ( comment.author_name || 'U' ).split( ' ' ).map( ( w ) => w[ 0 ] || '' ).join( '' ).slice( 0, 2 ).toUpperCase();
+	const initials = initialsFor( comment.author_name );
 	if ( comment.author_avatar_url ) {
 		const img = document.createElement( 'img' );
 		img.src    = comment.author_avatar_url;
@@ -934,33 +999,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			const editActions = document.createElement( 'div' );
 			editActions.className = 'bn-comment__edit-actions';
 			// Emoji insert — shown only when the site-owner emoji picker is
-			// enabled (signalled by the composer's option-gated trigger being
-			// present on the page). The shared initEmojiPicker() handler wires
-			// the click + insertion into this specific editor's textarea.
-			if ( document.querySelector( '.bn-composer .bn-emoji-trigger' ) ) {
-				const taField = 'bn-comment-edit-' + comment.id;
-				ta.dataset.bnEmojiField = taField;
-				const emojiBtn = document.createElement( 'button' );
-				emojiBtn.type = 'button';
-				emojiBtn.className = 'bn-emoji-trigger bn-comment__emoji-trigger';
-				emojiBtn.dataset.bnEmojiTarget = '[data-bn-emoji-field="' + taField + '"]';
-				emojiBtn.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
-				emojiBtn.setAttribute( 'aria-haspopup', 'true' );
-				emojiBtn.setAttribute( 'aria-expanded', 'false' );
-				emojiBtn.title = t( 'insertEmoji', 'Insert emoji' );
-				// Reuse the bundled "grin" SVG glyph as the trigger face so no
-				// emoji character is hardcoded; falls back to a text label.
-				const emojiBase = bnEmojiAssetBase();
-				if ( emojiBase ) {
-					const gi = document.createElement( 'img' );
-					gi.src = emojiBase + 'grin.svg';
-					gi.alt = '';
-					gi.width = 18;
-					gi.height = 18;
-					emojiBtn.appendChild( gi );
-				} else {
-					emojiBtn.textContent = t( 'emoji', 'Emoji' );
-				}
+			// enabled (bnEmojiTrigger reads the option from bnShellData). The
+			// shared initEmojiPicker() handler wires the click + insertion into
+			// this specific editor's textarea.
+			const emojiBtn = bnEmojiTrigger( ta, 'bn-comment-edit-' + comment.id );
+			if ( emojiBtn ) {
 				editActions.appendChild( emojiBtn );
 			}
 			editActions.appendChild( saveBtn );
@@ -988,7 +1031,8 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 					if ( res.ok ) {
 						const updated = res.data;
 						para.textContent = updated.content;
-						if ( ! body.querySelector( '.bn-comment__edited' ) ) {
+						// The server decides: an unchanged save is not an edit.
+						if ( updated.is_edited && ! body.querySelector( '.bn-comment__edited' ) ) {
 							const editedMark = document.createElement( 'span' );
 							editedMark.className = 'bn-comment__edited';
 							editedMark.textContent = t( 'edited', '(edited)' );
@@ -1546,6 +1590,26 @@ store( 'buddynext/post-card', {
 				const opt = ( ctx.pollOptions || [] ).find( ( o ) => o.id === ctx.optionId );
 				return opt ? opt.pct + '%' : '0%';
 			} catch ( _e ) { return '0%'; }
+		},
+		// "Option text: 42%" - the label a screen reader hears, redrawn with the live
+		// percentage. The member's own choice adds "your vote", so it is never told
+		// by colour alone.
+		get pollOptionLabel() {
+			try {
+				const ctx = getContext();
+				const opt = ( ctx.pollOptions || [] ).find( ( o ) => o.id === ctx.optionId );
+				const pct = opt ? opt.pct : 0;
+				if ( ctx.pollVotedOptionId && ctx.pollVotedOptionId === ctx.optionId ) {
+					return fmt( t( 'pollOptionYourVote', '%1$s: %2$d%%, your vote' ), ctx.optionText || '', pct );
+				}
+				return ( ctx.optionText || '' ) + ': ' + pct + '%';
+			} catch ( _e ) { return ''; }
+		},
+		get pollOptionPressed() {
+			try {
+				const ctx = getContext();
+				return ctx.pollVotedOptionId && ctx.pollVotedOptionId === ctx.optionId ? 'true' : 'false';
+			} catch ( _e ) { return 'false'; }
 		},
 		get pollFillStyle() {
 			try {
@@ -2134,7 +2198,11 @@ store( 'buddynext/post-card', {
 					// Facebook, X, Instagram). Collapse with a short fade so the removal
 					// reads as intentional rather than a glitch.
 					const card = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
-					if ( card ) {
+					if ( card && card.classList.contains( 'bn-single-post' ) ) {
+						// On the post's own page the card IS the page: removing it leaves a blank
+						// screen. Swap the post for a short reported state and a way back.
+						showReportedState( card );
+					} else if ( card ) {
 						card.style.transition = 'opacity 0.2s ease, max-height 0.3s ease';
 						card.style.overflow   = 'hidden';
 						card.style.maxHeight  = card.offsetHeight + 'px';
@@ -2439,6 +2507,10 @@ store( 'buddynext/post-card', {
 			cancelBtn.dataset.size = 'sm';
 			cancelBtn.textContent = t( 'cancel', 'Cancel' );
 
+			const emojiBtn = bnEmojiTrigger( ta, 'bn-post-edit-' + ( ctx.postId || '' ) );
+			if ( emojiBtn ) {
+				bar.appendChild( emojiBtn );
+			}
 			bar.appendChild( saveBtn );
 			bar.appendChild( cancelBtn );
 			form.appendChild( bar );
@@ -2515,7 +2587,9 @@ store( 'buddynext/post-card', {
 					if ( previewEl && removePreview ) {
 						previewEl.remove();
 					}
-					if ( ! card.querySelector( '.bn-post-card__edited' ) ) {
+					// The server decides: edited_at stays empty for an unchanged
+					// save or an audience-only change.
+					if ( res.data && res.data.edited_at && ! card.querySelector( '.bn-post-card__edited' ) ) {
 						const mark = document.createElement( 'span' );
 						mark.className = 'bn-post-card__edited';
 						mark.textContent = t( 'editedSpaced', ' (edited)' );

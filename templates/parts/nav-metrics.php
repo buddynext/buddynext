@@ -41,15 +41,21 @@ $bn_metrics_extra = isset( $extra_class ) ? trim( (string) $extra_class ) : '';
 		// metric never reads "1 Followers"; fall back to the static label otherwise.
 		$bn_m_label = null !== $bn_m->label_value ? $bn_m->label_value : $bn_m->label;
 		$bn_m_aria  = '' !== $bn_m_value ? sprintf( '%s %s', $bn_m_value, $bn_m_label ) : $bn_m_label;
+		// A request inbox on the same page (accept a connection, approve a follower)
+		// bumps a counted metric in place; it finds the metric by id and takes the
+		// already-translated label for count + 1, so it never pluralizes in JS.
+		$bn_m_next  = null !== $bn_m->count_value ? $bn_m->resolve_count_label( $bn_m->count_value + 1 ) : null;
+		$bn_m_attrs = sprintf( ' data-bn-metric="%s"', esc_attr( $bn_m->id ) )
+			. ( null !== $bn_m_next ? sprintf( ' data-bn-next-label="%s"', esc_attr( $bn_m_next ) ) : '' );
 		?>
 		<?php if ( null !== $bn_m->url_value ) : ?>
-			<a class="bn-nav-metric" href="<?php echo esc_url( (string) $bn_m->url_value ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
+			<a class="bn-nav-metric"<?php echo $bn_m_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?> href="<?php echo esc_url( (string) $bn_m->url_value ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
 				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
 				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m_label ); ?></span>
 				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>
 			</a>
 		<?php else : ?>
-			<span class="bn-nav-metric">
+			<span class="bn-nav-metric"<?php echo $bn_m_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>>
 				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
 				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m_label ); ?></span>
 				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>

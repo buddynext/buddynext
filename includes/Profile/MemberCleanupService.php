@@ -654,7 +654,7 @@ class MemberCleanupService {
 					(int) $space_id
 				)
 			);
-			wp_cache_delete( 'space_' . (int) $space_id, 'bn_spaces' );
+			wp_cache_delete( 'space_' . (int) $space_id, 'buddynext_spaces' );
 		}
 
 		/*

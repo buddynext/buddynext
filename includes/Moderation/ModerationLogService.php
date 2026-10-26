@@ -282,6 +282,7 @@ class ModerationLogService {
 	private function hydrate( array $row ): array {
 		return array(
 			'id'             => (int) $row['id'],
+			'space_id'       => isset( $row['space_id'] ) ? (int) $row['space_id'] : null,
 			'actor_id'       => (int) $row['actor_id'],
 			'action'         => $row['action'],
 			'object_type'    => $row['object_type'],

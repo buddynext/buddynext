@@ -175,7 +175,7 @@ class SpaceInviteLinkFlowTest extends \WP_Test_REST_TestCase {
 		$link   = $this->make_link();
 		$banned = self::factory()->user->create();
 		$this->members->join( $this->space_id, $banned );
-		$this->members->ban( $this->space_id, $this->owner_id, $banned );
+		$this->members->ban_from_space( $this->space_id, $banned, $this->owner_id );
 
 		$res = $this->join_with_token( $banned, $link['token'] );
 		$this->assertSame( 403, $res->get_status() );

@@ -8,7 +8,7 @@ import {
 } from '../_fixtures/db.fixture';
 
 /**
- * J-818-settings-restore-defaults (card 9995933507).
+ * J-826-settings-restore-defaults (card 9995933507).
  *
  * Covers: cap-warn-suspend-or-shadow-ban, cap-let-members-report-content
  * Roles: admin

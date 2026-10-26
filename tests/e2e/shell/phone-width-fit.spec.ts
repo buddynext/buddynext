@@ -7,7 +7,7 @@ import { loginAs } from '../_fixtures/actor';
  *
  * Covers: cap-work-on-a-phone-across-the-whole-front-end-not-just-admin
  * CAPABILITIES.md row states the app shell itself works on a phone). Also
- * covers J-819 later in this file (same gap).
+ * covers J-827 later in this file (same gap).
  * Roles: member
  *
  * At phone width no page scrolls sideways: the document is no wider than the
@@ -71,7 +71,7 @@ test('J-817 no page scrolls sideways at phone width', async ({ page }, testInfo)
 });
 
 /**
- * J-819 the composer submit row fits a phone screen with a restored draft.
+ * J-827 the composer submit row fits a phone screen with a restored draft.
  *
  * The submit row holds the character count, privacy chip and Post, and fits on one
  * line — until a restored draft adds the "Draft restored" notice + discard button,
@@ -81,7 +81,7 @@ test('J-817 no page scrolls sideways at phone width', async ({ page }, testInfo)
  *
  * Runs on the mobile project only (390px).
  */
-test('J-819 composer submit row fits phone width with a restored draft', async ({ page }, testInfo) => {
+test('J-827 composer submit row fits phone width with a restored draft', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'Phone-width journey.');
     await loginAs(page, MEMBER);
     await page.goto('/activity/');

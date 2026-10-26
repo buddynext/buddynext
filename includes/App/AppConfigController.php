@@ -269,6 +269,8 @@ class AppConfigController {
 			'branding'         => $this->branding(),
 			'features'         => $this->features(),
 			'integrations'     => $this->integrations(),
+			// Typed feed cards partners publish (post type => label, icon). Additive.
+			'card_types'       => (object) \BuddyNext\Feed\IntegrationActivity::card_types(),
 			'limits'           => $this->limits(),
 			'time'             => $this->time(),
 			'locale'           => $this->locale(),
@@ -403,7 +405,7 @@ class AppConfigController {
 		}
 
 		return array(
-			'app_name'             => (string) get_bloginfo( 'name' ),
+			'app_name'             => buddynext_site_name(),
 			'accent_color'         => $accent,
 			'logo_url'             => (string) get_option( 'buddynext_logo_url', '' ),
 			'login_bg_url'         => '',
@@ -484,6 +486,9 @@ class AppConfigController {
 				// "this integration exposes no namespace of its own", which a
 				// client must treat as "nothing to call here" rather than guessing.
 				'rest_namespace' => isset( $entry['rest_namespace'] ) ? (string) $entry['rest_namespace'] : null,
+				// True when the partner adds panels to the member profile, served by
+				// GET members/{id}/portfolio. Additive: an older server has no key.
+				'profile_panels' => ! empty( $entry['has_nav'] ),
 			);
 		}
 

@@ -206,6 +206,9 @@ class VerificationListener implements ListenerInterface {
 	 * @param int $user_id Newly registered WordPress user ID.
 	 */
 	public function on_user_register( int $user_id ): void {
+		if ( buddynext_is_network_provisioning() ) {
+			return;
+		}
 		if ( ! self::feature_active() ) {
 			return;
 		}
@@ -293,7 +296,7 @@ class VerificationListener implements ListenerInterface {
 			$data = array(
 				'verify_url' => $verify_url,
 				'user_name'  => '' !== $user->display_name ? $user->display_name : $user->user_login,
-				'site_name'  => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+				'site_name'  => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 				'site_url'   => esc_url( home_url( '/' ) ),
 			);
 
@@ -330,7 +333,7 @@ class VerificationListener implements ListenerInterface {
 
 		// No template — send a minimal plain-text fallback email.
 		$display_name = '' !== $user->display_name ? $user->display_name : $user->user_login;
-		$site_name    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$site_name    = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 
 		$subject = sprintf(
 			/* translators: %s: site name */
@@ -392,7 +395,7 @@ class VerificationListener implements ListenerInterface {
 		$verify_url = add_query_arg( 'bn_verify_email', $token, home_url( '/' ) );
 
 		$display_name = '' !== $user->display_name ? $user->display_name : $user->user_login;
-		$site_name    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$site_name    = wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES );
 
 		// Prefer the admin-editable, branded template (sibling of email_verify),
 		// falling back to plain text when no template row exists. The message goes

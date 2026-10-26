@@ -104,6 +104,7 @@ $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
 <article class="bn-single-post"
 	data-bn-rest-nonce="<?php echo esc_attr( $bn_rest_nonce ); ?>"
 	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
+	data-bn-feed-url="<?php echo esc_url( PageRouter::activity_url() ); ?>"
 	data-post-id="<?php echo absint( $bn_post_record['id'] ); ?>">
 
 	<nav class="bn-single-post__breadcrumb" aria-label="<?php esc_attr_e( 'Breadcrumb', 'buddynext' ); ?>">
@@ -118,7 +119,7 @@ $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
 				<a href="<?php echo esc_url( $bn_author_url ); ?>">
 					<?php
 					/* translators: %s: post author display name */
-					echo esc_html( sprintf( __( '@%s', 'buddynext' ), $bn_post_author ? $bn_post_author->user_nicename : $bn_author_label ) );
+					echo esc_html( sprintf( __( '@%s', 'buddynext' ), $bn_post_author ? \BuddyNext\Core\PageRouter::member_handle( (int) $bn_post_author->ID ) : $bn_author_label ) );
 					?>
 				</a>
 			</li>

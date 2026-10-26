@@ -497,7 +497,15 @@ class PageRouter {
 
 		$hub = (string) get_query_var( 'bn_hub', '' );
 		if ( '' === $hub ) {
-			return;
+			// A hub page set as the static front page matches no rewrite rule, so
+			// resolve it once here, on `wp`, ahead of every template_redirect gate
+			// (MemberHold at 8, entitlement and onboarding gates). Dispatch used to
+			// do it at priority 10, after those gates had already read an empty hub.
+			$hub = $this->hub_for_front_page();
+			if ( '' === $hub ) {
+				return;
+			}
+			set_query_var( 'bn_hub', $hub );
 		}
 
 		$page_id = self::hub_page_id( $hub );
@@ -517,6 +525,14 @@ class PageRouter {
 		$wp_query->is_singular       = true;
 		$wp_query->is_home           = false;
 		$wp_query->is_404            = false;
+
+		// is_singular() with no $post makes `wp` consumers (Divi's dynamic assets at 999)
+		// read ->ID on null. Back it with the mapped page until dispatch swaps in the
+		// virtual post, which carries the same ID.
+		if ( ! $wp_query->post instanceof \WP_Post ) {
+			$GLOBALS['post'] = $page; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- see above.
+			$wp_query->post  = $page;
+		}
 	}
 
 	/**
@@ -900,9 +916,14 @@ class PageRouter {
 			// the option appeared to do nothing for hubs like Spaces — enforce it at
 			// the route. Explore keeps its own public-explore gate above, so it is
 			// exempt here even if the Feed tab is marked login-required.
-			$nav_overrides  = (array) get_option( 'buddynext_nav_overrides', array() );
-			$hub_override   = isset( $nav_overrides[ $hub ] ) ? (array) $nav_overrides[ $hub ] : array();
-			$override_login = ! empty( $hub_override['login_required'] ) && ! $is_explore;
+			$nav_overrides = (array) get_option( 'buddynext_nav_overrides', array() );
+			// Explore is a sub-route of the feed hub with its own Navigation row, so it is
+			// judged by that row, not by the Feed's.
+			$nav_key      = $is_explore ? 'explore' : $hub;
+			$hub_override = isset( $nav_overrides[ $nav_key ] ) ? (array) $nav_overrides[ $nav_key ] : array();
+			// A section limited to members, admins or a capability also sends a guest to
+			// log in first (a member who then lacks access sees the page below).
+			$override_login = ! empty( $hub_override['login_required'] ) || 'all' !== (string) ( $hub_override['visibility'] ?? 'all' );
 
 			// Public explore landing: when "Public explore feed" is on and the Feed
 			// tab is not explicitly login-required, a guest hitting the personalised
@@ -1086,7 +1107,8 @@ class PageRouter {
 		}
 
 		// ── Community Admin gate ──────────────────────────────────────────
-		// Moderators (community role) and administrators only. This is the same
+		// Whoever may review the moderation queue (Roles tab row; community
+		// moderators by default) and administrators. This is the same
 		// check the panel template uses at templates/community-admin.php:23, so
 		// route, nav visibility and template gate never drift: buddynext_can()
 		// already treats manage_options as an allow (PermissionService::can()),
@@ -1094,9 +1116,24 @@ class PageRouter {
 		// filter — things a bare RoleService::is_moderator() call would miss.
 		// A logged-out user resolves to false and gets a clean 404, not a fatal.
 		if ( 'community_admin' === $hub
-			&& ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
+			&& ! buddynext_can( get_current_user_id(), 'buddynext-moderation/review-queue' ) ) {
 			$this->send_404();
 			return;
+		}
+
+		// ── Navigation visibility gate ────────────────────────────────────
+		// Settings → Navigation "Visibility" (Admins only / Logged-in / capability)
+		// used to hide the link and nothing else, so the page stayed open by URL.
+		// Guests were already sent to log in above; a signed-in viewer who lacks
+		// access gets an explained page, not a bounce or a bare 404.
+		$bn_not_available = false;
+		if ( is_user_logged_in()
+			&& ( new \BuddyNext\Nav\NavOverrides() )->denies_hub( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_action', '' ) ? 'explore' : $hub )
+		) {
+			$bn_not_available = true;
+			nocache_headers();
+			add_filter( 'wp_robots', 'wp_robots_no_robots' );
+			$template = 'parts/not-available.php';
 		}
 
 		// ── Past-the-end gate ─────────────────────────────────────────────
@@ -1219,7 +1256,7 @@ class PageRouter {
 		$wp_query->found_posts       = 1;
 
 		// A page past the end of its list keeps the 404 set above.
-		status_header( $bn_past_last_page ? 404 : 200 );
+		status_header( $bn_past_last_page ? 404 : ( $bn_not_available ? 403 : 200 ) );
 
 		// Set the document <title> via the standard wp_title parts filter.
 		$hub_titles = array(
@@ -1683,7 +1720,7 @@ class PageRouter {
 			$user_id = (int) ( $context['user_id'] ?? 0 );
 			if ( 'articles' === $action ) {
 				return $user_id > 0
-					&& ( new \BuddyNext\Bridges\MemberBlogBridge() )->article_total( $user_id, $viewer ) <= ( $page - 1 ) * \BuddyNext\Bridges\MemberBlogBridge::articles_per_page();
+					&& ( new \BuddyNext\Bridges\MemberBlogBridge() )->article_total( $user_id ) <= ( $page - 1 ) * \BuddyNext\Bridges\MemberBlogBridge::articles_per_page();
 			}
 			if ( '' === $action || in_array( $action, self::PROFILE_SINGLE_PAGE_TABS, true ) ) {
 				return true;
@@ -2151,6 +2188,12 @@ class PageRouter {
 				'blockStopContact'       => __( 'Stop them from following you or sending you messages.', 'buddynext' ),
 				'blockRemoveLinks'       => __( 'Remove any existing connection or follow between you.', 'buddynext' ),
 				'blockHelp'              => __( 'You can unblock from your settings at any time.', 'buddynext' ),
+				// Remove-connection confirmation (bnConfirmDisconnect).
+				/* translators: %s: the member's display name */
+				'disconnectTitleNamed'   => __( 'Remove your connection with %s?', 'buddynext' ),
+				'disconnectTitleGeneric' => __( 'Remove this connection?', 'buddynext' ),
+				'disconnectBody'         => __( 'To connect again you will need to send a new request and wait for them to accept.', 'buddynext' ),
+				'disconnectConfirm'      => __( 'Remove connection', 'buddynext' ),
 				'follow'                 => __( 'Follow', 'buddynext' ),
 				'following'              => __( 'Following', 'buddynext' ),
 				'genericError'           => __( 'Something went wrong. Try again.', 'buddynext' ),
@@ -2327,6 +2370,9 @@ class PageRouter {
 			// the note itself, so the note always has a reader and the setting
 			// means what it says on every site (Basecamp 10244757451).
 			'connectRequireNote' => '1' === (string) get_option( 'buddynext_connection_require_note', '0' ),
+			// The owner's emoji-picker switch, for editors built in the browser (post
+			// and comment edit) that have no server-rendered trigger to copy.
+			'emojiPicker'        => (bool) get_option( 'buddynext_enable_emoji_picker', true ),
 		);
 		// Base config for the shared REST client module (@buddynext/rest-client).
 		// Emitted on bn-shell-extras (always enqueued on every hub) so the
@@ -3635,19 +3681,25 @@ class PageRouter {
 			return '';
 		}
 
-		$base = self::people_url();
+		return self::people_url() . rawurlencode( self::profile_slug( $user_id ) ) . '/';
+	}
 
+	/**
+	 * The profile URL segment for a user: bn_profile_slug, then user_nicename,
+	 * then user-{ID}. The one chain behind every profile URL and the @handle.
+	 *
+	 * @param int $user_id User ID (> 0).
+	 * @return string Unencoded slug.
+	 */
+	private static function profile_slug( int $user_id ): string {
 		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 		if ( '' !== $custom_slug ) {
-			return $base . rawurlencode( $custom_slug ) . '/';
+			return $custom_slug;
 		}
 
 		$user = get_userdata( $user_id );
-		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
-			return $base . rawurlencode( $user->user_nicename ) . '/';
-		}
 
-		return $base . 'user-' . $user_id . '/';
+		return ( $user instanceof WP_User && '' !== $user->user_nicename ) ? $user->user_nicename : 'user-' . $user_id;
 	}
 
 	/**
@@ -3668,19 +3720,7 @@ class PageRouter {
 			return get_edit_profile_url( 0 );
 		}
 
-		$base = self::people_url();
-
-		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-		if ( '' !== $custom_slug ) {
-			return $base . rawurlencode( $custom_slug ) . '/edit/';
-		}
-
-		$user = get_userdata( $user_id );
-		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
-			return $base . rawurlencode( $user->user_nicename ) . '/edit/';
-		}
-
-		return $base . 'user-' . $user_id . '/edit/';
+		return self::people_url() . rawurlencode( self::profile_slug( $user_id ) ) . '/edit/';
 	}
 
 	/**
@@ -3728,20 +3768,7 @@ class PageRouter {
 			return self::people_url();
 		}
 
-		$base    = self::people_url();
-		$section = trim( $section, '/' );
-
-		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-		if ( '' !== $custom_slug ) {
-			return $base . rawurlencode( $custom_slug ) . '/' . $section . '/';
-		}
-
-		$user = get_userdata( $user_id );
-		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
-			return $base . rawurlencode( $user->user_nicename ) . '/' . $section . '/';
-		}
-
-		return $base . 'user-' . $user_id . '/' . $section . '/';
+		return self::people_url() . rawurlencode( self::profile_slug( $user_id ) ) . '/' . trim( $section, '/' ) . '/';
 	}
 
 	/**
@@ -3757,24 +3784,17 @@ class PageRouter {
 	 * Every surface that renders an "@handle" (member cards, space member lists, the
 	 * profile hero, the "online now" sidebar) must resolve it here, so the credential
 	 * can never leak and the two never drift. Prime the usermeta cache
-	 * (`cache_users()` / `update_meta_cache( 'user', $ids )`) before a loop of these.
+	 * (`\BuddyNext\Profile\AvatarService::prime()` / `update_meta_cache( 'user', $ids )`) before a loop of these.
 	 *
 	 * @param int $user_id User ID.
 	 * @return string Public handle without the leading '@', or '' for an invalid user.
 	 */
 	public static function member_handle( int $user_id ): string {
-		if ( $user_id <= 0 ) {
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
 			return '';
 		}
 
-		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-		if ( '' !== $custom_slug ) {
-			return $custom_slug;
-		}
-
-		$user = get_userdata( $user_id );
-
-		return $user instanceof WP_User ? (string) $user->user_nicename : '';
+		return self::profile_slug( $user_id );
 	}
 
 	/**
@@ -4208,7 +4228,9 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function return_destination(): string {
-		if ( is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() || wp_doing_cron() ) {
+		// Before WordPress builds its query (another plugin calling wp_login_url() at
+		// plugins_loaded) no page is being viewed, and get_query_var() would fatal.
+		if ( ! isset( $GLOBALS['wp_query'] ) || is_admin() || wp_doing_ajax() || wp_is_serving_rest_request() || wp_doing_cron() ) {
 			return '';
 		}
 		if ( 'auth' === get_query_var( 'bn_hub', '' ) ) {
@@ -4241,7 +4263,7 @@ class PageRouter {
 
 		if ( null === $destination ) {
 			$destination = self::return_destination();
-			if ( trailingslashit( $destination ) === trailingslashit( home_url() ) || 'onboarding' === get_query_var( 'bn_hub', '' ) ) {
+			if ( '' === $destination || trailingslashit( $destination ) === trailingslashit( home_url() ) || 'onboarding' === get_query_var( 'bn_hub', '' ) ) {
 				$destination = '';
 			}
 		}
@@ -4551,13 +4573,16 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function default_slug( string $option_name ): string {
-		// The registry is the only source of hub default slugs (community_admin
-		// included). No literal fallback map: an option no hub owns is a caller
-		// bug, not a hub with a 'community' slug.
+		// The registry covers core and addon hubs. Before init it is still empty,
+		// so core hubs fall back to their plain map; an option neither knows is a
+		// caller bug, not a hub with a 'community' slug.
 		foreach ( HubRegistry::instance()->all() as $hub ) {
 			if ( $hub->slug_option === $option_name ) {
 				return $hub->default_slug;
 			}
+		}
+		if ( isset( CoreHubs::DEFAULT_SLUGS[ $option_name ] ) ) {
+			return CoreHubs::DEFAULT_SLUGS[ $option_name ];
 		}
 		// Unknown option: surface it in debug rather than silently routing to a
 		// slug no hub owns. Empty means "no default", so hub_slug() falls back to

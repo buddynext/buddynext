@@ -28,11 +28,12 @@ $sbar_members_url = isset( $sbar_members_url ) ? (string) $sbar_members_url : ''
 	<div class="bn-sidebar-card__body">
 		<?php if ( ! empty( $sbar_suggested ) ) : ?>
 			<ul class="bn-member-row-list">
+				<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $sbar_suggested, 'ID' ) ); ?>
 				<?php foreach ( $sbar_suggested as $sbar_sug ) : ?>
 					<?php
 					$sbar_sug_id     = (int) ( $sbar_sug->ID ?? 0 );
 					$sbar_sug_status = (string) ( $sbar_sug->follow_status ?? 'unfollowed' );
-					$sbar_sug_handle = (string) ( $sbar_sug->user_nicename ?? ( $sbar_sug->user_login ?? '' ) );
+					$sbar_sug_handle = \BuddyNext\Core\PageRouter::member_handle( $sbar_sug_id );
 					// A pending connection request overrides the @handle line.
 					$sbar_sug_meta = 'requested' === $sbar_sug_status
 						? __( 'Request sent', 'buddynext' )

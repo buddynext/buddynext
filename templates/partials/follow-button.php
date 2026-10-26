@@ -98,7 +98,7 @@ if ( $is_following ) {
 // (user_nicename). Without it the store falls back to "#<id>" and toasts read
 // "Now following #8" instead of "Now following @jane".
 $target_user = get_userdata( $user_id );
-$target_name = $target_user ? $target_user->user_nicename : '';
+$target_name = $target_user ? \BuddyNext\Core\PageRouter::member_handle( (int) $target_user->ID ) : '';
 
 // Build the WP Interactivity API context object (esc_attr-escaped JSON string).
 $context_attr = esc_attr(

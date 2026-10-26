@@ -31,8 +31,14 @@ $bn_panel_quote   = buddynext_auth_panel_value( 'buddynext_auth_panel_quote' );
 // side carries the logo (auth-form-logo.php). A third logo on this panel would
 // be redundant — the panel leads with the quote + community identity instead.
 ?>
+<?php // A cleared image leaves the gradient: no attribute, no url('') the browser would fetch as the page itself. ?>
+<?php $bn_panel_image_url = esc_url( $bn_panel_image ); ?>
+<?php if ( '' !== $bn_panel_image_url ) : ?>
 <aside class="bn-auth-aside" data-has-image="1"
-	style="--bn-auth-aside-image: url('<?php echo esc_url( $bn_panel_image ); ?>');">
+	style="--bn-auth-aside-image: url('<?php echo $bn_panel_image_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped with esc_url() above. ?>');">
+<?php else : ?>
+<aside class="bn-auth-aside">
+<?php endif; ?>
 	<div class="bn-auth-aside__inner">
 		<?php if ( '' !== trim( $bn_panel_quote ) ) : ?>
 			<blockquote class="bn-auth-aside__quote"><?php echo esc_html( $bn_panel_quote ); ?></blockquote>

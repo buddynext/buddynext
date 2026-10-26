@@ -155,6 +155,7 @@ Registered by `JetonomyBridge` and present **only when the Jetonomy companion is
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
+| GET | `/members/{id}/portfolio` | public | A member's Portfolio panels, the same data the Portfolio profile tab shows: `{ member_id, is_owner, panels: [ { key, label, icon, count, items, cta, owner_cta }, ... ] }`. Gated by profile visibility (a blocked or non-permitted viewer gets an empty `panels`); `owner_cta` is empty and owner-only panels are left out for anyone but the member. |
 | GET | `/members/{id}/discussions` | public | A member's Discussions credential panel: `{ accepted_answers, reputation, trust_level, discussion_count, discussions: [ { id, title, url, reply_count, vote_score, space_name, created_at }, ... ] }` (up to 20 recent). Returns `404` when the member does not exist. |
 
 The space-scoped Jetonomy bridge routes (`POST /spaces/{id}/forum`, `GET /spaces/{id}/discussion-search`) are documented on the REST: Spaces page.
@@ -165,7 +166,7 @@ Registered by `MemberBlogBridge` / `MemberBlogRestController`, present only when
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`). Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. |
+| GET | `/members/{id}/blog` | public, drafts/pending filtered in handler | A member's published articles, paginated (`page`). Drafts and pending posts are visible only to the owner or an editor - the same rule the Articles tab applies. Co-written posts (Member Blog Pro co-authors) list for every writer; each item names its other writers in `co_writers` (`id`, `name`). |
 
 ### Moderation actions targeting a user
 

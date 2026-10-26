@@ -322,6 +322,31 @@ class AvatarService {
 	// ── Public helpers ────────────────────────────────────────────────────────
 
 	/**
+	 * Warm everything a list of avatars will hit, in one query each.
+	 *
+	 * Call it with the row ids before a loop that renders avatars. It primes the
+	 * WP user cache (get_avatar_url() resolves the user behind each id) and, when
+	 * a plugin keeps avatars in its own table, that plugin's batch seam too:
+	 * Jetonomy hooks pre_get_avatar_data and would otherwise cost one query per
+	 * row. This is the one place BuddyNext calls the partner, so a list never
+	 * knows about it.
+	 *
+	 * @param int[] $user_ids User ids about to be rendered.
+	 * @return void
+	 */
+	public static function prime( array $user_ids ): void {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return;
+		}
+		cache_users( $ids );
+		// prime() arrived in Jetonomy 2.0.3; older releases have the class without it.
+		if ( count( $ids ) > 1 && is_callable( array( '\Jetonomy\Avatar', 'prime' ) ) ) {
+			\Jetonomy\Avatar::prime( $ids );
+		}
+	}
+
+	/**
 	 * Return the avatar URL for a user.
 	 *
 	 * Priority:

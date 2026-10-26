@@ -192,9 +192,9 @@ class Insights {
 		$d7    = gmdate( 'Y-m-d H:i:s', $now - 7 * DAY_IN_SECONDS );
 		$d30ts = $now - 30 * DAY_IN_SECONDS;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$members_total  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" );
-		$members_new_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s", $d7 ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$members_total  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' WHERE ' ) );
+		$members_new_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ), $d7 ) );
 		$active_30d     = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$p}bn_presence WHERE last_active >= %d",
@@ -217,13 +217,13 @@ class Insights {
 		$rows    = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT DATE(CONVERT_TZ(user_registered, '+00:00', %s)) AS d, COUNT(*) AS c
-				 FROM {$wpdb->users} WHERE user_registered >= %s GROUP BY d",
+				 FROM {$wpdb->users} WHERE user_registered >= %s" . buddynext_member_scope_sql( $wpdb->users . '.ID', ' AND ' ) . ' GROUP BY d',
 				$offset,
 				$d14
 			),
 			OBJECT_K
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
 		$signups = array();
 		for ( $i = 13; $i >= 0; $i-- ) {

@@ -120,8 +120,10 @@ $joined_space_ids = array_map( 'intval', (array) $bn_ob_members->spaces_for_user
 // on the 1.0.4 dist-zip journey QA: a new member "joined" a private space from
 // this list with no approval). Exclude anything the member is already in
 // (auto-joined spaces are NOT shown as "Joined" here), dedupe, cap at 6.
-$bn_ob_featured  = ( new \BuddyNext\Spaces\SpaceService() )->featured_spaces( $ob_user_id, 6, 'onboarding' );
-$bn_ob_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 6 );
+$bn_ob_featured = ( new \BuddyNext\Spaces\SpaceService() )->featured_spaces( $ob_user_id, 6, 'onboarding' );
+// Ask for twice the display count: the loop below drops private and joined
+// spaces, and a 6-space sample shrank to 4 or 5 after that filter.
+$bn_ob_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 12 );
 
 $recommended_spaces = array();
 $bn_ob_seen         = array();
@@ -368,7 +370,6 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<div class="bn-ob-field">
 					<label class="bn-ob-label" for="bn-ob-username">
 						<?php esc_html_e( 'Username', 'buddynext' ); ?>
-						<span class="bn-ob-label__hint"><?php esc_html_e( '3+ characters, letters & numbers', 'buddynext' ); ?></span>
 					</label>
 					<div class="bn-ob-input-prefix"
 						data-wp-class--is-checking="context.usernameChecking"
@@ -384,6 +385,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 							autocomplete="username"
 							autocapitalize="off"
 							spellcheck="false"
+							aria-describedby="bn-ob-username-hint"
 							data-wp-on--input="actions.checkUsername" />
 						<span class="bn-ob-input-prefix__status"
 							data-wp-class--tone-ok="context.usernameAvailable"
@@ -391,6 +393,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 							data-wp-bind--hidden="!context.usernameStatusLabel"
 							data-wp-text="context.usernameStatusLabel"></span>
 					</div>
+					<span class="bn-ob-field__hint" id="bn-ob-username-hint"><?php echo esc_html( \BuddyNext\Profile\Handle::hint() ); ?></span>
 				</div>
 
 				<div class="bn-ob-field">
@@ -528,7 +531,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									<?php endif; ?>
 								</span>
 								<div class="bn-ob-space__info">
-									<p class="bn-ob-space__name"><?php echo esc_html( (string) $space['name'] ); ?></p>
+									<p class="bn-ob-space__name" id="bn-ob-space-name-<?php echo esc_attr( (string) $space_id ); ?>"><?php echo esc_html( (string) $space['name'] ); ?></p>
 									<p class="bn-ob-space__meta">
 										<?php
 										echo esc_html(
@@ -546,6 +549,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									data-variant="<?php echo $is_joined ? 'secondary' : 'primary'; ?>"
 									data-size="sm"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+									<?php // Named "Join <space>": the button's own text, then the space name. ?>
+									id="bn-ob-space-cta-<?php echo esc_attr( (string) $space_id ); ?>"
+									aria-labelledby="bn-ob-space-cta-<?php echo esc_attr( (string) $space_id ); ?> bn-ob-space-name-<?php echo esc_attr( (string) $space_id ); ?>"
 									aria-pressed="<?php echo $is_joined ? 'true' : 'false'; ?>"
 									data-wp-on--click="actions.joinSuggestedSpace">
 									<?php echo $is_joined ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
@@ -626,7 +632,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									<?php endif; ?>
 								</span>
 								<div class="bn-ob-person__info">
-									<p class="bn-ob-person__name"><?php echo esc_html( $sug_name ); ?></p>
+									<p class="bn-ob-person__name" id="bn-ob-person-name-<?php echo esc_attr( (string) $sug_id ); ?>"><?php echo esc_html( $sug_name ); ?></p>
 									<p class="bn-ob-person__meta">
 										<?php if ( $sug_headline ) : ?>
 											<?php echo esc_html( $sug_headline ); ?>
@@ -650,6 +656,9 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 									data-variant="<?php echo $is_following_sug ? 'secondary' : 'primary'; ?>"
 									data-size="sm"
 									data-user-id="<?php echo esc_attr( (string) $sug_id ); ?>"
+									<?php // Named "Follow <member>": the button's own text, then the member's name. ?>
+									id="bn-ob-person-cta-<?php echo esc_attr( (string) $sug_id ); ?>"
+									aria-labelledby="bn-ob-person-cta-<?php echo esc_attr( (string) $sug_id ); ?> bn-ob-person-name-<?php echo esc_attr( (string) $sug_id ); ?>"
 									aria-pressed="<?php echo $is_following_sug ? 'true' : 'false'; ?>"
 									data-wp-on--click="actions.followSuggestedUser">
 									<?php echo $is_following_sug ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
@@ -723,7 +732,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
 					<span class="bn-ob-channel__body">
 						<span class="bn-ob-channel__name"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
-						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Bell badge and notification panel inside BuddyNext.', 'buddynext' ); ?></span>
+						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Bell badge and notification panel inside this community.', 'buddynext' ); ?></span>
 					</span>
 					<input type="checkbox"
 						class="bn-ob-channel__toggle"
@@ -830,7 +839,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 								data-wp-bind--hidden="!state.previewAvatar"
 								<?php echo '' !== $custom_avatar ? 'src="' . esc_url( $custom_avatar ) . '"' : 'hidden'; ?>
 								alt="" />
-							<span data-wp-bind--hidden="state.previewAvatar" data-wp-text="state.previewInitial"><?php echo esc_html( '' !== (string) $display_name ? strtoupper( substr( (string) $display_name, 0, 1 ) ) : '?' ); ?></span>
+							<span data-wp-bind--hidden="state.previewAvatar" data-wp-text="state.previewInitial"><?php echo esc_html( \BuddyNext\Profile\AvatarService::initials_for( (string) $display_name ) ); ?></span>
 						</div>
 						<div class="bn-ob-preview-card__id">
 							<div class="bn-ob-preview-card__name" data-wp-text="state.previewName">

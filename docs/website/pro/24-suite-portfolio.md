@@ -53,7 +53,7 @@ Each integration's own behaviour - what a job or listing or course does - is con
 
 ## Free vs Pro
 
-The Portfolio tab and the suite integrations that feed it are part of BuddyNext Pro. BuddyNext Free surfaces none of the companion-app activity on profiles. The companion apps themselves (Career Board, WB Listora, Learnomy) run on their own, but bringing their activity onto a member's BuddyNext profile requires Pro. For what each app contributes to the community as a whole - feed activity, community search, and the shared notification center - see the Career Board, WB Listora, and Learnomy integration pages.
+The Portfolio tab itself is part of BuddyNext and appears once any integration or addon has something to show. The Career Board, WB Listora and Learnomy panels that feed it are part of BuddyNext Pro. The companion apps themselves (Career Board, WB Listora, Learnomy) run on their own, but bringing their activity onto a member's BuddyNext profile requires Pro. For what each app contributes to the community as a whole - feed activity, community search, and the shared notification center - see the Career Board, WB Listora, and Learnomy integration pages.
 
 ## Requirements
 

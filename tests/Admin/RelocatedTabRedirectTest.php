@@ -127,6 +127,22 @@ class RelocatedTabRedirectTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The retired page redirects from `load-<hook>`, before admin-header.php prints.
+	 *
+	 * A redirect from the render callback runs after output has started, so on a host
+	 * without output buffering the headers are already sent and a bookmark to the
+	 * retired page shows an empty admin screen.
+	 *
+	 * @return void
+	 */
+	public function test_retired_page_redirects_before_output(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		( new AdminHub() )->build_menu();
+
+		$this->assertNotFalse( has_action( 'load-admin_page_buddynext-automod' ), 'The redirect must hang off the load- action, not the page callback.' );
+	}
+
+	/**
 	 * A non-relocated tab resolves to its own section page unchanged.
 	 *
 	 * @return void

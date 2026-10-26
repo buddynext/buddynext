@@ -6,6 +6,20 @@
  * Tokens match CLAUDE.md `:root` block verbatim.
  */
 
+/* ── Links start neutral inside BuddyNext ────────────────────────────────────
+ * A BuddyNext link that sets no colour of its own (an avatar wrapper, a card
+ * link, a category pill, a link-styled button) took the host theme's link blue
+ * and underline: GeneratePress and Kadence both leave links underlined, Astra
+ * strips the underline globally and hid it. Stated once here, at 0,1,0 (the
+ * :where() adds nothing), so it beats a theme's bare `a` (0,0,1) but every
+ * `.bn-*` link rule that follows in any bundle wins by order. The lightbox is
+ * printed in the footer, outside .bn-app, so it is named here too. Hover and focus
+ * colours stay with the components. */
+:is( .bn-app, .bn-lightbox ) :where( a[class*="bn-"] ) {
+	color: inherit;
+	text-decoration: none;
+}
+
 /* ── Stable scrollbar gutter (BuddyNext hub pages) ───────────────────────────
  * Hub pages scroll on the document. With no reserved gutter, switching between
  * tabs whose content differs in height (e.g. a long Feed vs a short About) makes
@@ -65,7 +79,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-accent-800: oklch(34% calc(var(--bn-chroma) * 0.85) var(--bn-hue));
 	--bn-accent-900: oklch(26% calc(var(--bn-chroma) * 0.8) var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
-	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
+	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink)); /* The brand colour as TEXT: mixed toward the ink so links and counts reach 4.5:1 on a light brand (orange, yellow). Fills keep --bn-accent. */
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(99% 0 0));
 	/* The fill behind --bn-accent-fg: the accent, deepened only as far as a
 	   white label needs (see the @supports block below). */
@@ -447,7 +461,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 	--bn-accent-300: oklch(42% 0.10 var(--bn-hue));
 	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
 	--bn-accent:     var(--bn-accent-500);
-	--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+	--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 	--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 	--bn-accent-solid: var(--bn-accent);
 
@@ -496,7 +510,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
 		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
 		--bn-accent:     var(--bn-accent-500);
-		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  var(--bn-accent-fg-auto, oklch(15% 0.008 var(--bn-hue)));
 		--bn-accent-solid: var(--bn-accent);
 	}
@@ -595,7 +609,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-800: #28316a;
 		--bn-accent-900: #1c234c;
 		--bn-accent:     #5b67d0;
-		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #ffffff;
 		--bn-accent-solid: #4754ad;
 
@@ -662,7 +676,7 @@ html[data-bn-font-scale="120"] { --bn-text-scale: 1.2; }
 		--bn-accent-200: #404670;
 		--bn-accent-50:  #1f243b;
 		--bn-accent:     #8d96e0;
-		--bn-accent-text: color-mix(in oklch, var(--bn-accent) 60%, var(--bn-ink));
+		--bn-accent-text: color-mix(in oklab, var(--bn-accent) 60%, var(--bn-ink));
 		--bn-accent-fg:  #15161f;
 		--bn-accent-solid: #8d96e0;
 
@@ -3084,13 +3098,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
    At 60% the lowest is 6.3:1 on BuddyX light, which leaves room for any theme. */
 .bn-badge[data-tone="neutral"]  { background: var(--bn-sunken); color: var(--bn-ink-2); border-color: var(--bn-line); }
 .bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-text); border-color: transparent; }
-.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklch, var(--bn-success) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklch, var(--bn-warn) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklch, var(--bn-danger) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklch, var(--bn-info) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklch, var(--bn-jetonomy) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklch, var(--bn-media) 60%, var(--bn-ink)); border-color: transparent; }
-.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklch, var(--bn-events) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: color-mix(in oklab, var(--bn-success) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: color-mix(in oklab, var(--bn-warn) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: color-mix(in oklab, var(--bn-danger) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: color-mix(in oklab, var(--bn-info) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: color-mix(in oklab, var(--bn-jetonomy) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: color-mix(in oklab, var(--bn-media) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: color-mix(in oklab, var(--bn-events) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Chip group — the shared wrapper an injecting engine (Pro / gamification) should
    wrap a row of .bn-badge chips in (member labels, credential badges, level frames)
@@ -3262,7 +3276,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	font-size: var(--bn-text-sm);
 	line-height: var(--bn-leading-normal);
 }
-.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklch, var(--bn-paid) 60%, var(--bn-ink)); border-color: transparent; }
+.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: color-mix(in oklab, var(--bn-paid) 60%, var(--bn-ink)); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
 	and sits inline before the label via the badge's own flex gap. */
@@ -3413,14 +3427,117 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 
 	The toggle is NOT in this list — its unchecked track is a filled control, so
 	it gets the same defense pinned to var(--bn-line-strong) next to its base
-	rule below. Button-scoped for the lightbox wildcard so the backdrop div keeps
-	its overlay. Visually a no-op under themes that don't bleed. */
+	rule below. The lightbox is not in this list: it is printed outside .bn-app,
+	so it is pinned under its own root just below. Visually a no-op under themes
+	that don't bleed. */
 .bn-app .bn-tab,
 .bn-app .bn-composer__tool,
 .bn-app .bn-more-menu-item,
-.bn-app .bn-modal__close,
-.bn-app button[class*="bn-lightbox__"] {
+.bn-app .bn-modal__close {
 	background-color: transparent;
+}
+
+/* Resting colour and fill of the icon-only and chip buttons, pinned at 0,2,0.
+   A host theme's bare `button:focus` / `button:hover` (0,1,1: white text on a
+   grey or brand fill, plus its own padding) otherwise lands on these, because
+   BuddyNext only styled :hover and :focus-visible. A mouse click leaves a button
+   focused, so the leak showed on every click, not only on keyboard focus. Each
+   control's own :hover / :active rule is 0,2,0 too and sits later in the
+   cascade, so it still wins; this layer only decides what the control looks like
+   when the theme has not been told otherwise. */
+.bn-app :is(
+	.bn-rail__toggle,
+	.bn-composer__tool,
+	.bn-post-card__menu,
+	.bn-post-card__ann-dismiss,
+	.bn-modal__close,
+	.bn-composer__schedule-clear
+) {
+	background-color: transparent;
+	color: var(--bn-ink-3);
+}
+/* An icon link on a filled chip: a theme's `a:focus` / `a:hover` colour (0,1,1)
+   would paint the glyph in the chip's own colour and hide it. */
+.bn-app .bn-pf-avatar-edit {
+	color: var(--bn-accent-fg);
+}
+/* The composer prompt is a borderless field inside the composer card: a
+   theme's `textarea` / `textarea:focus` fill, colour, radius and min-height do
+   not apply to it (Astra turned it a white box on focus, dark mode included). */
+.bn-app textarea.bn-composer__prompt {
+	border-radius: 0;
+	min-height: 48px;
+	background-color: transparent;
+	color: var(--bn-ink);
+}
+.bn-app :is( .bn-emoji-popover__option, .bn-post-card__reactors-trigger ) {
+	background-color: transparent;
+}
+.bn-app .bn-composer__privacy-chip {
+	background-color: var(--bn-sunken);
+	color: var(--bn-ink-3);
+}
+/* The glyph is a mask over this fill, so the fill IS the icon colour. */
+.bn-app .bn-navgroup__nav {
+	background-color: var(--bn-ink-3);
+}
+/* The lightbox is printed in the footer on <body>, outside .bn-app, so it is
+   pinned under its own root. Its header controls are a 2rem circle: a theme's
+   button padding made them 40px wide ovals, and its :focus fill turned them dark. */
+.bn-lightbox :is( .bn-lightbox__close, .bn-lightbox__fullscreen ) {
+	padding: 0;
+	background-color: var(--bn-sunken);
+	color: var(--bn-ink-3);
+}
+.bn-lightbox .bn-lightbox__action {
+	background-color: transparent;
+	color: var(--bn-ink-2);
+}
+.bn-lightbox .bn-lightbox__reaction {
+	background-color: var(--bn-sunken);
+}
+
+/* Text inputs: BuddyNext's own box, held against a theme's `input[type=text]`
+   family (0,1,1: its padding, radius, border and fill beat a bare `.bn-input`).
+   <input> only: a textarea sets its own vertical padding and no theme reaches it.
+   Geometry holds in every state so the text never jumps on focus. A variant that
+   needs more room at the end (an inset clear button) sets --bn-input-pe, or a
+   different size sets --bn-input-fs, the same token pattern as .bn-btn above,
+   because a literal would lose to this rule. */
+.bn-app input.bn-input {
+	padding-block: 0;
+	padding-inline: var(--bn-s3) var(--bn-input-pe, var(--bn-s3));
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-input-fs, var(--bn-text-sm));
+}
+/* The fill holds in every state but disabled (a theme's `input:focus` greys the
+   field while typing); BuddyNext's focus rules never set one. The border only at
+   rest: the focus ring, invalid and error looks are BuddyNext's own 0,2,0 rules,
+   and this selector steps aside for each of them instead of out-ranking them
+   (:where() adds no specificity). The class is doubled because a theme's
+   `input[type=search]:focus` is 0,2,1 and loads after this file: a tie it would win. */
+.bn-app input.bn-input.bn-input:where( :not( :disabled ) ) {
+	background-color: var(--bn-surface);
+}
+.bn-app input.bn-input:where( :not( :focus, :disabled, [aria-invalid="true"], .bn-input--error ) ) {
+	border: 1px solid var(--bn-line-strong);
+}
+/* Selects and textareas: a theme's `:focus` can blank the fill (Blocksy turns it
+   transparent). Focus only, so every resting look is untouched. The DM composer
+   and the inline visibility select are transparent by design, so they are left
+   out; the comment box already takes the surface fill on focus. The class is
+   doubled for the same 0,2,1 tie as the input rule above. */
+.bn-app :is( select.bn-select.bn-select, select.bn-input.bn-input, textarea.bn-textarea.bn-textarea, textarea.bn-input.bn-input ):focus:not( .bn-dm-composer__input, .bn-ep-field-vis__select ) {
+	background-color: var(--bn-surface);
+}
+/* Focus: BuddyNext's accent border and its transparent outline (the ring is the
+   box-shadow). A theme's `input:focus` paints its own border colour and a solid
+   outline, which beats the 0,2,0 :focus-visible rule. Invalid and error keep
+   their own looks. */
+.bn-app input.bn-input.bn-input:where( :focus ):where( :not( [aria-invalid="true"], .bn-input--error ) ) {
+	border-color: var(--bn-accent);
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 /* ── Toggle switch ──────────────────────────────────────────────────── */
@@ -4893,6 +5010,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	.bn-dm-emoji-pop__close,
 	.bn-emoji-popover__option,
 	.bn-lightbox__close,
+	.bn-lightbox__fullscreen,
 	.bn-lightbox__dm-btn,
 	.bn-lightbox__action {
 		min-width: 44px;

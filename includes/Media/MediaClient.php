@@ -186,6 +186,38 @@ class MediaClient {
 	}
 
 	/**
+	 * May this item be downloaded? The engine's one answer (site switch AND the
+	 * owner's per-item opt-out), so a BuddyNext control never offers what the
+	 * setting hid. Allowed when the engine cannot say. Media id 0 asks for the
+	 * site switch alone.
+	 *
+	 * @param int $media_id Media id, or 0 for the site switch.
+	 * @return bool
+	 */
+	public static function downloads_allowed( int $media_id ): bool {
+		$repo = self::repo();
+		if ( ! is_object( $repo ) || ! method_exists( $repo, 'downloads_allowed' ) ) {
+			return true;
+		}
+		return (bool) $repo->downloads_allowed( $media_id );
+	}
+
+	/**
+	 * The file types a chat attachment may be, as the engine's upload route
+	 * enforces them (WPMediaVerse 2.6.2+, filterable there). Empty when the engine
+	 * is absent; the route still validates every upload either way.
+	 *
+	 * @return string[] MIME types.
+	 */
+	public static function dm_attachment_types(): array {
+		$types = array( '\WPMediaVerse\Messaging\MessagingController', 'allowed_attachment_types' );
+		if ( ! is_callable( $types ) ) {
+			return array();
+		}
+		return array_values( array_filter( array_map( 'strval', (array) call_user_func( $types ) ) ) );
+	}
+
+	/**
 	 * The engine's bundled default video poster URL.
 	 *
 	 * Used as a fallback when a video has no server-generated poster frame so a

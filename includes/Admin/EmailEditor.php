@@ -90,10 +90,10 @@ class EmailEditor {
 	 * Use the email BuddyNext actually ships as the wording shown when a
 	 * template has no saved row.
 	 *
-	 * The catalogue below carries its own sample wording, written with tokens
-	 * the sender does not fill ({{follower_name}}, {{recipient_name}}), so an
-	 * owner previewing or saving from it would send those tokens as text. The
-	 * seeded email (Installer) is the real default, with real tokens.
+	 * Installer::email_template_seeds() is the one default for every email: a
+	 * type in its list carries no wording in the catalogue below, and a type it
+	 * does not list is seeded from the catalogue's own subject/preview/body. So
+	 * the editor, "Reset to default" and a fresh install show the same email.
 	 *
 	 * @param string               $type     Template type.
 	 * @param array<string, mixed> $defaults Catalogue entry.
@@ -116,8 +116,9 @@ class EmailEditor {
 	 * Return the catalogue of built-in templates grouped by category.
 	 *
 	 * @return array<string, array<string, array<string, string|list<string>>>>
-	 *   [ 'Category' => [ 'slug' => [ 'name', 'trigger', 'tokens', 'subject', 'preview', 'body' ] ] ]
-	 *   The 'tokens' key holds a list<string>; all other keys are plain strings.
+	 *   [ 'Category' => [ 'slug' => [ 'name', 'trigger', 'tokens', 'subject'?, 'preview'?, 'body'? ] ] ]
+	 *   The 'tokens' key holds a list<string>; all other keys are plain strings. Wording
+	 *   keys appear only on types Installer::email_template_seeds() does not list.
 	 */
 	public function get_catalogue(): array {
 		$catalogue = array(
@@ -126,57 +127,36 @@ class EmailEditor {
 					'name'    => __( 'New follower', 'buddynext' ),
 					'trigger' => __( 'When someone follows you', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{follower_name}} started following you on {{site_name}}',
-					'preview' => "You have a new follower! Check out {{follower_name}}'s profile.",
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{follower_name}}</strong> started following you on {{site_name}}!\n\n{{follower_name}} is {{follower_bio}}\n\n<a href=\"{{profile_url}}\">View their profile →</a>\n\nYou can <a href=\"{{follow_back_url}}\">follow back</a> or <a href=\"{{unsubscribe_url}}\">unsubscribe</a> from this type of email.",
 				),
 				'bn.connection_requested' => array(
 					'name'    => __( 'Connection requested', 'buddynext' ),
 					'trigger' => __( 'When someone sends you a connection request', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{requester_name}} wants to connect with you on {{site_name}}',
-					'preview' => 'You have a new connection request.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{requester_name}}</strong> sent you a connection request on {{site_name}}.\n\n<a href=\"{{profile_url}}\">View the request →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from this type of email.",
 				),
 				'bn.connection_accepted'  => array(
 					'name'    => __( 'Connection accepted', 'buddynext' ),
 					'trigger' => __( 'When a connection request is accepted', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{connector_name}} accepted your connection on {{site_name}}',
-					'preview' => "You're now connected with {{connector_name}}!",
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{connector_name}}</strong> accepted your connection request on {{site_name}}.\n\n<a href=\"{{profile_url}}\">View their profile →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from this type of email.",
 				),
 				'bn.mention'              => array(
 					'name'    => __( 'Mention', 'buddynext' ),
 					'trigger' => __( "When you're @mentioned", 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{mentioner_name}} mentioned you on {{site_name}}',
-					'preview' => '{{mentioner_name}} mentioned you in a post.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{mentioner_name}}</strong> mentioned you:\n\n<blockquote>{{context_excerpt}}</blockquote>\n\n<a href=\"{{post_url}}\">View post →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 				'bn.post_commented'       => array(
 					'name'    => __( 'Post commented', 'buddynext' ),
 					'trigger' => __( 'When someone comments on your post', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{commenter_name}} commented on your post',
-					'preview' => '{{commenter_name}} left a comment.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{commenter_name}}</strong> commented on your post:\n\n<blockquote>{{comment_excerpt}}</blockquote>\n\n<a href=\"{{post_url}}\">View post →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 				'bn.post_shared'          => array(
 					'name'    => __( 'Post shared', 'buddynext' ),
 					'trigger' => __( 'When someone shares your post', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{sharer_name}} shared your post on {{site_name}}',
-					'preview' => '{{sharer_name}} shared your post.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{sharer_name}}</strong> shared your post on {{site_name}}.\n\n<a href=\"{{post_url}}\">View post →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 				'bn.new_message'          => array(
 					'name'    => __( 'New message', 'buddynext' ),
 					'trigger' => __( 'When you receive a direct message', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'New message from {{sender_name}} on {{site_name}}',
-					'preview' => '{{sender_name}} sent you a message.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{sender_name}}</strong> sent you a direct message on {{site_name}}.\n\n<a href=\"{{action_url}}\">Read it →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 				'bn.follow_requested'     => array(
 					'name'    => __( 'Follow requested', 'buddynext' ),
@@ -198,43 +178,28 @@ class EmailEditor {
 					'name'    => __( 'Media comment', 'buddynext' ),
 					'trigger' => __( 'When someone comments on your photo or video', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{actor_name}} commented on your media on {{site_name}}',
-					'preview' => '{{actor_name}} commented on your media.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{actor_name}}</strong> commented on your media on {{site_name}}.\n\n<a href=\"{{action_url}}\">View the comment →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 				'bn.media_favorited'      => array(
 					'name'    => __( 'Media favorited', 'buddynext' ),
 					'trigger' => __( 'When someone favorites your media', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{actor_name}} favorited your media on {{site_name}}',
-					'preview' => '{{actor_name}} favorited your media.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{actor_name}}</strong> favorited your media on {{site_name}}.\n\n<a href=\"{{action_url}}\">View it →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 			),
 			__( 'Spaces', 'buddynext' )     => array(
 				'bn.space_invite'             => array(
 					'name'    => __( 'Space invite', 'buddynext' ),
 					'trigger' => __( 'When invited to join a space', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => '{{inviter_name}} invited you to join {{space_name}}',
-					'preview' => "You've been invited to {{space_name}}!",
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{inviter_name}}</strong> has invited you to join <strong>{{space_name}}</strong> on {{site_name}}.\n\n<a href=\"{{space_url}}\">Accept invitation →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+					'tokens'  => array( '{{user_name}}', '{{space_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
 				),
 				'bn.space_join_requested'     => array(
 					'name'    => __( 'Space join requested', 'buddynext' ),
 					'trigger' => __( 'When a member requests to join your space', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'New join request for {{space_name}} on {{site_name}}',
-					'preview' => 'A member wants to join your space.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{requester_name}}</strong> has requested to join <strong>{{space_name}}</strong>.\n\n<a href=\"{{space_url}}\">Review the request →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+					'tokens'  => array( '{{user_name}}', '{{space_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
 				),
 				'bn.space_request_approved'   => array(
 					'name'    => __( 'Space request approved', 'buddynext' ),
 					'trigger' => __( 'When a space join request is approved', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Your request to join {{space_name}} was approved',
-					'preview' => 'Welcome to {{space_name}}!',
-					'body'    => "Hi {{recipient_name}},\n\nYour request to join <strong>{{space_name}}</strong> on {{site_name}} has been approved.\n\n<a href=\"{{space_url}}\">Visit the space →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+					'tokens'  => array( '{{user_name}}', '{{space_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
 				),
 				'bn.space_join'               => array(
 					'name'    => __( 'Space joined', 'buddynext' ),
@@ -247,10 +212,10 @@ class EmailEditor {
 				'bn.space_join_declined'      => array(
 					'name'    => __( 'Space request declined', 'buddynext' ),
 					'trigger' => __( 'When a request to join a space is declined', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'About your request to join on {{site_name}}',
+					'tokens'  => array( '{{user_name}}', '{{space_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'subject' => 'About your request to join {{space_name}}',
 					'preview' => 'Your request was not accepted this time',
-					'body'    => "Hi {{user_name}},\n\nYour request to join a space on <strong>{{site_name}}</strong> was not accepted.\n\nThere are plenty of other spaces open to you.\n\n<a href=\"{{action_url}}\">Browse spaces →</a>",
+					'body'    => "Hi {{user_name}},\n\nYour request to join <strong>{{space_name}}</strong> on {{site_name}} was not accepted.\n\nThere are plenty of other spaces open to you.\n\n<a href=\"{{action_url}}\">Browse spaces →</a>",
 				),
 				'bn.space_new_post'           => array(
 					'name'    => __( 'New post in a space', 'buddynext' ),
@@ -269,12 +234,9 @@ class EmailEditor {
 					'body'    => "Hi {{user_name}},\n\nYour role in a space on <strong>{{site_name}}</strong> has changed.\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Open the space →</a>",
 				),
 				'bn.announcement'             => array(
-					'name'    => __( 'Space announcement', 'buddynext' ),
-					'trigger' => __( 'When a space owner posts an announcement', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Announcement from your space on {{site_name}}',
-					'preview' => 'An announcement was posted',
-					'body'    => "Hi {{user_name}},\n\n{{actor_name}} posted an announcement in a space you belong to.\n\n{{notification_message}}\n\n<a href=\"{{action_url}}\">Read it →</a>",
+					'name'    => __( 'Announcement', 'buddynext' ),
+					'trigger' => __( 'When an announcement is posted to a space or to the whole community', 'buddynext' ),
+					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{space_name}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
 				),
 				'bn.space_ownership_received' => array(
 					'name'    => __( 'Space ownership received', 'buddynext' ),
@@ -290,33 +252,21 @@ class EmailEditor {
 					'name'    => __( 'Strike issued', 'buddynext' ),
 					'trigger' => __( 'When a moderation strike is issued to a member', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'A moderation action was taken on your {{site_name}} account',
-					'preview' => 'Important account notice.',
-					'body'    => "Hi {{recipient_name}},\n\nA moderation strike has been issued on your account at <strong>{{site_name}}</strong>. Please review the community guidelines to avoid further action.",
 				),
 				'bn.strike_warning'   => array(
 					'name'    => __( 'Strike warning', 'buddynext' ),
 					'trigger' => __( 'When a member is warned (approaching the strike threshold)', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'A warning about your account on {{site_name}}',
-					'preview' => 'Please review the community guidelines.',
-					'body'    => "Hi {{recipient_name}},\n\nThis is a warning regarding activity on your account at <strong>{{site_name}}</strong>. Please review the community guidelines to keep your account in good standing.",
 				),
 				'bn.member_suspended' => array(
 					'name'    => __( 'Member suspended', 'buddynext' ),
 					'trigger' => __( 'When a member is suspended', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{reason}}', '{{expires_at}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Your {{site_name}} account has been suspended',
-					'preview' => 'Your account has been suspended',
-					'body'    => "Hi {{user_name}},\n\nYour account on {{site_name}} has been suspended. While it is suspended you cannot post or interact with the community.\n\n<strong>Reason:</strong> {{reason}}\n<strong>Suspended until:</strong> {{expires_at}}\n\nIf you think this was a mistake, you can appeal from your account page.\n\n<a href=\"{{action_url}}\">See your account status</a>",
 				),
 				'bn.appeal_resolved'  => array(
 					'name'    => __( 'Appeal resolved', 'buddynext' ),
 					'trigger' => __( 'When a member\'s appeal is decided', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Your {{site_name}} appeal has been reviewed',
-					'preview' => 'Your appeal has been reviewed.',
-					'body'    => "Hi {{recipient_name}},\n\nYour appeal on <strong>{{site_name}}</strong> has been reviewed. Check your account for the outcome and next steps.",
 				),
 				'bn.user_warned'      => array(
 					'name'    => __( 'Member warned', 'buddynext' ),
@@ -362,9 +312,6 @@ class EmailEditor {
 					'name'    => __( 'New report (admin)', 'buddynext' ),
 					'trigger' => __( 'When content is reported (sent to moderators)', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'New content report on {{site_name}}',
-					'preview' => 'A member reported content for review.',
-					'body'    => "Hi {{recipient_name}},\n\nA new report was filed on <strong>{{site_name}}</strong> and is awaiting review.\n\n<a href=\"{{action_url}}\">Open the moderation queue →</a>",
 				),
 			),
 			__( 'Auth', 'buddynext' )       => array(
@@ -372,9 +319,6 @@ class EmailEditor {
 					'name'    => __( 'Welcome email', 'buddynext' ),
 					'trigger' => __( 'Sent on registration', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Welcome to {{site_name}}!',
-					'preview' => "Get started with {{site_name}} — here's everything you need.",
-					'body'    => "Hi {{recipient_name}},\n\nWelcome to <strong>{{site_name}}</strong>! We're excited to have you.\n\n<a href=\"{{login_url}}\">Get started →</a>",
 				),
 				// Link-based, not OTP. VerificationService mints a one-time token and
 				// VerificationListener sends {{verify_url}} — there is no OTP
@@ -385,17 +329,11 @@ class EmailEditor {
 					'name'    => __( 'Email verification', 'buddynext' ),
 					'trigger' => __( 'Verify email address (link)', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{verify_url}}', '{{site_name}}', '{{site_url}}', '{{login_url}}' ),
-					'subject' => 'Verify your email address on {{site_name}}',
-					'preview' => 'Click the link to confirm your address.',
-					'body'    => "Hi {{user_name}},\n\nPlease verify your email address by clicking the link below:\n\n<a href=\"{{verify_url}}\">Verify my email →</a>\n\nThis link expires in 48 hours.",
 				),
 				'email_change_confirm' => array(
 					'name'    => __( 'Email change confirmation', 'buddynext' ),
 					'trigger' => __( 'When a member requests an email-address change', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Confirm your new email address on {{site_name}}',
-					'preview' => 'Confirm your new email address.',
-					'body'    => "Hi {{user_name}},\n\nYou asked to change the email address on your {{site_name}} account to this inbox. Confirm the change below:\n\n<a href=\"{{verify_url}}\">Confirm email change →</a>\n\nIf you didn't request this, you can ignore this email.",
 				),
 			),
 			__( 'Digests', 'buddynext' )    => array(
@@ -403,17 +341,11 @@ class EmailEditor {
 					'name'    => __( 'Daily digest', 'buddynext' ),
 					'trigger' => __( 'Daily summary of community activity', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{notification_list}}', '{{action_url}}', '{{site_name}}', '{{site_url}}', '{{unsubscribe_url}}', '{{current_year}}' ),
-					'subject' => 'Your daily digest from {{site_name}}',
-					'preview' => "Here's what happened today.",
-					'body'    => "Hi {{user_name}},\n\nHere's a summary of recent activity on {{site_name}}.\n\n{{notification_list}}\n\n<a href=\"{{action_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
 				),
 				'bn.weekly_digest' => array(
 					'name'    => __( 'Weekly digest', 'buddynext' ),
 					'trigger' => __( 'Weekly summary of community activity', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{notification_list}}', '{{action_url}}', '{{site_name}}', '{{site_url}}', '{{unsubscribe_url}}', '{{current_year}}' ),
-					'subject' => 'Your weekly digest from {{site_name}}',
-					'preview' => "Here's what happened this week.",
-					'body'    => "Hi {{user_name}},\n\nHere's a summary of this week's activity on {{site_name}}.\n\n{{notification_list}}\n\n<a href=\"{{action_url}}\">Catch up on the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from digests.",
 				),
 			),
 			__( 'Onboarding', 'buddynext' ) => array(
@@ -421,17 +353,11 @@ class EmailEditor {
 					'name'    => __( 'Bulk invite', 'buddynext' ),
 					'trigger' => __( 'Sent when an admin invites a member via CSV upload', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => "You've been invited to join {{site_name}}",
-					'preview' => 'Accept your invitation and create your account.',
-					'body'    => "Hi {{first_name}},\n\nYou've been invited to join <strong>{{site_name}}</strong>!\n\n<a href=\"{{invite_url}}\">Accept invitation →</a>\n\nThis invitation expires in 7 days.",
 				),
 				'bn.onboarding_nudge' => array(
 					'name'    => __( 'Onboarding nudge', 'buddynext' ),
 					'trigger' => __( 'Sent 24h and 72h after registration if onboarding is incomplete', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'Finish setting up your {{site_name}} profile',
-					'preview' => 'Complete your onboarding to get the most out of the community.',
-					'body'    => "Hi {{recipient_name}},\n\nYou're almost there! Complete your profile setup on <strong>{{site_name}}</strong> to connect with the community.\n\n<a href=\"{{onboarding_url}}\">Complete your profile →</a>",
 				),
 			),
 		);
@@ -639,7 +565,7 @@ class EmailEditor {
 			'{{login_url}}'            => \BuddyNext\Core\PageRouter::login_url( '' ),
 			'{{unsubscribe_url}}'      => \BuddyNext\Core\PageRouter::notification_prefs_url(),
 			'{{current_year}}'         => gmdate( 'Y' ),
-			'{{site_name}}'            => get_bloginfo( 'name' ),
+			'{{site_name}}'            => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 			'{{site_url}}'             => home_url(),
 
 			// (2) Per-template tokens the shipped templates carry and their
@@ -650,6 +576,10 @@ class EmailEditor {
 			'{{onboarding_url}}'       => \BuddyNext\Core\PageRouter::onboarding_url(),
 			'{{invite_url}}'           => \BuddyNext\Core\PageRouter::signup_url(),
 			'{{decision}}'             => __( 'upheld', 'buddynext' ),
+			'{{space_name}}'           => __( 'Sample Space', 'buddynext' ),
+			'{{space_url}}'            => \BuddyNext\Core\PageRouter::spaces_url(),
+			'{{reason}}'               => __( 'Repeated spam after a warning', 'buddynext' ),
+			'{{expires_at}}'           => buddynext_date_local( gmdate( 'Y-m-d H:i:s', time() + WEEK_IN_SECONDS ) ),
 			'{{notification_list}}'    => '<ul><li>' . esc_html__( 'A sample notification from the past day.', 'buddynext' ) . '</li></ul>',
 		);
 

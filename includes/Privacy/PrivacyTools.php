@@ -613,7 +613,7 @@ class PrivacyTools implements ListenerInterface {
 		return array(
 			array(
 				'group_id'    => 'buddynext_profile',
-				'group_label' => __( 'BuddyNext Profile & Settings', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Profile & Settings', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-profile-' . $user_id,
 				'data'        => $data,
 			),
@@ -660,7 +660,7 @@ class PrivacyTools implements ListenerInterface {
 		return array(
 			array(
 				'group_id'    => 'buddynext_profile_fields',
-				'group_label' => __( 'BuddyNext Profile Fields', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Profile Fields', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-profile-fields-' . $user_id,
 				'data'        => $data,
 			),
@@ -699,7 +699,7 @@ class PrivacyTools implements ListenerInterface {
 		foreach ( (array) $rows as $i => $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_following',
-				'group_label' => __( 'BuddyNext Following', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Following', 'buddynext' ), buddynext_site_name() ),
 				// Keyed off the OFFSET, not the position within this page: $i restarts at 0 on
 				// every page, so page 2 would reissue page 1's item_ids.
 				'item_id'     => 'buddynext-following-' . $user_id . '-' . ( $offset + (int) $i ),
@@ -754,7 +754,7 @@ class PrivacyTools implements ListenerInterface {
 		foreach ( (array) $rows as $i => $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_followers',
-				'group_label' => __( 'BuddyNext Followers', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Followers', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-follower-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
@@ -808,7 +808,7 @@ class PrivacyTools implements ListenerInterface {
 
 			$items[] = array(
 				'group_id'    => 'buddynext_connections',
-				'group_label' => __( 'BuddyNext Connections', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Connections', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-connection-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
@@ -866,7 +866,7 @@ class PrivacyTools implements ListenerInterface {
 		foreach ( $rows as $i => $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_blocks',
-				'group_label' => __( 'BuddyNext Blocked Members', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Blocked Members', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-block-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
@@ -922,7 +922,7 @@ class PrivacyTools implements ListenerInterface {
 			$name    = '' !== (string) $row['name'] ? (string) $row['name'] : ( '#' . (int) $row['space_id'] );
 			$items[] = array(
 				'group_id'    => 'buddynext_spaces',
-				'group_label' => __( 'BuddyNext Space Memberships', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Space Memberships', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-space-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
@@ -992,7 +992,7 @@ class PrivacyTools implements ListenerInterface {
 		return array(
 			array(
 				'group_id'    => 'buddynext_hashtag_follows',
-				'group_label' => __( 'BuddyNext Followed Hashtags', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Followed Hashtags', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-hashtag-follows-' . $user_id . '-' . $offset,
 				'data'        => $data,
 			),
@@ -1048,7 +1048,7 @@ class PrivacyTools implements ListenerInterface {
 		return array(
 			array(
 				'group_id'    => 'buddynext_notification_prefs',
-				'group_label' => __( 'BuddyNext Notification Preferences', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Notification Preferences', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-notification-prefs-' . $user_id,
 				'data'        => $data,
 			),
@@ -1098,7 +1098,7 @@ class PrivacyTools implements ListenerInterface {
 		foreach ( $rows as $i => $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_notifications',
-				'group_label' => __( 'BuddyNext Notifications', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Notifications', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-notification-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
@@ -1152,7 +1152,7 @@ class PrivacyTools implements ListenerInterface {
 		foreach ( $rows as $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_posts',
-				'group_label' => __( 'BuddyNext Posts', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Posts', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-post-' . (int) $row['id'],
 				'data'        => array(
 					array(
@@ -1214,7 +1214,7 @@ class PrivacyTools implements ListenerInterface {
 		foreach ( $rows as $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_comments',
-				'group_label' => __( 'BuddyNext Comments', 'buddynext' ),
+				'group_label' => sprintf( /* translators: %s: community name. */ __( '%s Comments', 'buddynext' ), buddynext_site_name() ),
 				'item_id'     => 'buddynext-comment-' . (int) $row['id'],
 				'data'        => array(
 					array(

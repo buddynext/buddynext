@@ -241,7 +241,7 @@ class ProfileFieldsManager {
 			}
 		}
 		?>
-		<div class="bn-alert bn-pf-setup-issues" data-tone="warning" role="status">
+		<div class="bn-alert bn-pf-setup-issues" data-tone="warn" role="status">
 			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
 			<div class="bn-alert__body">
 				<p class="bn-alert__title"><?php esc_html_e( 'Some profile fields need attention', 'buddynext' ); ?></p>

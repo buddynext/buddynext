@@ -446,20 +446,7 @@ class ModerationListener implements ListenerInterface {
 		}
 
 		if ( 'comment' === $object_type ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_comments',
-				array(
-					'is_deleted' => 1,
-					'updated_at' => current_time( 'mysql', true ),
-				),
-				array( 'id' => $object_id ),
-				array( '%d', '%s' ),
-				array( '%d' )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-			return true;
+			return buddynext_service( 'comments' )->soft_delete( $object_id, $actor_id );
 		}
 
 		if ( 'message' === $object_type ) {
@@ -650,12 +637,8 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
-		$admin_ids = get_users(
-			array(
-				'role'   => 'administrator',
-				'fields' => 'ID',
-			)
-		);
+		// Everyone who can decide appeals: WP administrators plus community admins.
+		$admin_ids = buddynext_service( 'moderation' )->staff_recipients( 'buddynext-moderation/resolve-appeals' );
 
 		if ( empty( $admin_ids ) ) {
 			return;
@@ -710,33 +693,9 @@ class ModerationListener implements ListenerInterface {
 			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_reports WHERE id = %d", $report_id )
 		);
 
-		// Deduplicated recipient set keyed by user ID.
-		$recipients = array();
-		foreach ( (array) get_users(
-			array(
-				'role'   => 'administrator',
-				'fields' => 'ID',
-			)
-		) as $admin_id ) {
-			$recipients[ (int) $admin_id ] = true;
-		}
-		// Community moderators and admins review the queue too (from Community
-		// Admin). Asked through the ability, so a remapped role map is honoured.
-		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- indexed meta_key; the moderator set is small.
-		$community_mods = get_users(
-			array(
-				'meta_key'     => 'bn_community_role',
-				'meta_value'   => array( 'moderator', 'admin' ),
-				'meta_compare' => 'IN',
-				'fields'       => 'ID',
-			)
-		);
-		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-		foreach ( (array) $community_mods as $mod_id ) {
-			if ( buddynext_can( (int) $mod_id, 'buddynext-moderation/review-queue' ) ) {
-				$recipients[ (int) $mod_id ] = true;
-			}
-		}
+		// Deduplicated recipient set keyed by user ID: site staff who review the
+		// queue (WP administrators and community moderators/admins).
+		$recipients = array_fill_keys( buddynext_service( 'moderation' )->staff_recipients( 'buddynext-moderation/review-queue' ), true );
 		if ( $space_id > 0 ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$space_mods = $wpdb->get_col(
@@ -778,7 +737,7 @@ class ModerationListener implements ListenerInterface {
 			// this list is here because they moderate THIS space, so they get the
 			// space's own reports tab — a page they can actually open.
 			$recipient_url = $queue_url;
-			if ( $space_id > 0 && ! buddynext_can( $recipient_id, 'buddynext-spaces/moderate' ) ) {
+			if ( $space_id > 0 && ! buddynext_can( $recipient_id, 'buddynext-moderation/review-queue' ) ) {
 				$space_link = PageRouter::space_url( $space_id );
 				if ( PageRouter::spaces_url() !== $space_link ) {
 					$recipient_url = add_query_arg( 'bn_mtab', 'reports', $space_link . 'moderation/' );
@@ -875,7 +834,10 @@ class ModerationListener implements ListenerInterface {
 		// daily check always used the hardcoded threshold of 20 and ignored the
 		// admin's configured alert email.
 		$threshold   = (int) get_option( 'buddynext_mod_queue_alert_threshold', 20 );
-		$alert_email = (string) get_option( 'buddynext_admin_alert_email', get_option( 'admin_email' ) );
+		$alert_email = (string) get_option( 'buddynext_admin_alert_email', '' );
+		if ( '' === trim( $alert_email ) ) {
+			$alert_email = (string) get_option( 'admin_email' ); // A cleared field means "use the admin email".
+		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		$count = (int) $wpdb->get_var(

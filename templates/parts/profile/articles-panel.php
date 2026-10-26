@@ -19,6 +19,7 @@
  * @var int        $page            Current page (1-based).
  * @var int        $total_pages     Total pages.
  * @var string     $dashboard_url   Where the owner writes/manages ('' = no affordance).
+ * @var string     $write_url       Where the owner starts a new post (falls back to the dashboard).
  */
 
 declare( strict_types=1 );
@@ -32,9 +33,11 @@ $bn_ar_total     = isset( $article_count ) ? (int) $article_count : count( $bn_a
 $bn_ar_page      = isset( $page ) ? max( 1, (int) $page ) : 1;
 $bn_ar_pages     = isset( $total_pages ) ? max( 1, (int) $total_pages ) : 1;
 $bn_ar_dashboard = isset( $dashboard_url ) ? (string) $dashboard_url : '';
+$bn_ar_write     = isset( $write_url ) && '' !== (string) $write_url ? (string) $write_url : $bn_ar_dashboard;
 // Per-post edit address (post id => URL), from the bridge. A post without one
 // falls back to the dashboard.
 $bn_ar_edit_urls = isset( $edit_urls ) && is_array( $edit_urls ) ? $edit_urls : array();
+$bn_ar_writers   = isset( $co_writers ) && is_array( $co_writers ) ? $co_writers : array();
 
 // The owner's route back to where they write. Shown ABOVE the list and also in the
 // empty state, because a member with nothing published is exactly who needs it.
@@ -53,7 +56,7 @@ if ( empty( $bn_ar_rows ) ) :
 		</div>
 		<?php if ( $bn_ar_manage ) : ?>
 			<div class="bn-empty-sub">
-				<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
+				<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 					<?php esc_html_e( 'Write your first article', 'buddynext' ); ?>
 				</a>
 			</div>
@@ -66,7 +69,7 @@ endif;
 
 <?php if ( $bn_ar_manage ) : ?>
 	<div class="bn-articles__manage">
-		<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
+		<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 			<?php buddynext_icon( 'edit' ); ?>
 			<?php esc_html_e( 'Write a new article', 'buddynext' ); ?>
 		</a>
@@ -83,12 +86,11 @@ endif;
 			continue;
 		}
 
-		$bn_ar_id     = (int) $bn_ar_post->ID;
-		$bn_ar_link   = (string) get_permalink( $bn_ar_id );
-		$bn_ar_title  = get_the_title( $bn_ar_id );
-		$bn_ar_title  = '' !== trim( (string) $bn_ar_title ) ? $bn_ar_title : __( '(untitled)', 'buddynext' );
-		$bn_ar_thumb  = (string) get_the_post_thumbnail_url( $bn_ar_id, 'medium' );
-		$bn_ar_status = (string) $bn_ar_post->post_status;
+		$bn_ar_id    = (int) $bn_ar_post->ID;
+		$bn_ar_link  = (string) get_permalink( $bn_ar_id );
+		$bn_ar_title = get_the_title( $bn_ar_id );
+		$bn_ar_title = '' !== trim( (string) $bn_ar_title ) ? $bn_ar_title : __( '(untitled)', 'buddynext' );
+		$bn_ar_thumb = (string) get_the_post_thumbnail_url( $bn_ar_id, 'medium' );
 		?>
 		<li class="bn-articles__item">
 			<article class="bn-card bn-article-card">
@@ -101,22 +103,30 @@ endif;
 				<div class="bn-article-card__body">
 					<h3 class="bn-article-card__title">
 						<a href="<?php echo esc_url( $bn_ar_link ); ?>"><?php echo esc_html( $bn_ar_title ); ?></a>
-						<?php if ( 'publish' !== $bn_ar_status ) : ?>
-							<?php
-							// Only the owner (and editors) ever reach a non-published row -
-							// the bridge does not return them to anyone else - but the badge
-							// is what stops an unfinished draft reading as live.
-							$bn_ar_obj   = get_post_status_object( $bn_ar_status );
-							$bn_ar_label = $bn_ar_obj->label ?? $bn_ar_status;
-							?>
-							<span class="bn-badge bn-badge--muted"><?php echo esc_html( $bn_ar_label ); ?></span>
-						<?php endif; ?>
 					</h3>
 
 					<div class="bn-article-card__meta">
 						<time datetime="<?php echo esc_attr( (string) get_the_date( 'c', $bn_ar_id ) ); ?>">
 							<?php echo esc_html( (string) get_the_date( '', $bn_ar_id ) ); ?>
 						</time>
+						<?php $bn_ar_names = (array) ( $bn_ar_writers[ $bn_ar_id ] ?? array() ); ?>
+						<?php if ( $bn_ar_names ) : ?>
+							<?php // Every other writer, named as text: the lead author's tab credits co-authors, a co-author's tab credits the lead. ?>
+							<span class="bn-badge bn-badge--muted">
+								<?php
+								$bn_ar_label = implode( ', ', array_slice( $bn_ar_names, 0, 3 ) );
+								if ( count( $bn_ar_names ) > 3 ) {
+									/* translators: %d: number of further writers not named. */
+									$bn_ar_label .= ' ' . sprintf( __( '+%d', 'buddynext' ), count( $bn_ar_names ) - 3 );
+								}
+								printf(
+									/* translators: %s: names of the post's other writers, e.g. "Aisha, Raj". */
+									esc_html__( 'Co-written with %s', 'buddynext' ),
+									esc_html( $bn_ar_label )
+								);
+								?>
+							</span>
+						<?php endif; ?>
 					</div>
 
 					<?php

@@ -737,12 +737,24 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				);
 			}
 
-			// Member-type self-select — only when self-select types exist (the owner,
+			// Member-type self-select card — only when self-select types exist (the owner,
 			// or an "Edit anyone's profile" holder acting for them). Wired to the
 			// buddynext/profile store's setMemberType action, which PUTs to
 			// /users/{id}/member-type; the endpoint enforces the self_select gate.
+			// One source on this screen: a Member type profile field is the set-once choice
+			// (see FieldType::render_member_type_input), so the standalone card, which lets a
+			// member change it later, only renders on a site that has no such field.
+			$bn_has_mt_field = false;
+			foreach ( $bn_groups as $bn_mt_group ) {
+				foreach ( (array) ( $bn_mt_group['fields'] ?? array() ) as $bn_mt_field ) {
+					if ( 'member_type' === (string) ( $bn_mt_field['type'] ?? '' ) ) {
+						$bn_has_mt_field = true;
+						break 2;
+					}
+				}
+			}
 			$bn_mt_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
-			if ( $bn_mt_service && method_exists( $bn_mt_service, 'get_all' ) ) {
+			if ( ! $bn_has_mt_field && $bn_mt_service && method_exists( $bn_mt_service, 'get_all' ) ) {
 				$bn_self_types = array_values(
 					array_filter(
 						(array) $bn_mt_service->get_all(),

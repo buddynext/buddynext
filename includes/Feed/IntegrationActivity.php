@@ -146,6 +146,8 @@ class IntegrationActivity {
 	 *                           REST/app surfaces. Overrides the defaults it shares a
 	 *                           key with (e.g. pass 'image' to set the card cover).
 	 * @return int|\WP_Error Post id (0 when an identical card already exists), or WP_Error.
+	 *
+	 * @api
 	 */
 	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0, array $meta = array() ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
@@ -260,6 +262,8 @@ class IntegrationActivity {
 	 * @param string $type     Post type the card was stored as. Defaults to 'link';
 	 *                         pass the same type used at publish() time.
 	 * @return int Rows removed.
+	 *
+	 * @api
 	 */
 	public static function remove( string $link_url, string $type = 'link' ): int {
 		if ( '' === $link_url ) {
@@ -282,6 +286,8 @@ class IntegrationActivity {
 	 * @param string $link_url The partner page the card links to.
 	 * @param string $type     Post type the card was stored as (same as at publish()).
 	 * @return bool True when a live card was withdrawn.
+	 *
+	 * @api
 	 */
 	public static function withdraw( string $link_url, string $type = 'link' ): bool {
 		if ( '' === $link_url ) {
@@ -302,6 +308,8 @@ class IntegrationActivity {
 	 * @param string $link_url The partner page the card links to.
 	 * @param string $type     Post type the card was stored as.
 	 * @return bool True when a withdrawn card was restored.
+	 *
+	 * @api
 	 */
 	public static function restore( string $link_url, string $type = 'link' ): bool {
 		if ( '' === $link_url ) {
@@ -334,6 +342,8 @@ class IntegrationActivity {
 	 * @param string               $type     Post type the card was stored as.
 	 * @param array<string, mixed> $meta     Fields to update; others are preserved.
 	 * @return bool True when a card was refreshed.
+	 *
+	 * @api
 	 */
 	public static function refresh( string $link_url, string $type, array $meta ): bool {
 		if ( '' === $link_url || '' === $type || array() === $meta ) {
@@ -366,6 +376,8 @@ class IntegrationActivity {
 	 * @param int                  $value    The partner id whose cards to refresh.
 	 * @param array<string, mixed> $meta     Fields to update on each card.
 	 * @return int Cards refreshed.
+	 *
+	 * @api
 	 */
 	public static function refresh_by_meta( string $type, string $meta_key, int $value, array $meta ): int {
 		if ( '' === $type || '' === $meta_key || $value <= 0 || array() === $meta ) {
@@ -393,6 +405,8 @@ class IntegrationActivity {
 	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
 	 * @param int    $value    The partner id whose cards to remove.
 	 * @return int Rows removed.
+	 *
+	 * @api
 	 */
 	public static function remove_by_meta( string $type, string $meta_key, int $value ): int {
 		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
@@ -413,6 +427,8 @@ class IntegrationActivity {
 	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
 	 * @param int    $value    The partner id whose cards to withdraw.
 	 * @return int Rows withdrawn.
+	 *
+	 * @api
 	 */
 	public static function withdraw_by_meta( string $type, string $meta_key, int $value ): int {
 		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
@@ -430,6 +446,8 @@ class IntegrationActivity {
 	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
 	 * @param int    $value    The partner id whose cards to restore.
 	 * @return int Rows restored.
+	 *
+	 * @api
 	 */
 	public static function restore_by_meta( string $type, string $meta_key, int $value ): int {
 		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
@@ -462,6 +480,8 @@ class IntegrationActivity {
 	 * @param string               $excerpt    New preview line.
 	 * @param array<string, mixed> $meta       Extra snapshot fields, as for publish().
 	 * @return int 1 when the card was rewritten, else 0.
+	 *
+	 * @api
 	 */
 	public static function rewrite_by_meta( string $type, string $meta_key, int $value, string $content, string $link_url, string $link_title = '', string $excerpt = '', array $meta = array() ): int {
 		if ( '' === $type || '' === $meta_key || $value <= 0 || '' === $link_url ) {
@@ -488,6 +508,8 @@ class IntegrationActivity {
 	 * @param string               $excerpt      New preview line.
 	 * @param array<string, mixed> $meta         Extra snapshot fields, as for publish().
 	 * @return int 1 when the card was rewritten, else 0.
+	 *
+	 * @api
 	 */
 	public static function rewrite( string $old_link_url, string $type, string $content, string $link_url, string $link_title = '', string $excerpt = '', array $meta = array() ): int {
 		if ( '' === $old_link_url || '' === $type || '' === $link_url ) {
@@ -533,6 +555,8 @@ class IntegrationActivity {
 	 * @param int    $value    The partner id whose cards to move.
 	 * @param int    $space_id BuddyNext space id, or 0 for none.
 	 * @return int Cards moved.
+	 *
+	 * @api
 	 */
 	public static function set_space_by_meta( string $type, string $meta_key, int $value, int $space_id ): int {
 		if ( '' === $type || '' === $meta_key || $value <= 0 || $space_id < 0 ) {
@@ -550,6 +574,8 @@ class IntegrationActivity {
 	 * A bridge registers its type here in the same change that publishes it.
 	 *
 	 * @return array<string,array{label:string,icon:string}>
+	 *
+	 * @api
 	 */
 	public static function card_types(): array {
 		/**
@@ -588,6 +614,8 @@ class IntegrationActivity {
 	 * @param string              $icon  Lucide icon slug; '' = the type's registered icon.
 	 * @param string              $label Source label shown above the title; '' = the type's registered label.
 	 * @return string Card HTML, or '' when there is no link to render (text fallback).
+	 *
+	 * @api
 	 */
 	public static function render_bridge_card( array $args, string $icon = '', string $label = '' ): string {
 		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();

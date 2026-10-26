@@ -274,10 +274,6 @@ class CronService {
 			return;
 		}
 
-		if ( ! function_exists( 'wp_delete_user' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/user.php';
-		}
-
 		foreach ( $ids as $raw_id ) {
 			$uid = (int) $raw_id;
 
@@ -305,7 +301,7 @@ class CronService {
 				continue;
 			}
 
-			wp_delete_user( $uid );
+			buddynext_remove_member( $uid );
 		}
 	}
 
@@ -377,7 +373,7 @@ class CronService {
 				$wpdb->prepare(
 					"DELETE FROM {$wpdb->prefix}bn_reports
 					  WHERE status IN ( 'resolved', 'dismissed' )
-					    AND created_at < %s
+					    AND COALESCE( resolved_at, created_at ) < %s
 					  LIMIT 1000",
 					$cutoff
 				)
@@ -519,7 +515,7 @@ class CronService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, type, sender_id, object_type, object_id, data, created_at, is_read,
+				"SELECT id, recipient_id, type, sender_id, object_type, object_id, data, created_at, is_read,
 				        COALESCE( group_count, 1 ) AS group_count
 				   FROM {$wpdb->prefix}bn_notifications
 				  WHERE recipient_id = %d
@@ -537,6 +533,10 @@ class CronService {
 		if ( null === $rows ) {
 			return array();
 		}
+
+		// Only what the bell would show: a gone object or a row its partner now
+		// hides (trashed reply, private item) is never emailed.
+		$rows = buddynext_service( 'notifications' )->filter_resolvable( $rows );
 
 		// The member's own choice per type, or the catalogue default where they made
 		// none. One read: the service caches the member's saved rows.
@@ -744,7 +744,7 @@ class CronService {
 		);
 
 		$tokens = array(
-			'{{site_name}}'         => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			'{{site_name}}'         => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
 			'{{site_url}}'          => esc_url( home_url( '/' ) ),
 			'{{user_name}}'         => $user->display_name,
 			'{{notification_list}}' => $notif_list,

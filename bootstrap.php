@@ -1,0 +1,2250 @@
+<?php
+/**
+ * BuddyNext bootstrap: everything the plugin defines and hooks.
+ *
+ * Loaded by buddynext.php only on the community site (a single site, or the
+ * main site of a network). On a network subsite this file is never read, so the
+ * subsite sees no BuddyNext constant, class, function or route.
+ *
+ * @package BuddyNext
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Version of the addon framework (includes/Addons). Adding is free; changing or
+ * removing a public symbol bumps it, and the registry supports this and the previous value.
+ */
+define( 'BUDDYNEXT_ADDON_API', 1 );
+define( 'BUDDYNEXT_VERSION', '1.2.7' );
+define( 'BUDDYNEXT_FILE', __DIR__ . '/buddynext.php' );
+define( 'BUDDYNEXT_DIR', plugin_dir_path( BUDDYNEXT_FILE ) );
+define( 'BUDDYNEXT_URL', plugin_dir_url( BUDDYNEXT_FILE ) );
+define( 'BUDDYNEXT_BASENAME', plugin_basename( BUDDYNEXT_FILE ) );
+
+// Autoloader — PSR-4 for the BuddyNext\ namespace (includes/). Hand-written so
+// runtime never depends on Composer: vendor/ is dev tooling only and is
+// gitignored. Bundled runtime libraries (Action Scheduler, EDD SL SDK) ship
+// committed under libs/ and are loaded by direct require_once below.
+spl_autoload_register(
+	static function ( string $class_name ): void {
+		$prefix = 'BuddyNext\\';
+		$len    = strlen( $prefix );
+		if ( strncmp( $prefix, $class_name, $len ) !== 0 ) {
+			return;
+		}
+		$file = BUDDYNEXT_DIR . 'includes/' . str_replace( '\\', '/', substr( $class_name, $len ) ) . '.php';
+		if ( is_readable( $file ) ) {
+			require_once $file;
+		}
+	}
+);
+
+// Wire WordPress's native metadata API to the bn_space_meta table. WP's
+// _get_meta_table('bn_space') resolves the $wpdb property `bn_spacemeta` (no
+// underscore) and the `bn_space_id` column; our physical table is bn_space_meta.
+// Without this alias every get/add/update/delete_metadata('bn_space', …) — and
+// register_meta / WP_Meta_Query / the meta object cache — silently returns false
+// and no space field can be stored. Re-aliased on blog switch so multisite writes
+// after switch_to_blog() hit the correct blog's table.
+$GLOBALS['wpdb']->bn_spacemeta = $GLOBALS['wpdb']->prefix . 'bn_space_meta';
+add_action(
+	'switch_blog',
+	static function (): void {
+		$GLOBALS['wpdb']->bn_spacemeta = $GLOBALS['wpdb']->prefix . 'bn_space_meta';
+	}
+);
+
+// Boot the space-field registry on init: it fires buddynext_register_space_fields
+// (core + third parties register there, mirroring the Nav API's
+// buddynext_register_nav) and wires each field to register_meta('bn_space', …).
+// Priority 9 so fields are registered before REST routes initialise at init:10.
+add_action(
+	'init',
+	static function (): void {
+		\BuddyNext\Spaces\SpaceFieldRegistry::instance()->boot();
+	},
+	9
+);
+
+// Refuse to install on a database that cannot hold the schema.
+//
+// Registered BEFORE Installer::run() so it wins: activation hooks fire in
+// registration order, and this one stops before a single table is created.
+//
+// Refusing rather than warning, for the reason the failure mode gives. A partial
+// schema does not announce itself - a customer on MariaDB 5.5 got a successful
+// activation, eight tables of forty-one, and posts that returned HTTP 201 and
+// wrote nothing. There is no version of "let it proceed with a notice" that ends
+// better than not starting: WordPress core takes the same line with Requires PHP.
+register_activation_hook(
+	BUDDYNEXT_FILE,
+	static function (): void {
+		$reason = \BuddyNext\Core\Installer::unsupported_db_reason();
+
+		if ( '' === $reason ) {
+			return;
+		}
+
+		// Undo the activation itself, or WordPress lists the plugin as active while
+		// its tables do not exist - which is the state this whole guard exists to
+		// prevent, reached by a different road.
+		deactivate_plugins( BUDDYNEXT_BASENAME );
+
+		wp_die(
+			esc_html( $reason ),
+			esc_html__( 'BuddyNext cannot be activated on this database', 'buddynext' ),
+			array(
+				'back_link' => true,
+				'response'  => 200,
+			)
+		);
+	}
+);
+
+register_activation_hook( BUDDYNEXT_FILE, array( \BuddyNext\Core\Installer::class, 'run' ) );
+register_activation_hook(
+	BUDDYNEXT_FILE,
+	static function (): void {
+		set_transient( 'buddynext_do_activation_redirect', '1', 30 );
+	}
+);
+register_deactivation_hook(
+	BUDDYNEXT_FILE,
+	static function (): void {
+		\BuddyNext\Core\Installer::remove_mu_plugin();
+		// Clear scheduled-post cron events so no orphan recurring sweep survives
+		// deactivation (re-armed on next activation / write).
+		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::HOOK );
+		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::SWEEP_HOOK );
+		// A switched-off plugin asks the store nothing; activation re-arms it.
+		wp_clear_scheduled_hook( \BuddyNext\Core\PresetActivation::HOOK );
+	}
+);
+
+add_action( 'plugins_loaded', array( \BuddyNext\Core\Plugin::class, 'init' ), 15 );
+
+// Load translations on init (WP 6.7+ wants textdomains loaded at init or later).
+// The Domain Path header points at /languages; .mo files drop in there per locale.
+add_action(
+	'init',
+	static function (): void {
+		load_plugin_textdomain( 'buddynext', false, dirname( BUDDYNEXT_BASENAME ) . '/languages' );
+	}
+);
+
+// ---------------------------------------------------------------------------
+// EDD Software Licensing SDK — automatic updates for free and Pro.
+//
+// The SDK is vendored at libs/edd-sl-sdk and is the single source of truth
+// for the whole product family: BuddyNext Pro registers its own product on
+// the same registry hook and requires this same file (require_once makes the
+// double load safe). The free product ships with a preset, unlimited-
+// activation key so updates work with zero customer setup. License state
+// never gates functionality — it only authorises update downloads.
+// ---------------------------------------------------------------------------
+
+add_action(
+	'edd_sl_sdk_registry',
+	static function ( $registry ): void {
+		$registry->register(
+			array(
+				'id'      => 'buddynext',
+				'url'     => 'https://wbcomdesigns.com',
+				'item_id' => 1664401,
+				'version' => BUDDYNEXT_VERSION,
+				'file'    => BUDDYNEXT_FILE,
+				'license' => 'buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55',
+			)
+		);
+	}
+);
+
+// Action Scheduler — bundled so async background work (search reindex, space
+// fan-out, async notifications) runs on a standalone install with nothing else
+// active. Self-arbitrates: if another active plugin ships a newer copy, that one
+// wins. Must load no later than plugins_loaded, so require it here at plugin load.
+if ( file_exists( BUDDYNEXT_DIR . 'libs/action-scheduler/action-scheduler.php' ) ) {
+	require_once BUDDYNEXT_DIR . 'libs/action-scheduler/action-scheduler.php';
+}
+
+// Load the vendored EDD SL SDK only when the package is COMPLETE. A partial
+// build or extract that keeps the entry file but drops libs/edd-sl-sdk/src would
+// fatal inside the SDK the moment it instantiates a src class (the failure mode
+// that has bitten stripped bundled-SDK releases). Guard on the source being
+// present and degrade to "updates disabled" with a soft admin notice instead of
+// a white screen — licensing only gates updates, never features, so the
+// community keeps working.
+if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
+	&& file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/src/Versions.php' ) ) {
+	require_once BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php';
+} elseif ( is_admin() ) {
+	add_action(
+		'admin_notices',
+		static function () {
+			echo '<div class="notice notice-warning"><p>'
+				. esc_html__( 'BuddyNext: the bundled licensing and update SDK is incomplete, so automatic updates are turned off. Reinstall the plugin from a complete package to restore them. Every other feature works normally.', 'buddynext' )
+				. '</p></div>';
+		}
+	);
+}
+
+// Version skew, the direction only Free can see. Pro guards Free-older-than-Pro
+// from its own boot; the reverse — Pro OLDER than Free, i.e. the owner updated
+// BuddyNext but not BuddyNext Pro — is invisible to Pro (it cannot know a future
+// Free's version), so Free warns. Checked at admin_notices, by when both plugins
+// are loaded and BUDDYNEXTPRO_VERSION (if Pro is active) is defined. They ship in
+// lockstep, so this stays silent unless a partial update left them mismatched. A
+// warning, not an error: Free still works and Pro degrades gracefully, but the
+// owner should update Pro to match.
+add_action(
+	'admin_notices',
+	static function (): void {
+		// Only people who could actually update the plugin should see this — a
+		// subscriber reaching wp-admin (profile.php) can neither act on it nor make
+		// sense of it, and on an open community it just reads as a broken site.
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			return;
+		}
+		if ( ! defined( 'BUDDYNEXTPRO_VERSION' ) || ! defined( 'BUDDYNEXT_VERSION' ) ) {
+			return;
+		}
+		if ( ! version_compare( BUDDYNEXTPRO_VERSION, BUDDYNEXT_VERSION, '<' ) ) {
+			return;
+		}
+		printf(
+			'<div class="notice notice-warning"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: 1: installed BuddyNext Pro version, 2: installed BuddyNext version */
+					__( 'BuddyNext Pro %1$s is older than BuddyNext %2$s. Update BuddyNext Pro to match, so the two stay in step.', 'buddynext' ),
+					BUDDYNEXTPRO_VERSION,
+					BUDDYNEXT_VERSION
+				)
+			)
+		);
+	}
+);
+
+// Network Admin > Plugins: say where the community lives. Settings are on the main
+// site, so a super admin looking at the plugin row is pointed there.
+add_action(
+	'after_plugin_row_' . BUDDYNEXT_BASENAME,
+	static function (): void {
+		if ( ! is_network_admin() ) {
+			return;
+		}
+		printf(
+			'<tr class="plugin-update-tr active"><td colspan="4" class="plugin-update colspanchange"><div class="notice inline notice-info notice-alt"><p>%s</p></div></td></tr>',
+			wp_kses(
+				sprintf(
+					/* translators: 1: main site name, 2: opening link tag to its BuddyNext settings, 3: closing link tag */
+					__( 'The community runs on %1$s. %2$sSettings%3$s', 'buddynext' ),
+					esc_html( (string) get_blog_option( get_main_site_id(), 'blogname' ) ),
+					'<a href="' . esc_url( get_admin_url( get_main_site_id(), 'admin.php?page=buddynext' ) ) . '">',
+					'</a>'
+				),
+				array( 'a' => array( 'href' => array() ) )
+			)
+		);
+	}
+);
+
+// Network: activation started from a subsite address cannot install (BuddyNext defines
+// nothing there), so the community site installs itself on its first request.
+add_action( 'init', array( \BuddyNext\Core\Installer::class, 'install_if_missing' ), 5 );
+
+// Apply pending DB schema upgrades on a plain plugin update (no deactivate/
+// reactivate needed). Cheap no-op once the stored schema revision matches.
+add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
+\BuddyNext\Core\Installer::register_site_health();
+
+// Keep the front-end isolation mu-plugin in sync with the plugin's generated
+// source on every update — signature-compared, so it rewrites the mu-plugin
+// (e.g. when an integration is added to the allow-list) without a version bump.
+add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_refresh_mu_plugin' ) );
+
+// Activate the preset key against the store once per site so update downloads
+// are authorised. The remote call runs in the BACKGROUND (a scheduled single
+// event), never on the admin page the owner is looking at, retries on a bounded
+// hourly backoff, and surfaces an actionable notice if it gives up rather than
+// failing silently. See PresetActivation for the full rationale.
+\BuddyNext\Core\PresetActivation::register();
+
+/**
+ * Check whether a user holds a BuddyNext capability.
+ *
+ * Acts as the single entry point for every permission check in the plugin.
+ * Prefer this over direct capability checks so that all gates flow through
+ * the 4-layer model in PermissionService.
+ *
+ * @param int    $user_id    WordPress user ID.
+ * @param string $capability Dot-namespaced capability, e.g. 'buddynext-feed/create-post'.
+ * @param array  $context    Optional key/value context, e.g. ['space_id' => 42].
+ * @return bool
+ */
+function buddynext_can( int $user_id, string $capability, array $context = array() ): bool {
+	return \BuddyNext\Core\Container::instance()
+		->get( 'permissions' )
+		->can( $user_id, $capability, $context );
+}
+
+/**
+ * Spend credits from a user's BuddyNext credit balance.
+ *
+ * Thin wrapper around RoleService::spend_credits() so callers throughout the
+ * codebase don't need to resolve the service container themselves.
+ *
+ * Returns false without deducting when the balance is insufficient.
+ *
+ * @param int    $user_id WordPress user ID.
+ * @param int    $amount  Credits to deduct.
+ * @param string $reason  Short description for audit (e.g. 'create-space').
+ * @return bool
+ */
+function buddynext_spend_credits( int $user_id, int $amount, string $reason ): bool {
+	return \BuddyNext\Core\Container::instance()
+		->get( 'roles' )
+		->spend_credits( $user_id, $amount, $reason );
+}
+
+/**
+ * Retrieve a service from the BuddyNext container.
+ *
+ * @param string $key Service identifier as registered in Plugin::register_services().
+ * @return mixed
+ */
+function buddynext_service( string $key ): mixed {
+	return \BuddyNext\Core\Container::instance()->get( $key );
+}
+
+/**
+ * Read per-space metadata.
+ *
+ * Thin wrapper over the native WP metadata API for meta_type 'bn_space' (backed
+ * by the bn_space_meta table via the $wpdb->bn_spacemeta alias set at boot). This
+ * is the canonical per-space storage — every per-space attribute is a meta row,
+ * never a new column or an autoloaded option.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key. Empty returns all keys for the space.
+ * @param bool   $single   Return a single value rather than an array.
+ * @return mixed
+ */
+function get_space_meta( int $space_id, string $key = '', bool $single = false ): mixed {
+	return get_metadata( 'bn_space', $space_id, $key, $single );
+}
+
+/**
+ * Add a per-space metadata row.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key.
+ * @param mixed  $value    Meta value (will be serialized by WP if needed).
+ * @param bool   $unique   Only add when the key has no existing value.
+ * @return int|false Meta ID on success, false on failure.
+ */
+function add_space_meta( int $space_id, string $key, mixed $value, bool $unique = false ): int|false {
+	return add_metadata( 'bn_space', $space_id, $key, $value, $unique );
+}
+
+/**
+ * Create or update a per-space metadata value.
+ *
+ * Per-key rows make this atomic — no read-modify-write clobber between writers.
+ *
+ * @param int    $space_id   bn_spaces.id.
+ * @param string $key        Meta key.
+ * @param mixed  $value      New value.
+ * @param mixed  $prev_value Only update the row matching this previous value.
+ * @return int|bool Meta ID when a row is created, true on update, false on failure.
+ */
+function update_space_meta( int $space_id, string $key, mixed $value, mixed $prev_value = '' ): int|bool {
+	return update_metadata( 'bn_space', $space_id, $key, $value, $prev_value );
+}
+
+/**
+ * Delete per-space metadata.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key.
+ * @param mixed  $value    Only delete rows matching this value (empty deletes all for the key).
+ * @return bool
+ */
+function delete_space_meta( int $space_id, string $key, mixed $value = '' ): bool {
+	return delete_metadata( 'bn_space', $space_id, $key, $value );
+}
+
+/**
+ * Register a typed, owner-editable space field — the single developer entry point
+ * AND the path core uses for its own built-in space options (no two-tier system).
+ *
+ * One call drives storage (bn_space_meta), the management-screen render + save
+ * (via the FieldType engine), REST exposure, and search-folding. Mirrors the
+ * profile-field model. Delegates to SpaceFieldRegistry; registration of the
+ * underlying register_meta('bn_space', …) happens on 'init'.
+ *
+ * @param string $key  Meta key / field key.
+ * @param array  $args Field definition: label, type (any FieldType type), single,
+ *                     show_in_rest, searchable, visibility ('public'|'members'),
+ *                     section, sort_order, options, default.
+ * @return void
+ */
+function buddynext_register_space_field( string $key, array $args = array() ): void {
+	\BuddyNext\Spaces\SpaceFieldRegistry::instance()->register( $key, $args );
+}
+
+/**
+ * Human-readable label for a member id, for admin lists and logs.
+ *
+ * A data table's first column has to say WHO, and a bare "#409" says nothing —
+ * an owner reading the Subscriptions list cannot tell whether that row is a
+ * paying customer, a deleted account, or a seeding artefact. Several screens had
+ * their own `$u ? $u->display_name : '#' . $id` inline, so the fallback differed
+ * per screen ("Deleted user #4", "Deleted member", "#409") and three of them
+ * showed the bare id.
+ *
+ * This is the one definition. It never returns a naked number: a missing user is
+ * named as deleted, and the id is kept in parentheses because it is still the
+ * only handle an owner has for chasing an orphaned row.
+ *
+ * @param int    $user_id  Member id, possibly of a deleted account.
+ * @param string $fallback Optional label for user_id 0 — a system actor rather
+ *                         than a deleted one. Defaults to an em dash.
+ * @return string Escaped-safe plain text (callers still escape at output).
+ */
+function buddynext_member_label( int $user_id, string $fallback = '' ): string {
+	if ( $user_id <= 0 ) {
+		return '' !== $fallback ? $fallback : "\u{2014}";
+	}
+
+	$user = get_userdata( $user_id );
+	if ( $user instanceof WP_User && '' !== trim( (string) $user->display_name ) ) {
+		return (string) $user->display_name;
+	}
+
+	/* translators: %d: numeric id of a member whose account no longer exists. */
+	return sprintf( __( 'Deleted member (#%d)', 'buddynext' ), $user_id );
+}
+
+/**
+ * Human-readable label for a moderation object, for admin queues and logs.
+ *
+ * The object-side sibling of buddynext_member_label(), and for the same reason:
+ * a moderator deciding whether to strike or suspend cannot act on "User #519",
+ * and cannot tell "post #4046" (deleted) from "post #4046" (live). The second
+ * case became load-bearing when bn_mod_log rows stopped being deleted alongside
+ * their targets — audit entries now outlive their objects by design.
+ *
+ * Never claims a target is deleted for a type BuddyNext does not own; see
+ * ObjectLabels and the buddynext_object_label filter.
+ *
+ * @since 1.1.6
+ *
+ * @param string $object_type Object type slug ('post', 'comment', 'space', 'user', …).
+ * @param int    $object_id   Object id, possibly of a deleted object.
+ * @return string Plain text (callers still escape at output).
+ */
+function buddynext_object_label( string $object_type, int $object_id ): string {
+	return \BuddyNext\Core\ObjectLabels::label( $object_type, $object_id );
+}
+
+/**
+ * Whether a moderation object still exists, where BuddyNext can tell.
+ *
+ * A null return means "not ours to answer" (a message, or an add-on's own type)
+ * and must not be read as "deleted".
+ *
+ * @since 1.1.6
+ *
+ * @param string $object_type Object type slug.
+ * @param int    $object_id   Object id.
+ * @return bool|null
+ */
+function buddynext_object_exists( string $object_type, int $object_id ): ?bool {
+	return \BuddyNext\Core\ObjectLabels::exists( $object_type, $object_id );
+}
+
+/**
+ * Validate that an (object_type, object_id) pair is a legitimate write target.
+ *
+ * The shared front door for every write that names an object it does not own —
+ * reactions, comments and reports. Each used to accept whatever object_type a
+ * caller sent (sanitize_key() only), so a bogus type or a nonexistent id still
+ * wrote a row: phantom reactions, junk reports, counters and notifications
+ * against objects that never existed. The rule lives here, once, instead of
+ * being re-derived (or forgotten) at each write path.
+ *
+ * Two failure modes, two statuses:
+ *   - a type not in the caller's closed enum  -> 422 (the request is malformed)
+ *   - a known type whose object is gone/absent -> 404 (nothing to act on)
+ *
+ * Existence is only asserted for types BuddyNext owns (post, comment, space,
+ * user). For a type it cannot check — a WPMediaVerse 'media' object, or an
+ * add-on's own type registered into the enum via filter — buddynext_object_exists()
+ * returns null, and this ALLOWS the write: "I cannot prove it is gone" is not
+ * "it is gone", and refusing there would break every partner target. The enum
+ * itself is the closed gate; existence is a second check only where we can.
+ *
+ * @since 1.2.0
+ *
+ * @param string        $object_type Object type slug (unsanitised is fine).
+ * @param int           $object_id   Object id.
+ * @param array<string> $allowed     Closed enum of accepted types for this context.
+ * @return true|\WP_Error True when the target is valid; WP_Error (422/404) otherwise.
+ */
+function buddynext_validate_object_target( string $object_type, int $object_id, array $allowed ): bool|\WP_Error {
+	$object_type = sanitize_key( $object_type );
+
+	if ( $object_id <= 0 || ! in_array( $object_type, $allowed, true ) ) {
+		return new \WP_Error(
+			'invalid_object_type',
+			__( 'That is not something you can act on.', 'buddynext' ),
+			array( 'status' => 422 )
+		);
+	}
+
+	if ( false === buddynext_object_exists( $object_type, $object_id ) ) {
+		return new \WP_Error(
+			'object_not_found',
+			__( 'That content no longer exists.', 'buddynext' ),
+			array( 'status' => 404 )
+		);
+	}
+
+	return true;
+}
+
+/**
+ * Resolve a page of moderation objects in one pass, before rendering them.
+ *
+ * One query per TYPE instead of one per row. Call this with every (type, id)
+ * pair a table is about to print, then call buddynext_object_label() per row.
+ *
+ * @since 1.1.6
+ *
+ * @param array<int, array{0:string, 1:int}> $pairs List of [ object_type, object_id ].
+ * @return void
+ */
+function buddynext_prime_object_labels( array $pairs ): void {
+	\BuddyNext\Core\ObjectLabels::prime( $pairs );
+}
+
+/**
+ * A text colour that can be read on a given badge background.
+ *
+ * Member types, space categories and member labels carry a background colour
+ * and a text colour. The pair an owner saved (and several pairs BuddyNext
+ * itself ships) can fall below the 4.5:1 a small label needs: white text on a
+ * mid blue is about 4.2:1. This keeps the saved text colour when it reads well
+ * and otherwise returns whichever of white or black has more contrast with
+ * the background, which is never less than about 4.5:1.
+ *
+ * @param string $background Badge background as a hex colour (#rgb or #rrggbb).
+ * @param string $preferred  The saved text colour, or '' for none.
+ * @return string Hex text colour. The preferred one when it cannot be judged.
+ */
+function buddynext_readable_text_color( string $background, string $preferred = '' ): string {
+	$luminance = static function ( string $hex ): ?float {
+		$hex = ltrim( trim( $hex ), '#' );
+		if ( 3 === strlen( $hex ) ) {
+			$hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+		}
+		if ( 6 !== strlen( $hex ) || ! ctype_xdigit( $hex ) ) {
+			return null;
+		}
+		$channels = array();
+		foreach ( array( 0, 2, 4 ) as $offset ) {
+			$value      = hexdec( substr( $hex, $offset, 2 ) ) / 255;
+			$channels[] = $value <= 0.03928 ? $value / 12.92 : ( ( $value + 0.055 ) / 1.055 ) ** 2.4;
+		}
+
+		return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
+	};
+
+	$bg = $luminance( $background );
+	if ( null === $bg ) {
+		return $preferred;
+	}
+
+	$ratio = static function ( float $a, float $b ): float {
+		return ( max( $a, $b ) + 0.05 ) / ( min( $a, $b ) + 0.05 );
+	};
+
+	$wanted = '' !== $preferred ? $luminance( $preferred ) : null;
+	if ( null !== $wanted && $ratio( $wanted, $bg ) >= 4.5 ) {
+		return $preferred;
+	}
+
+	// Pure black, not a softened one: on a mid-tone background the softened
+	// black and white both fall short (about 4.2:1), while black still clears it.
+	return $ratio( 1.0, $bg ) >= $ratio( 0.0, $bg ) ? '#ffffff' : '#000000';
+}
+
+/**
+ * Read a single space field value, type-cast, with the field's registered
+ * default applied when unset. The canonical accessor for per-space settings —
+ * the default lives once in the field registration, never duplicated per reader.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Registered field key.
+ * @return mixed Typed value (bool / int / string / array) per the field type.
+ */
+function buddynext_get_space_field( int $space_id, string $key ): mixed {
+	$registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
+	$field    = $registry->get_field( $key );
+	$value    = get_space_meta( $space_id, $key, true );
+
+	if ( null === $field ) {
+		return $value; // Not a registered field — return the raw stored value.
+	}
+	if ( '' === (string) $value && '' !== (string) $field['default'] ) {
+		$value = $field['default'];
+	}
+
+	return \BuddyNext\Profile\FieldType::rest_value( $field, $value );
+}
+
+/**
+ * Whether a community feature toggle is enabled.
+ *
+ * Single, defensive accessor for the FeatureRegistry so enforcement points
+ * (controllers, services, templates) don't each repeat the
+ * is_object()/method_exists()/is_enabled() guard. Returns $fallback (enabled by
+ * default) when the container isn't booted yet or the registry is unavailable,
+ * matching the fail-open behaviour of the inline checks it replaces.
+ *
+ * @param string $slug     Feature slug (e.g. 'announcements', 'hashtags', 'verification').
+ * @param bool   $fallback Result when the registry can't be resolved. Default true.
+ * @return bool
+ */
+function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool {
+	if ( ! did_action( 'buddynext_loaded' ) ) {
+		return $fallback;
+	}
+	try {
+		$features = buddynext_service( 'features' );
+	} catch ( \Throwable $e ) {
+		return $fallback;
+	}
+	if ( ! is_object( $features ) || ! method_exists( $features, 'is_enabled' ) ) {
+		return $fallback;
+	}
+	return (bool) $features->is_enabled( $slug );
+}
+
+/**
+ * Whether the push notification channel is available to offer a member.
+ *
+ * Push needs both the Pro push module (the PushDispatcher class) AND a
+ * configured provider — an FCM/web-push project the owner has set up. Without
+ * the provider the channel toggle would do nothing, so every surface that
+ * offers push (settings, onboarding, the app REST payload) gates on this one
+ * helper rather than a bare class_exists, which used to leave a dead toggle on
+ * a Pro site whose owner had not configured push yet. Pro answers the
+ * `buddynext_push_available` filter with its real configured state.
+ *
+ * @return bool True when push can actually deliver.
+ */
+function buddynext_push_available(): bool {
+	// The Pro push module must be present AND its feature switched on — with the
+	// feature off, Pro never registers the dispatcher (or the availability
+	// filter below), so nothing could deliver a push.
+	if ( ! class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' ) || ! buddynext_feature_enabled( 'push', false ) ) {
+		return false;
+	}
+
+	// Pro (when the feature is on) answers with its configured state: a provider
+	// must actually be set up, or the toggle would be a dead control.
+	return (bool) apply_filters( 'buddynext_push_available', true );
+}
+
+/**
+ * Register a profile field programmatically (no database write).
+ *
+ * The field is injected into the live group/field tree via the
+ * `buddynext_profile_fields` filter, so it appears in the profile editor, on
+ * the profile, and — when `show_on_register` is true — on the registration
+ * form, without an admin creating it by hand. Call this on `buddynext_loaded`
+ * or `init`.
+ *
+ * Because a programmatic field has no `bn_profile_fields` row, its submitted
+ * value is stored to usermeta (`bn_field_{field_key}`) on save rather than the
+ * `bn_profile_values` table — addons needing custom storage can hook
+ * `buddynext_registration_fields_saved`.
+ *
+ * @param array $args {
+ *     Field definition.
+ *
+ *     @type string $field_key        Required. Unique kebab/snake key.
+ *     @type string $label            Required. Human label.
+ *     @type string $type             Field type slug. Default 'text'.
+ *     @type string $group_key        Group to attach to (created if absent). Default 'details'.
+ *     @type string $group_label      Label when the group is created. Optional.
+ *     @type bool   $is_required      Whether the field is required. Default false.
+ *     @type bool   $show_on_register Surface on the registration form. Default false.
+ *     @type string $visibility       public|followers|connections|private. Default 'public'.
+ *     @type array  $options          Choices for select/radio/checkbox types. Optional.
+ * }
+ * @return void
+ */
+/**
+ * Register a navigation item (tab / stat / rail link / sub-nav) with the unified
+ * Nav registry. The single public API any developer or bridge uses; see
+ * docs/plans/nav-subnav-api.md for the item contract.
+ *
+ * @param array<string,mixed> $item Nav item registration array.
+ * @return void
+ */
+function buddynext_register_nav( array $item ): void {
+	\BuddyNext\Nav\NavRegistry::instance()->register( $item );
+}
+
+/**
+ * Resolve the navigation for a context (gated, ordered, deduped, nested).
+ *
+ * @param \BuddyNext\Nav\NavContext $context Resolution context.
+ * @return \BuddyNext\Nav\ResolvedNav
+ */
+function buddynext_nav( \BuddyNext\Nav\NavContext $context ): \BuddyNext\Nav\ResolvedNav {
+	return \BuddyNext\Nav\NavRegistry::instance()->resolve( $context );
+}
+
+/**
+ * Render a Space's activity feed panel (composer + stream) for a given space.
+ *
+ * The public entry point for an external surface — a Pro theme's own space
+ * homepage, a block, a shortcode — that needs to show ONE space's feed the way
+ * the space's Feed tab does. It enforces the same read gate spaces/home.php
+ * applies (secret space -> nothing; private / plan-gated -> the join CTA card),
+ * so it cannot leak a private space's stream, and delegates to the space Feed
+ * tab's own renderer so composer, who-can-post rule, pinned announcement and
+ * in-space search all behave identically to the native tab.
+ *
+ * Echoes its output. Consumer example (Wellbee Circles Community tab):
+ *   buddynext_render_space_feed( $space_id );
+ *
+ * @param int      $space_id  Space ID.
+ * @param int|null $viewer_id Viewer user ID; defaults to the current user.
+ * @return void
+ */
+function buddynext_render_space_feed( int $space_id, ?int $viewer_id = null ): void {
+	( new \BuddyNext\Nav\Providers\SpaceNav() )->render_feed( $space_id, $viewer_id );
+}
+
+/**
+ * The owner-controllable integrations registered for this site (keyed by key).
+ *
+ * The single open list — any plugin (in-house or third-party) registers an entry
+ * on the `buddynext_integrations` filter and appears here, on the Integrations
+ * admin page, and under `buddynext_integration_enabled()` gating, with no core
+ * edit. See \BuddyNext\Integrations\IntegrationRegistry.
+ *
+ * @return array<string,array<string,mixed>>
+ */
+function buddynext_integrations(): array {
+	return \BuddyNext\Integrations\IntegrationRegistry::instance()->all();
+}
+
+/**
+ * Whether an integration's nav, activity, and/or search indexing is enabled for this site.
+ *
+ * The ONLY read path for the per-integration owner toggles — bridges call this in
+ * their nav `condition`, their activity handler, and before writing to the search
+ * index; never the raw option (so keys never drift). Default is ON: an ABSENT option
+ * means enabled, so a fresh install and a newly added integration are on until the
+ * owner opts OUT.
+ *
+ * Each aspect is resolved by an EXPLICIT branch. This used to be `if ( 'feed' ) … else …`,
+ * where the else was a catch-all onto the nav option — so any aspect that was not
+ * literally 'feed' silently read the nav toggle. Adding a 'search' aspect on top of that
+ * would have appeared to work in manual testing while binding search-indexing to the wrong
+ * control: switch nav off, and search rows stop; switch search off, and nothing happens.
+ * An unknown aspect is now a developer error that says so out loud instead of quietly
+ * resolving to something plausible.
+ *
+ * @param string $key    Integration key (e.g. 'jetonomy', 'careerboard').
+ * @param string $aspect 'nav' (tab/sub-tab visibility), 'feed' (activity posting), or
+ *                       'search' (whether this integration's content enters the search index).
+ * @param string $sub    Optional sub-tab key — for `nav`, also requires that sub-tab's
+ *                       toggle (and the parent integration's nav toggle) to be on.
+ * @return bool
+ */
+function buddynext_integration_enabled( string $key, string $aspect = 'nav', string $sub = '' ): bool {
+	$key = sanitize_key( $key );
+	$sub = '' !== $sub ? sanitize_key( $sub ) : '';
+
+	switch ( $aspect ) {
+		case 'feed':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );
+			break;
+
+		case 'search':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_search", '1' );
+			break;
+
+		case 'nav':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_nav", '1' );
+			if ( $on && '' !== $sub ) {
+				$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
+			}
+			break;
+
+		default:
+			_doing_it_wrong(
+				__FUNCTION__,
+				esc_html(
+					sprintf(
+						/* translators: %s: the unrecognised aspect string. */
+						__( 'Unknown integration aspect "%s". Expected nav, feed, or search.', 'buddynext' ),
+						$aspect
+					)
+				),
+				'1.0.8'
+			);
+			// Fail OPEN. A typo'd aspect is a bug in the caller, not an owner's choice, and
+			// failing closed would hide a working integration's content from members on the
+			// strength of a typo — silent breakage, which is the thing being fixed here.
+			$on = true;
+			break;
+	}
+
+	/**
+	 * Override an integration's enabled state at read time (e.g. per space) without
+	 * persisting an option.
+	 *
+	 * @param bool   $on     Resolved enabled state.
+	 * @param string $key    Integration key.
+	 * @param string $aspect 'nav' | 'feed' | 'search'.
+	 * @param string $sub    Sub-tab key ('' when none).
+	 */
+	return (bool) apply_filters( 'buddynext_integration_enabled', $on, $key, $aspect, $sub );
+}
+
+/**
+ * Reposition a nav item inside a `buddynext_nav_items` filter callback. Sets the
+ * item's before/after/priority anchor; the registry re-resolves order after.
+ *
+ * @param array<int,array<string,mixed>> $items  Raw items passed to the filter.
+ * @param string                         $id     Target item id.
+ * @param array<string,mixed>            $anchor One of: ['before'=>id] | ['after'=>id] | ['priority'=>int].
+ * @return array<int,array<string,mixed>>
+ */
+function buddynext_nav_move( array $items, string $id, array $anchor ): array {
+	foreach ( $items as &$it ) {
+		if ( ( $it['id'] ?? '' ) !== $id ) {
+			continue;
+		}
+		unset( $it['before'], $it['after'] );
+		if ( isset( $anchor['before'] ) ) {
+			$it['before'] = (string) $anchor['before'];
+		}
+		if ( isset( $anchor['after'] ) ) {
+			$it['after'] = (string) $anchor['after'];
+		}
+		if ( isset( $anchor['priority'] ) ) {
+			$it['priority'] = (int) $anchor['priority'];
+		}
+	}
+	return $items;
+}
+
+/**
+ * Remove nav item(s) by id inside a `buddynext_nav_items` filter callback.
+ *
+ * @param array<int,array<string,mixed>> $items Raw items passed to the filter.
+ * @param string|string[]                $ids   Item id(s) to drop.
+ * @return array<int,array<string,mixed>>
+ */
+function buddynext_nav_remove( array $items, string|array $ids ): array {
+	$ids = array_map( 'strval', (array) $ids );
+	return array_values(
+		array_filter(
+			$items,
+			static fn( $it ): bool => is_array( $it ) && ! in_array( (string) ( $it['id'] ?? '' ), $ids, true )
+		)
+	);
+}
+
+/**
+ * Edit an existing nav item's fields inside a `buddynext_nav_items` filter
+ * callback (relabel, re-gate, retarget…).
+ *
+ * @param array<int,array<string,mixed>> $items   Raw items passed to the filter.
+ * @param string                         $id      Target item id.
+ * @param array<string,mixed>            $changes Fields to merge onto the item.
+ * @return array<int,array<string,mixed>>
+ */
+function buddynext_nav_set( array $items, string $id, array $changes ): array {
+	foreach ( $items as &$it ) {
+		if ( is_array( $it ) && ( $it['id'] ?? '' ) === $id ) {
+			$it = array_merge( $it, $changes );
+		}
+	}
+	return $items;
+}
+
+/**
+ * The DOM id of the reactive tab-panel for a tab slug.
+ *
+ * Single source of truth so a tab's `aria-controls` and its panel's `id` always
+ * match across every renderer (nav-bar, nav-subnav, profile/portfolio/achievement
+ * panels). Reactive (in-page) panels only — page-nav tabs have no in-DOM panel.
+ *
+ * @param string $slug Tab slug (NavItem->tab / data-tab-panel value).
+ * @return string
+ */
+function buddynext_nav_panel_id( string $slug ): string {
+	return 'bn-tabpanel-' . sanitize_html_class( $slug );
+}
+
+/**
+ * Register an extended profile field from code (e.g. an integration adding a
+ * field to a member's profile). Accumulates registrations and attaches them to
+ * the `buddynext_profile_fields` groups on first call.
+ *
+ * @param array<string,mixed> $args Field definition (group_key, key, label, type, …).
+ * @return void
+ */
+function buddynext_register_profile_field( array $args ): void {
+	static $registry = array();
+	static $hooked   = false;
+
+	$registry[] = $args;
+
+	if ( $hooked ) {
+		return;
+	}
+	$hooked = true;
+
+	add_filter(
+		'buddynext_profile_fields',
+		static function ( array $groups ) use ( &$registry ): array {
+			foreach ( $registry as $field ) {
+				$group_key = sanitize_key( (string) ( $field['group_key'] ?? 'details' ) );
+
+				$attached = false;
+				foreach ( $groups as $gi => $group ) {
+					if ( ( $group['group_key'] ?? '' ) === $group_key ) {
+						$groups[ $gi ]['fields'][] = $field;
+						$attached                  = true;
+						break;
+					}
+				}
+
+				if ( ! $attached ) {
+					$groups[] = array(
+						'id'         => 0,
+						'group_key'  => $group_key,
+						'label'      => (string) ( $field['group_label'] ?? ucwords( str_replace( array( '_', '-' ), ' ', $group_key ) ) ),
+						'type'       => 'flat',
+						'visibility' => 'public',
+						'is_system'  => false,
+						'sort_order' => 99,
+						'fields'     => array( $field ),
+					);
+				}
+			}
+
+			return $groups;
+		}
+	);
+}
+
+/**
+ * Register a member (extended-profile) field from code — the member-side companion to
+ * buddynext_register_space_field(), with the same ($key, $args) signature for symmetry.
+ *
+ * The field surfaces on the member's profile + edit UI + REST (via ProfileService) and
+ * its value is stored to the bn_field_{key} usermeta the profile save path writes.
+ * Thin wrapper over buddynext_register_profile_field().
+ *
+ * @param string              $key  Field key (stored as bn_field_{key}).
+ * @param array<string,mixed> $args Definition (group_key, label, type, visibility, options, …).
+ * @return void
+ */
+function buddynext_register_member_field( string $key, array $args = array() ): void {
+	$args['key'] = sanitize_key( $key );
+	buddynext_register_profile_field( $args );
+}
+
+/**
+ * Effective default registration mode when the owner has not set one.
+ *
+ * Per owner decision, BuddyNext does not impose its own opinion on a fresh
+ * install — it follows WordPress's "Anyone can register" setting: open when
+ * registration is allowed, closed when it is not. Read sites pass this as the
+ * fallback to get_option( 'buddynext_reg_mode', ... ) so the unset state mirrors
+ * WordPress instead of silently forcing "open".
+ *
+ * @return string 'open' or 'closed'.
+ */
+function buddynext_default_reg_mode(): string {
+	return get_option( 'users_can_register' ) ? 'open' : 'closed';
+}
+
+/**
+ * Take a member out of the community, and delete the account only when that is safe.
+ *
+ * The one door for every "remove this person" path (own-account delete, the
+ * unverified sweep, rejecting a pending sign-up, the access webhook, demo
+ * clean-up). The community data always goes. On a single site the account is then
+ * deleted. On a network the account is deleted only when the person belongs to no
+ * other site and the one acting is the member, a system job (actor 0) or someone
+ * allowed to delete users (a super admin); otherwise they are removed from the
+ * main site and the account, with its other sites, stays.
+ *
+ * @param int $user_id  Member to remove.
+ * @param int $actor_id Who acts: the member, another user, or 0 for a system job.
+ * @return bool True when the member was removed.
+ */
+function buddynext_remove_member( int $user_id, int $actor_id = 0 ): bool {
+	if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
+		return false;
+	}
+	require_once ABSPATH . 'wp-admin/includes/user.php';
+
+	if ( ! is_multisite() ) {
+		// Fires deleted_user, which runs the canonical community purge.
+		return (bool) wp_delete_user( $user_id );
+	}
+
+	$main_id     = get_main_site_id();
+	$other_sites = array_diff( array_keys( get_blogs_of_user( $user_id ) ), array( $main_id ) );
+	$may_delete  = 0 === $actor_id || $actor_id === $user_id || user_can( $actor_id, 'delete_users' );
+
+	if ( ! $other_sites && $may_delete ) {
+		require_once ABSPATH . 'wp-admin/includes/ms.php';
+		// Fires wpmu_delete_user, which runs the canonical community purge.
+		return (bool) wpmu_delete_user( $user_id );
+	}
+
+	( new \BuddyNext\SocialGraph\UserCleanupListener() )->on_deleted_user( $user_id );
+	return (bool) remove_user_from_blog( $user_id, $main_id );
+}
+
+/**
+ * SQL that keeps a users-table query to community members.
+ *
+ * A member is a user with a role on the main site (the community's site). The
+ * users table is network-wide, so a raw query that lists or counts "members" must
+ * add this or it also counts every user of every other site. Empty on a single
+ * site, where every user is a member.
+ *
+ * @param string $id_column The query's user id column, e.g. 'u.ID'. A code
+ *                          constant, never user input.
+ * @param string $prefix    Joined in front when there is a predicate: ' AND ' to
+ *                          extend a WHERE clause, ' WHERE ' to start one, '' for
+ *                          the bare predicate.
+ * @return string The predicate (with its prefix), or ''.
+ */
+function buddynext_member_scope_sql( string $id_column, string $prefix = '' ): string {
+	global $wpdb;
+	if ( ! is_multisite() ) {
+		return '';
+	}
+	return $prefix . "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} bn_scope WHERE bn_scope.user_id = {$id_column} AND bn_scope.meta_key = '" . esc_sql( $wpdb->prefix . 'capabilities' ) . "' )";
+}
+
+/**
+ * Whether the current user_register is a network-level creation, not a member signing up.
+ *
+ * Network Admin "Add New User" and a blog sign-up activated through wp-activate.php
+ * both fire user_register on the main site. Those people are not members yet; they
+ * join on their first community action, so sign-up side effects (welcome email,
+ * verification token, auto-join, nudges) must not run for them.
+ *
+ * @return bool
+ */
+function buddynext_is_network_provisioning(): bool {
+	return is_multisite() && ( is_network_admin() || wp_installing() );
+}
+
+/**
+ * The registration modes buddynext_reg_mode can hold. The one list: the
+ * Registration settings field and the setup wizard both offer exactly these,
+ * and both save only one of them.
+ *
+ * @since 1.2.4
+ *
+ * @return string[]
+ */
+function buddynext_reg_modes(): array {
+	return array( 'open', 'invite', 'approval', 'closed' );
+}
+
+/*
+ * The setup wizard used to save "Admin approval" as 'approve', which nothing
+ * reads, so those sites held nobody. Read it as 'approval': the owner chose
+ * approval, and every reader of the option now honours that.
+ */
+add_filter(
+	'option_buddynext_reg_mode',
+	static function ( $value ) {
+		return 'approve' === $value ? 'approval' : $value;
+	}
+);
+
+/**
+ * Product-level default values for the login / sign-up branding panel.
+ *
+ * Single source of truth so the admin Settings fields and the front-end auth
+ * surfaces always agree — the same defaults are wired to both, which is what
+ * makes a fresh install feel plug-and-play (no blank fields, no empty panel).
+ * Dynamic defaults (heading, tagline) follow the site's own identity.
+ *
+ * @return array<string,string> Option name => default value.
+ */
+function buddynext_auth_panel_defaults(): array {
+	// Follow the COMMUNITY identity (Community Name / Description), not the raw WP
+	// site title/tagline — the login and sign-up panels are community surfaces, and
+	// buddynext_site_name() already falls back to the blog name when the community
+	// name is unset. The community description falls back to the blog tagline, then
+	// the product default. An owner who set the panel heading/tagline explicitly
+	// still wins (see buddynext_auth_panel_value()); these only seed the unset case.
+	$tagline = trim( (string) get_option( 'buddynext_description', '' ) );
+	if ( '' === $tagline ) {
+		$tagline = wp_specialchars_decode( (string) get_bloginfo( 'description' ), ENT_QUOTES );
+	}
+
+	return array(
+		'buddynext_auth_panel_heading' => wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ),
+		'buddynext_auth_panel_tagline' => '' !== trim( $tagline ) ? $tagline : __( 'Next-generation community for WordPress.', 'buddynext' ),
+		'buddynext_auth_panel_quote'   => __( 'Join the conversation, build real connections, and grow in a community that is truly yours.', 'buddynext' ),
+		'buddynext_auth_panel_image'   => BUDDYNEXT_URL . 'assets/images/auth-cover.svg',
+		'buddynext_signup_subtitle'    => __( 'Free forever. No credit card required.', 'buddynext' ),
+	);
+}
+
+/**
+ * The effective value for a login / sign-up panel field: the admin's saved value
+ * when set, otherwise the product-level default. Used by both the Settings UI
+ * and the auth templates so neither is ever empty.
+ *
+ * @param string $key Option name (a key of buddynext_auth_panel_defaults()).
+ * @return string
+ */
+function buddynext_auth_panel_value( string $key ): string {
+	// Distinguish "never configured" from "explicitly cleared to empty". The old
+	// code treated any empty value as unset and fell back to the default, so an
+	// owner could not remove a default (e.g. the sign-up subtitle) — clearing the
+	// field silently reverted to the default on both the settings screen and the
+	// sign-up panel. A sentinel default to get_option() tells the two apart: a
+	// stored empty string is a real choice the owner made and must be honoured.
+	$unset = "\0bn_auth_panel_unset";
+	$value = get_option( $key, $unset );
+	if ( $unset !== $value ) {
+		return (string) $value;
+	}
+	$defaults = buddynext_auth_panel_defaults();
+	return (string) ( $defaults[ $key ] ?? '' );
+}
+
+/**
+ * Render a BuddyNext template, with theme-override support.
+ *
+ * Delegates to the TemplateLoader service which checks child-theme, parent-theme,
+ * and plugin templates/ directory in order.
+ *
+ * When called during a Gutenberg server-side-render (SSR) preview before the
+ * BuddyNext DI container has finished bootstrapping (i.e. before buddynext_loaded
+ * has fired), the function returns a neutral placeholder instead of throwing.
+ * This prevents React Error #130 in the block editor caused by an exception
+ * propagating through the REST block-renderer endpoint.
+ *
+ * @param string               $relative Relative template path (e.g. 'blocks/search-bar.php').
+ * @param array<string, mixed> $vars     Variables to extract into the template scope.
+ * @return void
+ */
+function buddynext_get_template( string $relative, array $vars = array() ): void {
+	if ( ! did_action( 'buddynext_loaded' ) ) {
+		echo '<p class="buddynext-editor-loading">' . esc_html__( 'BuddyNext loading…', 'buddynext' ) . '</p>';
+		return;
+	}
+	buddynext_service( 'template_loader' )->render( $relative, $vars );
+}
+
+/**
+ * Render a member bio for display.
+ *
+ * THE BIO CONTRACT — plain text plus line breaks. No HTML, no markdown.
+ *
+ * This mirrors the model platforms rather than inventing a format: LinkedIn's
+ * About supports line breaks and bullet characters but no bold/italic/links
+ * markup, and the Facebook and X bios are plain text. Markdown would need a
+ * parser, an allow-list decision, editor affordances to stop members seeing raw
+ * `**stars**`, and it would turn the bio into a link/SEO-spam surface — all
+ * complexity none of those platforms carry.
+ *
+ * The input side already matches: the bio is a plain <textarea> with no editor,
+ * and FieldType sanitises the `textarea` type with sanitize_textarea_field(),
+ * which strips every tag while keeping newlines. So no markup can be stored
+ * through the product's own path.
+ *
+ * The OUTPUT side did not match, which is what this centralises. Six templates
+ * rendered the bio three different ways, and `templates/parts/profile-hero.php`
+ * used wp_kses_post() — permitting links, images and embeds, advertising a
+ * capability the save path makes impossible. Not a live XSS while input is
+ * stripped, but the wrong tool and a latent hole if that ever changes. Escaping
+ * first and converting newlines afterwards is the whole job.
+ *
+ * Runs of blank lines collapse to a single break, matching LinkedIn's refusal to
+ * let a member push content down the page with whitespace.
+ *
+ * Full-text surfaces (profile hero, profile-header block, onboarding preview)
+ * use this. Truncated surfaces (member cards, the directory, search results)
+ * deliberately do NOT: they clamp to 12-18 words, where a <br> would break the
+ * one-line layout, so they keep esc_html( wp_trim_words( … ) ).
+ *
+ * @since 1.1.0
+ *
+ * @param string $bio Raw stored bio.
+ * @return string Escaped HTML, safe to echo without further escaping.
+ */
+function buddynext_bio_html( string $bio ): string {
+	$bio = trim( $bio );
+
+	if ( '' === $bio ) {
+		return '';
+	}
+
+	// Normalise CRLF/CR first so the blank-run collapse below sees one form.
+	$bio = str_replace( array( "\r\n", "\r" ), "\n", $bio );
+
+	// Two or more consecutive newlines collapse to one break.
+	$bio = (string) preg_replace( "/\n{2,}/", "\n", $bio );
+
+	// Escape BEFORE inserting <br>, so the tags we add are the only markup.
+	return nl2br( esc_html( $bio ), false );
+}
+
+/**
+ * Resolve the cover image URL to show for a user.
+ *
+ * Priority:
+ *   1. The user's own uploaded cover (buddynext_cover_url usermeta).
+ *   2. The site-wide default cover (bn_default_cover_url option, set in
+ *      BuddyNext > Members > Avatar & Cover).
+ *   3. Empty string — callers fall back to the tonal gradient.
+ *
+ * @param int $user_id User ID.
+ * @return string Cover URL or '' when neither a custom nor a default cover exists.
+ */
+function buddynext_user_cover_url( int $user_id ): string {
+	$cover = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
+	if ( '' !== $cover ) {
+		return $cover;
+	}
+	return (string) get_option( 'bn_default_cover_url', '' );
+}
+
+/**
+ * Return a member's BuddyNext-resolved avatar URL — the pull seam for any plugin.
+ *
+ * This is the developer-facing way for a third-party OR in-house plugin to show a
+ * member's community avatar. It runs the standard WordPress get_avatar_url()
+ * pipeline, which BuddyNext powers through pre_get_avatar_data: a real photo (a
+ * BuddyNext upload, or a sibling plugin's such as WPMediaVerse) always wins, and
+ * only when a member has none does BuddyNext supply a deterministic initials
+ * image — so the result is never empty. Do NOT read avatar usermeta directly; go
+ * through here (or core get_avatar()) so BuddyNext can change how it resolves an
+ * avatar without breaking callers.
+ *
+ * To OVERRIDE what BuddyNext returns for a user, hook the `buddynext_avatar_url`
+ * filter and return an absolute URL. To render an <img>, core
+ * get_avatar( $user_id, $size ) runs the same pipeline.
+ *
+ * @param int $user_id WordPress user ID.
+ * @param int $size    Requested square size in px (default 96).
+ * @return string Absolute URL or data: URI; '' only for an invalid user.
+ */
+function buddynext_user_avatar_url( int $user_id, int $size = 96 ): string {
+	if ( $user_id <= 0 ) {
+		return '';
+	}
+	return (string) get_avatar_url( $user_id, array( 'size' => max( 1, $size ) ) );
+}
+
+/**
+ * Return the canonical BuddyNext profile URL for a member — the pull seam any
+ * plugin should use to link to a member's community profile.
+ *
+ * Thin wrapper over PageRouter::profile_url() so callers do not depend on the
+ * class directly. Returns '' when the user is invalid or profiles are
+ * unavailable, so callers can fall back to their own link.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return string Absolute URL, or '' when unavailable.
+ */
+function buddynext_member_url( int $user_id ): string {
+	if ( $user_id <= 0 ) {
+		return '';
+	}
+	return (string) \BuddyNext\Core\PageRouter::profile_url( $user_id );
+}
+
+/**
+ * Return the canonical URL for a single space by its slug.
+ *
+ * Thin procedural wrapper around PageRouter::spaces_url() so templates do not
+ * need a direct dependency on the PageRouter class.
+ *
+ * @param string $slug The space's slug (post_name) as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_url( string $slug ): string {
+	if ( '' === $slug ) {
+		return \BuddyNext\Core\PageRouter::spaces_url();
+	}
+
+	return \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( sanitize_title( $slug ) ) . '/';
+}
+
+/**
+ * Return the settings page URL for a single space.
+ *
+ * @param string $slug The space's slug as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_settings_url( string $slug ): string {
+	return buddynext_space_url( $slug ) . 'settings/';
+}
+
+/**
+ * Return the moderation page URL for a single space.
+ *
+ * @param string $slug The space's slug as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_moderation_url( string $slug ): string {
+	return buddynext_space_url( $slug ) . 'moderation/';
+}
+
+/**
+ * The short type chip for a document (PDF, DOC, TXT ...).
+ *
+ * The same shorthand WPMediaVerse uses, so the two libraries read the same.
+ * Shared by the Files list and its Trash view. Unknown types read FILE rather
+ * than a guess.
+ *
+ * @param string $doc_type WPMediaVerse document type (pdf, word, text, ...).
+ * @return string
+ */
+function buddynext_doc_type_chip( $doc_type ): string {
+	$map = array(
+		'pdf'              => 'PDF',
+		'word'             => 'DOC',
+		'excel'            => 'XLS',
+		'powerpoint'       => 'PPT',
+		'odf_text'         => 'ODT',
+		'odf_sheet'        => 'ODS',
+		'odf_presentation' => 'ODP',
+		'text'             => 'TXT',
+		'markdown'         => 'MD',
+		'csv'              => 'CSV',
+		'rtf'              => 'RTF',
+	);
+	$key = (string) $doc_type;
+	return isset( $map[ $key ] ) ? $map[ $key ] : 'FILE';
+}
+
+/**
+ * Copy for the Files UI's folder controls (New folder, Rename, Trash, Restore),
+ * shared by the Files list and its Trash view and read by media/file-upload.js.
+ *
+ * @since 1.2.2
+ *
+ * @return array<string,string>
+ */
+function buddynext_drive_folder_strings(): array {
+	return array(
+		'newTitle'     => __( 'New folder', 'buddynext' ),
+		'newConfirm'   => __( 'Create', 'buddynext' ),
+		'placeholder'  => __( 'Folder name', 'buddynext' ),
+		'renameTitle'  => __( 'Rename folder', 'buddynext' ),
+		'renameOk'     => __( 'Save', 'buddynext' ),
+		/* translators: %s: folder name. */
+		'trashTitle'   => __( 'Move “%s” to trash?', 'buddynext' ),
+		'trashEmpty'   => __( 'It is empty. You can restore it from Trash.', 'buddynext' ),
+		/* translators: %s: what the folder holds, e.g. "12 files and 2 folders". */
+		'trashBody'    => __( 'It holds %s. Everything inside moves to the trash with it, and you can restore it from Trash.', 'buddynext' ),
+		/* translators: %d: number of files. */
+		'fileOne'      => __( '%d file', 'buddynext' ),
+		/* translators: %d: number of files. */
+		'fileMany'     => __( '%d files', 'buddynext' ),
+		/* translators: %d: number of folders. */
+		'folderOne'    => __( '%d folder', 'buddynext' ),
+		/* translators: %d: number of folders. */
+		'folderMany'   => __( '%d folders', 'buddynext' ),
+		/* translators: 1: file count, 2: folder count. */
+		'andJoin'      => __( '%1$s and %2$s', 'buddynext' ),
+		'trashConfirm' => __( 'Move to trash', 'buddynext' ),
+		'cancel'       => __( 'Cancel', 'buddynext' ),
+		'created'      => __( 'Folder created.', 'buddynext' ),
+		'renamed'      => __( 'Folder renamed.', 'buddynext' ),
+		'trashed'      => __( 'Folder moved to trash.', 'buddynext' ),
+		'restored'     => __( 'Folder restored.', 'buddynext' ),
+		'fileRestored' => __( 'File restored.', 'buddynext' ),
+		// translators: %s: folder name.
+		'purgeTitle'   => __( 'Delete “%s” permanently?', 'buddynext' ),
+		// translators: %s: what it holds, e.g. "4 items".
+		'purgeBody'    => __( 'It holds %s. They are deleted with it. This can’t be undone.', 'buddynext' ),
+		'purgeEmpty'   => __( 'This can’t be undone.', 'buddynext' ),
+		// translators: %d: number of items.
+		'itemOne'      => __( '%d item', 'buddynext' ),
+		// translators: %d: number of items.
+		'itemMany'     => __( '%d items', 'buddynext' ),
+		'purgeConfirm' => __( 'Delete permanently', 'buddynext' ),
+		'purged'       => __( 'Folder deleted.', 'buddynext' ),
+		'nameRequired' => __( 'Enter a folder name.', 'buddynext' ),
+		'failed'       => __( 'That did not work. Try again.', 'buddynext' ),
+	);
+}
+
+/**
+ * Render a document drive's Files UI anywhere: the same browse / folders /
+ * search / upload / single-file UI as a space's or member's Files tab.
+ *
+ * For a page that shows a space's files outside the space's own tab. Access is
+ * MediaVerse's: a viewer who cannot read the drive gets the empty state, never
+ * the files, and nothing here can grant write.
+ *
+ * @since 1.2.2
+ *
+ * @param string $drive_type 'space' or 'user'.
+ * @param int    $drive_id   Space id, or the member id for a personal drive.
+ * @param string $base_url   URL of the page it renders on. Folder, page and search
+ *                           links are query args on it; a file opens at ?bn_doc={id}.
+ * @param int    $doc_id     File to show, or 0 for the list. Pass
+ *                           absint( $_GET['bn_doc'] ?? 0 ) to honour file links.
+ * @param array  $args       Options: bool can_write (false hides Upload / Link).
+ * @return void
+ */
+function buddynext_render_drive_files( string $drive_type, int $drive_id, string $base_url, int $doc_id = 0, array $args = array() ): void {
+	if ( ! in_array( $drive_type, array( 'space', 'user' ), true ) || $drive_id <= 0 ) {
+		return;
+	}
+
+	/**
+	 * Filters the options of an embedded Files UI.
+	 *
+	 * @since 1.2.2
+	 *
+	 * @param array  $args       { @type bool $can_write }
+	 * @param string $drive_type 'space' or 'user'.
+	 * @param int    $drive_id   Drive id.
+	 */
+	$args                    = (array) apply_filters( 'buddynext_render_drive_files_args', $args, $drive_type, $drive_id );
+	$args['doc_query_links'] = true;
+
+	( new class() {
+		use \BuddyNext\Nav\Providers\RendersDriveFiles {
+			render_drive_files as public;
+		}
+	} )->render_drive_files( $drive_type, $drive_id, $base_url, $doc_id, $args );
+}
+
+/**
+ * Return the Community Admin Panel URL.
+ *
+ * @return string Absolute URL.
+ */
+function buddynext_community_admin_url(): string {
+	return \BuddyNext\Core\PageRouter::community_admin_url();
+}
+
+/**
+ * Return the URL for the "create a space" flow.
+ *
+ * Routes to the spaces hub with the ?bn_action=create query argument which
+ * the directory template and PageRouter use to open the creation modal.
+ *
+ * @return string Absolute URL.
+ */
+function buddynext_create_space_url(): string {
+	return add_query_arg( 'bn_action', 'create', \BuddyNext\Core\PageRouter::spaces_url() );
+}
+
+/**
+ * Return a deterministic avatar background colour for a user ID.
+ *
+ * Used as a fallback behind avatar images so the placeholder is visually
+ * distinct per user while the image loads or when no Gravatar exists.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return string Hex colour string, e.g. '#0073aa'.
+ */
+function buddynext_avatar_colour( int $user_id ): string {
+	static $palette = array(
+		'#0073aa',
+		'#059669',
+		'#7c3aed',
+		'#d97706',
+		'#dc2626',
+		'#0891b2',
+		'#c2410c',
+		'#4f46e5',
+	);
+	return $palette[ abs( $user_id ) % count( $palette ) ];
+}
+
+/**
+ * Echo a BuddyNext SVG icon inline.
+ *
+ * Reads the named SVG from assets/icons/<name>.svg, sanitizes it via
+ * wp_kses(), and echoes the result. Safe for direct use in templates.
+ *
+ * @param string $name      Icon slug, e.g. 'user', 'bell', 'graduation-cap'.
+ * @param string $css_class Optional CSS class(es) to add to the <svg> element.
+ * @return void
+ */
+function buddynext_icon( string $name, string $css_class = '' ): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- output is pre-sanitized via wp_kses() inside IconService::render().
+	echo \BuddyNext\Core\IconService::render( $name, $css_class );
+}
+
+/**
+ * Return a BuddyNext SVG icon as a string.
+ *
+ * Same as buddynext_icon() but returns the markup instead of echoing it.
+ * Useful when the icon needs to be passed as a variable or concatenated.
+ *
+ * @param string $name      Icon slug, e.g. 'user', 'bell', 'graduation-cap'.
+ * @param string $css_class Optional CSS class(es) to add to the <svg> element.
+ * @return string Sanitized SVG markup, safe to echo.
+ */
+function buddynext_get_icon( string $name, string $css_class = '' ): string {
+	return \BuddyNext\Core\IconService::render( $name, $css_class );
+}
+
+/**
+ * Return the BuddyNext community search bar as HTML.
+ *
+ * The classic-theme counterpart to the buddynext/search-bar block: drop
+ * `echo buddynext_search_bar();` into a theme header, or use the
+ * [buddynext_search] shortcode in content. Block, shortcode and helper all
+ * render the SAME markup (templates/blocks/search-bar.php) — a GET form to the
+ * community search page — so a theme never hand-builds a form against our URL.
+ *
+ * This does NOT replace WordPress/WooCommerce `?s=` search; it is a first-class
+ * entry point into the community search results (members, spaces, hashtags).
+ *
+ * @param array<string, string> $args {
+ *     Optional. Display options.
+ *
+ *     @type string $placeholder Input placeholder. Default 'Search…'.
+ *     @type string $search_in   Results tab to open: all|members|spaces|posts. Default 'all'.
+ * }
+ * @return string Search-bar markup, safe to echo.
+ */
+function buddynext_search_bar( array $args = array() ): string {
+	// The search-bar layout classes (.bn-search-form, .bn-search-input-wrap) live
+	// in blocks.css; the --bn-* tokens already load site-wide. On a hub page the
+	// block/shell has enqueued this already; on a classic-theme page it may not,
+	// so ensure it. Registered by AssetService; a no-op if already enqueued.
+	if ( function_exists( 'wp_style_is' ) && wp_style_is( 'bn-blocks', 'registered' ) ) {
+		wp_enqueue_style( 'bn-blocks' );
+	}
+
+	$placeholder = sanitize_text_field( (string) ( $args['placeholder'] ?? '' ) );
+
+	$search_in = sanitize_key( (string) ( $args['search_in'] ?? 'all' ) );
+	if ( ! in_array( $search_in, array( 'all', 'members', 'spaces', 'posts' ), true ) ) {
+		$search_in = 'all';
+	}
+
+	ob_start();
+	buddynext_get_template( 'blocks/search-bar.php', compact( 'placeholder', 'search_in' ) );
+	return (string) ob_get_clean();
+}
+
+/**
+ * Return the community's display name.
+ *
+ * Single source of truth for the name shown in the app header, community-admin
+ * subheader, member-directory title, and auth-page logo. Prefers the owner-set
+ * "Community Name" (Settings → General → Community Identity, stored as the
+ * `buddynext_site_name` option) and falls back to the WordPress site title when
+ * that option is empty — so changing Community Name is reflected everywhere the
+ * community is named, not just on the Explore page.
+ *
+ * @return string The community name, unescaped. Escape at the point of output.
+ */
+function buddynext_site_name(): string {
+	$name = trim( (string) get_option( 'buddynext_site_name', '' ) );
+	return '' !== $name ? $name : (string) get_bloginfo( 'name' );
+}
+
+/**
+ * Pick a per-load display set from the TOP of a ranked candidate pool.
+ *
+ * Suggestion widgets (who-to-follow, space suggestions) rank a bounded, cached
+ * candidate pool and used to show the deterministic top-N — so a well-connected
+ * member saw the SAME picks on every page load. This samples the display set
+ * from the top slice of that already-fetched pool: quality stays high (still the
+ * best candidates), but which of them show rotates each load. Zero extra query
+ * cost (the pool is cached by the caller) and it never reintroduces ORDER BY
+ * RAND(). Works on any ranked array — id lists or hydrated rows.
+ *
+ * A caller that knows each candidate's score passes $score. Then a candidate
+ * scoring at least half the top score is a clear match: clear matches fill the
+ * display first (up to the limit), and only their order and the remaining
+ * slots rotate. Without it, an interest-matched space could lose its place to a
+ * random weaker one whenever the window covered the whole pool. When every
+ * candidate clears the bar nothing stands out, and the plain rotation applies.
+ *
+ * @param array<int,mixed> $ranked            Candidates in rank order (best first).
+ * @param int              $limit             How many to display.
+ * @param int              $window_multiplier Draw from the top limit*multiplier candidates.
+ * @param callable|null    $score             Optional fn( mixed $candidate ): float.
+ * @return array<int,mixed> Up to $limit candidates, sampled from the top window.
+ */
+function buddynext_sample_ranked( array $ranked, int $limit, int $window_multiplier = 4, ?callable $score = null ): array {
+	$ranked = array_values( $ranked );
+	$total  = count( $ranked );
+	$limit  = max( 1, $limit );
+
+	// Nothing to rotate — fewer candidates than we want to show.
+	if ( $total <= $limit ) {
+		return $ranked;
+	}
+
+	$strong = array();
+	$rest   = $ranked;
+	if ( null !== $score ) {
+		$scores = array_map( static fn( $candidate ): float => (float) $score( $candidate ), $ranked );
+		$top    = max( $scores );
+		$bar    = $top / 2;
+		$clear  = array_keys( array_filter( $scores, static fn( float $s ): bool => $top > 0 && $s >= $bar ) );
+		if ( count( $clear ) < $total ) {
+			$strong = array_values( array_intersect_key( $ranked, array_flip( $clear ) ) );
+			$rest   = array_values( array_diff_key( $ranked, array_flip( $clear ) ) );
+		}
+	}
+
+	shuffle( $strong );
+	if ( count( $strong ) >= $limit ) {
+		return array_slice( $strong, 0, $limit );
+	}
+
+	// The window is a few times the open slots (so there is genuine variety) but
+	// clamped to the pool, keeping the sample among the strongest candidates.
+	$open   = $limit - count( $strong );
+	$window = min( count( $rest ), max( $open * $window_multiplier, $open + 6 ) );
+	$head   = array_slice( $rest, 0, $window );
+	shuffle( $head );
+
+	return array_merge( $strong, array_slice( $head, 0, $open ) );
+}
+
+/**
+ * Icon markup for a space category.
+ *
+ * Prefers the category's admin-saved icon_svg and falls back to the built-in
+ * slug map, so a custom category shows the icon its owner chose instead of the
+ * generic default. Lives here, next to buddynext_get_icon(), because the space
+ * partials that call it are loaded under several different page templates.
+ *
+ * @param string|null $cat_slug Category slug, or null when the space has none.
+ * @param string|null $icon_svg The category's stored SVG, when the caller has
+ *                              the hydrated row to hand. Omit to look it up.
+ * @return string Sanitized SVG markup, safe to echo.
+ */
+function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
+	return \BuddyNext\Core\IconService::space_category_icon( $cat_slug, $icon_svg );
+}
+
+/**
+ * The initial state context for the `buddynext/members` Interactivity store.
+ *
+ * The member cards rendered by parts/member-card.php carry data-wp-on / data-wp-bind
+ * directives (Follow, Connect, the Mute/Block/Report kebab) that resolve against the
+ * nearest `data-wp-interactive="buddynext/members"` ancestor and read shared state
+ * (restNonce, restUrl, the block/report modal fields) from that element's context.
+ * The /members/ directory page provides both; the member-directory and member-card
+ * BLOCKS did not, so every one of those controls was dead wherever the block was
+ * embedded. This is the single source for that context so the page and the blocks
+ * cannot drift — pass request-specific overrides (search/sort/relation/…) or accept
+ * the block-friendly defaults.
+ *
+ * @param array<string, mixed> $overrides Values to override the defaults with.
+ * @return string JSON for a data-wp-context attribute ('{}' if encoding fails).
+ */
+function buddynext_members_directory_context( array $overrides = array() ): string {
+	$defaults = array(
+		'search'           => '',
+		'sort'             => 'newest',
+		'relation'         => 'all',
+		'memberType'       => '',
+		'onlineOnly'       => false,
+		'restNonce'        => wp_create_nonce( 'wp_rest' ),
+		'restUrl'          => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		'loading'          => false,
+		'searching'        => false,
+		'error'            => '',
+		'hasError'         => false,
+		'isEmpty'          => false,
+		'totalLabel'       => '',
+		'peopleUrl'        => \BuddyNext\Core\PageRouter::people_url(),
+		'blockTargetId'    => 0,
+		'blockTargetName'  => '',
+		'blockConfirmOpen' => false,
+		'blockSubmitting'  => false,
+		'reportOpen'       => false,
+		'reportTargetType' => 'user',
+		'reportTargetId'   => 0,
+		'reportReason'     => 'spam',
+		'reportNotes'      => '',
+		'reportSubmitting' => false,
+		'lastActorName'    => '',
+	);
+
+	$json = wp_json_encode( array_merge( $defaults, $overrides ) );
+
+	return false === $json ? '{}' : $json;
+}
+
+/**
+ * The initial state context for the `buddynext/spaces` Interactivity store.
+ *
+ * The space cards rendered by parts/space-directory-card.php carry Join / Leave /
+ * Request / Cancel directives (actions.joinSpace, actions.requestJoin, …) that
+ * resolve against the nearest `data-wp-interactive="buddynext/spaces"` ancestor and
+ * read restNonce / restUrl from its context to call the REST API. The /spaces/
+ * directory page provides both; the space-directory and spaces-showcase BLOCKS did
+ * not, so every Join button was inert wherever the block was embedded. This is the
+ * single source for that context so the page and the blocks cannot drift.
+ *
+ * @return string JSON for a data-wp-context attribute ('{}' if encoding fails).
+ */
+function buddynext_spaces_directory_context(): string {
+	$json = wp_json_encode(
+		array(
+			'restNonce' => wp_create_nonce( 'wp_rest' ),
+			'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		)
+	);
+
+	return false === $json ? '{}' : $json;
+}
+
+/**
+ * Deterministic cover tone for a space, used when it has no cover image.
+ *
+ * Lives here, beside bn_space_category_icon(), for the same reason: the space
+ * card part that consumes it is rendered from several different templates —
+ * the directory, the My Spaces sections, and the featured-space block.
+ *
+ * It previously existed as an if(!function_exists()) copy inside BOTH
+ * templates/spaces/directory.php and templates/blocks/space-card.php, which is
+ * what forced the block to keep a whole second copy of the card markup rather
+ * than including the shared part. One definition here means one card.
+ *
+ * @param int $space_id Space ID used to pick a tone.
+ * @return string Tone slug consumed by `.bn-sd-card__cover[data-tone]`.
+ */
+function bn_space_cover_tone( int $space_id ): string {
+	$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+
+	return $tones[ $space_id % count( $tones ) ];
+}
+
+/**
+ * Whether the site owner has the BuddyNext community navigation enabled.
+ *
+ * Controlled by the "Show community navigation" setting
+ * (buddynext_enable_community_nav, default on). When off, BuddyNext stops
+ * rendering its own navigation chrome (hub-shell left rail, mobile tab bar,
+ * bridge-added nav items) and the MenuRenderer also stops injecting BN items
+ * into the host theme menus.
+ *
+ * @return bool True when community navigation should render.
+ */
+function buddynext_community_nav_enabled(): bool {
+	return (bool) get_option( 'buddynext_enable_community_nav', true );
+}
+
+/**
+ * Whether the desktop left rail should render.
+ *
+ * Sub-toggle of the community-nav master: the rail shows only when the master
+ * is on AND the rail sub-toggle is on, so an owner can keep the mobile bottom
+ * bar but hide the desktop rail (e.g. to rely on theme menus on desktop).
+ *
+ * @return bool
+ */
+function buddynext_community_rail_enabled(): bool {
+	return buddynext_community_nav_enabled() && (bool) get_option( 'buddynext_enable_community_rail', true );
+}
+
+/**
+ * Whether the mobile bottom tab bar should render.
+ *
+ * Sub-toggle of the community-nav master (see buddynext_community_rail_enabled).
+ *
+ * @return bool
+ */
+function buddynext_community_mobile_nav_enabled(): bool {
+	return buddynext_community_nav_enabled() && (bool) get_option( 'buddynext_enable_community_mobile_nav', true );
+}
+
+/**
+ * Echo a Microsoft Fluent reaction emoji inline.
+ *
+ * Reads the SVG from `assets/emoji/<slug>.svg` and emits an `<img>` tag
+ * so the same emoji renders identically across every host platform
+ * (vs native Unicode emoji which look different per OS). Use for
+ * reaction chips and any "emoji-style" decorative imagery the v2
+ * prototypes call for.
+ *
+ * @param string      $slug      Reaction slug — see `assets/emoji/README.md`.
+ * @param string      $css_class Optional CSS class(es) appended to `bn-emoji`.
+ * @param string|null $alt       Alt text. Default null → auto-derived
+ *                               (`like` → `Like reaction`). Pass `''` for
+ *                               a decorative image.
+ * @return void
+ */
+function buddynext_emoji( string $slug, string $css_class = '', ?string $alt = null ): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- output is escaped inside IconService::render_emoji().
+	echo \BuddyNext\Core\IconService::render_emoji( $slug, $css_class, $alt );
+}
+
+/**
+ * Echo the BuddyNext notification bell (icon + server-rendered unread badge).
+ *
+ * Header chrome for any theme. Renders nothing for logged-out visitors. Use in
+ * a classic theme's header where a notifications icon belongs.
+ *
+ * @return void
+ */
+function buddynext_header_notification_bell(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::notification_bell();
+}
+
+/**
+ * Echo the BuddyNext messages icon → the member's messages inbox.
+ *
+ * Renders nothing when the messages feature is unavailable or the visitor is
+ * logged out.
+ *
+ * @return void
+ */
+function buddynext_header_messages_bell(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::messages_link();
+}
+
+/**
+ * Echo the BuddyNext search icon → the community search palette.
+ *
+ * Header chrome for any theme. A link to the community search page that opens the
+ * palette in place on BuddyNext pages; on any other page it simply navigates to the
+ * search page. Renders for guests too. Use where a theme's header search icon belongs.
+ *
+ * @return void
+ */
+function buddynext_header_search(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::search_link();
+}
+
+/**
+ * Echo the BuddyNext avatar + profile dropdown (quick links + log out).
+ *
+ * The avatar links to the member's profile; a CSS-only dropdown exposes the
+ * quick links and log out. Renders nothing for logged-out visitors.
+ *
+ * @return void
+ */
+function buddynext_header_user_menu(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::user_menu();
+}
+
+/**
+ * Return the full BuddyNext header user section (bell + messages + avatar menu).
+ *
+ * Used by the `[buddynext_user_menu]` shortcode and the header-user-menu block.
+ *
+ * @return string Safe HTML (empty for logged-out visitors).
+ */
+function buddynext_header_user_section(): string {
+	return \BuddyNext\Header\HeaderUserSection::render();
+}
+
+add_shortcode(
+	'buddynext_user_menu',
+	static function (): string {
+		return buddynext_header_user_section();
+	}
+);
+
+/**
+ * Return a Microsoft Fluent reaction emoji `<img>` tag as a string.
+ *
+ * Same as buddynext_emoji() but returns the markup instead of echoing it.
+ *
+ * @param string      $slug      Reaction slug.
+ * @param string      $css_class Optional CSS class(es).
+ * @param string|null $alt       Alt text. Default null → auto-derived.
+ * @return string `<img>` markup, safe to echo. Empty string when asset is missing.
+ */
+function buddynext_get_emoji( string $slug, string $css_class = '', ?string $alt = null ): string {
+	return \BuddyNext\Core\IconService::render_emoji( $slug, $css_class, $alt );
+}
+
+/**
+ * Format post content: convert #hashtag and @mention patterns to clickable links.
+ *
+ * Hashtags link to the BuddyNext hashtag feed (/activity/hashtag/{slug}/).
+ * Mentions link to the member profile (/members/{username}/).
+ *
+ * @param string $content Raw post text.
+ * @return string HTML-safe content with linked tags and mentions.
+ */
+function buddynext_format_content( string $content ): string {
+	// Every caller passes STORED content, which is persisted wp_kses_post-escaped —
+	// so a bare '&' is already '&amp;' in the DB (comments and posts alike). The
+	// htmlspecialchars() below would then re-encode that to '&amp;amp;' and render a
+	// literal '&amp;' in the browser (card 10280255141). Decode entities first so
+	// the escape is applied exactly ONCE, whatever the caller passes — idempotent on
+	// raw text (nothing to decode) and correct on pre-escaped text.
+	$content = html_entity_decode( $content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+
+	// Encode only the three characters dangerous in HTML text content (<, >, &).
+	// esc_html() also encodes apostrophes to &#039; which wp_kses() then
+	// double-encodes (&→&amp;), causing the entity to display literally in the
+	// browser. Single quotes are perfectly safe in HTML text nodes.
+	$escaped = htmlspecialchars( $content, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+
+	// Inline code first — anything inside backticks is treated literally and
+	// is not subject to other markdown / mention / hashtag parsing below.
+	// Use a placeholder pass to extract code runs, then restore them at the
+	// end so subsequent regexes don't touch their contents.
+	$code_segments = array();
+	$escaped       = preg_replace_callback(
+		'/`([^`\n]+)`/u',
+		static function ( array $m ) use ( &$code_segments ): string {
+			$idx                   = count( $code_segments );
+			$code_segments[ $idx ] = '<code class="bn-code">' . $m[1] . '</code>';
+			return "\x01CODE{$idx}\x01";
+		},
+		$escaped
+	);
+
+	// Auto-linkify bare URLs (a pasted http(s):// link rendered as plain text).
+	// Members expect links to be clickable like every social platform. The
+	// resulting anchor is tokenized (like code above) so the hashtag/mention
+	// passes below cannot nest a link inside a URL that itself contains a
+	// "#fragment" or "@". The (?<!\]\() lookbehind skips a URL that is the
+	// target of a [label](url) markdown link, leaving that to the dedicated
+	// markdown pass that follows. The text was already htmlspecialchars-escaped,
+	// so the href is decoded then re-validated with esc_url().
+	$link_segments = array();
+	$escaped       = preg_replace_callback(
+		'#(?<!\]\()\bhttps?://[^\s<\x01]+#u',
+		static function ( array $m ) use ( &$link_segments ): string {
+			$url   = $m[0];
+			$trail = '';
+			// Trailing sentence punctuation is almost never part of the URL.
+			$last = '' !== $url ? substr( $url, -1 ) : '';
+			while ( '' !== $last && false !== strpbrk( $last, '.,!?' ) ) {
+				$trail = $last . $trail;
+				$url   = substr( $url, 0, -1 );
+				$last  = '' !== $url ? substr( $url, -1 ) : '';
+			}
+			// Drop a single unbalanced closing bracket (URL written in parens).
+			foreach ( array(
+				')' => '(',
+				']' => '[',
+				'}' => '{',
+			) as $close => $open ) {
+				$last = '' !== $url ? substr( $url, -1 ) : '';
+				while ( $close === $last && substr_count( $url, $close ) > substr_count( $url, $open ) ) {
+					$trail = $close . $trail;
+					$url   = substr( $url, 0, -1 );
+					$last  = '' !== $url ? substr( $url, -1 ) : '';
+				}
+			}
+			$href = '' !== $url ? esc_url( html_entity_decode( $url, ENT_NOQUOTES, 'UTF-8' ) ) : '';
+			if ( '' === $href ) {
+				return $m[0];
+			}
+			$idx                   = count( $link_segments );
+			$link_segments[ $idx ] = '<a href="' . $href . '" class="bn-autolink" rel="noopener nofollow ugc">' . $url . '</a>';
+			return "\x01LINK{$idx}\x01" . $trail;
+		},
+		$escaped
+	);
+
+	// Markdown link: [label](https://url) — only matches valid http(s) URLs
+	// to prevent javascript: vectors. The label allows arbitrary printable
+	// characters except `]`.
+	$escaped = preg_replace_callback(
+		'/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/u',
+		static function ( array $m ): string {
+			return '<a href="' . esc_url( $m[2] ) . '" class="bn-md-link" rel="noopener nofollow ugc">' . $m[1] . '</a>';
+		},
+		$escaped
+	);
+
+	// Bold: **text** — runs of 1+ non-asterisk chars between double asterisks.
+	$escaped = preg_replace( '/\*\*([^*\n]+)\*\*/u', '<strong>$1</strong>', $escaped );
+
+	// Italic: _text_ — underscores chosen over single asterisks so multiplier
+	// math like 2*3*4 in chat doesn't accidentally render as italic.
+	$escaped = preg_replace( '/(?<![\w])_([^_\n]+)_(?![\w])/u', '<em>$1</em>', $escaped );
+
+	// Replace #hashtag with a link. Uses the SAME detection pattern and slug
+	// normalizer as extraction/storage (HashtagService), so a Unicode tag like
+	// #café or #日本語 links to exactly the slug the registry stored — previously
+	// the ASCII-only regex + sanitize_title() here diverged from the stored slug,
+	// truncating "#café" to a "#caf" link with a dangling "é".
+	// Single chokepoint for the Hashtags feature: when the owner turns it off, the
+	// tag stays as plain text everywhere this formatter runs (feed posts +
+	// comments) — no clickable hashtags leak into a community that disabled them.
+	if ( buddynext_feature_enabled( 'hashtags' ) ) {
+		$escaped = preg_replace_callback(
+			\BuddyNext\Hashtags\HashtagService::pattern(),
+			static function ( array $m ): string {
+				$slug = \BuddyNext\Hashtags\HashtagService::normalize_slug( $m[1] );
+				if ( '' === $slug ) {
+					return $m[0];
+				}
+				$url = \BuddyNext\Core\PageRouter::hashtag_feed_url( $slug );
+				return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
+			},
+			$escaped
+		);
+	}
+
+	// Replace @username with a link to the member profile. Built from the
+	// configurable People hub base (never a hardcoded /members/) so mention
+	// links survive renamed hub slugs.
+	// The pattern is \BuddyNext\Profile\Handle's, not a local copy: this pass and
+	// the parsers that raise mention NOTIFICATIONS must agree on where a handle
+	// ends, or a member sees themselves linked in a post they were never told
+	// about — or is notified about a mention that renders as plain text.
+	$bn_people_base = \BuddyNext\Core\PageRouter::people_url();
+	$escaped        = preg_replace_callback(
+		\BuddyNext\Profile\Handle::mention_regex(),
+		static function ( array $m ) use ( $bn_people_base ): string {
+			$url = $bn_people_base . rawurlencode( $m[1] ) . '/';
+			return '<a href="' . esc_url( $url ) . '" class="bn-mention">@' . esc_html( $m[1] ) . '</a>';
+		},
+		$escaped
+	);
+
+	// Restore tokenized bare-URL anchors. Done before code restore; neither
+	// placeholder set can appear inside the other.
+	if ( ! empty( $link_segments ) ) {
+		$escaped = preg_replace_callback(
+			'/\x01LINK(\d+)\x01/',
+			static function ( array $m ) use ( $link_segments ): string {
+				$idx = (int) $m[1];
+				return $link_segments[ $idx ] ?? '';
+			},
+			$escaped
+		);
+	}
+
+	// Restore code placeholders. Done last so the <code> markup is opaque to
+	// all other regexes above.
+	if ( ! empty( $code_segments ) ) {
+		$escaped = preg_replace_callback(
+			'/\x01CODE(\d+)\x01/',
+			static function ( array $m ) use ( $code_segments ): string {
+				$idx = (int) $m[1];
+				return $code_segments[ $idx ] ?? '';
+			},
+			$escaped
+		);
+	}
+
+	return $escaped;
+}
+
+/**
+ * Render a UTC datetime as a compact, localized "time ago" label.
+ *
+ * BuddyNext stores every user-facing timestamp in UTC (current_time('mysql', true)
+ * on write). Relative durations are timezone-independent, so this anchors the
+ * stored value to UTC and measures the gap to the current instant: the result is
+ * identical on every server regardless of its PHP timezone. The site's WordPress
+ * timezone selection governs only absolute dates — see buddynext_date_local().
+ *
+ * Canonical helper for every "X ago" surface (feed, comments, notifications,
+ * spaces, profile, search); the previous per-template copies are removed.
+ *
+ * @param string $gmt_datetime A 'Y-m-d H:i:s' datetime stored in UTC.
+ * @return string Escaped relative-time label (e.g. "3h ago"), or '' when empty/invalid.
+ */
+function buddynext_time_ago( string $gmt_datetime ): string {
+	if ( '' === trim( $gmt_datetime ) ) {
+		return '';
+	}
+
+	$timestamp = strtotime( $gmt_datetime . ' UTC' );
+	if ( false === $timestamp ) {
+		return '';
+	}
+
+	$diff = time() - $timestamp;
+	if ( $diff < 0 ) {
+		$diff = 0;
+	}
+
+	if ( $diff < MINUTE_IN_SECONDS ) {
+		return esc_html__( 'just now', 'buddynext' );
+	}
+
+	if ( $diff < HOUR_IN_SECONDS ) {
+		$mins = (int) round( $diff / MINUTE_IN_SECONDS );
+		/* translators: %d: number of minutes. */
+		return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
+	}
+
+	if ( $diff < DAY_IN_SECONDS ) {
+		$hours = (int) round( $diff / HOUR_IN_SECONDS );
+		/* translators: %d: number of hours. */
+		return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
+	}
+
+	if ( $diff < WEEK_IN_SECONDS ) {
+		$days = (int) round( $diff / DAY_IN_SECONDS );
+		/* translators: %d: number of days. */
+		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
+	}
+
+	/*
+	 * Past a week, a duration stops being information: "412d ago" tells a reader
+	 * nothing they can place. Switch to a calendar date, the way Facebook, X and
+	 * LinkedIn all do — relative while recency is the useful signal, absolute
+	 * once it is not. The year is included only when it is not the current one,
+	 * so the common case stays short.
+	 *
+	 * Both sides of the year comparison are resolved in the SITE timezone
+	 * (Settings > General), never the server's or the viewer's.
+	 */
+	$is_current_year = get_date_from_gmt( $gmt_datetime, 'Y' ) === current_time( 'Y' );
+
+	/**
+	 * Filters the date format used once a timestamp is too old for relative time.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param string $format          PHP date format.
+	 * @param bool   $is_current_year Whether the date falls in the current year.
+	 * @param string $gmt_datetime    The UTC datetime being formatted.
+	 */
+	$format = (string) apply_filters(
+		'buddynext_time_ago_date_format',
+		$is_current_year ? 'j F' : 'j F Y',
+		$is_current_year,
+		$gmt_datetime
+	);
+
+	return buddynext_date_local( $gmt_datetime, $format );
+}
+
+/**
+ * Format a UTC datetime as an absolute date in the site's configured timezone.
+ *
+ * Honours the WordPress Settings > General timezone and the site language: the
+ * stored value is UTC and wp_date() converts it to site-local time, with
+ * translated month and day names, before formatting. Use this for calendar-style displays ("Joined June 2026");
+ * use buddynext_time_ago() for "X ago" durations.
+ *
+ * @param string $gmt_datetime A 'Y-m-d H:i:s' datetime stored in UTC.
+ * @param string $format       PHP date format. Defaults to the site date_format option.
+ * @return string Escaped localized date string, or '' when empty/invalid.
+ */
+function buddynext_date_local( string $gmt_datetime, string $format = '' ): string {
+	if ( '' === trim( $gmt_datetime ) ) {
+		return '';
+	}
+
+	if ( '' === $format ) {
+		$format = (string) get_option( 'date_format', 'F j, Y' );
+	}
+
+	$timestamp = strtotime( $gmt_datetime . ' UTC' );
+	if ( false === $timestamp ) {
+		return '';
+	}
+
+	// wp_date() converts to the site timezone AND translates month and day names;
+	// get_date_from_gmt() did the first only, so a German site read "7. October".
+	return esc_html( (string) wp_date( $format, $timestamp, wp_timezone() ) );
+}
+
+/**
+ * Classify a post row into an explore discovery-card "kind".
+ *
+ * The Explore grid renders varied, compact card treatments instead of the
+ * uniform interactive post card. This pure function maps a (hydrated or raw)
+ * post row to one of the visual treatments so the SSR template and the REST
+ * pagination endpoint stay byte-for-byte consistent — both classify through
+ * here, never by ad-hoc inline checks.
+ *
+ * Returned kinds (all real-data driven — no fabricated card types):
+ *   - 'post-poll'  : a poll post → recognizable poll card (click-through to vote).
+ *   - 'post-media' : carries at least one media attachment → image card.
+ *   - 'post-forum' : a discussion / forum post → tinted, taller thread card.
+ *   - 'post-text'  : everything else → plain text card.
+ *
+ * @since 1.6.0
+ *
+ * @param array<string,mixed> $post A post row with at least type / content /
+ *                                  media_ids.
+ * @return string One of: post-poll, post-media, post-forum, post-text.
+ */
+function buddynext_explore_card_kind( array $post ): string {
+	$type      = (string) ( $post['type'] ?? 'text' );
+	$media_ids = $post['media_ids'] ?? null;
+
+	// Poll wins before media so a poll never renders as a plain text/link teaser
+	// (it stored no recognizable affordance before): polls read as a question +
+	// "Vote" call-to-action card.
+	if ( 'poll' === $type ) {
+		return 'post-poll';
+	}
+
+	// Media wins next: anything with an attachment reads best as an image card.
+	$has_media = false;
+	if ( is_array( $media_ids ) ) {
+		$has_media = ! empty( $media_ids );
+	} elseif ( is_string( $media_ids ) ) {
+		$trimmed   = trim( $media_ids );
+		$has_media = '' !== $trimmed && '[]' !== $trimmed;
+	}
+	if ( $has_media || 'image' === $type || 'video' === $type ) {
+		return 'post-media';
+	}
+
+	// A published article. It carries a headline, an excerpt and usually a
+	// featured image, so rendering it as a plain text teaser (which is what it
+	// got before) throws away everything that makes it worth clicking.
+	if ( 'article' === $type ) {
+		return 'post-article';
+	}
+
+	// Discussion / forum posts (e.g. the Jetonomy bridge publishes synced
+	// threads as type 'discussion') get the tinted thread treatment.
+	if ( 'discussion' === $type || 'forum_post' === $type || 'forum' === $type ) {
+		return 'post-forum';
+	}
+
+	// Every typed integration card (event, job, listing, course, badge, media,
+	// document, open to work) gets its own card with the partner's details. These
+	// used to fall through to the plain text teaser, which showed a bare title
+	// labelled "Post" and threw away the date, place, cover and description the
+	// bridge stored. A locked post keeps the text teaser and its members-only
+	// kicker.
+	if ( empty( $post['is_locked'] ) && isset( \BuddyNext\Feed\IntegrationActivity::card_types()[ $type ] ) ) {
+		return 'post-integration';
+	}
+
+	return 'post-text';
+}

@@ -137,7 +137,7 @@
 	color: var(--bn-accent-fg);
 }
 
-.bn-dialog__ok[data-tone="warning"] {
+.bn-dialog__ok[data-tone="warn"] {
 	background: var(--bn-warn, oklch(70% 0.18 75));
 	border-color: var(--bn-warn, oklch(70% 0.18 75));
 	/* Intentionally mode-invariant: --bn-warn stays a light amber in both light

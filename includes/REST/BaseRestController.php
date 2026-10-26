@@ -61,6 +61,23 @@ abstract class BaseRestController {
 	}
 
 	/**
+	 * Set keys on a service error's data while keeping the ones it already has.
+	 *
+	 * WP_Error::add_data() replaces the array (see preserve_status()), which dropped keys a
+	 * filter had attached, such as Pro's upgrade_url on a plan-limit refusal.
+	 *
+	 * @param WP_Error            $error The service's error.
+	 * @param array<string,mixed> $data  Keys to set; they win over existing ones.
+	 * @return WP_Error The same error.
+	 */
+	protected function merge_error_data( WP_Error $error, array $data ): WP_Error {
+		$existing = $error->get_error_data();
+		$error->add_data( array_merge( is_array( $existing ) ? $existing : array(), $data ) );
+
+		return $error;
+	}
+
+	/**
 	 * Params WordPress itself may add to any request.
 	 *
 	 * These are never application data, so a strict handler must let them through

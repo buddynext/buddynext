@@ -36,10 +36,10 @@ class PermissionService {
 	 * @var array<string, string|null>
 	 */
 	private const ROLE_MAP = array(
-		'buddynext-profile/edit-own'        => 'member',
-		'buddynext-profile/edit-any'        => 'admin',
-		'buddynext-profile/view'            => null,
-		'buddynext-feed/create-post'        => 'member',
+		'buddynext-profile/edit-own'                => 'member',
+		'buddynext-profile/edit-any'                => 'admin',
+		'buddynext-profile/view'                    => null,
+		'buddynext-feed/create-post'                => 'member',
 		// Umbrella "may engage with content" ability for the lightweight
 		// interaction controls that have no cap of their own (react, share,
 		// bookmark, poll-vote). Member-level so every member in good standing
@@ -48,7 +48,7 @@ class PermissionService {
 		// Decoupled from create-post on purpose: an owner who restricts posting
 		// should not thereby strip reactions, and an owner who wants a read-only
 		// community can map THIS to a higher role to hide them all at once.
-		'buddynext-feed/interact'           => 'member',
+		'buddynext-feed/interact'                   => 'member',
 		// There was no comment capability at all. Pro's AI reply checked buddynext_can( $u,
 		// 'comment' ) — an unmapped slug, so passes_role_check() returned false for every
 		// member and the feature was dead for exactly the people it was for. It is NOT a
@@ -56,41 +56,41 @@ class PermissionService {
 		// mapping it to create-post would tie replying to POST-creation rights (and drag in
 		// unrelated plan gating). So Free builds the door rather than Pro reaching through a
 		// wall.
-		'buddynext-comments/create'         => 'member',
-		'buddynext-feed/delete-own-post'    => 'member',
-		'buddynext-feed/delete-any-post'    => 'moderator',
+		'buddynext-comments/create'                 => 'member',
+		'buddynext-feed/delete-own-post'            => 'member',
+		'buddynext-feed/delete-any-post'            => 'moderator',
 		// Editing someone else's post or comment, and hiding a post: a site
 		// administrator's correction power, delegable to the community admin role
 		// rather than tied to manage_options. Distinct from delete-any-post on
 		// purpose: a moderator removes, they do not rewrite what a member said.
-		'buddynext-feed/edit-any-post'      => 'admin',
+		'buddynext-feed/edit-any-post'              => 'admin',
 		// Post and end site-wide announcements. A space announcement follows the
 		// space role instead (buddynext-moderate-space).
-		'buddynext-feed/announce'           => 'admin',
-		'buddynext-feed/schedule-post'      => 'member',
-		'buddynext-spaces/create'           => 'member',
-		'buddynext-spaces/join'             => 'member',
-		'buddynext-spaces/join-gated'       => null,
-		'buddynext-spaces/post'             => 'member',
-		'buddynext-spaces/moderate'         => 'moderator',
-		'buddynext-spaces/manage-settings'  => 'moderator',
-		'buddynext-spaces/delete'           => 'moderator',
-		'buddynext-connections/follow'      => 'member',
-		'buddynext-connections/connect'     => 'member',
-		'buddynext-moderation/report'       => 'member',
-		'buddynext-moderation/review-queue' => 'moderator',
+		'buddynext-feed/announce'                   => 'admin',
+		'buddynext-feed/schedule-post'              => 'member',
+		'buddynext-spaces/create'                   => 'member',
+		'buddynext-spaces/join'                     => 'member',
+		'buddynext-spaces/join-gated'               => null,
+		'buddynext-spaces/post'                     => 'member',
+		'buddynext-spaces/moderate'                 => 'moderator',
+		'buddynext-spaces/manage-settings'          => 'moderator',
+		'buddynext-spaces/delete'                   => 'moderator',
+		'buddynext-connections/follow'              => 'member',
+		'buddynext-connections/connect'             => 'member',
+		'buddynext-moderation/report'               => 'member',
+		'buddynext-moderation/review-queue'         => 'moderator',
 		// Acting on a report (dismiss / resolve / escalate / remove content). Its own
 		// ability, distinct from review-queue (seeing the queue), so an owner can let
 		// a role read the queue without resolving reports. The moderation queue's
 		// Dismiss / Remove buttons render from this ability and ModerationService
 		// authorises report actions against it, so the two never diverge (card
 		// 10264294189).
-		'buddynext-moderation/dismiss'      => 'moderator',
-		'buddynext-moderation/issue-strike' => 'moderator',
+		'buddynext-moderation/dismiss'              => 'moderator',
+		'buddynext-moderation/issue-strike'         => 'moderator',
 		// Site-wide moderators have full moderation authority (product decision):
 		// suspend is a moderator power, not admin-only. Space-scoped suspension is
 		// still resolved separately per space.
-		'buddynext-moderation/suspend-user' => 'moderator',
+		'buddynext-moderation/suspend-user'         => 'moderator',
 		// A suspension with no end date stays with the admins (card 10264294189);
 		// moderators suspend for a set number of days.
 		'buddynext-moderation/suspend-indefinitely' => 'admin',
@@ -103,9 +103,9 @@ class PermissionService {
 		'buddynext-community/assign-roles'          => 'admin',
 		// Space-scoped capabilities — resolved by can_moderate_space() /
 		// can_manage_space() / can_own_space().
-		'buddynext-moderate-space'          => null,
-		'buddynext-manage-space'            => null,
-		'buddynext-own-space'               => null,
+		'buddynext-moderate-space'                  => null,
+		'buddynext-manage-space'                    => null,
+		'buddynext-own-space'                       => null,
 	);
 
 	/**
@@ -185,17 +185,13 @@ class PermissionService {
 	 * @return array<string, string|null>
 	 */
 	public static function build_role_map(): array {
-		$map = self::ROLE_MAP;
-
-		// Fold the legacy Spaces-tab "who can create spaces" option into the
-		// role map so it composes with the Roles & Capabilities tab instead of
-		// fighting it. An existing "admins only" choice is preserved; the
-		// default ('member') leaves the map default untouched.
-		if ( 'admin' === (string) get_option( 'buddynext_space_creation_role', 'member' ) ) {
-			$map['buddynext-spaces/create'] = 'admin';
+		// An auto-updated site may serve requests before admin_init runs the schema 70
+		// step; converge on first read so a stricter "who can create spaces" never lapses.
+		if ( false !== get_option( 'buddynext_space_creation_role' ) ) {
+			Installer::maybe_migrate_space_creation_role();
 		}
 
-		return (array) apply_filters( 'buddynext_role_map', $map );
+		return (array) apply_filters( 'buddynext_role_map', self::ROLE_MAP );
 	}
 
 	/**
@@ -221,7 +217,6 @@ class PermissionService {
 	 */
 	private const READ_CAPS = array(
 		'buddynext-profile/view',
-		'buddynext-moderation/review-queue',
 	);
 
 	/**
@@ -256,6 +251,9 @@ class PermissionService {
 			$result = false;
 		} elseif ( $user && $user->has_cap( 'manage_options' ) ) {
 			$result = true;
+		} elseif ( ( new NetworkMembership() )->refuses( $user_id ) ) {
+			// Network only: awaiting approval, or not a member of a closed community.
+			$result = false;
 		} elseif ( $this->is_write_capability( $capability ) && $this->writer_is_held( $user_id ) ) {
 			// A suspended member keeps read access and the appeal flow but is denied
 			// every write ability. Enforced at this single seam - every permission
@@ -374,9 +372,21 @@ class PermissionService {
 			// flow, so this never lets anyone into private or secret spaces.
 			&& 'buddynext-spaces/join' !== $capability
 		) {
-			$space_role = $this->get_space_role( $user_id, (int) $context['space_id'] );
-			$user_level = self::ROLE_HIERARCHY[ $space_role ] ?? 0;
-			return $user_level >= $req_level;
+			$space_role  = $this->get_space_role( $user_id, (int) $context['space_id'] );
+			$space_level = self::ROLE_HIERARCHY[ $space_role ] ?? 0;
+			// Membership is the floor: a non-member does nothing inside the space.
+			if ( $space_level <= 0 ) {
+				return false;
+			}
+			// Owner-scoped abilities (space settings, deleting the space) stay with the
+			// space's own team: no community rank reaches them.
+			if ( isset( self::FIXED_ABILITIES[ $capability ] ) ) {
+				return $space_level >= $req_level;
+			}
+			// On a Roles tab row a member keeps their community rank inside every space
+			// they belong to, so the higher of the two roles meets its member/moderator/admin scale.
+			$community_level = self::ROLE_HIERARCHY[ (string) get_user_meta( $user_id, 'bn_community_role', true ) ] ?? 1;
+			return max( $space_level, $community_level ) >= $req_level;
 		}
 
 		$user_role  = (string) ( get_user_meta( $user_id, 'bn_community_role', true ) ?: 'member' ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found

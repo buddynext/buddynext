@@ -335,8 +335,10 @@
 /* H2 as a section-eyebrow above the card below it. Visually groups with
    the next form/table without trying to fragile `h2 + form` adjacency
    tricks (Pro pages mix H2 → form, H2 → p → form, H2 → table). */
-.bn-admin-hub__main h2,
-.bn-admin-hub__main--wide h2 {
+/* A dialog title is not a section eyebrow: the modal component styles its own (same
+   exclusion the card rule below makes for .bn-modal__panel). */
+.bn-admin-hub__main h2:not(.bn-modal__title),
+.bn-admin-hub__main--wide h2:not(.bn-modal__title) {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;

@@ -500,7 +500,11 @@
 					card.addEventListener( 'mouseenter', function () { clearTimeout( leaveTimer ); } );
 					card.addEventListener( 'mouseleave', function () { card.hidden = true; } );
 				}
-				var initials = name.split( ' ' ).map( function ( w ) { return w[ 0 ]; } ).join( '' ).toUpperCase().slice( 0, 2 );
+				// Same rule as AvatarService::initials_for() (classic script, so not the module).
+				var words    = name.trim().split( ' ' ).filter( Boolean );
+				var initials = words.length >= 2
+					? ( words[ 0 ].charAt( 0 ) + words[ words.length - 1 ].charAt( 0 ) ).toUpperCase()
+					: ( words.length ? words[ 0 ].slice( 0, 2 ).toUpperCase() : '?' );
 				card.textContent = '';
 				var header = document.createElement( 'div' );
 				header.className = 'bn-hover-card__header';
