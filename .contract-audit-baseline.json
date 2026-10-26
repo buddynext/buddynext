@@ -485,6 +485,11 @@
       "id": "hook-consumed-never-fired:buddynext_jetonomy_grant_space_members",
       "reason": "False positive (1.2.6). Fired as an Action Scheduler job (as_enqueue_async_action / wp_schedule_single_event) through the class constant JetonomyBridge::GRANT_MEMBERS_HOOK, JetonomyBridge.php:1276-1278; the scanner reads literal hook names only.",
       "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_space_link_backfill_chunk",
+      "reason": "Action Scheduler hook: SpaceLinkService::BACKFILL_HOOK is queued with as_enqueue_async_action( self::BACKFILL_HOOK, ... ) and Action Scheduler fires it. The scanner only matches literal do_action() names. False positive.",
+      "severity": "error"
     }
   ]
 }

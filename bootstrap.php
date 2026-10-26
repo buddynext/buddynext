@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  * removing a public symbol bumps it, and the registry supports this and the previous value.
  */
 define( 'BUDDYNEXT_ADDON_API', 1 );
-define( 'BUDDYNEXT_VERSION', '1.2.6' );
+define( 'BUDDYNEXT_VERSION', '1.2.7' );
 define( 'BUDDYNEXT_FILE', __DIR__ . '/buddynext.php' );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( BUDDYNEXT_FILE ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( BUDDYNEXT_FILE ) );
