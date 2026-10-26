@@ -373,7 +373,7 @@ class CronService {
 				$wpdb->prepare(
 					"DELETE FROM {$wpdb->prefix}bn_reports
 					  WHERE status IN ( 'resolved', 'dismissed' )
-					    AND created_at < %s
+					    AND COALESCE( resolved_at, created_at ) < %s
 					  LIMIT 1000",
 					$cutoff
 				)
