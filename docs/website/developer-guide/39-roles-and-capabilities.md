@@ -78,7 +78,7 @@ The role map holds 29 generic capabilities:
 | `buddynext-feed/announce` | `admin` (post and end site-wide announcements; "Post site-wide announcements"; a space announcement follows the space role) |
 | `buddynext-feed/edit-any-post` | `admin` (edit any post or comment, hide a post, edit past the edit window; "Edit anyone's post or comment"). Anyone but a site administrator acts only on posts they can already read, and a post's audience changes only when its author edits it |
 | `buddynext-feed/schedule-post` | `member` |
-| `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes; not in `Abilities::CATALOG`) |
+| `buddynext-feed/interact` | `member` (umbrella for react, share, bookmark and poll vote; on the Roles tab as "React, share, bookmark and vote" and enforced on those REST routes) |
 | `buddynext-comments/create` | `member` |
 | `buddynext-spaces/create` | `member` (see note) |
 | `buddynext-spaces/join` | `member` |
@@ -91,7 +91,7 @@ The role map holds 29 generic capabilities:
 | `buddynext-connections/connect` | `member` |
 | `buddynext-moderation/report` | `member` |
 | `buddynext-moderation/review-queue` | `moderator` |
-| `buddynext-moderation/dismiss` | `moderator` (acting on a report; on the Roles tab as "Resolve reports"; not in `Abilities::CATALOG`) |
+| `buddynext-moderation/dismiss` | `moderator` (acting on a report; on the Roles tab as "Resolve reports") |
 | `buddynext-moderation/issue-strike` | `moderator` |
 | `buddynext-moderation/suspend-user` | `moderator` (for a set number of days) |
 | `buddynext-moderation/suspend-indefinitely` | `admin` (a suspension with no end date; "Suspend members with no end date") |

@@ -157,7 +157,7 @@ buddynext_can( int $user_id, string $capability, array $context = array() ): boo
 
 Never call `current_user_can()` against a BuddyNext capability or read `bn_community_role` directly - route it through `buddynext_can()` so all four resolution layers (WP admin, role map, explicit grant, the `buddynext_user_can` filter) and the space-ban short-circuit apply.
 
-The role map holds 29 capabilities. Of these, 27 are registered through the WordPress Abilities API (WP 6.9+); `buddynext-feed/interact` and `buddynext-moderation/dismiss` are enforced but not registered there. Three further space-scoped ones are resolved by dedicated per-space methods:
+The role map holds 29 capabilities. All 29 are registered through the WordPress Abilities API (WP 6.9+). Three further space-scoped ones are resolved by dedicated per-space methods:
 
 ```text
 buddynext-profile/edit-own        buddynext-spaces/create          buddynext-connections/follow
