@@ -6,7 +6,7 @@ A space is a community area inside your site - a place with its own feed, member
 
 ![The Create a space form - name with an auto-derived slug, type, category and description fields](../images/space-create-form.webp)
 
-![Spaces - Settings admin tab controlling who can create spaces and the new-space defaults](../images/admin-spaces-settings.webp)
+![Spaces - Settings admin tab with the new-space defaults](../images/admin-spaces-settings.webp)
 
 ## Why use it
 
@@ -97,7 +97,7 @@ These settings live under the plugin's Spaces settings. They set the platform-wi
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Who can create spaces | Limits space creation to any member or to site admins only. Set to admins to run a curated, official-spaces-only community. | Any member |
+| Who can create spaces | Set under **Members > Roles & Capabilities** (the **Create spaces** row); this tab links there. Set it to admins to run a curated, official-spaces-only community. | Any member |
 | Maximum spaces per member | The cap on how many active spaces one member may own. Archived spaces do not count toward the cap. Untick the box for no limit. | 0 (unlimited) |
 | Allow sub-spaces | Whether members may nest a space under a parent space. Turn off to keep every space top-level. | On |
 | Maximum sub-spaces per parent | The cap on how many sub-spaces a single parent space may contain. Untick the box for no limit. | 0 (unlimited) |

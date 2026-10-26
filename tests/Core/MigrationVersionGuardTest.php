@@ -49,6 +49,7 @@ class MigrationVersionGuardTest extends \WP_UnitTestCase {
 		'maybe_migrate_jetonomy_feed_sync',
 		'maybe_migrate_nav_default_labels',
 		'maybe_migrate_skills_field_key',
+		'maybe_migrate_space_creation_role',
 		'maybe_migrate_space_options',
 		'maybe_migrate_wizard_preset_types',
 		'maybe_migrate_year_fields',
@@ -60,7 +61,7 @@ class MigrationVersionGuardTest extends \WP_UnitTestCase {
 	 *
 	 * @var int
 	 */
-	private const MIGRATIONS_LOCKED_AT_VERSION = 69;
+	private const MIGRATIONS_LOCKED_AT_VERSION = 70;
 
 	/**
 	 * Read every `private static function maybe_migrate_*` name defined in

@@ -152,19 +152,13 @@ class RolesTabTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A save with nothing changed stores nothing, so it cannot freeze a capability
-	 * and the Spaces-tab "who can create spaces" keeps working afterwards.
+	 * A save with nothing changed stores nothing, so it cannot freeze a capability.
 	 *
 	 * @return void
 	 */
 	public function test_saving_an_unchanged_matrix_stores_no_overrides(): void {
 		$this->save_matrix( array( 'buddynext-spaces/create' => 'member', 'buddynext-spaces/join' => 'member' ) );
 		$this->assertSame( array(), get_option( 'bn_role_map_overrides', array() ) );
-
-		update_option( 'buddynext_space_creation_role', 'admin' );
-		$this->forget_role_map();
-		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
 	}
 
 	/**
@@ -178,92 +172,25 @@ class RolesTabTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Saving the Spaces-tab setting replaces an older Roles row for the same ability.
+	 * The Spaces tab no longer has its own "Who can create spaces" control; it links
+	 * to this tab, so the rule has one home.
 	 *
 	 * @return void
 	 */
-	public function test_spaces_setting_replaces_an_older_roles_row(): void {
-		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'member' ), false );
-		update_option( 'buddynext_space_creation_role', 'admin' );
-		$this->forget_role_map();
-		$this->assertArrayNotHasKey( 'buddynext-spaces/create', (array) get_option( 'bn_role_map_overrides' ) );
-		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
-	}
-
-	/**
-	 * The Spaces-tab select shows the rule that is enforced, so a Roles & Capabilities
-	 * choice is not contradicted by it (and an unchanged save there cannot undo it).
-	 *
-	 * @return void
-	 */
-	public function test_spaces_tab_shows_the_enforced_rule(): void {
-		$field = static function (): \BuddyNext\Admin\Settings\Field {
-			$settings = ( new \ReflectionClass( \BuddyNext\Admin\Settings::class ) )->newInstanceWithoutConstructor();
-			$method   = new \ReflectionMethod( $settings, 'fields_spaces' );
-			foreach ( $method->invoke( $settings ) as $section ) {
-				foreach ( $section->fields as $f ) {
-					if ( 'buddynext_space_creation_role' === $f->key ) {
-						return $f;
-					}
-				}
+	public function test_spaces_tab_links_here_instead_of_its_own_select(): void {
+		$settings = ( new \ReflectionClass( \BuddyNext\Admin\Settings::class ) )->newInstanceWithoutConstructor();
+		$keys     = array();
+		foreach ( ( new \ReflectionMethod( $settings, 'fields_spaces' ) )->invoke( $settings ) as $section ) {
+			foreach ( $section->fields as $f ) {
+				$keys[ $f->key ] = $f->type;
 			}
-			throw new \RuntimeException( 'field missing' );
-		};
+		}
+		$this->assertArrayNotHasKey( 'buddynext_space_creation_role', $keys );
+		$this->assertSame( 'custom', $keys['buddynext_space_creation_managed'] ?? '' );
 
-		$this->assertSame( 'member', $field()->display_value() );
-
-		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'admin' ), false );
-		$this->forget_role_map();
-		$this->assertSame( 'admin', $field()->display_value(), 'Roles says admins only, so the Spaces tab must not say Any member' );
-
-		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'moderator' ), false );
-		$this->forget_role_map();
-		$this->assertSame( 'moderator', $field()->display_value(), 'Moderators & up must not be shown as Admins only' );
-
-		delete_option( 'bn_role_map_overrides' );
-		update_option( 'buddynext_space_creation_role', 'moderator' );
-		$this->forget_role_map();
-		$this->assertSame( 'moderator', \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] );
-	}
-
-	/**
-	 * QA's steps: Spaces = moderator, then Roles = member, then Spaces = moderator again.
-	 * The stored option is already moderator, so update_option() fires no update hook;
-	 * the stale Roles row must still go.
-	 *
-	 * @return void
-	 */
-	public function test_choosing_the_stored_value_again_still_replaces_a_roles_row(): void {
-		update_option( 'buddynext_space_creation_role', 'moderator' );
-		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => 'member' ), false );
-		$this->forget_role_map();
-		$this->assertSame( 'member', \BuddyNext\Core\PermissionService::space_creation_choice() );
-
-		update_option( 'buddynext_space_creation_role', 'moderator' );
-		$this->forget_role_map();
-
-		$this->assertArrayNotHasKey( 'buddynext-spaces/create', (array) get_option( 'bn_role_map_overrides' ) );
-		$this->assertSame( 'moderator', \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] );
-		$member = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		$this->assertFalse( ( new \BuddyNext\Core\PermissionService() )->can( $member, 'buddynext-spaces/create' ) );
-	}
-
-	/**
-	 * Off on Roles shows as Admins only on the Spaces tab; saving that tab unchanged
-	 * must leave Off in place, not loosen it to community admins.
-	 *
-	 * @return void
-	 */
-	public function test_an_unchanged_spaces_save_keeps_off_from_roles(): void {
-		update_option( 'bn_role_map_overrides', array( 'buddynext-spaces/create' => null ), false );
-		$this->forget_role_map();
-		$this->assertSame( 'admin', \BuddyNext\Core\PermissionService::space_creation_choice() );
-
-		update_option( 'buddynext_space_creation_role', 'admin' );
-		$this->forget_role_map();
-
-		$this->assertArrayHasKey( 'buddynext-spaces/create', (array) get_option( 'bn_role_map_overrides' ) );
-		$this->assertNull( \BuddyNext\Core\PermissionService::get_role_map()['buddynext-spaces/create'] );
+		ob_start();
+		$settings->render_space_creation_row();
+		$html = (string) ob_get_clean();
+		$this->assertStringContainsString( 'tab=roles', $html );
 	}
 }

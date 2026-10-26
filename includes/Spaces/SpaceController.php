@@ -1367,9 +1367,8 @@ class SpaceController extends BaseRestController {
 	/**
 	 * Permission gate for space creation.
 	 *
-	 * Enforces the Settings → Spaces → "Who can create spaces" setting
-	 * (buddynext_space_creation_role): 'member' = any logged-in user, 'admin' =
-	 * site administrators only. Defaults to 'member'.
+	 * Enforces the buddynext-spaces/create rule set under Members > Roles &
+	 * Capabilities (any member by default).
 	 *
 	 * @return true|WP_Error
 	 */
@@ -1379,10 +1378,7 @@ class SpaceController extends BaseRestController {
 			return $auth;
 		}
 
-		// Single source of truth: the role map (Roles & Capabilities tab). The
-		// legacy buddynext_space_creation_role option is folded into the map in
-		// PermissionService::get_role_map(), so an existing "admins only" setting
-		// is preserved while the Roles tab toggle now actually governs creation.
+		// Single source of truth: the role map (Roles & Capabilities tab).
 		return $this->require_cap( 'buddynext-spaces/create' );
 	}
 

@@ -76,7 +76,7 @@ Space behavior is configured under **BuddyNext > Spaces > Settings**. These cont
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Who can create spaces | Restricts space creation to any member or to admins only. Admins-only prevents members from creating unmoderated spaces. | Any member |
+| Who can create spaces | Set under **Members > Roles & Capabilities** (the **Create spaces** row). Admins-only prevents members from creating unmoderated spaces. | Any member |
 | Max spaces per member | Maximum number of spaces one member can create. Untick the box for no limit. Admins are exempt. | 0 (no limit) |
 | Allow sub-spaces | Lets space owners create spaces nested inside their own. Turn off to keep every space top-level. | On |
 | Max sub-spaces per space | Maximum number of sub-spaces an owner can create inside their space. Untick the box for no limit. | 0 (no limit) |

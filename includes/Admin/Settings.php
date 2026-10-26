@@ -1292,6 +1292,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * Point "Who can create spaces" at Members > Roles & Capabilities, which owns it.
+	 *
+	 * @return void
+	 */
+	public function render_space_creation_row(): void {
+		?>
+		<div class="bn-field">
+			<span class="bn-tl-title"><?php esc_html_e( 'Who can create spaces', 'buddynext' ); ?></span>
+			<span class="bn-tl-desc"><?php esc_html_e( 'Set under Members > Roles & Capabilities.', 'buddynext' ); ?></span>
+			<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'roles' ) ); ?>"><?php esc_html_e( 'Change in Roles & Capabilities', 'buddynext' ); ?></a>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render the reaction-palette control (bespoke composite, wired to the
 	 * buddynext_enabled_reactions array option). Extracted from the former
 	 * render_tab_social() so it can be a `custom` field in fields_social().
@@ -1349,19 +1364,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
-							'key'            => 'buddynext_space_creation_role',
-							'type'           => 'select',
-							'label'          => __( 'Who can create spaces', 'buddynext' ),
-							'default'        => 'member',
-							// Shows the rule that is enforced, which Members > Roles & Capabilities
-							// can also change, not only the value last saved here.
-							'value_callback' => static fn() => \BuddyNext\Core\PermissionService::space_creation_choice(),
-							'choices'        => array(
-								'member'    => __( 'Any member', 'buddynext' ),
-								'moderator' => __( 'Moderators & up', 'buddynext' ),
-								'admin'     => __( 'Admins only', 'buddynext' ),
-							),
-							'hint'           => __( 'Restricting to admins prevents members from creating unmoderated spaces. Also set under Members > Roles & Capabilities.', 'buddynext' ),
+							// One rule, one place: Members > Roles & Capabilities owns it (card 10441139540).
+							'key'             => 'buddynext_space_creation_managed',
+							'type'            => 'custom',
+							'render_callback' => array( $this, 'render_space_creation_row' ),
 						)
 					),
 					new Field(

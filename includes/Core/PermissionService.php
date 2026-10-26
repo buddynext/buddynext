@@ -179,39 +179,13 @@ class PermissionService {
 	}
 
 	/**
-	 * The Spaces tab's "Who can create spaces" choice for the rule in force.
-	 *
-	 * The tab offers member / moderator / admin; anything stricter (an admin row,
-	 * or Off from Roles & Capabilities) reads as admin.
-	 *
-	 * @return string member|moderator|admin
-	 */
-	public static function space_creation_choice(): string {
-		$map = self::build_role_map();
-		// Not ??: a null rule is Off, which must read as admin, not as the member default.
-		$rule = array_key_exists( 'buddynext-spaces/create', $map ) ? $map['buddynext-spaces/create'] : 'member';
-		return in_array( $rule, array( 'member', 'moderator' ), true ) ? (string) $rule : 'admin';
-	}
-
-	/**
 	 * Build the role map fresh, bypassing the memo. The Roles & Capabilities tab
 	 * uses it to preview what "Restore defaults" would produce.
 	 *
 	 * @return array<string, string|null>
 	 */
 	public static function build_role_map(): array {
-		$map = self::ROLE_MAP;
-
-		// Fold the legacy Spaces-tab "who can create spaces" option into the
-		// role map so it composes with the Roles & Capabilities tab instead of
-		// fighting it. An existing "admins only" choice is preserved; the
-		// default ('member') leaves the map default untouched.
-		$creation_role = (string) get_option( 'buddynext_space_creation_role', 'member' );
-		if ( in_array( $creation_role, array( 'moderator', 'admin' ), true ) ) {
-			$map['buddynext-spaces/create'] = $creation_role;
-		}
-
-		return (array) apply_filters( 'buddynext_role_map', $map );
+		return (array) apply_filters( 'buddynext_role_map', self::ROLE_MAP );
 	}
 
 	/**

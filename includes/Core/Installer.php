@@ -462,8 +462,11 @@ class Installer {
 	 *      enforced; the full column stays indexed, so A-Z sort stays filesort-free.
 	 *  69: drop bn_search_index rows whose member, post or space no longer exists
 	 *      (card 10415529534). Data only; no table change.
+	 *  70: move the retired Spaces-tab "Who can create spaces" option into the
+	 *      Roles & Capabilities override for buddynext-spaces/create, then delete
+	 *      it (card 10441139540). Data only; no table change.
 	 */
-	private const SCHEMA_VERSION = 69;
+	private const SCHEMA_VERSION = 70;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1110,6 +1113,9 @@ class Installer {
 		// v10: converge the legacy Jetonomy feed-sync option into the unified
 		// per-integration key so the admin has a single control, not two.
 		self::maybe_migrate_jetonomy_feed_sync();
+
+		// v70: "Who can create spaces" lives only under Roles & Capabilities now.
+		self::maybe_migrate_space_creation_role();
 
 		// v11: migrate the per-space settings from autoloaded bn_space_{id}_* options
 		// into bn_space_meta (the canonical field store). Runs after the field
@@ -2254,6 +2260,29 @@ class Installer {
 			update_option( 'buddynext_integration_jetonomy_feed', '0', false );
 		}
 		delete_option( 'buddynext_jetonomy_feed_sync' );
+	}
+
+	/**
+	 * Move the retired Spaces-tab "Who can create spaces" option into the role map.
+	 *
+	 * A stored moderator/admin choice becomes the Roles & Capabilities override for
+	 * buddynext-spaces/create unless the owner already set one there (that row was
+	 * the rule in force). 'member' was the map default, so it needs no row.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_space_creation_role(): void {
+		$legacy = get_option( 'buddynext_space_creation_role', null );
+		if ( null === $legacy ) {
+			return;
+		}
+		$overrides = get_option( 'bn_role_map_overrides', array() );
+		$overrides = is_array( $overrides ) ? $overrides : array();
+		if ( in_array( $legacy, array( 'moderator', 'admin' ), true ) && ! array_key_exists( 'buddynext-spaces/create', $overrides ) ) {
+			$overrides['buddynext-spaces/create'] = $legacy;
+			update_option( 'bn_role_map_overrides', $overrides, false );
+		}
+		delete_option( 'buddynext_space_creation_role' );
 	}
 
 	/**
