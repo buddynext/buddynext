@@ -123,8 +123,10 @@ class AppearanceTab {
 						<p class="bn-av-section-desc">
 							<?php
 							/* translators: %s: active theme name. */
-							echo esc_html( sprintf( __( 'Your theme (%s) sets light or dark mode for the whole site, so its own Color mode setting wins over this one. Change it under Appearance > Customize.', 'buddynext' ), wp_get_theme()->get( 'Name' ) ) );
+							echo esc_html( sprintf( __( 'Your theme (%s) sets light or dark mode for the whole site, so its own color mode setting wins over this one.', 'buddynext' ), wp_get_theme()->get( 'Name' ) ) );
 							?>
+							<?php // BuddyX and Reign both register the control as site_color_mode, in different sections. ?>
+							<a href="<?php echo esc_url( admin_url( 'customize.php?autofocus[control]=site_color_mode' ) ); ?>"><?php esc_html_e( 'Change it in the Customizer', 'buddynext' ); ?></a>
 						</p>
 					<?php endif; ?>
 					<?php // The section heading is a <span>, not a label, so this select had no name. ?>
