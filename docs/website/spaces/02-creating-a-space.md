@@ -116,7 +116,7 @@ By default a space opens on its Feed. You can change the starting tab - the tab 
 
 **Site owner (all spaces).** A space opens on the first tab in your **Settings > Navigation > Space Tabs** order that the visitor can see. Move **About** to the top of that list and every space opens on About; the tab bar and the landing tab always agree. There is no separate switch - the Navigation order is the site-wide default.
 
-**Space owner (one space).** In a space's **Settings > General**, the **"Space opens on"** control lets the owner pick a different starting tab for that space alone - Feed, About, Sub-spaces or Media. Leave it on **Site default** to follow the site-wide order. Links to a specific tab or post (for example a shared `/spaces/{slug}/members/` URL or a post permalink) are never affected.
+**Space owner (one space).** In a space's **Settings > General**, the **"Space opens on"** control lets the owner pick a different starting tab for that space alone. The choices are the tabs that space has turned on, including tabs added by add-ons. Leave it on **Site default** to follow the site-wide order. Links to a specific tab or post (for example a shared `/spaces/{slug}/members/` URL or a post permalink) are never affected.
 
 A non-member who opens a private space always lands on **About** - its description, rules and the Join button - rather than a locked Feed.
 

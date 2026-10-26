@@ -40,7 +40,7 @@ Use the Add Member Type form (the same form edits an existing type). The fields 
 | Sort order | Controls the order types appear in; lower numbers appear first | 0 |
 | Icon | An optional small icon for the type, shown alongside the badge | Empty |
 | Show as directory filter tab | When on, this type appears in the member directory's type filter | On |
-| Allow members to self-assign | When on, members can pick this type for themselves on their profile edit page | Off |
+| Let members choose this type for themselves | When on, members can pick this type for themselves on their profile edit page | Off |
 
 Web address, Text color, Sort order, and Icon live under the Advanced section of the form.
 

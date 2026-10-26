@@ -323,7 +323,7 @@ class MemberTypesManager {
 					),
 					array(
 						'name'    => 'self_select',
-						'label'   => __( 'Allow members to self-assign', 'buddynext' ),
+						'label'   => __( 'Let members choose this type for themselves', 'buddynext' ),
 						'default' => false,
 					),
 				),
