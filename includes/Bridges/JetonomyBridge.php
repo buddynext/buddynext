@@ -107,7 +107,7 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Suppress BuddyNext notifications raised by a mirror write.
+	 * Suppress BuddyNext and Jetonomy notifications raised by a mirror write.
 	 *
 	 * @param bool $should Whether to send.
 	 * @return bool
@@ -239,6 +239,9 @@ class JetonomyBridge {
 		// one notification, so a forum reply is one Jetonomy row and a card comment
 		// one BuddyNext row, never both (card 10344414409, decision 10062150983).
 		add_filter( 'buddynext_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
+		// Same rule on Jetonomy's side: the mirrored reply fires Jetonomy's own listeners,
+		// so its bell row, email and mention notices are muted for the write too.
+		add_filter( 'jetonomy_notification_should_send', array( $this, 'mute_mirror_notifications' ) );
 		// A forum reply's comment on the card follows the reply in and out of
 		// publish: create, approve, restore, trash, purge (card 10344390418).
 		add_action( 'jetonomy_reply_publish_transition', array( $this, 'sync_reply_mirror' ), 10, 3 );

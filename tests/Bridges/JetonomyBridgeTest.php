@@ -807,6 +807,21 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertStringNotContainsString( 'bn_provision_forum', (string) $url );
 	}
 
+	public function test_a_mirror_write_mutes_jetonomy_notifications_too(): void {
+		$mirror = new \ReflectionMethod( JetonomyBridge::class, 'mirror' );
+		$during = null;
+		$mirror->invoke(
+			null,
+			static function () use ( &$during ) {
+				$during = apply_filters( 'jetonomy_notification_should_send', true );
+			}
+		);
+
+		// The member acted on the card, so BuddyNext's notice is the one; Jetonomy's reply mail is the duplicate.
+		$this->assertFalse( $during );
+		$this->assertTrue( apply_filters( 'jetonomy_notification_should_send', true ), 'a member\'s own forum reply still notifies' );
+	}
+
 	public function test_register_hook_is_idempotent(): void {
 		global $wpdb;
 
