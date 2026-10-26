@@ -1891,10 +1891,12 @@ class SearchService {
 	/**
 	 * The member whose handle (user_nicename) is exactly the typed query, or 0.
 	 *
+	 * No visibility check: callers only use it to ORDER rows they already filtered.
+	 *
 	 * @param string $query Raw search text; a leading @ is ignored.
 	 * @return int
 	 */
-	private function handle_user_id( string $query ): int {
+	public function handle_user_id( string $query ): int {
 		$handle = sanitize_title( ltrim( trim( $query ), '@' ) );
 		$user   = '' === $handle ? false : get_user_by( 'slug', $handle );
 		return $user ? (int) $user->ID : 0;

@@ -442,6 +442,7 @@ class MemberDirectoryService {
 			$where_clauses[] = $wpdb->prepare( $block_sql, ...$block_prepare_params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		}
 
+		$pin_id = 0;
 		if ( '' !== $search ) {
 			// Route through the shared FULLTEXT bn_search_index engine (the same
 			// SearchService::match_member_ids() primitive the SSR directory, unified
@@ -459,6 +460,7 @@ class MemberDirectoryService {
 				$where_clauses[] = '1 = 0';
 			} else {
 				$where_clauses[] = 'u.ID IN ( ' . implode( ',', array_map( 'intval', $match_ids ) ) . ' )';
+				$pin_id          = $this->pinned_handle_id( $search, $match_ids );
 			}
 		}
 
@@ -486,6 +488,12 @@ class MemberDirectoryService {
 		// the client pages deeper. Same filter set + cap as the page query, no cursor.
 		$count_clauses = $where_clauses;
 		$count_params  = $params;
+
+		// The exact-handle member is pinned to row 1 of page 1 (see ORDER BY below),
+		// so every later page leaves them out of the keyset instead of repeating them.
+		if ( $pin_id > 0 && null !== $cursor_data ) {
+			$where_clauses[] = 'u.ID <> ' . (int) $pin_id;
+		}
 
 		// ------------------------------------------------------------------ //
 		// Cursor WHERE — per-sort composite keyset.
@@ -607,6 +615,9 @@ class MemberDirectoryService {
 			$query_args
 		);
 		$order_sql = '' !== trim( $order_by ) ? 'ORDER BY ' . $order_by : $order_sql;
+		if ( $pin_id > 0 && null === $cursor_data ) {
+			$order_sql = 'ORDER BY u.ID = ' . (int) $pin_id . ' DESC, ' . (string) preg_replace( '/^ORDER BY /', '', $order_sql );
+		}
 
 		$params[] = $per_page + 1;
 
@@ -812,7 +823,9 @@ class MemberDirectoryService {
 
 		$next_cursor = null;
 		if ( $has_more && ! empty( $rows ) ) {
-			$last        = end( $rows );
+			$last = end( $rows );
+			// shortcut: a page holding only the pinned member (per_page 1) keys the next
+			// page on that member's sort position; no UI asks for one row per page.
 			$next_cursor = $this->encode_cursor( $last, $sort );
 		}
 
@@ -1101,6 +1114,21 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * The member to pin first for a search typed as an exact handle, or 0.
+	 *
+	 * Only a member already in the filtered match set qualifies, so the pin changes
+	 * order and never who is shown: blocked or suspended members stay out.
+	 *
+	 * @param string $search    Search text.
+	 * @param int[]  $match_ids Members the search matched.
+	 * @return int
+	 */
+	private function pinned_handle_id( string $search, array $match_ids ): int {
+		$handle_id = buddynext_service( 'search' )->handle_user_id( $search );
+		return $handle_id > 0 && in_array( $handle_id, array_map( 'intval', $match_ids ), true ) ? $handle_id : 0;
+	}
+
+	/**
 	 * Turn a directory request into the query the server-rendered page runs.
 	 *
 	 * One place for it, because two callers need the same answer: the directory
@@ -1150,6 +1178,8 @@ class MemberDirectoryService {
 			if ( empty( $search_ids ) ) {
 				$search_ids = array( 0 );
 			}
+			// Read by ssr_page_user_ids(); it orders the page and is not a WP_User_Query arg.
+			$query_args['bn_pin_id'] = $this->pinned_handle_id( $search, $search_ids );
 		}
 
 		// Following / Connections only mean something when logged in. Approved
@@ -1226,8 +1256,19 @@ class MemberDirectoryService {
 			return $cached;
 		}
 
+		$pin_id = (int) ( $query_args['bn_pin_id'] ?? 0 );
+		unset( $query_args['bn_pin_id'] );
+
 		$callback = $this->pre_user_query_callback( $viewer_id, $filter_args );
+		// Exact-handle member first, then the chosen sort (offset paging keeps pages consistent).
+		$pin_callback = static function ( $query ) use ( $pin_id ): void {
+			global $wpdb;
+			$query->query_orderby = 'ORDER BY ' . $wpdb->users . '.ID = ' . $pin_id . ' DESC, ' . (string) preg_replace( '/^\s*ORDER BY /', '', (string) $query->query_orderby );
+		};
 		add_action( 'pre_user_query', $callback );
+		if ( $pin_id > 0 ) {
+			add_action( 'pre_user_query', $pin_callback );
+		}
 		$query = new \WP_User_Query(
 			array_merge(
 				$query_args,
@@ -1238,6 +1279,7 @@ class MemberDirectoryService {
 			)
 		);
 		remove_action( 'pre_user_query', $callback );
+		remove_action( 'pre_user_query', $pin_callback );
 
 		$ids = array_map( 'intval', (array) $query->get_results() );
 		wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
