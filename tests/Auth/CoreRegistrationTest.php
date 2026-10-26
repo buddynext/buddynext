@@ -263,8 +263,53 @@ class CoreRegistrationTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'no Terms page is set', $html );
 		$this->assertStringNotContainsString( 'tab=registration', $html, 'Must not link back to the screen it is rendered on.' );
 
-		// Resolved once a page is chosen.
-		update_option( 'buddynext_terms_page_id', 99 );
+		// A chosen page that is only a draft is still a gap: visitors cannot open it.
+		$page = self::factory()->post->create( array( 'post_type' => 'page', 'post_status' => 'draft' ) );
+		update_option( 'buddynext_terms_page_id', $page );
+		$this->assertTrue( CoreRegistration::has_terms_gap() );
+		ob_start();
+		CoreRegistration::render_terms_inline();
+		$this->assertStringContainsString( 'Terms page is not published', (string) ob_get_clean() );
+
+		// Resolved once the page is published.
+		wp_publish_post( $page );
 		$this->assertFalse( CoreRegistration::has_terms_gap() );
+	}
+
+	/**
+	 * The global notices stand down on the Registration tab, which shows them inline.
+	 *
+	 * @return void
+	 */
+	public function test_global_notices_are_not_repeated_on_the_registration_tab(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		update_option( 'buddynext_require_terms', true );
+		update_option( 'buddynext_terms_page_id', 0 );
+		update_option( 'buddynext_reg_mode', 'invite' );
+		update_option( 'users_can_register', '0' );
+
+		$render = static function (): string {
+			ob_start();
+			$registration = new CoreRegistration();
+			$registration->render_terms_notice();
+			$registration->render_desync_notice();
+			return (string) ob_get_clean();
+		};
+
+		$_GET['page'] = 'buddynext-members';
+		$this->assertStringContainsString( 'no Terms page is set', $render(), 'Other Members tabs keep the global notice.' );
+
+		$_GET['tab'] = 'registration';
+		$this->assertSame( '', $render() );
+
+		// The inline copies on that tab are the ones that remain.
+		ob_start();
+		CoreRegistration::render_terms_inline();
+		CoreRegistration::render_desync_inline();
+		$inline = (string) ob_get_clean();
+		$this->assertStringContainsString( 'no Terms page is set', $inline );
+		$this->assertNotSame( '', trim( wp_strip_all_tags( str_replace( 'no Terms page is set', '', $inline ) ) ) );
+
+		unset( $_GET['page'], $_GET['tab'] );
 	}
 }

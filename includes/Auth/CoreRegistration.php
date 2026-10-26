@@ -98,7 +98,31 @@ class CoreRegistration {
 			return false;
 		}
 
-		return (int) get_option( 'buddynext_terms_page_id', 0 ) < 1;
+		// Unreadable counts too: RegistrationPolicy drops the gate for a draft, private,
+		// trashed or password-protected page, so the owner must hear about it the same way.
+		return '' === RegistrationPolicy::legal_page_url( (int) get_option( 'buddynext_terms_page_id', 0 ) );
+	}
+
+	/**
+	 * Whether this request is the Members > Registration tab.
+	 *
+	 * That tab shows the terms and desync warnings inline beside their settings, so the
+	 * global notices stand down there instead of repeating them.
+	 *
+	 * @return bool
+	 */
+	private static function on_registration_tab(): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen check.
+		return 'buddynext-members' === sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) && 'registration' === sanitize_key( wp_unslash( $_GET['tab'] ?? '' ) );
+	}
+
+	/**
+	 * Whether the terms gap is a chosen page that cannot be read (vs no page at all).
+	 *
+	 * @return bool
+	 */
+	private static function terms_page_unreadable(): bool {
+		return (int) get_option( 'buddynext_terms_page_id', 0 ) > 0;
 	}
 
 	/**
@@ -121,8 +145,13 @@ class CoreRegistration {
 		<div class="bn-alert">
 			<span class="bn-alert__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
 			<div class="bn-alert__body">
-				<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but no Terms page is set', 'buddynext' ); ?></p>
-				<p class="bn-alert__text"><?php esc_html_e( 'Members would agree to a document that does not exist, so consent is not being collected. Choose a Terms page below, or switch this off.', 'buddynext' ); ?></p>
+				<?php if ( self::terms_page_unreadable() ) : ?>
+					<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but your Terms page is not published', 'buddynext' ); ?></p>
+					<p class="bn-alert__text"><?php esc_html_e( 'The page is a draft, private, password-protected or in the trash, so visitors cannot open it and consent is not being collected. Publish it, choose another page below, or switch this off.', 'buddynext' ); ?></p>
+				<?php else : ?>
+					<p class="bn-alert__title"><?php esc_html_e( 'Consent is on, but no Terms page is set', 'buddynext' ); ?></p>
+					<p class="bn-alert__text"><?php esc_html_e( 'Members would agree to a document that does not exist, so consent is not being collected. Choose a Terms page below, or switch this off.', 'buddynext' ); ?></p>
+				<?php endif; ?>
 			</div>
 		</div>
 		<?php
@@ -131,13 +160,13 @@ class CoreRegistration {
 	/**
 	 * The consent warning as a global admin notice.
 	 *
-	 * Suppressed on BuddyNext's own screens by AdminHub, which is why
-	 * {@see self::render_terms_inline()} exists for the panel that owns the setting.
+	 * Skipped on the Registration tab, where {@see self::render_terms_inline()} shows it
+	 * beside the setting.
 	 *
 	 * @return void
 	 */
 	public function render_terms_notice(): void {
-		if ( ! current_user_can( 'manage_options' ) || ! self::has_terms_gap() ) {
+		if ( ! current_user_can( 'manage_options' ) || self::on_registration_tab() || ! self::has_terms_gap() ) {
 			return;
 		}
 		?>
@@ -150,8 +179,13 @@ class CoreRegistration {
 		?>
 		<div class="notice notice-warning is-dismissible">
 			<p>
-				<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
-				<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
+				<?php if ( self::terms_page_unreadable() ) : ?>
+					<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but your Terms page is not published.', 'buddynext' ); ?></strong>
+					<?php esc_html_e( 'Visitors cannot open it, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
+				<?php else : ?>
+					<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
+					<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
+				<?php endif; ?>
 			</p>
 			<p>
 				<a href="<?php echo esc_url( $bn_terms_url ); ?>" class="button button-primary">
@@ -277,7 +311,7 @@ class CoreRegistration {
 	 * @return void
 	 */
 	public function render_desync_notice(): void {
-		$state = current_user_can( 'manage_options' ) ? self::desync_state() : null;
+		$state = current_user_can( 'manage_options' ) && ! self::on_registration_tab() ? self::desync_state() : null;
 		if ( null === $state ) {
 			return;
 		}
@@ -308,16 +342,8 @@ class CoreRegistration {
 	/**
 	 * The same desync warning, rendered INSIDE the Registration panel.
 	 *
-	 * AdminHub clears `admin_notices` on every BuddyNext screen so third-party
-	 * setup nags do not crowd the settings UI — deliberate, and staying. But
-	 * `remove_all_actions()` cannot tell a foreign nag from one of ours, so this
-	 * warning vanished on the one screen where the owner is configuring the very
-	 * setting it is about. The Setup Checklist even links them here, so the
-	 * guidance disappeared at the moment they acted on it.
-	 *
-	 * Rendering it inline fixes that without touching the suppression: the warning
-	 * sits beside the control it concerns, which is better than a global banner
-	 * anyway.
+	 * The warning sits beside the control it concerns, which is better than a
+	 * global banner; the global notice stands down on this tab so it is not shown twice.
 	 *
 	 * @since 1.1.0
 	 *
