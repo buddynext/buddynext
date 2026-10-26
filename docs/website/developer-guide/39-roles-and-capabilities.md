@@ -65,7 +65,7 @@ There are **three** lists in code and they are not the same list. Know which one
 
 Enforcement is the list that matters for `buddynext_can()`. The other two only decide whether an owner gets a control for it.
 
-The role map holds 29 generic capabilities:
+The role map holds 28 generic capabilities:
 
 | Capability | Default required role |
 |------------|----------------------|
