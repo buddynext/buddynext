@@ -3630,6 +3630,12 @@ class ModerationService {
 			if ( ! empty( $audit['note'] ) ) {
 				$context['note'] = (string) $audit['note'];
 			}
+			// The member the decision is about: the author of the reported content, so the log
+			// can answer "what was done about Alex" (the report row itself names no member).
+			$target_user = $this->report_target_author( (string) $target['object_type'], (int) $target['object_id'] );
+			if ( $target_user > 0 ) {
+				$context['target_user_id'] = $target_user;
+			}
 			( new ModerationLogService() )->log(
 				$recorded_actor,
 				(string) ( $audit['action'] ?? ( $default_slug[ $status ] ?? $status ) ),

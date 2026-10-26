@@ -222,6 +222,38 @@ class ReportSystemActorTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A report decision records the member it is about, not just the report id.
+	 *
+	 * @return void
+	 */
+	public function test_report_decision_logs_the_target_member(): void {
+		global $wpdb;
+
+		$member = self::factory()->user->create();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_reports',
+			array(
+				'object_type' => 'user',
+				'object_id'   => $member,
+				'reporter_id' => self::factory()->user->create(),
+				'reason'      => 'spam',
+				'status'      => 'pending',
+				'created_at'  => current_time( 'mysql', true ),
+			)
+		);
+		$report = (int) $wpdb->insert_id;
+
+		$this->assertTrue( $this->service->dismiss( $report, $this->admin ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$target = $wpdb->get_var(
+			$wpdb->prepare( "SELECT target_user_id FROM {$wpdb->prefix}bn_mod_log WHERE object_type = 'report' AND object_id = %d", $report )
+		);
+		$this->assertSame( $member, (int) $target );
+	}
+
+	/**
 	 * Re-actioning an already-actioned report returns already_resolved rather than
 	 * true — the signal the AI sweep guards log_ai() on so a re-swept, already
 	 * 'escalated' report writes no duplicate audit row every cadence.
