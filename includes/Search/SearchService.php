@@ -859,12 +859,18 @@ class SearchService {
 		$offset     = ( $page - 1 ) * $per_page;
 		$safe_query = sanitize_text_field( $query );
 
+		// BOOLEAN MODE reads - + < > ( ) ~ " @ * as operators, so a handle like alex-rivera meant
+		// "alex but not rivera". Match on the words only; the same words feed the exact-name boost.
+		$boolean_query = self::boolean_term( $safe_query );
+		$boost_plain   = rtrim( $boolean_query, '*' );
+		$handle_id     = in_array( $type, array( 'user', 'member' ), true ) ? $this->handle_user_id( $safe_query ) : 0;
+
 		// A query shorter than the FULLTEXT minimum token size can never match in
 		// BOOLEAN MODE, so short queries returned nothing. Detect them and route to
 		// the LIKE path (substring), which matches a 1-2 char term. Normal-length
 		// queries still use FULLTEXT as the primary path.
 		$min_token    = $this->fulltext_min_token();
-		$is_short     = mb_strlen( $safe_query ) < $min_token;
+		$is_short     = mb_strlen( $safe_query ) < $min_token || '' === $boolean_query;
 		$use_fulltext = $this->has_fulltext_index() && ! $is_short;
 
 		// The `media` pseudo-type is posts that carry attachments. It reuses the
@@ -1184,7 +1190,7 @@ class SearchService {
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 			$search_condition = $wpdb->prepare(
 				'MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)',
-				$safe_query . '*'
+				$boolean_query
 			);
 
 			// Members-tier profile values live in their own column with their own FULLTEXT index,
@@ -1197,8 +1203,15 @@ class SearchService {
 			if ( $viewer_id > 0 ) {
 				$search_condition = '( ' . $search_condition . ' OR ' . $wpdb->prepare(
 					'MATCH(si.content_members) AGAINST(%s IN BOOLEAN MODE)',
-					$safe_query . '*'
+					$boolean_query
 				) . ' )';
+			}
+
+			// A member typed by their exact handle is found even when the handle is not in the name.
+			// It is one more row of the same index, so visibility, blocks and suspensions still apply.
+			$handle_match = $handle_id > 0 ? "( si.object_type = 'user' AND si.object_id = " . $handle_id . ' )' : '';
+			if ( '' !== $handle_match ) {
+				$search_condition = '( ' . $search_condition . ' OR ' . $handle_match . ' )';
 			}
 
 			// Exact/prefix name boost: FULLTEXT BOOLEAN MODE ranks title + content
@@ -1207,17 +1220,20 @@ class SearchService {
 			// fragment (same safe-to-embed pattern as $search_condition) sorts an
 			// exact title/content match first (0), then a prefix match (1), then the
 			// rest (2) — so searching a member's name puts that member at the top.
-			$boost_like = $wpdb->esc_like( $safe_query );
+			$boost_like = $wpdb->esc_like( $boost_plain );
 			$name_boost = $wpdb->prepare(
 				'(CASE WHEN si.title = %s OR si.content = %s THEN 0'
 				. ' WHEN si.title LIKE %s OR si.content LIKE %s THEN 1 ELSE 2 END)',
-				$safe_query,
-				$safe_query,
+				$boost_plain,
+				$boost_plain,
 				$boost_like . '%',
 				$boost_like . '%'
 			);
 			// si.id last: rows that tie on every other key (bulk-imported members
 			// share updated_at) need a fixed order, or OFFSET pages repeat rows.
+			if ( '' !== $handle_match ) {
+				$name_boost = '(CASE WHEN ' . $handle_match . ' THEN -1 ELSE ' . $name_boost . ' END)';
+			}
 			$order_clause = $sort_recent
 				? $date_col . ' DESC, si.id DESC'
 				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC, si.id DESC';
@@ -1271,7 +1287,7 @@ class SearchService {
 					   {$space_where}
 					 ORDER BY {$order_clause}
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
+					...array_merge( array( $boolean_query ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
 				ARRAY_A
 			);
@@ -1287,6 +1303,8 @@ class SearchService {
 		$fuzzy = $use_fulltext && 0 === $total && $this->fuzzy_is_affordable( $safe_query );
 		if ( ! $use_fulltext || $fuzzy ) {
 			$like = '%' . $wpdb->esc_like( $safe_query ) . '%';
+			// The spoken form too (alex-rivera also finds "Alex Rivera"), and a member typed by handle.
+			$like_plain = '%' . $wpdb->esc_like( '' !== $boost_plain ? $boost_plain : $safe_query ) . '%';
 
 			if ( $fuzzy ) {
 				// SOUNDEX on si.CONTENT is gone, and not only because it is slow.
@@ -1297,11 +1315,14 @@ class SearchService {
 				// a non-sargable full scan of bn_search_index computing an answer that was also
 				// wrong. Phonetic matching only makes sense on a short field, so it stays on
 				// the title.
-				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) )';
-				$like_params = array( $like, $like, $safe_query );
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) )';
+				$like_params = array( $like, $like, $like_plain, $like_plain, $safe_query );
 			} else {
-				$like_match  = '( si.title LIKE %s OR si.content LIKE %s )';
-				$like_params = array( $like, $like );
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR si.title LIKE %s OR si.content LIKE %s )';
+				$like_params = array( $like, $like, $like_plain, $like_plain );
+			}
+			if ( $handle_id > 0 ) {
+				$like_match = '( ' . $like_match . " OR ( si.object_type = 'user' AND si.object_id = " . $handle_id . ' ) )';
 			}
 
 			// The members tier, on the fallback path too — and ONLY for a logged-in viewer. The
@@ -1508,14 +1529,17 @@ class SearchService {
 		// BOOLEAN MODE even with the wildcard, so short terms route to the LIKE
 		// path — the same seam and the same reason as search() (:462-464). Without
 		// this the directory still disagreed with Explore on 1-2 character terms.
+		$boolean_term = self::boolean_term( $term );
+		$handle_id    = $this->handle_user_id( $term );
 		$use_fulltext = $this->has_fulltext_index()
+			&& '' !== $boolean_term
 			&& mb_strlen( $term ) >= $this->fulltext_min_token();
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( $use_fulltext ) {
 			$public_match = $wpdb->prepare(
 				'MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)',
-				$term . '*'
+				$boolean_term
 			);
 
 			$where_match = $public_match;
@@ -1525,8 +1549,15 @@ class SearchService {
 				// column here — same shape as search().
 				$where_match = '( ' . $public_match . ' OR ' . $wpdb->prepare(
 					'MATCH(content_members) AGAINST(%s IN BOOLEAN MODE)',
-					$term . '*'
+					$boolean_term
 				) . ' )';
+			}
+
+			// An exact handle is one more row of the same index (see search()); it sorts first.
+			$handle_first = '';
+			if ( $handle_id > 0 ) {
+				$where_match  = '( ' . $where_match . ' OR ( object_type = \'user\' AND object_id = ' . $handle_id . ' ) )';
+				$handle_first = '( object_id = ' . $handle_id . ' ) DESC, ';
 			}
 
 			$rows = $wpdb->get_col(
@@ -1535,36 +1566,29 @@ class SearchService {
 					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
 					 WHERE object_type IN ('user','member')
 					   AND {$where_match}
-					 ORDER BY {$public_match} DESC
+					 ORDER BY {$handle_first}{$public_match} DESC
 					 LIMIT %d",
-					$limit
-				)
-			);
-		} elseif ( $viewer_id > 0 ) {
-			// Members-tier values are searchable on this path too, for the same
-			// logged-in-only reason as the FULLTEXT branch above.
-			$like = '%' . $wpdb->esc_like( $term ) . '%';
-			$rows = $wpdb->get_col(
-				$wpdb->prepare(
-					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
-					 WHERE object_type IN ('user','member')
-					   AND ( title LIKE %s OR content LIKE %s OR content_members LIKE %s )
-					 LIMIT %d",
-					$like,
-					$like,
-					$like,
 					$limit
 				)
 			);
 		} else {
-			$like = '%' . $wpdb->esc_like( $term ) . '%';
-			$rows = $wpdb->get_col(
+			// The spoken form too (alex-rivera also finds "Alex Rivera"), and a member typed by handle.
+			$like       = '%' . $wpdb->esc_like( $term ) . '%';
+			$like_plain = '%' . $wpdb->esc_like( '' !== $boolean_term ? rtrim( $boolean_term, '*' ) : $term ) . '%';
+			$handle_sql = $handle_id > 0 ? ' OR object_id = ' . $handle_id : '';
+			// Members-tier values are searchable on this path too, for the same
+			// logged-in-only reason as the FULLTEXT branch above.
+			$members_sql = $viewer_id > 0 ? $wpdb->prepare( ' OR content_members LIKE %s', $like ) : '';
+			$rows        = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
-					 WHERE object_type IN ('user','member') AND ( title LIKE %s OR content LIKE %s )
+					 WHERE object_type IN ('user','member')
+					   AND ( title LIKE %s OR content LIKE %s OR title LIKE %s OR content LIKE %s{$handle_sql}{$members_sql} )
 					 LIMIT %d",
 					$like,
 					$like,
+					$like_plain,
+					$like_plain,
 					$limit
 				)
 			);
@@ -1848,6 +1872,32 @@ class SearchService {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * The FULLTEXT BOOLEAN MODE term for a typed query: its words, the last one a prefix.
+	 *
+	 * Every other character is a separator, so the operators - + < > ( ) ~ " @ * can never
+	 * change the meaning of a search (a handle such as alex-rivera is two words).
+	 *
+	 * @param string $query Sanitised search text.
+	 * @return string The term, or '' when the query holds no word.
+	 */
+	private static function boolean_term( string $query ): string {
+		$words = preg_split( "/[^\p{L}\p{N}_']+/u", $query, -1, PREG_SPLIT_NO_EMPTY );
+		return $words ? implode( ' ', $words ) . '*' : '';
+	}
+
+	/**
+	 * The member whose handle (user_nicename) is exactly the typed query, or 0.
+	 *
+	 * @param string $query Raw search text; a leading @ is ignored.
+	 * @return int
+	 */
+	private function handle_user_id( string $query ): int {
+		$handle = sanitize_title( ltrim( trim( $query ), '@' ) );
+		$user   = '' === $handle ? false : get_user_by( 'slug', $handle );
+		return $user ? (int) $user->ID : 0;
 	}
 
 	/**
