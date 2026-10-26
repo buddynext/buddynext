@@ -885,8 +885,11 @@ class Members extends AdminPageBase {
 			}
 		}
 
-		$new_email = isset( $_POST['bn_user_email'] ) ? sanitize_email( wp_unslash( $_POST['bn_user_email'] ) ) : '';
-		if ( '' !== $new_email && $new_email !== $wp_user->user_email ) {
+		// Judged on what was typed: sanitize_email() turns a value with no "@" into '',
+		// which read as "left blank" and reported a save that never happened.
+		$raw_email = isset( $_POST['bn_user_email'] ) ? trim( (string) wp_unslash( $_POST['bn_user_email'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized on the next line.
+		$new_email = sanitize_email( $raw_email );
+		if ( '' !== $raw_email && $new_email !== $wp_user->user_email ) {
 			if ( ! is_email( $new_email ) ) {
 				return 'email_invalid';
 			}
