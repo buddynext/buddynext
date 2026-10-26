@@ -862,9 +862,16 @@ class ToolsTab {
 
 		$out = array();
 		foreach ( (array) $names as $name ) {
-			if ( $this->is_exportable( (string) $name ) ) {
-				$out[ (string) $name ] = get_option( (string) $name );
+			if ( ! $this->is_exportable( (string) $name ) ) {
+				continue;
 			}
+			$value = get_option( (string) $name );
+			// A built-in asset saved as an absolute URL points at THIS site; the importing site
+			// falls back to its own copy instead of hot-linking this one.
+			if ( is_string( $value ) && str_starts_with( $value, BUDDYNEXT_URL ) ) {
+				continue;
+			}
+			$out[ (string) $name ] = $value;
 		}
 		return $out;
 	}

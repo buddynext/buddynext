@@ -52,6 +52,16 @@ class ToolsExportTest extends \WP_UnitTestCase {
 	 *
 	 * @return void
 	 */
+	public function test_a_built_in_asset_url_is_left_out_of_the_export(): void {
+		update_option( 'buddynext_auth_panel_image', BUDDYNEXT_URL . 'assets/images/auth-cover.svg' );
+		update_option( 'buddynext_auth_panel_quote', 'Hello' );
+
+		$out = $this->call( 'collect_options' );
+
+		$this->assertArrayNotHasKey( 'buddynext_auth_panel_image', $out );
+		$this->assertSame( 'Hello', $out['buddynext_auth_panel_quote'] );
+	}
+
 	public function test_import_rule_is_the_export_rule(): void {
 		$this->assertTrue( $this->call( 'is_exportable', array( 'buddynext_never_saved_here' ) ), 'a key this site never saved is still a setting' );
 		$this->assertFalse( $this->call( 'is_exportable', array( 'buddynext_schema_version' ) ) );
