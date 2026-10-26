@@ -378,8 +378,13 @@ class PermissionService {
 			if ( $space_level <= 0 ) {
 				return false;
 			}
-			// A member keeps their community rank inside every space they belong to, so
-			// the higher of the two roles meets the Roles tab's member/moderator/admin scale.
+			// Owner-scoped abilities (space settings, deleting the space) stay with the
+			// space's own team: no community rank reaches them.
+			if ( isset( self::FIXED_ABILITIES[ $capability ] ) ) {
+				return $space_level >= $req_level;
+			}
+			// On a Roles tab row a member keeps their community rank inside every space
+			// they belong to, so the higher of the two roles meets its member/moderator/admin scale.
 			$community_level = self::ROLE_HIERARCHY[ (string) get_user_meta( $user_id, 'bn_community_role', true ) ] ?? 1;
 			return max( $space_level, $community_level ) >= $req_level;
 		}

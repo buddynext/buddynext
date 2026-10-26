@@ -28,7 +28,7 @@ Defined in `buddynext.php`, it resolves the `permissions` service from the conta
 | Layer | Source | Effect |
 |-------|--------|--------|
 | 1. WP site admin | `manage_options` | Holders pass every check (`$result = true`). Logged-out visitors resolve to `false` before this layer. |
-| 2. Community / space role | `ROLE_MAP` + role hierarchy | The capability needs a minimum role; the user's community role must meet or exceed it. With a `space_id` in context the user must be an active member of that space, and the higher of their in-space role and their community role counts (a space owner ranks above Admin). |
+| 2. Community / space role | `ROLE_MAP` + role hierarchy | The capability needs a minimum role; the user's community role must meet or exceed it. With a `space_id` in context the user must be an active member of that space, and for the Roles tab rows (`spaces/post`, `spaces/moderate`) the higher of their in-space role and their community role counts (a space owner ranks above Admin). The owner-scoped `spaces/manage-settings` and `spaces/delete` use the in-space role alone. |
 | 3. Explicit ability grant | `bn_ability_{slug}` user meta | A per-user grant with an expiry (`0` = never, otherwise a unix timestamp). Checked only when the role check fails. |
 | 4. Developer filter | `buddynext_user_can` | Runs on every check and can flip the resolved result in either direction. Always the final word. |
 
@@ -192,7 +192,7 @@ update_user_meta(
 - **No custom roles to clean up.** Because BuddyNext registers no `WP_Role`, there is nothing to remove on deactivation and no capability bloat on the `administrator` role. Authority lives in user meta and `bn_space_members`.
 - **`manage_options` is the admin gate, not a BuddyNext role.** Site admins pass every `buddynext_can()` check by virtue of layer 1, and every BuddyNext admin screen checks `manage_options` directly.
 - **`buddynext_role_map` fires once and is memoised** per request; `buddynext_user_can` fires on every check. Put baseline role mappings in the role map and per-decision logic in the filter.
-- **Space context matters.** For `buddynext-spaces/*` capabilities, pass `['space_id' => N]`: only an active member of that space passes, and the higher of their in-space role (from `bn_space_members`) and their community role counts. The `join` capability is the exception - a non-member has no in-space role yet, so `join` is gated by the community role, with space type (open/request/invite) enforced separately in the join flow.
+- **Space context matters.** For `buddynext-spaces/*` capabilities, pass `['space_id' => N]`: only an active member of that space passes, and on a Roles tab row the higher of their in-space role (from `bn_space_members`) and their community role counts; `manage-settings` and `delete` read the in-space role alone. The `join` capability is the exception - a non-member has no in-space role yet, so `join` is gated by the community role, with space type (open/request/invite) enforced separately in the join flow.
 - **Free / Pro boundary.** The catalog and the four-layer model live entirely in free. Pro consumes `buddynext_can()` like any other caller and does not add custom roles or its own permission engine.
 
 See also Admin Pages and Settings for how the admin surface gates on `manage_options`, and the REST contract page for how controllers resolve `buddynext_can()` before serving a request.

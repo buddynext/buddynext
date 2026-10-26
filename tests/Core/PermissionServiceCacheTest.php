@@ -180,6 +180,9 @@ class PermissionServiceCacheTest extends WP_UnitTestCase {
 		$this->assertFalse( $this->service->can( $space_mod, 'buddynext-spaces/moderate', $ctx ), 'space moderator is below Admins only' );
 		$this->assertTrue( $this->service->can( $owner, 'buddynext-spaces/moderate', $ctx ), 'space owner meets Admins only' );
 		$this->assertFalse( $this->service->can( $outsider, 'buddynext-spaces/post', $ctx ), 'a non-member is refused whatever their rank' );
+		$this->assertFalse( $this->service->can( $community_admin, 'buddynext-spaces/manage-settings', $ctx ), 'space settings stay with the space team' );
+		$this->assertFalse( $this->service->can( $community_admin, 'buddynext-spaces/delete', $ctx ), 'deleting the space stays with the space team' );
+		$this->assertTrue( $this->service->can( $space_mod, 'buddynext-spaces/manage-settings', $ctx ), 'a space moderator still manages settings' );
 
 		delete_option( 'bn_role_map_overrides' );
 		( new \ReflectionProperty( PermissionService::class, 'role_map_cache' ) )->setValue( null, null );
