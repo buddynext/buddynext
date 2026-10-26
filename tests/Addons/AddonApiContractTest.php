@@ -145,12 +145,27 @@ class AddonApiContractTest extends WP_UnitTestCase {
 			}
 			$params = array();
 			foreach ( $method->getParameters() as $param ) {
-				$params[] = ( $param->getType() ? $param->getType() : 'mixed' ) . ' $' . $param->getName() . ( $param->isOptional() ? '=' : '' );
+				$params[] = $this->type_name( $param->getType(), $class ) . ' $' . $param->getName() . ( $param->isOptional() ? '=' : '' );
 			}
-			$out[] = $class->getShortName() . '::' . $method->getName() . '(' . implode( ', ', $params ) . '): ' . ( $method->getReturnType() ? $method->getReturnType() : 'mixed' )
+			$out[] = $class->getShortName() . '::' . $method->getName() . '(' . implode( ', ', $params ) . '): ' . $this->type_name( $method->getReturnType(), $class )
 				. ( $method->isStatic() ? ' static' : '' ) . ( $method->isFinal() ? ' final' : '' ) . ( $method->isAbstract() ? ' abstract' : '' );
 		}
 		return $out;
+	}
+
+	/**
+	 * A type as text, the same on every supported PHP: 8.5 reflects `self` as the
+	 * class name, 8.1-8.4 as `self`.
+	 *
+	 * @param \ReflectionType|null $type  Reflected type.
+	 * @param ReflectionClass      $class Declaring class.
+	 * @return string
+	 */
+	private function type_name( ?\ReflectionType $type, ReflectionClass $class ): string {
+		if ( null === $type ) {
+			return 'mixed';
+		}
+		return preg_replace( '/(?<![\\\\\w])self\b/', $class->getName(), (string) $type );
 	}
 
 	public function test_no_promised_signature_was_removed_or_changed(): void {
