@@ -99,6 +99,7 @@ Multisite support, an addon framework, hand-off moderation roles that hold up in
 * Improve  - Dates follow the site language, and sign-in accepts a member's handle.
 * Improve  - BuddyNext's inputs, links, buttons and lightbox keep their own look on Astra, GeneratePress, Kadence and Blocksy.
 * Improve  - The members directory loads Jetonomy avatars in one query instead of one per member.
+* Improve  - Update and licence requests go to updates.wbcomdesigns.com, and fall back to wbcomdesigns.com on their own if it cannot be reached.
 * Fix      - A comment on a forum discussion card sends one email, not two, and mirrored writes between a feed card and a Jetonomy topic send no duplicate notification.
 * Fix      - Divi Theme Builder headers keep their styling on BuddyNext pages.
 * Fix      - A Terms page that is a draft, private, password protected or in the trash now warns the owner instead of breaking sign-up.
