@@ -151,6 +151,15 @@ class WPMediaVerseBridge {
 		// it so an avatar plugin (Jetonomy) costs one query, not one per row.
 		add_action( 'mvs_users_primed', array( \BuddyNext\Profile\AvatarService::class, 'prime' ), 10, 1 );
 
+		// An @handle typed in a MediaVerse mention or document share is a
+		// community handle (custom profile slug included); answer with ours.
+		add_filter(
+			'mvs_resolve_user',
+			static fn( $user, $typed ) => $user instanceof \WP_User ? $user : \BuddyNext\Profile\Handle::user_for_identifier( (string) $typed ),
+			10,
+			2
+		);
+
 		// Space albums decide media privacy themselves — opt out of the engine's
 		// album-privacy inheritance for them.
 		add_filter( 'mvs_album_inherit_privacy', array( $this, 'skip_inherit_for_space_albums' ), 10, 2 );
