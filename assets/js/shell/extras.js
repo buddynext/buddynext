@@ -26,6 +26,7 @@
 	var bnI18n   = ( window.wp && window.wp.i18n ) || {};
 	var __       = bnI18n.__ || function ( s ) { return s; };
 	var sprintf  = bnI18n.sprintf || function ( s ) { return s; };
+	var _n       = bnI18n._n || function ( one, many, n ) { return 1 === n ? one : many; };
 
 	var data = window.bnShellData || {};
 	var nonce = data.restNonce || '';
@@ -187,6 +188,14 @@
 			inputWrap.appendChild( closeBtn );
 			inner.appendChild( inputWrap );
 
+			// Screen readers hear the outcome of each search here (the result list
+			// itself is not live, or every link would be read out).
+			var status = document.createElement( 'div' );
+			status.className = 'bn-sr-only';
+			status.id = 'bn-search-status';
+			status.setAttribute( 'role', 'status' );
+			inner.appendChild( status );
+
 			var results = document.createElement( 'div' );
 			results.className = 'bn-search-overlay__results';
 			results.id = 'bn-search-results';
@@ -220,6 +229,7 @@
 			this.el.querySelector( 'input' ).value = '';
 			this.el.querySelector( 'input' ).focus();
 			document.getElementById( 'bn-search-results' ).textContent = '';
+			document.getElementById( 'bn-search-status' ).textContent = '';
 		},
 		close: function () {
 			if ( ! this.el ) return;
@@ -273,11 +283,14 @@
 			// `self` is only bound in init(); without this it resolved to window and
 			// every search threw on self.flatten, landing on "Search failed".
 			var self = this;
+			var statusEl = document.getElementById( 'bn-search-status' );
+			var announce = function ( text ) { if ( statusEl ) { statusEl.textContent = text; } };
 			resultsEl.textContent = '';
 			var loading = document.createElement( 'div' );
 			loading.className = 'bn-search-overlay__loading';
 			loading.textContent = __( 'Searching...', 'buddynext' );
 			resultsEl.appendChild( loading );
+			announce( loading.textContent );
 
 			var url = data.restSearchUrl + '?q=' + encodeURIComponent( q ) + '&per_page=8';
 			window.buddynextRest.restFetch( url, { nonce: nonce, toastOnError: false } )
@@ -290,8 +303,11 @@
 						empty.className = 'bn-search-overlay__empty';
 						empty.textContent = sprintf( __( 'No results for "%s"', 'buddynext' ), q );
 						resultsEl.appendChild( empty );
+						announce( empty.textContent );
 						return;
 					}
+					/* translators: %d: number of search results shown. */
+					announce( sprintf( _n( '%d result', '%d results', items.length, 'buddynext' ), items.length ) );
 					items.forEach( function ( item ) {
 						var a = document.createElement( 'a' );
 						a.className = 'bn-search-overlay__result';
@@ -301,7 +317,10 @@
 						title.textContent = item.title || item.content || '';
 						var meta = document.createElement( 'div' );
 						meta.className = 'bn-search-overlay__result-meta';
-						meta.textContent = self.typeLabel( item.type || 'post' ) + ( item.author_name ? ' by ' + item.author_name : '' );
+						meta.textContent = item.author_name
+							/* translators: 1: result type (Post, Member...), 2: author name. */
+							? sprintf( __( '%1$s by %2$s', 'buddynext' ), self.typeLabel( item.type || 'post' ), item.author_name )
+							: self.typeLabel( item.type || 'post' );
 						a.appendChild( title );
 						a.appendChild( meta );
 						resultsEl.appendChild( a );
@@ -313,6 +332,7 @@
 					err.className = 'bn-search-overlay__empty';
 					err.textContent = __( 'Search failed', 'buddynext' );
 					resultsEl.appendChild( err );
+					announce( err.textContent );
 				} );
 		}
 	};
