@@ -226,11 +226,9 @@ class IntegrationNotificationListener implements ListenerInterface {
 			return 0;
 		}
 
-		// The owner switched this integration off: nothing from it reaches the bell.
-		$integration = (string) ( self::sources()[ $source ]['integration'] ?? '' );
-		if ( '' !== $integration && ! buddynext_integration_enabled( $integration, 'nav' ) ) {
-			return 0;
-		}
+		// Notifications follow whether the partner is active (this only runs when it
+		// fires), not the "Show in navigation" switch: hiding a tab is not a request
+		// to silence the integration. Members mute types in their own preferences.
 
 		if ( $actor > 0 ) {
 			$blocks = buddynext_service( 'blocks' );
