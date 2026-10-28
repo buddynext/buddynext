@@ -100,6 +100,17 @@ $bn_biz_available    = null !== \BuddyNext\Spaces\SpaceFieldRegistry::instance()
 $bn_biz_tab          = (bool) $args['listora_listings_tab'];
 $bn_listing_creators = (string) $args['listing_creators'];
 
+// An integration the site admin switched off (Integration Settings > Show in
+// navigation) shows no tab in any space, so its switches render disabled with the
+// reason instead of doing nothing. The save skips them (templates/spaces/settings.php),
+// so the space keeps its choice for when the integration is switched back on.
+$bn_site_on  = static fn( string $key ): bool => buddynext_integration_enabled( $key, 'nav' );
+$bn_off_note = static function ( string $key ) use ( $bn_site_on ): void {
+	if ( ! $bn_site_on( $key ) ) {
+		echo '<p class="bn-space-settings__hint">' . esc_html__( 'Turned off for the whole site by the site admin.', 'buddynext' ) . '</p>';
+	}
+};
+
 // Discussion (Jetonomy) — opt-in per Space, never mandatory. A Space owns ONE
 // dedicated discussion for its lifetime: before it exists the owner sees a picker
 // (create new / link existing); once it exists the panel shows WHICH discussion
@@ -171,6 +182,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 				}
 				?>
 			</div>
+			<?php $bn_off_note( 'jetonomy' ); ?>
 			<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
 				<?php if ( $bn_disc_has ) : ?>
 					<?php
@@ -201,13 +213,13 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		</div>
 		<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable discussion', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'jetonomy' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		<?php endif; ?>
 	</div>
 
-	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has ) : ?>
+	<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) && ! $bn_disc_has && $bn_site_on( 'jetonomy' ) ) : ?>
 		<?php
 		// First-time setup only: create a new dedicated discussion (default)
 		// or link an existing one. The typeahead search scopes results by
@@ -253,6 +265,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label"><?php esc_html_e( 'Media tab', 'buddynext' ); ?></div>
 			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab so members can share photos and videos in this space.', 'buddynext' ); ?></div>
+			<?php $bn_off_note( 'media' ); ?>
 			<?php if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
 				<p class="bn-space-settings__hint">
 					<?php esc_html_e( 'Media sharing is unavailable on this site right now.', 'buddynext' ); ?>
@@ -261,7 +274,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		</div>
 		<?php if ( class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Media tab', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_media_tab" value="1" <?php checked( $bn_mvs_media_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_media_tab" value="1" <?php checked( $bn_mvs_media_tab ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'media' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		<?php endif; ?>
@@ -273,9 +286,10 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Files tab', 'buddynext' ); ?></div>
 				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Files tab so members can browse and download documents shared with this space.', 'buddynext' ); ?></div>
+				<?php $bn_off_note( 'media' ); ?>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Files tab', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_documents_tab" value="1" <?php checked( $bn_mvs_documents_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_documents_tab" value="1" <?php checked( $bn_mvs_documents_tab ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'media' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
@@ -309,9 +323,10 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Only organisers can create albums', 'buddynext' ); ?></div>
 				<div class="bn-toggle-row__desc"><?php esc_html_e( 'When off, any member can create an album in this space. Members can always add photos to an album that already exists.', 'buddynext' ); ?></div>
+				<?php $bn_off_note( 'media' ); ?>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can create albums', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="album_creators_admins" value="1" <?php checked( 'admins' === $args['album_creators'] ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="album_creators_admins" value="1" <?php checked( 'admins' === $args['album_creators'] ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'media' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
@@ -328,9 +343,10 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Events tab', 'buddynext' ); ?></div>
 				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show an Events tab so members can see and add events for this space.', 'buddynext' ); ?></div>
+				<?php $bn_off_note( 'eventonomy' ); ?>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Events tab', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="events_tab" value="1" <?php checked( $bn_events_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="events_tab" value="1" <?php checked( $bn_events_tab ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'eventonomy' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
@@ -338,9 +354,10 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Only organisers can add events', 'buddynext' ); ?></div>
 				<div class="bn-toggle-row__desc"><?php esc_html_e( 'When off, any member can add an event to this space. When on, only organisers can.', 'buddynext' ); ?></div>
+				<?php $bn_off_note( 'eventonomy' ); ?>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can add events', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="event_creators_admins" value="1" <?php checked( 'admins' === $bn_event_creators ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="event_creators_admins" value="1" <?php checked( 'admins' === $bn_event_creators ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'eventonomy' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
@@ -356,9 +373,10 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Businesses tab', 'buddynext' ); ?></div>
 				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Businesses tab so members can submit a listing they own for the team to approve and showcase.', 'buddynext' ); ?></div>
+				<?php $bn_off_note( 'listora' ); ?>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Businesses tab', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="listora_listings_tab" value="1" <?php checked( $bn_biz_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="listora_listings_tab" value="1" <?php checked( $bn_biz_tab ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'listora' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
@@ -366,9 +384,10 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__copy">
 				<div class="bn-toggle-row__label"><?php esc_html_e( 'Only organisers can submit businesses', 'buddynext' ); ?></div>
 				<div class="bn-toggle-row__desc"><?php esc_html_e( 'When off, any member can submit a business listing to this space. When on, only organisers can.', 'buddynext' ); ?></div>
+				<?php $bn_off_note( 'listora' ); ?>
 			</div>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Only organisers can submit businesses', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="listing_creators_admins" value="1" <?php checked( 'admins' === $bn_listing_creators ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="listing_creators_admins" value="1" <?php checked( 'admins' === $bn_listing_creators ); ?> <?php disabled( ! $args['is_space_owner'] || ! $bn_site_on( 'listora' ) ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
