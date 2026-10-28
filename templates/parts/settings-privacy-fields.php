@@ -85,6 +85,11 @@ $bn_dm_options = ( \BuddyNext\Messages\MessagesData::entry_enabled() && is_calla
 	? (array) call_user_func( array( $bn_dm_service, 'dm_access_options' ) )
 	: array();
 $bn_dm_value   = $bn_dm_options ? (string) call_user_func( array( $bn_dm_service, 'effective_dm_access' ), (int) $user_id ) : '';
+// One plain sentence per choice, owned by WPMediaVerse (who still reaches
+// Message requests differs per choice). Older WPMediaVerse has none.
+$bn_dm_hints = $bn_dm_options && is_callable( array( $bn_dm_service, 'dm_access_hints' ) )
+	? (array) call_user_func( array( $bn_dm_service, 'dm_access_hints' ) )
+	: array();
 // Stored values with their defaults, from the same PrivacyService read that
 // GET /me/profile returns (and that enforcement reads back).
 $bn_privacy                 = buddynext_service( 'privacy' )->member_settings( (int) $user_id );
@@ -140,7 +145,7 @@ $privacy_rows = array(
 );
 
 if ( $bn_dm_options ) {
-	array_splice( $privacy_rows, 3, 0, array( array( 'select', 'dm_access', __( 'Who can message me', 'buddynext' ), $bn_dm_value, 'bn-ep-privacy-dm', '', $bn_dm_options ) ) );
+	array_splice( $privacy_rows, 3, 0, array( array( 'select', 'dm_access', __( 'Who can message me', 'buddynext' ), $bn_dm_value, 'bn-ep-privacy-dm', (string) ( $bn_dm_hints[ $bn_dm_value ] ?? '' ), $bn_dm_options, false, $bn_dm_hints ) ) );
 }
 
 // "Hide my profile views" only does something when Pro's profile-view tracking
@@ -155,14 +160,15 @@ foreach ( $privacy_rows as $r ) {
 	$privacy_html .= $bn_capture(
 		'profile-edit-privacy-row',
 		array(
-			'key'         => $r[1],
-			'label'       => $r[2],
-			'value'       => $r[3],
-			'options'     => $is_select ? (array) $r[6] : array(),
-			'input_id'    => $is_select ? $r[4] : '',
-			'label_id'    => $is_select ? '' : $r[4],
-			'description' => $r[5],
-			'disabled'    => ! empty( $r[7] ),
+			'key'          => $r[1],
+			'label'        => $r[2],
+			'value'        => $r[3],
+			'options'      => $is_select ? (array) $r[6] : array(),
+			'input_id'     => $is_select ? $r[4] : '',
+			'label_id'     => $is_select ? '' : $r[4],
+			'description'  => $r[5],
+			'disabled'     => ! empty( $r[7] ),
+			'option_hints' => (array) ( $r[8] ?? array() ),
 		)
 	);
 }

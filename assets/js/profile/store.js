@@ -1372,6 +1372,11 @@ const profileStore = store( 'buddynext/profile', {
 		async savePrivacyField( event ) {
 			var sel = event.target;
 			if ( ! sel || ! sel.name ) { return; }
+			// A select whose choices each carry a hint shows the one for the new choice.
+			if ( sel.dataset.bnOptionHints ) {
+				var desc = document.getElementById( sel.id + '-desc' );
+				if ( desc ) { desc.textContent = ( JSON.parse( sel.dataset.bnOptionHints ) || {} )[ sel.value ] || ''; }
+			}
 			var payload = {};
 			payload[ sel.name ] = sel.value;
 			try {
