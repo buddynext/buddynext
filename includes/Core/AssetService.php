@@ -2310,7 +2310,7 @@ class AssetService {
 					'codeSentTo'         => __( 'Code sent to %s', 'buddynext' ),
 					'codeSentCheckEmail' => __( 'Code sent: check your email', 'buddynext' ),
 					'enterEmailPassword' => __( 'Enter your email and password to sign in.', 'buddynext' ),
-					'invalidCredentials' => __( 'Invalid email or password.', 'buddynext' ),
+					'invalidCredentials' => __( 'That email, username or password is not right.', 'buddynext' ),
 					'signedIn'           => __( 'Signed in.', 'buddynext' ),
 					'genericError'       => __( 'Something went wrong. Try again.', 'buddynext' ),
 					'twofaIncorrect'     => __( 'That code was not correct.', 'buddynext' ),

@@ -256,6 +256,33 @@ final class Handle {
 	}
 
 	/**
+	 * Let a member sign in anywhere with the handle the community shows them.
+	 *
+	 * A login with a dot (qa.dot.check) has the handle qa-dot-check, because
+	 * WordPress builds the nicename with sanitize_title(). BuddyNext's own sign-in
+	 * already resolves a handle (user_for_identifier()); this `authenticate` filter
+	 * covers wp-login.php, wp_authenticate() and theme or third-party forms. It
+	 * runs after core's username and email checks (priority 20), only when they
+	 * found no such user, and checks the password through core for the member the
+	 * handle names, so every later gate (blocked IP, approval, 2FA) still applies.
+	 *
+	 * @param \WP_User|\WP_Error|null $user     Result so far.
+	 * @param string                  $username As typed.
+	 * @param string                  $password As typed.
+	 * @return \WP_User|\WP_Error|null
+	 */
+	public static function authenticate( $user, $username, $password ) {
+		if ( ! is_wp_error( $user ) || 'invalid_username' !== $user->get_error_code() || is_email( (string) $username ) ) {
+			return $user;
+		}
+		$member = self::resolve( ltrim( (string) $username, '@' ) );
+		if ( null === $member ) {
+			return $user;
+		}
+		return wp_authenticate_username_password( null, $member->user_login, (string) $password );
+	}
+
+	/**
 	 * The member a handle refers to, or null.
 	 *
 	 * The exact inverse of {@see \BuddyNext\Core\PageRouter::member_handle()}, and

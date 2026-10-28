@@ -50,7 +50,11 @@ class RegistrationService {
 	public static function unique_login( string $email ): string {
 		global $wpdb;
 
-		$base = sanitize_user( current( explode( '@', $email ) ), true );
+		// Shaped like the handle WordPress derives from it (sanitize_title() turns
+		// dots and spaces into one hyphen and lowercases), so a member can sign in
+		// with the @handle the community shows them: markus.kaufmann@ becomes the
+		// login markus-kaufmann, not markus.kaufmann with the handle markus-kaufmann.
+		$base = trim( (string) preg_replace( '/[.\s-]+/', '-', strtolower( sanitize_user( current( explode( '@', $email ) ), true ) ) ), '-' );
 		$base = '' !== $base ? $base : 'member';
 
 		if ( ! username_exists( $base ) ) {

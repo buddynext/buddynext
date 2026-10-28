@@ -989,7 +989,7 @@ class AuthController {
 			// used to enumerate which emails hold accounts.
 			return new WP_Error(
 				'rest_login_failed',
-				__( 'Invalid email or password.', 'buddynext' ),
+				__( 'That email, username or password is not right.', 'buddynext' ),
 				array( 'status' => 401 )
 			);
 		}

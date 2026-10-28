@@ -443,6 +443,10 @@ class Plugin {
 		// both session-minting chains — see LoginGuard.
 		( new \BuddyNext\Auth\LoginGuard() )->register();
 
+		// Sign-in with the @handle on every login form, for logins whose handle
+		// differs (a dot becomes a hyphen) - see Handle::authenticate().
+		add_filter( 'authenticate', array( \BuddyNext\Profile\Handle::class, 'authenticate' ), 25, 3 );
+
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
 		// Binds to the password chain AND to application passwords, which reach

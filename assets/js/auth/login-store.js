@@ -108,7 +108,7 @@ const loginStore = store( 'buddynext/auth-login', {
 				} );
 				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
-					const msg = ( data && data.message ) || t( 'invalidCredentials', 'Invalid email or password.' );
+					const msg = ( data && data.message ) || t( 'invalidCredentials', 'That email, username or password is not right.' );
 					c.error = msg;
 					c.submitting = false;
 					return;
