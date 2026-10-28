@@ -161,7 +161,10 @@ class MemberBlogBridge {
 	 * @param NavRegistry $registry Nav registry.
 	 */
 	public function register_nav_items( NavRegistry $registry ): void {
-		$enabled = static fn(): bool => self::articles_tab_available();
+		// Shown to members Member Blog lets write, and on any profile that already
+		// has articles; never an empty tab inviting a member who cannot write.
+		$enabled = fn( NavContext $c ): bool => self::articles_tab_available()
+			&& ( self::can_write( $c->subject_id ) || $this->article_count( $c->subject_id ) > 0 );
 
 		$registry->register(
 			array(
@@ -192,6 +195,18 @@ class MemberBlogBridge {
 				},
 			)
 		);
+	}
+
+	/**
+	 * Whether Member Blog lets this member write (its role / member-type rules).
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param int $user_id Member.
+	 * @return bool
+	 */
+	private static function can_write( int $user_id ): bool {
+		return function_exists( 'bp_member_blog_user_can_create' ) && (bool) bp_member_blog_user_can_create( $user_id );
 	}
 
 	/**
@@ -324,6 +339,7 @@ class MemberBlogBridge {
 				'profile_user_id' => $user_id,
 				'viewer_id'       => $viewer_id,
 				'is_owner'        => $is_owner,
+				'can_write'       => self::can_write( $user_id ),
 				'articles'        => $query->posts,
 				'edit_urls'       => $edit_urls,
 				'co_writers'      => $co_writers,

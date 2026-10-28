@@ -20,6 +20,7 @@
  * @var int        $total_pages     Total pages.
  * @var string     $dashboard_url   Where the owner writes/manages ('' = no affordance).
  * @var string     $write_url       Where the owner starts a new post (falls back to the dashboard).
+ * @var bool       $can_write       Whether Member Blog lets the owner write (hides the Write links when not).
  */
 
 declare( strict_types=1 );
@@ -42,6 +43,9 @@ $bn_ar_writers   = isset( $co_writers ) && is_array( $co_writers ) ? $co_writers
 // The owner's route back to where they write. Shown ABOVE the list and also in the
 // empty state, because a member with nothing published is exactly who needs it.
 $bn_ar_manage = $bn_ar_owner && '' !== $bn_ar_dashboard;
+// Write links only for a member Member Blog lets write (its own role check);
+// a member who can no longer write still manages what they published.
+$bn_ar_can_write = $bn_ar_manage && ( ! isset( $can_write ) || (bool) $can_write );
 
 if ( empty( $bn_ar_rows ) ) :
 	?>
@@ -54,7 +58,7 @@ if ( empty( $bn_ar_rows ) ) :
 				: esc_html__( 'No articles yet.', 'buddynext' );
 			?>
 		</div>
-		<?php if ( $bn_ar_manage ) : ?>
+		<?php if ( $bn_ar_can_write ) : ?>
 			<div class="bn-empty-sub">
 				<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 					<?php esc_html_e( 'Write your first article', 'buddynext' ); ?>
@@ -69,10 +73,12 @@ endif;
 
 <?php if ( $bn_ar_manage ) : ?>
 	<div class="bn-articles__manage">
+		<?php if ( $bn_ar_can_write ) : ?>
 		<a class="bn-btn bn-btn--primary" href="<?php echo esc_url( $bn_ar_write ); ?>">
 			<?php buddynext_icon( 'edit' ); ?>
 			<?php esc_html_e( 'Write a new article', 'buddynext' ); ?>
 		</a>
+		<?php endif; ?>
 		<a class="bn-btn bn-btn--secondary" href="<?php echo esc_url( $bn_ar_dashboard ); ?>">
 			<?php esc_html_e( 'Manage articles', 'buddynext' ); ?>
 		</a>
