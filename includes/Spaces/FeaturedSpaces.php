@@ -132,8 +132,36 @@ class FeaturedSpaces {
 	}
 
 	/**
-	 * Filter a list of ids down to spaces that still exist and are not archived,
-	 * preserving the input order.
+	 * Whether a space can be featured: it exists, is not archived and is
+	 * top-level. The same rule set_ids() applies, for callers that need to say
+	 * why a space was not added.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param int $space_id Space id.
+	 * @return bool
+	 */
+	public static function can_feature( int $space_id ): bool {
+		return $space_id > 0 && array() !== self::featurable( array( $space_id ) );
+	}
+
+	/**
+	 * The ids, in order, that can be featured (one query for the whole list).
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param int[] $ids Candidate ids.
+	 * @return int[]
+	 */
+	public static function featurable( array $ids ): array {
+		return self::keep_live( array_values( array_filter( array_map( 'absint', $ids ) ) ) );
+	}
+
+	/**
+	 * Filter a list of ids down to spaces that still exist, are not archived and
+	 * are top-level, preserving the input order. Every featured surface lists
+	 * top-level spaces only, so a featured sub-space would take a slot and never
+	 * show.
 	 *
 	 * @param int[] $ids Candidate ids.
 	 * @return int[]
@@ -149,7 +177,7 @@ class FeaturedSpaces {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $placeholders is a run of %d built above and every id is bound by prepare().
 		$live = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE is_archived = 0 AND id IN ({$placeholders})",
+				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE is_archived = 0 AND ( parent_id IS NULL OR parent_id = 0 ) AND id IN ({$placeholders})",
 				...$ids
 			)
 		);

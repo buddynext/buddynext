@@ -297,11 +297,36 @@ class Spaces extends AdminPageBase {
 					)
 				)
 			);
+		} elseif ( 'subspace' === sanitize_key( wp_unslash( $_GET['feature_error'] ?? '' ) ) ) {
+			printf(
+				'<div class="bn-notice bn-notice-warning"><p>%s</p></div>',
+				esc_html__( 'Sub-spaces cannot be featured, because featured spaces show top-level spaces only. Feature its parent space instead.', 'buddynext' )
+			);
 		} elseif ( isset( $_GET['featured'] ) ) {
 			$bn_did_feature = '1' === sanitize_text_field( wp_unslash( $_GET['featured'] ) );
 			printf(
 				'<div class="bn-notice bn-notice-success"><p>%s</p></div>',
 				esc_html( $bn_did_feature ? __( 'Space featured.', 'buddynext' ) : __( 'Space unfeatured.', 'buddynext' ) )
+			);
+		} elseif ( 'feature' === sanitize_key( wp_unslash( $_GET['bulk_action'] ?? '' ) ) ) {
+			$bn_bulk_done    = absint( wp_unslash( $_GET['bulk_done'] ?? 0 ) );
+			$bn_bulk_skipped = absint( wp_unslash( $_GET['bulk_skipped'] ?? 0 ) );
+			$bn_bulk_text    = sprintf(
+				/* translators: %d: number of spaces featured. */
+				_n( '%d space featured.', '%d spaces featured.', $bn_bulk_done, 'buddynext' ),
+				$bn_bulk_done
+			);
+			if ( $bn_bulk_skipped > 0 ) {
+				$bn_bulk_text .= ' ' . sprintf(
+					/* translators: %d: number of sub-spaces skipped. */
+					_n( '%d sub-space was skipped, because featured spaces show top-level spaces only.', '%d sub-spaces were skipped, because featured spaces show top-level spaces only.', $bn_bulk_skipped, 'buddynext' ),
+					$bn_bulk_skipped
+				);
+			}
+			printf(
+				'<div class="bn-notice %1$s"><p>%2$s</p></div>',
+				esc_attr( $bn_bulk_skipped > 0 ? 'bn-notice-warning' : 'bn-notice-success' ),
+				esc_html( $bn_bulk_text )
 			);
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
@@ -645,6 +670,8 @@ class Spaces extends AdminPageBase {
 															<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
 														</button>
 													</form>
+													<?php // Featured lists show top-level spaces only; a sub-space offers Unfeature only if it was featured before 1.2.8. ?>
+													<?php if ( $bn_is_featured || empty( $space['parent_id'] ) ) : ?>
 													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 														<?php wp_nonce_field( 'bn_feature_space' ); ?>
 														<input type="hidden" name="action" value="bn_feature_space">
@@ -654,6 +681,7 @@ class Spaces extends AdminPageBase {
 															<?php echo $bn_is_featured ? esc_html__( 'Unfeature', 'buddynext' ) : esc_html__( 'Feature', 'buddynext' ); ?>
 														</button>
 													</form>
+													<?php endif; ?>
 													<?php // Change owner opens a small dialog that asks who; the dialog's own form posts bn_transfer_space. ?>
 													<button type="button" class="bn-dropdown-item" role="menuitem"
 															data-bn-owner-trigger
@@ -1256,13 +1284,15 @@ class Spaces extends AdminPageBase {
 		$raw_ids = isset( $_POST['ids'] ) ? (array) wp_unslash( $_POST['ids'] ) : array();
 		$ids     = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
 
-		$done = 0;
+		$done    = 0;
+		$skipped = 0;
 		if ( 'delete' === $bulk_action && ! empty( $ids ) ) {
 			foreach ( $ids as $sid ) {
 				$this->delete_space( $sid );
 				++$done;
 			}
 		} elseif ( 'feature' === $bulk_action && ! empty( $ids ) ) {
+			$skipped = count( $ids ) - count( \BuddyNext\Spaces\FeaturedSpaces::featurable( $ids ) );
 			$current = \BuddyNext\Spaces\FeaturedSpaces::get_ids();
 			$before  = count( $current );
 			// set_ids validates + caps at the limit, so extras beyond the cap drop.
@@ -1277,9 +1307,10 @@ class Spaces extends AdminPageBase {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'        => 'buddynext-spaces',
-					'bulk_action' => $bulk_action,
-					'bulk_done'   => $done,
+					'page'         => 'buddynext-spaces',
+					'bulk_action'  => $bulk_action,
+					'bulk_done'    => $done,
+					'bulk_skipped' => $skipped,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -1310,7 +1341,9 @@ class Spaces extends AdminPageBase {
 		if ( $space_id > 0 ) {
 			if ( $feature ) {
 				if ( ! in_array( $space_id, $current, true ) ) {
-					if ( count( $current ) >= \BuddyNext\Spaces\FeaturedSpaces::limit() ) {
+					if ( ! \BuddyNext\Spaces\FeaturedSpaces::can_feature( $space_id ) ) {
+						$args['feature_error'] = 'subspace';
+					} elseif ( count( $current ) >= \BuddyNext\Spaces\FeaturedSpaces::limit() ) {
 						$args['feature_error'] = 'limit';
 					} else {
 						$current[] = $space_id;
