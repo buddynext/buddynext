@@ -36,7 +36,11 @@ class HandleSignInTest extends \WP_UnitTestCase {
 		$this->assertInstanceOf( \WP_User::class, $ok );
 		$this->assertSame( $id, $ok->ID );
 
-		$this->assertWPError( wp_authenticate( 'qa-dot-check', 'wrong-pass' ) );
+		// A wrong password must not reveal the login behind the handle.
+		$wrong = wp_authenticate( 'qa-dot-check', 'wrong-pass' );
+		$this->assertSame( 'invalid_username', $wrong->get_error_code() );
+		$this->assertStringNotContainsString( 'qa.dot.check', $wrong->get_error_message() );
+		$this->assertSame( 'invalid_username', wp_authenticate( 'user-' . $id, 'right-pass-123' )->get_error_code() );
 		$this->assertSame( 'invalid_username', wp_authenticate( 'nobody-here', 'x' )->get_error_code() );
 	}
 }

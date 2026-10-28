@@ -266,6 +266,10 @@ final class Handle {
 	 * found no such user, and checks the password through core for the member the
 	 * handle names, so every later gate (blocked IP, approval, 2FA) still applies.
 	 *
+	 * Only the member's current handle (nicename) signs in - not user-{id} or an
+	 * old handle - and any failure returns core's original error, because core's
+	 * wrong-password message names the login and would reveal it for a handle.
+	 *
 	 * @param \WP_User|\WP_Error|null $user     Result so far.
 	 * @param string                  $username As typed.
 	 * @param string                  $password As typed.
@@ -275,11 +279,12 @@ final class Handle {
 		if ( ! is_wp_error( $user ) || 'invalid_username' !== $user->get_error_code() || is_email( (string) $username ) ) {
 			return $user;
 		}
-		$member = self::resolve( ltrim( (string) $username, '@' ) );
-		if ( null === $member ) {
+		$member = get_user_by( 'slug', sanitize_title( ltrim( (string) $username, '@' ) ) );
+		if ( ! $member instanceof \WP_User ) {
 			return $user;
 		}
-		return wp_authenticate_username_password( null, $member->user_login, (string) $password );
+		$signed_in = wp_authenticate_username_password( null, $member->user_login, (string) $password );
+		return $signed_in instanceof \WP_User ? $signed_in : $user;
 	}
 
 	/**
