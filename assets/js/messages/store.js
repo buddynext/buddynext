@@ -482,6 +482,22 @@ function buildMessageNode( msg, viewer ) {
 			img.loading = 'lazy';
 			tile.appendChild( img );
 			wrapM.appendChild( tile );
+		} else if ( 'image' === media.type && ( media.thumbnail || media.url ) ) {
+			// Mirrors templates/parts/dm-message.php: a legacy photo stored as a plain
+			// WordPress attachment has no MediaVerse id for the lightbox, so the
+			// same tile opens the full image in a new tab.
+			const link = document.createElement( 'a' );
+			link.className = 'bn-media-tile bn-media-tile--image';
+			link.href = media.url || media.thumbnail;
+			link.target = '_blank';
+			link.rel = 'noopener';
+			const img = document.createElement( 'img' );
+			img.className = 'bn-media-tile__img';
+			img.src = media.thumbnail || media.url;
+			img.alt = media.title || '';
+			img.loading = 'lazy';
+			link.appendChild( img );
+			wrapM.appendChild( link );
 		} else if ( 'audio' === media.type && media.url ) {
 			const audio = document.createElement( 'audio' );
 			audio.className = 'bn-dm-msg__audio';

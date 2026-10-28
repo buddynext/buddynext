@@ -153,6 +153,11 @@ do_action( 'buddynext_part_dm_message_before', $args );
 					<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>" data-bn-dm="1"<?php echo \BuddyNext\Media\MediaClient::downloads_allowed( $bn_m_id ) ? '' : ' data-no-download="1"'; ?>>
 						<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
 					</button>
+				<?php elseif ( 'image' === $bn_m_type && ( '' !== $bn_m_thumb || '' !== $bn_m_url ) ) : ?>
+					<?php // A legacy photo stored as a plain WordPress attachment has no MediaVerse id for the lightbox, so the same tile opens the full image in a new tab. ?>
+					<a class="bn-media-tile bn-media-tile--image" href="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>" target="_blank" rel="noopener">
+						<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
+					</a>
 				<?php elseif ( 'audio' === $bn_m_type && '' !== $bn_m_url ) : ?>
 					<audio class="bn-dm-msg__audio" controls<?php echo \BuddyNext\Media\MediaClient::downloads_allowed( $bn_m_id ) ? '' : ' controlsList="nodownload"'; ?> preload="none" src="<?php echo esc_url( $bn_m_url ); ?>"></audio>
 				<?php else : ?>
