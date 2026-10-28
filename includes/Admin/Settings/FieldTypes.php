@@ -108,6 +108,16 @@ final class FieldTypes {
 			return absint( $value );
 		}
 
+		// The checkbox only speaks for the settings form that rendered it, and
+		// that form always posts the number beside it. Without the number in
+		// this request this is a direct update_option() that happens to run in
+		// wp-admin (where the filter is attached): keep the caller's number
+		// rather than reading an absent checkbox as "limit off".
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- read only to detect which form is saving; no value is taken from it.
+		if ( ! isset( $_POST[ $option ] ) ) {
+			return absint( $value );
+		}
+
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- options.php verified the nonce before any sanitize_callback runs.
 		if ( empty( $_POST[ $option . '_limited' ] ) ) {
 			return 0;
