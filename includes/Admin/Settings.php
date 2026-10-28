@@ -701,16 +701,17 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	/**
 	 * Sanitize a directory column-count choice.
 	 *
-	 * Whitelists the supported values: 'auto' (responsive auto-fill, the
-	 * default) or a fixed desktop column count of 2, 3 or 4. Anything else
-	 * falls back to 'auto'.
+	 * Whitelists the supported values: 'auto' (responsive auto-fill) or a fixed
+	 * desktop column count of 2, 3 or 4. Anything else falls back to '3', the
+	 * declared field default and the value the directory templates read when
+	 * the option is unset.
 	 *
 	 * @param mixed $value Raw submitted value.
 	 * @return string One of 'auto', '2', '3', '4'.
 	 */
 	public static function sanitize_dir_columns( $value ): string {
 		$value = sanitize_key( (string) $value );
-		return in_array( $value, array( 'auto', '2', '3', '4' ), true ) ? $value : 'auto';
+		return in_array( $value, array( 'auto', '2', '3', '4' ), true ) ? $value : '3';
 	}
 
 	/**
