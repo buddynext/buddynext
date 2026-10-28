@@ -480,6 +480,25 @@ export function bnPrompt( opts ) {
 }
 
 /**
+ * Swap a Report control for its "Reported" twin after a report (or a 409).
+ *
+ * The template renders both inside one `[data-bn-report-slot]`: the control
+ * with `data-bn-report` and the disabled label with `data-bn-reported`, the
+ * server's `hidden` already matching whether this viewer has reported.
+ *
+ * @param {Element|null} el Any element inside the slot (usually the trigger).
+ * @return {void}
+ */
+export function bnMarkReported( el ) {
+	const slot = el && el.closest ? el.closest( '[data-bn-report-slot]' ) : null;
+	if ( ! slot ) {
+		return;
+	}
+	slot.querySelectorAll( '[data-bn-report]' ).forEach( ( n ) => { n.hidden = true; } );
+	slot.querySelectorAll( '[data-bn-reported]' ).forEach( ( n ) => { n.hidden = false; } );
+}
+
+/**
  * Categorized report dialog — promise-based, mirrors bnPrompt() but
  * adds a reason `<select>` above the optional notes textarea. The
  * dropdown matches the canonical reason list used by the profile +
@@ -1343,6 +1362,9 @@ if ( typeof window !== 'undefined' ) {
 	window.bnConfirm = bnConfirm;
 	window.bnBlockConfirm = bnBlockConfirm;
 	window.bnPrompt  = bnPrompt;
+	// Classic scripts (e.g. Pro's Businesses tab) reload after an action and need
+	// the toast to survive the reload.
+	window.bnReloadWithToast = bnReloadWithToast;
 	// One toast for every classic script and every plugin. shell/extras.js queues calls made
 	// before this module has run; replay them now that the real function exists.
 	const queued = window.__bnToastQueue || [];

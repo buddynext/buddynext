@@ -1213,3 +1213,8 @@
 		min-block-size: 44px;
 	}
 }
+
+/* Member card menu: "Reported" is a disabled item, never a hover target. */
+.bn-md-card__menu-pop .bn-md-card__menu-item--reported,
+.bn-md-card__menu-pop .bn-md-card__menu-item--reported:hover,
+.bn-md-card__menu-pop .bn-md-card__menu-item--reported:focus { background: transparent; color: var(--bn-ink-3); cursor: default; }

@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
+import { bnToast, bnConfirm, bnConfirmDisconnect, bnPrompt, bnBlockConfirm, bnMarkReported, bnReportDialog, bnResolveConnectNote, bnReloadWithToast } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { foldAccents } from '@buddynext/slug';
@@ -2243,11 +2243,12 @@ const profileStore = store( 'buddynext/profile', {
 		/* Report goes through the shared report dialog, so the reasons and wording match
 		   every other report in the product. */
 		async openReport() {
-			var ctx = getContext();
+			var ctx     = getContext();
+			var trigger = getElement().ref;
 			ctx.moreMenuOpen = false;
 			var result = await bnReportDialog( { title: t( 'reportProfileTitle', 'Report this profile' ) } );
 			if ( ! result ) { return; }
-			await doReport( ctx, result );
+			await doReport( ctx, result, trigger );
 		},
 
 		/* -- Email change ----------------------------------------------- */
@@ -2663,7 +2664,7 @@ async function doBlock( ctx ) {
 	}
 }
 
-async function doReport( ctx, result ) {
+async function doReport( ctx, result, trigger ) {
 	if ( ctx.reportSubmitting ) { return; }
 	ctx.reportSubmitting = true;
 	try {
@@ -2678,13 +2679,18 @@ async function doReport( ctx, result ) {
 				notes:       result.notes  || '',
 			},
 		} );
+		var data = res.data || {};
+		// Already reported: the report is on file, so show the member as reported.
+		if ( 409 === res.status ) {
+			bnMarkReported( trigger );
+			bnToast( data.message || t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'info' } );
+			return;
+		}
 		if ( ! res.ok && res.status !== 201 ) {
-			// Surface the server's reason, e.g. the 409 "You have already reported this member.",
-			// rather than a generic retry message.
-			var data = res.data || {};
 			bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 			return;
 		}
+		bnMarkReported( trigger );
 		bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
 	} catch ( _e ) {
 		bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );

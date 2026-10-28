@@ -14,7 +14,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnBlockConfirm, bnConfirmDisconnect, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { bnToast, bnBlockConfirm, bnConfirmDisconnect, bnMarkReported, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
 import { restFetch } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 
@@ -634,7 +634,28 @@ function buildKebab( item ) {
 		b.className = 'bn-md-card__menu-item' + ( cfg.danger ? ' bn-md-card__menu-item--danger' : '' ) + ( cfg.mute ? ' bn-md-card__mute' : '' );
 		b.setAttribute( 'role', 'menuitem' );
 		b.textContent = cfg.label;
-		menuPop.appendChild( b );
+		if ( 'report' !== cfg.verb ) {
+			menuPop.appendChild( b );
+			return;
+		}
+		// Same Report / Reported pair as the server card (parts/member-card.php).
+		const slot = document.createElement( 'span' );
+		slot.className = 'bn-report-slot';
+		slot.setAttribute( 'data-bn-report-slot', '' );
+		slot.setAttribute( 'role', 'none' );
+		b.setAttribute( 'data-bn-report', '' );
+		b.hidden = !! item.has_reported;
+		const done = document.createElement( 'span' );
+		done.className = 'bn-md-card__menu-item bn-md-card__menu-item--reported';
+		done.setAttribute( 'role', 'menuitem' );
+		done.setAttribute( 'aria-disabled', 'true' );
+		done.setAttribute( 'aria-label', t( 'youReportedMember', 'You reported this member' ) );
+		done.setAttribute( 'data-bn-reported', '' );
+		done.textContent = t( 'reported', 'Reported' );
+		done.hidden = ! item.has_reported;
+		slot.appendChild( b );
+		slot.appendChild( done );
+		menuPop.appendChild( slot );
 	} );
 	menuWrap.appendChild( menuPop );
 	return menuWrap;
@@ -907,7 +928,7 @@ const membersStore = store( 'buddynext/members', {
 				case 'kebab':   delegatedKebab( card, trigger ); break;
 				case 'mute':    delegatedMute( card, trigger, cfg ); break;
 				case 'block':   delegatedCloseKebab( card ); blockMember( parseInt( card.dataset.userId, 10 ) || 0, card.dataset.displayName ); break;
-				case 'report':  delegatedCloseKebab( card ); reportMember( parseInt( card.dataset.userId, 10 ) || 0 ); break;
+				case 'report':  delegatedCloseKebab( card ); reportMember( parseInt( card.dataset.userId, 10 ) || 0, card.querySelector( '[data-bn-report]' ) ); break;
 				default: break;
 			}
 		},
@@ -1143,7 +1164,7 @@ const membersStore = store( 'buddynext/members', {
 		openReport() {
 			const ctx = getContext();
 			ctx.menuOpen = false;
-			reportMember( ctx.userId );
+			reportMember( ctx.userId, getElement().ref );
 		},
 	},
 } );
@@ -1183,7 +1204,7 @@ async function blockMember( userId, displayName ) {
 	}
 }
 
-async function reportMember( userId ) {
+async function reportMember( userId, trigger ) {
 	if ( ! userId ) { return; }
 	const result = await bnReportDialog( { title: t( 'reportProfileTitle', 'Report this profile' ) } );
 	if ( ! result ) { return; }
@@ -1199,12 +1220,18 @@ async function reportMember( userId ) {
 				body:         { object_type: 'user', object_id: userId, reason: result.reason || 'other', notes: result.notes || '' },
 			}
 		);
+		const data = res.data || {};
+		// Already reported: the report is on file, so show the member as reported.
+		if ( 409 === res.status ) {
+			bnMarkReported( trigger );
+			bnToast( data.message || t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'info' } );
+			return;
+		}
 		if ( ! res.ok && res.status !== 201 ) {
-			// Surface the server's reason, e.g. the 409 "You have already reported this member."
-			const data = res.data || {};
 			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 			return;
 		}
+		bnMarkReported( trigger );
 		bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
 	} catch ( _e ) {
 		bnToast( t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );

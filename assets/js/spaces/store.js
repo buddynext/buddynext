@@ -5,7 +5,7 @@ import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
 import { foldAccents } from '@buddynext/slug';
-import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { bnConfirm, bnMarkReported, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1140,7 +1140,8 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * Report this space to the site moderators (the site queue only).
 		 */
 		reportSpace: async function ( event ) {
-			var spaceId = resolveSpaceId( event && event.target && event.target.closest( 'button' ) );
+			var trigger = event && event.target && event.target.closest( 'button' );
+			var spaceId = resolveSpaceId( trigger );
 			if ( ! spaceId ) { return; }
 			var result = await bnReportDialog( { title: t( 'reportSpaceTitle', 'Report this space' ) } );
 			if ( ! result ) { return; }
@@ -1150,11 +1151,18 @@ var storeInstance = store( 'buddynext/spaces', {
 				toastOnError: false,
 				body:         { object_type: 'space', object_id: parseInt( spaceId, 10 ), reason: result.reason || 'other', notes: result.notes || '' },
 			} );
+			var data = res.data || {};
 			if ( res.ok || 201 === res.status ) {
+				bnMarkReported( trigger );
 				bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
 				return;
 			}
-			var data = res.data || {};
+			// Already reported: the report is on file, so show the space as reported.
+			if ( 409 === res.status ) {
+				bnMarkReported( trigger );
+				bnToast( data.message || t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'info' } );
+				return;
+			}
 			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 		},
 

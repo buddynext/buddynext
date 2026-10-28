@@ -289,11 +289,12 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 		buddynext_get_template(
 			'parts/profile-actions-overflow.php',
 			array(
-				'profile_url' => $bn_pa_profile_url,
-				'mention_url' => $bn_pa_mention_url,
-				'show_safety' => true,
-				'edit_url'    => $bn_pa_can_edit ? \BuddyNext\Core\PageRouter::edit_profile_url( $bn_pa_uid ) : '',
-				'message_url' => $bn_pa_message_url,
+				'profile_url'  => $bn_pa_profile_url,
+				'mention_url'  => $bn_pa_mention_url,
+				'show_safety'  => true,
+				'edit_url'     => $bn_pa_can_edit ? \BuddyNext\Core\PageRouter::edit_profile_url( $bn_pa_uid ) : '',
+				'message_url'  => $bn_pa_message_url,
+				'has_reported' => buddynext_service( 'moderation' )->user_has_reported( get_current_user_id(), 'user', (int) $bn_pa_uid ),
 			)
 		);
 		?>

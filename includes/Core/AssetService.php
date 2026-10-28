@@ -1339,6 +1339,8 @@ class AssetService {
 					'unmute'                        => __( 'Unmute', 'buddynext' ),
 					'block'                         => __( 'Block', 'buddynext' ),
 					'report'                        => __( 'Report', 'buddynext' ),
+					'reported'                      => __( 'Reported', 'buddynext' ),
+					'youReportedMember'             => __( 'You reported this member', 'buddynext' ),
 					'ariaMoreActions'               => __( 'More actions', 'buddynext' ),
 					'degreeFirst'                   => __( '1st', 'buddynext' ),
 					'degreeSecond'                  => __( '2nd', 'buddynext' ),

@@ -921,6 +921,7 @@ final class ResponseSchema {
 				'can_connect'    => array( 'type' => 'boolean' ),
 				'is_following'   => array( 'type' => 'boolean' ),
 				'is_muted'       => array( 'type' => 'boolean' ),
+				'has_reported'   => array( 'type' => 'boolean' ),
 				'connection'     => array( 'type' => array( 'object', 'null' ) ),
 				'labels'         => array(
 					'type'  => 'array',

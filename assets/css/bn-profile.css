@@ -3520,3 +3520,8 @@ a.bn-space-row:hover .bn-space-name {
    load in wp-admin, so the state rendered there as a bare unstyled sentence in
    a column of bordered controls). This comment is a signpost so the rules are
    not re-added here. */
+
+/* Profile More menu: "Reported" is a disabled item, never a hover target. */
+.bn-more-menu-item--reported,
+.bn-more-menu-item--reported:hover,
+.bn-more-menu-item--reported:focus { background: transparent; color: var(--bn-ink-3); cursor: default; }

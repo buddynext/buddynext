@@ -18,6 +18,7 @@
  *
  * @var string $profile_url Absolute URL of the profile (copy-link target).
  * @var string $mention_url Compose URL that mentions this member (share to feed).
+ * @var bool   $has_reported Whether the viewer has already reported this member.
  * @var bool   $show_safety Render Mute / Restrict / Block / Report. Requires an
  *                          account to act on, so it is off for logged-out
  *                          visitors and meaningless on your own profile.
@@ -38,10 +39,11 @@ $bn_ov_profile = isset( $profile_url ) ? (string) $profile_url : '';
 // redirects a guest to explore with the mention dropped and no composer to use
 // (card 10297709530). Empty it for guests so the item is hidden, exactly as Block,
 // Report and Message already are; a guest keeps "Share profile", which works for them.
-$bn_ov_mention = ( isset( $mention_url ) && is_user_logged_in() ) ? (string) $mention_url : '';
-$bn_ov_safety  = ! empty( $show_safety );
-$bn_ov_edit    = isset( $edit_url ) ? (string) $edit_url : '';
-$bn_ov_message = isset( $message_url ) ? (string) $message_url : '';
+$bn_ov_mention  = ( isset( $mention_url ) && is_user_logged_in() ) ? (string) $mention_url : '';
+$bn_ov_safety   = ! empty( $show_safety );
+$bn_ov_edit     = isset( $edit_url ) ? (string) $edit_url : '';
+$bn_ov_message  = isset( $message_url ) ? (string) $message_url : '';
+$bn_ov_reported = ! empty( $has_reported );
 ?>
 <div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-class--is-flipped="context.moreMenuFlip">
 	<button class="bn-btn bn-pf-more-trigger"
@@ -132,11 +134,23 @@ $bn_ov_message = isset( $message_url ) ? (string) $message_url : '';
 				data-wp-text="state.blockLabel">
 				<?php esc_html_e( 'Block', 'buddynext' ); ?>
 			</button>
-			<button class="bn-more-menu-item"
-				role="menuitem"
-				data-wp-on--click="actions.openReport">
-				<?php esc_html_e( 'Report', 'buddynext' ); ?>
-			</button>
+			<span class="bn-report-slot" data-bn-report-slot role="none">
+				<button class="bn-more-menu-item"
+					role="menuitem"
+					data-bn-report
+					data-wp-on--click="actions.openReport"
+					<?php echo $bn_ov_reported ? 'hidden' : ''; ?>>
+					<?php esc_html_e( 'Report', 'buddynext' ); ?>
+				</button>
+				<span class="bn-more-menu-item bn-more-menu-item--reported"
+					role="menuitem"
+					aria-disabled="true"
+					aria-label="<?php esc_attr_e( 'You reported this member', 'buddynext' ); ?>"
+					data-bn-reported
+					<?php echo $bn_ov_reported ? '' : 'hidden'; ?>>
+					<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Reported', 'buddynext' ); ?>
+				</span>
+			</span>
 		<?php endif; ?>
 	</div>
 </div>

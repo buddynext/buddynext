@@ -336,14 +336,25 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<?php endif; ?>
 
 			<?php if ( ! $bn_is_guest && ! $bn_is_owner && buddynext_can( get_current_user_id(), 'buddynext-moderation/report' ) ) : ?>
-				<button
-					type="button"
-					class="bn-btn"
-					data-variant="ghost"
-					data-size="sm"
-					data-wp-on--click="actions.reportSpace"
-					aria-label="<?php esc_attr_e( 'Report this space', 'buddynext' ); ?>"
-				><?php buddynext_icon( 'flag' ); ?> <?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+				<?php $bn_sh_reported = buddynext_service( 'moderation' )->user_has_reported( get_current_user_id(), 'space', $bn_space_id ); ?>
+				<span class="bn-report-slot" data-bn-report-slot>
+					<button
+						type="button"
+						class="bn-btn"
+						data-variant="ghost"
+						data-size="sm"
+						data-bn-report
+						data-wp-on--click="actions.reportSpace"
+						aria-label="<?php esc_attr_e( 'Report this space', 'buddynext' ); ?>"
+						<?php echo $bn_sh_reported ? 'hidden' : ''; ?>
+					><?php buddynext_icon( 'flag' ); ?> <?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+					<span
+						class="bn-reported-label"
+						data-bn-reported
+						aria-label="<?php esc_attr_e( 'You reported this space', 'buddynext' ); ?>"
+						<?php echo $bn_sh_reported ? '' : 'hidden'; ?>
+					><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Reported', 'buddynext' ); ?></span>
+				</span>
 			<?php endif; ?>
 		</div>
 	</div>

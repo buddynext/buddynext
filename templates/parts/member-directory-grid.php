@@ -116,6 +116,7 @@ $bn_status_map    = array();
 $bn_following_map = array();
 $bn_mutual_map    = array();
 $bn_muted_set     = array();
+$bn_reported_map  = array();
 if ( $bn_viewer_id > 0 && ! empty( $bn_member_ids ) && function_exists( 'buddynext_service' ) ) {
 	$bn_conn_service = buddynext_service( 'connections' );
 	$bn_status_map   = $bn_conn_service->statuses_for( $bn_viewer_id, $bn_member_ids );
@@ -129,6 +130,8 @@ if ( $bn_viewer_id > 0 && ! empty( $bn_member_ids ) && function_exists( 'buddyne
 	$bn_blocks_service = buddynext_service( 'blocks' );
 	$bn_blocks_service->prime_restricted_cache( $bn_viewer_id, $bn_member_ids );
 	$bn_muted_set = array_fill_keys( $bn_blocks_service->muted_users( $bn_viewer_id ), true );
+	// One query for the page: which of these members the viewer already reported.
+	$bn_reported_map = buddynext_service( 'moderation' )->user_reported_map( $bn_viewer_id, 'user', $bn_member_ids );
 }
 
 // Per-member state is read straight from the relevant services here, so a
@@ -246,6 +249,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'connection_state'       => $bn_conn_state,
 				'connection_status'      => null === $bn_conn_status ? 'none' : (string) $bn_conn_status,
 				'is_muted'               => $bn_is_muted,
+				'has_reported'           => ! empty( $bn_reported_map[ $bn_member_id ] ),
 				'mutual_count'           => $bn_mutual,
 				'mutual_avatars'         => $bn_mutual_avatars,
 				'degree'                 => $bn_degree,

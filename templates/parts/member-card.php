@@ -58,6 +58,7 @@ $args = array(
 	'connection_state'       => isset( $connection_state ) ? (string) $connection_state : 'none',
 	'connection_status'      => isset( $connection_status ) ? (string) $connection_status : 'none',
 	'is_muted'               => isset( $is_muted ) ? (bool) $is_muted : false,
+	'has_reported'           => isset( $has_reported ) ? (bool) $has_reported : null,
 	'mutual_count'           => isset( $mutual_count ) ? (int) $mutual_count : 0,
 	'mutual_avatars'         => isset( $mutual_avatars ) && is_array( $mutual_avatars ) ? $mutual_avatars : array(),
 	'degree'                 => isset( $degree ) ? (int) $degree : 0,
@@ -119,6 +120,10 @@ $bn_md_stats      = (bool) $args['show_stats'];
 $bn_conn_state    = (string) $args['connection_state'];
 $bn_conn_status   = (string) $args['connection_status'];
 $bn_is_muted      = (bool) $args['is_muted'];
+// The directory grid primes the reported map once per page; other callers ask per card (cached).
+$bn_md_reported   = null !== $args['has_reported']
+	? (bool) $args['has_reported']
+	: ( $bn_viewer_id > 0 && buddynext_service( 'moderation' )->user_has_reported( $bn_viewer_id, 'user', $bn_member_id ) );
 $bn_mutual        = (int) $args['mutual_count'];
 $bn_presence_attr = (string) $args['presence'];
 $bn_type_label    = (string) $args['member_type_label'];
@@ -243,12 +248,24 @@ do_action( 'buddynext_part_member_card_before', $args );
 					role="menuitem"
 					data-wp-on--click="actions.openBlock"
 				><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
-				<button
-					type="button"
-					class="bn-md-card__menu-item"
-					role="menuitem"
-					data-wp-on--click="actions.openReport"
-				><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+				<span class="bn-report-slot" data-bn-report-slot role="none">
+					<button
+						type="button"
+						class="bn-md-card__menu-item"
+						role="menuitem"
+						data-bn-report
+						data-wp-on--click="actions.openReport"
+						<?php echo $bn_md_reported ? 'hidden' : ''; ?>
+					><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+					<span
+						class="bn-md-card__menu-item bn-md-card__menu-item--reported"
+						role="menuitem"
+						aria-disabled="true"
+						aria-label="<?php esc_attr_e( 'You reported this member', 'buddynext' ); ?>"
+						data-bn-reported
+						<?php echo $bn_md_reported ? '' : 'hidden'; ?>
+					><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Reported', 'buddynext' ); ?></span>
+				</span>
 			</div>
 		</div>
 	<?php endif; ?>

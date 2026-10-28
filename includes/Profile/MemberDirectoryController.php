@@ -275,6 +275,8 @@ class MemberDirectoryController extends BaseRestController {
 				// a reactive card always rendered "Mute" and then un-muted a member it
 				// had just offered to mute. Page-scoped, one query.
 				$muted_set = buddynext_service( 'blocks' )->muted_map( $viewer_id, $page_ids );
+				// Primes the reported state shape_item() reads, one query for the page.
+				buddynext_service( 'moderation' )->user_reported_map( $viewer_id, 'user', $page_ids );
 			}
 
 			/**
@@ -330,6 +332,8 @@ class MemberDirectoryController extends BaseRestController {
 			$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $ids );
 			$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $ids );
 			$muted_set      = buddynext_service( 'blocks' )->muted_map( $viewer_id, $ids );
+			// Primes the reported state shape_item() reads, one query for the page.
+			buddynext_service( 'moderation' )->user_reported_map( $viewer_id, 'user', $ids );
 		}
 
 		// A suspended viewer keeps read access but loses every write affordance, so
@@ -511,6 +515,8 @@ class MemberDirectoryController extends BaseRestController {
 			// the kebab always read "Mute" — so muting a member you had already muted
 			// silently UN-muted them.
 			'is_muted'       => isset( $muted_set[ $uid ] ),
+			// Parity with SSR: the card menu shows "Reported" once the viewer reported this member.
+			'has_reported'   => $viewer_id > 0 && buddynext_service( 'moderation' )->user_has_reported( $viewer_id, 'user', $uid ),
 			'connection'     => $this->shape_connection_state( $conn_status ),
 		);
 
