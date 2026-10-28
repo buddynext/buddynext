@@ -3317,10 +3317,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-radius: 50%;
 	border: 2px solid var(--bn-avatar-presence-border);
 }
+/* Each state has its own shape as well as its colour (WCAG 1.4.1), so it reads
+   without colour: online a solid dot, away a crescent, busy a dot with a bar,
+   offline a hollow ring. The member's state is also given as text for screen
+   readers by buddynext_presence_text(). */
 .bn-avatar[data-presence="online"]::after  { background: var(--bn-success); }
-.bn-avatar[data-presence="away"]::after    { background: var(--bn-warn); }
-.bn-avatar[data-presence="dnd"]::after     { background: var(--bn-danger); }
-.bn-avatar[data-presence="offline"]::after { background: var(--bn-ink-4); }
+.bn-avatar[data-presence="away"]::after    { background: radial-gradient(circle at 70% 30%, var(--bn-avatar-presence-border) 0 34%, var(--bn-warn) 36%); }
+.bn-avatar[data-presence="dnd"]::after     { background: linear-gradient(var(--bn-danger) 0 40%, var(--bn-avatar-presence-border) 40% 60%, var(--bn-danger) 60%); }
+.bn-avatar[data-presence="offline"]::after { background: var(--bn-avatar-presence-border); box-shadow: inset 0 0 0 2px var(--bn-ink-4); }
 
 /* The presence dot sits on the avatar's bottom-right edge, so the avatar's
 	circular overflow clip (base .bn-avatar, [data-size], and .bn-md-card__avatar

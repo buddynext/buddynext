@@ -179,12 +179,15 @@ export function trapFocus( container ) {
 		// that stay hidden until a state changes (the Share dialog's link row appears
 		// only after a link is created); counting those made an invisible element the
 		// "last" stop, so the wrap never fired and Tab walked out of the dialog.
+		// Only real Tab stops count: a button with tabindex="-1" (the lightbox
+		// backdrop) or an SVG <use href> icon matched the query but Tab never lands
+		// on it, so it became "first" and Shift+Tab walked out past the real first.
 		const focusables = Array.prototype.filter.call(
 			container.querySelectorAll(
-				'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+				'button:not([disabled]), a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 			),
 			function ( el ) {
-				return el.getClientRects().length > 0;
+				return el.tabIndex >= 0 && el.getClientRects().length > 0;
 			}
 		);
 		if ( ! focusables.length ) {
@@ -1365,6 +1368,8 @@ if ( typeof window !== 'undefined' ) {
 	// Classic scripts (e.g. Pro's Businesses tab) reload after an action and need
 	// the toast to survive the reload.
 	window.bnReloadWithToast = bnReloadWithToast;
+	// Classic overlays (the media lightbox) keep Tab inside themselves with the same trap.
+	window.bnTrapFocus = trapFocus;
 	// One toast for every classic script and every plugin. shell/extras.js queues calls made
 	// before this module has run; replay them now that the real function exists.
 	const queued = window.__bnToastQueue || [];

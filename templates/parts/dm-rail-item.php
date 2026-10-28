@@ -142,7 +142,7 @@ do_action( 'buddynext_part_dm_rail_item_before', $args );
 
 	<span class="bn-dm-rail__item-info">
 		<span class="bn-dm-rail__item-row">
-			<span class="bn-dm-rail__item-name"><?php echo esc_html( $c_name ); ?></span>
+			<span class="bn-dm-rail__item-name"><?php echo esc_html( $c_name ); ?><?php buddynext_presence_text( $c_is_group ? '' : $presence ); ?></span>
 			<time class="bn-dm-rail__item-time" datetime="<?php echo esc_attr( is_numeric( $c_at ) ? gmdate( 'c', (int) $c_at ) : (string) $c_at ); ?>">
 				<?php echo esc_html( (string) $relative_call( $c_at ) ); ?>
 			</time>

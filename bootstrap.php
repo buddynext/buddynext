@@ -1516,6 +1516,29 @@ function buddynext_avatar_colour( int $user_id ): string {
 }
 
 /**
+ * Echo a member's presence as screen-reader text.
+ *
+ * The presence dot on an avatar is drawn in CSS, so it says nothing to a screen
+ * reader. Print this next to the member's name wherever the dot is shown.
+ *
+ * @since 1.2.8
+ *
+ * @param string $state Presence state: online, away, dnd or offline. Anything else prints nothing.
+ * @return void
+ */
+function buddynext_presence_text( string $state ): void {
+	$labels = array(
+		'online'  => __( 'Online', 'buddynext' ),
+		'away'    => __( 'Away', 'buddynext' ),
+		'dnd'     => __( 'Do not disturb', 'buddynext' ),
+		'offline' => __( 'Offline', 'buddynext' ),
+	);
+	if ( isset( $labels[ $state ] ) ) {
+		echo '<span class="bn-sr-only"> (' . esc_html( $labels[ $state ] ) . ')</span>';
+	}
+}
+
+/**
  * Echo a BuddyNext SVG icon inline.
  *
  * Reads the named SVG from assets/icons/<name>.svg, sanitizes it via

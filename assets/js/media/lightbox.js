@@ -26,6 +26,8 @@
 	var gallery = [];   // [{id,type,src,poster,alt}]
 	var index = 0;
 	var lastFocus = null;
+	// Releases the Tab trap set on open (aria-modal: Tab must stay in the viewer).
+	var releaseTrap = null;
 	var current = null; // current media id
 
 	function shell() {
@@ -1195,6 +1197,7 @@
 		if ( gallery[ index ].id ) { loadPanel( gallery[ index ].id ); }
 		overlay.hidden = false;
 		document.body.classList.add( 'bn-lightbox-open' );
+		if ( ! releaseTrap && 'function' === typeof window.bnTrapFocus ) { releaseTrap = window.bnTrapFocus( overlay ); }
 		var closeBtn = overlay.querySelector( '[data-bn-lb-close].bn-lightbox__close' );
 		if ( closeBtn ) { closeBtn.focus(); }
 	}
@@ -1203,6 +1206,7 @@
 		if ( ! overlay ) { return; }
 		overlay.hidden = true;
 		document.body.classList.remove( 'bn-lightbox-open' );
+		if ( releaseTrap ) { releaseTrap(); releaseTrap = null; }
 		clear( stage ); // stop video playback
 		gallery = [];
 		current = null;

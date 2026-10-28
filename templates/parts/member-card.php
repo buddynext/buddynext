@@ -308,7 +308,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	<div class="bn-md-card__identity">
 		<h3 class="bn-md-card__name">
 			<a href="<?php echo esc_url( $bn_profile_url ); ?>">
-				<?php echo esc_html( $bn_display_name ); ?>
+				<?php echo esc_html( $bn_display_name ); ?><?php buddynext_presence_text( $bn_presence_attr ); ?>
 			</a>
 			<?php
 			$bn_md_degree = (int) $args['degree'];
