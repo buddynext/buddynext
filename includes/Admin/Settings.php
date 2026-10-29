@@ -184,12 +184,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Free standalone: surface a Free vs Pro comparison so owners can see
 		// what the Pro upgrade unlocks. Hidden automatically once Pro is active.
 		if ( ! defined( 'BUDDYNEXTPRO_VERSION' ) ) {
-			/**
-			 * Filter the "Upgrade to Pro" destination URL.
-			 *
-			 * @param string $url Product page URL.
-			 */
-			$upgrade_url    = (string) apply_filters( 'buddynext_pro_upgrade_url', 'https://wbcomdesigns.com/downloads/buddynext-pro/' );
+			$upgrade_url    = \BuddyNext\Integrations\CompanionRegistry::pro_upgrade_url();
 			$upgrade_action = sprintf(
 				'<a class="bn-btn" data-variant="primary" data-size="sm" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
 				esc_url( $upgrade_url ),
@@ -3325,6 +3320,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			data-i18n-failed="<?php esc_attr_e( 'Install failed.', 'buddynext' ); ?>"
 			data-i18n-network="<?php esc_attr_e( 'Install failed - network error.', 'buddynext' ); ?>">
 			<?php
+			$bn_pro_action = \BuddyNext\Integrations\CompanionRegistry::pro_action();
 			foreach ( $companions as $bn_slug => $bn_c ) :
 				$bn_status   = \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug );
 				$bn_label    = (string) ( $bn_c['label'] ?? $bn_slug );
@@ -3337,7 +3333,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				// Four of these connect through a bridge that ships in BuddyNext Pro.
 				// Without Pro the plugin is installed but nothing is wired, so the
 				// card must not say "Connected" or tick off what it unlocks.
-				$bn_waits_for_pro = 'active' === $bn_status && ! empty( $bn_c['needs_pro'] ) && ! defined( 'BUDDYNEXTPRO_VERSION' );
+				$bn_needs_pro     = ! empty( $bn_c['needs_pro'] ) && ! defined( 'BUDDYNEXTPRO_VERSION' );
+				$bn_waits_for_pro = 'active' === $bn_status && $bn_needs_pro;
 
 				if ( $bn_waits_for_pro ) {
 					$bn_badge_class = 'bn-companion-badge bn-companion-badge--warning';
@@ -3365,6 +3362,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					/>
 					<h3 class="bn-companion-card__title"><?php echo esc_html( $bn_label ); ?></h3>
 					<span class="<?php echo esc_attr( $bn_badge_class ); ?>"><?php echo esc_html( $bn_badge_label ); ?></span>
+					<?php if ( $bn_needs_pro && ! $bn_waits_for_pro ) : ?>
+						<span class="bn-companion-badge bn-companion-badge--muted"><?php esc_html_e( 'Connects with BuddyNext Pro', 'buddynext' ); ?></span>
+					<?php endif; ?>
 				</div>
 
 				<?php if ( '' !== $bn_why ) : ?>
@@ -3395,6 +3395,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<button type="button" class="bn-addon-row__action bn-companion-install" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 							<?php esc_html_e( 'Install free', 'buddynext' ); ?>
 						</button>
+					<?php elseif ( $bn_waits_for_pro && null !== $bn_pro_action ) : ?>
+						<a href="<?php echo esc_url( $bn_pro_action['url'] ); ?>" class="bn-addon-row__action"<?php echo $bn_pro_action['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>><?php echo esc_html( $bn_pro_action['label'] ); ?></a>
 					<?php endif; ?>
 
 					<?php if ( '' !== $bn_store ) : ?>

@@ -257,4 +257,59 @@ final class CompanionRegistry {
 		}
 		return 'not_installed';
 	}
+
+	/**
+	 * Active partners that connect only through BuddyNext Pro, while Pro is not active.
+	 *
+	 * @return array<string, array<string, mixed>> Slug => entry.
+	 */
+	public static function waiting_for_pro(): array {
+		if ( defined( 'BUDDYNEXTPRO_VERSION' ) ) {
+			return array();
+		}
+		return array_filter(
+			self::all(),
+			static fn( array $entry, string $slug ): bool => ! empty( $entry['needs_pro'] ) && 'active' === self::status( $slug ),
+			ARRAY_FILTER_USE_BOTH
+		);
+	}
+
+	/**
+	 * Where to buy BuddyNext Pro.
+	 *
+	 * @return string
+	 */
+	public static function pro_upgrade_url(): string {
+		/**
+		 * Filter the "Upgrade to Pro" destination URL.
+		 *
+		 * @param string $url Product page URL.
+		 */
+		return (string) apply_filters( 'buddynext_pro_upgrade_url', 'https://wbcomdesigns.com/downloads/buddynext-pro/' );
+	}
+
+	/**
+	 * The one action that connects a Pro-only partner: activate BuddyNext Pro when
+	 * it is installed, otherwise get it. Null once Pro is active.
+	 *
+	 * @return array{label:string,url:string,external:bool}|null
+	 */
+	public static function pro_action(): ?array {
+		if ( defined( 'BUDDYNEXTPRO_VERSION' ) ) {
+			return null;
+		}
+		$basename = 'buddynext-pro/buddynext-pro.php';
+		if ( file_exists( WP_PLUGIN_DIR . '/' . $basename ) && current_user_can( 'activate_plugins' ) ) {
+			return array(
+				'label'    => __( 'Activate BuddyNext Pro', 'buddynext' ),
+				'url'      => wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $basename ) . '&plugin_status=all' ), 'activate-plugin_' . $basename ),
+				'external' => false,
+			);
+		}
+		return array(
+			'label'    => __( 'Get BuddyNext Pro', 'buddynext' ),
+			'url'      => self::pro_upgrade_url(),
+			'external' => true,
+		);
+	}
 }

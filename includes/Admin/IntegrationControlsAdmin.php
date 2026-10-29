@@ -56,6 +56,8 @@ class IntegrationControlsAdmin {
 		}
 
 		$integrations = buddynext_integrations();
+		$bn_waiting   = \BuddyNext\Integrations\CompanionRegistry::waiting_for_pro();
+		$bn_pro       = \BuddyNext\Integrations\CompanionRegistry::pro_action();
 
 		echo '<p class="bn-field-hint">';
 		printf(
@@ -69,7 +71,37 @@ class IntegrationControlsAdmin {
 			<input type="hidden" name="action" value="bn_integration_controls_save">
 			<?php wp_nonce_field( 'bn_integration_controls_save' ); ?>
 
-			<?php if ( empty( $integrations ) ) : ?>
+			<?php
+			// Active partners whose bridge ships in BuddyNext Pro: say they are active,
+			// what Pro adds with each, and the one action that connects them all -
+			// never "activate an integration" for a plugin that is already active.
+			if ( ! empty( $bn_waiting ) ) :
+				?>
+				<div class="bn-settings-section">
+					<div class="bn-ss-header">
+						<div class="bn-ss-heading">
+							<span class="bn-ss-title"><?php esc_html_e( 'Active, waiting for BuddyNext Pro', 'buddynext' ); ?></span>
+						</div>
+					</div>
+					<div class="bn-ss-body">
+						<ul>
+							<?php foreach ( $bn_waiting as $bn_w ) : ?>
+								<li>
+									<?php
+									/* translators: 1: partner plugin name, 2: what BuddyNext Pro adds with it. */
+									echo esc_html( sprintf( __( '%1$s is active. With BuddyNext Pro: %2$s', 'buddynext' ), (string) ( $bn_w['label'] ?? '' ), (string) ( $bn_w['unlocks'] ?? '' ) ) );
+									?>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+						<?php if ( null !== $bn_pro ) : ?>
+							<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( $bn_pro['url'] ); ?>"<?php echo $bn_pro['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>><?php echo esc_html( $bn_pro['label'] ); ?></a>
+						<?php endif; ?>
+					</div>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( empty( $integrations ) && empty( $bn_waiting ) ) : ?>
 				<div class="bn-settings-section">
 					<div class="bn-ss-body">
 						<div class="bn-empty">
