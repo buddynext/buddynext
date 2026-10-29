@@ -1240,6 +1240,8 @@ class AssetService {
 					'post'                      => __( 'Post', 'buddynext' ),
 					'posting'                   => __( 'Posting…', 'buddynext' ),
 					'postPublished'             => __( 'Post published', 'buddynext' ),
+					'postedToStory'             => __( 'Posted and added to your story.', 'buddynext' ),
+					'storyAddFailed'            => __( 'Your post is up. It could not be added to your story.', 'buddynext' ),
 					'postScheduled'             => __( 'Post scheduled', 'buddynext' ),
 					'postSubmittedForReview'    => __( 'Your post was submitted for review.', 'buddynext' ),
 					'postPublishFailed'         => __( 'Could not publish your post. Try again.', 'buddynext' ),

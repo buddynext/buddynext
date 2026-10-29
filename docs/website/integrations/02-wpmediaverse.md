@@ -47,6 +47,10 @@ This matters more than it looks. The bridge sends the standalone media page back
 
 A **Media** link appears in the BuddyNext left navigation rail for logged-in members, in the personal group with Profile and Bookmarks. It opens the member's own profile Media tab, where they browse their photos, videos and albums (see Profile Media and Albums). Guests do not see it. The owner can hide it with **Show in navigation** on the Media card in Integration Settings.
 
+### Stories on the home feed
+
+With WPMediaVerse Pro and its **Stories** setting on, a stories bar sits at the top of the home feed, above the composer. It starts with **Your story**, then one avatar per person the member follows who has a live story. Stories last 24 hours. A member adds one from the **Your story** tile, or ticks **Also add to my story** in the composer when posting a public photo or video from the home feed. A story is not also posted to the feed, and when it expires the post it came from keeps its photo. Guests, spaces and profiles do not show the bar, and with Stories off nothing is added to the page.
+
 ### Files in spaces and on profiles
 
 BuddyNext shows the Files screens for spaces and profiles. WPMediaVerse Pro holds the files and applies the rules. Members can **Upload** a file or **Link** an existing one in a space's Files tab, and space owners and moderators manage the folders. A space owner turns the Files tab on under **Manage space > Integrations**. See Space Media and Albums for the full walkthrough. Files need WPMediaVerse Pro; without it the Files tab is not offered.
@@ -104,7 +108,7 @@ If you genuinely want media reporting off, a developer can switch it back off in
 
 ## Free vs Pro
 
-The free WPMediaVerse companion gives BuddyNext everything described above except Files: member-to-member direct messaging, media in posts and conversations, and the Media sidebar link.
+The free WPMediaVerse companion gives BuddyNext everything described above except Files and Stories: member-to-member direct messaging, media in posts and conversations, and the Media sidebar link.
 
 WPMediaVerse Pro extends the messaging engine with:
 
@@ -112,6 +116,7 @@ WPMediaVerse Pro extends the messaging engine with:
 - **Group messages** - conversations with more than two members.
 - **Real-time delivery** - messages arrive live without waiting for a refresh.
 - **Files** - the document library behind the Files tabs on spaces and profiles.
+- **Stories** - 24-hour stories in a bar at the top of the home feed.
 
 These are engine-level upgrades. Activating WPMediaVerse Pro lights them up inside the same BuddyNext messaging experience; you do not change anything in BuddyNext itself to use them.
 

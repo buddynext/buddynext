@@ -357,6 +357,7 @@ class WPMediaVerseBridge {
 		// via the same WPMediaVerse path and then creates its OWN feed post — is
 		// never duplicated.
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
+		add_action( 'buddynext_feed_home_before', array( $this, 'render_stories_bar' ) );
 
 		// Keep an attached media file's engine privacy in step with the privacy of
 		// the post it is attached to — on create AND on edit. See
@@ -497,6 +498,34 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * The stories bar at the top of the home feed, above the composer.
+	 *
+	 * WPMediaVerse Pro's own `mvs/pro-stories` block (bar, viewer and "Your
+	 * story" tile) in a BuddyNext card. Nothing at all - no wrapper, no gap, no
+	 * assets - for a guest or while stories are unavailable.
+	 *
+	 * @return void
+	 */
+	public function render_stories_bar(): void {
+		if ( ! is_user_logged_in() || ! MediaClient::stories_available() ) {
+			return;
+		}
+		$bar = render_block(
+			array(
+				'blockName'    => 'mvs/pro-stories',
+				'attrs'        => array(),
+				'innerBlocks'  => array(),
+				'innerHTML'    => '',
+				'innerContent' => array(),
+			)
+		);
+		if ( '' === trim( $bar ) ) {
+			return;
+		}
+		echo '<section class="bn-feed-stories" aria-label="' . esc_attr__( 'Stories', 'buddynext' ) . '">' . $bar . '</section>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the block's own render output.
+	}
+
+	/**
 	 * Publish the deferred feed entry for an upload, unless it was already
 	 * surfaced by a BuddyNext post (composer photo/media post or a prior run).
 	 *
@@ -512,6 +541,14 @@ class WPMediaVerseBridge {
 		$media_id = (int) $media_id;
 		$user_id  = (int) $user_id;
 		if ( $media_id <= 0 || $user_id <= 0 || ! buddynext_integration_enabled( 'media', 'feed' ) ) {
+			return;
+		}
+
+		// A story is a 24-hour post of its own, not a feed post: the stories bar's
+		// "Your story" upload goes through mvs/v1/media like any upload, and is
+		// marked a story right after.
+		$repo = MediaClient::repo();
+		if ( is_object( $repo ) && method_exists( $repo, 'get' ) && '1' === (string) $repo->get( $media_id, 'is_story' ) ) {
 			return;
 		}
 

@@ -2777,6 +2777,43 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
    pill — always visible.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Stories bar (WPMediaVerse Pro's mvs/pro-stories block) at the top of the home
+   feed, above the composer: a card in the composer's style. The block reads
+   --mvs-* custom properties, so it is skinned by mapping those to BN tokens
+   here rather than overriding its selectors; dark mode follows the tokens. */
+.bn-feed-stories {
+	--mvs-accent: var(--bn-accent);
+	--mvs-primary-hover: var(--bn-accent-600, var(--bn-accent));
+	--mvs-on-accent: var(--bn-on-accent, var(--bn-surface));
+	--mvs-bg: var(--bn-surface);
+	--mvs-border: var(--bn-line-strong);
+	--mvs-text: var(--bn-ink);
+	--mvs-text-secondary: var(--bn-ink-2);
+	--mvs-danger: var(--bn-danger);
+	--mvs-font-xs: var(--bn-text-xs);
+	--mvs-font-sm: var(--bn-text-sm);
+	--mvs-space-xs: var(--bn-s1);
+	--mvs-space-sm: var(--bn-s2);
+	--mvs-space-md: var(--bn-s3);
+	--mvs-radius-lg: var(--bn-r-lg);
+	--mvs-radius-full: var(--bn-r-full);
+	background: var(--bn-surface);
+	border: 1px solid var(--border);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s2) var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-feed-stories .mvs-pro-stories__bar {
+	scroll-snap-type: x proximity;
+}
+
+@media (max-width: 480px) {
+	.bn-feed-stories {
+		padding-inline: var(--bn-s2);
+	}
+}
+
 .bn-composer {
 	position: relative;
 	background: var(--bn-surface);
@@ -3302,6 +3339,44 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--bn-s2);
+}
+
+/* "Also add to my story" under the media thumbs: a native checkbox whose whole
+   label is the tap target, with the 24-hour hint beneath. */
+.bn-composer__story {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
+	column-gap: var(--bn-s2);
+	min-block-size: 40px;
+	margin-block-start: var(--bn-s2);
+}
+
+.bn-composer__story[hidden] {
+	display: none;
+}
+
+.bn-composer__story input {
+	inline-size: 18px;
+	block-size: 18px;
+	margin: 0;
+	accent-color: var(--bn-accent);
+}
+
+.bn-composer__story label {
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	cursor: pointer;
+	min-block-size: 40px;
+	display: flex;
+	align-items: center;
+}
+
+.bn-composer__story .bn-field-hint {
+	grid-column: 2;
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
 }
 
 /* Attached-document chip — one document per post, shown as a compact pill. */

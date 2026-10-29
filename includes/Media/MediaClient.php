@@ -33,6 +33,18 @@ class MediaClient {
 	}
 
 	/**
+	 * Whether 24-hour stories can be shown: WPMediaVerse Pro registers its stories
+	 * bar and the owner has Stories on (MediaVerse Pro > Stories).
+	 *
+	 * @return bool
+	 */
+	public static function stories_available(): bool {
+		return self::available()
+			&& \WP_Block_Type_Registry::get_instance()->is_registered( 'mvs/pro-stories' )
+			&& '1' === (string) get_option( 'mvs_stories_enabled', '0' );
+	}
+
+	/**
 	 * May this member upload media?
 	 *
 	 * The owner decides in MediaVerse ("Who can upload media", stored as the

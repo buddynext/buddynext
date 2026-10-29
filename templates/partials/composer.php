@@ -160,6 +160,12 @@ $args = (array) apply_filters(
 do_action( 'buddynext_part_composer_before', $args );
 
 $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'buddynext_default_post_privacy', 'public' );
+
+// "Also add to my story": home feed only (a space post stays in its space) and
+// only while WPMediaVerse Pro stories are on. The row shows for public posts
+// with an image or video (state.canAddToStory): a story's audience is its media
+// privacy, so a narrower post must not widen who sees it.
+$composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::stories_available() ) ? rest_url( 'mvs-pro/v1/media/' ) : '';
 ?>
 <div class="bn-composer"
 	data-wp-interactive="buddynext/post-composer"
@@ -180,6 +186,9 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'content'               => '',
 				'submitting'            => false,
 				'mediaIds'              => array(),
+				'mediaCount'            => 0,
+				'storiesUrl'            => $composer_stories_url,
+				'addToStory'            => false,
 				'mediaPreviews'         => array(),
 				'mediaUploading'        => 0,
 				'errorMessage'          => '',
@@ -311,6 +320,15 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				</div>
 			</template>
 		</div>
+
+		<?php if ( '' !== $composer_stories_url ) : ?>
+			<?php $bn_story_id = wp_unique_id( 'bn-composer-story-' ); ?>
+			<div class="bn-composer__story" hidden data-wp-bind--hidden="!state.canAddToStory">
+				<input type="checkbox" id="<?php echo esc_attr( $bn_story_id ); ?>" aria-describedby="<?php echo esc_attr( $bn_story_id ); ?>-hint" data-wp-bind--checked="context.addToStory" data-wp-on--change="actions.toggleStory">
+				<label for="<?php echo esc_attr( $bn_story_id ); ?>"><?php esc_html_e( 'Also add to my story', 'buddynext' ); ?></label>
+				<p class="bn-field-hint" id="<?php echo esc_attr( $bn_story_id ); ?>-hint"><?php esc_html_e( 'Shows for 24 hours.', 'buddynext' ); ?></p>
+			</div>
+		<?php endif; ?>
 
 		<?php if ( (bool) get_option( 'buddynext_enable_link_preview', true ) ) : ?>
 		<div class="bn-composer__link-preview"
