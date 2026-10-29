@@ -141,6 +141,8 @@ $bn_new_pill_ms = (bool) get_option( 'buddynext_feed_new_posts_indicator', true 
  */
 do_action( 'buddynext_feed_home_before', $current_user_id );
 ?>
+<?php // The page's one top-level heading, for screen readers: the feed shows no visible title. ?>
+<h1 class="bn-sr-only"><?php esc_html_e( 'Activity', 'buddynext' ); ?></h1>
 <div class="bn-feed-stack"
 	data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
 	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"

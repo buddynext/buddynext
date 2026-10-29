@@ -245,6 +245,13 @@ body.admin-bar .bn-app.bn-app--embedded {
 	margin-inline: 0;
 }
 
+/* A visually hidden child (the feed's screen-reader h1) keeps the utility's
+   1px box: stretched to 100% it is still clipped but widens the page. */
+.bn-app__main > .bn-sr-only {
+	width: 1px;
+	margin: -1px;
+}
+
 .bn-app__right {
 	padding: var(--bn-s5);
 	border-inline-start: 1px solid var(--bn-line);

@@ -120,7 +120,7 @@ do_action( 'buddynext_part_dm_rail_before', $args );
 <aside class="<?php echo esc_attr( $bn_class ); ?>" aria-label="<?php esc_attr_e( 'Conversations', 'buddynext' ); ?>">
 
 	<div class="bn-split__rail-head bn-dm-rail__head">
-		<h2 class="bn-split__rail-title"><?php esc_html_e( 'Messages', 'buddynext' ); ?></h2>
+		<h1 class="bn-split__rail-title"><?php esc_html_e( 'Messages', 'buddynext' ); ?></h1>
 		<?php if ( $unread > 0 ) : ?>
 			<span class="bn-badge" data-tone="accent" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: number of unread notifications. */ _n( '%d unread', '%d unread', $unread, 'buddynext' ), $unread ) ); ?>">
 				<?php echo esc_html( (string) min( $unread, 99 ) ); ?>

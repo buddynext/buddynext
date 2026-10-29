@@ -4802,6 +4802,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-split__rail-title {
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
+	line-height: 1.25;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	color: var(--bn-ink-3);

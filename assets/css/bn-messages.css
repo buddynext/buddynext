@@ -1982,6 +1982,26 @@
 }
 .bn-dm-compose__chip-x:hover { background: var(--bn-danger, #dc2626); color: var( --bn-accent-fg, #fff ); }
 
+/* Phones and touch screens: a 28px remove button whose hit area grows to 40px
+   (--bn-tap) inside its own chip, so it cannot take a tap meant for the next
+   chip in the row (the 6px chip padding is the overhang it may use). */
+@media (max-width: 640px), (pointer: coarse) {
+	.bn-dm-compose__chip {
+		min-block-size: var(--bn-tap, 40px);
+		padding-block: 0;
+	}
+	.bn-dm-compose__chip-x {
+		position: relative;
+		width: 28px;
+		height: 28px;
+	}
+	.bn-dm-compose__chip-x::after {
+		content: '';
+		position: absolute;
+		inset: -6px;
+	}
+}
+
 .bn-dm-compose__group-actions {
 	margin-top: var(--bn-s3, 12px);
 	display: flex;
