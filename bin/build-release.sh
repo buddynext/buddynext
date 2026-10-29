@@ -299,6 +299,13 @@ find "$STAGE" -type f -name '*.md' -delete
 find "$STAGE" -type f \( -name '.gitignore' -o -name '.gitattributes' -o -name 'composer.json' -o -name 'composer.lock' -o -name '.editorconfig' \) -delete
 find "$STAGE" -depth -type d \( -name '.github' -o -name '.git' -o -name '.circleci' \) -exec rm -rf {} +
 
+# 4a. Minify the base stylesheet in the package (the repo keeps the readable,
+#     commented source). Comments are about half of it: 196 KB -> 95 KB raw,
+#     52 KB -> 16 KB gzipped on every member's first load. The self-test runs
+#     first so a broken minifier fails the build instead of shipping bad CSS.
+php "$SRC/bin/minify-css.php" --self-test >/dev/null || { echo "build FAILED: minify-css self-test" >&2; exit 1; }
+php "$SRC/bin/minify-css.php" "$STAGE/assets/css/bn-base.css" || { echo "build FAILED: minify bn-base.css" >&2; exit 1; }
+
 # 4b. Bundled-runtime-dep assertion. The allowlist and the strip in step 4 are two
 #     independent ways to lose a bundled dependency, and losing one is silent: the
 #     zip builds, installs, and only explodes (or quietly disables licensing) on a
