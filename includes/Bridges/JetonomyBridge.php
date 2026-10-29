@@ -280,6 +280,45 @@ class JetonomyBridge {
 		add_filter( 'jetonomy_resolve_mention_handles', array( $this, 'filter_jetonomy_resolve_mention_handles' ), 10, 2 );
 		add_filter( 'jetonomy_user_display_name', array( $this, 'filter_jetonomy_user_display_name' ), 10, 2 );
 		add_filter( 'jetonomy_profile_action_url', array( $this, 'filter_jetonomy_profile_action_url' ), 10, 3 );
+
+		// One moderation, not two: a member suspended in BuddyNext is banned in the
+		// forum, and someone a member blocked in BuddyNext is blocked there too.
+		// Jetonomy 2.0.7 reads both filters on every permission and block check
+		// (REST included); an older Jetonomy never calls them.
+		add_filter( 'jetonomy_user_is_banned', array( $this, 'filter_jetonomy_user_is_banned' ), 10, 2 );
+		add_filter( 'jetonomy_blocked_user_ids', array( $this, 'filter_jetonomy_blocked_user_ids' ), 10, 2 );
+	}
+
+	/**
+	 * A BuddyNext suspension counts as a forum ban.
+	 *
+	 * @param bool $banned  Jetonomy's own answer.
+	 * @param int  $user_id Member being checked.
+	 * @return bool
+	 */
+	public function filter_jetonomy_user_is_banned( $banned, $user_id ): bool {
+		if ( (bool) $banned || (int) $user_id <= 0 ) {
+			return (bool) $banned;
+		}
+		return (bool) buddynext_service( 'moderation' )->is_suspended( (int) $user_id );
+	}
+
+	/**
+	 * Members the viewer blocked in BuddyNext are blocked in the forum too.
+	 *
+	 * One-way, like a BuddyNext block: only the people the viewer blocked. Mute
+	 * and restrict are not mapped (owner decision pending).
+	 *
+	 * @param int[] $ids       Jetonomy's blocked ids for the viewer.
+	 * @param int   $viewer_id Viewer.
+	 * @return int[]
+	 */
+	public function filter_jetonomy_blocked_user_ids( $ids, $viewer_id ): array {
+		$ids = array_map( 'intval', (array) $ids );
+		if ( (int) $viewer_id <= 0 ) {
+			return $ids;
+		}
+		return array_values( array_unique( array_merge( $ids, buddynext_service( 'blocks' )->blocked_users( (int) $viewer_id ) ) ) );
 	}
 
 	/**
