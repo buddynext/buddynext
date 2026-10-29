@@ -60,7 +60,8 @@ class MemberTypesManager {
 			'icon_svg'    => wp_kses( wp_unslash( $_POST['icon_svg'] ?? '' ), $this->allowed_svg_tags() ),
 			'sort_order'  => absint( $_POST['sort_order'] ?? 0 ),
 			'show_in_dir' => ! empty( $_POST['show_in_dir'] ),
-			'self_select' => ! empty( $_POST['self_select'] ),
+			// Member choice (1), locked once chosen (2), or site team only (0).
+			'self_select' => empty( $_POST['self_select'] ) ? 0 : ( empty( $_POST['self_select_lock'] ) ? 1 : 2 ),
 		);
 
 		$edit_id = absint( $_POST['edit_id'] ?? 0 );
@@ -251,7 +252,9 @@ class MemberTypesManager {
 								<?php endif; ?>
 							</td>
 							<td data-colname="<?php esc_attr_e( 'Self-Select', 'buddynext' ); ?>">
-								<?php if ( (bool) $t['self_select'] ) : ?>
+								<?php if ( 2 === (int) $t['self_select'] ) : ?>
+									<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Once', 'buddynext' ); ?></span>
+								<?php elseif ( (bool) $t['self_select'] ) : ?>
 									<span class="bn-badge" data-tone="success"><?php esc_html_e( 'On', 'buddynext' ); ?></span>
 								<?php else : ?>
 									<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'Off', 'buddynext' ); ?></span>
@@ -313,7 +316,7 @@ class MemberTypesManager {
 				'title'    => $edit_type ? __( 'Edit member type', 'buddynext' ) : __( 'Add member type', 'buddynext' ),
 				'action'   => 'bn_save_member_type',
 				'nonce'    => 'bn_save_member_type',
-				'edit'     => $edit_type,
+				'edit'     => $edit_type ? array_merge( $edit_type, array( 'self_select_lock' => 2 === (int) $edit_type['self_select'] ) ) : null,
 				'hidden'   => array( 'edit_id' => $edit_type ? (string) $edit_type['id'] : '0' ),
 				'toggles'  => array(
 					array(
@@ -324,6 +327,11 @@ class MemberTypesManager {
 					array(
 						'name'    => 'self_select',
 						'label'   => __( 'Let members choose this type for themselves', 'buddynext' ),
+						'default' => false,
+					),
+					array(
+						'name'    => 'self_select_lock',
+						'label'   => __( 'Lock it once chosen (only the site team can change it after that)', 'buddynext' ),
 						'default' => false,
 					),
 				),

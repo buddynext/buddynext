@@ -125,7 +125,7 @@ Member-type (editorial label) registry - the directory's "Contributor / Staff / 
 | `icon_svg` | MEDIUMTEXT DEFAULT NULL | Optional inline SVG for the badge. |
 | `sort_order` | SMALLINT NOT NULL DEFAULT 0 | Directory/filter ordering. |
 | `show_in_dir` | TINYINT(1) NOT NULL DEFAULT 1 | Whether the type appears as a directory filter. |
-| `self_select` | TINYINT(1) NOT NULL DEFAULT 0 | Whether members may assign this type to themselves. |
+| `self_select` | TINYINT(1) NOT NULL DEFAULT 0 | Who may give a member this type: `0` site team only, `1` the member (changeable any time), `2` the member once, then only the site team. REST exposes it as `self_select` (true for 1 or 2) and `pick_once` (true for 2). |
 | `created_at` | DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP | When the type was created. |
 
 Indexes:

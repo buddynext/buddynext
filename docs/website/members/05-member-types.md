@@ -40,7 +40,8 @@ Use the Add Member Type form (the same form edits an existing type). The fields 
 | Sort order | Controls the order types appear in; lower numbers appear first | 0 |
 | Icon | An optional small icon for the type, shown alongside the badge | Empty |
 | Show as directory filter tab | When on, this type appears in the member directory's type filter | On |
-| Let members choose this type for themselves | When on, members can pick this type for themselves on their profile edit page | Off |
+| Let members choose this type for themselves | When on, members can pick this type for themselves at sign-up or on their profile edit page | Off |
+| Lock it once chosen | With the setting above on: a member picks this type once (at sign-up, or the first time on their profile) and then only the site team can change it. Their profile shows "Chosen once: contact an admin to change it." | Off |
 
 Web address, Text color, Sort order, and Icon live under the Advanced section of the form.
 

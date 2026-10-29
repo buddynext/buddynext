@@ -173,7 +173,7 @@ class MemberTypeService {
 	 *     @type string $icon_svg    Inline SVG string. Default ''.
 	 *     @type int    $sort_order  Sort position. Default 0.
 	 *     @type bool   $show_in_dir Appear as directory tab. Default true.
-	 *     @type bool   $self_select User can self-assign. Default false.
+	 *     @type int    $self_select 0 site team only, 1 member any time, 2 member once. Default 0.
 	 * }
 	 * @return int|WP_Error New type ID on success.
 	 */
@@ -203,7 +203,7 @@ class MemberTypeService {
 				'icon_svg'    => $validated['icon_svg'],
 				'sort_order'  => $validated['sort_order'],
 				'show_in_dir' => $validated['show_in_dir'] ? 1 : 0,
-				'self_select' => $validated['self_select'] ? 1 : 0,
+				'self_select' => (int) $validated['self_select'],
 				'created_at'  => current_time( 'mysql', true ),
 			),
 			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' )
@@ -273,7 +273,7 @@ class MemberTypeService {
 				'icon_svg'    => $validated['icon_svg'],
 				'sort_order'  => $validated['sort_order'],
 				'show_in_dir' => $validated['show_in_dir'] ? 1 : 0,
-				'self_select' => $validated['self_select'] ? 1 : 0,
+				'self_select' => (int) $validated['self_select'],
 			),
 			array( 'id' => $id ),
 			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' ),
@@ -369,11 +369,10 @@ class MemberTypeService {
 	/**
 	 * May this member change the type they currently hold?
 	 *
-	 * Yes when they hold none, or when the one they hold is self-selectable: a type
-	 * they could have chosen for themselves is one they may change. No when an owner
-	 * assigned them something self_select = 0 (staff, moderator, verified), which the
-	 * profile shows as "Set by the community". Admins bypass this; callers check
-	 * manage_options first.
+	 * Yes when they hold none, or when the one they hold is changeable any time
+	 * (self_select = 1). No when an owner assigned it (self_select = 0: staff,
+	 * moderator, verified) or when it is a pick-once type (self_select = 2) they
+	 * already picked. Admins bypass this; callers check manage_options first.
 	 *
 	 * @param int $user_id Member whose type is being changed.
 	 * @return bool
@@ -385,7 +384,7 @@ class MemberTypeService {
 			return true;
 		}
 
-		return ! empty( $current['self_select'] );
+		return 1 === (int) $current['self_select'];
 	}
 
 	/**
@@ -684,8 +683,23 @@ class MemberTypeService {
 			'icon_svg'    => wp_kses( (string) ( $data['icon_svg'] ?? '' ), self::allowed_svg_tags() ),
 			'sort_order'  => (int) ( $data['sort_order'] ?? 0 ),
 			'show_in_dir' => ! empty( $data['show_in_dir'] ),
-			'self_select' => ! empty( $data['self_select'] ),
+			'self_select' => self::self_select_mode( $data['self_select'] ?? 0 ),
 		);
+	}
+
+	/**
+	 * Who may give a member this type, as stored in `self_select`.
+	 *
+	 * 0 = the site team only. 1 = the member, and they may change it any time.
+	 * 2 = the member picks it once (at sign-up, or the first time on their
+	 * profile); after that only the site team changes it.
+	 *
+	 * @param mixed $value Submitted value (bool or 0/1/2).
+	 * @return int
+	 */
+	public static function self_select_mode( $value ): int {
+		$mode = (int) $value;
+		return in_array( $mode, array( 0, 1, 2 ), true ) ? $mode : 0;
 	}
 
 	/**

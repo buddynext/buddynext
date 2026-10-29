@@ -1335,13 +1335,18 @@ class FieldType {
 		// A type the community assigned (not self-selectable) is a read-only badge with
 		// nothing resubmitted. Same rule as MemberTypeService::may_change_own_type(): a
 		// member whose type is self-selectable gets the choices below, current one ticked.
-		if ( '' !== $current && ! isset( self::member_type_self_select_options()[ $current ] ) ) {
+		$bn_mt_svc  = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+		$bn_mt_type = ( '' !== $current && is_object( $bn_mt_svc ) && method_exists( $bn_mt_svc, 'get_by_slug' ) ) ? $bn_mt_svc->get_by_slug( $current ) : null;
+		$bn_mt_mode = is_array( $bn_mt_type ) ? (int) ( $bn_mt_type['self_select'] ?? 0 ) : 0;
+		if ( '' !== $current && 1 !== $bn_mt_mode ) {
 			$all   = self::member_type_options();
 			$label = $all[ $current ] ?? $current;
 			return sprintf(
 				'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
 				esc_html( $label ),
-				esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
+				2 === $bn_mt_mode
+					? esc_html__( 'Chosen once: contact an admin to change it.', 'buddynext' )
+					: esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
 			);
 		}
 
