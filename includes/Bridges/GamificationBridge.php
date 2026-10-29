@@ -308,7 +308,7 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Whether a space shows its Leaderboard tab (the space owner's switch, default off).
+	 * Whether a space shows its Leaderboard tab (the space owner's switch, on by default).
 	 *
 	 * @param int $space_id Space ID.
 	 * @return bool

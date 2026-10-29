@@ -333,7 +333,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<?php endif; ?>
 
 	<?php
-	// Events (Eventonomy). The Events tab is opt-in per Space (default off), the
+	// Events (Eventonomy). The Events tab is on by default per Space, the
 	// same shape as Media/Files. "Only organisers can add events" is the space's
 	// moderation lever: because editing an event stays with its author, an owner
 	// who wants a curated calendar controls it at the door instead.
@@ -364,7 +364,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 	<?php endif; ?>
 
 	<?php
-	// Businesses (WB Listora). Opt-in per Space (default off), same shape as
+	// Businesses (WB Listora). On by default per Space, same shape as
 	// Media/Files/Events. Members submit a listing they own and the space team
 	// approves it before it shows in the Businesses tab.
 	?>

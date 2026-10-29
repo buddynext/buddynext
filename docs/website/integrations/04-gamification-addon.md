@@ -77,7 +77,7 @@ BuddyNext shows the site's own name for points (for example "Points" or "Coins")
 
 ### A leaderboard for a space
 
-A space can have its own **Leaderboard** tab, ranking only that space's members. It is off by default; the space owner turns it on under **Manage space -> Integrations -> Leaderboard tab**. Members are ranked by the points they have earned across the whole community, so a space board never disagrees with the site leaderboard; the space only decides who appears on it. A space board is visible to whoever can see the space's member list, so a private space's board is for its members only.
+A space can have its own **Leaderboard** tab, ranking only that space's members. It is on by default; the space owner can switch it off under **Manage space -> Integrations -> Leaderboard tab**. Members are ranked by the points they have earned across the whole community, so a space board never disagrees with the site leaderboard; the space only decides who appears on it. A space board is visible to whoever can see the space's member list, so a private space's board is for its members only.
 
 ## Good to know
 

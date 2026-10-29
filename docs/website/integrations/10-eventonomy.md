@@ -56,7 +56,7 @@ The event experience itself - who can create events, RSVP rules, calendar displa
 
 Beyond the profile Events tab and community-wide surfacing, a space can run its own events board on an **Events** tab.
 
-**Turning it on (space owner).** Under **Manage space > Integrations**, switch on **Events tab** (off by default). Once on, the tab appears even before any event exists, so members always have somewhere to create the first one.
+**The Events tab (space owner).** The **Events tab** is on in every space while Eventonomy is active, and appears even before any event exists, so members always have somewhere to create the first one. A space owner can switch it off under **Manage space > Integrations**.
 
 **Who can add an event.** A second per-space setting, **Only organisers can add events**, decides whether any active member can create an event for the space or only space organisers (default: any member). Editing an event's own content, once it exists, always stays with the event's author - the space setting only controls who may add a new one.
 

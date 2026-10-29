@@ -16,7 +16,7 @@ It also removes an awkward workaround. Before, the only albums BuddyNext had wer
 
 ## Turning the Media tab on
 
-The Media tab is off by default and is enabled per space, so a space that is only ever going to be a discussion does not carry a gallery it never uses.
+The Media tab is on in every space while WPMediaVerse is active. A space owner who does not want a gallery switches it off under **Manage space > Integrations**, and that choice is kept.
 
 1. Open the space and go to **Settings > Integrations**.
 2. Switch on **Enable Media tab**.
@@ -65,7 +65,7 @@ Remove from space is an *unlink*, not a delete. The item leaves the space and re
 
 ## The Files tab (documents)
 
-A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Settings > Integrations > Enable Files tab** - and is **off by default**. It needs WPMediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
+A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Settings > Integrations > Enable Files tab** - and is **on by default**. It needs WPMediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
 
 Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove moves the document to **Trash**, where they can restore it.)
 

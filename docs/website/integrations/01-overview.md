@@ -72,7 +72,7 @@ An integration is only active when its companion plugin is active. There is no s
 - To turn it off completely, deactivate the companion. BuddyNext stops showing it and the capability disappears cleanly - your members and feed simply no longer see it.
 - To keep the companion but hide parts of it, use the switches on Integration Settings.
 
-Some integrations also have per-space switches that a space owner sets under **Manage space > Integrations** (for example a Discussion, Media tab, Files tab, Leaderboard tab, Events tab or Businesses tab). Each is off until the space owner turns it on. Those are covered on the integration's own page.
+Some integrations also have per-space switches that a space owner sets under **Manage space > Integrations** (for example a Discussion, Media tab, Files tab, Leaderboard tab, Events tab or Businesses tab). The Media, Files, Leaderboard, Events and Businesses tabs are on in every space while their plugin is active, and a space owner can switch any of them off; a Discussion is created when the space owner turns it on. Those are covered on the integration's own page.
 
 ### Choose where each integration appears (Integration Settings)
 

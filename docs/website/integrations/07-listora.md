@@ -54,7 +54,7 @@ The directory's own behavior - who can list, the categories, the listing fields 
 
 Beyond surfacing new listings in the feed and search, Listora can run a curated business directory inside a space. A space owner turns it on for their space, members submit a listing they own, and the space team approves it before it appears. It is the same idea as the Media, Files and Events tabs: an optional, per-space surface the owner opts into.
 
-**Turning it on (space owner).** Under **Manage space > Integrations**, switch on **Businesses tab** (off by default). A Businesses tab then appears in that space. A second setting, **Only organisers can submit businesses**, restricts who may submit (default: any member). Nothing else is required; there is no separate provisioning step.
+**The Businesses tab (space owner).** The **Businesses tab** is on in every space while WB Listora is active. A space owner can switch it off under **Manage space > Integrations**. A second setting, **Only organisers can submit businesses**, restricts who may submit (default: any member). Nothing else is required; there is no separate provisioning step.
 
 **Submitting (member).** A member has to be a member of the space first. On the Businesses tab, **Add your business** lets them pick one of their own published listings and submit it to the space. It waits for the team's approval and the member is told it is pending. To keep the review queue usable, a member can have only a limited number of submissions awaiting review in one space at a time (five by default), so no one can flood it.
 

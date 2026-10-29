@@ -277,7 +277,7 @@ final class SpaceNav {
 				'label'     => __( 'Leaderboard', 'buddynext' ),
 				'priority'  => 46,
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'leaderboard' ),
-				// The space owner's switch (default off) on top of the site-wide
+				// The space owner's switch (on by default) on top of the site-wide
 				// Gamification switch, like every space integration tab. The board ranks
 				// site-wide points and lists this space's members only.
 				'condition' => static fn( NavContext $c ): bool => \BuddyNext\Bridges\GamificationBridge::space_leaderboard_on( (int) $c->subject_id ),
