@@ -16,6 +16,17 @@
 		return;
 	}
 
+	// Phones: one button folds the whole menu (CSS shows it below 783px only).
+	var toggle = panel.querySelector( '.bn-hub-nav-toggle' );
+	if ( toggle ) {
+		toggle.hidden = false;
+		panel.classList.add( 'has-toggle' );
+		toggle.addEventListener( 'click', function () {
+			var open = panel.classList.toggle( 'is-open' );
+			toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+		} );
+	}
+
 	var groups = panel.querySelectorAll( 'details[data-bn-nav-group]' );
 	if ( ! groups.length ) {
 		return;

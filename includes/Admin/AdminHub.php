@@ -1930,6 +1930,18 @@ class AdminHub {
 	 */
 	private function render_nav_panel( string $active_section, string $active_slug ): void {
 		echo '<aside class="bn-admin-hub__panel" aria-label="' . esc_attr__( 'BuddyNext navigation', 'buddynext' ) . '">';
+
+		// Phones: the whole menu folds behind one button naming where you are, so
+		// the page's own content comes first instead of a screen of nav. Shown and
+		// wired by nav-accordion.js only, so without JS the full list stays visible.
+		$bn_here_section = (string) ( self::sections()[ $active_section ]['label'] ?? '' );
+		$bn_here_tab     = (string) ( self::get_tabs( $active_section )[ $active_slug ]['label'] ?? '' );
+		printf(
+			'<button type="button" class="bn-hub-nav-toggle" aria-expanded="false" aria-controls="bn-hub-nav-list" hidden><span class="bn-hub-nav-toggle__label">%1$s</span>%2$s</button>',
+			esc_html( implode( ' › ', array_filter( array( $bn_here_section, $bn_here_tab ) ) ) ?: __( 'Menu', 'buddynext' ) ),
+			\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-toggle__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
+		);
+		echo '<div class="bn-hub-nav-list" id="bn-hub-nav-list">';
 		foreach ( self::sections() as $skey => $section ) {
 			$visible = array();
 			foreach ( self::get_tabs( (string) $skey ) as $tslug => $tab ) {
@@ -1984,6 +1996,7 @@ class AdminHub {
 			echo '</div>';
 			echo '</details>';
 		}
+		echo '</div>';
 		echo '</aside>';
 	}
 
