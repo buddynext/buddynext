@@ -44,7 +44,7 @@ if ( function_exists( 'buddynext_user_avatar_url' ) ) {
 `buddynext_user_avatar_url()` runs the standard WordPress `get_avatar_url()`
 pipeline, which BuddyNext powers. That means it returns the member's **resolved**
 avatar under the shared-surface precedence (see below): a real photo - a
-BuddyNext upload, or a sibling plugin's such as WPMediaVerse - wins, and only when
+BuddyNext upload, or a sibling plugin's such as MediaVerse - wins, and only when
 the member has none does BuddyNext hand back a deterministic initials image. You
 get the same face the community itself shows, and never an empty string.
 
@@ -102,7 +102,7 @@ roles:
   BuddyNext runs **late**, **defers** to any real value an earlier filter set, and
   contributes only a **fallback**. A generated placeholder never outranks a real
   photo. (See the precedence table in
-  [WPMediaVerse Surface Ownership](54-mediaverse-surface-ownership.md#avatars-shared-by-precedence).)
+  [MediaVerse Surface Ownership](54-mediaverse-surface-ownership.md#avatars-shared-by-precedence).)
 - **Provide** - BuddyNext exposes its identity through the `buddynext_*` helpers
   and filters on this page, so a plugin that wants the community avatar/name/URL
   **pulls** it. Pull, not push - BuddyNext never forces its avatar onto your
@@ -115,7 +115,7 @@ placeholder win over someone's real data.
 
 ## See also
 
-- [WPMediaVerse Surface Ownership](54-mediaverse-surface-ownership.md) - the
+- [MediaVerse Surface Ownership](54-mediaverse-surface-ownership.md) - the
   avatar precedence in full, and the build-time guard that enforces it.
 - [Hooks: members, profiles, social](28-hooks-members-profiles-social.md) - the
   profile-image *upload* filters (size and dimension caps).

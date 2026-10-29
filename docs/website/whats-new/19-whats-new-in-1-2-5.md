@@ -72,7 +72,7 @@ Plans sold through Make, Zapier or n8n, clearer checkout for PayPal and coupons,
 - **Plans from automation tools.** Make, Zapier or n8n can grant, extend and cancel a member's plan, and the order reference, amount and currency they send are shown on Subscriptions. Unknown plans are refused, and a revoke stops gateway billing.
 - **PayPal and coupons.** Checkout marks PayPal unavailable as soon as a coupon or added tax means it cannot charge a renewing plan, with the reason, and the Coupons screen says so too.
 - **Checkout default.** The checkout default lists only the gateways a buyer can be sent to, and marks a saved default that is no longer available.
-- **Plan limits.** A plan limit with a ceiling, such as Pinned Posts, cannot be saved above it. The plan's group message size is enforced, also on older WPMediaVerse.
+- **Plan limits.** A plan limit with a ceiling, such as Pinned Posts, cannot be saved above it. The plan's group message size is enforced, also on older MediaVerse.
 - **Email series.** Steps are sent in the order shown, on their day after joining.
 - **Auto-moderation.** Add rule shows the fields of the chosen rule type.
 - **Readable labels.** Member label colours and their text can be read on every theme.

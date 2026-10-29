@@ -59,7 +59,7 @@ Places the spaces hub - the directory of spaces, an individual space's home, its
 [buddynext_messages]
 ```
 
-Places the direct-messaging surface - the member's conversation list, individual threads, and message requests. Members must be logged in to see it; guests are shown a prompt to log in. (Direct messaging is powered by the WPMediaVerse companion plugin.)
+Places the direct-messaging surface - the member's conversation list, individual threads, and message requests. Members must be logged in to see it; guests are shown a prompt to log in. (Direct messaging is powered by the MediaVerse companion plugin.)
 
 ### Notifications
 

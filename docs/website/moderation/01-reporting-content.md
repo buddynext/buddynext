@@ -37,7 +37,7 @@ Media is reported from the lightbox, not from the post card. Click a photo or vi
 Two things behave differently here, and both are deliberate:
 
 - Report and Block are hidden on your own media. Nobody needs to report themselves.
-- Media reports go to the **MediaVerse > Moderation** queue rather than the BuddyNext moderation queue. That queue is owned by WPMediaVerse, the plugin that stores your community's photos and videos. Moderators find them under **MediaVerse > Moderation** in the WordPress admin. See the note for owners below.
+- Media reports go to the **MediaVerse > Moderation** queue rather than the BuddyNext moderation queue. That queue is owned by MediaVerse, the plugin that stores your community's photos and videos. Moderators find them under **MediaVerse > Moderation** in the WordPress admin. See the note for owners below.
 
 ### Choosing a reason
 
@@ -53,7 +53,7 @@ Every report needs one reason. BuddyNext offers one fixed set of seven reasons, 
 | Impersonation | An account pretending to be someone else. |
 | Something else | Anything not covered above. Use the notes field to explain. |
 
-Media (photos and videos) is the exception: it is reported into WPMediaVerse's own **MediaVerse > Moderation** queue with its own media-specific reasons (such as nudity, violence, or copyright), not the BuddyNext list above.
+Media (photos and videos) is the exception: it is reported into MediaVerse's own **MediaVerse > Moderation** queue with its own media-specific reasons (such as nudity, violence, or copyright), not the BuddyNext list above.
 
 > **Note:** Use the notes field whenever the reason alone does not tell the full story. A moderator reads it before deciding.
 
@@ -71,7 +71,7 @@ Media (photos and videos) is the exception: it is reported into WPMediaVerse's o
 - **Many members can report the same item.** The one-per-member limit applies per reporter, not per item. When several different members report the same post, those reports are grouped together for the moderator and the combined count raises the item's urgency in the queue.
 - **Auto-hide keeps abuse off the page while a moderator gets to it.** Once a post or a comment reaches the Auto-Hide Threshold (**BuddyNext > Automation > Controls**, default 5 distinct reports; set it to 0 to switch auto-hide off), it is put "Under review": other members stop seeing it and it drops out of the post's comment count, but nothing is deleted. The author still sees their own item with an "Under review" label and cannot get new replies or reactions on it, and a moderator sees it with Restore and Delete. When a moderator dismisses or resolves the reports, the item comes straight back for everyone; if they remove it, it is taken down for good. Only reports from members whose accounts are at least 7 days old count toward the threshold, so a burst of brand-new accounts cannot brigade something into hiding.
 - **Private messages.** A reported direct message is handled with privacy in mind: its content is not shown in the queue, so a moderator can act on the report without reading the private exchange.
-- **Media reporting is on by default.** Installed on its own, WPMediaVerse ships with member reporting turned off, which suits a media library on a site with no moderators. A community is not that, so BuddyNext turns media reporting on for you. There is nothing to configure. If you deliberately want it off, a developer can switch it back off with a one-line filter, and the Report button then disappears from the lightbox rather than sitting there and failing. Block is unaffected either way, because blocking a member is BuddyNext's own feature.
+- **Media reporting is on by default.** Installed on its own, MediaVerse ships with member reporting turned off, which suits a media library on a site with no moderators. A community is not that, so BuddyNext turns media reporting on for you. There is nothing to configure. If you deliberately want it off, a developer can switch it back off with a one-line filter, and the Report button then disappears from the lightbox rather than sitting there and failing. Block is unaffected either way, because blocking a member is BuddyNext's own feature.
 - **Two queues, one job.** Reports on posts, comments, messages, and profiles land in **BuddyNext > Moderation > Reports**. Reports on photos and videos land in **MediaVerse > Moderation**. Both are report queues a moderator works through; they are separate because the media plugin owns the media. If you moderate media, check both.
 
 ## Free vs Pro
@@ -82,5 +82,5 @@ Member reporting, the reason set, duplicate prevention, and delivery to the mode
 
 - [Moderation Queue](02-moderation-queue.md) - where reports land for a moderator to act on
 - [Moderating a Member](03-user-moderation.md) - the actions a moderator can take on a reported member
-- [WPMediaVerse](../integrations/02-wpmediaverse.md) - the separate media moderation queue for photos and videos
+- [MediaVerse](../integrations/02-wpmediaverse.md) - the separate media moderation queue for photos and videos
 - [Bulk Moderation](../pro/16-bulk-moderation.md) - the Pro tools for clearing reports at volume

@@ -30,7 +30,7 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 2. Click **Activate**.
 3. On activation, BuddyNext sets everything up for you automatically:
    - Prepares the storage it needs for the feed, spaces, members, messaging, notifications, and moderation.
-   - Creates the community pages (Activity, Members, Spaces, Notifications and Login, plus Messages when WPMediaVerse is active) with clean, readable links. Profiles, search and onboarding live under these addresses and need no page of their own.
+   - Creates the community pages (Activity, Members, Spaces, Notifications and Login, plus Messages when MediaVerse is active) with clean, readable links. Profiles, search and onboarding live under these addresses and need no page of their own.
    - Makes sure every community link works immediately.
 4. The free plugin activates itself, so it is fully working the moment it is active. There is no key to enter for the free version.
 
@@ -54,7 +54,7 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 
 | Companion | What it adds | Required for |
 |-----------|--------------|--------------|
-| **WPMediaVerse** | Direct messaging engine and photo/file uploads | The Messages tab and image posts. The DM tab is hidden until this is active. |
+| **MediaVerse** | Direct messaging engine and photo/file uploads | The Messages tab and image posts. The DM tab is hidden until this is active. |
 | **Jetonomy** | Discussions and forums | The optional Forum tab inside spaces |
 | **WB Gamification** | Points, badges, and levels | Member rewards and reputation |
 | **Career Board** | A jobs and applications board | Posting and applying to jobs in your community |
@@ -63,15 +63,15 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 | **Eventonomy** | Events, RSVPs, and calendars | Events as feed cards and attended events on member profiles |
 | **WB Member Blog** | Front-end post publishing without wp-admin | The Articles tab on member profiles and article cards in the feed |
 
-> **Note:** Career Board, Listora, Learnomy and Eventonomy work on their own as plugins, but their community surfacing (feed cards, profile tabs, search) comes from bridges that ship in BuddyNext Pro. WPMediaVerse, Jetonomy, WB Gamification and WB Member Blog surface with BuddyNext Free.
+> **Note:** Career Board, Listora, Learnomy and Eventonomy work on their own as plugins, but their community surfacing (feed cards, profile tabs, search) comes from bridges that ship in BuddyNext Pro. MediaVerse, Jetonomy, WB Gamification and WB Member Blog surface with BuddyNext Free.
 
-> **Tip:** WPMediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started. BuddyNext Pro does not bundle WPMediaVerse; it is a separate plugin with its own editions.
+> **Tip:** MediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started. BuddyNext Pro does not bundle MediaVerse; it is a separate plugin with its own editions.
 
 ## Good to know
 
 - **Order matters.** Install and activate the free plugin first, then Pro, then any companions. Pro requires the free plugin to be active.
 - **No build step.** BuddyNext and Pro ship with everything they need. You never have to run a build command or install developer dependencies.
-- **Companions are independent.** Removing a companion only disables the feature it powered (for example, deactivating WPMediaVerse hides the Messages tab). The rest of BuddyNext keeps working.
+- **Companions are independent.** Removing a companion only disables the feature it powered (for example, deactivating MediaVerse hides the Messages tab). The rest of BuddyNext keeps working.
 - **Updates.** Free updates arrive like any WordPress plugin. Pro updates require an active license key entered under Get Started > License.
 
 ## What's next

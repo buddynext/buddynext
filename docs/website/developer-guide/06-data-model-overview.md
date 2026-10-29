@@ -12,7 +12,7 @@ All BuddyNext-owned tables use the `bn_` prefix on top of the site's `$wpdb->pre
 
 Two tables break the `bn_` convention: `jt_posts` and `jt_replies`. These are **owned by Jetonomy** (the discussions/forum plugin), not by BuddyNext. They appear in BuddyNext's table inventory because BuddyNext reads them through the Jetonomy bridge to surface discussions and replies as community content (for example, in the Explore deck as `discussion` items). BuddyNext never creates, alters, or writes to `jt_posts` / `jt_replies` - it treats them as read-only borrowed tables. If Jetonomy is not installed, those tables do not exist and the bridge stays inert.
 
-Direct-message tables (`mvs_conversations`, `mvs_messages`, and siblings) are owned by **WPMediaVerse**, not BuddyNext. BuddyNext is the UI layer for messaging only, so those tables are out of scope for this schema reference.
+Direct-message tables (`mvs_conversations`, `mvs_messages`, and siblings) are owned by **MediaVerse**, not BuddyNext. BuddyNext is the UI layer for messaging only, so those tables are out of scope for this schema reference.
 
 > **Note:** The Free Installer's `schema()` method is the authoritative table inventory - it creates 41 `bn_*` tables via `dbDelta()`. The master index below lists those 41 plus the two borrowed `jt_*` tables (43 rows total). The Pro manifest re-lists several shared Free tables for reference (see Schema: Pro Tables). When a count in prose disagrees with `schema()`, trust `schema()`.
 

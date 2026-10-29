@@ -511,7 +511,7 @@ class FeatureRegistry {
 			),
 			'messages'        => array(
 				'label'       => __( 'Direct messages', 'buddynext' ),
-				'description' => __( 'Private messaging between members, run by WPMediaVerse. Turn it on or off in WPMediaVerse: Settings, Messages.', 'buddynext' ),
+				'description' => __( 'Private messaging between members, run by MediaVerse. Turn it on or off in MediaVerse: Settings, Messages.', 'buddynext' ),
 			),
 			'pwa'             => array(
 				'label'       => __( 'Installable app (PWA)', 'buddynext' ),

@@ -18,7 +18,7 @@ See [Moderation Queue](../moderation/02-moderation-queue.md), [Space Roles and M
 
 - Space owners and moderators can create, rename and trash folders in a space's **Files** tab, and restore them from a new **Trash** view.
 - The Trash shows who trashed each folder, when, how many items it holds and when it will be removed, with a **Delete now** action for people who can manage it.
-- Folder controls follow WPMediaVerse's own rules: space owners and moderators manage every folder, and a member can rename or trash the folders they created.
+- Folder controls follow MediaVerse's own rules: space owners and moderators manage every folder, and a member can rename or trash the folders they created.
 - Smaller fixes: Link a file accepts the address of a BuddyNext Files page, files linked into a space open from its Files tab, and the Link a file panel closes on Escape or a click outside it.
 
 See [Space Media and Albums](../spaces/10-space-media-and-albums.md).
@@ -35,20 +35,20 @@ See [Invite people with a link](../spaces/11-invite-with-a-link.md).
 - Gamification screens use your site's own name for points, the Achievements rank reads **All-time rank**, and the leaderboard no longer shows a next-milestone widget. Earning categories on the Points tab use WB Gamification's own labels.
 - A member's profile privacy now also hides their points, badges, rank and kudos from people who cannot see their profile, including on the leaderboard.
 - Profile Achievements list badges in ladder order, the badge count is no longer capped at 24, and the level-up notification names the level you reached.
-- Uploading a photo in WPMediaVerse earns its upload points once; the feed post it creates no longer pays again.
-- Kudos, ranks and shared badges need WB Gamification 1.6.5 or later. BuddyNext also runs safely next to older WB Gamification and WPMediaVerse versions: a feature that needs a newer partner stays hidden instead of causing an error.
+- Uploading a photo in MediaVerse earns its upload points once; the feed post it creates no longer pays again.
+- Kudos, ranks and shared badges need WB Gamification 1.6.5 or later. BuddyNext also runs safely next to older WB Gamification and MediaVerse versions: a feature that needs a newer partner stays hidden instead of causing an error.
 
 See [Kudos](../engagement/05-kudos.md), [Gamification](../engagement/01-gamification.md) and [Leaderboard](../engagement/02-leaderboard.md).
 
-## Messages on or off in WPMediaVerse
+## Messages on or off in MediaVerse
 
-- Messages are switched on or off in one place, **WPMediaVerse > Settings > Social > Messages**. **Platform > Features** shows whether they are on and links there.
+- Messages are switched on or off in one place, **MediaVerse > Settings > Social > Messages**. **Platform > Features** shows whether they are on and links there.
 - With Messages off, the member directory, space member lists, the notifications Messages filter and the Add to Menu box no longer offer a Message link, and message notifications are left out of the bell until Messages are on again.
-- The Messages page tells an administrator that Messages are switched off in WPMediaVerse (with a link), and tells members plainly that Messages are turned off.
+- The Messages page tells an administrator that Messages are switched off in MediaVerse (with a link), and tells members plainly that Messages are turned off.
 - The Message button on a space's member list opens a conversation with that member instead of the inbox.
 - A message whose photo was deleted shows "This attachment is no longer available.", and a message shows the same time before and after a reload, in the site's timezone and time format.
 
-See [Direct Messaging](../messaging-notifications/01-direct-messaging.md) and [WPMediaVerse](../integrations/02-wpmediaverse.md).
+See [Direct Messaging](../messaging-notifications/01-direct-messaging.md) and [MediaVerse](../integrations/02-wpmediaverse.md).
 
 ## Page cache and optimisation guide
 
@@ -61,7 +61,7 @@ See [Page Cache and Optimisation Plugins](../getting-started/09a-page-cache-and-
 
 ## Notable fixes
 
-- **Photos and feed posts.** A photo trashed in WPMediaVerse takes its feed post with it, restoring the photo brings the same post back, and deleting it permanently removes the post. See [WPMediaVerse](../integrations/02-wpmediaverse.md).
+- **Photos and feed posts.** A photo trashed in MediaVerse takes its feed post with it, restoring the photo brings the same post back, and deleting it permanently removes the post. See [MediaVerse](../integrations/02-wpmediaverse.md).
 - **Explore.** Document posts stay off the public Explore page; they still show in their space's feed and Files tab and on the author's profile. See [Explore](../community/13-explore.md).
 - **Timestamps.** On a host whose database clock is not set to UTC, new and edited posts, comments, follows, strikes and other records now store the correct time, so relative times, trending, digests and streaks line up.
 - **For You.** Followers-only and connections-only posts from joined spaces no longer show to members outside that audience.
@@ -69,7 +69,7 @@ See [Page Cache and Optimisation Plugins](../getting-started/09a-page-cache-and-
 - **Front page.** When a community page is the site's front page, its deeper pages (Leaderboard, Explore, member profiles) open normally with their own title, and the home tab's canonical and og:url point at the site root.
 - **Accessibility.** One Escape closes one layer of a dialog, Tab never leaves an open dialog, delete and revoke confirmations focus Cancel, and Search closes from anywhere in the overlay and returns you to where you were.
 - **Restore defaults and Appearance.** Restore defaults previews each setting in the settings screen's own words, Roles & Capabilities uses the same confirmation as every other tab, and accent-coloured buttons pick black or white text by contrast. See [Admin Pages and Settings](../developer-guide/40-admin-pages-and-settings.md).
-- **Upload limit.** The album picker, feed composer and Media tab use the site's real upload limit from WPMediaVerse and name it in the error.
+- **Upload limit.** The album picker, feed composer and Media tab use the site's real upload limit from MediaVerse and name it in the error.
 - **Smaller fixes.** Confirmation messages now show after a page refresh, a space with an invalid field value saved before 1.2.1 no longer breaks its About tab, and a full search reindex includes spaces' searchable custom fields.
 
 ## For developers

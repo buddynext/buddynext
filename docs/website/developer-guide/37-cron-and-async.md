@@ -128,7 +128,7 @@ if ( function_exists( 'as_enqueue_async_action' ) ) {
 | `buddynext_retry_notification_email` | A failed notification email is retried | `int $user_id, string $notification_type, array $data` |
 | `buddynext_resync_hashtags` | A batched hashtag re-sync runs | `int $offset` |
 | `buddynext_recount_hashtags` | A batched hashtag usage recount runs | `int $after_id` |
-| `buddynext_mvs_media_activity` | A WPMediaVerse upload is turned into a feed post, two minutes after the upload | `$media_id, $user_id, $media_type` |
+| `buddynext_mvs_media_activity` | A MediaVerse upload is turned into a feed post, two minutes after the upload | `$media_id, $user_id, $media_type` |
 
 Rules for any new fan-out you add:
 

@@ -576,7 +576,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$rows = array(
 			array( __( 'Activity feed: posts, polls, reactions, comments, shares, bookmarks', 'buddynext' ), true ),
 			array( __( 'Spaces, member directory, profiles, full-text search', 'buddynext' ), true ),
-			array( __( '1:1 direct messages (via WPMediaVerse)', 'buddynext' ), true ),
+			array( __( '1:1 direct messages (via MediaVerse)', 'buddynext' ), true ),
 			array( __( 'In-app bell + transactional email notifications', 'buddynext' ), true ),
 			array( __( 'Report queue, strikes, suspensions, appeals', 'buddynext' ), true ),
 			array( __( 'REST API, Gutenberg blocks, 1 outbound webhook', 'buddynext' ), true ),
@@ -1072,7 +1072,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint_callback'     => static function (): string {
 								$bn_media_hint = __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' );
 								if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
-									return __( 'Needs WPMediaVerse. Activate it to choose how media links open.', 'buddynext' ) . ' ' . $bn_media_hint;
+									return __( 'Needs MediaVerse. Activate it to choose how media links open.', 'buddynext' ) . ' ' . $bn_media_hint;
 								}
 								return $bn_media_hint;
 							},
@@ -1290,18 +1290,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		<div class="bn-field">
 			<span class="bn-tl-title"><?php esc_html_e( 'Who can message members', 'buddynext' ); ?></span>
 			<?php if ( empty( $bn_options ) ) : ?>
-				<span class="bn-tl-desc"><?php esc_html_e( 'Direct messages need WPMediaVerse. Activate it to set who can message members.', 'buddynext' ); ?></span>
+				<span class="bn-tl-desc"><?php esc_html_e( 'Direct messages need MediaVerse. Activate it to set who can message members.', 'buddynext' ); ?></span>
 			<?php else : ?>
 				<span class="bn-tl-desc">
 					<?php
 					printf(
 						/* translators: %s: the site-wide "who can message you" level, e.g. "Everyone". */
-						esc_html__( 'Set in WPMediaVerse: %s. Members can choose this or stricter in their privacy settings.', 'buddynext' ),
+						esc_html__( 'Set in MediaVerse: %s. Members can choose this or stricter in their privacy settings.', 'buddynext' ),
 						esc_html( (string) reset( $bn_options ) )
 					);
 					?>
 				</span>
-				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Messages\MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+				<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Messages\MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Change in MediaVerse', 'buddynext' ); ?></a>
 			<?php endif; ?>
 		</div>
 		<?php
@@ -2753,11 +2753,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<?php if ( '' !== $managed_url ) : ?>
 							<?php $bn_turn_on = ( isset( $feature['turn_on_url'] ) && is_callable( $feature['turn_on_url'] ) ) ? (string) call_user_func( $feature['turn_on_url'] ) : ''; ?>
 							<?php if ( ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) : ?>
-								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'integrations' ) ); ?>"><?php esc_html_e( 'Install WPMediaVerse', 'buddynext' ); ?></a>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'integrations' ) ); ?>"><?php esc_html_e( 'Install MediaVerse', 'buddynext' ); ?></a>
 							<?php elseif ( '' !== $bn_turn_on ) : ?>
 								<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( $bn_turn_on ); ?>"><?php esc_html_e( 'Turn on', 'buddynext' ); ?></a>
 							<?php else : ?>
-								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in MediaVerse', 'buddynext' ); ?></a>
 							<?php endif; ?>
 						<?php elseif ( $is_locked ) : ?>
 							<span class="bn-feature-row__locked" aria-label="<?php esc_attr_e( 'This feature is always on and cannot be disabled.', 'buddynext' ); ?>">

@@ -13,7 +13,7 @@ BuddyNext gives your members the things they expect from a modern social product
 - An **activity feed** where people post text, links, polls, and photos, then react, comment, share, bookmark, and report.
 - **Spaces** - public or request-to-join communities, each with its own feed, members, and optional forum and media tabs.
 - **Member profiles and a searchable directory** with avatars, cover images, bios, custom fields, and follow or connect actions.
-- **Direct messaging** for private one-to-one conversations (powered by the free WPMediaVerse companion).
+- **Direct messaging** for private one-to-one conversations (powered by the free MediaVerse companion).
 - **Notifications and email** so members never miss a mention, reply, or message.
 - **Moderation** with a report button on every piece of content and an admin review queue.
 - **Search** across people, posts, spaces, and hashtags.
@@ -36,7 +36,7 @@ As soon as you activate the plugin, BuddyNext sets up its community pages (feed,
 
 Your license key controls **plugin updates only** - it never switches features on or off. The free plugin activates itself the moment it is installed, with no key to enter. Pro adds its features on top and uses your paid license key purely to keep you on the latest version.
 
-Some features are extended by optional companion plugins. Direct messaging and media are powered by WPMediaVerse, forums in spaces by Jetonomy, points and badges by WB Gamification, and a jobs board by Career Board. Each is optional - install only what you need.
+Some features are extended by optional companion plugins. Direct messaging and media are powered by MediaVerse, forums in spaces by Jetonomy, points and badges by WB Gamification, and a jobs board by Career Board. Each is optional - install only what you need.
 
 ## Free vs Pro
 
@@ -45,7 +45,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | Area | Capability | Free | Pro |
 |------|------------|------|-----|
 | **Activity and posting** | Text, link, and poll posts | Free | Free |
-| | Photo and file posts (via WPMediaVerse) | Free | Free |
+| | Photo and file posts (via MediaVerse) | Free | Free |
 | | React, comment, share, bookmark, report | Free | Free |
 | | Pin 1 post to your profile | Free | Free |
 | | Edit and delete your own posts | Free | Free |
@@ -71,7 +71,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Custom member labels (Verified, Expert, Staff) | - | Pro |
 | | Member segments, tags, and CSV export | - | Pro |
 | | Profile completeness score and prompts | Free | Free |
-| **Messaging** | 1:1 direct messaging (via WPMediaVerse) | Free | Free |
+| **Messaging** | 1:1 direct messaging (via MediaVerse) | Free | Free |
 | | Message requests, mute, pin, archive | Free | Free |
 | | Emoji reactions and quoted replies | Free | Free |
 | | Instant real-time delivery of new messages | - | Pro |
@@ -97,7 +97,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | CSV export of analytics | - | Pro |
 | **Monetization** | Gated and tiered space access | - | Pro |
 | | Membership plans and paywall UI | - | Pro |
-| **Integrations** | Companion connections (Jetonomy, WPMediaVerse, WB Gamification, Career Board) | Free | Free |
+| **Integrations** | Companion connections (Jetonomy, MediaVerse, WB Gamification, Career Board) | Free | Free |
 | | 1 outbound connection to another system (webhook) | Free | Free |
 | | Page-editor blocks and shortcodes (core set) | Free | Free |
 | | Unlimited outbound connections | - | Pro |
@@ -108,7 +108,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | White-label (Unlimited license only) | - | Pro |
 | | Native mobile app (native iOS/Android app, planned - not yet released, no date announced) | - | Coming |
 
-> **Note:** Photo and file posts, plus all direct messaging, are powered by the WPMediaVerse companion plugin, and who can message whom is a WPMediaVerse setting that BuddyNext displays. The messaging tab only appears when WPMediaVerse is active. Any extra messaging features beyond the basics come from WPMediaVerse's own editions, not from BuddyNext Pro. See the installation page for how to add it.
+> **Note:** Photo and file posts, plus all direct messaging, are powered by the MediaVerse companion plugin, and who can message whom is a MediaVerse setting that BuddyNext displays. The messaging tab only appears when MediaVerse is active. Any extra messaging features beyond the basics come from MediaVerse's own editions, not from BuddyNext Pro. See the installation page for how to add it.
 
 > **Tip:** Pro upgrades are additive. Activating Pro never removes or changes a free feature you already rely on - it only adds new capabilities and unlocks Pro settings.
 

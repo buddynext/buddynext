@@ -61,7 +61,7 @@ Some plugins are never stripped, no matter what, because removing them on commun
 pages would break something you could not see was missing:
 
 - **BuddyNext and BuddyNext Pro** themselves.
-- **The in-house integration family** - WPMediaVerse, Jetonomy, WB Gamification, WB
+- **The in-house integration family** - MediaVerse, Jetonomy, WB Gamification, WB
   Member Blog, Career Board, Listora, Learnomy, and Eventonomy (free and Pro).
   These power profile tabs and panels *on* the community pages, so stripping them
   would blank exactly the features they add.

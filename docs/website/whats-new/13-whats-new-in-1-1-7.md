@@ -8,7 +8,7 @@ This is a fix release. We ran a full audit of everything 1.1.6 introduced and cl
 
 When you opened a photo in the media lightbox in 1.1.6, saving it and reacting to it quietly went somewhere other than the post the photo belongs to.
 
-- **Save** now bookmarks the post the photo belongs to, so it lands in the same saved list as Save on the feed card. It previously saved to a separate WPMediaVerse Pro collection, and removed itself from the screen whenever that was unavailable.
+- **Save** now bookmarks the post the photo belongs to, so it lands in the same saved list as Save on the feed card. It previously saved to a separate MediaVerse Pro collection, and removed itself from the screen whenever that was unavailable.
 - **Reactions** left in the lightbox now apply to the post, so they appear on the feed card and are counted once. They previously went to a separate media store and were visible only inside the lightbox.
 - **Photos added to a space album** appear in the activity post again, instead of the post rendering as text only.
 

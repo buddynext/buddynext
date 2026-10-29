@@ -152,7 +152,7 @@ onNavReady( setupFontScale, { once: true } );
 
 `restFetch( path, opts )` is the only sanctioned way to call the API from the frontend. It:
 
-- Resolves the base from `window.buddynextRestData.restBase` (default `/wp-json/buddynext/v1`); `opts.base` overrides it for cross-namespace calls (for example the WPMediaVerse `mvs/v1` routes the messages store uses).
+- Resolves the base from `window.buddynextRestData.restBase` (default `/wp-json/buddynext/v1`); `opts.base` overrides it for cross-namespace calls (for example the MediaVerse `mvs/v1` routes the messages store uses).
 - Sends `X-WP-Nonce` and `credentials: 'same-origin'`, and on a `403 rest_cookie_invalid_nonce` refreshes the nonce once via `/auth/nonce` and retries.
 - JSON-encodes plain-object bodies (FormData and Blob pass through so uploads keep their multipart boundary).
 - Never throws - it always resolves to `{ ok, status, data, error? }`.

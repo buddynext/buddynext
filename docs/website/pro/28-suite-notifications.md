@@ -1,8 +1,8 @@
 # Suite Notification Aggregation (Pro)
 
-When you run other Wbcom apps alongside BuddyNext, their notifications - a new job application from Career Board, a course update from Learnomy, an event reminder from Eventonomy, a reply in Jetonomy, a badge from WB Gamification, a reaction in WPMediaVerse - show up in the same place as everything else: the member's bell and their own `/notifications/` page. Nobody has to learn a second notification center for a second app.
+When you run other Wbcom apps alongside BuddyNext, their notifications - a new job application from Career Board, a course update from Learnomy, an event reminder from Eventonomy, a reply in Jetonomy, a badge from WB Gamification, a reaction in MediaVerse - show up in the same place as everything else: the member's bell and their own `/notifications/` page. Nobody has to learn a second notification center for a second app.
 
-> **Before you start:** You need at least one connected Wbcom app active and on a version that sends its notifications to BuddyNext. The apps that do today are Jetonomy (Forums), Career Board (Jobs), Learnomy (Courses), Eventonomy (Events), WB Gamification (Achievements) and WPMediaVerse (Media). With none of them installed, there is nothing to show.
+> **Before you start:** You need at least one connected Wbcom app active and on a version that sends its notifications to BuddyNext. The apps that do today are Jetonomy (Forums), Career Board (Jobs), Learnomy (Courses), Eventonomy (Events), WB Gamification (Achievements) and MediaVerse (Media). With none of them installed, there is nothing to show.
 
 ## Why use it
 
@@ -21,15 +21,15 @@ A member does not do anything differently. A notification from a connected app a
 | Learnomy | Courses | Graduation cap |
 | Eventonomy | Events | Calendar |
 | WB Gamification | Achievements | Award |
-| WPMediaVerse | Media | Image |
+| MediaVerse | Media | Image |
 
 Each one reads and clears the same way as a native BuddyNext notification.
 
 ### Choosing which apps notify you
 
-On the notification preferences page, each connected app gets its own section, named for its label above, with one on-site switch for each kind of notification the app sends (for example a reply, a badge, or an RSVP reminder). Turning a switch off stops that kind of notification from reaching the member's BuddyNext inbox; the app itself is unaffected. A member who wants Career Board updates but not Learnomy updates can have exactly that. Reactions from a connected app (for example WPMediaVerse media reactions) are bell-only.
+On the notification preferences page, each connected app gets its own section, named for its label above, with one on-site switch for each kind of notification the app sends (for example a reply, a badge, or an RSVP reminder). Turning a switch off stops that kind of notification from reaching the member's BuddyNext inbox; the app itself is unaffected. A member who wants Career Board updates but not Learnomy updates can have exactly that. Reactions from a connected app (for example MediaVerse media reactions) are bell-only.
 
-> **Note:** These are bell notifications. BuddyNext sends an email for one only if the app asks for it for that kind of notification, and then the member can turn the email off in their preferences. Otherwise the app keeps sending its own emails, so a member is never emailed twice about the same event. While BuddyNext is active, WPMediaVerse sends no activity emails of its own (account-deletion confirmations are still sent).
+> **Note:** These are bell notifications. BuddyNext sends an email for one only if the app asks for it for that kind of notification, and then the member can turn the email off in their preferences. Otherwise the app keeps sending its own emails, so a member is never emailed twice about the same event. While BuddyNext is active, MediaVerse sends no activity emails of its own (account-deletion confirmations are still sent).
 
 ## Setting it up (for owners)
 

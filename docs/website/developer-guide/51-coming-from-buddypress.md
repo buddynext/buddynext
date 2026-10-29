@@ -133,7 +133,7 @@ BuddyPress exposes routes under `buddypress/v1` and still leans on `admin-ajax.p
 | Member relationship state | (friends component) | `buddynext/v1/users/{id}/follow/status`, `connect`, `block`, `account-type` |
 | XProfile fields | `buddypress/v1/xprofile/fields` | `buddynext/v1/profile-fields`, `profile-fields/{id}`, `profile-groups`; `buddynext/v1/me/profile` |
 | Groups | `buddypress/v1/groups` | `buddynext/v1/spaces`, `spaces/{id}`, `spaces/{id}/members`, `space-categories` |
-| Private messages | `buddypress/v1/messages` | No `buddynext/v1` DM namespace - DM is the WPMediaVerse engine (see section 7) |
+| Private messages | `buddypress/v1/messages` | No `buddynext/v1` DM namespace - DM is the MediaVerse engine (see section 7) |
 | Notifications | `buddypress/v1/notifications` | `buddynext/v1/me/notifications`, `me/notifications/{id}/read`, `me/notification-prefs` |
 | Reactions / comments | (activity favorites / comments) | `buddynext/v1/reactions`, `reactions/toggle`; `buddynext/v1/comments`, `comments/{id}` |
 | Hashtags | (no core equivalent) | `buddynext/v1/hashtags/{slug}`, `hashtags/trending`, `hashtags/autocomplete` |
@@ -212,7 +212,7 @@ BuddyPress bundles messaging and leans on bbPress for forums and third-party plu
 
 | Capability | Companion plugin | Where the engine lives |
 |---|---|---|
-| Direct messaging | WPMediaVerse | `WPMediaVerseBridge`. DM tables (`mvs_conversations`, `mvs_messages`, ...) and the DM REST engine belong to WPMediaVerse; BuddyNext is the UI layer only. There is no `buddynext/v1` DM namespace. |
+| Direct messaging | MediaVerse | `WPMediaVerseBridge`. DM tables (`mvs_conversations`, `mvs_messages`, ...) and the DM REST engine belong to MediaVerse; BuddyNext is the UI layer only. There is no `buddynext/v1` DM namespace. |
 | Forums / discussions | Jetonomy | `JetonomyBridge`. Surfaces a `Discussions` tab on the profile and space surfaces (via `buddynext_register_nav`) and a left-rail item (via `buddynext_rail_items`); Jetonomy owns the `jt_*` data. |
 | Points, badges, levels | WB Gamification | `GamificationBridge`. Reflects WB Gamification data into BuddyNext (the profile `Achievements`, `Points` and `Kudos` tabs and credential-badge feed cards); the engine awards points through its own BuddyNext manifest. |
 

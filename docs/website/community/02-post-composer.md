@@ -20,7 +20,7 @@ A member types into the composer and clicks **Post**. The post is created and ap
 
 - **Text** - the default. Just type and share. @mentions in the text notify the people named.
 - **Photo and media** - attach photos, videos or audio from the **Add photo, video or audio** button. A member can only attach their own media.
-- **Document** - attach a file with the **Attach a document** button. It posts as a document card. Documents are stored by WPMediaVerse.
+- **Document** - attach a file with the **Attach a document** button. It posts as a document card. Documents are stored by MediaVerse.
 - **Link** - paste a URL into the post. The community fetches the page's title, description, and thumbnail in the background and attaches a preview card. The preview may take a moment to appear after posting.
 - **Poll** - turn the post into a poll with 2 to 5 options, and an optional closing date. Other members vote, with one vote per member per poll.
 - **Schedule** - pick a future date and time. The post is held and published automatically when that time arrives; it stays out of the feed until then. The control is labelled with your site's timezone (for example "Publish at (Europe/Berlin)"), so the time you type is the time the post card will show.

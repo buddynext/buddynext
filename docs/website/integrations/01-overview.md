@@ -32,13 +32,13 @@ BuddyNext keeps a catalog of companion plugins it knows how to work with. Each o
 
 Each integration has its own setup page in this section - open the page for the one you want for the full walkthrough of its settings and member experience.
 
-> **Note:** Direct messaging in BuddyNext is provided by MediaVerse. BuddyNext renders the messaging interface, but the underlying engine lives in MediaVerse - so messaging only appears once MediaVerse is installed and active and its Messages switch is on (WPMediaVerse > Settings > Social > Messages).
+> **Note:** Direct messaging in BuddyNext is provided by MediaVerse. BuddyNext renders the messaging interface, but the underlying engine lives in MediaVerse - so messaging only appears once MediaVerse is installed and active and its Messages switch is on (MediaVerse > Settings > Social > Messages).
 
 ### One rule for every integration
 
 The plugin that owns the data owns its rules, wording, links and emails. BuddyNext displays what that plugin gives it and calls it when a member acts. Two things follow:
 
-- **One bell.** Notifications from Jetonomy, Career Board, Learnomy, Eventonomy, WB Gamification and WPMediaVerse arrive in the BuddyNext bell in the partner's own words. Each plugin's notification types get their own switches in members' notification settings (grouped as Forums, Jobs, Courses, Events, Achievements and Media). While BuddyNext is active, WPMediaVerse sends no activity emails of its own. Reactions are bell-only, with no reaction emails or digest.
+- **One bell.** Notifications from Jetonomy, Career Board, Learnomy, Eventonomy, WB Gamification and MediaVerse arrive in the BuddyNext bell in the partner's own words. Each plugin's notification types get their own switches in members' notification settings (grouped as Forums, Jobs, Courses, Events, Achievements and Media). While BuddyNext is active, MediaVerse sends no activity emails of its own. Reactions are bell-only, with no reaction emails or digest.
 - **Switching an integration's navigation off also stops its notifications.** The **Show in navigation** switch (see Integration Settings below) governs that integration's bell rows as well.
 
 ## How it works (for owners)
@@ -105,7 +105,7 @@ Beyond these plugin integrations, BuddyNext can also send your community's event
 
 ## Related
 
-- [WPMediaVerse](02-wpmediaverse.md) - the companion that powers direct messaging and media.
+- [MediaVerse](02-wpmediaverse.md) - the companion that powers direct messaging and media.
 - [Jetonomy](03-jetonomy.md) - forum-style discussion boards for your spaces.
 - [Outbound Webhooks](06-outbound-webhooks.md) - send community events to external tools.
 - [Activity Feed](../community/01-activity-feed.md) - where most integrations surface their content.

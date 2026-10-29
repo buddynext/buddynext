@@ -38,7 +38,7 @@ BuddyNext turns a WordPress site into a social community. It is REST-first (the 
 - Setup wizard and a member onboarding flow.
 
 ### Messaging and companions
-- Direct messaging and media galleries through the [WPMediaVerse](https://wbcomdesigns.com/downloads/mediaverse/) bridge.
+- Direct messaging and media galleries through the [MediaVerse](https://wbcomdesigns.com/downloads/mediaverse/) bridge.
 - Bridges for Jetonomy, WB Gamification, WP Career Board, Learnomy, WB Listora, Eventonomy and Member Blog, managed from the companion screen in wp-admin.
 - To move an existing BuddyPress or BuddyBoss community across, use [BuddyNext Importer](https://github.com/buddynext/buddynext-importer).
 

@@ -97,7 +97,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 
 ## Messaging and notifications
 
-- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) **(Free)** - powered by the WPMediaVerse companion
+- [Direct Messaging](../messaging-notifications/01-direct-messaging.md) **(Free)** - powered by the MediaVerse companion
 - [Notifications](../messaging-notifications/02-notifications.md) **(Free)**
 - [Notification Preferences](../messaging-notifications/03-notification-preferences.md) **(Free)**
 - [Email System](../messaging-notifications/04-email-system.md) **(Free)**
@@ -163,7 +163,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 ## Integrations
 
 - [Integrations Overview](../integrations/01-overview.md) **(Free)**
-- [WPMediaVerse](../integrations/02-wpmediaverse.md) - media and messaging **(Free)**
+- [MediaVerse](../integrations/02-wpmediaverse.md) - media and messaging **(Free)**
 - [Jetonomy](../integrations/03-jetonomy.md) - space forums **(Free)**
 - [Gamification Add-on](../integrations/04-gamification-addon.md) - points and badges **(Free)**
 - [Career Board](../integrations/05-career-board.md) - jobs board **(Free)**

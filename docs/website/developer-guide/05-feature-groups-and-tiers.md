@@ -22,7 +22,7 @@ The source of truth is `BuddyNext\Core\FeatureRegistry` (`includes/Core/FeatureR
 2. Mandatory tier -> always `true`.
 3. Any unmet dependency in `depends_on` -> forced `false`.
 4. An absent partner plugin -> forced `false` (`presence_met()`). No catalogued feature has an external dependency today, so this returns `true` for every slug; it is the seam a future partner-wrapping feature uses.
-5. A feature with a `state_from` callback reports that callback's state and stops here (today only `messages`, whose switch lives in WPMediaVerse).
+5. A feature with a `state_from` callback reports that callback's state and stops here (today only `messages`, whose switch lives in MediaVerse).
 6. Tier default (`default_on` = true, `opt_in` = false), overridden by the stored `buddynext_features` option if the owner set it.
 7. The per-feature filter `buddynext_feature_{slug}` returns the final boolean.
 
@@ -63,7 +63,7 @@ Free's registry catalogs 22 features, organized into display groups (`core`, `co
 | `bookmarks` | default_on | community | - | Let members save posts to a private Bookmarks list. |
 | `polls` | default_on | community | feed | Attach a poll to a post and vote in the feed. |
 | `shares` | default_on | community | feed | Re-share another member's post into your own feed. |
-| `messages` | default_on | community | - | Direct messages, run by WPMediaVerse. Its state is read from WPMediaVerse (`state_from`), not stored by BuddyNext. |
+| `messages` | default_on | community | - | Direct messages, run by MediaVerse. Its state is read from MediaVerse (`state_from`), not stored by BuddyNext. |
 | `pwa` | default_on | community | - | Installable app: manifest and service worker. |
 | `scheduled-posts` | default_on | community | feed | Compose a post now and publish it at a chosen time. A Free feature. |
 | `webhooks` | opt_in | integrations | - | Outbound signed HTTPS POSTs to external endpoints on community events. |

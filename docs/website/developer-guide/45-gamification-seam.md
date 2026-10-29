@@ -90,7 +90,7 @@ Gamification usually awards the *recipient* of engagement, not the actor. BuddyN
 | `buddynext_dm_sent` | action | A DM goes out (once per send) | `int $sender_id`, `int $message_id`, `int $conversation_id`, `int[] $recipient_ids` |
 | `buddynext_dm_received` | action | A DM arrives (once per recipient) | `int $recipient_id`, `int $sender_id`, `int $message_id`, `int $conversation_id` |
 
-`buddynext_dm_sent` / `buddynext_dm_received` are BN-domain adapters fired by `WPMediaVerseBridge` on top of WPMediaVerse's `mvs_message_sent`, so an engine can hook the BuddyNext namespace without depending on the messaging engine being present.
+`buddynext_dm_sent` / `buddynext_dm_received` are BN-domain adapters fired by `WPMediaVerseBridge` on top of MediaVerse's `mvs_message_sent`, so an engine can hook the BuddyNext namespace without depending on the messaging engine being present.
 
 ## Sidebar widget data seams
 

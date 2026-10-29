@@ -16,7 +16,7 @@ It also removes an awkward workaround. Before, the only albums BuddyNext had wer
 
 ## Turning the Media tab on
 
-The Media tab is on in every space while WPMediaVerse is active. A space owner who does not want a gallery switches it off under **Manage space > Integrations**, and that choice is kept.
+The Media tab is on in every space while MediaVerse is active. A space owner who does not want a gallery switches it off under **Manage space > Integrations**, and that choice is kept.
 
 1. Open the space and go to **Settings > Integrations**.
 2. Switch on **Enable Media tab**.
@@ -24,7 +24,7 @@ The Media tab is on in every space while WPMediaVerse is active. A space owner w
 
 The tab appears in the space's tab strip next to Feed, Members and About.
 
-> **Note:** Space media needs the media engine (WPMediaVerse) active on the site, and the site-wide media integration switched on under **BuddyNext > Integration Settings**. Without those the tab does not appear even when the per-space setting is on.
+> **Note:** Space media needs the media engine (MediaVerse) active on the site, and the site-wide media integration switched on under **BuddyNext > Integration Settings**. Without those the tab does not appear even when the per-space setting is on.
 
 ## The two views
 
@@ -65,7 +65,7 @@ Remove from space is an *unlink*, not a delete. The item leaves the space and re
 
 ## The Files tab (documents)
 
-A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Settings > Integrations > Enable Files tab** - and is **on by default**. It needs WPMediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
+A space can also carry a **Files** tab for documents (PDFs, spreadsheets, and other attachments), alongside the Media tab. It is a separate per-space switch - **Settings > Integrations > Enable Files tab** - and is **on by default**. It needs MediaVerse Pro's documents feature to be active, and by default the tab is visible to signed-in members only.
 
 Files behave like Media on a space drive: any contributor can upload a document to the space, and **Remove** on a space Files tab is the same *unlink* as above - the document returns to the owner's own Files as private, it is not deleted. (On a member's *own* Files tab, Remove moves the document to **Trash**, where they can restore it.)
 
@@ -87,7 +87,7 @@ Who can rename, trash and restore a folder:
 | A member | Folders they created that hold only their own files |
 | A member on their own profile Files | Every folder there |
 
-WPMediaVerse decides these permissions and BuddyNext shows the controls it allows, so a control never appears that would be refused. Folder changes need WPMediaVerse Pro's documents feature with a valid license. Without one, only site administrators can change folders.
+MediaVerse decides these permissions and BuddyNext shows the controls it allows, so a control never appears that would be refused. Folder changes need MediaVerse Pro's documents feature with a valid license. Without one, only site administrators can change folders.
 
 ## Privacy
 

@@ -77,7 +77,7 @@ final class CompanionRegistry {
 					'unlocks'     => __( 'Forum activity surfaced in the BuddyNext feed.', 'buddynext' ),
 				),
 				'wb-gamification'        => array(
-					'label'       => 'Gamification',
+					'label'       => 'WB Gamification',
 					'integration' => 'gamification',
 					'why'         => __( 'Points, badges, levels, and leaderboards.', 'buddynext' ),
 					'detect'      => static fn(): bool => function_exists( 'wb_gam_submit_event' ) || defined( 'WB_GAM_VERSION' ),
@@ -90,7 +90,7 @@ final class CompanionRegistry {
 					'unlocks'     => __( 'Badges + leaderboard on member profiles.', 'buddynext' ),
 				),
 				'wp-career-board'        => array(
-					'label'       => 'Career Board',
+					'label'       => 'WP Career Board',
 					'integration' => 'careerboard',
 					'why'         => __( 'Job listings and applicant management.', 'buddynext' ),
 					// Probe WCB_VERSION (defined when Career Board loads) + its real

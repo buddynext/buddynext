@@ -56,7 +56,7 @@ Details:
   } );
   ```
 
-- `buddynext_media_notification_url` defaults to `''`, which falls back to the activity feed. The WPMediaVerse bridge answers with the post the media is in, or the media's own page.
+- `buddynext_media_notification_url` defaults to `''`, which falls back to the activity feed. The MediaVerse bridge answers with the post the media is in, or the media's own page.
 - WB Gamification decides which personal records reach the inbox with its own `wb_gam_personal_record_notify` filter (default: `week` and `month` records whose previous best was at least 10). A record is announced once per period (one row per member per site-calendar week or month); later records in the same period refresh that row's number without a new alert.
 
 - `buddynext_notification_visible_rows` receives the raw rows of one page (each has `recipient_id`, `type`, `object_type`, `object_id`, `sender_id` and the JSON `data`). It is for a plugin whose notifications are mirrored into the bell: that plugin owns who may see its content, so it removes its own rows the recipient should not see (a banned author, trashed content). Return every other row untouched. It filters the list only; unread counts are not recalculated.

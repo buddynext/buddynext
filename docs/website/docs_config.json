@@ -11,7 +11,7 @@
     { "name": "Engagement", "folder": "engagement", "description": "Points, badges and levels, the leaderboard, near-real-time updates, kudos and installing as an app." },
     { "name": "Messaging & Notifications", "folder": "messaging-notifications", "description": "Direct messages, notifications and member preferences, transactional emails and email digests." },
     { "name": "Moderation & Trust", "folder": "moderation", "description": "Reporting, the moderation queue, moderating members, appeals, content safeguards and warnings." },
-    { "name": "Integrations", "folder": "integrations", "description": "How BuddyNext works with WPMediaVerse, Jetonomy, WB Gamification, Career Board, Listora, Learnomy and outbound webhooks." },
+    { "name": "Integrations", "folder": "integrations", "description": "How BuddyNext works with MediaVerse, Jetonomy, WB Gamification, Career Board, Listora, Learnomy and outbound webhooks." },
     { "name": "Recipes", "folder": "recipes", "description": "Step-by-step setups for common goals, from a paid community to moderating at scale." },
     { "name": "Migrating from BuddyPress", "folder": "migrating-from-buddypress", "description": "Moving from BuddyPress or BuddyBoss: what maps to what, and how to bring members and content across." },
     { "name": "Pro Features", "folder": "pro", "description": "What BuddyNext Pro adds: membership plans, payments, content protection, scheduled posts and more." },

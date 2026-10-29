@@ -10,7 +10,7 @@ BuddyNext is built to be extended through WordPress actions and filters. This pa
 
 **Grep the source before you rely on a signature.** The hook surface is large and it moves; these pages document it, but the `do_action()` / `apply_filters()` call site is what actually runs. Where a page here and the live code disagree, the code wins - and please file it, because the doc is then a bug.
 
-This guide documents the hooks BuddyNext fires **itself**. It does not cover core WordPress hooks BuddyNext listens to, nor the actions and filters published by sibling plugins (Jetonomy, WPMediaVerse, Career Board, WBGamification) that BuddyNext consumes through its Bridges - those belong to those plugins' contracts. Pro adds its own surface on top, documented on the Pro and Integration Hooks page.
+This guide documents the hooks BuddyNext fires **itself**. It does not cover core WordPress hooks BuddyNext listens to, nor the actions and filters published by sibling plugins (Jetonomy, MediaVerse, Career Board, WBGamification) that BuddyNext consumes through its Bridges - those belong to those plugins' contracts. Pro adds its own surface on top, documented on the Pro and Integration Hooks page.
 
 ### Naming
 
@@ -66,7 +66,7 @@ The split is not arbitrary. It tells you what the hook is for.
 BuddyNext sits on both sides of the hook system, and the distinction matters when you decide where to put your code.
 
 - **Provided** (BuddyNext fires, you listen): all of the roughly 950 distinct hook names Free and Pro fire (about 320 of them template-part hooks). These are the seams you build on. Free ships no `docs/specs/HOOKS.md`; the code is the contract - the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites are the reference for the integration-grade actions.
-- **Consumed** (a sibling plugin fires, BuddyNext listens): BuddyNext's Bridges hook events owned by other plugins - for example `mvs_message_sent` (WPMediaVerse), `jetonomy_after_create_post` (Jetonomy), `wcb_job_created` (Career Board), and `wb_gamification_badge_awarded` (WBGamification). You do not hook these through BuddyNext; you hook them on the plugin that fires them. They are listed here only so you know which direction a given event flows.
+- **Consumed** (a sibling plugin fires, BuddyNext listens): BuddyNext's Bridges hook events owned by other plugins - for example `mvs_message_sent` (MediaVerse), `jetonomy_after_create_post` (Jetonomy), `wcb_job_created` (Career Board), and `wb_gamification_badge_awarded` (WBGamification). You do not hook these through BuddyNext; you hook them on the plugin that fires them. They are listed here only so you know which direction a given event flows.
 
 > **Note:** Some hooks are deliberately fired by Free as a seam that only Pro consumes today. For example `buddynext_feed_order_by` is the documented SQL-level feed-rerank seam; Pro ships an affinity ranker but reaches it by a container rebind rather than this filter, leaving the filter open for third-party use.
 
@@ -149,4 +149,4 @@ Always declare the argument count on `add_action` when the hook passes more than
 - **The code is the contract.** Free ships no `docs/specs/HOOKS.md`; an earlier revision of this page cited one as a "locked" source of truth, and it does not exist. Use the per-domain hooks pages (25-33) and the live `do_action()` / `apply_filters()` call sites, cross-checked against `audit/manifest.json`'s `hooks_fired` entries for the file and line where a hook actually fires (the manifest can lag the code, so the call site wins).
 - **Do not hook `bn_*` as a public seam.** Those hooks are internal admin wiring.
 - **Free/Pro boundary.** Pro never calls Free code directly - it extends Free through container rebinds, class inheritance, or these hooks. If you are writing a Pro-style extension, prefer the same three mechanisms. Pro's own hook surface (events it emits, such as `buddynext_pro_subscription_created`) is listed on the Pro and Integration Hooks page (33).
-- **Consumed hooks live on the other plugin.** To react to a direct message, hook `mvs_message_sent` on WPMediaVerse, not a BuddyNext hook. To react to a Jetonomy discussion, hook `jetonomy_after_create_post`. BuddyNext's bridges already do this internally; your code should target the source plugin's hook directly.
+- **Consumed hooks live on the other plugin.** To react to a direct message, hook `mvs_message_sent` on MediaVerse, not a BuddyNext hook. To react to a Jetonomy discussion, hook `jetonomy_after_create_post`. BuddyNext's bridges already do this internally; your code should target the source plugin's hook directly.

@@ -47,7 +47,7 @@ This release widens the app API, makes pages faster, clears up notifications and
 - Guests see a member's public albums instead of No albums yet.
 - Invite-only spaces no longer offer a join request, My Spaces filters by category, and approving a join request runs the same checks as joining.
 - A missing post answers 404 on edit, delete, pin and unpin.
-- Photo alt text comes from WPMediaVerse, not the upload title, and deleting a comment in the media lightbox removes its copy on the post.
+- Photo alt text comes from MediaVerse, not the upload title, and deleting a comment in the media lightbox removes its copy on the post.
 - A reaction clicked in the photo lightbox right after it opens is saved on the post and stays highlighted.
 - The app's own files are cached correctly when their paths contain spaces, and a version update is never answered with the old copy.
 - Hiding Jetonomy from navigation also hides the Discussions link in the rail.

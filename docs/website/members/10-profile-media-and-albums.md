@@ -40,7 +40,7 @@ Opening a photo or video shows it full-screen in the lightbox. Alongside Favorit
 - **Report** - flags the media to your moderators. You pick a reason (spam, harassment or hate speech, nudity or sexual content, violence or graphic content, copyright infringement, or other) and can add a short note. The report lands in the media moderation queue your moderators already work.
 - **Block** - blocks the *member* who uploaded it, not the file. This is the same block described in Blocking and Muting: it cuts interaction both ways.
 
-Both controls are hidden on your own media (nobody reports themselves) and for logged-out visitors. Until 1.0.8 there was no way at all for a member to report a piece of media on a BuddyNext site, because BuddyNext's lightbox replaces the media page WPMediaVerse would otherwise show.
+Both controls are hidden on your own media (nobody reports themselves) and for logged-out visitors. Until 1.0.8 there was no way at all for a member to report a piece of media on a BuddyNext site, because BuddyNext's lightbox replaces the media page MediaVerse would otherwise show.
 
 ### Removing your own media
 
@@ -63,17 +63,17 @@ When someone else views your Albums, they only see the albums they are allowed t
 
 ## Setting it up (for owners)
 
-Profile media and albums need the **WPMediaVerse** companion plugin active. WPMediaVerse provides the storage and processing behind the scenes - it handles the actual file uploads, generates the preview images, and stores each item's privacy setting (see WPMediaVerse). Once it is active, the Media tab appears on member profiles automatically; there is nothing else to switch on.
+Profile media and albums need the **MediaVerse** companion plugin active. MediaVerse provides the storage and processing behind the scenes - it handles the actual file uploads, generates the preview images, and stores each item's privacy setting (see MediaVerse). Once it is active, the Media tab appears on member profiles automatically; there is nothing else to switch on.
 
-If WPMediaVerse is not active, the Media tab simply does not offer uploads, and the rest of the profile keeps working normally - nothing breaks.
+If MediaVerse is not active, the Media tab simply does not offer uploads, and the rest of the profile keeps working normally - nothing breaks.
 
 The audience choices members see (Public, Followers, Connections, Only me for individual media, and Public, Members, Only me for albums) work out of the box and need no configuration.
 
-Media reporting is on by default on a BuddyNext site, and there is nothing to switch on: reports from the lightbox go into WPMediaVerse's own media report queue, which is where your moderators already review reported media. BuddyNext does not keep a second, separate queue for it.
+Media reporting is on by default on a BuddyNext site, and there is nothing to switch on: reports from the lightbox go into MediaVerse's own media report queue, which is where your moderators already review reported media. BuddyNext does not keep a second, separate queue for it.
 
 ## Good to know
 
-- **WPMediaVerse is required.** The Media tab, uploads, and albums all rely on the WPMediaVerse companion plugin being active. Without it, members will not see the upload option.
+- **MediaVerse is required.** The Media tab, uploads, and albums all rely on the MediaVerse companion plugin being active. Without it, members will not see the upload option.
 - **Privacy is enforced on read, not just on display.** A private photo or a private album is genuinely hidden from everyone but you - it is filtered out before the page is built, both on the website and in any connected app, not just visually removed.
 - **Deleting an album keeps your photos.** Removing an album never deletes the media inside it. The items stay in your gallery; only the grouping goes away.
 - **You can only manage your own media.** Members upload, organize, and remove only their own photos, videos, and albums. Site administrators can moderate media when they need to, but no ordinary member can touch another member's gallery.
@@ -82,11 +82,11 @@ Media reporting is on by default on a BuddyNext site, and there is nothing to sw
 
 ## Free vs Pro
 
-Everything on this page - uploading photos and videos, per-item privacy, and the full set of album actions (create, add and remove media, set a cover, reorder, rename, change privacy, and delete) - is part of BuddyNext free, as long as the WPMediaVerse companion plugin is active.
+Everything on this page - uploading photos and videos, per-item privacy, and the full set of album actions (create, add and remove media, set a cover, reorder, rename, change privacy, and delete) - is part of BuddyNext free, as long as the MediaVerse companion plugin is active.
 
 ## Related
 
-- [WPMediaVerse](../integrations/02-wpmediaverse.md) - the companion plugin that stores and processes media
+- [MediaVerse](../integrations/02-wpmediaverse.md) - the companion plugin that stores and processes media
 - [Blocking and Muting](08-blocking-and-muting.md) - the block action available in the media lightbox
 - [Reporting Content](../moderation/01-reporting-content.md) - where reported media lands for moderators
 - [Space Media and Albums](../spaces/10-space-media-and-albums.md) - the same gallery inside a space

@@ -24,8 +24,8 @@ It reads the old community's tables straight from your database and writes into 
 - **Friendships**, **follows**, **reactions** and saved **bookmarks**
 - **Forums** from bbPress, with topics, replies and topic tags (needs Jetonomy)
 - **Avatars and cover images**
-- **Albums and media**, including rtMedia photos and videos (needs WPMediaVerse)
-- **Private messages** (needs WPMediaVerse)
+- **Albums and media**, including rtMedia photos and videos (needs MediaVerse)
+- **Private messages** (needs MediaVerse)
 
 A domain whose destination plugin is not active is skipped and the importer says so.
 

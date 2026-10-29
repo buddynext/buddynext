@@ -1,10 +1,10 @@
 # Integration Bridges (Layer 1)
 
-The bridge layer is how BuddyNext connects to optional companion plugins (Jetonomy forums, WPMediaVerse media + DM, wb-gamification, Career Board) and the host theme. Each bridge is an adapter class under `includes/Bridges/` that translates a companion's hooks and data into BuddyNext surfaces - and stays completely inert when the companion is not installed. This page is for developers writing a new bridge, theming a bridged surface, or extending one of the existing integrations.
+The bridge layer is how BuddyNext connects to optional companion plugins (Jetonomy forums, MediaVerse media + DM, wb-gamification, Career Board) and the host theme. Each bridge is an adapter class under `includes/Bridges/` that translates a companion's hooks and data into BuddyNext surfaces - and stays completely inert when the companion is not installed. This page is for developers writing a new bridge, theming a bridged surface, or extending one of the existing integrations.
 
 ![A Space home enriched by a companion bridge - the Layer 1 adapter pattern documented on this page](../images/space-home.webp)
 
-![Direct messaging, a bridged WPMediaVerse surface the integration-bridge layer connects](../images/direct-messaging.webp)
+![Direct messaging, a bridged MediaVerse surface the integration-bridge layer connects](../images/direct-messaging.webp)
 
 ## Overview / Contract
 
@@ -12,7 +12,7 @@ A bridge is a thin, one-directional adapter. The rules every BuddyNext bridge fo
 
 1. **One class per companion, `Bridge` suffix.** Adapter classes live in `includes/Bridges/` and are named `{Companion}Bridge` (for example `JetonomyBridge`). A companion that also needs to mirror inbound notifications ships a paired `{Companion}BridgeListener` implementing `BuddyNext\Contracts\ListenerInterface`.
 2. **Self-guarding at hook time, not load time.** Every bridge's entry method (`init()` for adapters, `register()` for listeners) bails immediately with a `class_exists()` / `function_exists()` check against the companion. Nothing is registered on a site that does not run the companion, so no hooks are wasted and no fatals occur on activation-order differences.
-3. **Loaded on a single seam after everyone else has booted.** Bridges are wired on `buddynext_load_bridges`, which BuddyNext fires at `plugins_loaded:25` - after BuddyNext itself (priority 15) and after Pro companions like Jetonomy Pro and WPMediaVerse Pro (priority 20). Activation order between BuddyNext and a companion therefore never matters.
+3. **Loaded on a single seam after everyone else has booted.** Bridges are wired on `buddynext_load_bridges`, which BuddyNext fires at `plugins_loaded:25` - after BuddyNext itself (priority 15) and after Pro companions like Jetonomy Pro and MediaVerse Pro (priority 20). Activation order between BuddyNext and a companion therefore never matters.
 4. **Gated per aspect, not by a master switch.** Bridges are wired unconditionally. Each surface a bridge adds checks the owner's per-aspect Integration Settings toggle (`buddynext_integration_enabled( '{key}', '{aspect}' )`, aspects such as `nav`, `feed` and `search`, all default-on). Turning an aspect off in Integration Settings disables that surface even when the companion is active. There is no separate Features-tab switch for bridges.
 5. **BuddyNext owns companion table access.** When a bridge needs companion data (for example Jetonomy's `jt_posts` / `jt_replies`), the bridge class is the only place that reads those tables - templates and services never reach into a companion's schema directly.
 
@@ -49,7 +49,7 @@ A third-party bridge attaches the same way - hook `buddynext_load_bridges` and w
 | Bridge | Companion | Guard (active when) | Integration key | Key seams |
 |---|---|---|---|---|
 | `JetonomyBridge` | Jetonomy (forums) | `class_exists( 'Jetonomy\Jetonomy' )` | `jetonomy` | `jetonomy_after_create_post`, `jetonomy_after_delete_post`, `jetonomy_post_publish_transition`, `jetonomy_reply_publish_transition` (consume); `buddynext_rail_items`, `buddynext_register_nav`, `buddynext_context_nav`, `buddynext_hashtag_related_discussions` (provide); REST `POST /spaces/{id}/forum` |
-| `WPMediaVerseBridge` | WPMediaVerse (media + DM engine) | `class_exists( 'WPMediaVerse\Core\Plugin' )` | `wpmediaverse` | `mvs_buddynext_active`, `mvs_can_send_message`, `mvs_dm_denial_reason`, `mvs_user_profile_url`, `mvs_message_sent`, `mvs_favorite_toggled`, `mvs_comment_created`, `mvs_user_followed/unfollowed` (consume); fires `buddynext_dm_sent` / `buddynext_dm_received` |
+| `WPMediaVerseBridge` | MediaVerse (media + DM engine) | `class_exists( 'WPMediaVerse\Core\Plugin' )` | `wpmediaverse` | `mvs_buddynext_active`, `mvs_can_send_message`, `mvs_dm_denial_reason`, `mvs_user_profile_url`, `mvs_message_sent`, `mvs_favorite_toggled`, `mvs_comment_created`, `mvs_user_followed/unfollowed` (consume); fires `buddynext_dm_sent` / `buddynext_dm_received` |
 | `GamificationBridge` | wb-gamification | per-surface `function_exists( 'wb_gam_*' )` checks | `gamification` | Consumes `wb_gam_badge_shared` to post a credential-badge feed activity when the member shares the badge (with its artwork and description). Point awards for BuddyNext activity are owned by the wb-gamification plugin's own `integrations/buddynext.php` manifest, not this bridge. |
 | `CareerBoardBridge` (registered in Pro) | Career Board (`wp-career-board`) | `defined( 'WCB_VERSION' )` guard inside the bridge | `careerboard` | `wcb_job_created`, `wcb_job_expired`, `wcbp_resume_published`, `wcb_notification_created` (consume) -> `bn_search_index` (`object_type='job'`) + `bn_notifications`; pure inbound listener |
 | `ListoraBridge` (registered in Pro) | WB Listora (business listings) | `defined( 'WB_LISTORA_VERSION' )` guard inside the bridge | `listora` | `transition_post_status`, `before_delete_post` (consume) -> `bn_search_index` (`object_type='listing'`) + feed `listing` cards via `IntegrationActivity`; no notification mirror yet (Listora has no creation hook to mirror from) |
@@ -122,7 +122,7 @@ Current declared values (update the row when you re-verify a bridge against a ne
 Where a partner renders a member's name, @handle, avatar or profile link on a shared surface, BuddyNext owns that identity: one profile link, one name, one mention system across the whole site. A partner exposes filter seams for a host to claim; the bridge fills them so the partner defers to BuddyNext.
 
 - **Jetonomy** fills all five identity seams (`JetonomyBridge`): `jetonomy_profile_url` -> `PageRouter::profile_url`, `jetonomy_user_handle` + `jetonomy_resolve_mention_handles` -> BuddyNext `Handle` (matched emit/resolve pair, incl. custom slug + reserved `user-{id}`), `jetonomy_user_display_name` -> WP `display_name`, and `jetonomy_profile_action_url` -> BuddyNext profile / edit / notification screens, with `digest` on the Forum email card (`/settings/notifications/#forum-email`) and `badges` staying on Jetonomy. Avatars come through WP `pre_get_avatar_data` where BuddyNext's `AvatarService` (priority 50/99) already wins.
-- **WPMediaVerse** fills `mvs_user_profile_url` -> BuddyNext profile and reports `mvs_has_custom_avatar`; its display name defaults to WP `display_name` already, and a single-media page redirects to the source BuddyNext activity by default, so identity there is native BuddyNext.
+- **MediaVerse** fills `mvs_user_profile_url` -> BuddyNext profile and reports `mvs_has_custom_avatar`; its display name defaults to WP `display_name` already, and a single-media page redirects to the source BuddyNext activity by default, so identity there is native BuddyNext.
 
 ## JetonomyBridge
 
@@ -204,9 +204,9 @@ Cross-cutting rules:
 
 ## WPMediaVerseBridge
 
-Connects BuddyNext to the WPMediaVerse engine for media and direct messaging. Active only when `WPMediaVerse\Core\Plugin` exists. BuddyNext consumes WPMediaVerse at the REST/API level only and owns 100% of its own UX - WPMediaVerse JS/CSS is never enqueued on BuddyNext pages, and `/messages/` is a fully native BuddyNext surface (`templates/messages/native.php`) backed by the `mvs/v1` REST engine.
+Connects BuddyNext to the MediaVerse engine for media and direct messaging. Active only when `WPMediaVerse\Core\Plugin` exists. BuddyNext consumes MediaVerse at the REST/API level only and owns 100% of its own UX - MediaVerse JS/CSS is never enqueued on BuddyNext pages, and `/messages/` is a fully native BuddyNext surface (`templates/messages/native.php`) backed by the `mvs/v1` REST engine.
 
-Which plugin owns which shared screen - and which of them are still open - is tracked in [WPMediaVerse Surface Ownership Map](54-mediaverse-surface-ownership.md). Read it before building a screen WPMediaVerse also renders.
+Which plugin owns which shared screen - and which of them are still open - is tracked in [MediaVerse Surface Ownership Map](54-mediaverse-surface-ownership.md). Read it before building a screen MediaVerse also renders.
 
 ### Declaring BuddyNext active
 
@@ -214,13 +214,13 @@ Which plugin owns which shared screen - and which of them are still open - is tr
 add_filter( 'mvs_buddynext_active', '__return_true' );
 ```
 
-This tells WPMediaVerse to suppress its own floating chat panel, standalone messages page, and duplicate notifications - BuddyNext takes over those surfaces.
+This tells MediaVerse to suppress its own floating chat panel, standalone messages page, and duplicate notifications - BuddyNext takes over those surfaces.
 
 ### DM gating
 
-"Who can message you" is WPMediaVerse's rule: its site ceiling `mvs_dm_access` and the member's `_mvs_dm_access` (`everyone` / `followers` / `mutual` / `nobody`), enforced in `MessagingService::can_message()`, which reports its own reasons (`dms_disabled`, `mutual_follow_required`). BuddyNext keeps no copy of it. The BuddyNext privacy screen offers `ProfileService::dm_access_options()`, shows `effective_dm_access()`, and saves the `dm_access` key through `ProfileService::update_profile()`, so the ceiling always applies.
+"Who can message you" is MediaVerse's rule: its site ceiling `mvs_dm_access` and the member's `_mvs_dm_access` (`everyone` / `followers` / `mutual` / `nobody`), enforced in `MessagingService::can_message()`, which reports its own reasons (`dms_disabled`, `mutual_follow_required`). BuddyNext keeps no copy of it. The BuddyNext privacy screen offers `ProfileService::dm_access_options()`, shows `effective_dm_access()`, and saves the `dm_access` key through `ProfileService::update_profile()`, so the ceiling always applies.
 
-`check_block()` adds BuddyNext's one rule through `mvs_can_send_message`: a recipient who has blocked the sender (`bn_blocks`, via the `blocks` service `has_blocked()`) denies the send, reported as WPMediaVerse's default `blocked` reason. Site admins (`manage_options`) pass the block.
+`check_block()` adds BuddyNext's one rule through `mvs_can_send_message`: a recipient who has blocked the sender (`bn_blocks`, via the `blocks` service `has_blocked()`) denies the send, reported as MediaVerse's default `blocked` reason. Site admins (`manage_options`) pass the block.
 
 ### Message + favorite events
 
@@ -229,23 +229,23 @@ This tells WPMediaVerse to suppress its own floating chat panel, standalone mess
 | `mvs_message_sent` | action (4 args) | Fires `buddynext_dm_sent` (sender perspective, once) and `buddynext_dm_received` (per recipient, sender stripped), then creates `bn.new_message` notifications. Restrict/mute on the recipient side suppresses the bell without blocking the message. |
 | `mvs_favorite_toggled` | action (3 args) | On `'added'` only, notifies the media owner with `bn.media_favorited`. |
 | `mvs_comment_created` | action | Notifies the media owner with `bn.media_commented` (object `mvs_media`, grouped per media, block-aware, never the commenter), from the comment itself, so it works before the photo has a feed card and for media that never gets one. Then copies the comment onto the newest published post showing the media (found through `bn_post_media`), dated when it was written, and fires `buddynext_comment_created` (canonical 4-arg) with notifications muted, so the copy never notifies twice. Deduped against re-fires. |
-| `mvs_user_profile_url` | filter | Repoints WPMediaVerse author links at the BuddyNext member profile (`PageRouter::profile_url`). |
+| `mvs_user_profile_url` | filter | Repoints MediaVerse author links at the BuddyNext member profile (`PageRouter::profile_url`). |
 
 ### One notification per action
 
-For follows, media comments, favorites and direct messages, BuddyNext sends the notification (bell, email, push) and tells WPMediaVerse to skip its own copy (`mvs_should_send_notification`). Reactions and mentions stay WPMediaVerse's; BuddyNext only shows them. A media notification opens the post the media is in, or the media's own page when it has no post (`buddynext_media_notification_url`).
+For follows, media comments, favorites and direct messages, BuddyNext sends the notification (bell, email, push) and tells MediaVerse to skip its own copy (`mvs_should_send_notification`). Reactions and mentions stay MediaVerse's; BuddyNext only shows them. A media notification opens the post the media is in, or the media's own page when it has no post (`buddynext_media_notification_url`).
 
 A photo's feed card is created by an Action Scheduler job (`buddynext_mvs_media_activity`) two minutes after the upload, so a composer post can claim the photo first. When that job creates the card it copies the comments already written onto it, inside the job, so the member's request never pays for it.
 
 ### Two-way follow mirror
 
-`bn_follows` (BuddyNext) and `mvs_follows` (WPMediaVerse) are kept in sync in both directions so a member's follow state is identical on either profile. The bridge listens on `mvs_user_followed/unfollowed` and `buddynext_user_followed/unfollowed`; a re-entrancy guard (`$mirroring_follow`) plus an `is_following()` short-circuit prevent the mirror from looping back on itself.
+`bn_follows` (BuddyNext) and `mvs_follows` (MediaVerse) are kept in sync in both directions so a member's follow state is identical on either profile. The bridge listens on `mvs_user_followed/unfollowed` and `buddynext_user_followed/unfollowed`; a re-entrancy guard (`$mirroring_follow`) plus an `is_following()` short-circuit prevent the mirror from looping back on itself.
 
 ### Media feed-card lifecycle
 
 A non-photo media upload (video / audio) becomes a `'media'` integration feed card keyed on the media permalink, storing only the media id - title and cover resolve at render, per viewer, so they never go stale or leak. The bridge keeps that card honest across the media's whole lifecycle:
 
-| WPMediaVerse fires | Bridge does |
+| MediaVerse fires | Bridge does |
 | --- | --- |
 | `mvs_media_deleted` (hard delete) | `on_media_deleted` - withdraw the card (and any composer document card by id) |
 | `mvs_media_trashed` (soft delete) | `on_media_trashed` - withdraw the card by permalink (reversible) |
@@ -258,13 +258,13 @@ A **composer document card** follows its document the same way, keyed on `link_m
 
 ### Media rail item
 
-`inject_media_nav_item()` adds a "Media" link to the BuddyNext left rail, resolving the engine's mapped Explore page (`mvs_page_explore`) and falling back to `/media/`. This only adds a link on BuddyNext's own pages - it never alters a WPMediaVerse page.
+`inject_media_nav_item()` adds a "Media" link to the BuddyNext left rail, resolving the engine's mapped Explore page (`mvs_page_explore`) and falling back to `/media/`. This only adds a link on BuddyNext's own pages - it never alters a MediaVerse page.
 
 ### Space Files: link a file into more than one space
 
-A document has one home drive (`mvs_media_index.drive_type`/`drive_id`). A member can add an existing file to additional spaces without a copy - the same many-to-many model Eventonomy uses for events. The join table `mvs_media_spaces (media_id, space_id, added_by, added_at)` lives in WPMediaVerse (Migrator v33); `MediaRepository::drive_documents()` unions a space drive's own rows with the rows linked in, and `SearchService` unions them into that space's search. Cleanup is automatic - the table is in `MediaRepository::MEDIA_CHILD_TABLES`, so deleting the file drops its links too.
+A document has one home drive (`mvs_media_index.drive_type`/`drive_id`). A member can add an existing file to additional spaces without a copy - the same many-to-many model Eventonomy uses for events. The join table `mvs_media_spaces (media_id, space_id, added_by, added_at)` lives in MediaVerse (Migrator v33); `MediaRepository::drive_documents()` unions a space drive's own rows with the rows linked in, and `SearchService` unions them into that space's search. Cleanup is automatic - the table is in `MediaRepository::MEDIA_CHILD_TABLES`, so deleting the file drops its links too.
 
-Requires WPMediaVerse + WPMediaVerse Pro 2.5.1 alongside this BuddyNext release.
+Requires MediaVerse + MediaVerse Pro 2.5.1 alongside this BuddyNext release.
 
 Authorization reuses the drive-access seam plus one new filter:
 
@@ -397,7 +397,7 @@ The service skips entirely in wp-admin (the manifest only applies to the front e
 
 ## BuddyXBridge
 
-A theme bridge, always wired because it self-guards on the active template being `buddyx` or `buddyx-pro`. Without it, BuddyX wraps every `get_header()` in a `.container` div that constrains plugin layouts. The bridge hooks `buddyx_is_full_width_page -> true` on WPMediaVerse front-end pages (detected via the `mvs_page_*` option page IDs) so the theme skips its container wrapper for those surfaces. A future seam will map BuddyX Customizer values to `--bn-*` tokens via `buddynext_css_vars`.
+A theme bridge, always wired because it self-guards on the active template being `buddyx` or `buddyx-pro`. Without it, BuddyX wraps every `get_header()` in a `.container` div that constrains plugin layouts. The bridge hooks `buddyx_is_full_width_page -> true` on MediaVerse front-end pages (detected via the `mvs_page_*` option page IDs) so the theme skips its container wrapper for those surfaces. A future seam will map BuddyX Customizer values to `--bn-*` tokens via `buddynext_css_vars`.
 
 ## Notes / gotchas
 
@@ -405,6 +405,6 @@ A theme bridge, always wired because it self-guards on the active template being
 
 - **Bridges never call companion code directly outside a guard.** Every companion class/function reference is wrapped in a `class_exists` / `function_exists` / `method_exists` check, so a partial or older companion build degrades instead of fataling.
 - **Aspect toggle vs companion presence are independent gates.** A bridge surface runs only when the companion is active and the owner's Integration Settings toggle for that aspect (`buddynext_integration_enabled`) is on. Switching the aspect off removes that surface even if the companion is installed.
-- **Companion table access is the bridge's job.** Jetonomy `jt_*` reads and the WPMediaVerse follow-graph access live inside the bridge classes; downstream templates and services consume bridge methods (for example `JetonomyBridge::user_discussions()`), never the companion schema.
+- **Companion table access is the bridge's job.** Jetonomy `jt_*` reads and the MediaVerse follow-graph access live inside the bridge classes; downstream templates and services consume bridge methods (for example `JetonomyBridge::user_discussions()`), never the companion schema.
 - **Free/Pro boundary.** `JetonomyBridge` (+ listener), `WPMediaVerseBridge`, `GamificationBridge` (+ listener), `MemberBlogBridge`, `BuddyXBridge` and `PwaService` all live in Free and run regardless of Pro. `CareerBoardBridge`, `EventonomyBridge`, `LearnomyBridge` and `ListoraBridge` are business-application bridges that live in Pro and register on the same `buddynext_load_bridges` seam; all four are documented above. Pro also registers `WooCommerceBridge` and `PmproBridge` on a separate seam (`GrantBridgeRegistrar`, via `buddynextpro_membership_sources`) - those are membership-**grant** bridges for monetization, a different contract (`AbstractGrantBridge`) than a community-surfacing bridge, and are documented on [Membership Grant Bridges](53-membership-grant-bridges.md), not here.
 - **Docblocks may lag code.** `JetonomyBridge`'s own docblock still mentions `jetonomy_show_community_nav`; the live code no longer registers it. When a comment and the source disagree, the source is authoritative.

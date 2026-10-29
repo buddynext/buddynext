@@ -15,15 +15,15 @@ Read it as "the thing you called X is now called Y, and here is what changed for
 | Friends | Connections | Same idea: a mutual, two-way relationship that both people agree to. One member sends a request, the other accepts, and they are connected. |
 | Follow | Follows | Same idea: a one-directional way to keep up with someone without needing them to follow back. Both Follows and Connections exist in BuddyNext, so members choose the level of relationship they want. |
 | Members directory | Member directory | Same idea: the browsable list of everyone in the community, with search and filters. BuddyNext keeps it fast and readable whether you have fifty members or fifty thousand. |
-| Private Messages | Direct messages | Same idea: private one-to-one conversations away from the public feed. In BuddyNext, messaging is powered by the free WPMediaVerse companion plugin, with message requests, mute, pin, archive, emoji reactions, and quoted replies. |
+| Private Messages | Direct messages | Same idea: private one-to-one conversations away from the public feed. In BuddyNext, messaging is powered by the free MediaVerse companion plugin, with message requests, mute, pin, archive, emoji reactions, and quoted replies. |
 | Notifications | Notifications | Same name, same job: the bell with a live unread count that tells members about new followers, replies, mentions, and more. Each member can tune which events notify them and how. |
 | Forums | Discussions | Same idea: threaded, topic-based conversation that lives longer than a feed post. In BuddyNext, discussions are powered by the Jetonomy companion plugin and can appear as a forum tab inside a space. |
-| Photos and Albums | Profile media and albums | Same idea: members upload photos and organize them into albums. BuddyNext profile media and albums are powered by the WPMediaVerse companion, with private albums that stay hidden from everyone but the owner. |
+| Photos and Albums | Profile media and albums | Same idea: members upload photos and organize them into albums. BuddyNext profile media and albums are powered by the MediaVerse companion, with private albums that stay hidden from everyone but the owner. |
 | Gamification and Points | Points and badges | Same idea: reward members for taking part. In BuddyNext this is provided by the WB Gamification companion plugin, which awards points, badges, and levels for community activity. |
 
 ## Good to know
 
-- **A few capabilities come from optional companion plugins.** Messaging and media use WPMediaVerse, discussions use Jetonomy, and points and badges use WB Gamification. Each is free to add and stays off until you turn it on - you install only what your community needs.
+- **A few capabilities come from optional companion plugins.** Messaging and media use MediaVerse, discussions use Jetonomy, and points and badges use WB Gamification. Each is free to add and stays off until you turn it on - you install only what your community needs.
 - **Follows and Connections are both available.** BuddyPress made you choose one relationship model site-wide. BuddyNext offers both at once, so a member can lightly follow some people and formally connect with others.
 - **Privacy is set per field, by the member.** Where BuddyPress field visibility was often an owner-level setting, BuddyNext lets each member decide who sees each field on their own profile.
 

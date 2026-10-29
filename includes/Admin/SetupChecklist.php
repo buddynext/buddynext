@@ -258,7 +258,7 @@ final class SetupChecklist {
 			$steps[]    = array(
 				'key'       => 'messages',
 				'label'     => __( 'Turn on messages', 'buddynext' ),
-				'desc'      => __( 'Messages are off in WPMediaVerse. Turn them on to let members message each other.', 'buddynext' ),
+				'desc'      => __( 'Messages are off in MediaVerse. Turn them on to let members message each other.', 'buddynext' ),
 				'done'      => ! \BuddyNext\Messages\MessagesData::switched_off(),
 				'cta'       => '' !== $bn_turn_on ? $bn_turn_on : \BuddyNext\Messages\MessagesData::settings_url(),
 				'cta_label' => __( 'Turn on messages', 'buddynext' ),

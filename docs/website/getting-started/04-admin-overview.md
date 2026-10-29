@@ -48,7 +48,7 @@ Every capability has exactly one on/off switch, and it lives in **BuddyNext > Pl
 | On by default | You can switch it off. | Hashtags, Reactions, Comments, Sidebar widgets, Member onboarding flow, Email verification, Site announcements, Bookmarks, Polls, Re-shares, Installable app (PWA), Scheduled posts |
 | Off by default | You switch it on when you need it. | Outbound webhooks (Free); Realtime, Push notifications, AI suite and AI moderation (Pro) |
 
-Two entries behave differently. **Direct messages** shows the state of the switch in WPMediaVerse (Settings, Messages) and links you there, because WPMediaVerse runs messaging. **Scheduled posts** is a Free entry: switching it off hides the schedule button in the composer, while posts already scheduled still publish. With BuddyNext Pro active, the Pro capabilities (such as White-label branding, Member labels, Email broadcasts, Drip sequences, Moderation rules, Bulk moderation, Custom reactions and Analytics) appear in the same list.
+Two entries behave differently. **Direct messages** shows the state of the switch in MediaVerse (Settings, Messages) and links you there, because MediaVerse runs messaging. **Scheduled posts** is a Free entry: switching it off hides the schedule button in the composer, while posts already scheduled still publish. With BuddyNext Pro active, the Pro capabilities (such as White-label branding, Member labels, Email broadcasts, Drip sequences, Moderation rules, Bulk moderation, Custom reactions and Analytics) appear in the same list.
 
 ## Refined in 1.0.4
 

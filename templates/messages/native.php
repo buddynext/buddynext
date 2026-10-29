@@ -49,13 +49,13 @@ if ( ! MessagesData::entry_enabled() ) :
 			<?php if ( current_user_can( 'manage_options' ) && $bn_dm_switched_off ) : ?>
 				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Messages are turned off', 'buddynext' ); ?></h2>
 				<p class="bn-dm-dep-notice__body">
-					<?php esc_html_e( 'Messages are switched off in WPMediaVerse. Existing conversations are kept and come back when you turn it on. (This notice is only shown to administrators.)', 'buddynext' ); ?>
+					<?php esc_html_e( 'Messages are switched off in MediaVerse. Existing conversations are kept and come back when you turn it on. (This notice is only shown to administrators.)', 'buddynext' ); ?>
 				</p>
-				<p class="bn-dm-dep-notice__body"><a class="bn-btn" data-variant="primary" href="<?php echo esc_url( MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Open WPMediaVerse Messages settings', 'buddynext' ); ?></a></p>
+				<p class="bn-dm-dep-notice__body"><a class="bn-btn" data-variant="primary" href="<?php echo esc_url( MessagesData::settings_url() ); ?>"><?php esc_html_e( 'Open MediaVerse Messages settings', 'buddynext' ); ?></a></p>
 			<?php elseif ( current_user_can( 'manage_options' ) ) : ?>
-				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></h2>
+				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires MediaVerse', 'buddynext' ); ?></h2>
 				<p class="bn-dm-dep-notice__body">
-					<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext. (This notice is only shown to administrators.)', 'buddynext' ); ?>
+					<?php esc_html_e( 'Install and activate the MediaVerse plugin to enable direct messaging in BuddyNext. (This notice is only shown to administrators.)', 'buddynext' ); ?>
 				</p>
 			<?php else : ?>
 				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Messages are turned off', 'buddynext' ); ?></h2>

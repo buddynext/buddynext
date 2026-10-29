@@ -105,7 +105,7 @@ class IntegrationControlsAdmin {
 				<div class="bn-settings-section">
 					<div class="bn-ss-body">
 						<div class="bn-empty">
-							<p><?php esc_html_e( 'No controllable integrations are active yet. Activate an integration (such as Career Board, Listora, Learnomy, Jetonomy, or Gamification) and it will appear here.', 'buddynext' ); ?></p>
+							<p><?php esc_html_e( 'No controllable integrations are active yet. Activate an integration (such as WP Career Board, Listora, Learnomy, Jetonomy, or WB Gamification) and it will appear here.', 'buddynext' ); ?></p>
 						</div>
 					</div>
 				</div>

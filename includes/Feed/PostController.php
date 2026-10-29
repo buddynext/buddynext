@@ -92,7 +92,7 @@ class PostController extends BaseRestController {
 					),
 					'document_id'             => array(
 						'type'        => 'integer',
-						'description' => __( 'WPMediaVerse document ID attached from the composer (type=document).', 'buddynext' ),
+						'description' => __( 'MediaVerse document ID attached from the composer (type=document).', 'buddynext' ),
 						'required'    => false,
 					),
 					'options'                 => array(

@@ -1,6 +1,6 @@
-# WPMediaVerse Surface Ownership Map
+# MediaVerse Surface Ownership Map
 
-Which plugin owns the UI for each surface BuddyNext and WPMediaVerse both touch,
+Which plugin owns the UI for each surface BuddyNext and MediaVerse both touch,
 and which one owns the data behind it.
 
 A shared surface with no named owner grows a second implementation, and two
@@ -9,27 +9,27 @@ implementations over one API drift. This page names an owner for each one.
 ## The standing rule
 
 From [Integration Bridges](44-integration-bridges.md): **BuddyNext consumes
-WPMediaVerse at the REST/API level only and owns 100% of its own UX.
-WPMediaVerse JS/CSS is never enqueued on BuddyNext pages.**
+MediaVerse at the REST/API level only and owns 100% of its own UX.
+MediaVerse JS/CSS is never enqueued on BuddyNext pages.**
 
 That rule is honoured: the member Media tab, the activity feed and a space home
 load zero `mvs*.js` / `mvs*.css`, and `bin/check-mediaverse-surfaces.php` fails
 the build if BuddyNext enqueues one.
 
 So the question for each surface below is never "may BuddyNext render this?" -
-it is "**who owns the UI**, who owns the data, and is WPMediaVerse's own version
+it is "**who owns the UI**, who owns the data, and is MediaVerse's own version
 of the same screen still reachable next to it?"
 
 ## The map
 
 | Surface | UI owner | Data owner | State |
 |---|---|---|---|
-| Direct messages | **BuddyNext** (`templates/messages/native.php`) | WPMediaVerse (`mvs/v1`) | Settled. MV suppresses its chat panel + messages page via `mvs_buddynext_active` |
-| Document drive (space + profile) | **BuddyNext** (`RendersDriveFiles`) | WPMediaVerse (`mvs-pro/v1`) | Settled. MV answers drive filters, never queries `bn_*` |
-| Media viewer (lightbox) | **BuddyNext** (`templates/partials/media-lightbox.php`, `assets/js/media/lightbox.js`) | WPMediaVerse (`mvs/v1`) | Settled - see below |
-| Media grid / profile Media tab | **BuddyNext** | WPMediaVerse | Settled |
-| Composer media attach | **BuddyNext** (`assets/js/feed/composer.js`) | WPMediaVerse | Settled |
-| Activity cards for uploads | **BuddyNext** | WPMediaVerse | Settled: media only (image/video/audio), never documents |
+| Direct messages | **BuddyNext** (`templates/messages/native.php`) | MediaVerse (`mvs/v1`) | Settled. MV suppresses its chat panel + messages page via `mvs_buddynext_active` |
+| Document drive (space + profile) | **BuddyNext** (`RendersDriveFiles`) | MediaVerse (`mvs-pro/v1`) | Settled. MV answers drive filters, never queries `bn_*` |
+| Media viewer (lightbox) | **BuddyNext** (`templates/partials/media-lightbox.php`, `assets/js/media/lightbox.js`) | MediaVerse (`mvs/v1`) | Settled - see below |
+| Media grid / profile Media tab | **BuddyNext** | MediaVerse | Settled |
+| Composer media attach | **BuddyNext** (`assets/js/feed/composer.js`) | MediaVerse | Settled |
+| Activity cards for uploads | **BuddyNext** | MediaVerse | Settled: media only (image/video/audio), never documents |
 | Member avatar | **Shared, by precedence** | each plugin's own | Settled - see below |
 
 ## Media viewer
@@ -53,9 +53,9 @@ Two rules hold this together:
 
 MediaVerse Collections are a MediaVerse feature and stay MediaVerse's. BuddyNext's viewer does not expose them.
 
-### WPMediaVerse's own media pages
+### MediaVerse's own media pages
 
-`mvs_buddynext_active` tells WPMediaVerse to stand down its chat panel, its standalone messages page and its duplicate notifications. It does **not** hide its own media pages: `/explore-media/`, `/my-media/` and `/upload-media/` stay published (with `/explore-document/` on sites running WPMediaVerse Pro), and they load WPMediaVerse's own viewer. They are WPMediaVerse pages, so the "no MV assets on BN pages" rule does not apply to them, and BuddyNext does not wrap them in its hub shell.
+`mvs_buddynext_active` tells MediaVerse to stand down its chat panel, its standalone messages page and its duplicate notifications. It does **not** hide its own media pages: `/explore-media/`, `/my-media/` and `/upload-media/` stay published (with `/explore-document/` on sites running MediaVerse Pro), and they load MediaVerse's own viewer. They are MediaVerse pages, so the "no MV assets on BN pages" rule does not apply to them, and BuddyNext does not wrap them in its hub shell.
 
 For single media, `mvs_single_media_redirect` sends `/media/{slug}/` to the activity the media was posted in (falling back to the owner's Media tab, then Explore), unless the owner set `buddynext_media_single_pages` to `dedicated`.
 
@@ -82,14 +82,14 @@ URL.
 
 That split keeps a generated *placeholder* from ever beating a real *photograph*:
 a member with a valid `_mvs_custom_avatar` and no BuddyNext avatar sees their
-WPMediaVerse picture, not generated initials.
+MediaVerse picture, not generated initials.
 
 Resulting precedence, one member, all four states:
 
 | Member has | Renders |
 |---|---|
 | neither | BuddyNext initials |
-| WPMediaVerse avatar only | **the WPMediaVerse avatar** |
+| MediaVerse avatar only | **the MediaVerse avatar** |
 | BuddyNext avatar only | the BuddyNext avatar |
 | both | the BuddyNext avatar |
 
@@ -124,7 +124,7 @@ When either plugin adds a screen the other could also render:
 
 | Rule | Detected by |
 |---|---|
-| No WPMediaVerse JS/CSS enqueued from BuddyNext | `wp_enqueue_script/style( 'mvs*' )` anywhere in `includes/` |
+| No MediaVerse JS/CSS enqueued from BuddyNext | `wp_enqueue_script/style( 'mvs*' )` anywhere in `includes/` |
 | Generated avatars never race real ones | `filter_avatar_fallback` missing, registered at priority <= 10, or initials generated inside the priority-10 filter |
 | Comment controls follow the engine | `lightbox.js` no longer reading `can_edit` / `can_delete` off a comment |
 

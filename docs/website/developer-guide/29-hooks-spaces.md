@@ -20,7 +20,7 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 | `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
 | `buddynext_rest_space_item` | filter | The single-space REST item is built (`GET buddynext/v1/spaces/{id}`). Add the fields your space-page UI needs (Pro adds its linked-course banner); add fields only, never remove. Since 1.2.4. | `array $space, int $viewer_id` |
 | `buddynext_can_view_space_content` | filter | A viewer's access to a space's **content** is resolved, before it is rendered or cached. Return `false` to withhold the space's posts while leaving the space itself visible. Fired from `SpaceVisibility` and again in `FeedService` when building a space feed, so an add-on that gates content only has to answer once. Default `true`. | `bool $can_view, int $space_id, int $viewer_id` |
-| `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: WPMediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
+| `buddynext_space_files_tab_for_guests` | filter | The space nav decides whether to show the Files tab to a logged-out visitor. Default `false`: MediaVerse refuses anonymous document reads, so on a public space the tab could only ever render its empty state. Return `true` if your MediaVerse serves anonymous reads. | `bool $show, int $space_id` |
 | `buddynext_document_card_url` | filter | Where a feed document card links, for a viewer allowed to open the file. Default: the space's file page (preview + Download) when the post is in a space whose Files tab this viewer gets, otherwise a direct download. | `string $url, int $doc_id, array $post` |
 | `buddynext_space_default_tab` | filter | Which tab a space opens on when the URL names none (`/spaces/{slug}/`). Runs for the resolved default only - a non-member of a private space gets `about`, then the space's own "Space opens on" setting, then the first inline tab in the site's Navigation order - never for an explicit `/spaces/{slug}/{tab}/`. Return a tab id; a value the viewer cannot see falls back to the first renderable tab, so a bad return can never blank the space. Example: open course spaces on About - `return 'about';`. | `string $tab, array $space, int $viewer_id` |
 
@@ -268,9 +268,9 @@ buddynext_render_drive_files(
 
 ### Make space Files read-only for members
 
-By default a space's members may add files to its Files (upload and link). WPMediaVerse decides folder permissions: owners and moderators manage every folder, and a member manages folders they created that hold only their own files. There is no admin setting for this.
+By default a space's members may add files to its Files (upload and link). MediaVerse decides folder permissions: owners and moderators manage every folder, and a member manages folders they created that hold only their own files. There is no admin setting for this.
 
-BuddyNext answers WPMediaVerse's `mvs_document_drive_access` filter with `write` for space members. To make plain members read-only on every space drive, filter it after BuddyNext (priority 10):
+BuddyNext answers MediaVerse's `mvs_document_drive_access` filter with `write` for space members. To make plain members read-only on every space drive, filter it after BuddyNext (priority 10):
 
 ```php
 add_filter( 'mvs_document_drive_access', function ( $level, $drive_type, $drive_id, $user_id ) {
@@ -284,7 +284,7 @@ add_filter( 'mvs_document_drive_access', function ( $level, $drive_type, $drive_
 }, 20, 4 );
 ```
 
-Members then browse and download only. Upload, Link a file and New folder disappear for them on the space Files tab and on any `buddynext_render_drive_files()` embed, because both render from WPMediaVerse's answers.
+Members then browse and download only. Upload, Link a file and New folder disappear for them on the space Files tab and on any `buddynext_render_drive_files()` embed, because both render from MediaVerse's answers.
 
 ## Space settings tabs
 

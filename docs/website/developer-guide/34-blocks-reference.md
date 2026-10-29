@@ -75,7 +75,7 @@ Each row lists the block name, what it renders, its attributes (name, type, defa
 | Block | Purpose | Attributes (name : type = default) | REST data source | View module |
 |---|---|---|---|---|
 | `buddynext/notification-bell` | Bell icon with unread count for custom header areas. | none | `notifications` service for the unread count; `buddynext/v1/notifications` (and `buddynext/v1/notifications/mark-all-read`). | none |
-| `buddynext/header-user-menu` | Logged-in header chrome: notification bell, messages icon, and avatar with a CSS-only profile dropdown + log out. Renders nothing for guests. Uses `bn-header.css` and sets `html: false`, `align: false`. | none | `notifications` service for the bell count; notifications routes under `buddynext/v1`. Messages count comes from the WPMediaVerse DM layer when present. | none |
+| `buddynext/header-user-menu` | Logged-in header chrome: notification bell, messages icon, and avatar with a CSS-only profile dropdown + log out. Renders nothing for guests. Uses `bn-header.css` and sets `html: false`, `align: false`. | none | `notifications` service for the bell count; notifications routes under `buddynext/v1`. Messages count comes from the MediaVerse DM layer when present. | none |
 | `buddynext/search-bar` | Unified search input that opens grouped results. | `placeholder` : string = `""` · `searchIn` : string = `all` (enum: `all`, `members`, `spaces`, `posts`) | `GET buddynext/v1/search` (the editor handle is localised with `searchUrl` pointing at this route). | none |
 
 ## Examples

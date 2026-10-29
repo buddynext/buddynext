@@ -4,7 +4,7 @@ Questions about the companion plugins BuddyNext connects to and how those bridge
 
 ## Which plugins integrate with BuddyNext?
 
-MediaVerse (WPMediaVerse) for direct messaging and media, Jetonomy for forums, WB Gamification for points/badges/levels, Career Board for jobs, Learnomy for courses and certificates, Listora for directory listings, Eventonomy for events, and WB Member Blog for front-end post publishing. Each one is optional. See [Integrations Overview](../integrations/01-overview.md).
+MediaVerse (MediaVerse) for direct messaging and media, Jetonomy for forums, WB Gamification for points/badges/levels, Career Board for jobs, Learnomy for courses and certificates, Listora for directory listings, Eventonomy for events, and WB Member Blog for front-end post publishing. Each one is optional. See [Integrations Overview](../integrations/01-overview.md).
 
 ## How does an integration actually work - does BuddyNext replace the companion plugin?
 
@@ -16,7 +16,7 @@ No. An integration bridge only loads when its companion plugin is actually activ
 
 ## Do I need BuddyNext Pro for these integrations to work?
 
-It depends on the companion. WPMediaVerse (messaging), Jetonomy (forums), WB Gamification, and WB Member Blog surface in the community with BuddyNext Free. Career Board, Listora, Learnomy, and Eventonomy surface into the community feed, search, and profiles only with BuddyNext Pro active - the companion plugin still works fine on its own without Pro, you simply will not get the community surfacing until Pro is on. See [Integrations Overview](../integrations/01-overview.md).
+It depends on the companion. MediaVerse (messaging), Jetonomy (forums), WB Gamification, and WB Member Blog surface in the community with BuddyNext Free. Career Board, Listora, Learnomy, and Eventonomy surface into the community feed, search, and profiles only with BuddyNext Pro active - the companion plugin still works fine on its own without Pro, you simply will not get the community surfacing until Pro is on. See [Integrations Overview](../integrations/01-overview.md).
 
 ## Can I choose where an integration shows up, without turning it off entirely?
 
@@ -43,4 +43,4 @@ No. BuddyNext stops loading that bridge and the capability disappears cleanly - 
 - [Integrations Overview](../integrations/01-overview.md)
 - [Learnomy](../integrations/08-learnomy.md)
 - [Listora](../integrations/07-listora.md)
-- [WPMediaVerse](../integrations/02-wpmediaverse.md)
+- [MediaVerse](../integrations/02-wpmediaverse.md)

@@ -255,7 +255,7 @@ Two rules the client must follow:
 
 **An absent key means not installed.** Only registered integrations appear, and an integration registers itself only while its plugin is active. The registry is an open filter - any third-party plugin can add an entry - so BuddyNext cannot emit a fixed key list without hardcoding one, which would both rot and shut out the third parties the filter exists to welcome. Deactivating a partner therefore *removes* its key rather than flipping `enabled` to `false`. Read absent and `enabled: false` identically: stay silent. They mean the same thing to a tab, so this needs no extra branch.
 
-**Do not hardcode the key list.** `media` is the key for WPMediaVerse (not `mediaverse`). Iterate what you receive.
+**Do not hardcode the key list.** `media` is the key for MediaVerse (not `mediaverse`). Iterate what you receive.
 
 Adding a key here does not bump `contract_version` - it is additive, and a client that predates it simply sees no `integrations` object. Treat a missing block as "no integration information", not as "no integrations".
 

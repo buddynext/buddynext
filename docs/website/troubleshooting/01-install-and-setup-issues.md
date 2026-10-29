@@ -59,7 +59,7 @@ See [Registration](../accounts-access/01-registration.md).
 2. Find the plugin in the list and make sure it is **not** ticked to skip.
 3. Save and reload the community page.
 
-If the missing feature belongs to one of BuddyNext's own integration partners (WPMediaVerse, Jetonomy, WB Gamification, and the rest), it is protected from isolation already, so look at that integration's own settings instead. See [Plugin Isolation](../getting-started/08a-plugin-isolation.md).
+If the missing feature belongs to one of BuddyNext's own integration partners (MediaVerse, Jetonomy, WB Gamification, and the rest), it is protected from isolation already, so look at that integration's own settings instead. See [Plugin Isolation](../getting-started/08a-plugin-isolation.md).
 
 ## The community looks fine on one theme but different (or broken) on another
 
