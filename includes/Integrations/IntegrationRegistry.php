@@ -114,24 +114,24 @@ final class IntegrationRegistry {
 			$tested_version = isset( $entry['tested_version'] ) ? trim( (string) $entry['tested_version'] ) : '';
 
 			$out[ $key ] = array(
-				'key'              => $key,
-				'label'            => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
-				'version'          => '' !== $version ? sanitize_text_field( $version ) : null,
-				'min_version'      => '' !== $min_version ? sanitize_text_field( $min_version ) : null,
-				'tested_version'   => '' !== $tested_version ? sanitize_text_field( $tested_version ) : null,
+				'key'                 => $key,
+				'label'               => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
+				'version'             => '' !== $version ? sanitize_text_field( $version ) : null,
+				'min_version'         => '' !== $min_version ? sanitize_text_field( $min_version ) : null,
+				'tested_version'      => '' !== $tested_version ? sanitize_text_field( $tested_version ) : null,
 				// Features that need a newer partner than the floor: label => version.
 				// Below one, only that feature is absent (it detects the partner API it
 				// needs); the bridge stays on and the owner is told which to update for.
-				'feature_versions' => self::feature_versions( $entry['feature_versions'] ?? array() ),
-				'has_nav'          => ! empty( $entry['has_nav'] ),
+				'feature_versions'    => self::feature_versions( $entry['feature_versions'] ?? array() ),
+				'has_nav'             => ! empty( $entry['has_nav'] ),
 				// What the tab is called on screen ("Discussions", not "Jetonomy"), for
 				// the Show in navigation help. Empty when an integration adds several.
-				'nav_label'        => isset( $entry['nav_label'] ) ? (string) $entry['nav_label'] : '',
-				'has_feed'         => ! empty( $entry['has_feed'] ),
+				'nav_label'           => isset( $entry['nav_label'] ) ? (string) $entry['nav_label'] : '',
+				'has_feed'            => ! empty( $entry['has_feed'] ),
 				// Whether this integration writes into the search index. Only integrations
 				// that declare it get the "Include in search" switch — otherwise the owner
 				// is offered a control that governs nothing.
-				'has_search'       => ! empty( $entry['has_search'] ),
+				'has_search'          => ! empty( $entry['has_search'] ),
 				// The partner's OWN REST namespace, when it has one. BuddyNext
 				// never proxies partner data — the bridge contract is "reference,
 				// not embed" — so a client that wants a partner's own endpoints
@@ -142,14 +142,42 @@ final class IntegrationRegistry {
 				// Declared by the integration, never inferred: a guessed namespace
 				// that 404s is worse than an honest null, which a client reads as
 				// "this integration exposes nothing of its own".
-				'rest_namespace'   => isset( $entry['rest_namespace'] ) && '' !== (string) $entry['rest_namespace']
+				'rest_namespace'      => isset( $entry['rest_namespace'] ) && '' !== (string) $entry['rest_namespace']
 					? sanitize_text_field( (string) $entry['rest_namespace'] )
 					: null,
-				'subtabs'          => $subtabs,
+				'subtabs'             => $subtabs,
+				// Sub-tabs the partner cannot serve right now (a module of its own is
+				// off): sub key => {note, action_label, action_url}. The admin row shows
+				// them disabled with the reason and one action, and saving keeps the
+				// owner's stored choice for when the partner can serve them again.
+				'subtabs_unavailable' => self::subtabs_unavailable( $entry['subtabs_unavailable'] ?? array(), $subtabs ),
 			);
 		}
 
 		$this->resolved = $out;
+		return $out;
+	}
+
+	/**
+	 * Normalise the unavailable sub-tabs an entry declares, keeping only known sub-tabs.
+	 *
+	 * @param mixed                $raw     Declared map.
+	 * @param array<string,string> $subtabs The entry's sub-tabs.
+	 * @return array<string,array{note:string,action_label:string,action_url:string}>
+	 */
+	private static function subtabs_unavailable( $raw, array $subtabs ): array {
+		$out = array();
+		foreach ( (array) $raw as $sub => $why ) {
+			$sub = sanitize_key( (string) $sub );
+			if ( ! isset( $subtabs[ $sub ] ) || ! is_array( $why ) ) {
+				continue;
+			}
+			$out[ $sub ] = array(
+				'note'         => (string) ( $why['note'] ?? '' ),
+				'action_label' => (string) ( $why['action_label'] ?? '' ),
+				'action_url'   => (string) ( $why['action_url'] ?? '' ),
+			);
+		}
 		return $out;
 	}
 

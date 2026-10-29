@@ -244,13 +244,20 @@ class IntegrationControlsAdmin {
 								<div class="bn-int-subtab-group">
 									<span class="bn-int-subtab-group__kicker"><?php esc_html_e( 'Navigation sub-tabs', 'buddynext' ); ?></span>
 									<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
+										<?php $bn_sub_off = $entry['subtabs_unavailable'][ $bn_sub ] ?? null; ?>
 										<div class="bn-toggle-row bn-toggle-row--sub">
 											<div class="bn-toggle-row__copy">
 												<span class="bn-toggle-row__label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
+												<?php if ( null !== $bn_sub_off ) : ?>
+													<p class="bn-field-hint"><?php echo esc_html( $bn_sub_off['note'] ); ?></p>
+													<?php if ( '' !== $bn_sub_off['action_url'] && '' !== $bn_sub_off['action_label'] ) : ?>
+														<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $bn_sub_off['action_url'] ); ?>"><?php echo esc_html( $bn_sub_off['action_label'] ); ?></a>
+													<?php endif; ?>
+												<?php endif; ?>
 											</div>
 											<label class="bn-toggle-label">
 												<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
-												<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> role="switch" aria-label="<?php echo esc_attr( (string) $bn_sub_label ); ?>">
+												<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( null === $bn_sub_off && '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> <?php disabled( null !== $bn_sub_off ); ?> role="switch" aria-label="<?php echo esc_attr( (string) $bn_sub_label ); ?>">
 												<span class="bn-toggle--inline"></span>
 											</label>
 										</div>
@@ -386,8 +393,12 @@ class IntegrationControlsAdmin {
 			}
 			foreach ( (array) ( $entry['subtabs'] ?? array() ) as $sub => $unused_label ) {
 				$sub = sanitize_key( (string) $sub );
-				$on  = isset( $subtab[ $key ] ) && is_array( $subtab[ $key ] ) && ! empty( $subtab[ $key ][ $sub ] );
-				$ok  = $this->write_flag( "buddynext_integration_{$key}_subtab_{$sub}", $on ) && $ok;
+				// Unavailable right now: its switch was disabled, so keep the stored choice.
+				if ( isset( $entry['subtabs_unavailable'][ $sub ] ) ) {
+					continue;
+				}
+				$on = isset( $subtab[ $key ] ) && is_array( $subtab[ $key ] ) && ! empty( $subtab[ $key ][ $sub ] );
+				$ok = $this->write_flag( "buddynext_integration_{$key}_subtab_{$sub}", $on ) && $ok;
 			}
 			$ok = ( new \BuddyNext\Addons\AddonSettingsForm() )->save( $key ) && $ok;
 		}
