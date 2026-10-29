@@ -281,24 +281,27 @@ class JetonomyBridge {
 		add_filter( 'jetonomy_user_display_name', array( $this, 'filter_jetonomy_user_display_name' ), 10, 2 );
 		add_filter( 'jetonomy_profile_action_url', array( $this, 'filter_jetonomy_profile_action_url' ), 10, 3 );
 
-		// One moderation, not two: a member suspended in BuddyNext is banned in the
-		// forum, and someone a member blocked in BuddyNext is blocked there too.
+		// One moderation, not two: a member suspended in BuddyNext is read-only in
+		// the forum (they keep reading, as in BuddyNext, but cannot post, reply or
+		// vote), and someone a member blocked in BuddyNext is blocked there too.
 		// Jetonomy 2.0.7 reads both filters on every permission and block check
 		// (REST included); an older Jetonomy never calls them.
-		add_filter( 'jetonomy_user_is_banned', array( $this, 'filter_jetonomy_user_is_banned' ), 10, 2 );
+		add_filter( 'jetonomy_user_is_silenced', array( $this, 'filter_jetonomy_user_is_silenced' ), 10, 2 );
 		add_filter( 'jetonomy_blocked_user_ids', array( $this, 'filter_jetonomy_blocked_user_ids' ), 10, 2 );
 	}
 
 	/**
-	 * A BuddyNext suspension counts as a forum ban.
+	 * A BuddyNext suspension makes the member read-only in the forum (owner
+	 * decision 2026-10-29): a ban would also stop them reading, which a
+	 * BuddyNext suspension does not.
 	 *
-	 * @param bool $banned  Jetonomy's own answer.
-	 * @param int  $user_id Member being checked.
+	 * @param bool $silenced Jetonomy's own answer.
+	 * @param int  $user_id  Member being checked.
 	 * @return bool
 	 */
-	public function filter_jetonomy_user_is_banned( $banned, $user_id ): bool {
-		if ( (bool) $banned || (int) $user_id <= 0 ) {
-			return (bool) $banned;
+	public function filter_jetonomy_user_is_silenced( $silenced, $user_id ): bool {
+		if ( (bool) $silenced || (int) $user_id <= 0 ) {
+			return (bool) $silenced;
 		}
 		return (bool) buddynext_service( 'moderation' )->is_suspended( (int) $user_id );
 	}
