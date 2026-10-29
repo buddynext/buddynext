@@ -124,6 +124,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
 		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
+		add_action( 'admin_post_bn_turn_on_messages', array( $this, 'handle_turn_on_messages' ) );
 		add_action( 'admin_post_buddynext_save_tracking_consent', array( $this, 'handle_save_tracking_consent' ) );
 
 		// The users_can_register mirror lives in Auth\CoreRegistration, which boots
@@ -480,6 +481,25 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		update_option( 'buddynext_recommended_dismissed', '1' );
 
 		wp_safe_redirect( AdminHub::tab_url( 'settings', 'general', array( 'bn_recommended' => 'applied' ) ) );
+		exit;
+	}
+
+	/**
+	 * One-click "Turn on" for messaging from the Features tab and setup checklist.
+	 *
+	 * @return void
+	 */
+	public function handle_turn_on_messages(): void {
+		check_admin_referer( 'bn_turn_on_messages' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ) );
+		}
+		// WPMediaVerse owns the switch; this only presses it.
+		$bn_door = array( '\\WPMediaVerse\\Core\\Plugin', 'set_messaging_enabled' );
+		if ( is_callable( $bn_door ) ) {
+			call_user_func( $bn_door, true );
+		}
+		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : AdminHub::tab_url( 'settings', 'features' ) );
 		exit;
 	}
 
@@ -2731,10 +2751,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					</div>
 					<div class="bn-feature-row__toggle">
 						<?php if ( '' !== $managed_url ) : ?>
-							<?php if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) : ?>
-								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
+							<?php $bn_turn_on = ( isset( $feature['turn_on_url'] ) && is_callable( $feature['turn_on_url'] ) ) ? (string) call_user_func( $feature['turn_on_url'] ) : ''; ?>
+							<?php if ( ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) : ?>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( AdminHub::tab_url( 'settings', 'integrations' ) ); ?>"><?php esc_html_e( 'Install WPMediaVerse', 'buddynext' ); ?></a>
+							<?php elseif ( '' !== $bn_turn_on ) : ?>
+								<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( $bn_turn_on ); ?>"><?php esc_html_e( 'Turn on', 'buddynext' ); ?></a>
 							<?php else : ?>
-								<span class="bn-feature-row__deps"><?php esc_html_e( 'Requires the WPMediaVerse plugin.', 'buddynext' ); ?></span>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $managed_url ); ?>"><?php esc_html_e( 'Change in WPMediaVerse', 'buddynext' ); ?></a>
 							<?php endif; ?>
 						<?php elseif ( $is_locked ) : ?>
 							<span class="bn-feature-row__locked" aria-label="<?php esc_attr_e( 'This feature is always on and cannot be disabled.', 'buddynext' ); ?>">

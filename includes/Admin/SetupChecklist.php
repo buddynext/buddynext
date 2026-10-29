@@ -155,7 +155,7 @@ final class SetupChecklist {
 	 * @return array<int,array{key:string,label:string,desc:string,done:bool,cta:string,cta_label:string,icon:string}>
 	 */
 	public static function steps(): array {
-		return array(
+		$steps = array(
 			array(
 				'key'       => 'permalinks',
 				'label'     => __( 'Pretty permalinks', 'buddynext' ),
@@ -249,6 +249,24 @@ final class SetupChecklist {
 				'dismiss'   => 'theme_tip',
 			),
 		);
+
+		// Messages come from WPMediaVerse, whose own switch can leave them off with
+		// nothing on the member side to say why. While it is active, the owner gets
+		// a step that is done once messaging is on, with the one click if it is not.
+		if ( class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+			$bn_turn_on = \BuddyNext\Messages\MessagesData::turn_on_url();
+			$steps[]    = array(
+				'key'       => 'messages',
+				'label'     => __( 'Turn on messages', 'buddynext' ),
+				'desc'      => __( 'Messages are off in WPMediaVerse. Turn them on to let members message each other.', 'buddynext' ),
+				'done'      => ! \BuddyNext\Messages\MessagesData::switched_off(),
+				'cta'       => '' !== $bn_turn_on ? $bn_turn_on : \BuddyNext\Messages\MessagesData::settings_url(),
+				'cta_label' => __( 'Turn on messages', 'buddynext' ),
+				'icon'      => 'message-circle',
+			);
+		}
+
+		return $steps;
 	}
 
 	/**

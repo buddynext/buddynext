@@ -198,6 +198,8 @@ class FeatureRegistry {
 				'depends_on'  => array(),
 				'state_from'  => array( \BuddyNext\Messages\MessagesData::class, 'entry_enabled' ),
 				'managed_url' => array( \BuddyNext\Messages\MessagesData::class, 'settings_url' ),
+				// One click while it is off, through the owning plugin's own door.
+				'turn_on_url' => array( \BuddyNext\Messages\MessagesData::class, 'turn_on_url' ),
 			),
 			// Installable app (PWA): the manifest + service worker. Self-contained
 			// (no external key), so default-on; when off the service never boots.
