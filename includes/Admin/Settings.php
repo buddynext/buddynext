@@ -2724,6 +2724,10 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 								?>
 							</p>
 						<?php endif; ?>
+						<?php if ( $current && ! empty( $feature['setup_page'] ) ) : ?>
+							<?php // A feature whose own settings screen exists only while it is on (credentials, parts to enable). ?>
+							<p class="bn-feature-row__deps"><a href="<?php echo esc_url( admin_url( 'admin.php?page=' . rawurlencode( (string) $feature['setup_page'] ) ) ); ?>"><?php esc_html_e( 'Open its settings', 'buddynext' ); ?></a></p>
+						<?php endif; ?>
 					</div>
 					<div class="bn-feature-row__toggle">
 						<?php if ( '' !== $managed_url ) : ?>
