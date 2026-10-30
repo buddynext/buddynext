@@ -1315,7 +1315,8 @@ class AssetService {
 					// so they always rendered the English JS fallback regardless of locale.
 					'reported'                  => __( 'Reported', 'buddynext' ),
 					'reportAlready'             => __( 'You already reported this.', 'buddynext' ),
-					'viewMoreComments'          => __( 'View more comments', 'buddynext' ),
+					/* translators: %d: number of comments not shown yet. */
+					'viewMoreCommentsCount'     => __( 'View more comments (%d)', 'buddynext' ),
 					'loadingComments'           => __( 'Loading…', 'buddynext' ),
 					'oneVote'                   => __( '1 vote', 'buddynext' ),
 					/* translators: 1: poll option text, 2: percentage of votes. */

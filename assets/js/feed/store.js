@@ -1317,8 +1317,10 @@ function initRealtimeCommentIndicator() {
 			pill.setAttribute( 'aria-live', 'polite' );
 			pill.dataset.count = '0';
 			pill.addEventListener( 'click', () => {
-				// Trigger a refetch of the thread by clicking the comment
-				// toggle twice (close + reopen). Cheap and reliable.
+				// Refetch the thread: forget it was loaded (the loader skips a
+				// loaded list, so reopening alone showed nothing new), then close
+				// and reopen it.
+				delete list.dataset.loaded;
 				const cardEl    = list.closest( '[data-wp-interactive="buddynext/post-card"]' );
 				const commentTriggers = cardEl?.querySelectorAll( '[aria-label*="comment" i]' );
 				if ( commentTriggers && commentTriggers.length > 0 ) {

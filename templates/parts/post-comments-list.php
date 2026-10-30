@@ -2,10 +2,10 @@
 /**
  * BuddyNext template part: post-comments-list.
  *
- * Empty container that the post-card Interactivity module hydrates with the
- * fetched comment list when the viewer expands the comments region. Mirrors
- * the `<div class="bn-comment-list">` element previously inlined in
- * `templates/partials/post-card.php`.
+ * The comment list of a post. On the post's own page (first_page) the first
+ * page of comments is rendered here; elsewhere the list starts empty and the
+ * post-card script fills it with HTML from the comments API when the viewer
+ * opens the comments. Every comment comes from parts/comment.php either way.
  *
  * @package BuddyNext
  * @since   1.1.0
@@ -14,6 +14,7 @@
  * @var int   $bn_post_id  Post ID. Part returns silently when 0.
  * @var array $comments    Optional pre-resolved comment rows.
  * @var int   $viewer_id   Current viewer ID (0 for guests).
+ * @var bool  $first_page  Render the first page of comments now.
  * @var array $classes     Optional extra CSS classes.
  *
  * Fires:
@@ -34,6 +35,7 @@ $args = array(
 	'bn_post_id' => isset( $bn_post_id ) ? absint( $bn_post_id ) : 0,
 	'comments'   => isset( $comments ) && is_array( $comments ) ? $comments : array(),
 	'viewer_id'  => isset( $viewer_id ) ? absint( $viewer_id ) : 0,
+	'first_page' => ! empty( $first_page ),
 	'classes'    => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -64,51 +66,22 @@ $bn_class   = trim(
 do_action( 'buddynext_part_post_comments_list_before', $args );
 ?>
 <?php
-// Resolve the colored Fluent Emoji vendor base once per post. The
-// comment-builder JS reads this attribute to render reaction
-// pickers without round-tripping to PHP per node.
+// Resolve the colored Fluent Emoji vendor base once per post (the picker's
+// built-in fallback set reads it).
 $bn_emoji_base = plugins_url( 'assets/emoji/', dirname( __DIR__, 1 ) );
 
-// Reactions are a site-owner-toggleable feature (Settings → Features, default on).
-// Expose its state to the comment-builder JS so per-comment React controls are
-// suppressed when the owner disables it (the REST toggle path enforces the same
-// gate). "1" when on, "0" when off.
-$bn_reactions_enabled = ! function_exists( 'buddynext_service' )
-	|| ! is_object( buddynext_service( 'features' ) )
-	|| buddynext_service( 'features' )->is_enabled( 'reactions' );
+// The viewer's reaction set: the owner-enabled reactions (plus Pro customs), or
+// none when Reactions is off or the viewer may not interact. One source with the
+// rendered comments (CommentThread::reaction_set()).
+$bn_reactions         = \BuddyNext\Comments\CommentThread::reaction_set( (int) $args['viewer_id'] );
+$bn_reactions_enabled = ! empty( $bn_reactions );
 
-// A signed-in member who may not react (suspended, or the owner raised "React,
-// share, bookmark and vote" on Roles & Capabilities) gets no React control on a
-// comment either: the post card already hides its own, and the toggle route
-// refuses the click. Same flag, so the comment builder needs no second rule.
-$bn_viewer_id = (int) $args['viewer_id'];
-if ( $bn_reactions_enabled && $bn_viewer_id > 0 && function_exists( 'buddynext_can' ) && ! buddynext_can( $bn_viewer_id, 'buddynext-feed/interact' ) ) {
-	$bn_reactions_enabled = false;
-}
-
-// The comment reaction picker is data-driven, exactly like the post-card picker
-// (parts/post-actions.php): the owner-enabled reaction subset plus any Pro custom
-// slugs, each with its translated label and display meta. Hardcoding the six
-// built-ins in JS meant an owner-disabled reaction still rendered on comments (the
-// server then silently coerced the click) and Pro custom reactions never appeared.
-// emoji_url is '' for slugs with no bundled Fluent SVG (Pro customs) — the JS then
-// falls back to the char/colour glyph, mirroring the post card.
-$bn_reactions = array();
-if ( $bn_reactions_enabled && class_exists( '\BuddyNext\Reactions\ReactionService' ) ) {
-	foreach ( \BuddyNext\Reactions\ReactionService::enabled_reactions() as $bn_reaction ) {
-		$bn_slug = (string) ( $bn_reaction['slug'] ?? '' );
-		if ( '' === $bn_slug ) {
-			continue;
-		}
-
-		$bn_reactions[] = array(
-			'slug'      => $bn_slug,
-			'label'     => (string) ( $bn_reaction['label'] ?? $bn_slug ),
-			'char'      => (string) ( $bn_reaction['char'] ?? '' ),
-			'color'     => (string) ( $bn_reaction['color'] ?? '' ),
-			'emoji_url' => \BuddyNext\Core\IconService::emoji_url( $bn_slug ),
-		);
-	}
+// First page rendered here when the thread opens at first paint (the post's own
+// page), so the conversation is in the HTML; later pages come from the API as HTML
+// built by the same template.
+$bn_first = null;
+if ( $args['first_page'] ) {
+	$bn_first = ( new \BuddyNext\Comments\CommentThread() )->page( 'post', (int) $args['bn_post_id'], (int) $args['viewer_id'], 1, \BuddyNext\Comments\CommentThread::PAGE_SIZE );
 }
 ?>
 <div
@@ -117,6 +90,28 @@ if ( $bn_reactions_enabled && class_exists( '\BuddyNext\Reactions\ReactionServic
 	data-emoji-base="<?php echo esc_attr( trailingslashit( $bn_emoji_base ) ); ?>"
 	data-reactions-enabled="<?php echo $bn_reactions_enabled ? '1' : '0'; ?>"
 	data-reactions="<?php echo esc_attr( (string) wp_json_encode( $bn_reactions ) ); ?>"
-></div>
+	data-per-page="<?php echo absint( \BuddyNext\Comments\CommentThread::PAGE_SIZE ); ?>"
+	<?php if ( null !== $bn_first ) : ?>
+		data-loaded="1"
+		data-page="1"
+	<?php endif; ?>
+>
+<?php
+if ( null !== $bn_first ) {
+	echo \BuddyNext\Comments\CommentThread::render( (array) $bn_first['items'], (int) $args['bn_post_id'], (int) $args['viewer_id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- parts/comment.php escapes its own output.
+	$bn_remaining = (int) $bn_first['total'] - \BuddyNext\Comments\CommentThread::PAGE_SIZE;
+	if ( $bn_remaining > 0 ) {
+		printf(
+			'<button type="button" class="bn-comment-loadmore">%s</button>',
+			/* translators: %d: number of comments not shown yet. */
+			esc_html( sprintf( __( 'View more comments (%d)', 'buddynext' ), $bn_remaining ) )
+		);
+	}
+	if ( ! empty( $bn_first['replies_truncated'] ) ) {
+		echo '<p class="bn-comment-truncated" role="note">' . esc_html__( "Some replies aren't shown.", 'buddynext' ) . '</p>';
+	}
+}
+?>
+</div>
 <?php
 do_action( 'buddynext_part_post_comments_list_after', $args );

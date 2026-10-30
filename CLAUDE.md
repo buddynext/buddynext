@@ -546,7 +546,7 @@ Current shape, for reference — measured, not guessed:
 | File | Lines | Why it is on this list |
 |---|---|---|
 | `assets/js/feed/store.js` | ~1,365 | **Debt paid (2026-08-04).** Was ~5,200 doing seven jobs; now the feed store and its page-level machinery only (infinite scroll, new-posts pill, realtime, emoji picker, comment-form enhancements, i18n/tz injection). One namespace. The other six concerns moved to sibling files below. |
-| `assets/js/feed/post-card.js` | ~2,351 | buddynext/post-card + the comment renderer (buildCommentNode, reaction picker, reactors popover). One concern (the post card and everything drawn in it). |
+| `assets/js/feed/post-card.js` | ~2,674 | buddynext/post-card + the comment controls (delegated listeners over the server-rendered `parts/comment.php` markup, reaction picker, reactors popover). One concern (the post card and everything drawn in it). |
 | `assets/js/feed/composer.js` | ~1,171 | buddynext/post-composer (compose, schedule, polls, media, drafts, link preview). |
 | `assets/js/feed/{share-modal,tabs}.js` | 143 / 36 | buddynext/share-modal, buddynext/feed-tabs. |
 | `assets/js/feed/shared.js` | ~232 | Cross-store helpers only (i18n + tz singletons, escapeHtml, field helpers). No store. Imported by store.js, post-card.js, composer.js, share-modal.js. |

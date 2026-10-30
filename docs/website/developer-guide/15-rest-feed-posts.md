@@ -122,9 +122,9 @@ Comments also attach to an object via `object_type` + `object_id` and support on
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/comments` | auth | Create a comment. Body: `object_type` (required), `object_id` (required), `content` (required), `parent_id` (optional, for a reply). Returns `403` when the Comments feature is off. |
-| GET | `/comments` | public | List comments for an object. Query: `object_type`, `object_id`, `per_page` (1-50, default 20), `page`. |
-| PUT | `/comments/(?P<id>[\d]+)` | auth | Update a comment (owner or admin, enforced in the handler). Body: `content` (required). |
+| POST | `/comments` | auth | Create a comment. Body: `object_type` (required), `object_id` (required), `content` (required), `parent_id` (optional, for a reply), `render` (optional, `html` adds the rendered comment as `html`). Returns `403` when the Comments feature is off. |
+| GET | `/comments` | public | List comments for an object. Query: `object_type`, `object_id`, `per_page` (1-50, default 20), `page`, `render` (optional, `html` adds each top-level comment's rendered markup as `html`, replies included; the web client uses it, apps leave it out). |
+| PUT | `/comments/(?P<id>[\d]+)` | auth | Update a comment (owner or admin, enforced in the handler). Body: `content` (required), `render` (optional, `html`). The response carries `content_html` with @mentions and #hashtags linked. |
 | DELETE | `/comments/(?P<id>[\d]+)` | auth | Delete a comment (owner or admin, enforced in the handler). |
 | POST | `/comments/(?P<id>[\d]+)/pin` | auth | Pin a comment under its parent object. Site admins and moderators of the post's space only, enforced in the handler. |
 | DELETE | `/comments/(?P<id>[\d]+)/pin` | auth | Unpin a comment. Same admin and space-moderator rule as pinning. |

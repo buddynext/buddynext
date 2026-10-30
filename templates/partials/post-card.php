@@ -905,6 +905,9 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 				'bn_post_id' => $bn_post_id,
 				'comments'   => array(),
 				'viewer_id'  => $current_user_id,
+				// The post's own page opens with its thread showing: render the
+				// first page here so it is in the HTML, not fetched after load.
+				'first_page' => 'single' === $context,
 			)
 		);
 

@@ -1,6 +1,7 @@
 <?php
 /**
- * Tests for the threaded comment data shape consumed by buildCommentNode().
+ * Tests for the threaded comment data shape (REST list, consumed by apps and
+ * rendered on the web by templates/parts/comment.php).
  *
  * Wave 2 introduced a depth-aware comment-tree UI in store.js. The DB
  * service already returned items + nested replies under the spec

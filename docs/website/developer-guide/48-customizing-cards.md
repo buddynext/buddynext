@@ -88,6 +88,7 @@ add_filter( 'buddynext_part_notification_row_classes', static function ( array $
 | `post-reaction-summary.php` | The engagement chip strip |
 | `post-actions.php` | React / Comment / Share / Save toolbar |
 | `post-comments-list.php` | The thread |
+| `comment.php` | One comment and its replies. The only comment renderer: the post page, "View more", new comments, replies and edits all use it |
 | `post-comment-form.php` | The comment composer |
 
 Each region part exposes its own four-hook contract (for example `buddynext_part_post_actions_after`, `buddynext_part_post_byline_classes`). **Customize a region through its part hooks - never fork `post-card.php`.** Adjusting the action toolbar means hooking `buddynext_part_post_actions_*`, not copying the whole card.

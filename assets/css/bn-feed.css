@@ -2088,8 +2088,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 }
 
 /* ── Threaded comments (wave 2) ────────────────────────────────────────────
- * .bn-comment-card is the wave-2 node built by buildCommentNode in
- * store.js. It supersedes .bn-comment for new code paths but inherits
+ * .bn-comment-card is rendered by templates/parts/comment.php (server and
+ * API alike). It supersedes .bn-comment for new code paths but inherits
  * most styles. Depth is exposed via data-depth so indentation can be
  * computed without spawning N classes.
  */
