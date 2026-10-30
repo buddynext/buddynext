@@ -243,16 +243,27 @@ class SpaceService {
 	 * settings, so they cannot drift apart. Categories hidden from the directory
 	 * are included: hidden only keeps them out of the directory filter chips.
 	 *
-	 * @return array<int, object{id:int, name:string, slug:string}>
+	 * Each choice carries its `level` so a form whose parent can change filters in
+	 * the browser; pass $is_sub when the form's level is fixed.
+	 *
+	 * @param bool|null $is_sub True: subspace choices only; false: main space; null: all.
+	 * @return array<int, object{id:int, name:string, slug:string, level:string}>
 	 */
-	public function category_choices(): array {
-		return array_map(
-			static fn( array $c ): object => (object) array(
-				'id'   => (int) $c['id'],
-				'name' => (string) $c['name'],
-				'slug' => (string) $c['slug'],
-			),
-			( new SpaceCategoryService() )->get_all()
+	public function category_choices( ?bool $is_sub = null ): array {
+		$rows = ( new SpaceCategoryService() )->get_all();
+		if ( null !== $is_sub ) {
+			$rows = array_filter( $rows, static fn( array $c ): bool => SpaceCategoryService::allows( $c, $is_sub ) );
+		}
+		return array_values(
+			array_map(
+				static fn( array $c ): object => (object) array(
+					'id'    => (int) $c['id'],
+					'name'  => (string) $c['name'],
+					'slug'  => (string) $c['slug'],
+					'level' => (string) $c['level'],
+				),
+				$rows
+			)
 		);
 	}
 
@@ -262,17 +273,32 @@ class SpaceService {
 	 * The one check every create and update path (front-end forms, REST, app)
 	 * goes through. A category hidden from the directory is still a valid pick.
 	 *
-	 * @param int $category_id Requested category id; 0 or less means none.
-	 * @return int|null|WP_Error The id, null for none, or 400 for a missing category.
+	 * @param int  $category_id Requested category id; 0 or less means none.
+	 * @param bool $is_sub      True when the space is (or is becoming) a subspace.
+	 * @param bool $check_level False when nothing about the pairing changes (same
+	 *                          category, same level): a space keeps a category the
+	 *                          owner later limited to the other level.
+	 * @return int|null|WP_Error The id, null for none, or 400 for a missing category
+	 *                           or one the owner limited to the other level.
 	 */
-	private function resolve_category( int $category_id ): int|null|WP_Error {
+	private function resolve_category( int $category_id, bool $is_sub, bool $check_level = true ): int|null|WP_Error {
 		if ( $category_id <= 0 ) {
 			return null;
 		}
-		if ( null === ( new SpaceCategoryService() )->get_by_id( $category_id ) ) {
+		$category = ( new SpaceCategoryService() )->get_by_id( $category_id );
+		if ( null === $category ) {
 			return new WP_Error(
 				'buddynext_invalid_category',
 				__( 'That category does not exist. Pick another one.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+		if ( $check_level && ! SpaceCategoryService::allows( $category, $is_sub ) ) {
+			return new WP_Error(
+				'buddynext_category_level',
+				$is_sub
+					? __( 'That category is for main spaces only. Pick another one for this subspace.', 'buddynext' )
+					: __( 'That category is for subspaces only. Pick another one for this space.', 'buddynext' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -479,12 +505,12 @@ class SpaceService {
 		// A chosen category must exist; with none chosen, the configured default
 		// applies when it still exists (a deleted default just means no category).
 		if ( isset( $data['category_id'] ) && (int) $data['category_id'] > 0 ) {
-			$category_id = $this->resolve_category( (int) $data['category_id'] );
+			$category_id = $this->resolve_category( (int) $data['category_id'], null !== $parent_id && $parent_id > 0 );
 			if ( is_wp_error( $category_id ) ) {
 				return $category_id;
 			}
 		} else {
-			$category_id = $this->resolve_category( (int) get_option( 'buddynext_space_default_category', 0 ) );
+			$category_id = $this->resolve_category( (int) get_option( 'buddynext_space_default_category', 0 ), null !== $parent_id && $parent_id > 0 );
 			$category_id = is_wp_error( $category_id ) ? null : $category_id;
 		}
 
@@ -645,7 +671,12 @@ class SpaceService {
 			$format[]       = '%s';
 		}
 		if ( isset( $data['category_id'] ) ) {
-			$category_id = $this->resolve_category( (int) $data['category_id'] );
+			// The level the space will have after this save: a parent sent with it
+			// wins, otherwise its current parent.
+			$is_sub      = (int) ( $space['parent_id'] ?? 0 ) > 0;
+			$will_be_sub = array_key_exists( 'parent_id', $data ) ? (int) $data['parent_id'] > 0 : $is_sub;
+			$unchanged   = (int) ( $space['category_id'] ?? 0 ) === (int) $data['category_id'] && $is_sub === $will_be_sub;
+			$category_id = $this->resolve_category( (int) $data['category_id'], $will_be_sub, ! $unchanged );
 			if ( is_wp_error( $category_id ) ) {
 				return $category_id;
 			}
@@ -3204,6 +3235,26 @@ class SpaceService {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * Categories offered as filters on the spaces directory and the Explore browse card.
+	 *
+	 * Visible categories only, and none the owner limited to subspaces: the
+	 * directory lists main spaces, so such a chip would always show nothing.
+	 * Label lookups keep using categories_with_counts(), which returns them all.
+	 *
+	 * @param int $limit Max categories; 0 = no limit.
+	 * @return array<int, array<string, mixed>> Hydrated category rows + space_count.
+	 */
+	public function directory_categories( int $limit = 0 ): array {
+		$rows = array_values(
+			array_filter(
+				$this->categories_with_counts( 0, true ),
+				static fn( array $c ): bool => 'sub' !== ( $c['level'] ?? 'both' )
+			)
+		);
+		return $limit > 0 ? array_slice( $rows, 0, $limit ) : $rows;
 	}
 
 	/**

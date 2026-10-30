@@ -3359,6 +3359,56 @@ document.addEventListener( 'keydown', function ( event ) {
 })();
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Category level filter (create-space form + Space Settings → General).
+ *
+ * An owner can limit a category to main spaces or subspaces. Each option
+ * carries data-level (both|main|sub); this hides the ones that do not fit the
+ * form's current parent and re-checks when the parent changes. The category a
+ * space already has stays offered at its own level (the server keeps it too).
+ * SpaceService::resolve_category() is the real check; this only keeps the
+ * form from offering a choice it would refuse.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+(function () {
+	var PARENT = '[name="parent_id"], [name="space_parent_id"]';
+
+	function isSub( form ) {
+		var parent = form ? form.querySelector( PARENT ) : null;
+		return !! parent && parseInt( parent.value || '0', 10 ) > 0;
+	}
+
+	function sync( select ) {
+		var sub         = isSub( select.closest( 'form' ) );
+		var keepCurrent = String( sub ) === select.dataset.bnLevelAtLoad;
+		var opts        = select.querySelectorAll( 'option[data-level]' );
+		for ( var i = 0; i < opts.length; i++ ) {
+			var level   = opts[ i ].getAttribute( 'data-level' );
+			var allowed = 'both' === level || ( sub ? 'sub' : 'main' ) === level || ( keepCurrent && opts[ i ].defaultSelected );
+			opts[ i ].hidden   = ! allowed;
+			opts[ i ].disabled = ! allowed;
+		}
+		var chosen = select.options[ select.selectedIndex ];
+		if ( chosen && chosen.disabled ) {
+			select.value = '';
+		}
+	}
+
+	var selects = document.querySelectorAll( 'select[data-bn-category-level]' );
+	for ( var i = 0; i < selects.length; i++ ) {
+		selects[ i ].dataset.bnLevelAtLoad = String( isSub( selects[ i ].closest( 'form' ) ) );
+		sync( selects[ i ] );
+	}
+
+	document.addEventListener( 'change', function ( event ) {
+		var target = event.target;
+		if ( ! target || ! target.matches || ! target.matches( PARENT ) ) { return; }
+		var form   = target.closest( 'form' );
+		var select = form ? form.querySelector( 'select[data-bn-category-level]' ) : null;
+		if ( select ) { sync( select ); }
+	} );
+})();
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Space image uploaders (Space Settings → General): cover + icon (avatar).
  *
  * Front-end is 100% REST — no wp.media, no attachments. Picking a file POSTs

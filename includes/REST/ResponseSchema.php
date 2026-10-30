@@ -1529,6 +1529,8 @@ final class ResponseSchema {
 				'sort_order'  => array( 'type' => 'integer' ),
 				'show_in_dir' => array( 'type' => 'boolean' ),
 				'self_select' => array( 'type' => 'boolean' ),
+				// Self-select is locked once a member has chosen this type.
+				'pick_once'   => array( 'type' => 'boolean' ),
 			),
 		);
 	}
@@ -1870,6 +1872,11 @@ final class ResponseSchema {
 				'icon_svg'    => array( 'type' => 'string' ),
 				'sort_order'  => array( 'type' => 'integer' ),
 				'show_in_dir' => array( 'type' => 'boolean' ),
+				// Where the category may be used: both, main (main spaces) or sub (subspaces).
+				'level'       => array(
+					'type' => 'string',
+					'enum' => array( 'both', 'main', 'sub' ),
+				),
 			),
 		);
 	}

@@ -322,13 +322,14 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 		// anyway is what made a moderator's Save fail on a control they were
 		// invited to use. Disabled says the same thing before they type.
 		?>
-		<select name="space_category_id" id="space_category_id" class="bn-select"
+		<select name="space_category_id" id="space_category_id" class="bn-select" data-bn-category-level
 			<?php disabled( ! $args['is_space_owner'] ); ?>
 		>
 			<option value=""><?php esc_html_e( 'Select a category', 'buddynext' ); ?></option>
 			<?php foreach ( $bn_categories as $bn_cat_item ) : ?>
 				<option
 					value="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
+					data-level="<?php echo esc_attr( (string) ( $bn_cat_item->level ?? 'both' ) ); ?>"
 					<?php selected( (int) ( $bn_space->category_id ?? 0 ), (int) $bn_cat_item->id ); ?>
 				><?php echo esc_html( $bn_cat_item->name ); ?></option>
 			<?php endforeach; ?>

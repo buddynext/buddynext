@@ -465,8 +465,11 @@ class Installer {
 	 *  70: move the retired Spaces-tab "Who can create spaces" option into the
 	 *      Roles & Capabilities override for buddynext-spaces/create, then delete
 	 *      it (card 10441139540). Data only; no table change.
+	 *  71: bn_space_categories.level - where a category may be used: main
+	 *      spaces, subspaces or both (default both, so existing sites see no
+	 *      change). GitHub #199.
 	 */
-	private const SCHEMA_VERSION = 70;
+	private const SCHEMA_VERSION = 71;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -2778,6 +2781,7 @@ class Installer {
 				'text_color'  => "ADD COLUMN text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
 				'icon_svg'    => 'ADD COLUMN icon_svg MEDIUMTEXT NULL',
 				'show_in_dir' => 'ADD COLUMN show_in_dir TINYINT(1) NOT NULL DEFAULT 1',
+				'level'       => "ADD COLUMN level VARCHAR(8) NOT NULL DEFAULT 'both'",
 			),
 			// v5: a flat field can be surfaced on the registration form.
 			// v16: load-bearing fields (bio/headline/location) are marked is_system
@@ -4632,6 +4636,7 @@ class Installer {
 				text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff',
 				icon_svg MEDIUMTEXT NULL,
 				show_in_dir TINYINT(1) NOT NULL DEFAULT 1,
+				level VARCHAR(8) NOT NULL DEFAULT 'both',
 				sort_order INT NOT NULL DEFAULT 0,
 				PRIMARY KEY (id),
 				UNIQUE KEY  slug (slug)

@@ -884,6 +884,19 @@ class Spaces extends AdminPageBase {
 					'nonce'    => 'bn_save_space_category',
 					'edit'     => $bn_edit_cat,
 					'hidden'   => array( 'cat_id' => $bn_edit_cat ? (string) $bn_edit_cat['id'] : '0' ),
+					'selects'  => array(
+						array(
+							'name'    => 'level',
+							'label'   => __( 'Use for', 'buddynext' ),
+							'choices' => array(
+								'both' => __( 'Main spaces and subspaces', 'buddynext' ),
+								'main' => __( 'Main spaces only', 'buddynext' ),
+								'sub'  => __( 'Subspaces only', 'buddynext' ),
+							),
+							'default' => 'both',
+							'hint'    => __( 'Where members can pick this category when they create or edit a space.', 'buddynext' ),
+						),
+					),
 					'toggles'  => array(
 						array(
 							'name'    => 'show_in_dir',
@@ -927,6 +940,7 @@ class Spaces extends AdminPageBase {
 			'icon_svg'    => (string) wp_unslash( $_POST['icon_svg'] ?? '' ), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- SVG is sanitised via wp_kses inside SpaceCategoryService::validate().
 			'sort_order'  => absint( wp_unslash( $_POST['sort_order'] ?? 0 ) ),
 			'show_in_dir' => ! empty( $_POST['show_in_dir'] ),
+			'level'       => sanitize_key( wp_unslash( $_POST['level'] ?? 'both' ) ),
 		);
 
 		$cat_id = absint( wp_unslash( $_POST['cat_id'] ?? 0 ) );

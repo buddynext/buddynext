@@ -183,11 +183,10 @@ if ( ! empty( $bn_count_ids ) ) {
 	);
 }
 
-// Categories list for the create-space modal (expects objects with ->id/->name)
-// and the filter-chip row. colour / text_color / icon_svg travel too: the chip
-// row renders the category's own colour + icon, and dropping them here was why
-// the frontend chips showed a plain grey pill while the admin showed the styled
-// one. The create-space modal simply ignores the extra fields.
+// The filter-chip row (the create-space form reads category_choices() below).
+// colour / text_color / icon_svg travel too: the chip row renders the
+// category's own colour + icon, and dropping them here was why the frontend
+// chips showed a plain grey pill while the admin showed the styled one.
 $categories = array_map(
 	static fn( $c ) => (object) array(
 		'id'         => (int) $c['id'],
@@ -197,7 +196,7 @@ $categories = array_map(
 		'text_color' => (string) ( $c['text_color'] ?? '' ),
 		'icon_svg'   => (string) ( $c['icon_svg'] ?? '' ),
 	),
-	$bn_categories
+	$bn_space_service->directory_categories()
 );
 
 // ── Per-space tone palette (deterministic by id) ──────────────────────────────

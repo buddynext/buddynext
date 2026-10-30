@@ -32,11 +32,12 @@ class SpaceCategoryValidationTest extends WP_UnitTestCase {
 		delete_option( 'buddynext_space_default_category' );
 	}
 
-	private function category( string $name, bool $show_in_dir = true ): int {
+	private function category( string $name, bool $show_in_dir = true, string $level = 'both' ): int {
 		$made = ( new SpaceCategoryService() )->create(
 			array(
 				'name'        => $name,
 				'show_in_dir' => $show_in_dir,
+				'level'       => $level,
 			)
 		);
 		return (int) ( is_array( $made ) ? ( $made['id'] ?? 0 ) : $made );
@@ -107,5 +108,84 @@ class SpaceCategoryValidationTest extends WP_UnitTestCase {
 		$id = $this->create_space( array( 'category_id' => $hidden ) );
 		$this->assertIsInt( $id );
 		$this->assertSame( $hidden, $this->stored_category( $id ) );
+	}
+
+	/**
+	 * GitHub #199: a category limited to one level is refused at the other, at the door.
+	 */
+	public function test_level_limits_are_enforced_on_create(): void {
+		$main_only = $this->category( 'Clubs', true, 'main' );
+		$sub_only  = $this->category( 'Events', true, 'sub' );
+		$parent    = (int) $this->create_space( array() );
+
+		$this->assertIsInt( $this->create_space( array( 'category_id' => $main_only ) ) );
+		$this->assertIsInt( $this->create_space( array( 'category_id' => $sub_only, 'parent_id' => $parent ) ) );
+
+		$wrong_sub = $this->create_space( array( 'category_id' => $main_only, 'parent_id' => $parent ) );
+		$this->assertWPError( $wrong_sub );
+		$this->assertSame( 'buddynext_category_level', $wrong_sub->get_error_code() );
+
+		$wrong_main = $this->create_space( array( 'category_id' => $sub_only ) );
+		$this->assertWPError( $wrong_main );
+		$this->assertSame( 400, $wrong_main->get_error_data()['status'] ?? null );
+	}
+
+	/**
+	 * A space keeps a category the owner later limited to the other level; an
+	 * unrelated save must not fail on it.
+	 */
+	public function test_existing_space_keeps_a_category_later_restricted(): void {
+		$cat = $this->category( 'Was both' );
+		$id  = (int) $this->create_space( array( 'category_id' => $cat ) );
+		( new SpaceCategoryService() )->update( $cat, array( 'level' => 'sub' ) );
+
+		$result = $this->spaces->update(
+			$id,
+			$this->owner,
+			array(
+				'name'        => 'Renamed only',
+				'category_id' => $cat,
+			)
+		);
+
+		$this->assertTrue( true === $result, 'a name change must not be refused over an unchanged category' );
+		$this->assertSame( $cat, $this->stored_category( $id ) );
+	}
+
+	/**
+	 * Pickers and directory chips follow the level.
+	 */
+	public function test_choices_and_chips_follow_the_level(): void {
+		$main_only = $this->category( 'Main only', true, 'main' );
+		$sub_only  = $this->category( 'Sub only', true, 'sub' );
+		$ids       = static fn( array $rows ): array => array_map( static fn( $c ): int => (int) ( is_object( $c ) ? $c->id : $c['id'] ), $rows );
+
+		$for_sub = $ids( $this->spaces->category_choices( true ) );
+		$this->assertContains( $sub_only, $for_sub );
+		$this->assertNotContains( $main_only, $for_sub );
+
+		$chips = $ids( $this->spaces->directory_categories() );
+		$this->assertContains( $main_only, $chips );
+		$this->assertNotContains( $sub_only, $chips, 'the directory lists main spaces; a subspace-only chip would show nothing' );
+	}
+
+	/**
+	 * The app's picker route: ?level returns usable categories, hidden ones included.
+	 */
+	public function test_rest_level_picker_list(): void {
+		$hidden_sub = $this->category( 'Hidden sub', false, 'sub' );
+		$main_only  = $this->category( 'Main for REST', true, 'main' );
+		wp_set_current_user( self::factory()->user->create() );
+
+		$request = new \WP_REST_Request( 'GET', '/buddynext/v1/space-categories' );
+		$request->set_param( 'level', 'sub' );
+		$ids = array_map( static fn( array $c ): int => (int) $c['id'], rest_do_request( $request )->get_data() );
+
+		$this->assertContains( $hidden_sub, $ids );
+		$this->assertNotContains( $main_only, $ids );
+
+		$public = array_map( static fn( array $c ): int => (int) $c['id'], rest_do_request( new \WP_REST_Request( 'GET', '/buddynext/v1/space-categories' ) )->get_data() );
+		$this->assertNotContains( $hidden_sub, $public );
+		$this->assertContains( $main_only, $public );
 	}
 }

@@ -33,8 +33,17 @@ Categories are managed in the admin under BuddyNext > Spaces > Directory, in the
 | Text color | The badge text color, paired with the background for contrast. | White |
 | Icon | An optional inline icon shown with the category. | None |
 | Sort order | A number that sets where the category appears in the list; lower numbers come first. | 0 |
+| Use for | Where members can pick the category: main spaces and subspaces, main spaces only, or subspaces only. | Main spaces and subspaces |
 | Show in the spaces directory | Whether the category appears as a filter option for members in the directory. | On |
 
+
+### Main spaces, subspaces, or both
+
+Use for lets one category list serve two levels of organisation. A community where top-level spaces are clubs and their subspaces are the events those clubs run can set its club categories to **Main spaces only** and its event categories to **Subspaces only**. Members then see only the categories that fit the space they are creating or editing, and the choice follows them if they pick or change a parent space.
+
+- The spaces directory lists main spaces, so a **Subspaces only** category never appears as a directory filter.
+- Changing a category's Use for never moves existing spaces: a space keeps the category it already has, even if it no longer matches.
+- The same rule applies everywhere a space is created or edited, including the REST API and the app.
 
 ### Setting a default category
 
@@ -47,7 +56,8 @@ You can delete a category from the Categories section. Deleting a category remov
 ## Good to know
 
 - Slugs must be unique. The editor rejects a slug that another category already uses and asks you to change it.
-- A category with Show in directory turned off is hidden from the member-facing filter but can still be assigned to spaces.
+- A category with Show in directory turned off is hidden from the member-facing filter but can still be picked for a space in every create and edit form.
+- If the default category does not fit a space's level, the space is created without it.
 - Sort order controls the listing position; categories with the same sort order fall back to alphabetical by name.
 - The color and text color are a pair - choose values with enough contrast that the badge text stays readable.
 - Categories are a free feature with no per-category limit.

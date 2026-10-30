@@ -7831,7 +7831,7 @@
                                     },
                                     "document_id": {
                                         "type": "integer",
-                                        "description": "WPMediaVerse document ID attached from the composer (type=document)."
+                                        "description": "MediaVerse document ID attached from the composer (type=document)."
                                     },
                                     "options": {
                                         "type": "array",
@@ -10827,6 +10827,21 @@
                 ],
                 "operationId": "get_space_categories",
                 "summary": "GET /buddynext/v1/space-categories",
+                "parameters": [
+                    {
+                        "name": "level",
+                        "in": "query",
+                        "required": false,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "main",
+                                "sub"
+                            ]
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Success.",
@@ -10840,6 +10855,9 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid or missing parameter."
                     }
                 },
                 "security": [
@@ -10911,6 +10929,14 @@
                                     },
                                     "show_in_dir": {
                                         "type": "boolean"
+                                    },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
                                     },
                                     "sort_order": {
                                         "type": "integer",
@@ -10996,6 +11022,14 @@
                                     "show_in_dir": {
                                         "type": "boolean"
                                     },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
+                                    },
                                     "sort_order": {
                                         "type": "integer"
                                     }
@@ -11074,6 +11108,14 @@
                                     "show_in_dir": {
                                         "type": "boolean"
                                     },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
+                                    },
                                     "sort_order": {
                                         "type": "integer"
                                     }
@@ -11151,6 +11193,14 @@
                                     },
                                     "show_in_dir": {
                                         "type": "boolean"
+                                    },
+                                    "level": {
+                                        "type": "string",
+                                        "enum": [
+                                            "both",
+                                            "main",
+                                            "sub"
+                                        ]
                                     },
                                     "sort_order": {
                                         "type": "integer"
@@ -19564,6 +19614,9 @@
                     "is_muted": {
                         "type": "boolean"
                     },
+                    "has_reported": {
+                        "type": "boolean"
+                    },
                     "connection": {
                         "type": [
                             "object",
@@ -19762,6 +19815,14 @@
                     },
                     "show_in_dir": {
                         "type": "boolean"
+                    },
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "both",
+                            "main",
+                            "sub"
+                        ]
                     }
                 }
             },
@@ -23158,6 +23219,9 @@
                         "type": "boolean"
                     },
                     "self_select": {
+                        "type": "boolean"
+                    },
+                    "pick_once": {
                         "type": "boolean"
                     }
                 }

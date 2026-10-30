@@ -22,6 +22,24 @@ use WP_Error;
 class SpaceCategoryService {
 
 	/**
+	 * Where a category may be used: main spaces, subspaces, or both.
+	 */
+	public const LEVELS = array( 'both', 'main', 'sub' );
+
+	/**
+	 * Whether a category may be used at this level.
+	 *
+	 * @param array<string, mixed> $category Hydrated category.
+	 * @param bool                 $is_sub   True for a subspace, false for a main space.
+	 * @return bool
+	 */
+	public static function allows( array $category, bool $is_sub ): bool {
+		$level = (string) ( $category['level'] ?? 'both' );
+		return 'both' === $level || ( $is_sub ? 'sub' : 'main' ) === $level;
+	}
+
+
+	/**
 	 * Object-cache group for the category lists.
 	 *
 	 * @var string
@@ -249,8 +267,9 @@ class SpaceCategoryService {
 				'icon_svg'    => $clean['icon_svg'],
 				'sort_order'  => $clean['sort_order'],
 				'show_in_dir' => $clean['show_in_dir'] ? 1 : 0,
+				'level'       => $clean['level'],
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' )
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -306,9 +325,10 @@ class SpaceCategoryService {
 				'icon_svg'    => $clean['icon_svg'],
 				'sort_order'  => $clean['sort_order'],
 				'show_in_dir' => $clean['show_in_dir'] ? 1 : 0,
+				'level'       => $clean['level'],
 			),
 			array( 'id' => $id ),
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d' ),
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -399,6 +419,7 @@ class SpaceCategoryService {
 			'icon_svg'    => wp_kses( (string) ( $data['icon_svg'] ?? '' ), $this->allowed_svg_tags() ),
 			'sort_order'  => (int) ( $data['sort_order'] ?? 0 ),
 			'show_in_dir' => array_key_exists( 'show_in_dir', $data ) ? ! empty( $data['show_in_dir'] ) : true,
+			'level'       => in_array( (string) ( $data['level'] ?? '' ), self::LEVELS, true ) ? (string) $data['level'] : 'both',
 		);
 	}
 
@@ -419,6 +440,7 @@ class SpaceCategoryService {
 			'icon_svg'    => (string) ( $row['icon_svg'] ?? '' ),
 			'sort_order'  => (int) ( $row['sort_order'] ?? 0 ),
 			'show_in_dir' => ! empty( $row['show_in_dir'] ),
+			'level'       => in_array( (string) ( $row['level'] ?? '' ), self::LEVELS, true ) ? (string) $row['level'] : 'both',
 		);
 	}
 
