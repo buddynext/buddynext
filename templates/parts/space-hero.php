@@ -257,6 +257,13 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-variant="secondary"
 					data-size="sm"
 				><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
+				<?php // The space admin page (stats + shortcuts) had no way in; same audience as Settings. ?>
+				<a
+					href="<?php echo esc_url( buddynext_space_admin_url( $bn_space->slug ) ); ?>"
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="sm"
+				><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Admin', 'buddynext' ); ?></a>
 
 			<?php elseif ( $bn_is_member ) : ?>
 				<button

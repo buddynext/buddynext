@@ -1348,6 +1348,16 @@ function buddynext_space_moderation_url( string $slug ): string {
 }
 
 /**
+ * Return the space admin page URL (stats and management shortcuts) for a space.
+ *
+ * @param string $slug The space's slug as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_admin_url( string $slug ): string {
+	return buddynext_space_url( $slug ) . 'admin/';
+}
+
+/**
  * The short type chip for a document (PDF, DOC, TXT ...).
  *
  * The same shorthand WPMediaVerse uses, so the two libraries read the same.
