@@ -163,8 +163,10 @@ class FieldTest extends \WP_UnitTestCase {
 		$key = $field->key;
 		$cb  = $field->sanitizer();
 		add_filter( "sanitize_option_{$key}", $cb, 10, 1 );
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- test harness sets the posted toggle directly.
-		$_POST = $limited ? array( $key . '_limited' => '1' ) : array();
+		// The settings form posts the number beside its checkbox; without the number
+		// the sanitizer treats the call as a direct update_option() (26d20948).
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- test harness sets the posted form directly.
+		$_POST = $limited ? array( $key => (string) $value, $key . '_limited' => '1' ) : array( $key => (string) $value );
 		$out   = (int) apply_filters( "sanitize_option_{$key}", $value );
 		remove_filter( "sanitize_option_{$key}", $cb, 10 );
 		$_POST = array();
