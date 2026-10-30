@@ -54,7 +54,7 @@ Open the space settings and go to the Notifications tab.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Default notification preference for new members | The notification level applied to a member when they first join this space: All activity, Mentions only, or None. Members can change it later. | Mentions only |
+| Default notification preference for new members | The notification level applied to a member when they first join this space: All activity, Mentions only, or None. Members can change it later. | All activity (bell only) |
 
 > **Tip:** New members start on All activity, shown in their notification bell only (no email unless they ask for it), so someone who joins a space hears from it. For a very busy space where that would be too much, set the default to Mentions only.
 
