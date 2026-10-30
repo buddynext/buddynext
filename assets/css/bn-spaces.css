@@ -2079,6 +2079,16 @@ a.bn-sh-statpill:focus-visible {
 	border: 1px solid var(--bn-line);
 	flex-shrink: 0;
 	color: var(--bn-accent-text);
+	overflow: hidden;
+}
+
+/* An uploaded icon fills the 72px preview. Only the fallback svg was sized,
+   so an uploaded image drew at its natural size (512px) over the page. */
+.bn-space-settings__upload-current img {
+	inline-size: 100%;
+	block-size: 100%;
+	object-fit: cover;
+	display: block;
 }
 
 .bn-space-settings__upload-current svg {
