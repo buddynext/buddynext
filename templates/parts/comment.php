@@ -72,9 +72,9 @@ if ( $bn_hidden ) {
 }
 
 // One action control: icon + label, the label also its accessible name.
-$bn_action = static function ( string $css_class, string $icon, string $label, string $aria = '' ): void {
+$bn_action = static function ( string $css_class, string $icon, string $label, string $aria = '', bool $disabled = false ): void {
 	?>
-	<button type="button" class="<?php echo esc_attr( $css_class ); ?>" aria-label="<?php echo esc_attr( '' !== $aria ? $aria : $label ); ?>"><span class="bn-comment__act-ico"><?php buddynext_icon( $icon ); ?></span><span class="bn-comment__act-txt"><?php echo esc_html( $label ); ?></span></button>
+	<button type="button" class="<?php echo esc_attr( $css_class ); ?>"<?php disabled( $disabled ); ?> aria-label="<?php echo esc_attr( '' !== $aria ? $aria : $label ); ?>"><span class="bn-comment__act-ico"><?php buddynext_icon( $icon ); ?></span><span class="bn-comment__act-txt"><?php echo esc_html( $label ); ?></span></button>
 	<?php
 };
 
@@ -175,7 +175,12 @@ foreach ( (array) $reactions as $bn_r ) {
 				$bn_action( 'bn-comment__pin-btn', 'pin', $bn_pinned ? __( 'Unpin', 'buddynext' ) : __( 'Pin', 'buddynext' ) );
 			}
 			if ( $bn_can_report ) {
-				$bn_action( 'bn-comment__report-btn', 'flag', __( 'Report', 'buddynext' ), __( 'Report this comment', 'buddynext' ) );
+				// Already reported: the same disabled "Reported" the button turns into after a report.
+				if ( ! empty( $bn_c['viewer_reported'] ) ) {
+					$bn_action( 'bn-comment__report-btn', 'flag', __( 'Reported', 'buddynext' ), __( 'Reported', 'buddynext' ), true );
+				} else {
+					$bn_action( 'bn-comment__report-btn', 'flag', __( 'Report', 'buddynext' ), __( 'Report this comment', 'buddynext' ) );
+				}
 			}
 			?>
 		</div>

@@ -117,6 +117,15 @@ class CommentThreadRenderTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'bn-comment-card', rest_do_request( $request )->get_data()['items'][0]['html'] );
 	}
 
+	public function test_a_comment_the_viewer_reported_reads_reported_after_reload(): void {
+		$viewer = self::factory()->user->create();
+		$id     = (int) $this->comments->create( $this->author, 'post', $this->post_id, 'report me' );
+		buddynext_service( 'moderation' )->report( $viewer, 'comment', $id, 'spam' );
+
+		$this->assertMatchesRegularExpression( '/bn-comment__report-btn"\s+disabled[^>]*aria-label="Reported"/', $this->html_for( $id, $viewer ) );
+		$this->assertStringContainsString( 'aria-label="Report this comment"', $this->html_for( $id, self::factory()->user->create() ), 'others can still report it' );
+	}
+
 	public function test_guest_gets_no_member_actions(): void {
 		$id   = (int) $this->comments->create( $this->author, 'post', $this->post_id, 'hello' );
 		$html = $this->html_for( $id, 0 );

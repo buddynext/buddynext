@@ -89,6 +89,7 @@ final class CommentThread {
 		}
 		if ( $viewer_id > 0 ) {
 			$this->reactions->get_user_emoji_map( $viewer_id, 'comment', $ids );
+			buddynext_service( 'moderation' )->user_reported_map( $viewer_id, 'comment', $ids );
 		}
 		$this->reactions->count_map( 'comment', $ids );
 
@@ -158,6 +159,8 @@ final class CommentThread {
 		$comment['viewer_liked']      = $viewer_id > 0 && $this->reactions->has_reacted( $viewer_id, 'comment', $id );
 		// The specific emoji, so the button shows the right icon, not always 'like'.
 		$comment['viewer_reaction'] = $viewer_id > 0 ? $this->reactions->get_user_emoji( $viewer_id, 'comment', $id ) : null;
+		// Read from the map page() primed: one query for the whole thread.
+		$comment['viewer_reported'] = $viewer_id > 0 && buddynext_service( 'moderation' )->user_has_reported( $viewer_id, 'comment', $id );
 		$comment['can_edit']        = $is_own || buddynext_can( $viewer_id, 'buddynext-feed/edit-any-post' );
 		$comment['can_delete']      = $is_own || buddynext_can( $viewer_id, 'buddynext-feed/delete-any-post' );
 		// pin() refuses a reply, so only a top-level comment offers Pin.
