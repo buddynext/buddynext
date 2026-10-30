@@ -108,7 +108,7 @@ function syncUrl( ctx ) {
 		} else {
 			url.searchParams.delete( 'relation' );
 		}
-		const sortToOrderby = { newest: 'registered', alphabetical: 'display_name', most_active: 'post_count', online: 'post_count' };
+		const sortToOrderby = { newest: 'registered', alphabetical: 'display_name', most_active: 'post_count', online: 'online' };
 		const orderby = sortToOrderby[ ctx.sort ] || 'registered';
 		if ( orderby === 'registered' ) {
 			url.searchParams.delete( 'orderby' );
@@ -331,6 +331,13 @@ function buildCard( item ) {
 		const badge = document.createElement( 'span' );
 		badge.className = 'bn-badge bn-md-card__type';
 		badge.setAttribute( 'data-tone', 'accent' );
+		// The owner's colour pair, as member-card.php paints it (the API already
+		// sends the readable text colour). Without it every badge turned the plain
+		// accent pill after any filter, sort or search.
+		if ( item.member_type.color && item.member_type.text_color ) {
+			badge.style.background = item.member_type.color;
+			badge.style.color      = item.member_type.text_color;
+		}
 		if ( item.member_type.icon_svg ) {
 			const iconWrap = document.createElement( 'span' );
 			iconWrap.className = 'bn-type-badge__icon';

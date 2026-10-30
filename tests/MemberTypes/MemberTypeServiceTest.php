@@ -46,6 +46,30 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 		return $id;
 	}
 
+	/**
+	 * The badge carries the readable text colour for its background, as the server
+	 * member card paints it, so the directory's redrawn cards and the app show the
+	 * same pair (white saved on a mid blue reads too low, so black comes back).
+	 */
+	public function test_badge_returns_the_readable_text_colour(): void {
+		$id = $this->service->create(
+			array(
+				'slug'       => 'contrib-badge',
+				'name'       => 'Contributor',
+				'color'      => '#1c7ed6',
+				'text_color' => '#ffffff',
+			)
+		);
+		$user = self::factory()->user->create();
+		$this->service->assign_type( $user, (int) $id );
+
+		$badge = $this->service->badge_for( $user );
+
+		$this->assertSame( '#1c7ed6', $badge['color'] );
+		$this->assertSame( buddynext_readable_text_color( '#1c7ed6', '#ffffff' ), $badge['text_color'] );
+		$this->assertNotSame( '#ffffff', $badge['text_color'], 'white on this blue is below AA, so it is not returned' );
+	}
+
 	// ── create ────────────────────────────────────────────────────────────────
 
 	public function test_create_type_persists_and_returns_id(): void {

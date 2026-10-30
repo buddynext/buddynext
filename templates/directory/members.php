@@ -210,6 +210,7 @@ $bn_rest_sort_map = array(
 	'registered'   => 'newest',
 	'display_name' => 'alphabetical',
 	'post_count'   => 'most_active',
+	'online'       => 'online',
 );
 $bn_initial_sort  = $bn_rest_sort_map[ $bn_orderby ] ?? 'newest';
 

@@ -163,24 +163,49 @@
 		height: 48px;
 	}
 
-	/* Body becomes the horizontal track holding identity + actions. */
+	/* Body is two columns: who the member is on the left (name over handle and
+		headline, the type badge under them), actions on the right. The identity
+		block was display:contents here too, so name, handle and headline became
+		separate row items that squeezed each other, and the badge followed the
+		length of the name; under the identity it starts at the same edge on every
+		row, whatever the actions next to it are. */
 	.bn-md-grid.is-list .bn-md-card__body {
-		flex-direction: row;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			"identity actions"
+			"type     actions";
 		align-items: center;
 		column-gap: var(--bn-s3);
+		row-gap: var(--bn-s1);
 		padding: 0;
 		flex: 1 1 auto;
 		min-inline-size: 0;
 	}
 	.bn-md-grid.is-list .bn-md-card__identity {
-		flex: 1 1 auto;
+		grid-area: identity;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 2px;
 		min-inline-size: 0;
 	}
+	.bn-md-grid.is-list .bn-md-card__identity > * {
+		max-inline-size: 100%;
+		margin: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.bn-md-grid.is-list .bn-md-card__type {
+		grid-area: type;
+		justify-self: start;
+		margin: 0;
+	}
 	.bn-md-grid.is-list .bn-md-card__actions {
-		flex: 0 0 auto;
+		grid-area: actions;
 		inline-size: auto;
-		margin-inline-start: auto;
-		margin-block-start: 0;
+		margin: 0;
 		padding-block-start: 0;
 		flex-wrap: nowrap;
 	}

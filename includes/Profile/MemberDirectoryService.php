@@ -1151,7 +1151,9 @@ class MemberDirectoryService {
 		// Member type comes from ?type=, the one filter contract on this screen.
 		$member_type = sanitize_key( wp_unslash( (string) ( $request['type'] ?? '' ) ) );
 
-		$orderby  = in_array( $orderby, array( 'registered', 'display_name', 'post_count' ), true ) ? $orderby : 'registered';
+		// 'online' keeps an "Online first" choice in the URL; it paints like newest and
+		// the store re-sorts over REST, as for most active.
+		$orderby  = in_array( $orderby, array( 'registered', 'display_name', 'post_count', 'online' ), true ) ? $orderby : 'registered';
 		$relation = in_array( $relation, array( 'all', 'following', 'connections' ), true ) ? $relation : 'all';
 
 		// "Newest" and "most active" paint as ID DESC: ID is registration order and

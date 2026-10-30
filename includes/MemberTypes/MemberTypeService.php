@@ -474,7 +474,11 @@ class MemberTypeService {
 			// exactly like the server member-card.
 			'icon_svg'   => self::render_icon_svg( (string) ( $type['icon_svg'] ?? '' ) ),
 			'color'      => (string) ( $type['color'] ?? '' ),
-			'text_color' => (string) ( $type['text_color'] ?? '' ),
+			// The readable text colour for that background, exactly as the server
+			// member card and profile hero paint it, so every client shows the same pair.
+			'text_color' => '' !== (string) ( $type['color'] ?? '' )
+				? buddynext_readable_text_color( (string) $type['color'], (string) ( $type['text_color'] ?? '' ) )
+				: (string) ( $type['text_color'] ?? '' ),
 		);
 	}
 
