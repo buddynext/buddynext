@@ -417,6 +417,7 @@ class ActivityAdmin implements ListenerInterface {
 					<?php wp_nonce_field( 'bn_activity_edit_' . $post_id ); ?>
 					<label for="bn-activity-content" class="screen-reader-text"><?php esc_html_e( 'Activity content', 'buddynext' ); ?></label>
 					<textarea id="bn-activity-content" name="content" class="bn-textarea large-text" rows="8"><?php echo esc_textarea( (string) $post['content'] ); ?></textarea>
+					<?php $this->render_edit_attachments( $post ); ?>
 					<p class="bn-activity-edit__actions">
 						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 						<a class="bn-btn" data-variant="ghost" href="<?php echo esc_url( $base ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
@@ -426,6 +427,76 @@ class ActivityAdmin implements ListenerInterface {
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * The post's photos/files and link preview, each with a Remove box.
+	 *
+	 * Lets a moderator take down one offending image or preview without deleting
+	 * or rewriting the whole post. Removing only detaches: PostService::update()
+	 * keeps the file in its owner's media library, changes a photo post with no
+	 * photos left back to text, and refuses a post left with nothing at all.
+	 *
+	 * @param array<string, mixed> $post Post row from PostService::get().
+	 * @return void
+	 */
+	private function render_edit_attachments( array $post ): void {
+		$media_ids = array_values( array_filter( array_map( 'absint', (array) ( $post['media_ids'] ?? array() ) ) ) );
+		$link_url  = (string) ( $post['link_url'] ?? '' );
+		$link_meta = is_array( $post['link_meta'] ?? null ) ? $post['link_meta'] : array();
+
+		if ( $media_ids ) :
+			?>
+			<fieldset class="bn-activity-edit__attachments">
+				<legend><?php esc_html_e( 'Attachments', 'buddynext' ); ?></legend>
+				<input type="hidden" name="has_media" value="1">
+				<ul class="bn-activity-edit__media">
+					<?php
+					foreach ( $media_ids as $media_id ) :
+						$item  = \BuddyNext\Media\MediaUrlResolver::descriptor( $media_id );
+						$thumb = (string) ( $item['thumb'] ?? '' );
+						$title = (string) ( $item['title'] ?? '' );
+						if ( '' === $title ) {
+							/* translators: %d: media id. */
+							$title = null === $item ? sprintf( __( 'Unavailable file #%d', 'buddynext' ), $media_id ) : sprintf( __( 'File #%d', 'buddynext' ), $media_id );
+						}
+						?>
+						<li class="bn-activity-edit__media-item">
+							<?php if ( '' !== $thumb ) : ?>
+								<img src="<?php echo esc_url( $thumb ); ?>" alt="" loading="lazy">
+							<?php else : ?>
+								<span class="bn-activity-edit__media-file" aria-hidden="true"><?php buddynext_icon( 'file-text' ); ?></span>
+							<?php endif; ?>
+							<span class="bn-activity-edit__media-title"><?php echo esc_html( $title ); ?></span>
+							<label class="bn-check-row">
+								<input type="checkbox" name="remove_media[]" value="<?php echo esc_attr( (string) $media_id ); ?>">
+								<?php esc_html_e( 'Remove', 'buddynext' ); ?>
+							</label>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+			</fieldset>
+			<?php
+		endif;
+
+		if ( '' !== $link_url ) :
+			$link_title = (string) ( $link_meta['title'] ?? '' );
+			?>
+			<fieldset class="bn-activity-edit__attachments">
+				<legend><?php esc_html_e( 'Link preview', 'buddynext' ); ?></legend>
+				<p class="bn-activity-edit__link">
+					<?php if ( '' !== $link_title ) : ?>
+						<strong><?php echo esc_html( $link_title ); ?></strong><br>
+					<?php endif; ?>
+					<a href="<?php echo esc_url( $link_url ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $link_url ); ?></a>
+				</p>
+				<label class="bn-check-row">
+					<input type="checkbox" name="remove_link_preview" value="1">
+					<?php esc_html_e( 'Remove the link preview (the text keeps the link)', 'buddynext' ); ?>
+				</label>
+			</fieldset>
+			<?php
+		endif;
 	}
 
 	/**
@@ -456,8 +527,24 @@ class ActivityAdmin implements ListenerInterface {
 		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
 		check_admin_referer( 'bn_activity_edit_' . $post_id );
 
-		$content = isset( $_POST['content'] ) ? sanitize_textarea_field( wp_unslash( $_POST['content'] ) ) : '';
-		$result  = buddynext_service( 'post_service' )->update( $post_id, get_current_user_id(), array( 'content' => $content ) );
+		// Same sanitiser as a member's own edit (PostController), so an admin save
+		// never rewrites text the member was allowed to post.
+		$data = array( 'content' => isset( $_POST['content'] ) ? wp_kses_post( wp_unslash( $_POST['content'] ) ) : '' );
+
+		// Detach only what was ticked: media_ids is the post's complete new list.
+		$remove = isset( $_POST['remove_media'] ) ? array_map( 'absint', (array) wp_unslash( $_POST['remove_media'] ) ) : array();
+		if ( ! empty( $_POST['has_media'] ) && $remove ) {
+			$post = buddynext_service( 'post_service' )->get( $post_id );
+			if ( is_array( $post ) ) {
+				$current           = array_map( 'absint', (array) ( $post['media_ids'] ?? array() ) );
+				$data['media_ids'] = array_values( array_diff( $current, $remove ) );
+			}
+		}
+		if ( ! empty( $_POST['remove_link_preview'] ) ) {
+			$data['remove_link_preview'] = true;
+		}
+
+		$result = buddynext_service( 'post_service' )->update( $post_id, get_current_user_id(), $data );
 		$this->redirect_back( is_wp_error( $result ) ? 'error' : 'edited', is_wp_error( $result ) ? $result->get_error_message() : '' );
 	}
 
