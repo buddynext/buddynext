@@ -2096,10 +2096,19 @@ a.bn-sh-statpill:focus-visible {
 	block-size: 28px;
 }
 
+/* Upload and Remove side by side, the hint on its own line under them, all
+   aligned to the start edge next to the icon. Stacked full-width buttons left
+   Remove centred under Upload and read as broken. */
 .bn-space-settings__upload-actions {
 	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s1);
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-width: 0;
+}
+
+.bn-space-settings__upload-actions .bn-space-settings__hint {
+	flex-basis: 100%;
 }
 
 .bn-space-settings__cover {

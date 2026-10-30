@@ -825,12 +825,16 @@ var storeInstance = store( 'buddynext/spaces', {
 	 * ─────────────────────────────────────────────────────────────────────── */
 	state: {
 		savebarPhase:  'idle',
+		// True once the page has a settings form: the bar (with Save) then stays
+		// visible, as on Edit Profile, instead of appearing only after an edit.
+		savebarHasForm: false,
 		modalTransferOpen: false,
 		modalArchiveOpen:  false,
 
 		// Savebar: the bar is hidden only in the idle phase; each status pill is
 		// hidden unless its phase is the active one.
-		get savebarHidden() { return 'idle' === storeInstance.state.savebarPhase; },
+		get savebarHidden() { return ! storeInstance.state.savebarHasForm; },
+		get savebarCancelHidden() { return 'dirty' !== storeInstance.state.savebarPhase; },
 		get savebarDirtyHidden() { return 'dirty' !== storeInstance.state.savebarPhase; },
 		get savebarSavingHidden() { return 'saving' !== storeInstance.state.savebarPhase; },
 		get savebarSavedHidden() { return 'saved' !== storeInstance.state.savebarPhase; },
@@ -1900,7 +1904,8 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * wp_nonce field + validation). Flips to the 'saving' phase first.
 		 */
 		savebarSubmit: function () {
-			var form = bnSavebarDirtyForm;
+			// Nothing edited yet: Save still saves the tab's form as shown.
+			var form = bnSavebarDirtyForm || document.querySelector( '.bn-space-settings form.bn-space-settings__form' );
 			if ( ! form ) { return; }
 			if ( ! form.reportValidity || form.reportValidity() ) {
 				storeInstance.state.savebarPhase = 'saving';
@@ -3331,6 +3336,7 @@ document.addEventListener( 'keydown', function ( event ) {
 	for ( var i = 0; i < forms.length; i++ ) {
 		captureDefaults( forms[ i ] );
 	}
+	storeInstance.state.savebarHasForm = true;
 
 	// If the page server-rendered with a success notice, flash "saved" briefly,
 	// then settle back to idle — both via reactive state, no .hidden poke.

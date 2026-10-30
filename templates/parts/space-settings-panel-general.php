@@ -129,10 +129,10 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			<?php // Category-icon fallback the JS restores into the preview when the icon is removed. ?>
 			<template class="bn-space-settings__upload-fallback"><?php echo wp_kses( bn_space_category_icon( $bn_space->category_slug ?? '' ), \BuddyNext\Core\IconService::allowed_tags() ); ?></template>
 			<div class="bn-space-settings__upload-actions">
-				<button type="button" class="bn-btn" data-variant="secondary" data-size="md" id="bn_space_icon">
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" id="bn_space_icon">
 					<?php esc_html_e( 'Upload image', 'buddynext' ); ?>
 				</button>
-				<button type="button" class="bn-btn" data-variant="ghost" data-size="md" data-bn-icon-remove<?php echo empty( $bn_space->avatar_url ) ? ' hidden' : ''; ?>>
+				<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-icon-remove<?php echo empty( $bn_space->avatar_url ) ? ' hidden' : ''; ?>>
 					<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 				</button>
 				<p class="bn-space-settings__hint"><?php esc_html_e( 'Or pick an icon based on the category.', 'buddynext' ); ?></p>
@@ -187,7 +187,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			<button
 				type="button"
 				class="bn-btn"
-				data-variant="ghost"
+				data-variant="secondary"
 				data-size="sm"
 				data-bn-cover-remove
 				<?php echo empty( $bn_space->cover_image_url ) ? 'hidden' : ''; ?>

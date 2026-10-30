@@ -1087,6 +1087,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					data-variant="ghost"
 					data-size="md"
 					data-bn-savebar-cancel
+					data-wp-bind--hidden="state.savebarCancelHidden"
 					data-wp-on--click="actions.savebarCancel"
 				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 				<button
