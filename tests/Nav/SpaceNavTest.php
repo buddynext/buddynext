@@ -12,7 +12,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Nav;
 
-use BuddyNext\Media\MediaClient;
 use BuddyNext\Nav\NavContext;
 use BuddyNext\Nav\NavRegistry;
 use BuddyNext\Nav\Providers\SpaceNav;
@@ -54,25 +53,28 @@ class SpaceNavTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Expected primary ids in order for a viewer role (media engine off in tests).
+	 * BuddyNext's own primary tabs for a viewer role, in order.
+	 *
+	 * Partner tabs (Media, Leaderboard, ...) are on by default in every space
+	 * (2e69f75c) and show whenever their plugin's stub is loaded, which depends on
+	 * which tests ran first. These tests are about who sees Moderation, so they
+	 * compare BuddyNext's own tabs only; see core_ids().
 	 *
 	 * @param bool $can_moderate Whether the viewer is owner/moderator.
 	 * @return string[]
 	 */
 	private function expected_primary( bool $can_moderate ): array {
-		$ids = array( 'feed', 'members' );
-		// Mirror SpaceNav's media gate EXACTLY: the engine is available AND the
-		// per-space media-tab option is on. Tests never set the option (space 7),
-		// so media stays off — checking available() alone would over-include it
-		// now that the WPMediaVerse stub exposes a container() method.
-		if ( MediaClient::available() && (bool) get_option( 'bn_space_7_mvs_media_tab', 0 ) ) {
-			$ids[] = 'media';
-		}
-		$ids[] = 'about';
-		if ( $can_moderate ) {
-			$ids[] = 'moderation';
-		}
-		return $ids;
+		return $can_moderate ? array( 'feed', 'members', 'about', 'moderation' ) : array( 'feed', 'members', 'about' );
+	}
+
+	/**
+	 * The resolved primary ids, without partner tabs.
+	 *
+	 * @param mixed $out Resolved nav.
+	 * @return string[]
+	 */
+	private function core_ids( $out ): array {
+		return array_values( array_intersect( $this->ids( $out, 'primary' ), array( 'feed', 'members', 'about', 'moderation' ) ) );
 	}
 
 	/**
@@ -80,7 +82,7 @@ class SpaceNavTest extends \WP_UnitTestCase {
 	 */
 	public function test_member_sees_no_moderation(): void {
 		$out = $this->reg->resolve( new NavContext( 'space', 7, 3, 'member' ) );
-		$this->assertSame( $this->expected_primary( false ), $this->ids( $out, 'primary' ) );
+		$this->assertSame( $this->expected_primary( false ), $this->core_ids( $out ) );
 	}
 
 	/**
@@ -88,7 +90,9 @@ class SpaceNavTest extends \WP_UnitTestCase {
 	 */
 	public function test_moderator_sees_moderation(): void {
 		$out = $this->reg->resolve( new NavContext( 'space', 7, 3, 'moderator' ) );
-		$this->assertSame( $this->expected_primary( true ), $this->ids( $out, 'primary' ) );
+		$this->assertSame( $this->expected_primary( true ), $this->core_ids( $out ) );
+		$ids = $this->ids( $out, 'primary' );
+		$this->assertSame( 'moderation', end( $ids ), 'Moderation stays last, after partner tabs' );
 	}
 
 	/**
@@ -104,7 +108,7 @@ class SpaceNavTest extends \WP_UnitTestCase {
 	 */
 	public function test_non_member_sees_no_moderation(): void {
 		$out = $this->reg->resolve( new NavContext( 'space', 7, 0, '' ) );
-		$this->assertSame( $this->expected_primary( false ), $this->ids( $out, 'primary' ) );
+		$this->assertSame( $this->expected_primary( false ), $this->core_ids( $out ) );
 		$this->assertNotContains( 'moderation', $this->ids( $out, 'primary' ) );
 	}
 
