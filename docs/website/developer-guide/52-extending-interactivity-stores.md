@@ -88,6 +88,25 @@ Everything else is internal. If a namespace is not in that table, treat it as pr
 
 The practical rule: **add behavior freely, replace behavior deliberately, and read nothing you did not write.** An override that only adds an action survives upgrades comfortably. An override that reimplements one of ours has to be re-checked on each release, because we are free to change what it replaced.
 
+## Telling post cards about new counts
+
+When something outside a post card learns a post's new totals (a realtime server, a custom widget, an app shell), send the numbers instead of editing the card's markup:
+
+```js
+document.dispatchEvent(
+	new CustomEvent( 'buddynext:post-counts', {
+		detail: {
+			postId: 123,
+			reactions: 4,          // total reactions on the post
+			reactionSummary: [],   // optional per-emoji rows: { slug, count, emoji }
+			comments: 7,           // total comments on the post
+		},
+	} )
+);
+```
+
+Every card for that post on the page updates its reaction strip and comment count, including the button's accessible name. Send totals, not changes: a card sets the number it is given, so a removed reaction, a changed emoji or the viewer's own tab never double-count. Either total can be left out to change only the other. BuddyNext Pro's realtime module uses this event; the event name and `detail` fields are part of the stable surface.
+
 ## Choosing between JS and PHP
 
 Reach for a store extension when you need to change what happens *after* first paint - a click, a fetch, an optimistic update.

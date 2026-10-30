@@ -351,6 +351,32 @@ document.addEventListener( 'bn:post-reaction', ( event ) => {
 } );
 
 /**
+ * A post's totals changed somewhere else (another member, over realtime): show them.
+ *
+ * detail = { postId, reactions, reactionSummary, comments } - the post's stored
+ * totals, not deltas, so a removal, an emoji swap or the actor's own tab all
+ * land on the right number. Only counts change; the viewer's own reaction does
+ * not. BuddyNext Pro's realtime module sends it; anything may.
+ */
+document.addEventListener( 'buddynext:post-counts', ( event ) => {
+	const d      = event.detail || {};
+	const postId = Number( d.postId ) || 0;
+	if ( ! postId ) return;
+
+	bnMountedCards = bnMountedCards.filter( ( card ) => ! card.el || card.el.isConnected );
+	bnMountedCards.forEach( ( card ) => {
+		if ( Number( card.ctx.postId ) !== postId ) return;
+		if ( Number.isFinite( d.reactions ) ) {
+			card.ctx.reactionCount = d.reactions;
+			updateReactionSummary( card.el, { count: d.reactions, summary: d.reactionSummary || [] } );
+		}
+		if ( Number.isFinite( d.comments ) ) {
+			setCommentCount( card.el, d.comments );
+		}
+	} );
+} );
+
+/**
  * Rebuild a post card's reaction-summary chip strip after a toggle.
  *
  * The chip strip (templates/parts/post-reaction-summary.php) is SSR-only with no
@@ -1291,17 +1317,32 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 
 function adjustCommentCount( postId, delta ) {
 	const card = document.querySelector( 'article[data-post-id="' + postId + '"]' );
+	const span = card?.querySelector( '[data-wp-on--click="actions.openComments"] .bn-post-card__action-count' );
+	if ( span ) {
+		setCommentCount( card, parseInt( span.textContent || '0', 10 ) + delta );
+	}
+}
+
+/**
+ * Show a post card's comment count.
+ *
+ * Single source of truth for the comment count: every add (top-level + reply),
+ * delete and realtime update routes through here, so it owns the visible chip,
+ * its hidden state, and the button's accessible name in lock-step. (Delete is a
+ * vanilla-JS handler with no Interactivity context, so a reactive binding could
+ * never stay in sync with it.)
+ *
+ * @param {Element|null} card The post card article.
+ * @param {number}       n    Comment count.
+ * @return {void}
+ */
+function setCommentCount( card, n ) {
 	const btn  = card?.querySelector( '[data-wp-on--click="actions.openComments"]' );
 	const span = btn?.querySelector( '.bn-post-card__action-count' );
 	if ( ! span || ! btn ) {
 		return;
 	}
-	// Single source of truth for the comment count: every add (top-level +
-	// reply) and delete routes through here, so it owns the visible chip, its
-	// hidden state, and the button's accessible name in lock-step. (Delete is
-	// a vanilla-JS handler with no Interactivity context, so a reactive
-	// binding could never stay in sync with it.)
-	const n = Math.max( 0, parseInt( span.textContent || '0', 10 ) + delta );
+	n = Math.max( 0, n );
 	span.textContent = String( n );
 	span.hidden = ( 0 === n );
 	btn.setAttribute( 'aria-label', 1 === n ? t( 'oneComment', '1 comment' ) : fmt( t( 'manyComments', '%d comments' ), n ) );
