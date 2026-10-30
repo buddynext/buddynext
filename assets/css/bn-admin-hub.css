@@ -660,9 +660,9 @@
 .bn-hub-nav-group__name {
 	min-width: 0;
 	margin-inline-end: auto; /* icon + name sit left; chevron pushed to the right */
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	/* Wrap, never truncate: "Integration Settings" read "INTEGRATION SETTI…" with
+	   no way to see the rest, and translations run longer still. */
+	overflow-wrap: anywhere;
 }
 .bn-hub-nav-group__label svg,
 .bn-hub-nav-group__icon,
