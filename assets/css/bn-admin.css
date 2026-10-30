@@ -3951,6 +3951,23 @@ button.bn-btn-danger:hover {
 	}
 }
 
+/* Touch (iPad included) and narrow screens: the sub-tabs and the row expander
+   meet the 40px tap floor. The expander grows into the 44px the stacked row
+   already reserves for it, by sitting 4px from the corner instead of 8px. */
+@media (pointer: coarse), (max-width: 782px) {
+	.bn-atab {
+		box-sizing: border-box;
+		min-block-size: var(--bn-tap, 40px);
+	}
+
+	.bn-table .toggle-row {
+		inset-inline-end: var(--bn-a-s1, 4px);
+		top: var(--bn-a-s1, 4px);
+		inline-size: var(--bn-tap, 40px);
+		block-size: var(--bn-tap, 40px);
+	}
+}
+
 /* ── Core list tables inside BuddyNext: Lucide expander, not dashicons ───────
    The Pro admin screens use WordPress's .wp-list-table so they inherit core's
    responsive stacking for free - but that also brings core's dashicon chevron
