@@ -354,30 +354,6 @@ class Plugin {
 				}
 			);
 
-			// Admin notice: prompt admins to complete setup when wizard is not done.
-			add_action(
-				'admin_notices',
-				static function (): void {
-					if ( '1' === (string) get_option( 'buddynext_setup_complete', '0' ) ) {
-						return;
-					}
-					if ( ! current_user_can( 'manage_options' ) ) {
-						return;
-					}
-					// Suppress on the wizard page itself.
-					$screen = get_current_screen();
-					if ( $screen && str_contains( (string) $screen->id, 'buddynext-setup' ) ) {
-						return;
-					}
-					$wizard_url = admin_url( 'admin.php?page=buddynext-setup' );
-					printf(
-						'<div class="notice notice-info is-dismissible"><p><strong>%s</strong> <a href="%s">%s</a></p></div>',
-						esc_html__( 'BuddyNext setup is not complete.', 'buddynext' ),
-						esc_url( $wizard_url ),
-						esc_html__( 'Run the setup wizard', 'buddynext' )
-					);
-				}
-			);
 		}
 
 		// Register and enqueue frontend assets.

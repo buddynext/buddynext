@@ -6,7 +6,7 @@ The Setup Wizard is the first thing BuddyNext shows you after the plugin is acti
 
 ## What it is
 
-The wizard is a guided setup of seven built-in steps (BuddyNext Pro and add-ons can add their own) that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** link stays in the wp-admin notice area; you can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
+The wizard is a guided setup of seven built-in steps (BuddyNext Pro and add-ons can add their own) that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** reminder shows on the Dashboard and on BuddyNext screens. Choose **Hide this message** to stop seeing it (it hides for you only; other admins still see it). You can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
 
 You stay in control of the pace:
 

@@ -180,7 +180,7 @@ class CoreRegistration {
 		// Same URL the Setup Checklist already uses for this setting.
 		$bn_terms_url = admin_url( 'admin.php?page=buddynext-members&tab=registration' );
 		?>
-		<div class="notice notice-warning is-dismissible">
+		<div class="notice notice-warning">
 			<p>
 				<?php if ( self::terms_page_unreadable() ) : ?>
 					<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but your Terms page is not published.', 'buddynext' ); ?></strong>
@@ -319,7 +319,7 @@ class CoreRegistration {
 			return;
 		}
 		?>
-		<div class="notice notice-error is-dismissible">
+		<div class="notice notice-error">
 			<p>
 				<strong><?php echo esc_html( $state['headline'] ); ?></strong>
 				<?php echo esc_html( $state['explain'] ); ?>

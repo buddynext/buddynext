@@ -12,7 +12,7 @@
  "includes/Core/CronService.php": 1,
  "includes/Core/PageRouter.php": 1,
  "includes/Core/PermissionService.php": 1,
- "includes/Core/Plugin.php": 3,
+ "includes/Core/Plugin.php": 2,
  "includes/Core/PresetActivation.php": 2,
  "includes/Core/RedirectSettings.php": 1,
  "includes/Core/RoleService.php": 1,
