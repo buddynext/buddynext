@@ -341,14 +341,9 @@ if ( $bn_is_unpublished ) {
 	$can_bookmark  = false;
 }
 
-// ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
-$rest_nonce     = $current_user_id > 0 ? wp_create_nonce( 'wp_rest' ) : '';
-$react_nonce    = $rest_nonce;
-$share_nonce    = $rest_nonce;
-$bookmark_nonce = $rest_nonce;
-$report_nonce   = $can_report ? $rest_nonce : '';
-$dismiss_nonce  = $is_announcement ? $rest_nonce : '';
-$poll_nonce     = ( 'poll' === $bn_post_type && $current_user_id > 0 && $bn_can_interact ) ? $rest_nonce : '';
+// The viewer's nonce, id, REST base and upload permission are the same on every
+// card, so they live once in the buddynext/post-card state (AssetService), not in
+// each card's context: a 20-card feed used to hydrate them 20 times.
 
 // ── Poll totals + reactive context ─────────────────────────────────────────────
 $poll_total_votes   = 0;
@@ -572,14 +567,11 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 			wp_json_encode(
 				array(
 					'postId'            => $bn_post_id,
-					'commentSubmitting' => false,
 					'spaceId'           => $bn_space_id,
-					'authorId'          => $post_author_id,
-					'currentUserId'     => $current_user_id,
-					'postType'          => $bn_post_type,
 					'showContent'       => ! $has_cw,
-					// A long text post previews its first lines; See more expands it here.
-					'bodyExpanded'      => false,
+					// UI flags that start false (bodyExpanded, commentSubmitting,
+					// reactorsOpen, reactorsLoaded, the pickers) are not seeded: an
+					// absent key reads as false and the store sets it when used.
 					// Raw pin state (drives the pin/unpin action + options menu label);
 					// showPinBadge gates whether the "Pinned" label is shown on this
 					// surface. The badge is visible only when both are true — so pinning
@@ -596,14 +588,6 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 					'reactionLabel'     => ( $my_reaction_type && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
 						? \BuddyNext\Reactions\ReactionService::label( (string) $my_reaction_type )
 						: __( 'React', 'buddynext' ),
-					'reactDefaultLabel' => __( 'React', 'buddynext' ),
-					'reactNonce'        => $react_nonce,
-					'shareNonce'        => $share_nonce,
-					'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $current_user_id ),
-					'bookmarkNonce'     => $bookmark_nonce,
-					'reportNonce'       => $report_nonce,
-					'dismissNonce'      => $dismiss_nonce,
-					'pollNonce'         => $poll_nonce,
 					'pollOptions'       => $poll_options_ctx,
 					'pollVotedOptionId' => $my_voted_option_id,
 					'pollTotalVotes'    => $poll_total_votes,
@@ -625,17 +609,11 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 					// unreachable. The mount path now defers a tick and delegates to the
 					// same loader the click path uses, so there is one loader and no race.
 					'commentsOpen'      => 'single' === $context,
-					'commentCount'      => $comment_count,
 					'shareCount'        => $share_count,
 					'shareShared'       => false,
-					// Reactor "who reacted" popover — SSR-present, toggled
-					// reactively (state.reactorsHidden). reactionCount seeds the
-					// popover heading before the fetched list resolves.
-					'reactorsOpen'      => false,
-					'reactorsLoaded'    => false,
+					// reactionCount seeds the "who reacted" popover heading before the
+					// fetched list resolves.
 					'reactionCount'     => $reaction_count,
-					'restUrl'           => rest_url( 'buddynext/v1' ),
-					'context'           => $context,
 				)
 			)
 		);

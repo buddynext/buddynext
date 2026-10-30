@@ -23,6 +23,15 @@ import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { initials as initialsFor } from '@buddynext/initials';
 
 /**
+ * Per-viewer values every post card shares (viewerId, restNonce, restUrl,
+ * canUploadMedia, reactDefaultLabel), published once by AssetService as the
+ * buddynext/post-card state instead of in each card's context.
+ *
+ * @return {Object} The post-card store state.
+ */
+const viewer = () => store( 'buddynext/post-card' ).state;
+
+/**
  * Neutral reaction glyph for a slug with no vendored emoji asset. Mirrors the SSR
  * fallback in templates/parts/post-reaction-summary.php: an unresolvable (orphaned)
  * reaction slug must NEVER render as raw text on a card — a bare "orphanslug"-style
@@ -331,7 +340,7 @@ function mirrorReaction( card, postId, d ) {
 	card.ctx.reactionType  = type;
 	card.ctx.reactionLabel = type
 		? ( option?.getAttribute( 'title' ) || option?.getAttribute( 'aria-label' ) || type )
-		: ( card.ctx.reactDefaultLabel || 'React' );
+		: ( viewer().reactDefaultLabel || 'React' );
 	updateReactionSummary( card.el, d.body || {} );
 }
 
@@ -1425,7 +1434,7 @@ function bnRenderCommentPage( listEl, data, ctx ) {
 
 	items.forEach( ( comment ) => {
 		listEl.appendChild(
-			buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
+			buildCommentNode( comment, viewer().viewerId, ctx.postId, viewer().restUrl, viewer().restNonce, 0 )
 		);
 	} );
 
@@ -1468,7 +1477,7 @@ async function bnLoadMoreComments( listEl, ctx, btn ) {
 	try {
 		const res = await restFetch(
 			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=' + COMMENT_FIRST_PAGE + '&page=' + nextPage,
-			{ nonce: ctx.reactNonce, toastOnError: false }
+			{ nonce: viewer().restNonce, toastOnError: false }
 		);
 		if ( res.ok ) {
 			listEl.dataset.page = String( nextPage );
@@ -1509,7 +1518,7 @@ function* bnLoadComments( ctx ) {
 	try {
 		const res = yield restFetch(
 			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=' + COMMENT_FIRST_PAGE + '&page=1',
-			{ nonce: ctx.reactNonce, toastOnError: false }
+			{ nonce: viewer().restNonce, toastOnError: false }
 		);
 		while ( listEl.firstChild ) {
 			listEl.removeChild( listEl.firstChild );
@@ -1622,7 +1631,7 @@ store( 'buddynext/post-card', {
 		get reactionLabel() {
 			try {
 				const ctx = getContext();
-				return ctx.reactionLabel || ctx.reactDefaultLabel || t( 'react', 'React' );
+				return ctx.reactionLabel || viewer().reactDefaultLabel || t( 'react', 'React' );
 			} catch ( _e ) { return t( 'react', 'React' ); }
 		},
 		get pollOptionPctText() {
@@ -1891,12 +1900,12 @@ store( 'buddynext/post-card', {
 			// follows the type: the chosen reaction's name, or the default when
 			// toggling the reaction off.
 			ctx.reactionType  = newType;
-			ctx.reactionLabel = newType ? label : ( ctx.reactDefaultLabel || 'React' );
+			ctx.reactionLabel = newType ? label : ( viewer().reactDefaultLabel || 'React' );
 
 			try {
 				const res = yield restFetch( '/reactions/toggle', {
 					method:  'POST',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 					body:    { object_type: 'post', object_id: ctx.postId, emoji: newType },
 				} );
@@ -1925,7 +1934,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/bookmark', {
 					method,
-					nonce: ctx.bookmarkNonce,
+					nonce: viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -2000,7 +2009,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch(
 					'/reactions/list?object_type=' + encodeURIComponent( objectType ) + '&object_id=' + encodeURIComponent( objectId ) + '&limit=100',
-					{ nonce: ctx.reactNonce, toastOnError: false }
+					{ nonce: viewer().restNonce, toastOnError: false }
 				);
 				while ( listEl.firstChild ) { listEl.removeChild( listEl.firstChild ); }
 				if ( res.ok ) {
@@ -2107,7 +2116,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
 					method:  'DELETE',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -2167,8 +2176,8 @@ store( 'buddynext/post-card', {
 						permalink,
 						author,
 						excerpt,
-						nonce:     ctx.shareNonce,
-						restUrl:   ctx.restUrl,
+						nonce:     viewer().restNonce,
+						restUrl:   viewer().restUrl,
 						canRepost: !! btn && '1' === btn.getAttribute( 'data-can-repost' ),
 						shareable: !! btn && '1' === btn.getAttribute( 'data-shareable' ),
 					},
@@ -2184,7 +2193,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/share', {
 					method:  'POST',
-					nonce:   ctx.shareNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
@@ -2212,7 +2221,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/reports', {
 					method:  'POST',
-					nonce:   ctx.reportNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 					body:    {
 						object_type: 'post',
@@ -2304,7 +2313,7 @@ store( 'buddynext/post-card', {
 			let mediaItems  = [];
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
-					nonce: ctx.reactNonce,
+					nonce: viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -2458,7 +2467,7 @@ store( 'buddynext/post-card', {
 						// Staged private like the composer's uploads; the post's own
 						// privacy is applied to it when the edit is saved.
 						const out = await uploadMedia( file, {
-							nonce: ctx.reactNonce,
+							nonce: viewer().restNonce,
 							privacy: 'private',
 							spaceId: postSpaceId,
 							onProgress: ( percent ) => {
@@ -2483,7 +2492,7 @@ store( 'buddynext/post-card', {
 
 				mediaRow.appendChild( tiles );
 				// Removing is always allowed; adding only where the site lets this member upload.
-				if ( ctx.canUploadMedia ) {
+				if ( viewer().canUploadMedia ) {
 					mediaRow.appendChild( addBtn );
 					mediaRow.appendChild( picker );
 				}
@@ -2606,7 +2615,7 @@ store( 'buddynext/post-card', {
 				try {
 					const res = await restFetch( '/posts/' + ctx.postId, {
 						method:  'PUT',
-						nonce:   ctx.reactNonce,
+						nonce:   viewer().restNonce,
 						toastOnError: false,
 						body:    payload,
 					} );
@@ -2653,7 +2662,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/pin', {
 					method:  prev ? 'DELETE' : 'POST',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -2684,7 +2693,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/pin', {
 					method:  'DELETE',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
@@ -2770,7 +2779,7 @@ store( 'buddynext/post-card', {
 				// retry until the member verifies, so offer a Resend link instead
 				// of a dead Retry - mirroring the composer's affordance.
 				if ( 'email_unverified' === code ) {
-					appendResendVerifyButton( alertEl, ctx.reactNonce );
+					appendResendVerifyButton( alertEl, viewer().restNonce );
 				} else if ( appealUrl ) {
 					// A suspension cannot be retried away. Offer the appeal page
 					// instead of a control that is guaranteed to fail.
@@ -2783,7 +2792,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/comments', {
 					method:  'POST',
-					nonce:   ctx.reactNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 					body:    { object_type: 'post', object_id: ctx.postId, content },
 				} );
@@ -2795,7 +2804,7 @@ store( 'buddynext/post-card', {
 					const listEl        = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
 					if ( listEl ) {
 						listEl.dataset.loaded = '1';
-						listEl.appendChild( buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 ) );
+						listEl.appendChild( buildCommentNode( comment, viewer().viewerId, ctx.postId, viewer().restUrl, viewer().restNonce, 0 ) );
 					}
 					clearField( inputEl );
 					adjustCommentCount( ctx.postId, 1 );
@@ -2826,7 +2835,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId + '/vote', {
 					method:  'POST',
-					nonce:   ctx.pollNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 					body:    { option_id: optionId },
 				} );
@@ -2867,7 +2876,7 @@ store( 'buddynext/post-card', {
 			try {
 				res = yield restFetch( '/feed/announcements/' + ctx.postId + '/dismiss', {
 					method:  'POST',
-					nonce:   ctx.dismissNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 			} catch ( _e ) {
@@ -2896,7 +2905,7 @@ store( 'buddynext/post-card', {
 			try {
 				const res = yield restFetch( '/feed/announcements/' + ctx.postId + '/end', {
 					method:  'POST',
-					nonce:   ctx.dismissNonce,
+					nonce:   viewer().restNonce,
 					toastOnError: false,
 				} );
 				// Only drop the banner once the server confirms the end —

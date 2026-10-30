@@ -44,8 +44,18 @@ function fmt( tpl, value ) {
 
 /* -- Helpers ----------------------------------------------------------- */
 
-function ctxNonce( ctx ) {
-	return ( ctx && ctx.nonce ) || '';
+/*
+ * The viewer's REST nonce and base are the same on every follow / connection
+ * button, so AssetService publishes them once as buddynext/follow-button state
+ * instead of in each button's context (a feed byline or member grid repeated
+ * them per button). The ctx argument is kept so callers stay unchanged.
+ */
+function shared() {
+	return store( 'buddynext/follow-button' ).state;
+}
+
+function ctxNonce() {
+	return shared().restNonce || '';
 }
 
 function followLabel( ctx ) {
@@ -127,7 +137,7 @@ const followButtonStore = store( 'buddynext/follow-button', {
 			try {
 				const res = await restFetch( '/users/' + userId + '/follow', {
 					method:       ( wasFollowing || wasPending ) ? 'DELETE' : 'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -228,7 +238,7 @@ store( 'buddynext/follow-requests', {
 			try {
 				const res = await restFetch( '/me/follow-requests/' + ctx.followerId + '/approve', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -250,7 +260,7 @@ store( 'buddynext/follow-requests', {
 			try {
 				const res = await restFetch( '/me/follow-requests/' + ctx.followerId + '/reject', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -286,7 +296,7 @@ store( 'buddynext/connection-requests', {
 			try {
 				const res = await restFetch( '/users/' + ctx.requesterId + '/connect/accept', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -308,7 +318,7 @@ store( 'buddynext/connection-requests', {
 			try {
 				const res = await restFetch( '/users/' + ctx.requesterId + '/connect/decline', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -369,7 +379,7 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					body:         { note: note },
 					toastOnError: false,
@@ -394,7 +404,7 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
 					method:       'DELETE',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -418,7 +428,7 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/accept', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -442,7 +452,7 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/decline', {
 					method:       'POST',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
@@ -467,7 +477,7 @@ store( 'buddynext/connection-button', {
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
 					method:       'DELETE',
-					base:         ctx.restUrl || undefined,
+					base:         shared().restUrl || undefined,
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );

@@ -41,8 +41,6 @@ $context_json = (string) wp_json_encode(
 		'isFollowing'   => $is_following,
 		'isPending'     => $is_pending,
 		'privateFollow' => $private_follow,
-		'nonce'         => wp_create_nonce( 'wp_rest' ),
-		'restUrl'       => rest_url( 'buddynext/v1' ),
 	)
 );
 

@@ -78,7 +78,6 @@ if ( $bn_privacy_svc && method_exists( $bn_privacy_svc, 'can_connect' ) ) {
 	$bn_can_connect = (bool) $bn_privacy_svc->can_connect( $viewer_id, $user_id );
 }
 
-$nonce = wp_create_nonce( 'wp_rest' );
 
 // The connection store builds its toasts as "@" . targetName, so pass the
 // @handle (user_nicename). Without it the store falls back to "#<id>" and
@@ -93,8 +92,6 @@ $context_attr = esc_attr(
 			'userId'     => $user_id,
 			'targetName' => $bn_conn_name,
 			'status'     => $ctx_status,
-			'nonce'      => $nonce,
-			'restUrl'    => rest_url( 'buddynext/v1' ),
 		)
 	)
 );

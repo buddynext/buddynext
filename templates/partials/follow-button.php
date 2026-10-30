@@ -109,8 +109,6 @@ $context_attr = esc_attr(
 			'isFollowing'   => $is_following,
 			'isPending'     => $is_pending,
 			'privateFollow' => $private_follow,
-			'nonce'         => wp_create_nonce( 'wp_rest' ),
-			'restUrl'       => rest_url( 'buddynext/v1' ),
 		)
 	)
 );

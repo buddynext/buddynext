@@ -68,8 +68,6 @@ $context_json = (string) wp_json_encode(
 		'userId'     => $user_id,
 		'targetName' => $bn_cb_name,
 		'status'     => $ctx_status,
-		'nonce'      => wp_create_nonce( 'wp_rest' ),
-		'restUrl'    => rest_url( 'buddynext/v1' ),
 	)
 );
 ?>

@@ -1066,6 +1066,32 @@ class AssetService {
 	 * @return void
 	 */
 	private function i18n_feed(): void {
+		// Per-viewer values every post card needs. They used to ride in each card's
+		// data-wp-context (a 20-card feed hydrated the same nonce, user id and REST
+		// base 20 times); one state entry serves every card, including cards in
+		// blocks on non-community pages.
+		$viewer_id = get_current_user_id();
+		// The follow and connection buttons share one store file and the same two
+		// per-viewer values; one entry serves every button on the page.
+		wp_interactivity_state(
+			'buddynext/follow-button',
+			array(
+				'restNonce' => $viewer_id > 0 ? wp_create_nonce( 'wp_rest' ) : '',
+				'restUrl'   => rest_url( 'buddynext/v1' ),
+			)
+		);
+
+		wp_interactivity_state(
+			'buddynext/post-card',
+			array(
+				'viewerId'          => $viewer_id,
+				'restNonce'         => $viewer_id > 0 ? wp_create_nonce( 'wp_rest' ) : '',
+				'restUrl'           => rest_url( 'buddynext/v1' ),
+				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $viewer_id ),
+				'reactDefaultLabel' => __( 'React', 'buddynext' ),
+			)
+		);
+
 		wp_interactivity_state(
 			'buddynext/feed',
 			array(

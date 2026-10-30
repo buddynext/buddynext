@@ -1305,15 +1305,8 @@ function initRealtimeCommentIndicator() {
 			return;
 		}
 		// Skip the viewer's own comment (already inserted optimistically
-		// by submitComment). Resolve current user via the closest
-		// post-card context.
-		const card = list.closest( '[data-wp-interactive="buddynext/post-card"]' );
-		if ( card ) {
-			try {
-				const ctx = JSON.parse( card.dataset.wpContext || '{}' );
-				if ( parseInt( ctx.currentUserId, 10 ) === commenterId ) { return; }
-			} catch ( _e ) {}
-		}
+		// by submitComment). The viewer id is shared post-card state.
+		if ( parseInt( store( 'buddynext/post-card' ).state.viewerId, 10 ) === commenterId ) { return; }
 
 		let pill = list.previousElementSibling;
 		if ( ! pill || ! pill.classList.contains( 'bn-comment-new-pill' ) ) {
