@@ -48,13 +48,10 @@ final class CommentThread {
 
 	/**
 	 * Constructor.
-	 *
-	 * @param CommentService|null  $comments  Comment service.
-	 * @param ReactionService|null $reactions Reaction service.
 	 */
-	public function __construct( ?CommentService $comments = null, ?ReactionService $reactions = null ) {
-		$this->comments  = $comments ?? new CommentService();
-		$this->reactions = $reactions ?? new ReactionService();
+	public function __construct() {
+		$this->comments  = new CommentService();
+		$this->reactions = new ReactionService();
 	}
 
 	/**
@@ -206,8 +203,7 @@ final class CommentThread {
 	 * @return array<int, array{slug:string, label:string, char:string, color:string, emoji_url:string}>
 	 */
 	public static function reaction_set( int $viewer_id ): array {
-		$features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-		if ( is_object( $features ) && ! $features->is_enabled( 'reactions' ) ) {
+		if ( ! buddynext_feature_enabled( 'reactions' ) ) {
 			return array();
 		}
 		if ( $viewer_id > 0 && ! buddynext_can( $viewer_id, 'buddynext-feed/interact' ) ) {

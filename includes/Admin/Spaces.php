@@ -1355,7 +1355,7 @@ class Spaces extends AdminPageBase {
 		if ( $space_id > 0 ) {
 			if ( $feature ) {
 				if ( ! in_array( $space_id, $current, true ) ) {
-					if ( ! \BuddyNext\Spaces\FeaturedSpaces::can_feature( $space_id ) ) {
+					if ( array() === \BuddyNext\Spaces\FeaturedSpaces::featurable( array( $space_id ) ) ) {
 						$args['feature_error'] = 'subspace';
 					} elseif ( count( $current ) >= \BuddyNext\Spaces\FeaturedSpaces::limit() ) {
 						$args['feature_error'] = 'limit';

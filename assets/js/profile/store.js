@@ -2680,18 +2680,14 @@ async function doReport( ctx, result, trigger ) {
 			},
 		} );
 		var data = res.data || {};
-		// Already reported: the report is on file, so show the member as reported.
-		if ( 409 === res.status ) {
-			bnMarkReported( trigger );
-			bnToast( data.message || t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'info' } );
-			return;
-		}
-		if ( ! res.ok && res.status !== 201 ) {
+		// 409 = already reported: the report is on file, so show it as reported too.
+		if ( ! res.ok && 409 !== res.status ) {
 			bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 			return;
 		}
+		var done = t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' );
 		bnMarkReported( trigger );
-		bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+		bnToast( res.ok ? done : ( data.message || done ), { tone: res.ok ? 'success' : 'info' } );
 	} catch ( _e ) {
 		bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 	} finally {

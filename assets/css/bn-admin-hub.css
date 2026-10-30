@@ -698,10 +698,12 @@
 	font-weight: var(--bn-fw-medium, 500);
 	line-height: 1.3;
 }
-/* Touch (iPad included) and narrow screens: nav links meet the 40px tap
-   floor; a mouse keeps the compact desktop rail. */
+/* Touch (iPad included) and narrow screens: nav links and the header Search /
+   Docs buttons meet the 40px tap floor; a mouse keeps the compact desktop rail. */
 @media (pointer: coarse), (max-width: 782px) {
-	.bn-hub-nav-link { box-sizing: border-box; min-block-size: var(--bn-tap, 40px); }
+	.bn-hub-nav-link,
+	.bn-admin-hub__brand-search,
+	.bn-admin-hub__brand-link { box-sizing: border-box; min-block-size: var(--bn-tap, 40px); }
 }
 .bn-hub-nav-link:hover { background: var(--bn-sunken); color: var(--bn-ink); }
 .bn-hub-nav-link:focus-visible {
@@ -894,10 +896,6 @@
 }
 .bn-admin-hub__brand-search:hover,
 .bn-admin-hub__brand-link:hover { background: var(--bn-sunken); color: var(--bn-ink); }
-@media (pointer: coarse), (max-width: 782px) {
-	.bn-admin-hub__brand-search,
-	.bn-admin-hub__brand-link { box-sizing: border-box; min-block-size: var(--bn-tap, 40px); }
-}
 .bn-admin-hub__brand-search kbd {
 	font-family: var(--bn-font-mono);
 	font-size: 10px;

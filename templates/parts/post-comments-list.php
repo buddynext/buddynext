@@ -73,8 +73,7 @@ $bn_emoji_base = plugins_url( 'assets/emoji/', dirname( __DIR__, 1 ) );
 // The viewer's reaction set: the owner-enabled reactions (plus Pro customs), or
 // none when Reactions is off or the viewer may not interact. One source with the
 // rendered comments (CommentThread::reaction_set()).
-$bn_reactions         = \BuddyNext\Comments\CommentThread::reaction_set( (int) $args['viewer_id'] );
-$bn_reactions_enabled = ! empty( $bn_reactions );
+$bn_reactions = \BuddyNext\Comments\CommentThread::reaction_set( (int) $args['viewer_id'] );
 
 // First page rendered here when the thread opens at first paint (the post's own
 // page), so the conversation is in the HTML; later pages come from the API as HTML
@@ -88,7 +87,6 @@ if ( $args['first_page'] ) {
 	class="<?php echo esc_attr( $bn_class ); ?>"
 	data-comment-list="<?php echo absint( $args['bn_post_id'] ); ?>"
 	data-emoji-base="<?php echo esc_attr( trailingslashit( $bn_emoji_base ) ); ?>"
-	data-reactions-enabled="<?php echo $bn_reactions_enabled ? '1' : '0'; ?>"
 	data-reactions="<?php echo esc_attr( (string) wp_json_encode( $bn_reactions ) ); ?>"
 	data-per-page="<?php echo absint( \BuddyNext\Comments\CommentThread::PAGE_SIZE ); ?>"
 	<?php if ( null !== $bn_first ) : ?>

@@ -834,7 +834,6 @@ var storeInstance = store( 'buddynext/spaces', {
 		// Savebar: the bar is hidden only in the idle phase; each status pill is
 		// hidden unless its phase is the active one.
 		get savebarHidden() { return ! storeInstance.state.savebarHasForm; },
-		get savebarCancelHidden() { return 'dirty' !== storeInstance.state.savebarPhase; },
 		get savebarDirtyHidden() { return 'dirty' !== storeInstance.state.savebarPhase; },
 		get savebarSavingHidden() { return 'saving' !== storeInstance.state.savebarPhase; },
 		get savebarSavedHidden() { return 'saved' !== storeInstance.state.savebarPhase; },
@@ -1156,15 +1155,11 @@ var storeInstance = store( 'buddynext/spaces', {
 				body:         { object_type: 'space', object_id: parseInt( spaceId, 10 ), reason: result.reason || 'other', notes: result.notes || '' },
 			} );
 			var data = res.data || {};
-			if ( res.ok || 201 === res.status ) {
+			// 409 = already reported: the report is on file, so show it as reported too.
+			if ( res.ok || 409 === res.status ) {
+				var done = t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' );
 				bnMarkReported( trigger );
-				bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
-				return;
-			}
-			// Already reported: the report is on file, so show the space as reported.
-			if ( 409 === res.status ) {
-				bnMarkReported( trigger );
-				bnToast( data.message || t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'info' } );
+				bnToast( res.ok ? done : ( data.message || done ), { tone: res.ok ? 'success' : 'info' } );
 				return;
 			}
 			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );

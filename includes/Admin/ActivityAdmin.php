@@ -449,7 +449,6 @@ class ActivityAdmin implements ListenerInterface {
 			?>
 			<fieldset class="bn-activity-edit__attachments">
 				<legend><?php esc_html_e( 'Attachments', 'buddynext' ); ?></legend>
-				<input type="hidden" name="has_media" value="1">
 				<ul class="bn-activity-edit__media">
 					<?php
 					foreach ( $media_ids as $media_id ) :
@@ -533,7 +532,7 @@ class ActivityAdmin implements ListenerInterface {
 
 		// Detach only what was ticked: media_ids is the post's complete new list.
 		$remove = isset( $_POST['remove_media'] ) ? array_map( 'absint', (array) wp_unslash( $_POST['remove_media'] ) ) : array();
-		if ( ! empty( $_POST['has_media'] ) && $remove ) {
+		if ( $remove ) {
 			$post = buddynext_service( 'post_service' )->get( $post_id );
 			if ( is_array( $post ) ) {
 				$current           = array_map( 'absint', (array) ( $post['media_ids'] ?? array() ) );

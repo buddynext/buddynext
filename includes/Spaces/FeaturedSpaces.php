@@ -132,20 +132,6 @@ class FeaturedSpaces {
 	}
 
 	/**
-	 * Whether a space can be featured: it exists, is not archived and is
-	 * top-level. The same rule set_ids() applies, for callers that need to say
-	 * why a space was not added.
-	 *
-	 * @since 1.2.8
-	 *
-	 * @param int $space_id Space id.
-	 * @return bool
-	 */
-	public static function can_feature( int $space_id ): bool {
-		return $space_id > 0 && array() !== self::featurable( array( $space_id ) );
-	}
-
-	/**
 	 * The ids, in order, that can be featured (one query for the whole list).
 	 *
 	 * @since 1.2.8

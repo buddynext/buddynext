@@ -30,6 +30,16 @@ use BuddyNext\REST\BaseRestController;
 class CommentController extends BaseRestController {
 
 	/**
+	 * The web client asks for each comment's rendered HTML too
+	 * (templates/parts/comment.php); the app reads the JSON only.
+	 */
+	private const RENDER_ARG = array(
+		'required' => false,
+		'type'     => 'string',
+		'enum'     => array( 'html' ),
+	);
+
+	/**
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
@@ -61,13 +71,7 @@ class CommentController extends BaseRestController {
 							'type'     => 'integer',
 							'minimum'  => 1,
 						),
-						// The web client asks for each comment's rendered HTML too
-						// (templates/parts/comment.php); the app reads the JSON only.
-						'render'      => array(
-							'required' => false,
-							'type'     => 'string',
-							'enum'     => array( 'html' ),
-						),
+						'render'      => self::RENDER_ARG,
 					),
 				),
 				array(
@@ -75,13 +79,7 @@ class CommentController extends BaseRestController {
 					'callback'            => array( $this, 'list_comments' ),
 					'permission_callback' => '__return_true',
 					'args'                => array(
-						// The web client asks for each comment's rendered HTML too
-						// (templates/parts/comment.php); the app reads the JSON only.
-						'render'      => array(
-							'required' => false,
-							'type'     => 'string',
-							'enum'     => array( 'html' ),
-						),
+						'render'      => self::RENDER_ARG,
 						'object_type' => array(
 							'required'          => true,
 							'type'              => 'string',
@@ -126,13 +124,7 @@ class CommentController extends BaseRestController {
 							'required' => true,
 							'type'     => 'string',
 						),
-						// The web client asks for each comment's rendered HTML too
-						// (templates/parts/comment.php); the app reads the JSON only.
-						'render'  => array(
-							'required' => false,
-							'type'     => 'string',
-							'enum'     => array( 'html' ),
-						),
+						'render'  => self::RENDER_ARG,
 					),
 				),
 				array(

@@ -1332,7 +1332,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	public function render_reaction_palette(): void {
 		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::available_reaction_types();
 		$bn_enabled_reactions    = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
-		$bn_reactions_on         = self::reactions_feature_on();
+		$bn_reactions_on         = buddynext_feature_enabled( 'reactions' );
 		$bn_reaction_field_class = $bn_reactions_on ? 'bn-field bn-reaction-field' : 'bn-field bn-reaction-field is-disabled';
 		?>
 		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
@@ -2365,23 +2365,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$all = \BuddyNext\Reactions\ReactionService::available_reaction_types();
 		// With Reactions off the palette renders disabled and posts nothing; reading
 		// that as "none ticked" reset the owner's choice to all of them.
-		if ( ! self::reactions_feature_on() ) {
+		if ( ! buddynext_feature_enabled( 'reactions' ) ) {
 			return (array) get_option( 'buddynext_enabled_reactions', $all );
 		}
 
 		$chosen = array_values( array_intersect( $all, array_map( 'sanitize_key', (array) $value ) ) );
 
 		return empty( $chosen ) ? $all : $chosen;
-	}
-
-	/**
-	 * Whether the Reactions feature is on (the palette is editable).
-	 *
-	 * @return bool
-	 */
-	private static function reactions_feature_on(): bool {
-		$features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-		return ! is_object( $features ) || ! method_exists( $features, 'is_enabled' ) || $features->is_enabled( 'reactions' );
 	}
 
 	/**

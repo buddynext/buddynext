@@ -914,12 +914,6 @@ async function reportComment( card, btn ) {
 	if ( null === result ) {
 		return;
 	}
-	// The control shows the report landed, like the post-level Report.
-	const markReported = () => {
-		btn.disabled = true;
-		btn.classList.add( 'is-reported' );
-		setCommentActionLabel( btn, t( 'reported', 'Reported' ) );
-	};
 	try {
 		const res = await restFetch( '/reports', {
 			method:  'POST',
@@ -928,15 +922,15 @@ async function reportComment( card, btn ) {
 			body:    { object_type: 'comment', object_id: Number( card.dataset.commentId ), reason: result.reason, notes: result.notes },
 		} );
 		const data = res.data || {};
-		if ( res.ok || 201 === res.status ) {
-			markReported();
-			bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
-		} else if ( 409 === res.status ) {
-			markReported();
-			bnToast( data.message || t( 'reportAlready', 'You already reported this.' ), { tone: 'info' } );
-		} else {
+		// 409 = already reported: the report is on file, so show it as reported too.
+		if ( ! res.ok && 409 !== res.status ) {
 			bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+			return;
 		}
+		// The control shows the report landed, like the post-level Report.
+		btn.disabled = true;
+		setCommentActionLabel( btn, t( 'reported', 'Reported' ) );
+		bnToast( res.ok ? t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ) : ( data.message || t( 'reportAlready', 'You already reported this.' ) ), { tone: res.ok ? 'success' : 'info' } );
 	} catch ( _e ) {
 		bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 	}
