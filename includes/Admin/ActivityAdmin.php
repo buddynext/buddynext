@@ -295,6 +295,10 @@ class ActivityAdmin implements ListenerInterface {
 												<span class="bn-col-muted">@<?php echo esc_html( $author->user_login ); ?></span>
 											<?php endif; ?>
 										</span>
+										<button type="button" class="toggle-row">
+											<?php buddynext_icon( 'chevron-down', 'bn-toggle-row__icon' ); ?>
+											<span class="screen-reader-text"><?php esc_html_e( 'Show more details', 'buddynext' ); ?></span>
+										</button>
 									</div>
 								</td>
 								<td class="bn-activity-content" data-colname="<?php esc_attr_e( 'Content', 'buddynext' ); ?>">
@@ -320,10 +324,10 @@ class ActivityAdmin implements ListenerInterface {
 									</time>
 								</td>
 								<td data-align="end" data-colname="<?php esc_attr_e( 'Actions', 'buddynext' ); ?>">
-									<div class="bn-activity-actions">
+									<div class="bn-row-actions">
 										<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $permalink ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
 										<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( add_query_arg( 'edit_post', $pid, $base_url ) ); ?>"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-activity-actions__del">
+										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form">
 											<input type="hidden" name="action" value="bn_activity_delete">
 											<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $pid ); ?>">
 											<?php wp_nonce_field( 'bn_activity_delete_' . $pid ); ?>

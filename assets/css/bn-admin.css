@@ -2496,8 +2496,11 @@ button.bn-btn-danger:hover {
 		font-size: var(--bn-a-text-xs);
 	}
 
+	/* Column utilities: hide the cell, never inline text that borrows the muted
+	   look (Activity's "no space" dash and engagement counts went blank). */
 	.bn-col-email,
-	.bn-col-muted {
+	th.bn-col-muted,
+	td.bn-col-muted {
 		display: none;
 	}
 
@@ -4266,23 +4269,6 @@ code.bn-ep-code {
 	max-width: 32ch;
 }
 
-.bn-activity-actions {
-	display: flex;
-	flex-wrap: nowrap;
-	align-items: center;
-	justify-content: flex-end;
-	gap: var(--bn-s2);
-}
-
-.bn-activity-actions .bn-btn {
-	flex: 0 0 auto;
-}
-
-.bn-activity-actions__del {
-	margin: 0;
-	display: inline-flex;
-}
-
 .bn-activity-edit .bn-textarea {
 	width: 100%;
 }
@@ -4308,10 +4294,6 @@ code.bn-ep-code {
 
 	.bn-activity-preview {
 		max-width: none;
-	}
-
-	.bn-activity-actions {
-		justify-content: flex-start;
 	}
 }
 
