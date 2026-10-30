@@ -1109,14 +1109,28 @@
 	font-weight: var(--bn-a-fw-semibold);
 }
 
+/* Phones: the check keeps its own column and the text and action share the
+   second, so the check stays beside the title. A wrapping flex row dropped
+   the whole text block under the check, and the theme step's three buttons
+   ran off the screen. */
 @media (max-width: 640px) {
 	.bn-setup-step {
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: 22px minmax(0, 1fr);
+		column-gap: var(--bn-a-s3);
+		row-gap: var(--bn-a-s2);
+		align-items: start;
 	}
 
 	.bn-setup-step__cta,
-	.bn-setup-step__status {
-		margin-inline-start: calc(22px + var(--bn-a-s3));
+	.bn-setup-step__status,
+	.bn-setup-step__actions {
+		grid-column: 2;
+		justify-self: start;
+	}
+
+	.bn-setup-step__actions {
+		flex-wrap: wrap;
 	}
 }
 
