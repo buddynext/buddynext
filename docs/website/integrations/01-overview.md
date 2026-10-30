@@ -8,7 +8,7 @@ Integrations let your community grow into messaging, forums, gamification, jobs,
 
 A community rarely needs everything on day one. Most owners start with the social core - profiles, a feed, spaces, follows - and add capabilities as the community grows. Integrations let you do exactly that: keep BuddyNext lean, then switch on direct messaging when members ask for it, or forums when discussions get long, or points and badges when you want to reward activity.
 
-The point is to extend the community without bloating the core. BuddyNext does not bundle a messaging engine, a forum, or a points system into its own code. Instead it recognizes companion plugins when they are present and hands the relevant work to them. If a companion is not installed, BuddyNext simply does not show that capability - nothing is loaded, nothing slows the site down.
+The point is to extend the community without bloating the core. BuddyNext does not bundle a messaging engine, a forum, or a points system into its own code. Instead it recognizes companion plugins when they are present and hands the relevant work to them. If a companion is not installed, BuddyNext simply does not show that capability: its integration checks for the companion, finds it missing and stands down, so none of the companion's features run and nothing slows the site down.
 
 This matters for two kinds of people:
 
@@ -32,7 +32,7 @@ BuddyNext keeps a catalog of companion plugins it knows how to work with. Each o
 
 Each integration has its own setup page in this section - open the page for the one you want for the full walkthrough of its settings and member experience.
 
-> **Note:** Direct messaging in BuddyNext is provided by MediaVerse. BuddyNext renders the messaging interface, but the underlying engine lives in MediaVerse - so messaging only appears once MediaVerse is installed and active and its Messages switch is on (MediaVerse > Settings > Social > Messages).
+> **Note:** Direct messaging in BuddyNext is provided by MediaVerse. BuddyNext renders the messaging interface, but the underlying engine lives in MediaVerse - so messaging only appears once MediaVerse is installed and active and its Messages switch is on (MediaVerse > Settings > Social > Messages; on by default).
 
 ### One rule for every integration
 
