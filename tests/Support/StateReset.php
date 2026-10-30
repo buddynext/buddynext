@@ -181,6 +181,7 @@ final class StateReset implements BeforeTestHook {
 			'viewer_space_memo' => array(),
 			'ceilings'          => array(),
 			'ft_min_token'      => null,
+			'has_fulltext'      => null,
 		),
 		\BuddyNext\Feed\ShareService::class               => array( 'shared_memo' => array() ),
 		\BuddyNext\Feed\FeedService::class                => array( 'excluded_space_ids' => null ),
