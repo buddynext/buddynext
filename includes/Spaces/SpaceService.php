@@ -237,6 +237,49 @@ class SpaceService {
 	}
 
 	/**
+	 * Categories a space can be filed under, for every create/edit picker.
+	 *
+	 * One list for the directory create form, the create-sub-space form and space
+	 * settings, so they cannot drift apart. Categories hidden from the directory
+	 * are included: hidden only keeps them out of the directory filter chips.
+	 *
+	 * @return array<int, object{id:int, name:string, slug:string}>
+	 */
+	public function category_choices(): array {
+		return array_map(
+			static fn( array $c ): object => (object) array(
+				'id'   => (int) $c['id'],
+				'name' => (string) $c['name'],
+				'slug' => (string) $c['slug'],
+			),
+			( new SpaceCategoryService() )->get_all()
+		);
+	}
+
+	/**
+	 * The category id to store for a space: null for none, or an existing category.
+	 *
+	 * The one check every create and update path (front-end forms, REST, app)
+	 * goes through. A category hidden from the directory is still a valid pick.
+	 *
+	 * @param int $category_id Requested category id; 0 or less means none.
+	 * @return int|null|WP_Error The id, null for none, or 400 for a missing category.
+	 */
+	private function resolve_category( int $category_id ): int|null|WP_Error {
+		if ( $category_id <= 0 ) {
+			return null;
+		}
+		if ( null === ( new SpaceCategoryService() )->get_by_id( $category_id ) ) {
+			return new WP_Error(
+				'buddynext_invalid_category',
+				__( 'That category does not exist. Pick another one.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+		return $category_id;
+	}
+
+	/**
 	 * Run the banned-words / blocklist scan over a space's name and description.
 	 *
 	 * Name and description are scanned as separate calls so the rejection copy
@@ -433,11 +476,17 @@ class SpaceService {
 			}
 		}
 
-		// Fall back to the configured default category when none is chosen.
-		$category_id = ( isset( $data['category_id'] ) && (int) $data['category_id'] > 0 )
-			? (int) $data['category_id']
-			: (int) get_option( 'buddynext_space_default_category', 0 );
-		$category_id = $category_id > 0 ? $category_id : null;
+		// A chosen category must exist; with none chosen, the configured default
+		// applies when it still exists (a deleted default just means no category).
+		if ( isset( $data['category_id'] ) && (int) $data['category_id'] > 0 ) {
+			$category_id = $this->resolve_category( (int) $data['category_id'] );
+			if ( is_wp_error( $category_id ) ) {
+				return $category_id;
+			}
+		} else {
+			$category_id = $this->resolve_category( (int) get_option( 'buddynext_space_default_category', 0 ) );
+			$category_id = is_wp_error( $category_id ) ? null : $category_id;
+		}
 
 		// Banned-words / blocklist scan on the space's public text, so a rule
 		// enforced on posts and comments cannot be evaded by putting the text in a
@@ -596,7 +645,11 @@ class SpaceService {
 			$format[]       = '%s';
 		}
 		if ( isset( $data['category_id'] ) ) {
-			$fields['category_id'] = (int) $data['category_id'];
+			$category_id = $this->resolve_category( (int) $data['category_id'] );
+			if ( is_wp_error( $category_id ) ) {
+				return $category_id;
+			}
+			$fields['category_id'] = $category_id;
 			$format[]              = '%d';
 		}
 		if ( isset( $data['slug'] ) ) {

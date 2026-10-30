@@ -773,7 +773,8 @@ $bn_subtitle = sprintf(
 		buddynext_get_template(
 			'partials/create-space-modal.php',
 			array(
-				'categories'    => $categories,
+				// Every category, hidden ones included; the chips above list only visible ones.
+				'categories'    => $bn_space_service->category_choices(),
 				'parent_spaces' => $bn_create_parent_spaces,
 			)
 		);

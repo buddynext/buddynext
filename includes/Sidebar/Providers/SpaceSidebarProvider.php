@@ -148,16 +148,7 @@ class SpaceSidebarProvider {
 
 		// Categories for the create-sub-space modal — only fetched for a manager
 		// who can actually add one (the modal is not rendered otherwise).
-		$sub_categories = $can_manage_sub
-			? array_map(
-				static fn( $c ) => (object) array(
-					'id'   => (int) $c['id'],
-					'name' => (string) $c['name'],
-					'slug' => (string) $c['slug'],
-				),
-				$space_service->categories_with_counts()
-			)
-			: array();
+		$sub_categories = $can_manage_sub ? $space_service->category_choices() : array();
 
 		// Card: About this space. Qualitative context only (description + type +
 		// created + category); the Members / Posts counts live in the hero stat

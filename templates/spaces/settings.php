@@ -70,8 +70,7 @@ $bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-own-space', array( 
 // Services own every read/write below; the template holds no SQL. The settings
 // parts read `$space` as SpaceService::get_object() shapes it, with the category
 // name and slug resolved.
-$bn_space_service    = new \BuddyNext\Spaces\SpaceService();
-$bn_category_service = new \BuddyNext\Spaces\SpaceCategoryService();
+$bn_space_service = new \BuddyNext\Spaces\SpaceService();
 
 $space = $bn_space_service->get_object( $space_id );
 
@@ -79,16 +78,8 @@ if ( ! $space ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ), '', array( 'response' => 404 ) );
 }
 
-// Category options for the General panel's <select> — the part reads each row
-// as an object (`->id`, `->name`), so map the service arrays accordingly.
-$categories = array_map(
-	static fn( array $c ): object => (object) array(
-		'id'   => (int) ( $c['id'] ?? 0 ),
-		'name' => (string) ( $c['name'] ?? '' ),
-		'slug' => (string) ( $c['slug'] ?? '' ),
-	),
-	$bn_category_service->get_all()
-);
+// Category options for the General panel's <select>: the same list every picker uses.
+$categories = $bn_space_service->category_choices();
 
 // ── Active settings tab ───────────────────────────────────────────────────────
 // Read the raw value from the URL — validation against the (possibly
