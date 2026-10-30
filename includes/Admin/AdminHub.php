@@ -1411,6 +1411,17 @@ class AdminHub {
 
 		foreach ( self::sections() as $section ) {
 			if ( (string) ( $section['slug'] ?? '' ) === $page ) {
+				// Core calls get_admin_page_parent() right after this filter
+				// (menu-header.php). An unlinked section sits in $submenu[''] (the
+				// null-parent registration), so core found it there and reset the
+				// parent to '', undoing this filter on every unlinked section.
+				// Access was checked before the header, so dropping the entry here
+				// changes nothing but the highlight.
+				// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- removing our own hidden entry so core keeps the parent set above.
+				$GLOBALS['submenu'][''] = array_filter(
+					(array) ( $GLOBALS['submenu'][''] ?? array() ),
+					static fn( $item ): bool => ( $item[2] ?? '' ) !== $page
+				);
 				return self::TOP_SLUG;
 			}
 		}
