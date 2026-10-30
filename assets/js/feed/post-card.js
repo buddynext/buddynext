@@ -349,15 +349,9 @@ function updateReactionSummary( cardEl, body ) {
 	);
 }
 
-/**
- * Maximum visual nesting depth. Replies deeper than this are flattened
- * to depth = MAX_DEPTH with an "@parent" mention prefix injected by the
- * server so the conversation stays readable on narrow screens.
- */
-// Maximum reply depth shown in the threaded view. Beyond this, the
-// `Reply` button reuses the deepest ancestor's parent_id so the new
-// reply appears at the cap level (Discord-style fold-back rather than
-// infinite nesting). Server enforces the same cap during list().
+// Thread levels (CommentService::MAX_REPLY_DEPTH). Reply on the deepest level
+// posts to that comment's parent, so the reply lands beside it (fold-back
+// rather than infinite nesting); create() refuses anything deeper.
 const COMMENT_MAX_DEPTH = 5;
 
 // Top-level comments fetched per page (initial load AND each "View more"
@@ -721,23 +715,28 @@ async function submitReply( form ) {
 	if ( ! content || ! postId ) {
 		return;
 	}
+	// The server refuses a reply below the deepest level, so a reply there
+	// joins that level: it goes to the same parent, as a sibling.
+	const atCap = Number( card.dataset.depth || 0 ) >= COMMENT_MAX_DEPTH - 1;
+	const host  = ( atCap && card.parentElement.closest( '.bn-comment-card' ) ) || card;
 	try {
 		const res = await restFetch( '/comments', {
 			method:  'POST',
 			nonce:   viewer().restNonce,
 			toastOnError: false,
-			body:    { object_type: 'post', object_id: postId, content, parent_id: Number( card.dataset.commentId ), render: 'html' },
+			body:    { object_type: 'post', object_id: postId, content, parent_id: Number( host.dataset.commentId ), render: 'html' },
 		} );
 		if ( res.ok ) {
-			let replies = commentPart( card, '.bn-comment__replies' );
+			let replies = commentPart( host, '.bn-comment__replies' );
 			if ( ! replies ) {
 				replies = document.createElement( 'div' );
 				replies.className = 'bn-comment__replies';
-				card.querySelector( ':scope > .bn-comment__body' ).appendChild( replies );
+				host.querySelector( ':scope > .bn-comment__body' ).appendChild( replies );
 			}
-			const node = bnInsertComment( replies, res.data, { postId, depth: Number( card.dataset.depth ) + 1 } );
+			const depth = Number( host.dataset.depth || 0 ) + 1;
+			const node  = bnInsertComment( replies, res.data, { postId, depth } );
 			if ( node ) {
-				node.dataset.depth = String( Math.min( Number( card.dataset.depth || 0 ) + 1, COMMENT_MAX_DEPTH ) );
+				node.dataset.depth = String( depth );
 			}
 			clearField( ta );
 			form.hidden = true;
