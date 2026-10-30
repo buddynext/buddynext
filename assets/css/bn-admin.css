@@ -2964,21 +2964,56 @@ button.bn-btn-danger:hover {
    (.bn-stat-grid > .bn-stat, styled in bn-base.css) — the old .bn-insight-*
    card component is retired. Only the signup spark strip and the wp-admin
    dashboard widget keep page-specific rules. */
+/* One column per day: count, bar, day of month. The values are text, not a
+   hover title, so the chart reads on touch and keyboard too. */
 .bn-spark {
 	display: flex;
+	gap: var(--bn-s1);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.bn-spark__col {
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	align-items: center;
+	min-width: 0;
+	margin: 0;
+}
+.bn-spark__value,
+.bn-spark__day {
+	font-size: var(--bn-text-xs);
+	font-variant-numeric: tabular-nums;
+	line-height: 1.4;
+	white-space: nowrap;
+}
+.bn-spark__value { color: var(--bn-ink-2); }
+.bn-spark__day { color: var(--bn-ink-3); }
+.bn-spark__track {
+	display: flex;
 	align-items: flex-end;
-	gap: 6px;
+	width: 100%;
 	height: 90px;
-	padding-top: 4px;
+	border-block-end: 1px solid var(--bn-line);
 }
 .bn-spark__bar {
-	flex: 1 1 0;
+	width: 100%;
 	min-height: 2px;
 	border-radius: 3px 3px 0 0;
 	background: var(--bn-accent, #2563eb);
-	opacity: 0.85;
 }
-.bn-spark__bar:hover { opacity: 1; }
+.bn-spark__range {
+	display: flex;
+	justify-content: space-between;
+	margin: var(--bn-s1) 0 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+}
+@media (max-width: 640px) {
+	.bn-spark { gap: 2px; }
+	.bn-spark__track { height: 72px; }
+}
 .bn-insights-widget { margin: 0 0 8px; }
 .bn-insights-widget li { margin: 0 0 6px; }
 .bn-insights-widget strong { font-size: 16px; }

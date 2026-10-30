@@ -59,6 +59,8 @@ The dashboard is organized into views you switch between at the top of the page.
 
 > **Note:** Top content and top members appear as tables inside the Overview view, not as separate views. Per-space health metrics are not a dashboard view; they show as the "Last 30 days" row on a space's admin page when you switch on **Show space owners their stats**, and are also available through the REST API.
 
+> **Note:** The daily-activity and daily profile-views charts show dates along the bottom (month and year on a 1-year window). Point at the line to see one day's value, or open **Show data** under the chart for every date and value as a table; that table also works with a keyboard, on a phone and with a screen reader. On windows longer than 30 days the daily-activity chart groups days, so each point is the total for the days up to its date.
+
 > **Note:** DAU, WAU, and MAU stand for daily, weekly, and monthly active users - the count of distinct members who took at least one tracked action in that window.
 
 ### Exporting to CSV

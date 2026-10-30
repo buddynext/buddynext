@@ -261,24 +261,41 @@ class Insights {
 	// ── Render helpers ──────────────────────────────────────────────────────
 
 	/**
-	 * Render the 14-day signup bar strip (pure CSS, no chart library).
+	 * Render the 14-day signup columns (pure CSS, no chart library).
+	 *
+	 * Every column shows its count above the bar and its day of the month below,
+	 * with the first and last dates under the strip, so the chart reads without
+	 * hover on touch and keyboard. Each column also carries the full sentence for
+	 * screen readers. The keys are site-local calendar days, so they are
+	 * formatted in UTC to keep the same date.
 	 *
 	 * @param array<string,int> $signups day => count.
 	 * @return void
 	 */
 	private function render_spark( array $signups ): void {
-		$max = max( 1, max( $signups ) );
-		echo '<div class="bn-spark">';
+		$max  = max( 1, max( $signups ) );
+		$utc  = new \DateTimeZone( 'UTC' );
+		$days = array_keys( $signups );
+		$date = static fn( string $day, string $format ): string => (string) wp_date( $format, (int) strtotime( $day . ' 12:00:00 UTC' ), $utc );
+
+		echo '<ol class="bn-spark">';
 		foreach ( $signups as $day => $count ) {
 			$height = (int) round( ( $count / $max ) * 100 );
 			$height = max( $count > 0 ? 6 : 2, $height ); // keep tiny/zero bars visible.
 			printf(
-				'<span class="bn-spark__bar" style="height:%d%%" title="%s"></span>',
+				'<li class="bn-spark__col"><span class="bn-spark__value" aria-hidden="true">%1$s</span><span class="bn-spark__track" aria-hidden="true"><span class="bn-spark__bar" style="height:%2$d%%"></span></span><span class="bn-spark__day" aria-hidden="true">%3$s</span><span class="screen-reader-text">%4$s</span></li>',
+				esc_html( number_format_i18n( $count ) ),
 				(int) $height,
-				esc_attr( sprintf( /* translators: 1: count, 2: date */ _n( '%1$d signup on %2$s', '%1$d signups on %2$s', $count, 'buddynext' ), $count, $day ) )
+				esc_html( $date( $day, 'j' ) ),
+				esc_html( sprintf( /* translators: 1: count, 2: date */ _n( '%1$d signup on %2$s', '%1$d signups on %2$s', $count, 'buddynext' ), $count, $date( $day, (string) get_option( 'date_format', 'F j, Y' ) ) ) )
 			);
 		}
-		echo '</div>';
+		echo '</ol>';
+		printf(
+			'<p class="bn-spark__range" aria-hidden="true"><span>%1$s</span><span>%2$s</span></p>',
+			esc_html( $date( (string) reset( $days ), 'M j' ) ),
+			esc_html( $date( (string) end( $days ), 'M j' ) )
+		);
 	}
 
 	/**
