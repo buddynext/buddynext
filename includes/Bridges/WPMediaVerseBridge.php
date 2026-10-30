@@ -358,6 +358,7 @@ class WPMediaVerseBridge {
 		// never duplicated.
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
 		add_action( 'buddynext_feed_home_before', array( $this, 'render_stories_bar' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_stories_bar_module' ) );
 
 		// Keep an attached media file's engine privacy in step with the privacy of
 		// the post it is attached to — on create AND on edit. See
@@ -507,6 +508,7 @@ class WPMediaVerseBridge {
 	 * @return void
 	 */
 	public function render_stories_bar(): void {
+		// Its script module is queued in the head by enqueue_stories_bar_module().
 		if ( ! is_user_logged_in() || ! MediaClient::stories_available() ) {
 			return;
 		}
@@ -523,6 +525,26 @@ class WPMediaVerseBridge {
 			return;
 		}
 		echo '<section class="bn-feed-stories" aria-label="' . esc_attr__( 'Stories', 'buddynext' ) . '">' . $bar . '</section>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the block's own render output.
+	}
+
+	/**
+	 * Queue the stories block's script module in the head on the feed hub.
+	 *
+	 * The bar renders mid-page, so the block queued its module after the import
+	 * map had printed in the head without the module's dependencies. The browser
+	 * could not resolve @wpmediaverse/sync-events and the bar's script never ran:
+	 * a blank "Add to your story" label and no way to add a story from the bar.
+	 *
+	 * @return void
+	 */
+	public function enqueue_stories_bar_module(): void {
+		if ( 'feed' !== (string) get_query_var( 'bn_hub', '' ) || ! is_user_logged_in() || ! MediaClient::stories_available() ) {
+			return;
+		}
+		$block = \WP_Block_Type_Registry::get_instance()->get_registered( 'mvs/pro-stories' );
+		foreach ( (array) ( $block->view_script_module_ids ?? array() ) as $module_id ) {
+			wp_enqueue_script_module( (string) $module_id );
+		}
 	}
 
 	/**

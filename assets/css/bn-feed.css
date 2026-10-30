@@ -2784,7 +2784,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 .bn-feed-stories {
 	--mvs-accent: var(--bn-accent);
 	--mvs-primary-hover: var(--bn-accent-600, var(--bn-accent));
-	--mvs-on-accent: var(--bn-on-accent, var(--bn-surface));
+	--mvs-on-accent: var(--bn-accent-fg);
 	--mvs-bg: var(--bn-surface);
 	--mvs-border: var(--bn-line-strong);
 	--mvs-text: var(--bn-ink);
