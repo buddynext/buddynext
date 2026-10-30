@@ -1053,7 +1053,11 @@ class JetonomyBridge {
 			$base      = home_url( '/' . ltrim( $base_slug, '/' ) ); // bn-route-ok: built from Jetonomy's configured base slug.
 		}
 
-		return rtrim( $base, '/' ) . '/s/' . rawurlencode( $space_slug ) . '/t/' . rawurlencode( $post_slug ) . '/';
+		// Slugs are used as stored, the way Jetonomy's own templates build this link:
+		// sanitize_title() already keeps them URL-safe and stores non-ASCII as
+		// percent-encoded octets, so encoding again turned %f0 into %25f0 and an
+		// emoji or accented title opened "Topic not found".
+		return rtrim( $base, '/' ) . '/s/' . $space_slug . '/t/' . $post_slug . '/';
 	}
 
 	/**
@@ -1131,7 +1135,8 @@ class JetonomyBridge {
 		$settings  = get_option( 'jetonomy_settings', array() );
 		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
 
-		return home_url( '/' . $base_slug . '/s/' . rawurlencode( $jt_slug ) . '/' ); // bn-route-ok: built from Jetonomy's configured base slug.
+		// Used as stored, like discussion_permalink(): the slug is already URL-safe.
+		return home_url( '/' . $base_slug . '/s/' . $jt_slug . '/' ); // bn-route-ok: built from Jetonomy's configured base slug.
 	}
 
 	/**

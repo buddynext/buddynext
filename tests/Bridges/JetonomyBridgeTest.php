@@ -841,6 +841,59 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 1, $count );
 	}
+
+	/**
+	 * A non-ASCII slug is used as stored. sanitize_title() keeps it percent-
+	 * encoded already; encoding again (%f0 -> %25f0) opened "Topic not found".
+	 */
+	public function test_discussion_link_never_double_encodes_a_slug(): void {
+		$url = $this->bridge->discussion_permalink( 'caf%c3%a9-club', 'helped-you-today-%f0%9f%8c%bf' );
+
+		$this->assertStringContainsString( '/s/caf%c3%a9-club/t/helped-you-today-%f0%9f%8c%bf/', $url );
+		$this->assertStringNotContainsString( '%25', $url );
+		$this->assertStringEndsWith( '/s/plain/t/plain-title/', $this->bridge->discussion_permalink( 'plain', 'plain-title' ) );
+	}
+
+	/**
+	 * v72 repairs feed cards saved with the double-encoded link, and leaves any
+	 * link outside Jetonomy's base alone even when it contains %25.
+	 */
+	public function test_migration_repairs_saved_double_encoded_links_only(): void {
+		global $wpdb;
+		$base    = trailingslashit( home_url( '/community' ) ) . 's/';
+		$broken  = $base . 'club/t/today-%25f0%259f%258c%25bf/';
+		$outside = 'https://example.com/report?q=100%25';
+		$ids     = array();
+		foreach ( array( $broken, $outside ) as $link ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'user_id'    => $this->author_id,
+					'type'       => 'link',
+					'content'    => 'Card',
+					'link_url'   => $link,
+					'link_meta'  => wp_json_encode( array( 'url' => $link, 'title' => '100%25 sure' ) ),
+					'privacy'    => 'public',
+					'status'     => 'published',
+					'created_at' => current_time( 'mysql', true ),
+					'updated_at' => current_time( 'mysql', true ),
+				)
+			);
+			$ids[] = (int) $wpdb->insert_id;
+		}
+
+		$method = new \ReflectionMethod( Installer::class, 'maybe_migrate_jetonomy_link_encoding' );
+		$method->setAccessible( true );
+		$method->invoke( null );
+
+		$fixed = $wpdb->get_row( $wpdb->prepare( "SELECT link_url, link_meta FROM {$wpdb->prefix}bn_posts WHERE id = %d", $ids[0] ) );
+		$this->assertSame( $base . 'club/t/today-%f0%9f%8c%bf/', $fixed->link_url );
+		$meta = json_decode( $fixed->link_meta, true );
+		$this->assertSame( $base . 'club/t/today-%f0%9f%8c%bf/', $meta['url'] );
+		$this->assertSame( '100%25 sure', $meta['title'], 'only url fields change' );
+
+		$this->assertSame( $outside, $wpdb->get_var( $wpdb->prepare( "SELECT link_url FROM {$wpdb->prefix}bn_posts WHERE id = %d", $ids[1] ) ) );
+	}
 }
 
 namespace Jetonomy\Models;

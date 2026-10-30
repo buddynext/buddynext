@@ -468,8 +468,11 @@ class Installer {
 	 *  71: bn_space_categories.level - where a category may be used: main
 	 *      spaces, subspaces or both (default both, so existing sites see no
 	 *      change). GitHub #199.
+	 *  72: repair Jetonomy discussion links saved on feed cards with their
+	 *      non-ASCII slug encoded twice (%f0 stored as %25f0), which opened
+	 *      "Topic not found". Data only; no table change.
 	 */
-	private const SCHEMA_VERSION = 71;
+	private const SCHEMA_VERSION = 72;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1119,6 +1122,9 @@ class Installer {
 
 		// v70: "Who can create spaces" lives only under Roles & Capabilities now.
 		self::maybe_migrate_space_creation_role();
+
+		// v72: discussion links saved before the bridge stopped encoding slugs twice.
+		self::maybe_migrate_jetonomy_link_encoding();
 
 		// v11: migrate the per-space settings from autoloaded bn_space_{id}_* options
 		// into bn_space_meta (the canonical field store). Runs after the field
@@ -2263,6 +2269,53 @@ class Installer {
 			update_option( 'buddynext_integration_jetonomy_feed', '0', false );
 		}
 		delete_option( 'buddynext_jetonomy_feed_sync' );
+	}
+
+	/**
+	 * Repair Jetonomy discussion links saved with their slug encoded twice.
+	 *
+	 * The bridge ran rawurlencode() on slugs that sanitize_title() had already
+	 * percent-encoded, so a card for an emoji or accented title saved %25f0...
+	 * instead of %f0... and opened "Topic not found". Only links under Jetonomy's
+	 * base, and only their url fields (link_url and link_meta.url), are touched;
+	 * the base comes from Jetonomy's stored setting so this also runs while
+	 * Jetonomy is inactive. Batched; idempotent (a repaired link has no %25 left).
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_jetonomy_link_encoding(): void {
+		global $wpdb;
+
+		$settings = get_option( 'jetonomy_settings', array() );
+		$base     = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
+		$prefix   = trailingslashit( home_url( '/' . trim( $base, '/' ) ) ) . 's/'; // bn-route-ok: Jetonomy's stored base slug.
+		$table    = $wpdb->prefix . 'bn_posts';
+		$last_id  = 0;
+
+		do {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- one-time migration; $table is the prefixed core table name.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, link_url, link_meta FROM {$table} WHERE id > %d AND link_url LIKE %s AND link_url LIKE %s ORDER BY id ASC LIMIT 200",
+					$last_id,
+					$wpdb->esc_like( $prefix ) . '%',
+					'%' . $wpdb->esc_like( '%25' ) . '%'
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$batch = is_array( $rows ) ? count( $rows ) : 0;
+			foreach ( (array) $rows as $row ) {
+				$last_id = (int) $row->id;
+				$fields  = array( 'link_url' => str_replace( '%25', '%', (string) $row->link_url ) );
+				$meta    = json_decode( (string) $row->link_meta, true );
+				if ( is_array( $meta ) && isset( $meta['url'] ) && is_string( $meta['url'] ) ) {
+					$meta['url']         = str_replace( '%25', '%', $meta['url'] );
+					$fields['link_meta'] = wp_json_encode( $meta );
+				}
+				$wpdb->update( $table, $fields, array( 'id' => $last_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-time migration.
+				\BuddyNext\Feed\PostService::flush_cache( $last_id );
+			}
+		} while ( 200 === $batch );
 	}
 
 	/**
