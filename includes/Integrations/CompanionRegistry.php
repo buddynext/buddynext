@@ -127,7 +127,7 @@ final class CompanionRegistry {
 					'needs_pro'   => true,
 				),
 				'wb-listora'             => array(
-					'label'       => 'Listora',
+					'label'       => 'WB Listora',
 					'integration' => 'listora',
 					'why'         => __( 'Directory listings - members publish and manage listings.', 'buddynext' ),
 					'detect'      => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),

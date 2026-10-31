@@ -1,6 +1,6 @@
 # The Companion Install Model
 
-BuddyNext integrates with a set of Wbcom companion plugins (MediaVerse, Jetonomy, Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog) and can install and activate any of them in one click from the Add-ons screen, with no manual zip upload or Plugins-screen search. This page documents that model: the declarative companion registry, the `buddynext_companions` filter that extends it, the `POST /companions/install` REST route, and the EDD-backed installer. It is for developers adding a new companion to the catalog or building an addon that wants to be one-click installable from BuddyNext.
+BuddyNext integrates with a set of Wbcom companion plugins (MediaVerse, Jetonomy, WB Gamification, WP Career Board, Learnomy, WB Listora, Eventonomy, WB Member Blog) and can install and activate any of them in one click from the Add-ons screen, with no manual zip upload or Plugins-screen search. This page documents that model: the declarative companion registry, the `buddynext_companions` filter that extends it, the `POST /companions/install` REST route, and the EDD-backed installer. It is for developers adding a new companion to the catalog or building an addon that wants to be one-click installable from BuddyNext.
 
 ![The Platform Add-ons admin tab where companion plugins are installed one-click via the model documented here](../images/admin-integrations.webp)
 

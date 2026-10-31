@@ -36,7 +36,7 @@ As soon as you activate the plugin, BuddyNext sets up its community pages (feed,
 
 Your license key controls **plugin updates only** - it never switches features on or off. The free plugin activates itself the moment it is installed, with no key to enter. Pro adds its features on top and uses your paid license key purely to keep you on the latest version.
 
-Some features are extended by optional companion plugins. Direct messaging and media are powered by MediaVerse, forums in spaces by Jetonomy, points and badges by WB Gamification, and a jobs board by Career Board. Each is optional - install only what you need.
+Some features are extended by optional companion plugins. Direct messaging and media are powered by MediaVerse, forums in spaces by Jetonomy, points and badges by WB Gamification, and a jobs board by WP Career Board. Each is optional - install only what you need.
 
 ## Free vs Pro
 
@@ -97,7 +97,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | CSV export of analytics | - | Pro |
 | **Monetization** | Gated and tiered space access | - | Pro |
 | | Membership plans and paywall UI | - | Pro |
-| **Integrations** | Companion connections (Jetonomy, MediaVerse, WB Gamification, Career Board) | Free | Free |
+| **Integrations** | Companion connections (Jetonomy, MediaVerse, WB Gamification, WP Career Board) | Free | Free |
 | | 1 outbound connection to another system (webhook) | Free | Free |
 | | Page-editor blocks and shortcodes (core set) | Free | Free |
 | | Unlimited outbound connections | - | Pro |

@@ -1,70 +1,70 @@
-# Career Board
+# WP Career Board
 
-Career Board is the companion plugin that turns your community into a place where careers move. Members post jobs, others apply, and candidates can publish a resume. Run it alongside BuddyNext and that activity comes to life inside the community - new jobs and resumes appear in the feed and in community search, and everyone involved stays in the loop through the BuddyNext notification center.
+WP Career Board is the companion plugin that turns your community into a place where careers move. Members post jobs, others apply, and candidates can publish a resume. Run it alongside BuddyNext and that activity comes to life inside the community - new jobs and resumes appear in the feed and in community search, and everyone involved stays in the loop through the BuddyNext notification center.
 
-![BuddyNext admin Platform Add-ons tab showing the Career Board companion](../images/admin-integrations.webp)
+![BuddyNext admin Platform Add-ons tab showing the WP Career Board companion](../images/admin-integrations.webp)
 
-Bringing Career Board into your community needs BuddyNext Pro. The Career Board plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
+Bringing WP Career Board into your community needs BuddyNext Pro. The WP Career Board plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
 
 ## Why use it
 
 A professional community is more valuable when it helps members do business, not just talk. A job board is the most direct version of that: someone hiring meets someone looking, inside a community they already trust.
 
-You add Career Board when you want to:
+You add WP Career Board when you want to:
 
 - Let employers in your community post roles and reach members directly.
 - Give members a reason to keep their profile and resume current and to check in regularly.
 - Turn a discussion community into a place where careers actually move - referrals, openings, and "open to work" signals that members act on.
 - Add a revenue or membership-perk angle, since job posting is something people will pay for.
 
-The jobs live in Career Board, which owns the listings, applications, and resumes. BuddyNext adds a community layer on top so jobs do not sit in a silo - they appear where members already are.
+The jobs live in WP Career Board, which owns the listings, applications, and resumes. BuddyNext adds a community layer on top so jobs do not sit in a silo - they appear where members already are.
 
 ## How it works (for members)
 
-The job board itself - submitting a job, browsing listings, applying, withdrawing an application, and publishing a resume - is handled by Career Board. Members use Career Board's own screens for those actions. BuddyNext surfaces the activity in the community:
+The job board itself - submitting a job, browsing listings, applying, withdrawing an application, and publishing a resume - is handled by WP Career Board. Members use WP Career Board's own screens for those actions. BuddyNext surfaces the activity in the community:
 
-- **A new job appears in the feed.** When a member publishes a job, BuddyNext posts a "posted a new job" card with a short description and the job's featured image where there is one, linking out to the job's Career Board page. Members can see new openings as they scroll the feed.
+- **A new job appears in the feed.** When a member publishes a job, BuddyNext posts a "posted a new job" card with a short description and the job's featured image where there is one, linking out to the job's WP Career Board page. Members can see new openings as they scroll the feed.
 - **Jobs are searchable in the community.** Each published job is added to community search, so a member searching for a role or skill finds open jobs alongside people and spaces.
-- **"Open to work" resumes appear in the feed.** When a member publishes a resume and marks it public, BuddyNext posts an "is open to work" activity linking to their resume. Private resumes are never broadcast, and turning "open to work" off withdraws the card. *(Resumes are a Career Board **Pro** feature - with the free Career Board there are no resumes to surface.)*
-- **Job notifications land in one place.** Career Board's notifications (an application received, a status change, and so on) appear in the BuddyNext bell in Career Board's own words, so a member has a single bell for everything across the community. Members can switch each type in their notification settings under **Jobs**. Career Board owns who may see each notification and sends its own emails.
-- **Jobs and resumes show on the profile.** A member's jobs appear in a **Portfolio** tab on their BuddyNext profile (a **Jobs** panel with company, location, type, salary and a View all Jobs link), and with Career Board Pro their public **Resume** panel does too, linking out to the Career Board pages. On their own profile the member also gets **Manage Jobs** and **Manage Resume** buttons that open the Career Board dashboards.
+- **"Open to work" resumes appear in the feed.** When a member publishes a resume and marks it public, BuddyNext posts an "is open to work" activity linking to their resume. Private resumes are never broadcast, and turning "open to work" off withdraws the card. *(Resumes are a WP Career Board **Pro** feature - with the free WP Career Board there are no resumes to surface.)*
+- **Job notifications land in one place.** WP Career Board's notifications (an application received, a status change, and so on) appear in the BuddyNext bell in WP Career Board's own words, so a member has a single bell for everything across the community. Members can switch each type in their notification settings under **Jobs**. WP Career Board owns who may see each notification and sends its own emails.
+- **Jobs and resumes show on the profile.** A member's jobs appear in a **Portfolio** tab on their BuddyNext profile (a **Jobs** panel with company, location, type, salary and a View all Jobs link), and with WP Career Board Pro their public **Resume** panel does too, linking out to the WP Career Board pages. On their own profile the member also gets **Manage Jobs** and **Manage Resume** buttons that open the WP Career Board dashboards.
 
-> **Note:** Job posting and its feed/profile/search surfacing work with the free Career Board. Resumes and the "open to work" card require **Career Board Pro** (alongside BuddyNext Pro).
+> **Note:** Job posting and its feed/profile/search surfacing work with the free WP Career Board. Resumes and the "open to work" card require **WP Career Board Pro** (alongside BuddyNext Pro).
 
 A job's feed card follows the job. When a job expires, closes, goes back to draft or pending, or is trashed, its card is withdrawn and its search entry removed, so the feed only shows live openings. If the job is published again, the same card comes back with its comments. Deleting a job permanently removes the card.
 
-> **Note:** Applying to a job, withdrawing an application, and managing listings happen on Career Board's screens. BuddyNext does not replace those - it surfaces the results in the community.
+> **Note:** Applying to a job, withdrawing an application, and managing listings happen on WP Career Board's screens. BuddyNext does not replace those - it surfaces the results in the community.
 
 ## Setting it up (for owners)
 
 1. Make sure BuddyNext Pro is active. The community surfacing is a Pro integration.
-2. Install and activate Career Board alongside BuddyNext.
-3. Set up your job board in Career Board as usual - the job submission, application, and resume settings live there.
+2. Install and activate WP Career Board alongside BuddyNext.
+3. Set up your job board in WP Career Board as usual - the job submission, application, and resume settings live there.
 
 As soon as both plugins are active, jobs and public resumes start appearing in the feed, search, and the notification center. There is nothing you have to fill in.
 
 ### Display settings
 
-Career Board gets a card on the **Integration Settings** screen, with the same switches every integration has:
+WP Career Board gets a card on the **Integration Settings** screen, with the same switches every integration has:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Whether Career Board's panels appear on the profile Portfolio tab. Career Board adds more than one (Jobs, and Resume with Career Board Pro), so each sub-tab can be switched individually. Turning it off also stops Career Board notifications reaching the bell. | On |
+| Show in navigation | Whether WP Career Board's panels appear on the profile Portfolio tab. WP Career Board adds more than one (Jobs, and Resume with WP Career Board Pro), so each sub-tab can be switched individually. Turning it off also stops WP Career Board notifications reaching the bell. | On |
 | Post to the activity feed | Whether a published job and a public "open to work" resume post a feed activity. | On |
 | Include in search | Whether published jobs are found in community search. Switching it off also removes the jobs already in the search index. | On |
 
-The job board's own behavior - who can post, application rules, resume options - is configured in Career Board, not here. These switches only decide where the results show up inside your community.
+The job board's own behavior - who can post, application rules, resume options - is configured in WP Career Board, not here. These switches only decide where the results show up inside your community.
 
 ## Good to know
 
-- **Job posts and public resumes can appear in the feed.** A published job and a public "open to work" resume each post a feed activity that links out to Career Board. Private resumes are never broadcast.
-- **Notifications are shown, not re-sent.** BuddyNext shows Career Board's notifications in the bell but does not re-send them by email. Career Board owns its own emails, so members are not notified twice. Bell notifications need Career Board 1.8.0 or newer; on an older version they keep arriving only through Career Board's own screens.
-- **Inert when Career Board is not installed.** Without the Career Board plugin, the integration does nothing - no feed activity, no search entries, no profile panels. BuddyNext checks for Career Board before wiring anything in, so a site without it sees no errors and no empty surfaces.
-- **Career Board owns the data.** All jobs, applications, and resumes live in Career Board. BuddyNext reacts to events from it and links out to its pages; it does not store or edit the listings.
+- **Job posts and public resumes can appear in the feed.** A published job and a public "open to work" resume each post a feed activity that links out to WP Career Board. Private resumes are never broadcast.
+- **Notifications are shown, not re-sent.** BuddyNext shows WP Career Board's notifications in the bell but does not re-send them by email. WP Career Board owns its own emails, so members are not notified twice. Bell notifications need WP Career Board 1.8.0 or newer; on an older version they keep arriving only through WP Career Board's own screens.
+- **Inert when WP Career Board is not installed.** Without the WP Career Board plugin, the integration does nothing - no feed activity, no search entries, no profile panels. BuddyNext checks for WP Career Board before wiring anything in, so a site without it sees no errors and no empty surfaces.
+- **WP Career Board owns the data.** All jobs, applications, and resumes live in WP Career Board. BuddyNext reacts to events from it and links out to its pages; it does not store or edit the listings.
 
 ## Free vs Pro
 
-The Career Board community integration is part of BuddyNext Pro. The Career Board plugin itself is separate and runs on its own, but surfacing its jobs and resumes inside the BuddyNext community - the feed activity, community search, notification mirroring, and profile panels described above - requires BuddyNext Pro.
+The WP Career Board community integration is part of BuddyNext Pro. The WP Career Board plugin itself is separate and runs on its own, but surfacing its jobs and resumes inside the BuddyNext community - the feed activity, community search, notification mirroring, and profile panels described above - requires BuddyNext Pro.
 
 ## Related
 

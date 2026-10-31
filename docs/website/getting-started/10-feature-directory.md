@@ -166,9 +166,9 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [MediaVerse](../integrations/02-wpmediaverse.md) - media and messaging **(Free)**
 - [Jetonomy](../integrations/03-jetonomy.md) - space forums **(Free)**
 - [Gamification Add-on](../integrations/04-gamification-addon.md) - points and badges **(Free)**
-- [Career Board](../integrations/05-career-board.md) - jobs board **(Free)**
+- [WP Career Board](../integrations/05-career-board.md) - jobs board **(Free)**
 - [Outbound Webhooks](../integrations/06-outbound-webhooks.md) **(Free)**
-- [Listora](../integrations/07-listora.md) - listings **(Free)**
+- [WB Listora](../integrations/07-listora.md) - listings **(Free)**
 - [Learnomy](../integrations/08-learnomy.md) - courses **(Free)**
 - [Member Blog](../integrations/09-member-blog.md) **(Free)**
 - [Eventonomy](../integrations/10-eventonomy.md) - events and RSVPs **(Free)**

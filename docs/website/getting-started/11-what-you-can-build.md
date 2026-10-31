@@ -41,7 +41,7 @@ A support-and-belonging space around a product - customers help each other, shar
 A place people build a profile, connect, and find each other by what they do or care about - closer to a niche LinkedIn than a feed.
 
 - Core: rich [Member Profiles](../members/01-member-profiles.md) with [Profile Fields](../members/02-profile-fields.md), [Connections](../members/07-connections.md), and the [Member Directory](../members/04-member-directory.md).
-- Add a jobs board with [Career Board](../integrations/05-career-board.md); mark expertise with [Member Labels](../pro/08-member-labels.md).
+- Add a jobs board with [WP Career Board](../integrations/05-career-board.md); mark expertise with [Member Labels](../pro/08-member-labels.md).
 - **Runs on Free**; Pro adds advanced fields, search, and labels.
 
 ## Agency or client workspaces

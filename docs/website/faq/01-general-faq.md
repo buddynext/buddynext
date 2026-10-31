@@ -10,7 +10,7 @@ BuddyNext is a community platform for WordPress. It gives your site its own acti
 
 Free covers the social core: profiles, the activity feed, spaces with all three privacy types (Open, Private and Secret), following and connections, direct messaging (with MediaVerse installed), comments and reactions, scheduled posts, notifications, and the full moderation toolkit (reporting, the moderation queue, warnings/strikes/suspensions, appeals).
 
-Pro adds the business layer on top: paid membership plans, gated spaces and content protection, Stripe and other payment gateways, the scheduled-posts queue, advanced profile field types and conditional logic, advanced search, analytics, broadcast email and drip sequences, auto-moderation and AI-assisted moderation, push notifications, real-time WebSocket delivery, white-labeling, and the deeper companion-plugin integrations (Learnomy, Eventonomy, Listora, Career Board). See [Membership Plans](../pro/01-membership-plans.md) for how Pro's monetization layer is structured.
+Pro adds the business layer on top: paid membership plans, gated spaces and content protection, Stripe and other payment gateways, the scheduled-posts queue, advanced profile field types and conditional logic, advanced search, analytics, broadcast email and drip sequences, auto-moderation and AI-assisted moderation, push notifications, real-time WebSocket delivery, white-labeling, and the deeper companion-plugin integrations (Learnomy, Eventonomy, WB Listora, WP Career Board). See [Membership Plans](../pro/01-membership-plans.md) for how Pro's monetization layer is structured.
 
 ## Which themes does BuddyNext work with?
 
@@ -38,7 +38,7 @@ Pro is a separate plugin installed alongside Free (upload its zip under **Plugin
 
 ## What are the optional companion plugins, and do I need them?
 
-None of them are required for the social core to work. Each adds one specific capability: MediaVerse (direct messaging and photo/file uploads), Jetonomy (forums), WB Gamification (points, badges, levels), Career Board (jobs), Learnomy (courses and certificates), Listora (directory listings), Eventonomy (events), and WB Member Blog (front-end post publishing). Install only the ones your community needs - a companion plugin you never install costs nothing in performance, and removing one only disables the feature it powered. See [Integrations Overview](../integrations/01-overview.md).
+None of them are required for the social core to work. Each adds one specific capability: MediaVerse (direct messaging and photo/file uploads), Jetonomy (forums), WB Gamification (points, badges, levels), WP Career Board (jobs), Learnomy (courses and certificates), WB Listora (directory listings), Eventonomy (events), and WB Member Blog (front-end post publishing). Install only the ones your community needs - a companion plugin you never install costs nothing in performance, and removing one only disables the feature it powered. See [Integrations Overview](../integrations/01-overview.md).
 
 ## Related
 

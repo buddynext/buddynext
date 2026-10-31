@@ -57,13 +57,13 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 | **MediaVerse** | Direct messaging engine and photo/file uploads | The Messages tab and image posts. The DM tab is hidden until this is active. |
 | **Jetonomy** | Discussions and forums | The optional Forum tab inside spaces |
 | **WB Gamification** | Points, badges, and levels | Member rewards and reputation |
-| **Career Board** | A jobs and applications board | Posting and applying to jobs in your community |
+| **WP Career Board** | A jobs and applications board | Posting and applying to jobs in your community |
 | **Learnomy** | Courses, lessons, and quizzes (a full LMS) | Completed courses and certificates shown on member profiles |
-| **Listora** | Directory listings members can publish | Member listings surfaced in the feed and on profiles |
+| **WB Listora** | Directory listings members can publish | Member listings surfaced in the feed and on profiles |
 | **Eventonomy** | Events, RSVPs, and calendars | Events as feed cards and attended events on member profiles |
 | **WB Member Blog** | Front-end post publishing without wp-admin | The Articles tab on member profiles and article cards in the feed |
 
-> **Note:** Career Board, Listora, Learnomy and Eventonomy work on their own as plugins, but their community surfacing (feed cards, profile tabs, search) comes from bridges that ship in BuddyNext Pro. MediaVerse, Jetonomy, WB Gamification and WB Member Blog surface with BuddyNext Free.
+> **Note:** WP Career Board, WB Listora, Learnomy and Eventonomy work on their own as plugins, but their community surfacing (feed cards, profile tabs, search) comes from bridges that ship in BuddyNext Pro. MediaVerse, Jetonomy, WB Gamification and WB Member Blog surface with BuddyNext Free.
 
 > **Tip:** MediaVerse is the one most communities add first, because it powers both private messaging and photo posts. Its free version is enough to get started. BuddyNext Pro does not bundle MediaVerse; it is a separate plugin with its own editions.
 

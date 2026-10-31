@@ -45,12 +45,12 @@ See [Gated Spaces](../pro/02-gated-spaces.md) and [Membership Plans](../pro/01-m
 
 See [Custom Profile Fields](../members/02-profile-fields.md), [Conditional Logic for Profile Fields](../pro/27-conditional-profile-fields.md), and [Advanced Profile Field Types](../pro/09-advanced-profile-fields.md).
 
-## Deeper Learnomy and Listora integration (Pro)
+## Deeper Learnomy and WB Listora integration (Pro)
 
 - **Learnomy community federation.** Link a course, a Learnomy Space, or a cohort to a BuddyNext Space, and membership now follows access automatically: enrolling adds the member to the linked community Space, and losing access - unenrolling, an expired enrollment, or leaving the Learnomy Space or cohort - removes them from it the same way. A Space BuddyNext creates for the link enforces the whole roster; a Space you already run only ever gains members through the link, never loses one you're managing yourself. The reverse also works: a membership plan can grant (and later withdraw) access to specific Learnomy courses or a Learnomy Space.
-- **Listora business showcase in spaces.** A space owner can turn on a Businesses tab for their space; members submit one of their own published Listora listings, and the space team approves it before it appears as a compact card linking out to the full listing. Visibility follows the space's own privacy. Needs WB Listora 1.8.0 or newer.
+- **WB Listora business showcase in spaces.** A space owner can turn on a Businesses tab for their space; members submit one of their own published WB Listora listings, and the space team approves it before it appears as a compact card linking out to the full listing. Visibility follows the space's own privacy. Needs WB Listora 1.8.0 or newer.
 
-See [Learnomy](../integrations/08-learnomy.md) and [Listora](../integrations/07-listora.md).
+See [Learnomy](../integrations/08-learnomy.md) and [WB Listora](../integrations/07-listora.md).
 
 ## Reversible integration cards, and live updates on posts you're viewing
 

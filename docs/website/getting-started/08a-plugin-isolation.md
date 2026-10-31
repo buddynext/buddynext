@@ -62,7 +62,7 @@ pages would break something you could not see was missing:
 
 - **BuddyNext and BuddyNext Pro** themselves.
 - **The in-house integration family** - MediaVerse, Jetonomy, WB Gamification, WB
-  Member Blog, Career Board, Listora, Learnomy, and Eventonomy (free and Pro).
+  Member Blog, WP Career Board, WB Listora, Learnomy, and Eventonomy (free and Pro).
   These power profile tabs and panels *on* the community pages, so stripping them
   would blank exactly the features they add.
 - **Translation plugins** (Loco Translate, Polylang) - they rewrite every string on

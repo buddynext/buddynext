@@ -4,11 +4,11 @@ Questions about the companion plugins BuddyNext connects to and how those bridge
 
 ## Which plugins integrate with BuddyNext?
 
-MediaVerse (MediaVerse) for direct messaging and media, Jetonomy for forums, WB Gamification for points/badges/levels, Career Board for jobs, Learnomy for courses and certificates, Listora for directory listings, Eventonomy for events, and WB Member Blog for front-end post publishing. Each one is optional. See [Integrations Overview](../integrations/01-overview.md).
+MediaVerse for direct messaging and media, Jetonomy for forums, WB Gamification for points/badges/levels, WP Career Board for jobs, Learnomy for courses and certificates, WB Listora for directory listings, Eventonomy for events, and WB Member Blog for front-end post publishing. Each one is optional. See [Integrations Overview](../integrations/01-overview.md).
 
 ## How does an integration actually work - does BuddyNext replace the companion plugin?
 
-No. Each companion plugin keeps owning its own data and its own screens - Learnomy owns courses and lessons, Listora owns listings, Jetonomy owns forum threads. BuddyNext connects to it through a bridge: an adapter that reacts to the companion's own events and surfaces the meaningful moments (a course completion, a new listing, a new discussion) inside the community's feed, search, notifications, and profile tabs. See [Integration Bridges](../developer-guide/44-integration-bridges.md).
+No. Each companion plugin keeps owning its own data and its own screens - Learnomy owns courses and lessons, WB Listora owns listings, Jetonomy owns forum threads. BuddyNext connects to it through a bridge: an adapter that reacts to the companion's own events and surfaces the meaningful moments (a course completion, a new listing, a new discussion) inside the community's feed, search, notifications, and profile tabs. See [Integration Bridges](../developer-guide/44-integration-bridges.md).
 
 ## Does installing BuddyNext slow my site down if I don't use any companion plugins?
 
@@ -16,7 +16,7 @@ No. An integration bridge only loads when its companion plugin is actually activ
 
 ## Do I need BuddyNext Pro for these integrations to work?
 
-It depends on the companion. MediaVerse (messaging), Jetonomy (forums), WB Gamification, and WB Member Blog surface in the community with BuddyNext Free. Career Board, Listora, Learnomy, and Eventonomy surface into the community feed, search, and profiles only with BuddyNext Pro active - the companion plugin still works fine on its own without Pro, you simply will not get the community surfacing until Pro is on. See [Integrations Overview](../integrations/01-overview.md).
+It depends on the companion. MediaVerse (messaging), Jetonomy (forums), WB Gamification, and WB Member Blog surface in the community with BuddyNext Free. WP Career Board, WB Listora, Learnomy, and Eventonomy surface into the community feed, search, and profiles only with BuddyNext Pro active - the companion plugin still works fine on its own without Pro, you simply will not get the community surfacing until Pro is on. See [Integrations Overview](../integrations/01-overview.md).
 
 ## Can I choose where an integration shows up, without turning it off entirely?
 
@@ -30,9 +30,9 @@ When a course, a Learnomy Space, or a cohort is linked to a BuddyNext Space (set
 
 Yes, the reverse direction also exists. A BuddyNext membership plan can be mapped to specific Learnomy courses or a Learnomy Space, so buying or upgrading to that plan grants access immediately, and losing the plan withdraws it the same way - tracked separately from anything the member purchased or enrolled in directly through Learnomy. See [Learnomy](../integrations/08-learnomy.md).
 
-## What is the Listora "Businesses in a Space" feature?
+## What is the WB Listora "Businesses in a Space" feature?
 
-It is a curated business directory a space owner can turn on for their own space (Space Settings > Integrations > Businesses, off by default). Members submit one of their own published Listora listings to the space, and the space owner, a space moderator, or a site admin approves it before it appears as a compact card. It respects the space's own privacy - a private or secret space's business directory is only visible to its members. Needs BuddyNext Pro and WB Listora 1.8.0 or newer. See [Listora](../integrations/07-listora.md).
+It is a curated business directory a space owner can turn on for their own space (Space Settings > Integrations > Businesses, off by default). Members submit one of their own published WB Listora listings to the space, and the space owner, a space moderator, or a site admin approves it before it appears as a compact card. It respects the space's own privacy - a private or secret space's business directory is only visible to its members. Needs BuddyNext Pro and WB Listora 1.8.0 or newer. See [WB Listora](../integrations/07-listora.md).
 
 ## If I deactivate a companion plugin, does BuddyNext break?
 
@@ -42,5 +42,5 @@ No. BuddyNext stops loading that bridge and the capability disappears cleanly - 
 
 - [Integrations Overview](../integrations/01-overview.md)
 - [Learnomy](../integrations/08-learnomy.md)
-- [Listora](../integrations/07-listora.md)
+- [WB Listora](../integrations/07-listora.md)
 - [MediaVerse](../integrations/02-wpmediaverse.md)

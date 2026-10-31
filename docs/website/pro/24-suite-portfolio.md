@@ -1,8 +1,8 @@
 # Suite Portfolio
 
-The Portfolio tab is a single profile tab that gathers a member's activity from your other Wbcom apps into one place. Jobs and a resume from Career Board, listings from WB Listora, courses and certificates from Learnomy - they all appear inside one "Portfolio" tab on the member's BuddyNext profile, each as its own sub-tab, rather than each app adding a tab of its own.
+The Portfolio tab is a single profile tab that gathers a member's activity from your other Wbcom apps into one place. Jobs and a resume from WP Career Board, listings from WB Listora, courses and certificates from Learnomy - they all appear inside one "Portfolio" tab on the member's BuddyNext profile, each as its own sub-tab, rather than each app adding a tab of its own.
 
-> **Before you start:** The Portfolio tab is part of BuddyNext. The Career Board, WB Listora and Learnomy panels that fill it come with BuddyNext Pro, so for those apps you need Pro active and at least one of the integrations enabled. Any add-on can also add its own panel without Pro. There is nothing to build; the tab assembles itself.
+> **Before you start:** The Portfolio tab is part of BuddyNext. The WP Career Board, WB Listora and Learnomy panels that fill it come with BuddyNext Pro, so for those apps you need Pro active and at least one of the integrations enabled. Any add-on can also add its own panel without Pro. There is nothing to build; the tab assembles itself.
 
 ## Why use it
 
@@ -14,7 +14,7 @@ The Portfolio tab solves that once. Every integration contributes a panel to the
 
 A member's profile shows a Portfolio tab whenever there is something to put in it. Inside, each connected app contributes its own sub-tab (a panel):
 
-- **Career Board** - **Jobs** and **Resume** (the member's public resume), each linking out to the Career Board page. The owner sees "Manage Jobs" and "Manage Resume" links.
+- **WP Career Board** - **Jobs** and **Resume** (the member's public resume), each linking out to the WP Career Board page. The owner sees "Manage Jobs" and "Manage Resume" links.
 - **WB Listora** - **Listings**, the member's directory listings, linking out to each listing, plus an owner-only "Manage Business" link.
 - **Learnomy** - **Certifications** (completed courses and certificates, public), **Teaching** (courses they teach, public), and a private **Learning** shelf of in-progress courses.
 
@@ -36,10 +36,10 @@ The Portfolio is assembled from one shared data source and served through the RE
 There is nothing to assemble. The Portfolio tab is built into BuddyNext; Pro fills it from the integrations you enable:
 
 1. Make sure BuddyNext Pro is active.
-2. Install and activate the companion apps you want - Career Board, WB Listora, or Learnomy.
+2. Install and activate the companion apps you want - WP Career Board, WB Listora, or Learnomy.
 3. Open **Integration Settings** (its own section in the BuddyNext admin menu). Each integration has the usual switches: Show in navigation, Post to the activity feed, and Include in search (Include in search appears only for integrations that have searchable content). Its Portfolio sub-tab appears automatically once the app is active, **Show in navigation** is on, and a member has content. The card also shows a badge when the partner is older than BuddyNext supports ("Update needed") or newer than it was built for ("Newer partner").
 
-BuddyNext Pro declares these minimum partner versions: Career Board 1.4.3 and Learnomy 1.9.4. WB Listora declares none.
+BuddyNext Pro declares these minimum partner versions: WP Career Board 1.4.3 and Learnomy 1.9.4. WB Listora declares none.
 
 Each integration's own behaviour - what a job or listing or course does - is configured in that app, not here. The Portfolio tab only decides how a member's activity from those apps is shown on their profile.
 
@@ -48,23 +48,23 @@ Each integration's own behaviour - what a job or listing or course does - is con
 - **One tab, never many.** However many Wbcom apps you run, they all share the single Portfolio tab. No integration adds a competing profile tab.
 - **The tab hides when empty.** With no content from any integration, a member simply has no Portfolio tab - there is no blank surface to explain.
 - **Owner-only panels stay private.** A member's in-progress learning shows only to them; public credentials show to everyone. Each panel decides its own audience.
-- **Panels link out, they do not take over.** The Portfolio reflects activity that lives in Career Board, Listora, or Learnomy and links to it; it never edits or stores that data.
+- **Panels link out, they do not take over.** The Portfolio reflects activity that lives in WP Career Board, WB Listora, or Learnomy and links to it; it never edits or stores that data.
 - **Inert without the apps.** With none of the companion apps installed, the Portfolio tab does nothing and shows nothing - no errors, no empty panels.
 
 ## Free vs Pro
 
-The Portfolio tab itself is part of BuddyNext and appears once any integration or addon has something to show. The Career Board, WB Listora and Learnomy panels that feed it are part of BuddyNext Pro. The companion apps themselves (Career Board, WB Listora, Learnomy) run on their own, but bringing their activity onto a member's BuddyNext profile requires Pro. For what each app contributes to the community as a whole - feed activity, community search, and the shared notification center - see the Career Board, WB Listora, and Learnomy integration pages.
+The Portfolio tab itself is part of BuddyNext and appears once any integration or addon has something to show. The WP Career Board, WB Listora and Learnomy panels that feed it are part of BuddyNext Pro. The companion apps themselves (WP Career Board, WB Listora, Learnomy) run on their own, but bringing their activity onto a member's BuddyNext profile requires Pro. For what each app contributes to the community as a whole - feed activity, community search, and the shared notification center - see the WP Career Board, WB Listora, and Learnomy integration pages.
 
 ## Requirements
 
 - BuddyNext Pro active alongside BuddyNext.
-- At least one companion app active: Career Board, WB Listora, or Learnomy.
+- At least one companion app active: WP Career Board, WB Listora, or Learnomy.
 - Members with content in those apps (a job, a listing, a course) for their Portfolio tab to appear.
 
 ## Related
 
-- [Career Board](../integrations/05-career-board.md) - one of the apps that fills the Portfolio tab.
+- [WP Career Board](../integrations/05-career-board.md) - one of the apps that fills the Portfolio tab.
 - [Learnomy](../integrations/08-learnomy.md) - courses and certificates shown in the tab.
-- [Listora](../integrations/07-listora.md) - directory listings shown in the tab.
+- [WB Listora](../integrations/07-listora.md) - directory listings shown in the tab.
 - [Suite Notification Aggregation](28-suite-notifications.md) - the same connected apps mirroring their notifications into BuddyNext.
 - [Member Profiles](../members/01-member-profiles.md) - the profile the tab lives on.

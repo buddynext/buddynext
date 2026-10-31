@@ -73,12 +73,12 @@ If the missing feature belongs to one of BuddyNext's own integration partners (M
 
 **Symptom:** Pro is installed and active, but expected Pro features or admin sections don't appear.
 
-**Likely cause:** The Pro license key has not been entered yet, or a required companion plugin (for Career Board, Listora, Learnomy, or Eventonomy surfacing) is missing or inactive.
+**Likely cause:** The Pro license key has not been entered yet, or a required companion plugin (for WP Career Board, WB Listora, Learnomy, or Eventonomy surfacing) is missing or inactive.
 
 **Fix:**
 1. Confirm Pro is active on the **Plugins** screen.
 2. Go to **BuddyNext > Get Started > License**, paste your Pro license key, and activate it. (The key gates updates, not features, but activating it is still the expected step after installing Pro.)
-3. For Career Board, Listora, Learnomy, or Eventonomy surfacing specifically, confirm that companion plugin is installed and active alongside Pro - the community surfacing needs both.
+3. For WP Career Board, WB Listora, Learnomy, or Eventonomy surfacing specifically, confirm that companion plugin is installed and active alongside Pro - the community surfacing needs both.
 
 See [Installing BuddyNext](../getting-started/02-installation.md) and [Integrations Overview](../integrations/01-overview.md).
 
