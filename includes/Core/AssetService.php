@@ -1301,7 +1301,6 @@ class AssetService {
 					/* translators: 1: file name, 2: HTTP status code */
 					'uploadFailedError'         => __( 'Could not upload %1$s (error %2$d).', 'buddynext' ),
 					'joined'                    => __( 'Joined', 'buddynext' ),
-					'feedEnd'                   => __( "You've reached the end.", 'buddynext' ),
 					'oneNewPost'                => __( '1 new post: click to show', 'buddynext' ),
 					/* translators: %d: number of new posts */
 					'manyNewPosts'              => __( '%d new posts: click to show', 'buddynext' ),

@@ -1174,7 +1174,11 @@ function bnRenderCommentPage( listEl, data ) {
 	listEl.querySelector( ':scope > .bn-comment-loadmore' )?.remove();
 	listEl.querySelector( ':scope > .bn-comment-truncated' )?.remove();
 
-	items.forEach( ( comment ) => bnInsertComment( listEl, comment, { postId, depth: 0 } ) );
+	// A comment already on screen (the member's own new one, or a pin set while they
+	// read) is not drawn twice when its page arrives.
+	items
+		.filter( ( comment ) => ! listEl.querySelector( ':scope > [data-comment-id="' + Number( comment.id ) + '"]' ) )
+		.forEach( ( comment ) => bnInsertComment( listEl, comment, { postId, depth: 0 } ) );
 
 	const shown = page * perPage;
 	if ( shown < total ) {

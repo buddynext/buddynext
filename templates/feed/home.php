@@ -110,6 +110,19 @@ $service_result = $bn_feed_service_obj->home_feed(
 $feed_posts     = array_values( (array) ( $service_result['items'] ?? array() ) );
 $next_cursor    = (string) ( $service_result['next_cursor'] ?? '' );
 
+// The new-posts pill: the posts it counted go on top, whatever their rank, and only
+// once. Same query and privacy rules as the count. See bnPillShowNew() in feed/store.js.
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display value.
+$bn_new_after = ( $current_user_id > 0 && '' === $raw_cursor && isset( $_GET['new_after'] ) ) ? absint( wp_unslash( $_GET['new_after'] ) ) : 0;
+if ( $bn_new_after > 0 ) {
+	$bn_new_posts = array_map( array( \BuddyNext\Feed\PostService::class, 'attach_poll_options' ), $bn_feed_service_obj->home_feed_new_items( $current_user_id, $bn_new_after, $bn_filter ) );
+	$bn_new_ids   = array_map( 'intval', wp_list_pluck( $bn_new_posts, 'id' ) );
+	$feed_posts   = array_merge(
+		$bn_new_posts,
+		array_values( array_filter( $feed_posts, static fn( array $p ): bool => ! in_array( (int) $p['id'], $bn_new_ids, true ) ) )
+	);
+}
+
 // Batch-prime every per-viewer cache the post-card reads (reaction / bookmark /
 // vote / report) BEFORE the SSR card loop below, so the first paint costs one
 // query per service for the whole page instead of ~3 per card (C8.3).
@@ -279,7 +292,19 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			buddynext_get_template(
 				'parts/feed-load-more.php',
 				array_merge(
-					\BuddyNext\Feed\FeedWindow::links( add_query_arg( 'filter', $bn_filter, PageRouter::activity_url() ), $bn_window, $next_cursor ),
+					\BuddyNext\Feed\FeedWindow::links(
+						add_query_arg(
+							array_filter(
+								array(
+									'filter'    => $bn_filter,
+									'new_after' => $bn_new_after,
+								)
+							),
+							PageRouter::activity_url()
+						),
+						$bn_window,
+						$next_cursor
+					),
 					array( 'show_end' => true )
 				)
 			);
