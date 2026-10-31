@@ -571,39 +571,54 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function leave( int $space_id, int $user_id ): bool|WP_Error {
-		if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
-			return new WP_Error(
-				'owner_cannot_leave',
-				__( 'The space owner cannot leave. Delete the space or transfer ownership first.', 'buddynext' )
-			);
-		}
-
-		$status = (string) $this->get_status( $space_id, $user_id );
-
-		// The hero and the directory card cancel a request through this route. Someone
-		// who was never in the space has not left it: their cancel is its own event.
-		if ( 'pending' === $status ) {
-			return $this->cancel_request( $space_id, $user_id );
-		}
-
-		// A ban from before 1.2.7 lives on this row, so deleting it would lift the ban.
-		if ( 'banned' === $status ) {
-			return true;
-		}
-
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_members',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $user_id,
-			),
-			array( '%d', '%d' )
-		);
+		// What this removes decides which event fires and whether the count moves, so
+		// it reads the row itself, not the cache, and deletes only the status it read.
+		// A moderator can approve in between: then nothing matches, so read once more.
+		for ( $attempt = 0; $attempt < 2; $attempt++ ) {
+			$this->forget_cached_membership( $space_id, $user_id );
 
-		if ( $wpdb->rows_affected > 0 ) {
+			if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
+				return new WP_Error(
+					'owner_cannot_leave',
+					__( 'The space owner cannot leave. Delete the space or transfer ownership first.', 'buddynext' )
+				);
+			}
+
+			$status = (string) $this->get_status( $space_id, $user_id );
+
+			// Nothing to leave, or a ban from before 1.2.7, which lives on this row
+			// and would be lifted by deleting it.
+			if ( '' === $status || 'banned' === $status ) {
+				return true;
+			}
+
+			// The hero and the directory card cancel a request through this route.
+			// Someone who was never in the space has not left it.
+			if ( 'pending' === $status ) {
+				$cancelled = $this->cancel_request( $space_id, $user_id );
+				if ( is_wp_error( $cancelled ) ) {
+					continue;
+				}
+				return true;
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = (int) $wpdb->delete(
+				$wpdb->prefix . 'bn_space_members',
+				array(
+					'space_id' => $space_id,
+					'user_id'  => $user_id,
+					'status'   => $status,
+				),
+				array( '%d', '%d', '%s' )
+			);
+
+			if ( $deleted <= 0 ) {
+				continue;
+			}
+
 			$this->invalidate_cache( $space_id, $user_id );
 
 			// A declined invitation also deletes its row here, without ever being a member.
@@ -620,9 +635,17 @@ class SpaceMemberService {
 				 */
 				do_action( 'buddynext_space_member_left', $space_id, $user_id );
 			}
+
+			return true;
 		}
 
-		return true;
+		$this->forget_cached_membership( $space_id, $user_id );
+
+		return new WP_Error(
+			'membership_changed',
+			__( 'Your membership just changed. Reload the page and try again.', 'buddynext' ),
+			array( 'status' => 409 )
+		);
 	}
 
 	// ── Queries ─────────────────────────────────────────────────────────────
@@ -761,7 +784,7 @@ class SpaceMemberService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
+		$deleted = (int) $wpdb->delete(
 			$wpdb->prefix . 'bn_space_members',
 			array(
 				'space_id' => $space_id,
@@ -772,6 +795,14 @@ class SpaceMemberService {
 		);
 
 		$this->invalidate_cache( $space_id, $user_id );
+
+		// The cached status was stale: a moderator already decided this request.
+		if ( $deleted <= 0 ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'There is no pending request to cancel.', 'buddynext' )
+			);
+		}
 
 		/**
 		 * Fires after a member cancels their pending join request.
@@ -2271,14 +2302,26 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Forget the cached role and status, so the next read comes from the row.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User ID.
+	 * @return void
+	 */
+	private function forget_cached_membership( int $space_id, int $user_id ): void {
+		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
+		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
+	}
+
+	/**
 	 * Invalidate role, status, and member-list cache keys for a space/user pair.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  User ID.
+	 * @return void
 	 */
 	private function invalidate_cache( int $space_id, int $user_id ): void {
-		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
-		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
+		$this->forget_cached_membership( $space_id, $user_id );
 		// Roster list: bump the per-space version salt (not a single fixed-key
 		// delete) — get_members() is parameterised by viewer/role/limit/offset, so
 		// it lives under many keys; one bump retires them all.
