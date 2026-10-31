@@ -1119,6 +1119,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				if ( res.ok && ( data.pending || data.requested ) ) {
 					swapButtonState( btn, 'pending' );
+					bnToast( data.message || t( 'joinRequested', 'Request sent: you’ll be notified when it’s approved.' ), { tone: 'success' } );
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
 				} else {
@@ -1210,12 +1211,23 @@ var storeInstance = store( 'buddynext/spaces', {
 					}
 
 					bumpMemberCount( spaceCardFor( btn ), -1 );
-				} else if ( btn ) {
-					btn.textContent = origText;
-					btn.disabled    = false;
+
+					// On the space's own page everything under the hero (feed, composer,
+					// member tabs) was drawn for a member: redraw it for a non-member. A
+					// card in a list has nothing else to change.
+					var leftMsg = t( 'leftSpace', 'You left this space.' );
+					if ( spaceCardFor( btn ) ) {
+						bnToast( leftMsg, { tone: 'info' } );
+					} else {
+						bnReloadWithToast( leftMsg, { tone: 'info' } );
+					}
+				} else {
+					if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+					toastRestError( res, t( 'couldNotLeave', 'Could not leave this space. Try again.' ) );
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+				toastRestError( null, t( 'networkError', 'Network error. Try again.' ) );
 			}
 		},
 
@@ -1242,12 +1254,14 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				if ( res.ok && ( data.left || data.cancelled ) ) {
 					swapButtonState( btn, 'request' );
-				} else if ( btn ) {
-					btn.textContent = origText;
-					btn.disabled    = false;
+					bnToast( t( 'joinRequestCancelled', 'Join request cancelled.' ), { tone: 'info' } );
+				} else {
+					if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+					toastRestError( res, t( 'couldNotCancelRequest', 'Could not cancel your request. Try again.' ) );
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+				toastRestError( null, t( 'networkError', 'Network error. Try again.' ) );
 			}
 		},
 
