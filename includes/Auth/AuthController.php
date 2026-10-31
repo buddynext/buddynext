@@ -919,7 +919,7 @@ class AuthController {
 		// this endpoint into an enumeration oracle ("that address is a real, pending
 		// account"), which is exactly what the generic 401 below exists to prevent.
 		// So verify the password ourselves, and only then explain the real reason.
-		$user = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
+		$user = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
 
 		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
 			return null; // Fall through to the generic credential failure.
@@ -970,7 +970,7 @@ class AuthController {
 			return $limited;
 		}
 
-		$identified = \BuddyNext\Profile\Handle::user_for_identifier( $user_input );
+		$identified = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
 		$login      = $identified ? $identified->user_login : $user_input;
 
 		// Verify the password (runs the full authenticate chain, including the

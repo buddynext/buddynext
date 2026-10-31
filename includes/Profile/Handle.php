@@ -236,12 +236,11 @@ final class Handle {
 	 * @return string A safe handle, or '' when none can be derived.
 	 */
 	/**
-	 * The account a typed identifier names (sign-in, invite): an email, a username, or the member's
-	 * handle (the @name shown everywhere in the community, which differs from
-	 * user_login whenever the email's local part held a dot).
+	 * The account a typed identifier names (invite, media lookup): an email, a username, or
+	 * anything resolve() accepts, old handles and user-{id} included. Sign-in uses the narrower
+	 * user_for_sign_in().
 	 *
-	 * A real username wins over a handle, so signing in never depends on another
-	 * member's handle. A leading @ is ignored. Null when nothing matches.
+	 * A real username wins over a handle. A leading @ is ignored. Null when nothing matches.
 	 *
 	 * @param string $identifier What the member typed.
 	 * @return \WP_User|null
@@ -256,17 +255,64 @@ final class Handle {
 	}
 
 	/**
+	 * The account a sign-in name belongs to: an email, a username, or the member's current
+	 * handle. Not user-{id} and not an old handle, which only mentions and URLs still answer to.
+	 * The one rule for every sign-in path: BuddyNext's form, the app and wp-login.php.
+	 *
+	 * A real username wins over a handle, so signing in never depends on another member's
+	 * handle. A leading @ is ignored. Null when nothing matches.
+	 *
+	 * @param string $identifier What the member typed.
+	 * @return \WP_User|null
+	 */
+	public static function user_for_sign_in( string $identifier ): ?\WP_User {
+		if ( is_email( $identifier ) ) {
+			$user = get_user_by( 'email', $identifier );
+		} else {
+			$user = get_user_by( 'login', $identifier ) ?: self::current_holder( ltrim( $identifier, '@' ) );
+		}
+		return $user instanceof \WP_User ? $user : null;
+	}
+
+	/**
+	 * The member whose handle this is right now: a custom profile slug, or a nicename.
+	 *
+	 * @param string $handle Handle, without a leading @.
+	 * @return \WP_User|null
+	 */
+	private static function current_holder( string $handle ): ?\WP_User {
+		$handle = sanitize_title( $handle );
+		if ( '' === $handle ) {
+			return null;
+		}
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		$by_meta = get_users(
+			array(
+				'meta_key'   => 'bn_profile_slug',
+				'meta_value' => $handle,
+				'number'     => 1,
+			)
+		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		if ( ! empty( $by_meta ) ) {
+			return $by_meta[0];
+		}
+		$by_slug = get_user_by( 'slug', $handle );
+		return $by_slug instanceof \WP_User ? $by_slug : null;
+	}
+
+	/**
 	 * Let a member sign in anywhere with the handle the community shows them.
 	 *
 	 * A login with a dot (qa.dot.check) has the handle qa-dot-check, because
 	 * WordPress builds the nicename with sanitize_title(). BuddyNext's own sign-in
-	 * already resolves a handle (user_for_identifier()); this `authenticate` filter
+	 * already resolves a handle (user_for_sign_in()); this `authenticate` filter
 	 * covers wp-login.php, wp_authenticate() and theme or third-party forms. It
 	 * runs after core's username and email checks (priority 20), only when they
 	 * found no such user, and checks the password through core for the member the
 	 * handle names, so every later gate (blocked IP, approval, 2FA) still applies.
 	 *
-	 * Only the member's current handle (nicename) signs in - not user-{id} or an
+	 * Only the member's current handle signs in - not user-{id} or an
 	 * old handle - and any failure returns core's original error, because core's
 	 * wrong-password message names the login and would reveal it for a handle.
 	 *
@@ -279,7 +325,7 @@ final class Handle {
 		if ( ! is_wp_error( $user ) || 'invalid_username' !== $user->get_error_code() || is_email( (string) $username ) ) {
 			return $user;
 		}
-		$member = get_user_by( 'slug', sanitize_title( ltrim( (string) $username, '@' ) ) );
+		$member = self::current_holder( ltrim( (string) $username, '@' ) );
 		if ( ! $member instanceof \WP_User ) {
 			return $user;
 		}
