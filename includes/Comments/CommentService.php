@@ -1148,59 +1148,15 @@ class CommentService {
 		}
 		unset( $item );
 
-		// Prepend pinned comment if set and not already in the list.
-		$meta_key  = 'bn_pinned_comment_' . sanitize_key( $object_type ) . '_' . (int) $object_id;
-		$pinned_id = (int) get_option( $meta_key, 0 );
-
+		// list_for_object() already put the pinned comment first on page one.
+		$pinned_id = (int) get_option( 'bn_pinned_comment_' . sanitize_key( $object_type ) . '_' . (int) $object_id, 0 );
 		if ( $pinned_id > 0 ) {
-			$in_list = false;
-			foreach ( $result['items'] as $item ) {
-				if ( $item['id'] === $pinned_id ) {
-					$in_list = true;
-					break;
-				}
-			}
-
-			if ( ! $in_list ) {
-				$pinned = $this->get( $pinned_id );
-				// The pinned comment is fetched directly and prepended, so it
-				// bypassed every filter the paged rows go through — a blocked
-				// author's pinned comment was force-shown in the MOST prominent
-				// position on the thread. Run it through the same predicate; its
-				// author may not have appeared anywhere else on the page, so
-				// resolve them first.
-				if ( null !== $pinned ) {
-					$resolve_blocks( array( (int) ( $pinned['user_id'] ?? 0 ) ) );
-				}
-				if ( null !== $pinned && ! $should_hide( (int) ( $pinned['user_id'] ?? 0 ) ) && ! $hide_under_review( $pinned ) ) {
-					$attach( $pinned, 1 );
-					$pinned['pinned'] = true;
-					array_unshift( $result['items'], $pinned );
-				}
-			} else {
-				// Already on the page: LIFT it, do not just label it.
-				//
-				// This branch used to set the flag and leave the comment in its
-				// chronological slot, so on any thread short enough to fit one page
-				// - which is nearly all of them - pinning stored the option, showed
-				// the badge, and moved nothing. The pin appeared to work only on
-				// threads long enough to push the comment off the page and into the
-				// prepend branch above, which is the opposite of what anyone expects.
-				//
-				// Removed by key and re-indexed rather than sorted: the remaining
-				// comments must keep the order the query returned them in.
-				foreach ( $result['items'] as $index => $item ) {
-					if ( $item['id'] !== $pinned_id ) {
-						continue;
-					}
-
+			foreach ( $result['items'] as &$item ) {
+				if ( (int) $item['id'] === $pinned_id ) {
 					$item['pinned'] = true;
-					unset( $result['items'][ $index ] );
-					$result['items'] = array_values( $result['items'] );
-					array_unshift( $result['items'], $item );
-					break;
 				}
 			}
+			unset( $item );
 		}
 
 		return $result;
@@ -1337,9 +1293,11 @@ class CommentService {
 
 		$per_page  = min( $per_page, 50 );
 		$page      = max( 1, $page );
+		$limit     = $per_page;
 		$offset    = ( $page - 1 ) * $per_page;
+		$pinned_id = (int) get_option( 'bn_pinned_comment_' . sanitize_key( $object_type ) . '_' . $object_id, 0 );
 		$gen       = $this->get_generation( $object_type, $object_id );
-		$cache_key = "list_{$object_type}_{$object_id}_{$gen}_{$per_page}_{$page}";
+		$cache_key = "list_{$object_type}_{$object_id}_{$gen}_{$per_page}_{$page}_{$pinned_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached && is_array( $cached ) ) {
@@ -1353,6 +1311,29 @@ class CommentService {
 		// param), so OFFSET depth stays shallow. Revisit if threaded "load more"
 		// pagination ships in the UI.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// The pinned comment takes the first slot of page one and no other: it is left
+		// out of the paged rows, so every page stays per_page long and `total` stays
+		// true. A stale pin (option left behind) is ignored.
+		$pinned = $pinned_id > 0 ? $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_comments
+				 WHERE id = %d AND object_type = %s AND object_id = %d AND parent_id IS NULL AND is_deleted = 0",
+				$pinned_id,
+				sanitize_key( $object_type ),
+				$object_id
+			),
+			ARRAY_A
+		) : null;
+		if ( $pinned ) {
+			if ( 1 === $page ) {
+				--$limit;
+			} else {
+				--$offset;
+			}
+		}
+		$excluded_id = $pinned ? $pinned_id : 0;
+
 		// Keep a soft-deleted top-level comment ONLY when it still has a
 		// non-deleted reply, so its surviving thread renders under a "[deleted]"
 		// tombstone (delete() soft-deletes precisely so "threads remain intact").
@@ -1363,7 +1344,7 @@ class CommentService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT c.* FROM {$wpdb->prefix}bn_comments c
-				 WHERE c.object_type = %s AND c.object_id = %d AND c.parent_id IS NULL
+				 WHERE c.object_type = %s AND c.object_id = %d AND c.parent_id IS NULL AND c.id <> %d
 				   AND ( c.is_deleted = 0 OR EXISTS (
 				       SELECT 1 FROM {$wpdb->prefix}bn_comments r
 				       WHERE r.parent_id = c.id AND r.is_deleted = 0
@@ -1372,7 +1353,8 @@ class CommentService {
 				 LIMIT %d OFFSET %d",
 				sanitize_key( $object_type ),
 				$object_id,
-				$per_page,
+				$excluded_id,
+				$limit,
 				$offset
 			),
 			ARRAY_A
@@ -1392,6 +1374,10 @@ class CommentService {
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $pinned && 1 === $page ) {
+			array_unshift( $rows, $pinned );
+		}
 
 		$result = array(
 			'items' => array_map( array( $this, 'hydrate' ), (array) $rows ),
