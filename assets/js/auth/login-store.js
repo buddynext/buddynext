@@ -5,7 +5,7 @@
  * inline errors without a page reload.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -168,10 +168,14 @@ const loginStore = store( 'buddynext/auth-login', {
 			const c = ctx();
 			if ( c.emailSent ) { return; }
 			try {
-				yield rest( c, 'auth/2fa/email-code', {
+				const r = yield rest( c, 'auth/2fa/email-code', {
 					method: 'POST',
 					body:   { twofa_token: c.twofaToken || '' },
 				} );
+				if ( ! r.ok ) {
+					toast( restError( r, t( 'emailCodeFailed', 'Could not send the code. Try your authenticator app.' ) ), 'error' );
+					return;
+				}
 				c.emailSent = true;
 				toast( t( 'emailCodeSent', 'If your session is still valid, a code is on its way.' ), 'info' );
 			} catch ( _e ) {
