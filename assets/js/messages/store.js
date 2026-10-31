@@ -2003,12 +2003,17 @@ const messagesStore = store( 'buddynext/messages', {
 			if ( ! ok ) { return; }
 			ctx.groupBusy = true;
 			try {
-				yield restFetch( '/groups/' + ctx.activeConvId + '/leave', {
+				const res = yield restFetch( '/groups/' + ctx.activeConvId + '/leave', {
 					base: ctx.mvsProRest,
 					nonce: ctx.nonce,
 					method: 'POST',
 					toastOnError: false,
 				} );
+				if ( ! res.ok ) {
+					ctx.groupBusy = false;
+					toastRestError( res, t( 'groupActionFailed', 'Something went wrong.' ) );
+					return;
+				}
 				window.location.href = ctx.messagesUrl || '/messages/';
 			} catch ( _e ) {
 				ctx.groupBusy = false;
