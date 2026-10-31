@@ -274,7 +274,7 @@ add_action( 'buddynext_after_edit_member_form', function ( int $user_id, WP_User
 | `buddynext_follow_requested` | action | A follow request lands on a private account. | `int $follower_id, int $following_id` |
 | `buddynext_follow_request_approved` | action | An owner approves a pending follow request. | `int $owner_id, int $follower_id` |
 | `buddynext_follow_request_rejected` | action | An owner rejects a pending follow request. | `int $owner_id, int $follower_id` |
-| `buddynext_user_followed_first_time` | action | A user follows someone for the first time, once per user, for onboarding flows. | `int $follower_id, int $following_id` |
+| `buddynext_user_followed_first_time` | action | A user's approved follow count reaches 1, whether they followed a public account or a private account approved their request. For onboarding flows. | `int $follower_id, int $following_id` |
 | `buddynext_can_follow` | filter | Whether an actor may follow a target. Default follows the target's who-can-follow preference. | `bool $can, int $target_id, int $actor_id` |
 | `buddynext_can_connect` | filter | Whether an actor may send a connection request to a target. | `bool $can, int $target_id, int $actor_id` |
 | `buddynext_can_view_connections` | filter | Whether a viewer may see a user's followers and following lists. | `bool $can, int $owner_id, int $viewer_id` |

@@ -31,6 +31,28 @@ class FollowServiceTest extends \WP_UnitTestCase {
 		$this->carol   = self::factory()->user->create();
 	}
 
+	public function test_first_follow_hook_fires_when_a_private_account_approves(): void {
+		$first_follows = array();
+		$listener      = static function ( int $follower, int $following ) use ( &$first_follows ): void {
+			$first_follows[] = array( $follower, $following );
+		};
+		add_action( 'buddynext_user_followed_first_time', $listener, 10, 2 );
+		update_user_meta( $this->bob, FollowService::PRIVATE_META, 1 );
+		update_user_meta( $this->carol, FollowService::PRIVATE_META, 1 );
+
+		$this->service->follow( $this->alice, $this->bob );
+		$this->service->follow( $this->alice, $this->carol );
+		$this->assertSame( array(), $first_follows, 'a waiting request is not a follow yet' );
+
+		$this->service->approve_follow_request( $this->bob, $this->alice );
+		$this->assertSame( array( array( $this->alice, $this->bob ) ), $first_follows );
+
+		$this->service->approve_follow_request( $this->carol, $this->alice );
+		$this->assertCount( 1, $first_follows, 'a second approval is not a first follow' );
+
+		remove_action( 'buddynext_user_followed_first_time', $listener, 10 );
+	}
+
 	public function test_follow_creates_relationship(): void {
 		$result = $this->service->follow( $this->alice, $this->bob );
 

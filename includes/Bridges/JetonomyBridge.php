@@ -1278,7 +1278,8 @@ class JetonomyBridge {
 				continue;
 			}
 
-			$members->join( $space_id, $user_id ); // A refusal (banned from the space, gated) leaves them out.
+			// A copy of the forum's roster. A refusal (banned from the space, gated) leaves them out.
+			\BuddyNext\Feed\IntegrationActivity::as_mirror( static fn() => $members->join( $space_id, $user_id ) );
 		}
 
 		remove_filter( 'buddynext_notification_should_send', $quiet, 10 );
@@ -1492,15 +1493,20 @@ class JetonomyBridge {
 		$role    = in_array( $bn_role, array( 'owner', 'admin' ), true ) ? 'admin' : ( 'moderator' === $bn_role ? 'moderator' : 'member' );
 		$granted = in_array( (string) $forum_id, (array) get_user_meta( $user_id, self::GRANTED_META, false ), true );
 
-		if ( \Jetonomy\Models\SpaceMember::is_member( $forum_id, $user_id ) ) {
-			if ( $granted ) {
-				\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $role );
-			} else {
-				\Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ); // Raise only.
+		// A copy of the space's roster, not a second join: nothing rewards it again.
+		\BuddyNext\Feed\IntegrationActivity::as_mirror(
+			static function () use ( $forum_id, $user_id, $role, $granted ): void {
+				if ( \Jetonomy\Models\SpaceMember::is_member( $forum_id, $user_id ) ) {
+					if ( $granted ) {
+						\Jetonomy\Models\SpaceMember::set_role( $forum_id, $user_id, $role );
+					} else {
+						\Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ); // Raise only.
+					}
+				} elseif ( true === \Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ) ) {
+					add_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
+				}
 			}
-		} elseif ( true === \Jetonomy\Models\SpaceMember::add( $forum_id, $user_id, $role ) ) {
-			add_user_meta( $user_id, self::GRANTED_META, (string) $forum_id );
-		}
+		);
 		$this->invalidate_member_caches( $user_id );
 	}
 
