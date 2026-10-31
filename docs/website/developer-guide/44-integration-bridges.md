@@ -84,7 +84,7 @@ add_filter(
 
 - **Since 1.2.6.** `render_bridge_card( $args, $icon = '', $label = '' )` takes the registered label and icon when you leave them out.
 - **Explore uses the stored card details.** A registered type gets an Explore card with the type label and icon, cover (`image`), title, description, and for events a date tile (`month`, `day`) and place (`city`). An unregistered type shows the plain text teaser.
-- **Details resolved at render time** (per viewer, or for cards stored before a field existed) come from `buddynext_integration_card_preview( array $meta, string $type )`. MediaVerse uses it for the viewer-gated title and cover, Gamification for the artwork and description of badges shared before 1.2.6.
+- **Details resolved at render time** (per viewer, or for cards stored before a field existed) come from `buddynext_integration_card_preview( array $meta, string $type )`. MediaVerse uses it for the viewer-gated title and cover, WB Gamification for the artwork and description of badges shared before 1.2.6.
 - **Check both surfaces when you add a type.** A new bridge activity is not done until its feed card and its Explore card are both reviewed.
 
 ## Version floors and the staleness gate

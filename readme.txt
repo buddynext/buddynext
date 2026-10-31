@@ -23,7 +23,7 @@ Everything is REST-first, so the same data powers the web experience and the nat
 * Spaces (groups) with membership, roles, and per-space content.
 * Member profiles, a searchable member directory, and unified search across the community.
 * Connections and follows between members.
-* Direct messaging and media (powered by WPMediaVerse).
+* Direct messaging and media (powered by MediaVerse).
 * Notifications and branded transactional email.
 * Member onboarding, invites, and social login.
 * Two-factor authentication (in-house TOTP, optional and opt-in).
@@ -31,13 +31,13 @@ Everything is REST-first, so the same data powers the web experience and the nat
 
 = Built to extend =
 
-BuddyNext is the free community OS. Three core integrations ship as companion plugins - WPMediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) - and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
+BuddyNext is the free community OS. Three core integrations ship as companion plugins - MediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) - and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
 
 = Integration requirements =
 
 Each integration needs its plugin at or above the version below. On an older version the parts that need the newer release stay off, and BuddyNext > Integration Settings marks the plugin "Update needed".
 
-* WPMediaVerse 2.6.2 or later - media, files and direct messages.
+* MediaVerse 2.6.2 or later - media, files and direct messages.
 * WB Gamification 1.6.3 or later - points, badges, kudos and leaderboards.
 * WP Career Board 1.4.3 or later - jobs on profiles and in the feed (BuddyNext Pro).
 * Learnomy 1.9.4 or later - courses and certificates (BuddyNext Pro).
@@ -69,7 +69,7 @@ Yes. Network Activate it (BuddyNext first, then Pro). One community runs on the 
 
 = Does messaging require another plugin? =
 
-Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
+Direct messaging and media are powered by the MediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
 

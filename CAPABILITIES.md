@@ -159,7 +159,7 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Show partner content as profile panels? | YES | 1.2.7. The Portfolio tab and `GET members/{id}/portfolio` live in Free (`buddynext_member_suite_panels`); owner-only panels show to the owner only |
 | Link a space to a partner object (a course, an event)? | YES | 1.2.7. `Spaces\SpaceLinkService` (`buddynext_space_link_sources`); a Linked to tab in space settings while links exist, Remove keeps every member, link joins are quiet and backfill in 500-member background jobs (`GET/DELETE spaces/{id}/links`) |
 | Be extended by other plugins? | YES | 1,292 documented hooks; `NavRegistry`, `buddynext_companions`, `buddynext_integrations` |
-| Integrate with Wbcom plugins? | YES | bridges for WPMediaVerse (DM), Jetonomy (forums), Gamification, Career Board, Learnomy, Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
+| Integrate with Wbcom plugins? | YES | bridges for MediaVerse (DM), Jetonomy (forums), WB Gamification, WP Career Board, Learnomy, WB Listora, Eventonomy, WB Member Blog - each self-guards and is individually toggleable |
 | Run background work at scale? | YES | 36 scheduled jobs: 24 on Action Scheduler, 12 on WP-Cron |
 | Manage it from WP-CLI? | YES | 6 commands under `wp buddynext` (`demo`, `cert`, `handles`, `repair-space-owners`, `repair-discussion-visibility`, `reconcile-media-privacy`) |
 | Stay fast at 100k members? | YES | list surfaces paginate and count via `COUNT(*)`; the leaderboard N+1 was removed in 1.1.1 |
@@ -174,5 +174,5 @@ limit - **PRO** delivered by BuddyNext Pro, not free - **NO** absent.
 | Send push notifications? | PRO | |
 | Push live updates over websockets? | PRO | free uses REST polling - 5s active, adaptive |
 | White-label the plugin? | PRO | |
-| Run direct messaging on its own? | NO | BuddyNext is the UI; the conversation store belongs to WPMediaVerse |
+| Run direct messaging on its own? | NO | BuddyNext is the UI; the conversation store belongs to MediaVerse |
 | Replace or disable WordPress core behaviour? | NO | by design. `/feed/`, `wp/v2` and `wp-login.php` stay core's |
