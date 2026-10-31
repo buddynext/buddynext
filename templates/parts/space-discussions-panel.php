@@ -21,7 +21,7 @@
  * @var string   $forum_url    Linked forum URL ('' when no forum is linked).
  * @var bool     $forum_linked Whether a forum is linked yet.
  * @var string   $provision_url On-demand provision-trigger URL (empty-state CTA).
- * @var bool     $can_post      Whether the viewer may post in the forum.
+ * @var array    $empty_state   parts/empty-state.php arguments for a linked forum with no threads, by what this viewer may do.
  * @var bool     $can_provision Whether the viewer may provision (create) the forum — gates the empty-state CTA.
  */
 
@@ -34,7 +34,7 @@ $bn_discussions   = isset( $discussions ) && is_array( $discussions ) ? $discuss
 $bn_forum_url     = isset( $forum_url ) ? (string) $forum_url : '';
 $bn_forum_linked  = isset( $forum_linked ) ? (bool) $forum_linked : ( '' !== $bn_forum_url );
 $bn_provision     = isset( $provision_url ) ? (string) $provision_url : '';
-$bn_can_post      = isset( $can_post ) ? (bool) $can_post : false;
+$bn_empty_state   = isset( $empty_state ) && is_array( $empty_state ) ? $empty_state : array();
 $bn_can_provision = isset( $can_provision ) ? (bool) $can_provision : false;
 
 // Thread permalinks derive from the forum URL (which already carries the
@@ -89,19 +89,7 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 	<?php elseif ( $bn_forum_linked ) : ?>
 		<?php
 		// Forum exists but has no published threads yet.
-		buddynext_get_template(
-			'parts/empty-state.php',
-			array(
-				'icon'      => 'messages-square',
-				'title'     => __( 'No discussions yet', 'buddynext' ),
-				'body'      => __( 'Be the first to start a conversation in this space.', 'buddynext' ),
-				// Link straight to the forum's new-topic composer, not the forum
-				// landing, so "Start a discussion" opens the editor in one click.
-				'cta_url'   => '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 'new/' : '',
-				'cta_label' => '' !== $bn_forum_url ? __( 'Start a discussion', 'buddynext' ) : '',
-				'cta_icon'  => 'plus',
-			)
-		);
+		buddynext_get_template( 'parts/empty-state.php', $bn_empty_state );
 		?>
 	<?php else : ?>
 		<?php

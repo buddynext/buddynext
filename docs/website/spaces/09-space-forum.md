@@ -18,7 +18,7 @@ When a space owner has turned the discussion on for that space, members see a **
 
 - **Open the forum.** Select the Discussions tab in a space. The space forum opens with BuddyNext's navigation wrapped around it, so it looks and moves like the rest of the community rather than a separate plugin.
 - **One forum per space, created when the owner switches it on.** The space's discussion is created the first time the owner turns it on, so there are no empty forums sitting around on spaces that do not want one.
-- **Start a discussion.** Create a new discussion with a title and body. Unlike a feed post, it carries a subject line and lives as its own thread.
+- **Start a discussion.** Create a new discussion with a title and body. Unlike a feed post, it carries a subject line and lives as its own thread. The space's **Who can post** setting decides who can do this; anyone below it can still reply and vote. Visitors who are not members are offered Log in or Join instead.
 - **Reply in a thread.** Replies are shown in order under the discussion, so a conversation reads top to bottom instead of branching.
 - **Mention people.** Typing an @-mention in a discussion notifies that member through BuddyNext's normal notifications, the same as a mention anywhere else in the community.
 - **Vote and mark answers.** Discussions and replies can be voted on, and a reply can be accepted as the answer, so the useful response rises to the top.

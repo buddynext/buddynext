@@ -184,6 +184,9 @@ class JetonomyBridge {
 		// alone would let the leak back in the first time an owner locks a
 		// space down.
 		add_action( 'buddynext_space_updated', array( $this, 'sync_discussion_visibility' ), 10, 3 );
+		// The space's "who can post" holds in its forum too.
+		add_action( 'buddynext_space_fields_saved', array( $this, 'sync_discussion_posting' ), 10, 2 );
+		add_action( 'admin_init', array( $this, 'backfill_discussion_posting' ) );
 		// One-time copy of an existing forum's members into the space it was linked to.
 		add_action( self::COPY_MEMBERS_HOOK, array( $this, 'copy_forum_members' ), 10, 3 );
 
@@ -1866,6 +1869,80 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Carry a saved "who can post" to the space's linked forum.
+	 *
+	 * Forum roles only say owner, moderator or member, so this is the forum's own
+	 * who_can_post setting rather than a demoted role: replying and voting are not
+	 * what the space restricted. A plan rule added through
+	 * buddynext_space_can_post is not carried.
+	 *
+	 * @param int   $space_id BuddyNext space ID.
+	 * @param array $saved    Saved field key => value.
+	 * @return void
+	 */
+	public function sync_discussion_posting( $space_id, $saved = array() ): void {
+		if ( array_key_exists( 'who_can_post', (array) $saved ) ) {
+			$this->apply_discussion_posting( (int) $space_id, true );
+		}
+	}
+
+	/**
+	 * Write the space's posting rule to its forum, when it differs.
+	 *
+	 * @param int  $space_id  BuddyNext space ID.
+	 * @param bool $may_clear Whether "members" may clear a stricter forum rule. False
+	 *                        when linking: an adopted forum keeps its owner's rule
+	 *                        until the space's setting is actually saved.
+	 * @return void
+	 */
+	private function apply_discussion_posting( int $space_id, bool $may_clear ): void {
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return;
+		}
+
+		$map  = array(
+			'mods'  => 'moderators',
+			'owner' => 'admins',
+		);
+		$want = $map[ (string) buddynext_get_space_field( $space_id, 'who_can_post' ) ] ?? '';
+		$have = (string) ( \Jetonomy\Models\Space::get_settings( $forum_id )['who_can_post'] ?? '' );
+		if ( $want === $have || ( '' === $want && ! $may_clear ) ) {
+			return;
+		}
+
+		\Jetonomy\Models\Space::update(
+			$forum_id,
+			array( 'settings' => wp_json_encode( \Jetonomy\Models\Space::merge_settings( $forum_id, array( 'who_can_post' => $want ) ) ) )
+		);
+	}
+
+	/**
+	 * Once: spaces restricted before the rule was carried still had open forums.
+	 *
+	 * Bounded by the sites own restricted spaces, which is a short list.
+	 *
+	 * @return void
+	 */
+	public function backfill_discussion_posting(): void {
+		if ( get_option( 'buddynext_discussion_posting_synced' ) ) {
+			return;
+		}
+		update_option( 'buddynext_discussion_posting_synced', 1, false );
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_ids = (array) $wpdb->get_col(
+			"SELECT rule.bn_space_id FROM {$wpdb->prefix}bn_space_meta rule
+			 INNER JOIN {$wpdb->prefix}bn_space_meta forum ON forum.bn_space_id = rule.bn_space_id AND forum.meta_key = 'jetonomy_forum_id'
+			 WHERE rule.meta_key = 'who_can_post' AND rule.meta_value IN ( 'mods', 'owner' )"
+		);
+		foreach ( $space_ids as $space_id ) {
+			$this->apply_discussion_posting( (int) $space_id, false );
+		}
+	}
+
+	/**
 	 * Provision (once) the ONE dedicated Jetonomy discussion a BuddyNext space
 	 * owns for its lifetime, and store the permanent link.
 	 *
@@ -1924,6 +2001,7 @@ class JetonomyBridge {
 		if ( $adopted > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $adopted );
 			$this->set_discussion_enabled( $space_id, true );
+			$this->apply_discussion_posting( $space_id, false );
 
 			return $adopted;
 		}
@@ -1945,6 +2023,7 @@ class JetonomyBridge {
 
 		if ( $forum_id > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+			$this->apply_discussion_posting( $space_id, false );
 
 			// Provisioning a forum IS the intent to use it: the Discussions tab
 			// only renders when BOTH a linked forum exists AND the
@@ -3050,13 +3129,9 @@ class JetonomyBridge {
 			return;
 		}
 
-		// Posting permission mirrors the feed composer gate: an active member, on a
-		// non-archived space, whose role meets the space's "who can post" threshold.
-		$status    = $viewer_id > 0 ? (string) ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $space_id, $viewer_id ) : '';
-		$is_member = 'active' === $status;
-		$can_post  = $is_member
-			&& empty( $space->is_archived )
-			&& \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
+		// Same gate as the feed composer: an active member whose role meets the space's
+		// "who can post", or a site admin, on a non-archived space.
+		$can_post = empty( $space->is_archived ) && \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
 
 		$forum_ctx = $this->space_forum_context( $space_id );
 
@@ -3068,7 +3143,7 @@ class JetonomyBridge {
 				'forum_url'     => (string) $forum_ctx['forum_url'],
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
-				'can_post'      => $can_post,
+				'empty_state'   => $this->discussion_empty_state( $space, $viewer_id, $can_post, (string) $forum_ctx['forum_url'] ),
 				// Provisioning (creating the forum) is gated to the space owner /
 				// moderator, unlike posting. The empty-state "Start the first
 				// discussion" CTA must follow provisioning, not posting: a member who
@@ -3140,6 +3215,81 @@ class JetonomyBridge {
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
+	}
+
+	/**
+	 * Empty-state arguments for a linked forum with no threads, by what this viewer
+	 * can actually do next: post, log in, join, or nothing yet.
+	 *
+	 * @param object $space     Space row.
+	 * @param int    $viewer_id Viewer (0 = logged out).
+	 * @param bool   $can_post  Whether the viewer may start a discussion.
+	 * @param string $forum_url Linked forum URL.
+	 * @return array<string,mixed> Arguments for parts/empty-state.php.
+	 */
+	private function discussion_empty_state( object $space, int $viewer_id, bool $can_post, string $forum_url ): array {
+		$state = array(
+			'icon'  => 'messages-square',
+			'title' => __( 'No discussions yet', 'buddynext' ),
+			'body'  => __( 'Discussions will appear here once they start.', 'buddynext' ),
+		);
+
+		if ( $can_post && '' !== $forum_url ) {
+			// Straight to the new-topic composer, not the forum landing.
+			return array_merge(
+				$state,
+				array(
+					'body'      => __( 'Be the first to start a conversation in this space.', 'buddynext' ),
+					'cta_url'   => trailingslashit( $forum_url ) . 'new/',
+					'cta_label' => __( 'Start a discussion', 'buddynext' ),
+					'cta_icon'  => 'plus',
+				)
+			);
+		}
+
+		$space_id = (int) $space->id;
+		$members  = new \BuddyNext\Spaces\SpaceMemberService();
+
+		$status = $members->get_status( $space_id, $viewer_id );
+		if ( 'pending' === $status ) {
+			$state['body'] = __( 'You can start a discussion once your join request is approved.', 'buddynext' );
+			return $state;
+		}
+
+		// A member the space restricts, an invitee, or a space that refuses this
+		// viewer (archived, plan gate): joining is not their next step.
+		if ( null !== $status || ! $members->can_join( $space, $viewer_id ) ) {
+			return $state;
+		}
+
+		$method = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $space->type );
+		if ( 'invite' === $method ) {
+			return $state;
+		}
+
+		if ( $viewer_id <= 0 ) {
+			return array_merge(
+				$state,
+				array(
+					'body'      => __( 'Log in to start a discussion in this space.', 'buddynext' ),
+					'cta_url'   => \BuddyNext\Core\PageRouter::login_url( trailingslashit( \BuddyNext\Core\PageRouter::space_url( $space_id ) ) . 'discussions/' ),
+					'cta_label' => __( 'Log in', 'buddynext' ),
+				)
+			);
+		}
+
+		$direct = 'direct' === $method;
+		return array_merge(
+			$state,
+			array(
+				'body'       => $direct
+					? __( 'Join this space to start a discussion.', 'buddynext' )
+					: __( 'Request to join this space to start a discussion.', 'buddynext' ),
+				'cta_action' => $direct ? 'actions.joinSpace' : 'actions.requestJoin',
+				'cta_label'  => $direct ? __( 'Join to start a discussion', 'buddynext' ) : __( 'Request to join', 'buddynext' ),
+				'cta_dialog' => false,
+			)
+		);
 	}
 
 	/**

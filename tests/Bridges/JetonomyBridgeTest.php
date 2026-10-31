@@ -894,6 +894,55 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( $outside, $wpdb->get_var( $wpdb->prepare( "SELECT link_url FROM {$wpdb->prefix}bn_posts WHERE id = %d", $ids[1] ) ) );
 	}
+
+	/**
+	 * A space's "who can post" holds in its linked forum, without demoting anyone.
+	 *
+	 * @return void
+	 */
+	public function test_who_can_post_is_carried_to_the_linked_forum(): void {
+		$owner    = self::factory()->user->create();
+		$space_id = (int) buddynext_service( 'spaces' )->create(
+			$owner,
+			array(
+				'name' => 'Posting Rule',
+				'slug' => 'posting-rule',
+				'type' => 'open',
+			)
+		);
+		$forum_id = 987654;
+		update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+		$read = static fn(): string => (string) ( \Jetonomy\Models\Space::get_settings( $forum_id )['who_can_post'] ?? '' );
+
+		update_space_meta( $space_id, 'who_can_post', 'mods' );
+		$bridge = new JetonomyBridge();
+
+		// An unrelated save does not touch the forum.
+		$bridge->sync_discussion_posting( $space_id, array( 'name' => 'x' ) );
+		$this->assertSame( '', $read() );
+
+		$bridge->sync_discussion_posting( $space_id, array( 'who_can_post' => 'mods' ) );
+		$this->assertSame( 'moderators', $read() );
+
+		update_space_meta( $space_id, 'who_can_post', 'owner' );
+		$bridge->sync_discussion_posting( $space_id, array( 'who_can_post' => 'owner' ) );
+		$this->assertSame( 'admins', $read() );
+
+		update_space_meta( $space_id, 'who_can_post', 'members' );
+		$bridge->sync_discussion_posting( $space_id, array( 'who_can_post' => 'members' ) );
+		$this->assertSame( '', $read() );
+
+		// A space restricted before this shipped gets the rule once, on an admin load.
+		update_space_meta( $space_id, 'who_can_post', 'mods' );
+		delete_option( 'buddynext_discussion_posting_synced' );
+		$bridge->backfill_discussion_posting();
+		$this->assertSame( 'moderators', $read() );
+
+		// ...and only once.
+		\Jetonomy\Models\Space::$settings[ $forum_id ] = array();
+		$bridge->backfill_discussion_posting();
+		$this->assertSame( '', $read() );
+	}
 }
 
 namespace Jetonomy\Models;
@@ -916,6 +965,45 @@ if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => (string) ( $data['slug'] ?? '' ) ), array( '%s' ) );
 			return (int) $wpdb->insert_id;
+		}
+
+		/**
+		 * Settings written through update(), by forum id.
+		 *
+		 * @var array<int,array<string,mixed>>
+		 */
+		public static array $settings = array();
+
+		/**
+		 * Read a forum's settings.
+		 *
+		 * @param int $id Forum id.
+		 * @return array<string,mixed>
+		 */
+		public static function get_settings( int $id ): array {
+			return self::$settings[ $id ] ?? array();
+		}
+
+		/**
+		 * Merge settings the way the model does: an empty value removes the key.
+		 *
+		 * @param int                 $id       Forum id.
+		 * @param array<string,mixed> $incoming Settings to merge.
+		 * @return array<string,mixed>
+		 */
+		public static function merge_settings( int $id, array $incoming ): array {
+			return array_filter( array_merge( self::get_settings( $id ), $incoming ), static fn( $v ) => '' !== $v );
+		}
+
+		/**
+		 * Update a forum.
+		 *
+		 * @param int                 $id   Forum id.
+		 * @param array<string,mixed> $data Columns to write.
+		 * @return void
+		 */
+		public static function update( int $id, array $data ): void {
+			self::$settings[ $id ] = (array) json_decode( (string) ( $data['settings'] ?? '{}' ), true );
 		}
 	}
 }
