@@ -204,6 +204,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	class="<?php echo esc_attr( $bn_class ); ?>"
 	data-interactive
 	role="listitem"
+	data-wp-key="member-<?php echo absint( $bn_member_id ); ?>"
 	data-user-id="<?php echo esc_attr( (string) $bn_member_id ); ?>"
 	data-size="<?php echo $bn_md_compact ? 'compact' : 'full'; ?>"
 	data-wp-context="<?php echo esc_attr( (string) $bn_card_ctx ); ?>"

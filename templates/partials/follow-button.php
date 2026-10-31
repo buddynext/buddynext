@@ -115,6 +115,7 @@ $context_attr = esc_attr(
 ?>
 <div
 	class="bn-follow-btn-wrap"
+	data-wp-key="follow-<?php echo absint( $user_id ); ?>"
 	data-wp-interactive="buddynext/follow-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
 	data-wp-context="<?php echo $context_attr; // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() applied to $context_attr. ?>"

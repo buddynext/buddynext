@@ -90,6 +90,23 @@ class NewPostsPillRenderTest extends WP_UnitTestCase {
 		$this->assertCount( 1, array_keys( $ids, $this->newest, true ), 'not also drawn at its ranked place' );
 	}
 
+	/**
+	 * The router matches children by key, then by position. Unkeyed, the new top
+	 * card reused the old top card's island, so React and Save wrote to that post.
+	 */
+	public function test_each_card_carries_a_key_of_its_own_post(): void {
+		wp_set_current_user( $this->viewer );
+		$_GET['new_after'] = (string) $this->older;
+
+		ob_start();
+		buddynext_get_template( 'feed/home.php', array() );
+		$html = (string) ob_get_clean();
+		unset( $_GET['new_after'] );
+
+		$this->assertStringContainsString( 'data-wp-key="post-' . $this->newest . '"', $html );
+		$this->assertStringContainsString( 'data-wp-key="post-' . $this->older . '"', $html );
+	}
+
 	public function test_a_post_the_viewer_may_not_see_is_not_revealed(): void {
 		$private           = (int) ( new PostService() )->create( $this->author, $this->post_args( 'secret', 'private' ) );
 		$_GET['new_after'] = (string) $this->older;

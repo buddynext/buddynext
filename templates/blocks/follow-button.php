@@ -59,6 +59,7 @@ $bn_fb_is_active = $is_following || $is_pending;
 	echo get_block_wrapper_attributes(
 		array(
 			'class'               => 'bn-block-follow-button',
+			'data-wp-key'         => 'follow-' . absint( $user_id ),
 			'data-wp-interactive' => 'buddynext/follow-button',
 			'data-user-id'        => (string) absint( $user_id ),
 			'data-wp-context'     => $context_json,

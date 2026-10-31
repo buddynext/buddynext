@@ -124,7 +124,7 @@ do_action( 'buddynext_part_search_result_section_spaces_before', $args );
 			$space_url    = (string) ( $space['space_url'] ?? '' );
 			$is_member    = ! empty( $space['is_member'] );
 			?>
-			<article class="bn-card bn-search-row bn-search-row--space" data-interactive
+			<article class="bn-card bn-search-row bn-search-row--space" data-interactive data-wp-key="space-<?php echo (int) $space_id_int; ?>"
 				data-wp-context='
 				<?php
 				echo esc_attr(

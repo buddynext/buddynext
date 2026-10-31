@@ -116,7 +116,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 						)
 				);
 				?>
-				<li class="bn-follow-requests__row" data-wp-context='<?php echo esc_attr( (string) $bn_pp_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
+				<li class="bn-follow-requests__row" data-wp-key="request-<?php echo absint( $bn_pp_rid ); ?>" data-wp-context='<?php echo esc_attr( (string) $bn_pp_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
 					<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__avatar" aria-hidden="true" tabindex="-1">
 						<img src="<?php echo esc_url( get_avatar_url( $bn_pp_rid, array( 'size' => 96 ) ) ); ?>" alt="" loading="lazy" />
 					</a>

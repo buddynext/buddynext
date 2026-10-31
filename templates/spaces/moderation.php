@@ -296,6 +296,7 @@ $mod_privacy = array(
 							?>
 							<article
 								class="bn-card bn-space-mod__report"
+								data-wp-key="report-<?php echo (int) $r_id; ?>"
 								data-tone="<?php echo esc_attr( $r_tone ); ?>"
 								data-wp-context='{"reportId":<?php echo (int) $r_id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>,"objectId":<?php echo (int) $r_obj_id; ?>,"objectType":"<?php echo esc_js( $r_obj_type ); ?>","cwType":"<?php echo esc_js( $r_cw_type ); ?>","cwHasWarning":<?php echo $r_cw_has ? 'true' : 'false'; ?>,"moreMenuOpen":false}'
 							>

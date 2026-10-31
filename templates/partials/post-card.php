@@ -555,6 +555,7 @@ if ( $bn_dead_share && (bool) apply_filters( 'buddynext_hide_dead_reshares', fal
 ?>
 <article
 	class="<?php echo esc_attr( $card_class_attr ); ?>"
+	data-wp-key="post-<?php echo absint( $bn_post_id ); ?>"
 	data-wp-interactive="buddynext/post-card"
 	data-wp-class--bn-post-card--pinned="state.pinBadgeVisible"
 		data-wp-init="callbacks.initPostCard"

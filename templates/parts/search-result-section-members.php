@@ -128,7 +128,7 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 			$is_following = ! empty( $person['is_following'] );
 			$is_self      = ! empty( $person['is_self'] );
 			?>
-			<article class="bn-card bn-search-row bn-search-row--member" data-interactive
+			<article class="bn-card bn-search-row bn-search-row--member" data-interactive data-wp-key="member-<?php echo (int) $pid; ?>"
 				data-wp-context='
 				<?php
 				echo esc_attr(

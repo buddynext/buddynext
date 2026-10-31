@@ -77,6 +77,7 @@ $context_json = (string) wp_json_encode(
 	echo get_block_wrapper_attributes(
 		array(
 			'class'               => 'bn-block-connection-button',
+			'data-wp-key'         => 'connection-' . absint( $user_id ),
 			'data-wp-interactive' => 'buddynext/connection-button',
 			'data-user-id'        => (string) absint( $user_id ),
 			'data-wp-context'     => $context_json,

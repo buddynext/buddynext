@@ -137,6 +137,7 @@ do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 						data-variant="<?php echo $rel_following ? 'secondary' : 'primary'; ?>"
 						data-size="xs"
 						type="button"
+						data-wp-key="hashtag-<?php echo esc_attr( (string) $rel_slug ); ?>"
 						data-wp-context="<?php echo esc_attr( (string) $rel_ctx ); ?>"
 						data-wp-on--click="actions.toggleFollowHashtag"
 						data-wp-class--following="context.following"

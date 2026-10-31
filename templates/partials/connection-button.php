@@ -98,6 +98,7 @@ $context_attr = esc_attr(
 ?>
 <div
 	class="bn-connection-btn-wrap"
+	data-wp-key="connection-<?php echo absint( $user_id ); ?>"
 	data-wp-interactive="buddynext/connection-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
 	data-wp-context="<?php echo $context_attr; // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() applied to $context_attr. ?>"
