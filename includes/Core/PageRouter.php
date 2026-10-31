@@ -1766,7 +1766,7 @@ class PageRouter {
 				return true; // My spaces sections are one page; "View all" pages each group.
 			}
 			if ( 'search' === $request['mode'] ) {
-				return array() === $spaces->search( $request['search'], $request['query_args'] );
+				return (int) $spaces->search_with_total( $request['search'], $request['query_args'] )['total'] <= ( $page - 1 ) * $request['per_page'];
 			}
 			return (int) $spaces->list_spaces_with_total( $request['query_args'] )['total'] <= ( $page - 1 ) * $request['per_page'];
 		}

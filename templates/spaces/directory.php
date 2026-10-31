@@ -116,11 +116,9 @@ if ( $bn_render_sections ) {
 	$bn_spaces          = array_merge( $bn_managed_spaces, $bn_joined_spaces );
 	$total_spaces       = $bn_managed_total + $bn_joined_total;
 } elseif ( '' !== $bn_search ) {
-	// search() applies the same secret-space visibility predicate; it has no
-	// paginated-total variant (the REST route returns search rows unpaginated
-	// too), so the subtitle/pager reflect the returned batch.
-	$bn_spaces    = $bn_space_service->search( $bn_search, $bn_query_args );
-	$total_spaces = count( $bn_spaces );
+	$bn_listing   = $bn_space_service->search_with_total( $bn_search, $bn_query_args );
+	$bn_spaces    = $bn_listing['items'];
+	$total_spaces = (int) $bn_listing['total'];
 } else {
 	// Featured spaces pin to the top of page 1 of the plain, unfiltered "All
 	// Spaces" view — the one thing every new member actually lands on,
@@ -246,10 +244,13 @@ if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ) ) {
 	);
 }
 
-/* translators: %s: total number of spaces. */
+// Same two wordings and the same test as updateDirectorySubtitle() in the store.
 $bn_subtitle = sprintf(
-	/* translators: %s: total number of spaces. */
-	_n( '%s space available', '%s spaces available', $total_spaces, 'buddynext' ),
+	( '' !== $bn_search || '' !== $bn_cat_slug || $bn_is_mine )
+		/* translators: %s: number of spaces matching the filters. */
+		? _n( '%s result', '%s results', $total_spaces, 'buddynext' )
+		/* translators: %s: total number of spaces. */
+		: _n( '%s space available', '%s spaces available', $total_spaces, 'buddynext' ),
 	number_format_i18n( $total_spaces )
 );
 ?>
@@ -422,7 +423,7 @@ $bn_subtitle = sprintf(
 			</ul>
 		</div>
 
-		<?php // Opt-in toggle: include sub-spaces in the flat list (All view only — My Spaces + search already show them). SSR link so it works without JS. ?>
+		<?php // Opt-in toggle: include sub-spaces in the flat list and in a search (All view only — My Spaces already shows them). SSR link so it works without JS. ?>
 		<?php if ( ! $bn_is_mine ) : ?>
 			<a
 				class="bn-btn bn-sd-subspaces-toggle"

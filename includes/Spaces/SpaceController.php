@@ -100,7 +100,7 @@ class SpaceController extends BaseRestController {
 			),
 			'paginate'          => array(
 				'type'        => 'string',
-				'description' => 'Set to 1/true/yes to wrap rows with total + total_pages. Ignored on the search path -- see list_spaces().',
+				'description' => 'Set to 1/true/yes to wrap rows with total + total_pages, with or without a search.',
 			),
 			'orderby'           => array(
 				'type'              => 'string',
@@ -1108,8 +1108,9 @@ class SpaceController extends BaseRestController {
 
 		// Top-level browse shows root spaces only — sub-spaces are reached from
 		// their parent. Mirrors templates/spaces/directory.php so SSR + REST match.
-		// "My Spaces" and search still surface sub-spaces; the include_subspaces
-		// opt-in flattens the All view to the full list.
+		// "My Spaces" and search still surface sub-spaces (search unless roots_only=1
+		// is sent, as the directory does); the include_subspaces opt-in flattens the
+		// All view to the full list.
 		$bn_include_subspaces = in_array( (string) $request->get_param( 'include_subspaces' ), array( '1', 'true', 'yes' ), true );
 		if ( ! isset( $args['member'] ) && ! $bn_include_subspaces ) {
 			$args['roots_only'] = true;
@@ -1122,18 +1123,32 @@ class SpaceController extends BaseRestController {
 				: '' );
 
 		// Explicit opt-in only — search() otherwise always surfaces sub-spaces (see
-		// the comment above), and that stays true for every caller except one that
-		// deliberately asks for root-only results while searching (the admin
-		// featured-spaces picker: a featured sub-space renders nowhere on the
-		// front end, see SpaceService::featured_spaces()).
+		// the comment above). The directory sends this while its "Include sub-spaces"
+		// is off; the admin featured-spaces picker always does, since a featured
+		// sub-space renders nowhere on the front end (SpaceService::featured_spaces()).
 		if ( in_array( (string) $request->get_param( 'roots_only' ), array( '1', 'true', 'yes' ), true ) ) {
 			$args['search_roots_only'] = true;
 		}
 
 		// Opt-in pagination metadata for the reactive directory: paginate=1 wraps the
 		// rows with a total + total_pages (so the client can rebuild its pager for the
-		// filtered set). Default + the search path stay a bare array (back-compat).
+		// filtered set). Without it the rows stay a bare array (back-compat).
 		$bn_paginate = in_array( (string) $request->get_param( 'paginate' ), array( '1', 'true', 'yes' ), true );
+
+		if ( '' !== $search_param && $bn_paginate ) {
+			$result = ( new SpaceService() )->search_with_total( $search_param, $args );
+			$total  = (int) $result['total'];
+
+			return new WP_REST_Response(
+				array(
+					'items'       => $this->enrich_directory_rows( (array) $result['items'], $viewer ),
+					'total'       => $total,
+					'total_pages' => (int) ceil( $total / max( 1, $per_page ) ),
+					'page'        => absint( null !== $page_param ? $page_param : 1 ),
+				),
+				200
+			);
+		}
 
 		if ( '' === $search_param && $bn_paginate ) {
 			$bn_space_service = new SpaceService();

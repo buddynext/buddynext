@@ -2725,10 +2725,12 @@ async function executeSpacesFilter() {
 	if ( state.categoryId ) { params.set( 'category_id', state.categoryId ); }
 	if ( state.sort ) { params.set( 'orderby', state.sort ); }
 	if ( state.includeSubspaces ) { params.set( 'include_subspaces', '1' ); }
+	// A search follows the same "Include sub-spaces" control as the list; the REST
+	// default for a bare search is to surface them. My Spaces lists every membership.
+	if ( state.q && ! state.includeSubspaces && ! state.mine ) { params.set( 'roots_only', '1' ); }
 	params.set( 'per_page', '18' );
-	// Ask for the total so the pager can be rebuilt for the filtered set (search
-	// stays a bare array — it doesn't reactively paginate).
-	if ( ! state.q ) { params.set( 'paginate', '1' ); }
+	// Ask for the total so the pager can be rebuilt for the filtered set.
+	params.set( 'paginate', '1' );
 
 	try {
 		var res = await restFetch( '/spaces?' + params.toString(), {
@@ -2787,8 +2789,7 @@ async function executeSpacesFilter() {
 		// Keep the header count honest. It is SSR-rendered once and would otherwise
 		// keep the unfiltered "N spaces available" while the grid below re-renders to
 		// a filtered set (card 10297104779). Write it from the SAME response that
-		// produced the rows: the paginated (non-search) path carries payload.total;
-		// the search path is a bare array, so its length is the count on screen.
+		// produced the rows, which carries payload.total on every path.
 		var isFiltered    = !! ( state.q || state.mine || state.categoryId );
 		var subtitleCount = ( payload && 'number' === typeof payload.total ) ? payload.total : rows.length;
 		updateDirectorySubtitle( isFiltered, subtitleCount );

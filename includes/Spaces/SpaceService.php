@@ -1643,7 +1643,8 @@ class SpaceService {
 		// The public grid lists top-level spaces unless sub-spaces were asked for;
 		// My spaces lists every membership, sub-spaces included.
 		if ( ! isset( $args['member'] ) && ! $subspaces ) {
-			$args['roots_only'] = true;
+			$args['roots_only']        = true;
+			$args['search_roots_only'] = true;
 		}
 
 		if ( $is_mine && '' === $membership && '' === $search ) {
@@ -2321,8 +2322,15 @@ class SpaceService {
 		// already in $where. esc_like() so a literal % or _ in the term matches
 		// itself; the %s placeholder is filled from $params.
 		if ( '' !== $search ) {
-			$where[]  = 'name LIKE %s';
-			$params[] = '%' . $wpdb->esc_like( $search ) . '%';
+			$like = '%' . $wpdb->esc_like( $search ) . '%';
+			if ( empty( $args['search_description'] ) ) {
+				$where[]  = 'name LIKE %s';
+				$params[] = $like;
+			} else {
+				$where[]  = '( name LIKE %s OR description LIKE %s )';
+				$params[] = $like;
+				$params[] = $like;
+			}
 		}
 
 		// Top-level directory browse shows root spaces only — sub-spaces are
@@ -2398,106 +2406,43 @@ class SpaceService {
 	 * so a retired space cannot be found here after it left the directory.
 	 *
 	 * @param string               $term Search term.
-	 * @param array<string, mixed> $args Optional per_page / page / viewer / is_admin.
+	 * @param array<string, mixed> $args Optional per_page / page / viewer / is_admin, plus every list_spaces() filter.
 	 * @return array[]
 	 */
 	public function search( string $term, array $args = array() ): array {
-		global $wpdb;
+		return $this->list_spaces( self::search_args( $term, $args ) );
+	}
 
-		$like      = '%' . $wpdb->esc_like( $term ) . '%';
-		$per_page  = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
-		$page      = max( 1, absint( $args['page'] ?? 1 ) );
-		$offset    = ( $page - 1 ) * $per_page;
-		$viewer_id = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
-		$is_admin  = ! empty( $args['is_admin'] );
-		$member_id = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
+	/**
+	 * Same search, with the total matching rows for a pager.
+	 *
+	 * @param string               $term Search term.
+	 * @param array<string, mixed> $args Same as search(), plus every list_spaces() filter.
+	 * @return array{items: array[], total: int}
+	 */
+	public function search_with_total( string $term, array $args = array() ): array {
+		return $this->list_spaces_with_total( self::search_args( $term, $args ) );
+	}
 
-		$params = array();
-
-		// "My Spaces" scope — restrict to spaces the searcher owns or actively
-		// belongs to (mirrors list_spaces()'s `member` arg) so search composes
-		// with the directory's My Spaces filter.
-		$mine_sql = '1=1';
-		if ( $member_id > 0 ) {
-			$mine_members = $wpdb->prefix . 'bn_space_members';
-			$mine_sql     = '( ' . $this->owned_or_member_subquery( $mine_members ) . ' )';
-		}
-
-		// Exclude unlisted (secret-equivalent) types from search. Slugs are
-		// sanitize_key()'d in the registry, so the IN list is safe to interpolate.
-		// Site admins see all; other viewers also see secret spaces they own or
-		// actively belong to. Mirrors list_spaces() / directory.php.
-		$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
-		if ( ! $unlisted || $is_admin ) {
-			$exclude_sql = '1=1';
-		} else {
-			$placeholders  = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
-			$members_table = $wpdb->prefix . 'bn_space_members';
-			if ( $viewer_id > 0 ) {
-				$exclude_sql = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
-				$params[]    = $viewer_id;
-				$params[]    = $viewer_id;
-			} else {
-				$exclude_sql = "type NOT IN ( {$placeholders} )";
-			}
-		}
-
-		// Archived spaces are retired — they leave search exactly as they leave the
-		// directory (owner + site admin excepted). Same predicate, one definition.
-		list( $archive_where, $archive_params ) = $this->archive_scope( $viewer_id, $is_admin );
-		$archive_sql                            = $archive_where ? implode( ' AND ', $archive_where ) : '1=1';
-		foreach ( $archive_params as $archive_param ) {
-			$params[] = $archive_param;
-		}
-
-		// Honour category-level directory curation here too. search() builds its own
-		// WHERE, so a show_in_dir = 0 category was excluded from the grid but a
-		// reserved-hub space (a Wellbee Circle) was still reachable by typing its
-		// name — defeating the exclusion's whole purpose. Applies to the PUBLIC
-		// search only; the member-scoped "my spaces" search shows a member their own
-		// spaces regardless (same opt-out as the directory's member_id branch). No
-		// placeholders — the clause inlines integer-cast ids.
-		$hidden_sql = $member_id > 0 ? '1=1' : $this->hidden_category_directory_clause();
-
-		// Root-only is an explicit opt-in here, never the ambient default the
-		// non-search list_spaces() path applies — search intentionally still
-		// surfaces sub-spaces for a member typing their way to one (see the
-		// comment on SpaceController::list_spaces()). A caller that genuinely
-		// needs root-only results even while searching (the admin featured-
-		// spaces picker: a featured sub-space is silently dropped by every
-		// front-end featured surface, see featured_spaces()) opts in with
-		// $args['search_roots_only'].
-		$roots_sql = empty( $args['search_roots_only'] ) ? '1=1' : 'parent_id IS NULL';
-
-		// Mine-scope placeholders follow the exclude- and archive-scope ones, before the LIKEs.
-		if ( $member_id > 0 ) {
-			$params[] = $member_id;
-			$params[] = $member_id;
-		}
-
-		$params[] = $like;
-		$params[] = $like;
-		$params[] = $per_page;
-		$params[] = $offset;
-
-		// $exclude_sql / $archive_sql / $mine_sql hold only literal SQL plus %d
-		// placeholders bound through $params; their placeholder count is dynamic, so
-		// the analyser reports ReplacementsWrongNumber here even though the binding
-		// is correct.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND {$hidden_sql} AND {$roots_sql} AND (name LIKE %s OR description LIKE %s)
-				 ORDER BY member_count DESC, id DESC
-				 LIMIT %d OFFSET %d",
-				...$params
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-
-		return $this->hydrate_all( (array) $rows );
+	/**
+	 * Turn search arguments into a list_spaces() scope, so search takes the same
+	 * category, type, sort, visibility and paging as the directory it sits in.
+	 *
+	 * Root-only is an explicit opt-in (search_roots_only), never the ambient
+	 * roots_only of a browse: a caller with no sub-space control of its own still
+	 * finds a sub-space by typing its name. The directory and the admin
+	 * featured-spaces picker opt in.
+	 *
+	 * @param string               $term Search term.
+	 * @param array<string, mixed> $args Search arguments.
+	 * @return array<string, mixed>
+	 */
+	private static function search_args( string $term, array $args ): array {
+		$args['roots_only'] = ! empty( $args['search_roots_only'] );
+		unset( $args['search_roots_only'], $args['name'] );
+		$args['search']             = $term;
+		$args['search_description'] = true;
+		return $args;
 	}
 
 	/**
