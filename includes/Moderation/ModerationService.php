@@ -234,6 +234,27 @@ class ModerationService {
 	private const NOTE_MAX_LENGTH = 500;
 
 	/**
+	 * Minimum account age (days) a reporter must have before their report counts
+	 * toward an automatic sanction: Free's auto-hide and Pro's report-threshold rules.
+	 *
+	 * @return int
+	 */
+	public static function min_reporter_age_days(): int {
+		/**
+		 * Minimum account age (days) a reporter must have before their report
+		 * counts toward auto-hide. Without it, N brand-new sockpuppet accounts
+		 * could each file one report and hide any post with no moderator ever
+		 * involved — the brigading hole this card closed. Established members
+		 * (and the system reporter, id 0) still trigger auto-hide normally.
+		 *
+		 * @since 1.2.0
+		 *
+		 * @param int $days Minimum account age in days. Default 7.
+		 */
+		return max( 0, (int) apply_filters( 'buddynext_auto_hide_min_account_age_days', 7 ) );
+	}
+
+	/**
 	 * File a system-generated report against auto-flagged content.
 	 *
 	 * This is what a severity=flag rule DOES: the content publishes, and a report
@@ -512,19 +533,7 @@ class ModerationService {
 		if ( in_array( $hide_type, array( 'post', 'comment' ), true ) ) {
 			$auto_hide_threshold = (int) get_option( 'buddynext_auto_hide_threshold', 5 );
 			if ( $auto_hide_threshold > 0 ) {
-				/**
-				 * Minimum account age (days) a reporter must have before their report
-				 * counts toward auto-hide. Without it, N brand-new sockpuppet accounts
-				 * could each file one report and hide any post with no moderator ever
-				 * involved — the brigading hole this card closed. Established members
-				 * (and the system reporter, id 0) still trigger auto-hide normally.
-				 *
-				 * @since 1.2.0
-				 *
-				 * @param int $days Minimum account age in days. Default 7.
-				 */
-				$min_age_days = (int) apply_filters( 'buddynext_auto_hide_min_account_age_days', 7 );
-				$age_cutoff   = gmdate( 'Y-m-d H:i:s', time() - ( max( 0, $min_age_days ) * DAY_IN_SECONDS ) );
+				$age_cutoff = gmdate( 'Y-m-d H:i:s', time() - ( self::min_reporter_age_days() * DAY_IN_SECONDS ) );
 
 				// Distinct reporters (one row per reporter — the dup guard above
 				// enforces that) whose account is older than the cutoff, plus the

@@ -84,7 +84,7 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 | `buddynext_report_created` | action | A member submits a report | `int $report_id, string $object_type, int $object_id, int $reporter_id` |
 | `buddynext_content_removed` | action | Reported content is removed (by a moderator or an auto-action) | `string $object_type, int $object_id, int $actor_id` |
 | `buddynext_post_auto_hidden` | action | A post reaches the report threshold and is put "Under review" (reversible; not a takedown) | `int $post_id` |
-| `buddynext_auto_hide_min_account_age_days` | filter | Counting reports toward the auto-hide threshold. Reports from accounts younger than this many days do not count, so a batch of new accounts cannot hide a post with no moderator involved. Default `7`; the system reporter (id `0`) always counts (1.2.0) | `int $days` |
+| `buddynext_auto_hide_min_account_age_days` | filter | Counting reports toward the auto-hide threshold, and the default for Pro's report-threshold rules. Reports from accounts younger than this many days do not count, so a batch of new accounts cannot hide a post with no moderator involved. Default `7`; the system reporter (id `0`) always counts (1.2.0) | `int $days` |
 | `buddynext_post_restored` | action | An auto-hidden post is restored when its reports are cleared | `int $post_id, int $actor_id` |
 | `buddynext_comment_hidden` | action | A comment reaches the report threshold and is put "Under review" (the comment mirror of `buddynext_post_auto_hidden`) | `int $comment_id, int $actor_id` (actor `0` = the automatic threshold) |
 | `buddynext_comment_restored` | action | An auto-hidden comment is restored when its reports are cleared | `int $comment_id, int $actor_id` |

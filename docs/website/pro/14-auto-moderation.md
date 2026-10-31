@@ -69,6 +69,7 @@ Each rule type takes its own configuration.
 | Rate limit | Max posts per hour | The hourly post cap (must be a positive number). | 20 in the new-rule form |
 | Threshold remove | Reports threshold | How many reports within the window trigger the action (must be positive). | 5 in the new-rule form |
 | Threshold remove | Window (hours) | The time window the reports must fall within (must be positive). | 24 in the new-rule form |
+| Threshold remove | Minimum reporter account age (days) | Reports from accounts younger than this do not count, so a batch of new accounts cannot trigger the action (must be at least 1). | 7 |
 | Threshold remove | Action | remove or suspend. | Remove |
 | Threshold remove | Suspension duration (days) | How long to suspend when the action is suspend. | 7 |
 
