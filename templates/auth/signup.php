@@ -709,7 +709,7 @@ if ( 'invite' === $bn_reg_mode ) {
 								echo wp_kses(
 									2 === count( $bn_legal_links )
 										? sprintf(
-											/* translators: 1: link to the Terms of Service, 2: link to the Privacy Policy */
+											/* translators: 1: Terms of Service (link or text), 2: Privacy Policy (link or text) */
 											__( 'I agree to the %1$s and %2$s.', 'buddynext' ),
 											$bn_legal_links[0],
 											$bn_legal_links[1]

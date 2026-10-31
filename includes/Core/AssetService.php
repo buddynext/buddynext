@@ -1759,7 +1759,7 @@ class AssetService {
 					'removeFailed'          => __( 'Could not remove.', 'buddynext' ),
 					'confirmDeleteTitle'    => __( 'Remove this media?', 'buddynext' ),
 					'confirmDeleteBody'     => __( 'This cannot be undone.', 'buddynext' ),
-					/* translators: %s: comma-separated list of space album names the media also belongs to. */
+					/* translators: %s: comma-separated list of space album names. */
 					'confirmDeleteInSpaces' => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
 				),
 			)

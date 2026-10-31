@@ -1721,7 +1721,7 @@ class ProfileFieldsManager {
 							<?php
 							$grp_confirm_body = $grp_affected > 0
 								? sprintf(
-									/* translators: 1: number of members with stored values, 2: name of the group being deleted. */
+									/* translators: 1: number of members with stored values, 2: name of the group or field being deleted. */
 									_n(
 										'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
 										'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
@@ -1909,7 +1909,7 @@ class ProfileFieldsManager {
 											<?php
 											$fld_confirm_body = $fld_affected > 0
 												? sprintf(
-													/* translators: 1: number of members with stored values, 2: name of the field being deleted. */
+													/* translators: 1: number of members with stored values, 2: name of the group or field being deleted. */
 													_n(
 														'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
 														'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',

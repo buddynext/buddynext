@@ -169,7 +169,7 @@ class CrossSpaceActivityService {
 				'id'              => 'mod-' . (int) $r['id'],
 				'icon'            => 'shield',
 				'avatar'          => $avatars[ $actor ] ?? '',
-				/* translators: 1: actor name, 2: humanised moderation action. */
+				/* translators: 1: a label or name, 2: its value or detail. */
 				'text'            => sprintf( __( '%1$s: %2$s', 'buddynext' ), $who, $this->humanise_action( (string) $r['action'] ) ),
 				'occurred_at_utc' => (string) $r['created_at'],
 			);

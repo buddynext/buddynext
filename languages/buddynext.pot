@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-31T11:03:37+00:00\n"
+"POT-Creation-Date: 2026-10-31T11:42:54+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: buddynext\n"
@@ -72,7 +72,6 @@ msgid "The community runs on %1$s. %2$sSettings%3$s"
 msgstr ""
 
 #. translators: %d: numeric id of a member whose account no longer exists.
-#. translators: %d: user id of an account that no longer exists.
 #: bootstrap.php:454
 #: includes/Privacy/PrivacyTools.php:1371
 #, php-format
@@ -276,7 +275,6 @@ msgid "This can’t be undone."
 msgstr ""
 
 #. translators: %d: number of items.
-#. translators: %d: number of items
 #: bootstrap.php:1431
 #: includes/Admin/NavManager.php:1264
 #: templates/partials/space-files-trash.php:84
@@ -287,7 +285,6 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of items.
-#. translators: %d: number of items in an album.
 #: bootstrap.php:1433
 #: templates/partials/media-tab.php:74
 #, php-format
@@ -3404,7 +3401,6 @@ msgid "Previous"
 msgstr ""
 
 #. translators: 1: current page number, 2: total number of pages.
-#. translators: 1: current page, 2: total pages.
 #: includes/Admin/Members/ApprovalManager.php:390
 #: templates/community-admin.php:535
 #: templates/community-admin.php:609
@@ -4279,8 +4275,7 @@ msgstr ""
 msgid "Add field"
 msgstr ""
 
-#. translators: 1: number of members with stored values, 2: name of the group being deleted.
-#. translators: 1: number of members with stored values, 2: name of the field being deleted.
+#. translators: 1: number of members with stored values, 2: name of the group or field being deleted.
 #: includes/Admin/Members/ProfileFieldsManager.php:1725
 #: includes/Admin/Members/ProfileFieldsManager.php:1913
 #, php-format
@@ -4671,8 +4666,7 @@ msgstr ""
 msgid "Reject and delete this post?"
 msgstr ""
 
-#. translators: %s: display name of the content's author.
-#. translators: %s: uploader display name.
+#. translators: %s: display name of the person who wrote or uploaded it.
 #: includes/Admin/ModerationQueue.php:471
 #: templates/partials/space-file-single.php:152
 #, php-format
@@ -10907,7 +10901,6 @@ msgid "Could not update mute state. Try again."
 msgstr ""
 
 #. translators: %s: member display name.
-#. translators: %s: the member's display name
 #: includes/Core/AssetService.php:1414
 #: includes/Core/AssetService.php:1665
 #: includes/Core/PageRouter.php:2184
@@ -10955,7 +10948,6 @@ msgid "Request to join"
 msgstr ""
 
 #. translators: %s: name of the space this sub-space belongs to.
-#. translators: %s: name of the space this sub-space belongs to (a link).
 #: includes/Core/AssetService.php:1447
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:334
 #: templates/parts/sidebar-profile-member-of.php:58
@@ -11777,7 +11769,6 @@ msgstr ""
 msgid "Remove this media?"
 msgstr ""
 
-#. translators: %s: comma-separated list of space album names the media also belongs to.
 #. translators: %s: comma-separated list of space album names.
 #: includes/Core/AssetService.php:1763
 #: templates/partials/media-upload-composer.php:65
@@ -14433,8 +14424,7 @@ msgstr ""
 msgid "Describe the reason when you choose Other."
 msgstr ""
 
-#. translators: 1: suspension reason, 2: moderator's note.
-#. translators: 1: actor name, 2: humanised moderation action.
+#. translators: 1: a label or name, 2: its value or detail.
 #: includes/Moderation/ModerationService.php:2195
 #: includes/Spaces/CrossSpaceActivityService.php:173
 #, php-format
@@ -16157,10 +16147,9 @@ msgid "Received"
 msgstr ""
 
 #. translators: %s: community name.
-#. translators: %s: formatted connection count
 #: includes/Privacy/PrivacyTools.php:811
-#: templates/profile/connections.php:86
 #, php-format
+msgctxt "data export group name"
 msgid "%s Connections"
 msgstr ""
 
@@ -16876,9 +16865,6 @@ msgid "Community pulse"
 msgstr ""
 
 #. translators: %s: formatted member count.
-#. translators: %s: member count (already i18n-formatted).
-#. translators: %s: member count.
-#. translators: %s: member count
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:305
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:408
 #: templates/community-admin.php:581
@@ -17852,7 +17838,6 @@ msgid "Privacy Policy"
 msgstr ""
 
 #. translators: 1: Terms of Service (link or text), 2: Privacy Policy (link or text)
-#. translators: 1: link to the Terms of Service, 2: link to the Privacy Policy
 #: templates/auth/complete.php:198
 #: templates/auth/signup.php:713
 #, php-format
@@ -18625,7 +18610,6 @@ msgstr ""
 msgid "No pending invites."
 msgstr ""
 
-#. translators: %s: expiry date.
 #. translators: %s: formatted expiry date.
 #: templates/community-admin.php:731
 #: templates/parts/space-settings-panel-invite.php:70
@@ -18881,7 +18865,6 @@ msgstr ""
 msgid "Explore · %1$s · %2$s · %3$s"
 msgstr ""
 
-#. translators: %s: space count.
 #. translators: %s: formatted space count.
 #: templates/feed/explore.php:165
 #: templates/parts/sidebar-explore-browse.php:48
@@ -18891,8 +18874,6 @@ msgid_plural "%s spaces"
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %s: post count.
-#. translators: %s: post count
 #. translators: %s: formatted post count.
 #: templates/feed/explore.php:167
 #: templates/parts/hashtag-sidebar-related.php:112
@@ -19185,8 +19166,7 @@ msgid_plural "%d more badges"
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %d: number of additional badges not shown.
-#. translators: %d: number of further writers not named.
+#. translators: %d: number of further items not shown.
 #: templates/gamification/leaderboard.php:658
 #: templates/parts/profile/articles-panel.php:126
 #, php-format
@@ -20877,7 +20857,6 @@ msgid "Typing…"
 msgstr ""
 
 #. translators: %d: number of members.
-#. translators: %d: member count.
 #: templates/parts/dm-rail-item.php:158
 #: templates/parts/dm-thread-header.php:85
 #: templates/parts/search-result-section-spaces.php:156
@@ -23429,6 +23408,12 @@ msgstr ""
 msgid "%s's Connections"
 msgstr ""
 
+#. translators: %s: formatted connection count
+#: templates/profile/connections.php:86
+#, php-format
+msgid "%s Connections"
+msgstr ""
+
 #: templates/profile/connections.php:91
 msgid "Back to profile"
 msgstr ""
@@ -24123,6 +24108,7 @@ msgstr ""
 msgid "Delete posts?"
 msgstr ""
 
+#. translators: %d: number of posts.
 #: assets/js/admin/activity-bulk.js:52
 #, js-format
 msgid "Delete %d post? This cannot be undone."
@@ -24134,6 +24120,7 @@ msgstr[1] ""
 msgid "Hide posts?"
 msgstr ""
 
+#. translators: %d: number of posts.
 #: assets/js/admin/activity-bulk.js:59
 #, js-format
 msgid "Hide %d post from the feed?"
@@ -24588,6 +24575,7 @@ msgstr ""
 msgid "Searching..."
 msgstr ""
 
+#. translators: %s: the search text.
 #: assets/js/shell/extras.js:304
 #, js-format
 msgid "No results for \"%s\""
@@ -24601,16 +24589,17 @@ msgid_plural "%d results"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/shell/extras.js:322
+#. translators: 1: result type (Post, Member...), 2: author name.
+#: assets/js/shell/extras.js:321
 #, js-format
 msgid "%1$s by %2$s"
 msgstr ""
 
-#: assets/js/shell/extras.js:333
+#: assets/js/shell/extras.js:332
 msgid "Search failed"
 msgstr ""
 
-#: assets/js/shell/extras.js:428
+#: assets/js/shell/extras.js:427
 msgid "/ search  |  n new post  |  g+f feed  |  g+s spaces  |  g+m members"
 msgstr ""
 

@@ -531,7 +531,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-pagination__status">
 							<?php
 							printf(
-								/* translators: 1: current page, 2: total pages. */
+								/* translators: 1: current page number, 2: total number of pages. */
 								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 								esc_html( number_format_i18n( $bn_ca_m_page ) ),
 								esc_html( number_format_i18n( (int) $bn_ca_members['pages'] ) )
@@ -577,7 +577,7 @@ $posts_pct_abs = abs( $posts_pct );
 									<span class="bn-ca-row__sub">
 										<?php
 										printf(
-											/* translators: %s: member count (already i18n-formatted). */
+											/* translators: %s: formatted member count. */
 											esc_html( _n( '%s member', '%s members', $bn_sp_count, 'buddynext' ) ),
 											esc_html( number_format_i18n( $bn_sp_count ) )
 										);
@@ -605,7 +605,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-pagination__status">
 							<?php
 							printf(
-								/* translators: 1: current page, 2: total pages. */
+								/* translators: 1: current page number, 2: total number of pages. */
 								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 								esc_html( number_format_i18n( $bn_ca_sp_page ) ),
 								esc_html( number_format_i18n( $bn_ca_sp_pages ) )
@@ -727,7 +727,7 @@ $posts_pct_abs = abs( $posts_pct );
 										<?php
 										if ( '' !== $bn_inv_exp ) {
 											printf(
-												/* translators: %s: expiry date. */
+												/* translators: %s: formatted expiry date. */
 												esc_html__( 'Expires %s', 'buddynext' ),
 												buddynext_date_local( (string) $bn_inv_exp )
 											);
@@ -754,7 +754,7 @@ $posts_pct_abs = abs( $posts_pct );
 						<span class="bn-ca-pagination__status">
 							<?php
 							printf(
-								/* translators: 1: current page, 2: total pages. */
+								/* translators: 1: current page number, 2: total number of pages. */
 								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 								esc_html( number_format_i18n( $bn_ca_inv_page ) ),
 								esc_html( number_format_i18n( $bn_ca_inv_pages ) )
@@ -1129,7 +1129,7 @@ $posts_pct_abs = abs( $posts_pct );
 								<span class="bn-ca-pagination__status">
 									<?php
 									printf(
-										/* translators: 1: current page, 2: total pages. */
+										/* translators: 1: current page number, 2: total number of pages. */
 										esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
 										esc_html( number_format_i18n( $bn_ca_rp_page ) ),
 										esc_html( number_format_i18n( $bn_ca_rp_pages ) )

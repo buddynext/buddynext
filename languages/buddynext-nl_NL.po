@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-10-31T11:03:37+00:00\n"
+"POT-Creation-Date: 2026-10-31T11:42:54+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -78,7 +78,6 @@ msgid "The community runs on %1$s. %2$sSettings%3$s"
 msgstr "De community draait op %1$s. %2$sInstellingen%3$s"
 
 #. translators: %d: numeric id of a member whose account no longer exists.
-#. translators: %d: user id of an account that no longer exists.
 #: bootstrap.php:454 includes/Privacy/PrivacyTools.php:1371
 #, php-format
 msgid "Deleted member (#%d)"
@@ -272,7 +271,6 @@ msgid "This can’t be undone."
 msgstr "Dit kan niet ongedaan worden gemaakt."
 
 #. translators: %d: number of items.
-#. translators: %d: number of items
 #: bootstrap.php:1431 includes/Admin/NavManager.php:1264
 #: templates/partials/space-files-trash.php:84
 #, php-format
@@ -282,7 +280,6 @@ msgstr[0] "%d item"
 msgstr[1] "%d items"
 
 #. translators: %d: number of items.
-#. translators: %d: number of items in an album.
 #: bootstrap.php:1433 templates/partials/media-tab.php:74
 #, fuzzy, php-format
 msgid "%d items"
@@ -3310,7 +3307,6 @@ msgid "Previous"
 msgstr "Vorige"
 
 #. translators: 1: current page number, 2: total number of pages.
-#. translators: 1: current page, 2: total pages.
 #: includes/Admin/Members/ApprovalManager.php:390
 #: templates/community-admin.php:535 templates/community-admin.php:609
 #: templates/community-admin.php:758 templates/community-admin.php:1133
@@ -4231,8 +4227,7 @@ msgstr "Groep omlaag verplaatsen"
 msgid "Add field"
 msgstr "Veld toevoegen"
 
-#. translators: 1: number of members with stored values, 2: name of the group being deleted.
-#. translators: 1: number of members with stored values, 2: name of the field being deleted.
+#. translators: 1: number of members with stored values, 2: name of the group or field being deleted.
 #: includes/Admin/Members/ProfileFieldsManager.php:1725
 #: includes/Admin/Members/ProfileFieldsManager.php:1913
 #, php-format
@@ -4663,8 +4658,7 @@ msgstr "Hoofdfeed"
 msgid "Reject and delete this post?"
 msgstr "Dit bericht afwijzen en verwijderen?"
 
-#. translators: %s: display name of the content's author.
-#. translators: %s: uploader display name.
+#. translators: %s: display name of the person who wrote or uploaded it.
 #: includes/Admin/ModerationQueue.php:471
 #: templates/partials/space-file-single.php:152
 #, php-format
@@ -11886,7 +11880,6 @@ msgid "Could not update mute state. Try again."
 msgstr "Kon dempstatus niet bijwerken. Probeer het opnieuw."
 
 #. translators: %s: member display name.
-#. translators: %s: the member's display name
 #: includes/Core/AssetService.php:1414 includes/Core/AssetService.php:1665
 #: includes/Core/PageRouter.php:2184
 #, php-format
@@ -11928,7 +11921,6 @@ msgid "Request to join"
 msgstr "Deelnameverzoek"
 
 #. translators: %s: name of the space this sub-space belongs to.
-#. translators: %s: name of the space this sub-space belongs to (a link).
 #: includes/Core/AssetService.php:1447
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:334
 #: templates/parts/sidebar-profile-member-of.php:58
@@ -12739,7 +12731,6 @@ msgstr "Media verwijderd"
 msgid "Remove this media?"
 msgstr "Deze media verwijderen?"
 
-#. translators: %s: comma-separated list of space album names the media also belongs to.
 #. translators: %s: comma-separated list of space album names.
 #: includes/Core/AssetService.php:1763
 #: templates/partials/media-upload-composer.php:65
@@ -15639,8 +15630,7 @@ msgstr "Kies een reden uit de lijst."
 msgid "Describe the reason when you choose Other."
 msgstr "Beschrijf de reden als je „Anders” kiest."
 
-#. translators: 1: suspension reason, 2: moderator's note.
-#. translators: 1: actor name, 2: humanised moderation action.
+#. translators: 1: a label or name, 2: its value or detail.
 #: includes/Moderation/ModerationService.php:2195
 #: includes/Spaces/CrossSpaceActivityService.php:173
 #, php-format
@@ -17554,9 +17544,9 @@ msgid "Received"
 msgstr "Ontvangen"
 
 #. translators: %s: community name.
-#. translators: %s: formatted connection count
-#: includes/Privacy/PrivacyTools.php:811 templates/profile/connections.php:86
+#: includes/Privacy/PrivacyTools.php:811
 #, php-format
+msgctxt "data export group name"
 msgid "%s Connections"
 msgstr "%s connecties"
 
@@ -18332,9 +18322,6 @@ msgid "Community pulse"
 msgstr "Communitypuls"
 
 #. translators: %s: formatted member count.
-#. translators: %s: member count (already i18n-formatted).
-#. translators: %s: member count.
-#. translators: %s: member count
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:305
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:408
 #: templates/community-admin.php:581 templates/feed/explore.php:163
@@ -19400,7 +19387,6 @@ msgid "Privacy Policy"
 msgstr "Privacybeleid"
 
 #. translators: 1: Terms of Service (link or text), 2: Privacy Policy (link or text)
-#. translators: 1: link to the Terms of Service, 2: link to the Privacy Policy
 #: templates/auth/complete.php:198 templates/auth/signup.php:713
 #, php-format
 msgid "I agree to the %1$s and %2$s."
@@ -20215,7 +20201,6 @@ msgstr "Uitnodiging versturen"
 msgid "No pending invites."
 msgstr "Geen openstaande uitnodigingen."
 
-#. translators: %s: expiry date.
 #. translators: %s: formatted expiry date.
 #: templates/community-admin.php:731
 #: templates/parts/space-settings-panel-invite.php:70
@@ -20475,7 +20460,6 @@ msgstr ""
 msgid "Explore · %1$s · %2$s · %3$s"
 msgstr "Verkennen · %1$s · %2$s · %3$s"
 
-#. translators: %s: space count.
 #. translators: %s: formatted space count.
 #: templates/feed/explore.php:165 templates/parts/sidebar-explore-browse.php:48
 #, php-format
@@ -20484,8 +20468,6 @@ msgid_plural "%s spaces"
 msgstr[0] "%s ruimte"
 msgstr[1] "%s ruimten"
 
-#. translators: %s: post count.
-#. translators: %s: post count
 #. translators: %s: formatted post count.
 #: templates/feed/explore.php:167
 #: templates/parts/hashtag-sidebar-related.php:112
@@ -20793,8 +20775,7 @@ msgid_plural "%d more badges"
 msgstr[0] "nog %d badge"
 msgstr[1] "nog %d badges"
 
-#. translators: %d: number of additional badges not shown.
-#. translators: %d: number of further writers not named.
+#. translators: %d: number of further items not shown.
 #: templates/gamification/leaderboard.php:658
 #: templates/parts/profile/articles-panel.php:126
 #, php-format
@@ -22563,7 +22544,6 @@ msgid "Typing…"
 msgstr "Aan het typen…"
 
 #. translators: %d: number of members.
-#. translators: %d: member count.
 #: templates/parts/dm-rail-item.php:158 templates/parts/dm-thread-header.php:85
 #: templates/parts/search-result-section-spaces.php:156
 #: templates/spaces/directory.php:468
@@ -25398,6 +25378,12 @@ msgstr "Jouw connecties"
 msgid "%s's Connections"
 msgstr "Connecties van %s"
 
+#. translators: %s: formatted connection count
+#: templates/profile/connections.php:86
+#, php-format
+msgid "%s Connections"
+msgstr "%s connecties"
+
 #: templates/profile/connections.php:91
 msgid "Back to profile"
 msgstr "Terug naar profiel"
@@ -26150,6 +26136,7 @@ msgstr ""
 msgid "Delete posts?"
 msgstr "Berichten verwijderen?"
 
+#. translators: %d: number of posts.
 #: assets/js/admin/activity-bulk.js:52
 msgid "Delete %d post? This cannot be undone."
 msgid_plural "Delete %d posts? This cannot be undone."
@@ -26160,6 +26147,7 @@ msgstr[1] "Verwijder %d berichten? Dit kan niet ongedaan worden gemaakt."
 msgid "Hide posts?"
 msgstr "Berichten verbergen?"
 
+#. translators: %d: number of posts.
 #: assets/js/admin/activity-bulk.js:59
 msgid "Hide %d post from the feed?"
 msgid_plural "Hide %d posts from the feed?"
@@ -26622,6 +26610,7 @@ msgstr "Vermelding"
 msgid "Searching..."
 msgstr "Zoeken…"
 
+#. translators: %s: the search text.
 #: assets/js/shell/extras.js:304
 msgid "No results for \"%s\""
 msgstr "Geen resultaten voor \"%s\""
@@ -26633,15 +26622,16 @@ msgid_plural "%d results"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/shell/extras.js:322
+#. translators: 1: result type (Post, Member...), 2: author name.
+#: assets/js/shell/extras.js:321
 msgid "%1$s by %2$s"
 msgstr "%1$s door %2$s"
 
-#: assets/js/shell/extras.js:333
+#: assets/js/shell/extras.js:332
 msgid "Search failed"
 msgstr "Zoeken mislukt"
 
-#: assets/js/shell/extras.js:428
+#: assets/js/shell/extras.js:427
 msgid "/ search  |  n new post  |  g+f feed  |  g+s spaces  |  g+m members"
 msgstr ""
 "/ zoeken  |  n nieuw bericht  |  g+f feed  |  g+s ruimtes  |  g+m leden"

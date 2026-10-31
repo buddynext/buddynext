@@ -464,7 +464,7 @@ $bn_subtitle = sprintf(
 							<span class="bn-sd-featured-strip__name"><?php echo esc_html( (string) ( $bn_sd_fs['name'] ?? '' ) ); ?></span>
 							<span class="bn-sd-featured-strip__count">
 								<?php
-								/* translators: %d: member count. */
+								/* translators: %d: number of members. */
 								echo esc_html( sprintf( _n( '%d member', '%d members', $bn_sd_fs_count, 'buddynext' ), $bn_sd_fs_count ) );
 								?>
 							</span>

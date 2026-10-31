@@ -2180,7 +2180,7 @@ class PageRouter {
 				'confirm'                => __( 'Confirm', 'buddynext' ),
 				'cancel'                 => __( 'Cancel', 'buddynext' ),
 				// Block confirmation (bnBlockConfirm).
-				/* translators: %s: the member's display name */
+				/* translators: %s: member display name. */
 				'blockTitleNamed'        => __( 'Block %s?', 'buddynext' ),
 				'blockTitleGeneric'      => __( 'Block this member?', 'buddynext' ),
 				'blockIntro'             => __( 'Blocking this person will:', 'buddynext' ),

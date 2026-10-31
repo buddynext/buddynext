@@ -49,14 +49,14 @@
 				var opts = 'delete' === action
 				? {
 					title:       __( 'Delete posts?', 'buddynext' ),
-					message:     sprintf( _n( 'Delete %d post? This cannot be undone.', 'Delete %d posts? This cannot be undone.', count, 'buddynext' ), count ),
+					message:     sprintf( /* translators: %d: number of posts. */ _n( 'Delete %d post? This cannot be undone.', 'Delete %d posts? This cannot be undone.', count, 'buddynext' ), count ),
 					tone:        'danger',
 					okLabel:     __( 'Delete', 'buddynext' ),
 					cancelLabel: __( 'Cancel', 'buddynext' ),
 				}
 				: {
 					title:       __( 'Hide posts?', 'buddynext' ),
-					message:     sprintf( _n( 'Hide %d post from the feed?', 'Hide %d posts from the feed?', count, 'buddynext' ), count ),
+					message:     sprintf( /* translators: %d: number of posts. */ _n( 'Hide %d post from the feed?', 'Hide %d posts from the feed?', count, 'buddynext' ), count ),
 					tone:        'warn',
 					okLabel:     __( 'Hide', 'buddynext' ),
 					cancelLabel: __( 'Cancel', 'buddynext' ),

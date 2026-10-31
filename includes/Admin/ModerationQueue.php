@@ -467,7 +467,7 @@ class ModerationQueue {
 					<span class="bn-mod-author">
 						<?php
 						printf(
-							/* translators: %s: display name of the content's author. */
+							/* translators: %s: display name of the person who wrote or uploaded it. */
 							esc_html__( 'by %s', 'buddynext' ),
 							esc_html( $bn_author->display_name )
 						);

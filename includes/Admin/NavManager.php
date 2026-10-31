@@ -1260,7 +1260,7 @@ class NavManager extends AdminPageBase {
 					<?php
 					echo esc_html(
 						sprintf(
-							/* translators: %d: number of items */
+							/* translators: %d: number of items. */
 							_n( '%d item', '%d items', $count, 'buddynext' ),
 							$count
 						)

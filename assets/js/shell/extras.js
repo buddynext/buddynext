@@ -301,7 +301,7 @@
 					if ( ! items.length ) {
 						var empty = document.createElement( 'div' );
 						empty.className = 'bn-search-overlay__empty';
-						empty.textContent = sprintf( __( 'No results for "%s"', 'buddynext' ), q );
+						empty.textContent = sprintf( /* translators: %s: the search text. */ __( 'No results for "%s"', 'buddynext' ), q );
 						resultsEl.appendChild( empty );
 						announce( empty.textContent );
 						return;
@@ -318,8 +318,7 @@
 						var meta = document.createElement( 'div' );
 						meta.className = 'bn-search-overlay__result-meta';
 						meta.textContent = item.author_name
-							/* translators: 1: result type (Post, Member...), 2: author name. */
-							? sprintf( __( '%1$s by %2$s', 'buddynext' ), self.typeLabel( item.type || 'post' ), item.author_name )
+							? sprintf( /* translators: 1: result type (Post, Member...), 2: author name. */ __( '%1$s by %2$s', 'buddynext' ), self.typeLabel( item.type || 'post' ), item.author_name )
 							: self.typeLabel( item.type || 'post' );
 						a.appendChild( title );
 						a.appendChild( meta );

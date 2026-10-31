@@ -148,7 +148,7 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 				<?php
 				echo wp_kses(
 					sprintf(
-						/* translators: %s: name of the space this sub-space belongs to (a link). */
+						/* translators: %s: name of the space this sub-space belongs to. */
 						_x( 'in %s', 'sub-space parent label', 'buddynext' ),
 						'<a href="' . esc_url( $bn_dc_parent['url'] ) . '">' . esc_html( $bn_dc_parent['name'] ) . '</a>'
 					),

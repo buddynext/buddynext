@@ -2191,7 +2191,7 @@ class ModerationService {
 		}
 
 		return '' !== $note
-			/* translators: 1: suspension reason, 2: moderator's note. */
+			/* translators: 1: a label or name, 2: its value or detail. */
 			? sprintf( __( '%1$s: %2$s', 'buddynext' ), $reasons[ $code ], $note )
 			: $reasons[ $code ];
 	}

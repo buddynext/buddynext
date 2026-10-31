@@ -70,7 +70,7 @@ $bn_mt_ctx = array(
 		/* translators: %d: maximum upload size in megabytes. */
 		'tooLarge'                => __( 'File is larger than the %d MB allowed.', 'buddynext' ),
 		'oneItem'                 => __( '1 item', 'buddynext' ),
-		/* translators: %d: number of items in an album. */
+		/* translators: %d: number of items. */
 		'nItems'                  => __( '%d items', 'buddynext' ),
 		'albumCreated'            => __( 'Album created', 'buddynext' ),
 		'albumSaved'              => __( 'Album updated', 'buddynext' ),

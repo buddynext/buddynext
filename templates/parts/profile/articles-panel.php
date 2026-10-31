@@ -122,7 +122,7 @@ endif;
 								<?php
 								$bn_ar_label = implode( ', ', array_slice( $bn_ar_names, 0, 3 ) );
 								if ( count( $bn_ar_names ) > 3 ) {
-									/* translators: %d: number of further writers not named. */
+									/* translators: %d: number of further items not shown. */
 									$bn_ar_label .= ' ' . sprintf( __( '+%d', 'buddynext' ), count( $bn_ar_names ) - 3 );
 								}
 								printf(

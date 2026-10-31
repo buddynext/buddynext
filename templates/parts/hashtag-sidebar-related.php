@@ -108,7 +108,7 @@ do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 				<span class="bn-hashtag-related__count">
 					<?php
 					printf(
-						/* translators: %s: post count */
+						/* translators: %s: formatted post count. */
 						esc_html( _n( '%s post', '%s posts', $rel_count, 'buddynext' ) ),
 						esc_html( number_format_i18n( $rel_count ) )
 					);
