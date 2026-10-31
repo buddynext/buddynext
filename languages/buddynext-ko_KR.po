@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-10-31T16:07:41+00:00\n"
+"POT-Creation-Date: 2026-10-31T16:35:53+00:00\n"
 "PO-Revision-Date: 2026-07-08T06:01:07+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -2464,7 +2464,9 @@ msgid ""
 "No controllable integrations are active yet. Activate an integration (such "
 "as WP Career Board, WB Listora, Learnomy, Jetonomy, or WB Gamification) and "
 "it will appear here."
-msgstr "아직 제어할 수 있는 통합이 활성화되지 않았어요. WP Career Board, WB Listora, Learnomy, Jetonomy, WB Gamification 같은 통합을 활성화하면 여기에 표시돼요."
+msgstr ""
+"아직 제어할 수 있는 통합이 활성화되지 않았어요. WP Career Board, WB Listora, "
+"Learnomy, Jetonomy, WB Gamification 같은 통합을 활성화하면 여기에 표시돼요."
 
 #: includes/Admin/IntegrationControlsAdmin.php:143
 msgid "Update needed"
@@ -10482,30 +10484,31 @@ msgstr "앨범"
 msgid "This document isn’t available to you."
 msgstr "이 문서는 사용할 수 없습니다."
 
-#: includes/Comments/CommentController.php:239
+#: includes/Comments/CommentController.php:252
 msgid "Comment could not be retrieved after creation."
 msgstr "댓글을 만든 후 불러올 수 없습니다."
 
-#: includes/Comments/CommentController.php:304
+#: includes/Comments/CommentController.php:318
 msgid "Comment could not be retrieved after update."
 msgstr "댓글을 수정한 후 불러올 수 없습니다."
 
-#: includes/Comments/CommentController.php:347
 #: includes/Comments/CommentController.php:370
+#: includes/Comments/CommentController.php:406
+#: includes/Comments/CommentController.php:429
 #: includes/Comments/CommentService.php:448
 #: includes/Comments/CommentService.php:559
 msgid "Comment not found."
 msgstr "댓글을 찾을 수 없습니다."
 
-#: includes/Comments/CommentController.php:351
+#: includes/Comments/CommentController.php:410
 msgid "You cannot pin this comment."
 msgstr "이 댓글을 고정할 권한이 없습니다."
 
-#: includes/Comments/CommentController.php:376
+#: includes/Comments/CommentController.php:435
 msgid "You cannot unpin this comment."
 msgstr "이 댓글의 고정을 해제할 권한이 없습니다."
 
-#: includes/Comments/CommentController.php:415
+#: includes/Comments/CommentController.php:474
 msgid "Comments are turned off on this community."
 msgstr "이 커뮤니티에서는 댓글이 꺼져 있습니다."
 
@@ -10560,12 +10563,12 @@ msgstr "이 댓글을 수정할 수 없어요."
 msgid "You cannot delete this comment."
 msgstr "이 댓글을 삭제할 수 없어요."
 
-#: includes/Comments/CommentThread.php:173
+#: includes/Comments/CommentThread.php:225
 #: includes/Messages/MessagesData.php:379
 msgid "Deleted member"
 msgstr "삭제된 멤버"
 
-#: includes/Comments/CommentThread.php:175
+#: includes/Comments/CommentThread.php:227
 msgid "[deleted]"
 msgstr "[삭제됨]"
 
@@ -17460,15 +17463,15 @@ msgstr "핸들에는 영문자, 숫자, 하이픈(-), 밑줄(_)만 사용할 수
 msgid "%1$d-%2$d characters: letters, numbers, hyphens and underscores."
 msgstr "%1$d~%2$d자: 문자, 숫자, 하이픈(-), 밑줄(_)만 사용할 수 있어요."
 
-#: includes/Profile/Handle.php:438 includes/Profile/ProfileController.php:888
+#: includes/Profile/Handle.php:484 includes/Profile/ProfileController.php:888
 msgid "No account found."
 msgstr "계정을 찾을 수 없어요."
 
-#: includes/Profile/Handle.php:458 includes/Profile/Handle.php:467
+#: includes/Profile/Handle.php:504 includes/Profile/Handle.php:513
 msgid "That handle is already taken."
 msgstr "이미 사용 중인 핸들이에요."
 
-#: includes/Profile/Handle.php:507
+#: includes/Profile/Handle.php:553
 msgid "That handle could not be applied. Please try another."
 msgstr "이 핸들을 적용할 수 없어요. 다른 핸들을 입력해 주세요."
 

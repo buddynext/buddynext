@@ -127,6 +127,58 @@ final class CommentThread {
 	}
 
 	/**
+	 * One comment, only if this viewer may see it where it sits in its thread.
+	 *
+	 * Reads through CommentService::list(), so a blocked author, a hidden comment or a
+	 * restricted commenter is refused by the same rules as the thread itself.
+	 *
+	 * @param int $comment_id Comment id.
+	 * @param int $viewer_id  Viewer.
+	 * @return array<string, mixed>|null Comment without its replies, or null.
+	 */
+	public function visible_one( int $comment_id, int $viewer_id ): ?array {
+		$comment = $this->comments->get( $comment_id );
+		if ( null === $comment || ! empty( $comment['is_deleted'] ) ) {
+			return null;
+		}
+		$root = $comment;
+		for ( $hops = 0; ! empty( $root['parent_id'] ) && $hops < 25; $hops++ ) {
+			$root = $this->comments->get( (int) $root['parent_id'] );
+			if ( null === $root ) {
+				return null;
+			}
+		}
+		$type   = (string) $comment['object_type'];
+		$object = (int) $comment['object_id'];
+		$thread = $this->comments->list(
+			$type,
+			$object,
+			array(
+				'root_id'   => (int) $root['id'],
+				'viewer_id' => $viewer_id,
+			)
+		);
+		$find   = static function ( array $items ) use ( &$find, $comment_id ): ?array {
+			foreach ( $items as $item ) {
+				if ( (int) $item['id'] === $comment_id ) {
+					return $item;
+				}
+				$hit = $find( (array) ( $item['replies'] ?? array() ) );
+				if ( null !== $hit ) {
+					return $hit;
+				}
+			}
+			return null;
+		};
+		$found  = $find( (array) $thread['items'] );
+		if ( null === $found ) {
+			return null;
+		}
+		$found['replies'] = array();
+		return $this->enrich( $found, $viewer_id, $this->scope( $type, $object, $viewer_id ) );
+	}
+
+	/**
 	 * Per-object facts every comment on the object shares, resolved once.
 	 *
 	 * @param string $object_type Object type.

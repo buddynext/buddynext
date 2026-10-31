@@ -111,6 +111,19 @@ class CommentController extends BaseRestController {
 			'/comments/(?P<id>[\d]+)',
 			array(
 				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_one' ),
+					'permission_callback' => '__return_true',
+					'args'                => array(
+						'id'     => array(
+							'required' => true,
+							'type'     => 'integer',
+							'minimum'  => 1,
+						),
+						'render' => self::RENDER_ARG,
+					),
+				),
+				array(
 					'methods'             => WP_REST_Server::EDITABLE,
 					'callback'            => array( $this, 'update' ),
 					'permission_callback' => array( $this, 'require_auth' ),
@@ -238,7 +251,8 @@ class CommentController extends BaseRestController {
 		if ( null === $created ) {
 			return new WP_Error( 'create_failed', __( 'Comment could not be retrieved after creation.', 'buddynext' ), array( 'status' => 500 ) );
 		}
-		$created = $this->with_html( $created, $request );
+		$created                  = $this->with_html( $created, $request );
+		$created['comment_count'] = $this->stored_comment_count( (string) ( $created['object_type'] ?? '' ), (int) ( $created['object_id'] ?? 0 ) );
 
 		return new WP_REST_Response( $created, 201 );
 	}
@@ -320,6 +334,7 @@ class CommentController extends BaseRestController {
 		$service    = new CommentService();
 		$comment_id = (int) $request->get_param( 'id' );
 		$user_id    = get_current_user_id();
+		$comment    = $service->get( $comment_id );
 
 		$result = $service->delete( $comment_id, $user_id );
 
@@ -327,7 +342,51 @@ class CommentController extends BaseRestController {
 			return $result;
 		}
 
-		return new WP_REST_Response( null, 204 );
+		return new WP_REST_Response(
+			array(
+				'deleted'       => true,
+				'comment_count' => $this->stored_comment_count( (string) ( $comment['object_type'] ?? '' ), (int) ( $comment['object_id'] ?? 0 ) ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /comments/{id} - one comment, for the realtime "new comment" pill.
+	 *
+	 * A 404 for anything the viewer may not read, so it cannot tell hidden from missing.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_one( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$comment_id = (int) $request->get_param( 'id' );
+		$stored     = ( new CommentService() )->get( $comment_id );
+		$comment    = null;
+		if ( null !== $stored && ! $this->is_post_hidden_from_viewer( (string) $stored['object_type'], (int) $stored['object_id'] ) ) {
+			$comment = ( new CommentThread() )->visible_one( $comment_id, get_current_user_id() );
+		}
+		if ( null === $comment ) {
+			return new WP_Error( 'comment_not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		return new WP_REST_Response( $this->with_html( $comment, $request ), 200 );
+	}
+
+	/**
+	 * A post's stored comment total, so a client shows the number, never its own sum. A
+	 * realtime event can reach the tab before the response does, and +1 on top of that total
+	 * counted the comment twice.
+	 *
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object id.
+	 * @return int|null Null for anything but a post.
+	 */
+	private function stored_comment_count( string $object_type, int $object_id ): ?int {
+		if ( 'post' !== $object_type ) {
+			return null;
+		}
+		$post = buddynext_service( 'post_service' )->get( $object_id );
+		return null === $post ? null : (int) ( $post['comment_count'] ?? 0 );
 	}
 
 	/**

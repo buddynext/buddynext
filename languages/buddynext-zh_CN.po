@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-10-31T16:07:41+00:00\n"
+"POT-Creation-Date: 2026-10-31T16:35:53+00:00\n"
 "PO-Revision-Date: 2026-07-08T06:01:07+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -2435,7 +2435,9 @@ msgid ""
 "No controllable integrations are active yet. Activate an integration (such "
 "as WP Career Board, WB Listora, Learnomy, Jetonomy, or WB Gamification) and "
 "it will appear here."
-msgstr "目前没有可控制的集成已启用。启用一个集成（例如 WP Career Board、WB Listora、Learnomy、Jetonomy 或 WB Gamification）后，它将显示在此处。"
+msgstr ""
+"目前没有可控制的集成已启用。启用一个集成（例如 WP Career Board、WB Listora、"
+"Learnomy、Jetonomy 或 WB Gamification）后，它将显示在此处。"
 
 #: includes/Admin/IntegrationControlsAdmin.php:143
 msgid "Update needed"
@@ -10166,30 +10168,31 @@ msgstr "相册"
 msgid "This document isn’t available to you."
 msgstr "您无法访问此文档。"
 
-#: includes/Comments/CommentController.php:239
+#: includes/Comments/CommentController.php:252
 msgid "Comment could not be retrieved after creation."
 msgstr "创建后无法获取该评论。"
 
-#: includes/Comments/CommentController.php:304
+#: includes/Comments/CommentController.php:318
 msgid "Comment could not be retrieved after update."
 msgstr "更新后无法获取该评论。"
 
-#: includes/Comments/CommentController.php:347
 #: includes/Comments/CommentController.php:370
+#: includes/Comments/CommentController.php:406
+#: includes/Comments/CommentController.php:429
 #: includes/Comments/CommentService.php:448
 #: includes/Comments/CommentService.php:559
 msgid "Comment not found."
 msgstr "未找到该评论。"
 
-#: includes/Comments/CommentController.php:351
+#: includes/Comments/CommentController.php:410
 msgid "You cannot pin this comment."
 msgstr "你无法置顶此评论。"
 
-#: includes/Comments/CommentController.php:376
+#: includes/Comments/CommentController.php:435
 msgid "You cannot unpin this comment."
 msgstr "你无法取消置顶此评论。"
 
-#: includes/Comments/CommentController.php:415
+#: includes/Comments/CommentController.php:474
 msgid "Comments are turned off on this community."
 msgstr "此社区已关闭评论功能。"
 
@@ -10244,12 +10247,12 @@ msgstr "你无法编辑此评论。"
 msgid "You cannot delete this comment."
 msgstr "你无法删除此评论。"
 
-#: includes/Comments/CommentThread.php:173
+#: includes/Comments/CommentThread.php:225
 #: includes/Messages/MessagesData.php:379
 msgid "Deleted member"
 msgstr "已删除的成员"
 
-#: includes/Comments/CommentThread.php:175
+#: includes/Comments/CommentThread.php:227
 msgid "[deleted]"
 msgstr "[已删除]"
 
@@ -17049,15 +17052,15 @@ msgstr "用户名只能使用字母、数字、连字符和下划线。"
 msgid "%1$d-%2$d characters: letters, numbers, hyphens and underscores."
 msgstr "%1$d 至 %2$d 个字符:仅限字母、数字、连字符和下划线。"
 
-#: includes/Profile/Handle.php:438 includes/Profile/ProfileController.php:888
+#: includes/Profile/Handle.php:484 includes/Profile/ProfileController.php:888
 msgid "No account found."
 msgstr "未找到账户。"
 
-#: includes/Profile/Handle.php:458 includes/Profile/Handle.php:467
+#: includes/Profile/Handle.php:504 includes/Profile/Handle.php:513
 msgid "That handle is already taken."
 msgstr "该用户名已被使用。"
 
-#: includes/Profile/Handle.php:507
+#: includes/Profile/Handle.php:553
 msgid "That handle could not be applied. Please try another."
 msgstr "无法设置该用户名，请换一个再试。"
 

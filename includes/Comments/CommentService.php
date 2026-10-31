@@ -861,7 +861,17 @@ class CommentService {
 		$page      = max( 1, (int) ( $args['page'] ?? 1 ) );
 		$viewer_id = (int) ( $args['viewer_id'] ?? get_current_user_id() );
 
-		$result = $this->list_for_object( $object_type, $object_id, $per_page, $page );
+		// One root's thread instead of a page, through every visibility rule below.
+		$root_id = (int) ( $args['root_id'] ?? 0 );
+		if ( $root_id > 0 ) {
+			$root   = $this->get( $root_id );
+			$result = array(
+				'items' => null !== $root && $object_type === (string) $root['object_type'] && $object_id === (int) $root['object_id'] && empty( $root['parent_id'] ) ? array( $root ) : array(),
+				'total' => 1,
+			);
+		} else {
+			$result = $this->list_for_object( $object_type, $object_id, $per_page, $page );
+		}
 
 		// Always present, so the response shape does not change depending on whether the thread
 		// happens to be empty.

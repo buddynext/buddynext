@@ -97,6 +97,12 @@ final class ResponseSchema {
 			),
 			array(
 				'method'   => 'GET',
+				'path'     => '/comments/(?P<id>[\\d]+)',
+				'resource' => 'comment',
+				'shape'    => 'item',
+			),
+			array(
+				'method'   => 'GET',
 				'path'     => '/reactions/list',
 				'resource' => 'reaction',
 				'shape'    => 'paginated',

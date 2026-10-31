@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-10-31T16:07:41+00:00\n"
+"POT-Creation-Date: 2026-10-31T16:35:53+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -2500,7 +2500,10 @@ msgid ""
 "No controllable integrations are active yet. Activate an integration (such "
 "as WP Career Board, WB Listora, Learnomy, Jetonomy, or WB Gamification) and "
 "it will appear here."
-msgstr "Nessuna integrazione controllabile è attiva ancora. Attiva un'integrazione (come WP Career Board, WB Listora, Learnomy, Jetonomy, o WB Gamification) e apparirà qui."
+msgstr ""
+"Nessuna integrazione controllabile è attiva ancora. Attiva un'integrazione "
+"(come WP Career Board, WB Listora, Learnomy, Jetonomy, o WB Gamification) e "
+"apparirà qui."
 
 #: includes/Admin/IntegrationControlsAdmin.php:143
 msgid "Update needed"
@@ -10788,30 +10791,31 @@ msgstr "Album"
 msgid "This document isn’t available to you."
 msgstr "Questo documento non è disponibile per te."
 
-#: includes/Comments/CommentController.php:239
+#: includes/Comments/CommentController.php:252
 msgid "Comment could not be retrieved after creation."
 msgstr "Il commento non è stato recuperato dopo la creazione."
 
-#: includes/Comments/CommentController.php:304
+#: includes/Comments/CommentController.php:318
 msgid "Comment could not be retrieved after update."
 msgstr "Il commento non è stato recuperato dopo l'aggiornamento."
 
-#: includes/Comments/CommentController.php:347
 #: includes/Comments/CommentController.php:370
+#: includes/Comments/CommentController.php:406
+#: includes/Comments/CommentController.php:429
 #: includes/Comments/CommentService.php:448
 #: includes/Comments/CommentService.php:559
 msgid "Comment not found."
 msgstr "Commento non trovato."
 
-#: includes/Comments/CommentController.php:351
+#: includes/Comments/CommentController.php:410
 msgid "You cannot pin this comment."
 msgstr "Non puoi fissare questo commento."
 
-#: includes/Comments/CommentController.php:376
+#: includes/Comments/CommentController.php:435
 msgid "You cannot unpin this comment."
 msgstr "Non puoi togliere il pin da questo commento."
 
-#: includes/Comments/CommentController.php:415
+#: includes/Comments/CommentController.php:474
 msgid "Comments are turned off on this community."
 msgstr "I commenti sono disattivati su questa comunità."
 
@@ -10867,12 +10871,12 @@ msgstr "Non puoi modificare questo commento."
 msgid "You cannot delete this comment."
 msgstr "Non puoi eliminare questo commento."
 
-#: includes/Comments/CommentThread.php:173
+#: includes/Comments/CommentThread.php:225
 #: includes/Messages/MessagesData.php:379
 msgid "Deleted member"
 msgstr "Membro eliminato"
 
-#: includes/Comments/CommentThread.php:175
+#: includes/Comments/CommentThread.php:227
 msgid "[deleted]"
 msgstr "[eliminato]"
 
@@ -17934,15 +17938,15 @@ msgstr ""
 msgid "%1$d-%2$d characters: letters, numbers, hyphens and underscores."
 msgstr "Da %1$d a %2$d caratteri: lettere, numeri, trattini e trattini bassi."
 
-#: includes/Profile/Handle.php:438 includes/Profile/ProfileController.php:888
+#: includes/Profile/Handle.php:484 includes/Profile/ProfileController.php:888
 msgid "No account found."
 msgstr "Nessun account trovato."
 
-#: includes/Profile/Handle.php:458 includes/Profile/Handle.php:467
+#: includes/Profile/Handle.php:504 includes/Profile/Handle.php:513
 msgid "That handle is already taken."
 msgstr "Questo nome utente è già in uso."
 
-#: includes/Profile/Handle.php:507
+#: includes/Profile/Handle.php:553
 msgid "That handle could not be applied. Please try another."
 msgstr "Impossibile applicare questo nome utente. Prova con un altro."
 

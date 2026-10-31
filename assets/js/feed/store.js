@@ -1064,69 +1064,6 @@ function initRealtimeNewPostsPill() {
 
 onNavReady( initRealtimeNewPostsPill );
 
-/*
-   Realtime comment indicator — listens for `bn:realtime:comment-added`
-   events dispatched by Pro's RealtimeDispatcher when Soketi delivers
-   a `comment.added` message. If the affected post's comment thread
-   is currently open in this tab, increments a discreet "N new" badge
-   above the comment list; click fetches and prepends.
-
-   No-op when no realtime layer is active or the thread isn't open.
-   ---------------------------------------------------------------- */
-function initRealtimeCommentIndicator() {
-	// Flavor B singleton — the delegated document listener queries the DOM
-	// fresh on each event, so it already covers content swapped in by a
-	// client-side navigation. Install it exactly once; any re-run is a no-op.
-	if ( window.__bnCommentIndicatorInited ) { return; }
-	window.__bnCommentIndicatorInited = true;
-
-	document.addEventListener( 'bn:realtime:comment-added', ( e ) => {
-		const postId      = parseInt( e.detail?.post_id, 10 );
-		const commenterId = parseInt( e.detail?.user_id, 10 );
-		if ( ! postId ) { return; }
-		const list = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
-		if ( ! list || list.children.length === 0 ) {
-			// Thread not open yet — when the user opens it, the freshest
-			// list will be fetched from REST and the new comment will be
-			// included naturally. No need to do anything here.
-			return;
-		}
-		// Skip the viewer's own comment (already inserted optimistically
-		// by submitComment). The viewer id is shared post-card state.
-		if ( parseInt( store( 'buddynext/post-card' ).state.viewerId, 10 ) === commenterId ) { return; }
-
-		let pill = list.previousElementSibling;
-		if ( ! pill || ! pill.classList.contains( 'bn-comment-new-pill' ) ) {
-			pill = document.createElement( 'button' );
-			pill.type = 'button';
-			pill.className = 'bn-comment-new-pill';
-			pill.setAttribute( 'role', 'status' );
-			pill.setAttribute( 'aria-live', 'polite' );
-			pill.dataset.count = '0';
-			pill.addEventListener( 'click', () => {
-				// Refetch the thread: forget it was loaded (the loader skips a
-				// loaded list, so reopening alone showed nothing new), then close
-				// and reopen it.
-				delete list.dataset.loaded;
-				const cardEl    = list.closest( '[data-wp-interactive="buddynext/post-card"]' );
-				const commentTriggers = cardEl?.querySelectorAll( '[aria-label*="comment" i]' );
-				if ( commentTriggers && commentTriggers.length > 0 ) {
-					commentTriggers[ 0 ].click();
-					setTimeout( () => commentTriggers[ 0 ].click(), 50 );
-				} else {
-					window.location.reload();
-				}
-				pill.remove();
-			} );
-			list.parentElement.insertBefore( pill, list );
-		}
-		const n = parseInt( pill.dataset.count, 10 ) + 1;
-		pill.dataset.count = String( n );
-		pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment: show' ) : fmt( t( 'manyNewComments', '%d new comments: show' ), n );
-	} );
-}
-
-onNavReady( initRealtimeCommentIndicator, { once: true } );
 
 /* ── Emoji insert picker (composer + comment editor) ─────────────────────
  * Inserts a Unicode emoji at the caret of a target textarea/input. The

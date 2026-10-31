@@ -354,6 +354,9 @@ function updateReactionSummary( cardEl, body ) {
 // rather than infinite nesting); create() refuses anything deeper.
 const COMMENT_MAX_DEPTH = 5;
 
+// Most comments one click of the realtime pill fetches. Beyond it they arrive through View more.
+const BN_LIVE_COMMENTS_MAX = 20;
+
 // Top-level comments fetched per page (initial load AND each "View more"
 // click). One source so the request size and the `shown = page * perPage`
 // arithmetic in bnRenderCommentPage can never drift. The REST endpoint's own
@@ -561,6 +564,82 @@ function bnInsertComment( container, comment, extra ) {
 	return out;
 }
 
+/*
+   Realtime "N new comments" pill. BuddyNext Pro's realtime module sends
+   bn:realtime:comment-added. Clicking the pill fetches those comments and places them:
+   a thread is oldest first and paged, so reloading it showed page one, without them.
+ */
+async function bnShowLiveComments( list, ids ) {
+	const postId = Number( list.dataset.commentList ) || 0;
+	const res    = await Promise.all( ids.map( ( id ) => restFetch( '/comments/' + id + '?render=html', { nonce: viewer().restNonce, toastOnError: false } ) ) );
+	let first    = null;
+	res.forEach( ( { ok, data } ) => {
+		if ( ! ok || ! data || list.querySelector( '[data-comment-id="' + Number( data.id ) + '"]' ) ) {
+			return; // Hidden from this viewer, or already on screen.
+		}
+		let node = null;
+		if ( data.parent_id ) {
+			// A reply joins its parent; a parent on an unloaded page brings it along later.
+			const host = list.querySelector( '[data-comment-id="' + Number( data.parent_id ) + '"]' );
+			if ( host ) {
+				let replies = commentPart( host, '.bn-comment__replies' );
+				if ( ! replies ) {
+					replies = document.createElement( 'div' );
+					replies.className = 'bn-comment__replies';
+					host.querySelector( ':scope > .bn-comment__body' ).appendChild( replies );
+				}
+				const depth = Number( host.dataset.depth || 0 ) + 1;
+				node = bnInsertComment( replies, data, { postId, depth } );
+				if ( node ) {
+					node.dataset.depth = String( depth );
+				}
+			}
+		} else {
+			node = bnInsertComment( list, data, { postId, depth: 0 } );
+			if ( node ) {
+				node.dataset.bnLive = '1';
+			}
+		}
+		first = first || node;
+	} );
+	first?.scrollIntoView( { block: 'nearest' } );
+}
+
+document.addEventListener( 'bn:realtime:comment-added', ( e ) => {
+	const postId      = parseInt( e.detail?.post_id, 10 );
+	const commenterId = parseInt( e.detail?.user_id, 10 );
+	const commentId   = parseInt( e.detail?.comment_id, 10 );
+	if ( ! postId || ! commentId ) { return; }
+	const list = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
+	if ( ! list || list.children.length === 0 ) {
+		// Thread not open yet: opening it fetches the fresh list.
+		return;
+	}
+	// The viewer's own comment is already in place.
+	if ( parseInt( viewer().viewerId, 10 ) === commenterId ) { return; }
+
+	let pill = list.previousElementSibling;
+	if ( ! pill || ! pill.classList.contains( 'bn-comment-new-pill' ) ) {
+		pill = document.createElement( 'button' );
+		pill.type = 'button';
+		pill.className = 'bn-comment-new-pill';
+		pill.setAttribute( 'role', 'status' );
+		pill.setAttribute( 'aria-live', 'polite' );
+		pill.dataset.ids = '';
+		pill.addEventListener( 'click', () => {
+			const ids = pill.dataset.ids.split( ',' ).filter( Boolean ).slice( 0, BN_LIVE_COMMENTS_MAX );
+			pill.remove();
+			bnShowLiveComments( list, ids );
+		} );
+		list.parentElement.insertBefore( pill, list );
+	}
+	const ids = pill.dataset.ids ? pill.dataset.ids.split( ',' ) : [];
+	ids.push( String( commentId ) );
+	pill.dataset.ids = ids.join( ',' );
+	const n = ids.length;
+	pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment: show' ) : fmt( t( 'manyNewComments', '%d new comments: show' ), n );
+} );
+
 /* Reaction control ------------------------------------------------------- */
 
 function commentReactionMeta( listEl ) {
@@ -740,7 +819,7 @@ async function submitReply( form ) {
 			}
 			clearField( ta );
 			form.hidden = true;
-			adjustCommentCount( postId, 1 );
+			showStoredCommentCount( postId, res.data );
 			return;
 		}
 		const data = res.data || {};
@@ -877,7 +956,7 @@ async function deleteComment( card ) {
 		para.hidden              = false;
 	}
 	commentPart( card, '.bn-comment__actions' )?.remove();
-	adjustCommentCount( postId, -1 );
+	showStoredCommentCount( postId, res.data );
 	bnToast( t( 'commentDeletedToast', 'Comment deleted' ), { tone: 'success' } );
 }
 
@@ -1067,11 +1146,18 @@ document.addEventListener( 'error', ( e ) => {
 	avatar.textContent = letters;
 }, true );
 
-function adjustCommentCount( postId, delta ) {
-	const card = document.querySelector( 'article[data-post-id="' + postId + '"]' );
-	const span = card?.querySelector( '[data-wp-on--click="actions.openComments"] .bn-post-card__action-count' );
-	if ( span ) {
-		setCommentCount( card, parseInt( span.textContent || '0', 10 ) + delta );
+/**
+ * Show the total the server returned for a comment add or delete.
+ *
+ * The total, never +1 or -1: a realtime event can reach this tab before the response.
+ *
+ * @param {number} postId Post id.
+ * @param {Object} data   Response with `comment_count`.
+ * @return {void}
+ */
+function showStoredCommentCount( postId, data ) {
+	if ( Number.isFinite( data?.comment_count ) ) {
+		setCommentCount( document.querySelector( 'article[data-post-id="' + postId + '"]' ), data.comment_count );
 	}
 }
 
@@ -1176,9 +1262,16 @@ function bnRenderCommentPage( listEl, data ) {
 
 	// A comment already on screen (the member's own new one, or a pin set while they
 	// read) is not drawn twice when its page arrives.
+	// Older pages go above any comment the realtime pill already placed at the end.
+	const live = listEl.querySelector( ':scope > [data-bn-live]' );
 	items
 		.filter( ( comment ) => ! listEl.querySelector( ':scope > [data-comment-id="' + Number( comment.id ) + '"]' ) )
-		.forEach( ( comment ) => bnInsertComment( listEl, comment, { postId, depth: 0 } ) );
+		.forEach( ( comment ) => {
+			const node = bnInsertComment( listEl, comment, { postId, depth: 0 } );
+			if ( node && live ) {
+				listEl.insertBefore( node, live );
+			}
+		} );
 
 	const shown = page * perPage;
 	if ( shown < total ) {
@@ -1186,7 +1279,7 @@ function bnRenderCommentPage( listEl, data ) {
 		btn.type        = 'button';
 		btn.className   = 'bn-comment-loadmore';
 		btn.textContent = fmt( t( 'viewMoreCommentsCount', 'View more comments (%d)' ), total - shown );
-		listEl.appendChild( btn );
+		listEl.insertBefore( btn, live );
 	}
 
 	// The server caps how many deep replies one page loads and flags it; say so,
@@ -2554,7 +2647,7 @@ store( 'buddynext/post-card', {
 						bnInsertComment( listEl, res.data, { postId: ctx.postId, depth: 0 } );
 					}
 					clearField( inputEl );
-					adjustCommentCount( ctx.postId, 1 );
+					showStoredCommentCount( ctx.postId, res.data );
 					if ( window.bnToast ) { window.bnToast( t( 'commentAdded', 'Comment added' ) ); }
 				} else {
 					// Surface the server's actual reason — create() now preserves
