@@ -579,8 +579,7 @@ $bn_subtitle = sprintf(
 		// "My Spaces" → two labelled sections (managed first), each rendered from
 		// the shared card part. Each is a separate bounded query (capped); a
 		// section over the cap links to its own paginated pretty view.
-		$bn_sd_cols      = (string) get_option( 'buddynext_spaces_dir_columns', '3' );
-		$bn_sd_cols      = in_array( $bn_sd_cols, array( '2', '3', '4' ), true ) ? $bn_sd_cols : 'auto';
+		$bn_sd_cols      = \BuddyNext\Admin\Settings::dir_columns( 'buddynext_spaces_dir_columns' );
 		$bn_sd_cols_attr = 'auto' !== $bn_sd_cols ? ' data-cols="' . esc_attr( $bn_sd_cols ) . '"' : '';
 		$bn_spaces_base  = trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() );
 		$bn_sections     = array(
@@ -702,8 +701,7 @@ $bn_subtitle = sprintf(
 		<?php
 		// Owner-configurable desktop column count (Settings > Spaces > Directory columns).
 		// 'auto' keeps the responsive auto-fill; 2/3/4 cap the desktop row via [data-cols].
-		$bn_sd_cols = (string) get_option( 'buddynext_spaces_dir_columns', '3' );
-		$bn_sd_cols = in_array( $bn_sd_cols, array( '2', '3', '4' ), true ) ? $bn_sd_cols : 'auto';
+		$bn_sd_cols = \BuddyNext\Admin\Settings::dir_columns( 'buddynext_spaces_dir_columns' );
 		?>
 		<div class="bn-sd-grid" role="list" data-bn-sd-grid<?php echo 'auto' !== $bn_sd_cols ? ' data-cols="' . esc_attr( $bn_sd_cols ) . '"' : ''; ?>>
 

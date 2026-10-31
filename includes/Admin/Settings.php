@@ -730,6 +730,19 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * A directory's column setting as the templates should use it.
+	 *
+	 * Read through the sanitizer so a value that never passed through the form
+	 * (WP-CLI, an import, an add-on) falls back the same way a bad save does.
+	 *
+	 * @param string $option Option name.
+	 * @return string One of 'auto', '2', '3', '4'.
+	 */
+	public static function dir_columns( string $option ): string {
+		return self::sanitize_dir_columns( get_option( $option, '3' ) );
+	}
+
+	/**
 	 * Sanitize a checkbox flag to the string '1' or '0'.
 	 *
 	 * Stored as a string on purpose: a boolean `false` option collides with

@@ -83,8 +83,7 @@ $bn_class   = trim(
 
 // Owner-configurable desktop column count (Settings > General > Member directory).
 // 'auto' keeps the responsive auto-fill; 2/3/4 cap the desktop row via [data-cols].
-$bn_md_cols = (string) get_option( 'buddynext_member_dir_columns', '3' );
-$bn_md_cols = in_array( $bn_md_cols, array( '2', '3', '4' ), true ) ? $bn_md_cols : 'auto';
+$bn_md_cols = \BuddyNext\Admin\Settings::dir_columns( 'buddynext_member_dir_columns' );
 
 $bn_members       = (array) $args['members'];
 $bn_viewer_id     = (int) $args['viewer_id'];
