@@ -19,7 +19,6 @@
 
 /* Component token: how far each reply level steps in. A theme may override it. */
 :root {
-	--bn-comment-indent: var(--bn-s8);
 }
 
 /* ── Feed page shell ────────────────────────────────────────────────────────── */
@@ -2098,14 +2097,6 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 	gap: var(--bn-s3);
 }
 
-.bn-comment-card[data-depth="1"] {
-	margin-inline-start: var(--bn-comment-indent);
-}
-
-.bn-comment-card[data-depth="2"] {
-	margin-inline-start: calc(var(--bn-comment-indent) * 2);
-}
-
 .bn-comment-card--pinned {
 	background: var(--bn-sunken);
 	border-radius: var(--bn-r-md);
@@ -2545,11 +2536,13 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent-text); }
 
 /* Threaded comments — mobile collapse */
 @media (max-width: 480px) {
-	.bn-comment-card[data-depth="1"],
-	.bn-comment-card[data-depth="2"] {
-		/* Flatten deeper threads at mobile: only 16px indent at depth 1,
-		   no further indent for depth 2 to avoid horizontal scroll. */
-		margin-inline-start: 16px;
+	/* Each reply sits inside its parent's body, one avatar + gap in, which leaves a
+	   five-level thread a 64px column on a phone. Pull most of that back: 12px a level,
+	   with a rail so the nesting still reads. */
+	.bn-comment__replies {
+		margin-inline-start: calc(2px - 32px - var(--bn-s3));
+		padding-inline-start: var(--bn-s2);
+		border-inline-start: 2px solid var(--bn-line);
 	}
 	.bn-comment__actions {
 		flex-wrap: wrap;
