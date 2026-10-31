@@ -1725,6 +1725,7 @@ table.bn-table tr:hover td {
 .bn-addon-row__action {
 	flex-shrink: 0;
 	align-self: center;
+	white-space: nowrap;
 	font-size: var(--bn-a-text-xs);
 	font-weight: var(--bn-a-fw-semibold);
 	color: var(--bn-a-brand);
@@ -4392,6 +4393,12 @@ code.bn-ep-code {
 	.bn-activity-filter {
 		flex-direction: column;
 		align-items: stretch;
+	}
+
+	/* The toolbar's width basis would become the search field's height in a column. */
+	.bn-activity-filter .bn-input[type="search"] {
+		flex: none;
+		max-width: none;
 	}
 
 	.bn-activity-count {

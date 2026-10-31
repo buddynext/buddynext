@@ -1688,7 +1688,9 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-sh-info {
-	flex: 1;
+	/* A real basis, so the wrapping row drops the actions to their own line on a phone
+	   instead of squeezing the space name to one word per line. */
+	flex: 1 1 12rem;
 	padding-block-start: var(--bn-s2);
 	min-width: 0;
 }

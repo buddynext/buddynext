@@ -660,9 +660,12 @@
 .bn-hub-nav-group__name {
 	min-width: 0;
 	margin-inline-end: auto; /* icon + name sit left; chevron pushed to the right */
-	/* Wrap, never truncate: "Integration Settings" read "INTEGRATION SETTI…" with
-	   no way to see the rest, and translations run longer still. */
-	overflow-wrap: anywhere;
+	/* Wrap between words, never truncate: "Integration Settings" read "INTEGRATION
+	   SETTI…" with no way to see the rest. `anywhere` split words that would have fit
+	   a line; `break-word` only splits a word longer than the whole line, and
+	   translations can have those, where hyphens make the split readable. */
+	overflow-wrap: break-word;
+	hyphens: auto;
 }
 .bn-hub-nav-group__label svg,
 .bn-hub-nav-group__icon,
@@ -702,6 +705,7 @@
    Docs buttons meet the 40px tap floor; a mouse keeps the compact desktop rail. */
 @media (pointer: coarse), (max-width: 782px) {
 	.bn-hub-nav-link,
+	.bn-hub-nav-group__label,
 	.bn-admin-hub__brand-search,
 	.bn-admin-hub__brand-link { box-sizing: border-box; min-block-size: var(--bn-tap, 40px); }
 }
@@ -749,7 +753,7 @@
    instead of stacking the full nav above the content, which buried every
    screen below the fold on tablets. */
 @media ( max-width: 1024px ) {
-	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 200px minmax( 0, 1fr ); }
+	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 216px minmax( 0, 1fr ); } /* MONETIZATION fits beside the icons with a classic 15px scrollbar. */
 	.bn-hub-nav-link { padding-inline-start: var(--bn-s4, 16px); }
 }
 
@@ -940,6 +944,10 @@
 	gap: var(--bn-a-s3);
 }
 
+.bn-demo-promo__form {
+	flex: none;
+}
+
 /* Head actions (the welcome card's "Run guided setup"). The head is already a
    space-between row, so this only has to refuse to shrink - without it the
    button wraps its label at narrow admin widths while the heading keeps its
@@ -1009,6 +1017,7 @@
 
 .bn-setup-step {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-a-s3);
 	padding: var(--bn-a-s2) var(--bn-a-s2);
@@ -1044,7 +1053,9 @@
 .bn-setup-step__body {
 	display: flex;
 	flex-direction: column;
-	flex: 1 1 auto;
+	/* A real basis: a step with several buttons wraps them under its text instead of
+	   squeezing the text to a 16px column (iPad). */
+	flex: 1 1 14rem;
 	min-width: 0;
 }
 
@@ -1085,9 +1096,11 @@
    owner who runs another theme. */
 .bn-setup-step__actions {
 	display: inline-flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--bn-a-s2);
 	flex-shrink: 0;
+	max-width: 100%;
 }
 
 .bn-setup-step__ack {
