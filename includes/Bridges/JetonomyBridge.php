@@ -224,6 +224,7 @@ class JetonomyBridge {
 		// spaces directory and exits — otherwise the Discussions tab URL
 		// (/spaces/?bn_provision_forum=N) shows the directory instead.
 		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ), 5 );
+		add_action( 'buddynext_part_space_hero_after', array( $this, 'render_provision_failure_notice' ) );
 
 		// BuddyNext owns the member profile: Jetonomy's own profile pages hand over
 		// to it, as its generated links already do (filter_jetonomy_profile_url).
@@ -1171,6 +1172,13 @@ class JetonomyBridge {
 		}
 		return '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
 	}
+
+	/**
+	 * Query arg a failed provision link returns with.
+	 *
+	 * @var string
+	 */
+	private const PROVISION_ERROR_ARG = 'bn_provision_error';
 
 	/**
 	 * Background job: copy a linked forum's members into its space.
@@ -2176,26 +2184,75 @@ class JetonomyBridge {
 		// must carry the per-space nonce the Discussions tab link embeds. Capability
 		// alone does not stop CSRF — a moderator could be tricked into loading a
 		// forged URL. Verify the nonce before anything else.
-		$bn_nonce = isset( $_GET['_bnpf'] ) ? sanitize_text_field( wp_unslash( $_GET['_bnpf'] ) ) : '';
-		if ( ! wp_verify_nonce( $bn_nonce, 'bn_provision_forum_' . $space_id ) ) {
-			return;
-		}
-
+		//
 		// Provisioning is also gated to the space's owner/moderator (or a site
 		// admin) — not any logged-in user, who could otherwise provision a forum on
-		// any space by id.
+		// any space by id. Someone who could not use the link anyway hears that, not
+		// that it expired.
+		$bn_nonce = isset( $_GET['_bnpf'] ) ? sanitize_text_field( wp_unslash( $_GET['_bnpf'] ) ) : '';
 		if ( ! $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
-			return;
+			$this->redirect_provision_failure( 'forbidden' );
+		}
+		if ( ! wp_verify_nonce( $bn_nonce, 'bn_provision_forum_' . $space_id ) ) {
+			$this->redirect_provision_failure( 'expired' );
 		}
 
 		$this->provision_space_forum( $space_id );
 		$url = $this->space_forum_url( $space_id );
-		if ( '' !== $url ) {
-			// Land on the new-topic composer so the member who clicked "Start the
-			// first discussion" can write it immediately, not on the empty forum.
-			wp_safe_redirect( trailingslashit( $url ) . 'new/' );
-			exit;
+		if ( '' === $url ) {
+			$this->redirect_provision_failure( 'failed' );
 		}
+
+		// Land on the new-topic composer so the member who clicked "Start the
+		// first discussion" can write it immediately, not on the empty forum.
+		wp_safe_redirect( trailingslashit( $url ) . 'new/' );
+		exit;
+	}
+
+	/**
+	 * Send a failed provision link back to the page it was on, saying why.
+	 *
+	 * Stays on the requested URL instead of building the space's own: a stranger
+	 * holding a crafted id must not be redirected to a hidden space's slug.
+	 *
+	 * @param string $reason expired|forbidden|failed.
+	 * @return never
+	 */
+	private function redirect_provision_failure( string $reason ): never {
+		$here = remove_query_arg( array( 'bn_provision_forum', '_bnpf' ), (string) wp_unslash( $_SERVER['REQUEST_URI'] ?? '/' ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- passed to wp_safe_redirect(), which validates it.
+		wp_safe_redirect( add_query_arg( self::PROVISION_ERROR_ARG, $reason, $here ) );
+		exit;
+	}
+
+	/**
+	 * Show why a provision link failed, under the hero on whichever tab it landed,
+	 * with a fresh link when trying again can work.
+	 *
+	 * @param array $args Hero arguments (space_id).
+	 * @return void
+	 */
+	public function render_provision_failure_notice( $args ): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only, matched against a fixed list.
+		$reason   = isset( $_GET[ self::PROVISION_ERROR_ARG ] ) ? sanitize_key( wp_unslash( $_GET[ self::PROVISION_ERROR_ARG ] ) ) : '';
+		$messages = array(
+			'expired'   => __( 'That link has expired, so no discussion was created.', 'buddynext' ),
+			'failed'    => __( 'The discussion could not be created.', 'buddynext' ),
+			'forbidden' => __( 'Only the space owner or a moderator can start its discussions.', 'buddynext' ),
+		);
+		if ( ! isset( $messages[ $reason ] ) ) {
+			return;
+		}
+
+		$space_id = (int) ( $args['space_id'] ?? 0 );
+		$retry    = $this->can_provision_forum( $space_id, get_current_user_id() ) && 'forbidden' !== $reason;
+		?>
+		<div class="bn-notice bn-notice--error" role="alert">
+			<?php echo esc_html( $messages[ $reason ] ); ?>
+			<?php if ( $retry ) : ?>
+				<a class="bn-notice__cta" href="<?php echo esc_url( $this->provision_forum_url( $space_id ) ); ?>"><?php esc_html_e( 'Try again', 'buddynext' ); ?></a>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**
@@ -3155,69 +3212,6 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Render the profile Discussions panel — the registry content seam for the
-	 * profile Discussions tab. The bridge owns all jt_* access, so it self-fetches
-	 * the member's discussions and hands them to the shared part. Replaces the old
-	 * hardcoded profile-tab-panel.php branch.
-	 *
-	 * @param int $user_id Profile being viewed.
-	 * @return void
-	 */
-	public function render_profile_discussions_panel( int $user_id ): void {
-		$profile = $this->member_discussion_profile( $user_id, 20 );
-		buddynext_get_template(
-			'parts/profile/discussions-panel.php',
-			array(
-				'profile_user_id'  => $user_id,
-				'discussions'      => $profile['discussions'],
-				'discussion_count' => $profile['discussion_count'],
-				'accepted_answers' => $profile['accepted_answers'],
-				'reputation'       => $profile['reputation'],
-				'trust_level'      => $profile['trust_level'],
-			)
-		);
-	}
-
-	/**
-	 * Count a member's published Jetonomy discussions (the bridge owns jt_* access).
-	 *
-	 * @param int $user_id Discussion author ID.
-	 * @return int
-	 */
-	public function discussion_count( int $user_id ): int {
-		$user_id = absint( $user_id );
-		if ( $user_id <= 0 || ! class_exists( 'Jetonomy\Models\Post' ) ) {
-			return 0;
-		}
-
-		// Nav badges call this on EVERY profile view — cache the COUNT so a large
-		// forum does not pay a jt_posts scan per page load. Invalidated on the
-		// member's post create/delete (invalidate_member_caches).
-		$cache_key = 'jt_dcount_' . $user_id;
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
-		if ( false !== $cached ) {
-			return (int) $cached;
-		}
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts p
-				 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
-				 WHERE p.author_id = %d{$this->profile_listable_where()}",
-				$user_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $count;
-	}
-
-	/**
 	 * Empty-state arguments for a linked forum with no threads, by what this viewer
 	 * can actually do next: post, log in, join, or nothing yet.
 	 *
@@ -3290,6 +3284,69 @@ class JetonomyBridge {
 				'cta_dialog' => false,
 			)
 		);
+	}
+
+	/**
+	 * Render the profile Discussions panel — the registry content seam for the
+	 * profile Discussions tab. The bridge owns all jt_* access, so it self-fetches
+	 * the member's discussions and hands them to the shared part. Replaces the old
+	 * hardcoded profile-tab-panel.php branch.
+	 *
+	 * @param int $user_id Profile being viewed.
+	 * @return void
+	 */
+	public function render_profile_discussions_panel( int $user_id ): void {
+		$profile = $this->member_discussion_profile( $user_id, 20 );
+		buddynext_get_template(
+			'parts/profile/discussions-panel.php',
+			array(
+				'profile_user_id'  => $user_id,
+				'discussions'      => $profile['discussions'],
+				'discussion_count' => $profile['discussion_count'],
+				'accepted_answers' => $profile['accepted_answers'],
+				'reputation'       => $profile['reputation'],
+				'trust_level'      => $profile['trust_level'],
+			)
+		);
+	}
+
+	/**
+	 * Count a member's published Jetonomy discussions (the bridge owns jt_* access).
+	 *
+	 * @param int $user_id Discussion author ID.
+	 * @return int
+	 */
+	public function discussion_count( int $user_id ): int {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 || ! class_exists( 'Jetonomy\Models\Post' ) ) {
+			return 0;
+		}
+
+		// Nav badges call this on EVERY profile view — cache the COUNT so a large
+		// forum does not pay a jt_posts scan per page load. Invalidated on the
+		// member's post create/delete (invalidate_member_caches).
+		$cache_key = 'jt_dcount_' . $user_id;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts p
+				 INNER JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+				 WHERE p.author_id = %d{$this->profile_listable_where()}",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
 	}
 
 	/**
