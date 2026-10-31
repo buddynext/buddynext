@@ -1171,6 +1171,14 @@ class AdminHub {
 			return;
 		}
 
+		// A nested tab this section's own page renders, even when another section has
+		// a tab of the same name (Members > Pending is not Moderation > Pending).
+		foreach ( self::get_tabs( $section ) as $bn_tab_def ) {
+			if ( in_array( $tab, (array) ( $bn_tab_def['subtabs'] ?? array() ), true ) ) {
+				return;
+			}
+		}
+
 		$rule = self::tab_placement()[ $section . ':' . $tab ] ?? null;
 		if ( ! is_array( $rule ) || empty( $rule['section'] ) ) {
 			// No rule under this section's name. A tab that was only ever a GUEST

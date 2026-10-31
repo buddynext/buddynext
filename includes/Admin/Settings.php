@@ -2848,13 +2848,30 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Rendered inline instead: beside the control each one concerns, which is
 		// better than a global banner regardless, and the suppression is untouched.
 		\BuddyNext\Auth\CoreRegistration::render_desync_inline();
+		\BuddyNext\Admin\Members\ApprovalManager::render_stranded_notice();
+
+		$bn_reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
+		$bn_reg_hint = __( 'Controls who can create a new account on your community.', 'buddynext' );
+		$bn_waiting  = 'approval' === $bn_reg_mode ? \BuddyNext\Admin\Members\ApprovalManager::pending_count() : 0;
+		if ( $bn_waiting > 0 ) {
+			$bn_reg_hint .= ' ' . sprintf(
+				/* translators: %s: number of members. */
+				_n(
+					'%s member is waiting for approval. Changing the mode does not approve them: they stay in Members > Pending and cannot sign in until you decide.',
+					'%s members are waiting for approval. Changing the mode does not approve them: they stay in Members > Pending and cannot sign in until you decide.',
+					$bn_waiting,
+					'buddynext'
+				),
+				number_format_i18n( $bn_waiting )
+			);
+		}
 
 		$this->render_select_row(
 			'buddynext_reg_mode',
 			__( 'Registration mode', 'buddynext' ),
-			(string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
+			$bn_reg_mode,
 			self::reg_mode_choices(),
-			__( 'Controls who can create a new account on your community.', 'buddynext' )
+			$bn_reg_hint
 		);
 
 		// The "Require email verification" sub-toggle only has any effect when the

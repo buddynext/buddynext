@@ -1370,10 +1370,11 @@ class Members extends AdminPageBase {
 			'member-types'    => __( 'Member Types', 'buddynext' ),
 			'invites'         => __( 'Invites', 'buddynext' ),
 		);
-		// Pending-approval queue is only relevant while registration is gated by approval.
-		if ( 'approval' === get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ) ) {
+		if ( \BuddyNext\Admin\Members\ApprovalManager::queue_is_needed() ) {
 			$bn_tabs['pending'] = __( 'Pending', 'buddynext' );
 		}
+
+		\BuddyNext\Admin\Members\ApprovalManager::render_stranded_notice();
 
 		$this->render_tab_bar( $bn_tabs, $active_tab, $base_url );
 		$this->open_tab_panel( $active_tab );
@@ -1908,6 +1909,11 @@ class Members extends AdminPageBase {
 										<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( absint( $member['id'] ) ) ); ?>" class="bn-btn" data-variant="secondary" data-size="sm" target="_blank" rel="noopener">
 											<?php esc_html_e( 'View', 'buddynext' ); ?>
 										</a>
+										<?php if ( $member['pending_approval'] ) : ?>
+											<a href="<?php echo esc_url( \BuddyNext\Admin\Members\ApprovalManager::approve_url( absint( $member['id'] ) ) ); ?>" class="bn-btn" data-variant="primary" data-size="sm">
+												<?php esc_html_e( 'Approve', 'buddynext' ); ?>
+											</a>
+										<?php endif; ?>
 										<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-btn" data-variant="secondary" data-size="sm">
 											<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 										</a>
