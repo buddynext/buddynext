@@ -1768,7 +1768,7 @@ class AuthController {
 	 * @return string
 	 */
 	public static function post_register_redirect( int $user_id = 0, array $params = array() ): string {
-		if ( get_option( 'buddynext_email_verify', false ) ) {
+		if ( VerificationService::is_required() ) {
 			$url = \BuddyNext\Core\PageRouter::hub_url(
 				'buddynext_slug_auth',
 				'buddynext_page_auth'
@@ -2029,8 +2029,8 @@ class AuthController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function resend_verification(): WP_REST_Response|WP_Error {
-		// Email Verification feature off: the endpoint has nothing to do.
-		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+		// Verification not required: the endpoint has nothing to do.
+		if ( ! VerificationService::is_required() ) {
 			return new WP_Error(
 				'buddynext_verification_disabled',
 				__( 'Email verification is not enabled on this community.', 'buddynext' ),
@@ -2074,7 +2074,7 @@ class AuthController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function self_verify(): WP_REST_Response|WP_Error {
-		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+		if ( ! VerificationService::is_required() ) {
 			return new WP_Error(
 				'buddynext_verification_disabled',
 				__( 'Email verification is not enabled on this community.', 'buddynext' ),
@@ -2195,10 +2195,10 @@ class AuthController {
 		$user_id              = get_current_user_id();
 		$onboarding_completed = (bool) get_user_meta( $user_id, 'bn_onboarding_complete', true );
 
-		// Email Verification feature off: there is no "unverified" state, so the
-		// caller should treat every account as cleared rather than gating on a
-		// subsystem the owner disabled.
-		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+		// Verification not required: there is no "unverified" state, so the caller
+		// should treat every account as cleared rather than gating on a subsystem
+		// the owner disabled.
+		if ( ! VerificationService::is_required() ) {
 			return new WP_REST_Response(
 				array(
 					'verified'             => true,

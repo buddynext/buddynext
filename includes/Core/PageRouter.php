@@ -773,6 +773,15 @@ class PageRouter {
 
 		$context = $this->build_hub_context( $hub );
 
+		// Nothing is mailed while verification is not required, so "check your inbox"
+		// would be a dead end. A result link (bn_verified, bn_email_changed) still shows.
+		if ( 'auth' === $hub && 'verify' === get_query_var( 'bn_auth_action', '' )
+			&& ! \BuddyNext\Auth\VerificationService::is_required()
+			&& ! isset( $_GET['bn_verified'] ) && ! isset( $_GET['bn_email_changed'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			wp_safe_redirect( self::activity_url() );
+			exit;
+		}
+
 		// Auth hub: redirect logged-in users away from login + signup
 		// surfaces. Verify-email stays accessible because a logged-in but
 		// unverified user must still see the "check your inbox" state, and

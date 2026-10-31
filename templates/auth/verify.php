@@ -281,7 +281,7 @@ wp_enqueue_style( 'bn-auth' );
 				<?php
 				// Say so before it happens: an account that never verifies is deleted
 				// by the cleanup job (CronService::purge_stale_unverified()).
-				$bn_verify_purge_days = (bool) get_option( 'buddynext_email_verify', false ) ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
+				$bn_verify_purge_days = \BuddyNext\Auth\VerificationService::is_required() ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
 				if ( $bn_verify_purge_days > 0 ) :
 					?>
 					<p class="bn-auth-sub">

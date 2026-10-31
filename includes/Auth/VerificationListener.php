@@ -107,7 +107,7 @@ class VerificationListener implements ListenerInterface {
 	 * @return string One of: off, restricted, full.
 	 */
 	public static function enforcement(): string {
-		if ( ! self::feature_active() || ! get_option( 'buddynext_email_verify', false ) ) {
+		if ( ! VerificationService::is_required() ) {
 			return 'off';
 		}
 
@@ -209,11 +209,7 @@ class VerificationListener implements ListenerInterface {
 		if ( buddynext_is_network_provisioning() ) {
 			return;
 		}
-		if ( ! self::feature_active() ) {
-			return;
-		}
-
-		if ( ! (bool) get_option( 'buddynext_email_verify', false ) ) {
+		if ( ! VerificationService::is_required() ) {
 			return;
 		}
 

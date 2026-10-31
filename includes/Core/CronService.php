@@ -246,7 +246,7 @@ class CronService {
 	 * @return void
 	 */
 	private function purge_stale_unverified(): void {
-		if ( ! (bool) get_option( 'buddynext_email_verify', false ) ) {
+		if ( ! \BuddyNext\Auth\VerificationService::is_required() ) {
 			return; // Verification not enforced — nothing to purge.
 		}
 
