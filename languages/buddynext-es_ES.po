@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-10-31T10:13:31+00:00\n"
+"POT-Creation-Date: 2026-10-31T11:03:37+00:00\n"
 "PO-Revision-Date: 2026-07-01T06:06:38+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -76,7 +76,7 @@ msgstr ""
 #: bootstrap.php:269
 #, php-format
 msgid "The community runs on %1$s. %2$sSettings%3$s"
-msgstr ""
+msgstr "La comunidad funciona con %1$s. %2$sAjustes%3$s"
 
 #. translators: %d: numeric id of a member whose account no longer exists.
 #. translators: %d: user id of an account that no longer exists.
@@ -309,15 +309,15 @@ msgstr "No se pudo completar. Inténtalo de nuevo."
 
 #: bootstrap.php:1541
 msgid "Online"
-msgstr ""
+msgstr "En línea"
 
 #: bootstrap.php:1542
 msgid "Away"
-msgstr ""
+msgstr "Ausente"
 
 #: bootstrap.php:1543
 msgid "Do not disturb"
-msgstr ""
+msgstr "No molestar"
 
 #: bootstrap.php:1544 templates/parts/dm-thread-header.php:127
 msgid "Offline"
@@ -358,6 +358,8 @@ msgstr[1] "hace %dd"
 msgid ""
 "%s needs a newer version of the community plugin. Update it to turn this on."
 msgstr ""
+"%s necesita una versión más reciente del plugin de la comunidad. Actualízalo "
+"para activar esta opción."
 
 #. translators: %s: addon name.
 #: includes/Addons/AddonRegistry.php:209
@@ -366,12 +368,16 @@ msgid ""
 "%s was built for an older version of the community plugin and needs an "
 "update from its author."
 msgstr ""
+"%s se creó para una versión anterior del plugin de la comunidad y necesita "
+"una actualización de su autor."
 
 #. translators: 1: addon name, 2: minimum partner version.
 #: includes/Addons/AddonRegistry.php:213
 #, php-format
 msgid "%1$s needs its partner plugin updated to version %2$s or newer."
 msgstr ""
+"%1$s necesita que su plugin asociado se actualice a la versión %2$s o "
+"posterior."
 
 #: includes/Admin/ActivityAdmin.php:72 includes/Admin/NavManager.php:995
 #: includes/Admin/NavManager.php:2300 includes/Core/CoreHubs.php:77
@@ -693,19 +699,19 @@ msgstr "Ver en el sitio"
 
 #: includes/Admin/ActivityAdmin.php:451
 msgid "Attachments"
-msgstr ""
+msgstr "Adjuntos"
 
 #. translators: %d: media id.
 #: includes/Admin/ActivityAdmin.php:460
 #, php-format
 msgid "Unavailable file #%d"
-msgstr ""
+msgstr "Archivo no disponible n.º %d"
 
 #. translators: %d: media id.
 #: includes/Admin/ActivityAdmin.php:460
 #, php-format
 msgid "File #%d"
-msgstr ""
+msgstr "Archivo n.º %d"
 
 #: includes/Admin/ActivityAdmin.php:472 includes/Admin/AdminPageBase.php:509
 #: includes/Admin/Members/AvatarSettings.php:88
@@ -732,11 +738,11 @@ msgstr "Eliminar"
 
 #: includes/Admin/ActivityAdmin.php:485
 msgid "Link preview"
-msgstr ""
+msgstr "Vista previa del enlace"
 
 #: includes/Admin/ActivityAdmin.php:494
 msgid "Remove the link preview (the text keeps the link)"
-msgstr ""
+msgstr "Quitar la vista previa del enlace (el texto conserva el enlace)"
 
 #: includes/Admin/ActivityAdmin.php:508 includes/Admin/ActivityAdmin.php:524
 #: includes/Admin/ActivityAdmin.php:563
@@ -1030,7 +1036,7 @@ msgstr "Moderación"
 
 #: includes/Admin/AdminHub.php:108
 msgid "Automation"
-msgstr ""
+msgstr "Automatización"
 
 #: includes/Admin/AdminHub.php:113
 msgid "Monetization"
@@ -1098,10 +1104,12 @@ msgid ""
 "The screen you asked for belongs to a feature that is turned off, or to a "
 "plugin that is not active. Showing “%s” instead."
 msgstr ""
+"La pantalla que has pedido pertenece a una función desactivada o a un plugin "
+"que no está activo. Mostrando «%s» en su lugar."
 
 #: includes/Admin/AdminHub.php:1780
 msgid "Turn features on or off"
-msgstr ""
+msgstr "Activar o desactivar funciones"
 
 #. translators: %s: the tab actually shown.
 #: includes/Admin/AdminHub.php:1788
@@ -1134,7 +1142,7 @@ msgstr "Navegación de BuddyNext"
 
 #: includes/Admin/AdminHub.php:1952
 msgid "Menu"
-msgstr ""
+msgstr "Menú"
 
 #. translators: %d: number of items awaiting attention on this tab.
 #: includes/Admin/AdminHub.php:1994
@@ -1411,10 +1419,12 @@ msgid ""
 "Your theme (%s) sets light or dark mode for the whole site, so its own color "
 "mode setting wins over this one."
 msgstr ""
+"Tu tema (%s) define el modo claro u oscuro para todo el sitio, así que su "
+"propio ajuste de modo de color prevalece sobre este."
 
 #: includes/Admin/AppearanceTab.php:129
 msgid "Change it in the Customizer"
-msgstr ""
+msgstr "Cámbialo en el Personalizador"
 
 #: includes/Admin/AppearanceTab.php:147 assets/js/blocks.js:317
 #: assets/js/blocks.js:321 assets/js/blocks.js:379 assets/js/blocks.js:398
@@ -1654,7 +1664,7 @@ msgstr "Cuando un miembro recibe o pierde un rol en un espacio"
 
 #: includes/Admin/EmailEditor.php:238
 msgid "When an announcement is posted to a space or to the whole community"
-msgstr ""
+msgstr "Cuando se publique un anuncio en un espacio o en toda la comunidad"
 
 #: includes/Admin/EmailEditor.php:242
 #: includes/Notifications/NotificationPrefCatalogue.php:229
@@ -1866,11 +1876,11 @@ msgstr "Mantenida"
 
 #: includes/Admin/EmailEditor.php:579
 msgid "Sample Space"
-msgstr ""
+msgstr "Espacio de ejemplo"
 
 #: includes/Admin/EmailEditor.php:581
 msgid "Repeated spam after a warning"
-msgstr ""
+msgstr "Spam repetido tras una advertencia"
 
 #: includes/Admin/EmailEditor.php:583
 msgid "A sample notification from the past day."
@@ -2079,7 +2089,6 @@ msgstr "Membresía"
 #: includes/Admin/EmailLog.php:186 includes/Admin/Settings.php:1682
 #: includes/Notifications/NotificationMessageService.php:618
 #: includes/Notifications/NotificationPrefCatalogue.php:126
-#, fuzzy
 msgid "Connection request"
 msgstr "Solicitud de conexión"
 
@@ -2479,13 +2488,13 @@ msgstr "Elige dónde aparece cada integración instalada. Instálalas en %s."
 
 #: includes/Admin/IntegrationControlsAdmin.php:83
 msgid "Active, waiting for BuddyNext Pro"
-msgstr ""
+msgstr "Activa, a la espera de BuddyNext Pro"
 
 #. translators: 1: partner plugin name, 2: what BuddyNext Pro adds with it.
 #: includes/Admin/IntegrationControlsAdmin.php:92
 #, php-format
 msgid "%1$s is active. With BuddyNext Pro: %2$s"
-msgstr ""
+msgstr "%1$s está activa. Con BuddyNext Pro: %2$s"
 
 #: includes/Admin/IntegrationControlsAdmin.php:108
 msgid ""
@@ -2493,6 +2502,9 @@ msgid ""
 "as WP Career Board, Listora, Learnomy, Jetonomy, or WB Gamification) and it "
 "will appear here."
 msgstr ""
+"Todavía no hay integraciones controlables activas. Activa una integración "
+"(como WP Career Board, Listora, Learnomy, Jetonomy o WB Gamification) y "
+"aparecerá aquí."
 
 #: includes/Admin/IntegrationControlsAdmin.php:143
 msgid "Update needed"
@@ -2548,7 +2560,7 @@ msgstr "Añade la pestaña %s a la navegación de miembros."
 
 #: includes/Admin/IntegrationControlsAdmin.php:198
 msgid "Shows what this integration adds in member navigation."
-msgstr ""
+msgstr "Muestra lo que esta integración añade a la navegación de los miembros."
 
 #. translators: %s: integration name.
 #: includes/Admin/IntegrationControlsAdmin.php:204
@@ -3763,13 +3775,13 @@ msgstr "Dirección de correo"
 
 #: includes/Admin/Members/MemberEditForm.php:453
 msgid "You cannot change your own role here."
-msgstr ""
+msgstr "No puedes cambiar tu propio rol desde aquí."
 
 #. translators: %s: comma-separated list of role names.
 #: includes/Admin/Members/MemberEditForm.php:460
 #, php-format
 msgid "Also holds: %s. These are kept when you save."
-msgstr ""
+msgstr "También tiene: %s. Estos roles se conservan al guardar."
 
 #: includes/Admin/Members/MemberEditForm.php:469
 msgid "Profile URL slug"
@@ -3879,7 +3891,7 @@ msgstr "No"
 
 #: includes/Admin/Members/MemberTypesManager.php:256
 msgid "Once"
-msgstr ""
+msgstr "Una vez"
 
 #: includes/Admin/Members/MemberTypesManager.php:258
 #: includes/Admin/Settings.php:2714
@@ -3924,11 +3936,13 @@ msgstr "Mostrar como pestaña de filtro de directorio"
 
 #: includes/Admin/Members/MemberTypesManager.php:329
 msgid "Let members choose this type for themselves"
-msgstr ""
+msgstr "Permitir que los miembros elijan este tipo por sí mismos"
 
 #: includes/Admin/Members/MemberTypesManager.php:334
 msgid "Lock it once chosen (only the site team can change it after that)"
 msgstr ""
+"Bloquearlo una vez elegido (después, solo el equipo del sitio puede "
+"cambiarlo)"
 
 #: includes/Admin/Members/MemberTypesManager.php:368
 #: templates/profile/edit.php:791 templates/profile/edit.php:797
@@ -4737,11 +4751,11 @@ msgstr "Decisión"
 
 #: includes/Admin/ModerationQueue.php:712
 msgid "Optional note"
-msgstr ""
+msgstr "Nota opcional"
 
 #: includes/Admin/ModerationQueue.php:713
 msgid "Note for the member (optional)"
-msgstr ""
+msgstr "Nota para el miembro (opcional)"
 
 #: includes/Admin/ModerationQueue.php:715 includes/Core/AssetService.php:2008
 #: templates/community-admin.php:1210
@@ -5415,10 +5429,12 @@ msgid ""
 "Who can see this item. Anyone it is hidden from also cannot open its page "
 "and sees a \"not available\" notice instead."
 msgstr ""
+"Quién puede ver este elemento. Quienes no lo vean tampoco podrán abrir su "
+"página y verán un aviso de «no disponible» en su lugar."
 
 #: includes/Admin/NavManager.php:1696
 msgid "Who can see this item. It is hidden from everyone else."
-msgstr ""
+msgstr "Quién puede ver este elemento. Está oculto para el resto."
 
 #: includes/Admin/NavManager.php:1706
 msgid "Required capability"
@@ -5671,15 +5687,15 @@ msgstr "Programar publicaciones"
 
 #: includes/Admin/RolesTab.php:50
 msgid "Delete anyone's post or comment"
-msgstr ""
+msgstr "Eliminar la publicación o el comentario de cualquier miembro"
 
 #: includes/Admin/RolesTab.php:51
 msgid "Edit anyone's post or comment"
-msgstr ""
+msgstr "Editar la publicación o el comentario de cualquier miembro"
 
 #: includes/Admin/RolesTab.php:52
 msgid "Post site-wide announcements"
-msgstr ""
+msgstr "Publicar anuncios en toda la comunidad"
 
 #: includes/Admin/RolesTab.php:59
 msgid "Create spaces"
@@ -5731,11 +5747,11 @@ msgstr "Emitir advertencias"
 
 #: includes/Admin/RolesTab.php:77
 msgid "Suspend members with no end date"
-msgstr ""
+msgstr "Suspender miembros sin fecha de fin"
 
 #: includes/Admin/RolesTab.php:78
 msgid "Decide appeals"
-msgstr ""
+msgstr "Resolver apelaciones"
 
 #: includes/Admin/RolesTab.php:91
 msgid "Moderators & up"
@@ -5787,7 +5803,7 @@ msgstr "Solo se restablecen los permisos de rol de esta pestaña."
 
 #: includes/Admin/Settings.php:93
 msgid "Role changes from outside services are now off."
-msgstr ""
+msgstr "Los cambios de rol desde servicios externos están desactivados."
 
 #: includes/Admin/Settings.php:94
 msgid ""
@@ -5795,10 +5811,13 @@ msgid ""
 "this now needs your permission. Plans, abilities and credits are not "
 "affected."
 msgstr ""
+"Un servicio conectado ya ha cambiado roles de miembros en este sitio. Por "
+"seguridad, ahora necesita tu permiso. Los planes, las capacidades y los "
+"créditos no se ven afectados."
 
 #: includes/Admin/Settings.php:95
 msgid "Review the Webhooks settings"
-msgstr ""
+msgstr "Revisa los ajustes de Webhooks"
 
 #: includes/Admin/Settings.php:139 includes/Admin/Settings.php:2528
 #: includes/Onboarding/SetupWizard.php:1134
@@ -5885,7 +5904,11 @@ msgid_plural ""
 "An account that never verifies is deleted after %s days, unless it has "
 "posted."
 msgstr[0] ""
+"Una cuenta que nunca se verifica se elimina después de %s día, a menos que "
+"haya publicado algo."
 msgstr[1] ""
+"Una cuenta que nunca se verifica se elimina después de %s días, a menos que "
+"haya publicado algo."
 
 #: includes/Admin/Settings.php:388
 msgid ""
@@ -5966,7 +5989,7 @@ msgstr "Espacios, directorio de miembros, perfiles, búsqueda de texto completo"
 
 #: includes/Admin/Settings.php:579
 msgid "1:1 direct messages (via MediaVerse)"
-msgstr ""
+msgstr "Mensajes directos 1:1 (a través de MediaVerse)"
 
 #: includes/Admin/Settings.php:580
 msgid "In-app bell + transactional email notifications"
@@ -5982,7 +6005,7 @@ msgstr "REST API, bloques de Gutenberg, 1 webhook saliente"
 
 #: includes/Admin/Settings.php:583
 msgid "Scheduled & recurring posts, up to 3 pinned posts"
-msgstr ""
+msgstr "Publicaciones programadas y recurrentes, hasta 3 publicaciones fijadas"
 
 #: includes/Admin/Settings.php:584
 msgid "Custom reaction emoji set (up to 20)"
@@ -6272,6 +6295,9 @@ msgid ""
 "gets an archive of their posts, comments, profile fields and other records "
 "they created."
 msgstr ""
+"Añade la opción «Exportar mis datos» en los ajustes de privacidad del "
+"miembro. El miembro recibe un archivo con sus publicaciones, comentarios, "
+"campos del perfil y otros registros que ha creado."
 
 #: includes/Admin/Settings.php:997
 msgid "Allow members to delete their account"
@@ -6282,6 +6308,9 @@ msgid ""
 "Adds a \"Delete account\" option to the member Settings > Privacy page. "
 "Admins can always delete accounts regardless of this setting."
 msgstr ""
+"Añade la opción «Eliminar cuenta» en la página Ajustes > Privacidad del "
+"miembro. Los administradores siempre pueden eliminar cuentas, "
+"independientemente de este ajuste."
 
 #: includes/Admin/Settings.php:1014
 msgid "Auto (fit to width)"
@@ -6366,6 +6395,8 @@ msgstr ""
 #: includes/Admin/Settings.php:1075
 msgid "Needs MediaVerse. Activate it to choose how media links open."
 msgstr ""
+"Requiere MediaVerse. Actívalo para elegir cómo se abren los enlaces de "
+"medios."
 
 #: includes/Admin/Settings.php:1085
 msgid "Direct Messaging"
@@ -6410,6 +6441,7 @@ msgstr "Menú de la comunidad"
 #: includes/Admin/Settings.php:1134
 msgid "Community navigation (theme menu, rail and mobile bar)"
 msgstr ""
+"Navegación de la comunidad (menú del tema, barra lateral y barra móvil)"
 
 #: includes/Admin/Settings.php:1136
 msgid ""
@@ -6418,6 +6450,11 @@ msgid ""
 "rail and bottom bar go too. To rename, reorder, or hide individual items, "
 "use the Navigation tab."
 msgstr ""
+"Añade el menú Feed / Miembros / Espacios al tema y muestra la barra lateral "
+"de escritorio y la barra inferior móvil. Desactívalo para usar solo el menú "
+"propio de tu tema: la barra lateral y la barra inferior también se ocultan. "
+"Para renombrar, reordenar u ocultar elementos concretos, usa la pestaña "
+"Navegación."
 
 #: includes/Admin/Settings.php:1143
 msgid "Show the desktop sidebar rail"
@@ -6526,6 +6563,10 @@ msgid ""
 "percentage of its length. Capped at 95% so the gate always keeps something "
 "back; 0 shows only the lock notice. Posts under 40 words show no preview."
 msgstr ""
+"Qué porcentaje de una publicación solo para miembros ve un no miembro como "
+"vista previa, respecto a su longitud. Con un máximo del 95 % para que el "
+"bloqueo siempre reserve algo; 0 muestra solo el aviso de bloqueo. Las "
+"publicaciones de menos de 40 palabras no muestran vista previa."
 
 #: includes/Admin/Settings.php:1258
 msgid "Ask for a note when connecting"
@@ -6551,6 +6592,8 @@ msgstr "Quién puede enviar mensajes a los miembros"
 msgid ""
 "Direct messages need MediaVerse. Activate it to set who can message members."
 msgstr ""
+"Los mensajes directos requieren MediaVerse. Actívalo para definir quién "
+"puede escribir a los miembros."
 
 #. translators: %s: the site-wide "who can message you" level, e.g. "Everyone".
 #: includes/Admin/Settings.php:1299
@@ -6559,10 +6602,12 @@ msgid ""
 "Set in MediaVerse: %s. Members can choose this or stricter in their privacy "
 "settings."
 msgstr ""
+"Definido en MediaVerse: %s. Los miembros pueden elegir este nivel o uno más "
+"estricto en sus ajustes de privacidad."
 
 #: includes/Admin/Settings.php:1304 includes/Admin/Settings.php:2765
 msgid "Change in MediaVerse"
-msgstr ""
+msgstr "Cambiar en MediaVerse"
 
 #: includes/Admin/Settings.php:1318
 msgid "Who can create spaces"
@@ -6570,11 +6615,11 @@ msgstr "Quién puede crear espacios"
 
 #: includes/Admin/Settings.php:1319
 msgid "Set under Members > Roles & Capabilities."
-msgstr ""
+msgstr "Definido en Miembros > Roles y capacidades."
 
 #: includes/Admin/Settings.php:1320
 msgid "Change in Roles & Capabilities"
-msgstr ""
+msgstr "Cambiar en Roles y capacidades"
 
 #: includes/Admin/Settings.php:1340
 msgid ""
@@ -6721,6 +6766,9 @@ msgid ""
 "From this many active strikes, the notice a member gets with each strike "
 "also warns that their account is at risk of suspension."
 msgstr ""
+"A partir de este número de sanciones activas, el aviso que recibe el miembro "
+"con cada sanción también le advierte de que su cuenta corre el riesgo de ser "
+"suspendida."
 
 #: includes/Admin/Settings.php:1549
 msgid "Strikes before suspension"
@@ -6951,6 +6999,8 @@ msgid ""
 "Receives the daily alert when the moderation queue is long. Leave it empty "
 "to use the WordPress admin email."
 msgstr ""
+"Recibe la alerta diaria cuando la cola de moderación es larga. Déjalo vacío "
+"para usar el correo del administrador de WordPress."
 
 #: includes/Admin/Settings.php:1802
 msgid "Sender identity"
@@ -7106,6 +7156,9 @@ msgid ""
 "Shows a consent checkbox on every sign-up route. On once a Terms page is "
 "chosen under Legal pages below; it has no effect until then."
 msgstr ""
+"Muestra una casilla de consentimiento en todas las vías de registro. Se "
+"activa cuando eliges una página de Términos en Páginas legales (más abajo); "
+"no tiene efecto hasta entonces."
 
 #: includes/Admin/Settings.php:1959 includes/Admin/Settings.php:2866
 msgid "Ask new members for their name"
@@ -7283,6 +7336,9 @@ msgid ""
 "spaces/, or a full address. Leave empty for the activity feed. A member who "
 "was sent to log in from a page goes back to that page instead."
 msgstr ""
+"Adónde van los miembros tras iniciar sesión: una página de tu sitio, por "
+"ejemplo /spaces/, o una dirección completa. Déjalo vacío para ir al feed de "
+"actividad. Un miembro que inició sesión desde una página vuelve a esa página."
 
 #: includes/Admin/Settings.php:2145
 msgid "After logout"
@@ -7307,6 +7363,10 @@ msgid ""
 "spaces/, or a full address. Leave empty for the activity feed. A member who "
 "signed up from a page goes back to that page instead."
 msgstr ""
+"Adónde van los nuevos miembros tras la incorporación: una página de tu "
+"sitio, por ejemplo /spaces/, o una dirección completa. Déjalo vacío para ir "
+"al feed de actividad. Un miembro que se registró desde una página vuelve a "
+"esa página."
 
 #: includes/Admin/Settings.php:2163 includes/Admin/Settings.php:2172
 #: includes/Admin/Settings.php:3135
@@ -7360,7 +7420,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:2230 includes/Admin/Settings.php:3610
 msgid "Allow role changes from outside"
-msgstr ""
+msgstr "Permitir cambios de rol desde el exterior"
 
 #: includes/Admin/Settings.php:2231 includes/Admin/Settings.php:3611
 msgid ""
@@ -7369,10 +7429,15 @@ msgid ""
 "your shared secret authorises every action, and this is the most powerful "
 "one. Plans, abilities and credits work either way."
 msgstr ""
+"Desactivado por defecto. Si está activado, una solicitud firmada puede "
+"asignar a un miembro el rol de administrador de la comunidad, moderador o "
+"miembro. Déjalo desactivado salvo que un servicio que utilices lo necesite: "
+"tu clave secreta compartida autoriza cada acción, y esta es la más potente. "
+"Los planes, las capacidades y los créditos funcionan igual en ambos casos."
 
 #: includes/Admin/Settings.php:2239 includes/Admin/Settings.php:3617
 msgid "Create an account for a new buyer"
-msgstr ""
+msgstr "Crear una cuenta para un nuevo comprador"
 
 #: includes/Admin/Settings.php:2240 includes/Admin/Settings.php:3618
 msgid ""
@@ -7383,6 +7448,12 @@ msgid ""
 "Make or Zapier. Accounts are only created from requests signed with your "
 "secret."
 msgstr ""
+"Desactivado por defecto. Si está activado, una solicitud firmada que asigna "
+"un plan, una capacidad o créditos a una dirección de correo sin cuenta crea "
+"al miembro (siempre como miembro nuevo, nunca como administrador) y le envía "
+"por correo un enlace para establecer su contraseña. Úsalo si cobras en otra "
+"herramienta y la conectas con Make o Zapier. Las cuentas solo se crean a "
+"partir de solicitudes firmadas con tu clave secreta."
 
 #: includes/Admin/Settings.php:2434
 msgid ""
@@ -7483,15 +7554,15 @@ msgstr "Requiere: %s"
 
 #: includes/Admin/Settings.php:2754
 msgid "Open its settings"
-msgstr ""
+msgstr "Abrir sus ajustes"
 
 #: includes/Admin/Settings.php:2761
 msgid "Install MediaVerse"
-msgstr ""
+msgstr "Instalar MediaVerse"
 
 #: includes/Admin/Settings.php:2763
 msgid "Turn on"
-msgstr ""
+msgstr "Activar"
 
 #: includes/Admin/Settings.php:2768
 msgid "This feature is always on and cannot be disabled."
@@ -7735,7 +7806,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:3214
 msgid "Keys and setup"
-msgstr ""
+msgstr "Claves y configuración"
 
 #: includes/Admin/Settings.php:3232
 msgid "Saved. Leave blank to keep it, or paste a new one to replace it."
@@ -7822,7 +7893,7 @@ msgstr "La instalación falló - error de red."
 
 #: includes/Admin/Settings.php:3373
 msgid "Installed"
-msgstr ""
+msgstr "Instalado"
 
 #: includes/Admin/Settings.php:3376 includes/Core/AssetService.php:1040
 #: includes/Core/AssetService.php:1360 includes/Core/AssetService.php:1850
@@ -7842,13 +7913,13 @@ msgstr "No instalado"
 
 #: includes/Admin/Settings.php:3398
 msgid "Connects with BuddyNext Pro"
-msgstr ""
+msgstr "Se conecta con BuddyNext Pro"
 
 #. translators: %s: what the integration adds, e.g. "Job posts as activity cards in the feed."
 #: includes/Admin/Settings.php:3411
 #, php-format
 msgid "Needs BuddyNext Pro to connect. With Pro: %s"
-msgstr ""
+msgstr "Necesita BuddyNext Pro para conectarse. Con Pro: %s"
 
 #: includes/Admin/Settings.php:3425
 msgid "Activate"
@@ -7993,14 +8064,18 @@ msgid ""
 "signature in X-BuddyNext-Signature. Make and Zapier can do this with their "
 "built-in functions."
 msgstr ""
+"Envía el JSON aquí mediante POST. Firma \"{timestamp}.{body}\" con HMAC-"
+"SHA256 y la clave secreta compartida, y después envía la marca de tiempo en "
+"X-BuddyNext-Timestamp y la firma hexadecimal en X-BuddyNext-Signature. Make "
+"y Zapier pueden hacerlo con sus funciones integradas."
 
 #: includes/Admin/Settings.php:3646
 msgid "Example: give a plan after a payment"
-msgstr ""
+msgstr "Ejemplo: asignar un plan tras un pago"
 
 #: includes/Admin/Settings.php:3649
 msgid "Copy example"
-msgstr ""
+msgstr "Copiar ejemplo"
 
 #: includes/Admin/Settings.php:3651
 msgid ""
@@ -8010,14 +8085,22 @@ msgid ""
 "are kept on the member's plan so you can match the payment; they are not "
 "counted as revenue. Plans need BuddyNext Pro."
 msgstr ""
+"Usa extend_plan con un nuevo expires_at cuando se pague una renovación, y "
+"cancel_plan cuando el comprador cancele (el acceso dura hasta el final del "
+"periodo; envía \"at_period_end\": false para terminarlo ahora). reference, "
+"amount y currency se guardan en el plan del miembro para que puedas "
+"relacionar el pago; no se cuentan como ingresos. Los planes requieren "
+"BuddyNext Pro."
 
 #: includes/Admin/Settings.php:3658
 msgid "Recent requests"
-msgstr ""
+msgstr "Solicitudes recientes"
 
 #: includes/Admin/Settings.php:3660
 msgid "No requests yet. Requests show here as they arrive, newest first."
 msgstr ""
+"Aún no hay solicitudes. Aquí aparecerán a medida que lleguen, de la más "
+"reciente a la más antigua."
 
 #: includes/Admin/Settings.php:3670 includes/Admin/Settings.php:3687
 #: assets/js/blocks.js:330
@@ -8026,11 +8109,11 @@ msgstr "Desde"
 
 #: includes/Admin/Settings.php:3671 includes/Admin/Settings.php:3688
 msgid "Result"
-msgstr ""
+msgstr "Resultado"
 
 #: includes/Admin/Settings.php:3686
 msgid "Removed member"
-msgstr ""
+msgstr "Miembro eliminado"
 
 #: includes/Admin/Settings.php:3688 includes/Admin/SetupChecklist.php:510
 #: includes/Onboarding/SetupWizard.php:189
@@ -8039,7 +8122,7 @@ msgstr "Hecho"
 
 #: includes/Admin/Settings.php:3688
 msgid "Refused"
-msgstr ""
+msgstr "Rechazado"
 
 #: includes/Admin/Settings.php:3720 includes/Admin/Settings.php:3741
 msgid "Outbound endpoints (requires Webhooks feature)"
@@ -8102,7 +8185,7 @@ msgstr "Añade un endpoint abajo para empezar a recibir eventos."
 
 #: includes/Admin/Settings.php:3839
 msgid "Re-enable"
-msgstr ""
+msgstr "Volver a activar"
 
 #: includes/Admin/Settings.php:3853
 msgid "View log"
@@ -8182,7 +8265,7 @@ msgstr "Listo, la he copiado"
 
 #: includes/Admin/Settings/Field.php:366
 msgid "That choice is not available, so the setting was not changed."
-msgstr ""
+msgstr "Esa opción no está disponible, así que el ajuste no se ha cambiado."
 
 #: includes/Admin/Settings/SettingsDriver.php:179
 msgid "You are not allowed to reset these settings."
@@ -8206,7 +8289,7 @@ msgstr "Ejecuta el asistente de configuración"
 
 #: includes/Admin/SetupChecklist.php:109
 msgid "Hide this message"
-msgstr ""
+msgstr "Ocultar este mensaje"
 
 #: includes/Admin/SetupChecklist.php:157
 msgid "BuddyNext needs pretty permalinks."
@@ -8369,13 +8452,15 @@ msgstr "Obtener BuddyX (gratis)"
 
 #: includes/Admin/SetupChecklist.php:321 includes/Admin/SetupChecklist.php:325
 msgid "Turn on messages"
-msgstr ""
+msgstr "Activar mensajes"
 
 #: includes/Admin/SetupChecklist.php:322
 msgid ""
 "Messages are off in MediaVerse. Turn them on to let members message each "
 "other."
 msgstr ""
+"Los mensajes están desactivados en MediaVerse. Actívalos para que los "
+"miembros puedan enviarse mensajes entre sí."
 
 #: includes/Admin/SetupChecklist.php:356
 msgid "BuddyX (free)"
@@ -8437,11 +8522,11 @@ msgstr "Space desarchivado."
 
 #: includes/Admin/Spaces.php:279
 msgid "Owner changed."
-msgstr ""
+msgstr "Se ha cambiado el propietario."
 
 #: includes/Admin/Spaces.php:282
 msgid "No user has that username or email."
-msgstr ""
+msgstr "Ningún usuario tiene ese nombre de usuario o correo electrónico."
 
 #: includes/Admin/Spaces.php:283 includes/Spaces/SpaceService.php:1035
 msgid "A banned member cannot be made the owner of this space."
@@ -8449,7 +8534,7 @@ msgstr "Un miembro bloqueado no puede ser propietario de este espacio."
 
 #: includes/Admin/Spaces.php:285
 msgid "The owner could not be changed."
-msgstr ""
+msgstr "No se ha podido cambiar el propietario."
 
 #. translators: %d: maximum number of featured spaces.
 #: includes/Admin/Spaces.php:295
@@ -8462,6 +8547,9 @@ msgid ""
 "Sub-spaces cannot be featured, because featured spaces show top-level spaces "
 "only. Feature its parent space instead."
 msgstr ""
+"Los subespacios no se pueden destacar, porque los espacios destacados "
+"muestran solo los espacios de nivel superior. Destaca el espacio principal "
+"en su lugar."
 
 #: includes/Admin/Spaces.php:309
 msgid "Space featured."
@@ -8621,7 +8709,7 @@ msgstr "Archivar"
 #: includes/Admin/Spaces.php:690 includes/Admin/Spaces.php:1063
 #: includes/Admin/Spaces.php:1080
 msgid "Change owner"
-msgstr ""
+msgstr "Cambiar propietario"
 
 #: includes/Admin/Spaces.php:735
 msgid "Spaces pagination"
@@ -8680,23 +8768,24 @@ msgstr "Añadir una categoría"
 
 #: includes/Admin/Spaces.php:890
 msgid "Use for"
-msgstr ""
+msgstr "Usar para"
 
 #: includes/Admin/Spaces.php:892
 msgid "Main spaces and subspaces"
-msgstr ""
+msgstr "Espacios principales y subespacios"
 
 #: includes/Admin/Spaces.php:893
 msgid "Main spaces only"
-msgstr ""
+msgstr "Solo espacios principales"
 
 #: includes/Admin/Spaces.php:894
 msgid "Subspaces only"
-msgstr ""
+msgstr "Solo subespacios"
 
 #: includes/Admin/Spaces.php:897
 msgid "Where members can pick this category when they create or edit a space."
 msgstr ""
+"Dónde los miembros pueden elegir esta categoría al crear o editar un espacio."
 
 #: includes/Admin/Spaces.php:903
 msgid "Show in the spaces directory"
@@ -8726,13 +8815,16 @@ msgstr "Nuevo propietario"
 
 #: includes/Admin/Spaces.php:1073
 msgid "Type 3 letters of a name"
-msgstr ""
+msgstr "Escribe 3 letras de un nombre"
 
 #: includes/Admin/Spaces.php:1076
 msgid ""
 "Pick from the list. A full username or email also works. Any user who is not "
 "banned from this space can be the owner; the current owner becomes a member."
 msgstr ""
+"Elige de la lista. También puedes escribir un nombre de usuario o correo "
+"completo. Cualquier usuario que no esté bloqueado en este espacio puede ser "
+"el propietario; el propietario actual pasará a ser miembro."
 
 #: includes/Admin/ToolsTab.php:54
 msgid "Tools"
@@ -9232,6 +9324,8 @@ msgid ""
 "Settings imported: %1$d applied, %2$d skipped (this site keeps its own "
 "version, page and setup state)."
 msgstr ""
+"Ajustes importados: %1$d aplicados, %2$d omitidos (este sitio conserva su "
+"propia versión, página y estado de configuración)."
 
 #: includes/Admin/ToolsTab.php:1034
 msgid "Import file had no recognised BuddyNext settings."
@@ -9347,6 +9441,7 @@ msgstr ""
 #: includes/Auth/AuthController.php:992 includes/Core/AssetService.php:2342
 msgid "That email, username or password is not right."
 msgstr ""
+"El correo electrónico, el nombre de usuario o la contraseña no son correctos."
 
 #: includes/Auth/AuthController.php:1056 includes/Auth/AuthController.php:1178
 msgid "Application passwords are not available on this site."
@@ -9356,7 +9451,7 @@ msgstr "Las contraseñas de aplicación no están disponibles en este sitio."
 #: includes/Auth/AuthController.php:1062
 #, php-format
 msgid "%s app"
-msgstr ""
+msgstr "Aplicación %s"
 
 #: includes/Auth/AuthController.php:1217
 msgid "Your sign-in session expired. Please enter your password again."
@@ -9461,7 +9556,7 @@ msgstr "Restablecer tu contraseña de %s"
 #: includes/Auth/AuthController.php:1958
 #, php-format
 msgid "Your %s account is ready"
-msgstr ""
+msgstr "Tu cuenta de %s está lista"
 
 #. translators: 1: site name, 2: email address, 3: set-password URL.
 #: includes/Auth/AuthController.php:1963
@@ -9472,6 +9567,11 @@ msgid ""
 "first time.</p><p><a href=\"%3$s\">Set your password</a></p><p>If the button "
 "does not work, copy this link into your browser:<br>%3$s</p>"
 msgstr ""
+"<p>Bienvenido. Se ha creado una cuenta para ti en %1$s con la dirección de "
+"correo electrónico <strong>%2$s</strong>.</p><p>Elige una contraseña para "
+"iniciar sesión por primera vez.</p><p><a href=\"%3$s\">Establece tu "
+"contraseña</a></p><p>Si el botón no funciona, copia este enlace en tu "
+"navegador:<br>%3$s</p>"
 
 #: includes/Auth/AuthController.php:2008
 msgid ""
@@ -9530,6 +9630,7 @@ msgstr "No tienes permiso para hacer esto."
 #: includes/Auth/CoreRegistration.php:152
 msgid "Consent is on, but your Terms page is not published"
 msgstr ""
+"El consentimiento está activado, pero tu página de Términos no está publicada"
 
 #: includes/Auth/CoreRegistration.php:153
 msgid ""
@@ -9537,6 +9638,10 @@ msgid ""
 "visitors cannot open it and consent is not being collected. Publish it, "
 "choose another page below, or switch this off."
 msgstr ""
+"La página es un borrador, privada, está protegida con contraseña o está en "
+"la papelera, así que los visitantes no pueden abrirla y no se está "
+"recogiendo el consentimiento. Publícala, elige otra página abajo o desactiva "
+"esta opción."
 
 #: includes/Auth/CoreRegistration.php:155
 msgid "Consent is on, but no Terms page is set"
@@ -9558,10 +9663,14 @@ msgid ""
 "BuddyNext: terms consent is switched on, but your Terms page is not "
 "published."
 msgstr ""
+"BuddyNext: el consentimiento de términos está activado, pero tu página de "
+"Términos no está publicada."
 
 #: includes/Auth/CoreRegistration.php:187
 msgid "Visitors cannot open it, so consent is NOT being collected or enforced."
 msgstr ""
+"Los visitantes no pueden abrirla, así que el consentimiento NO se está "
+"recogiendo ni aplicando."
 
 #: includes/Auth/CoreRegistration.php:189
 msgid "BuddyNext: terms consent is switched on, but no Terms page is set."
@@ -9694,22 +9803,24 @@ msgid ""
 "On this network the setting is Network Admin > Settings > Allow new "
 "registrations, and it applies to every site on the network."
 msgstr ""
+"En esta red, el ajuste está en Administración de red > Ajustes > Permitir "
+"nuevos registros, y se aplica a todos los sitios de la red."
 
 #: includes/Auth/CoreRegistration.php:300
 msgid "Network \"Allow new registrations\""
-msgstr ""
+msgstr "\"Permitir nuevos registros\" de la red"
 
 #: includes/Auth/CoreRegistration.php:300
 msgid "WordPress \"Anyone can register\""
-msgstr ""
+msgstr "WordPress «Cualquiera puede registrarse»"
 
 #: includes/Auth/CoreRegistration.php:303
 msgid "Turn off new user accounts on the whole network"
-msgstr ""
+msgstr "Desactivar las nuevas cuentas de usuario en toda la red"
 
 #: includes/Auth/CoreRegistration.php:303
 msgid "Allow new user accounts on the whole network"
-msgstr ""
+msgstr "Permitir nuevas cuentas de usuario en toda la red"
 
 #: includes/Auth/CoreRegistration.php:304
 msgid "Turn WordPress registration off"
@@ -9723,7 +9834,7 @@ msgstr "Activar el registro de WordPress"
 #: includes/Auth/CoreRegistration.php:331
 #, php-format
 msgid "BuddyNext mode: %1$s. %2$s: %3$s."
-msgstr ""
+msgstr "Modo de BuddyNext: %1$s. %2$s: %3$s."
 
 #: includes/Auth/CoreRegistration.php:334
 #: includes/Auth/CoreRegistration.php:374
@@ -9739,11 +9850,11 @@ msgstr "desactivado"
 #: includes/Auth/CoreRegistration.php:371
 #, php-format
 msgid "Mode %1$s - %2$s is %3$s, in %4$s"
-msgstr ""
+msgstr "Modo %1$s: %2$s está %3$s, en %4$s"
 
 #: includes/Auth/CoreRegistration.php:375
 msgid "Network Admin > Settings"
-msgstr ""
+msgstr "Administración de red > Ajustes"
 
 #: includes/Auth/CoreRegistration.php:375
 msgid "Settings > General"
@@ -9751,7 +9862,7 @@ msgstr "Ajustes > General"
 
 #: includes/Auth/CoreRegistration.php:409
 msgid "Ask a network administrator to change it."
-msgstr ""
+msgstr "Pide a un administrador de la red que lo cambie."
 
 #: includes/Auth/IdTokenVerifier.php:59 includes/Auth/IdTokenVerifier.php:67
 msgid "The identity token is malformed."
@@ -9915,7 +10026,7 @@ msgstr "No se aceptan registros desde ese dominio de correo."
 
 #: includes/Auth/RegistrationGuard.php:306
 msgid "That email address cannot be used to sign up here."
-msgstr ""
+msgstr "Esa dirección de correo no se puede usar para registrarse aquí."
 
 #: includes/Auth/RegistrationGuard.php:384
 msgid "Access from your network is not allowed."
@@ -9990,15 +10101,15 @@ msgstr "Falta información obligatoria."
 
 #: includes/Auth/RegistrationService.php:143
 msgid "That username is not allowed."
-msgstr ""
+msgstr "Ese nombre de usuario no está permitido."
 
 #: includes/Auth/RegistrationService.php:242
 msgid "That is not a valid email address."
-msgstr ""
+msgstr "Esa no es una dirección de correo válida."
 
 #: includes/Auth/RegistrationService.php:245
 msgid "A member with that email address already exists."
-msgstr ""
+msgstr "Ya existe un miembro con esa dirección de correo."
 
 #: includes/Auth/RestHoldGate.php:255
 msgid ""
@@ -10548,6 +10659,8 @@ msgstr "No se ha podido crear el debate, así que no se ha activado."
 msgid ""
 "This comment is also a reply in the forum, and you can no longer post there."
 msgstr ""
+"Este comentario también es una respuesta en el foro, y ya no puedes publicar "
+"allí."
 
 #: includes/Bridges/JetonomyBridge.php:2499
 msgid "You do not have permission to set up this space forum."
@@ -10600,11 +10713,11 @@ msgstr "Jetonomy"
 
 #: includes/Bridges/JetonomyBridge.php:2897
 msgid "Forum notifications in the BuddyNext bell"
-msgstr ""
+msgstr "Notificaciones del foro en la campana de BuddyNext"
 
 #: includes/Bridges/JetonomyBridge.php:3484
 msgid "Anonymous"
-msgstr ""
+msgstr "Anónimo"
 
 #: includes/Bridges/JetonomyBridge.php:3609 includes/Core/PageRouter.php:1306
 #: includes/Core/Plugin.php:926 includes/Nav/Providers/SpaceNav.php:277
@@ -10632,7 +10745,7 @@ msgstr "Documento"
 
 #: includes/Bridges/WPMediaVerseBridge.php:527
 msgid "Stories"
-msgstr ""
+msgstr "Historias"
 
 #: includes/Bridges/WPMediaVerseBridge.php:1793
 msgid "shared a video"
@@ -11229,11 +11342,13 @@ msgstr "Reporte enviado. Gracias por mantener la comunidad segura."
 
 #: includes/Core/AssetService.php:1201
 msgid "You reported this post."
-msgstr ""
+msgstr "Has denunciado esta publicación."
 
 #: includes/Core/AssetService.php:1202
 msgid "Moderators will review it. Thanks for keeping the community safe."
 msgstr ""
+"Los moderadores lo revisarán. Gracias por ayudar a mantener la comunidad "
+"segura."
 
 #: includes/Core/AssetService.php:1203 templates/auth/verify.php:131
 #: templates/feed/single-post.php:87
@@ -11465,11 +11580,11 @@ msgstr "Publicación publicada"
 
 #: includes/Core/AssetService.php:1269
 msgid "Posted and added to your story."
-msgstr ""
+msgstr "Publicado y añadido a tu historia."
 
 #: includes/Core/AssetService.php:1270
 msgid "Your post is up. It could not be added to your story."
-msgstr ""
+msgstr "Tu publicación está publicada. No se pudo añadir a tu historia."
 
 #: includes/Core/AssetService.php:1271
 msgid "Post scheduled"
@@ -11560,17 +11675,17 @@ msgstr ""
 #: includes/Core/AssetService.php:1297
 #, php-format
 msgid "You can attach at most %d files per post."
-msgstr ""
+msgstr "Puedes adjuntar como máximo %d archivos por publicación."
 
 #: includes/Core/AssetService.php:1298
 msgid "Only 1 more file can be added."
-msgstr ""
+msgstr "Solo se puede añadir 1 archivo más."
 
 #. translators: %d: number of additional files
 #: includes/Core/AssetService.php:1300
 #, php-format
 msgid "Only %d more files can be added."
-msgstr ""
+msgstr "Solo se pueden añadir %d archivos más."
 
 #. translators: 1: file name, 2: HTTP status code
 #: includes/Core/AssetService.php:1302
@@ -11585,19 +11700,19 @@ msgstr "Has llegado al final."
 
 #: includes/Core/AssetService.php:1305
 msgid "1 new post: click to show"
-msgstr ""
+msgstr "1 publicación nueva: haz clic para mostrarla"
 
 #. translators: %d: number of new posts
 #: includes/Core/AssetService.php:1307
 #, php-format
 msgid "%d new posts: click to show"
-msgstr ""
+msgstr "%d publicaciones nuevas: haz clic para mostrarlas"
 
 #. translators: %d: the display ceiling for the new-posts pill (e.g. "99+ new posts").
 #: includes/Core/AssetService.php:1309
 #, php-format
 msgid "%d+ new posts: click to show"
-msgstr ""
+msgstr "%d+ publicaciones nuevas: haz clic para mostrarlas"
 
 #: includes/Core/AssetService.php:1310
 msgid "1 new comment: show"
@@ -11626,7 +11741,7 @@ msgstr "Ya has reportado esto."
 #: templates/parts/post-comments-list.php:105
 #, php-format
 msgid "View more comments (%d)"
-msgstr ""
+msgstr "Ver más comentarios (%d)"
 
 #: includes/Core/AssetService.php:1321
 msgid "1 vote"
@@ -11636,7 +11751,7 @@ msgstr "1 voto"
 #: includes/Core/AssetService.php:1323 templates/parts/post-body.php:404
 #, php-format
 msgid "%1$s: %2$d%%, your vote"
-msgstr ""
+msgstr "%1$s: %2$d %%, tu voto"
 
 #. translators: %d: number of votes.
 #: includes/Core/AssetService.php:1325
@@ -11731,7 +11846,7 @@ msgstr "Bloquear"
 #: includes/Core/AssetService.php:1372 templates/parts/member-card.php:264
 #: templates/parts/profile-actions-overflow.php:148
 msgid "You reported this member"
-msgstr ""
+msgstr "Has denunciado a este miembro"
 
 #: includes/Core/AssetService.php:1374 templates/parts/member-card.php:316
 #: templates/parts/post-byline.php:133
@@ -11931,26 +12046,28 @@ msgstr "Enlace de invitación desactivado."
 
 #: includes/Core/AssetService.php:1472
 msgid "Remove this link?"
-msgstr ""
+msgstr "¿Quitar este enlace?"
 
 #: includes/Core/AssetService.php:1473
 msgid ""
 "Members stay in the space. New people who get access to it will no longer be "
 "added, and nobody is removed when they lose it."
 msgstr ""
+"Los miembros se mantienen en el espacio. Las nuevas personas que obtengan "
+"acceso ya no se añadirán, y nadie será eliminado cuando lo pierda."
 
 #: includes/Core/AssetService.php:1474
 #: templates/parts/space-settings-panel-links.php:98
 msgid "Remove link"
-msgstr ""
+msgstr "Quitar enlace"
 
 #: includes/Core/AssetService.php:1475
 msgid "Link removed."
-msgstr ""
+msgstr "Enlace quitado."
 
 #: includes/Core/AssetService.php:1476
 msgid "Could not remove the link."
-msgstr ""
+msgstr "No se pudo quitar el enlace."
 
 #: includes/Core/AssetService.php:1480
 msgid "Could not send your request."
@@ -12156,7 +12273,7 @@ msgstr "Salir"
 
 #: includes/Core/AssetService.php:1547 templates/parts/space-hero.php:355
 msgid "Report this space"
-msgstr ""
+msgstr "Denunciar este espacio"
 
 #: includes/Core/AssetService.php:1554
 msgid "1 space available"
@@ -12259,7 +12376,7 @@ msgstr ""
 
 #: includes/Core/AssetService.php:1588
 msgid "Unlink this discussion?"
-msgstr ""
+msgstr "¿Desvincular este debate?"
 
 #: includes/Core/AssetService.php:1589
 msgid ""
@@ -12267,6 +12384,10 @@ msgid ""
 "member of this space stays a member. New discussion posts stop appearing in "
 "this space. You can turn Discussion on again later to create or link one."
 msgstr ""
+"El debate y sus publicaciones se mantienen donde están, y todos los miembros "
+"de este espacio siguen siendo miembros. Las nuevas publicaciones del debate "
+"dejarán de aparecer en este espacio. Más adelante puedes volver a activar "
+"Debate para crear o vincular uno."
 
 #: includes/Core/AssetService.php:1590
 #: templates/parts/settings-connected-accounts.php:75
@@ -12276,7 +12397,7 @@ msgstr "Desvincula"
 
 #: includes/Core/AssetService.php:1591
 msgid "Discussion unlinked."
-msgstr ""
+msgstr "Debate desvinculado."
 
 #: includes/Core/AssetService.php:1592
 msgid "Request sent: you’ll be notified when it’s approved."
@@ -12424,13 +12545,13 @@ msgstr "No se pudo bloquear %s. Inténtalo de nuevo."
 #: includes/Core/AssetService.php:1673
 #, php-format
 msgid "%s unblocked"
-msgstr ""
+msgstr "%s desbloqueado"
 
 #. translators: %s: member display name.
 #: includes/Core/AssetService.php:1675
 #, php-format
 msgid "Could not unblock %s. Try again."
-msgstr ""
+msgstr "No se pudo desbloquear a %s. Inténtalo de nuevo."
 
 #: includes/Core/AssetService.php:1676
 msgid "Report this conversation"
@@ -12672,7 +12793,7 @@ msgstr "La portada no pudo ser guardada"
 
 #: includes/Core/AssetService.php:1791
 msgid "Photo updated."
-msgstr ""
+msgstr "Foto actualizada."
 
 #: includes/Core/AssetService.php:1792
 msgid "Profile saved"
@@ -13055,34 +13176,38 @@ msgstr "Recordatorio de la política de contenido"
 
 #: includes/Core/AssetService.php:1949
 msgid "Warn this member?"
-msgstr ""
+msgstr "¿Advertir a este miembro?"
 
 #: includes/Core/AssetService.php:1950
 msgid ""
 "They are notified and can read this message on their Account status page."
 msgstr ""
+"Recibirá una notificación y podrá leer este mensaje en su página de estado "
+"de la cuenta."
 
 #: includes/Core/AssetService.php:1951
 msgid "Send warning"
-msgstr ""
+msgstr "Enviar advertencia"
 
 #: includes/Core/AssetService.php:1952
 msgid "Issue a strike?"
-msgstr ""
+msgstr "¿Poner una sanción?"
 
 #: includes/Core/AssetService.php:1953
 msgid ""
 "They can read this reason on their Account status page. Strikes add up "
 "toward automatic suspension."
 msgstr ""
+"Podrá leer este motivo en su página de estado de la cuenta. Las sanciones se "
+"acumulan hasta una suspensión automática."
 
 #: includes/Core/AssetService.php:1954
 msgid "Issue strike"
-msgstr ""
+msgstr "Poner sanción"
 
 #: includes/Core/AssetService.php:1955
 msgid "Add a reason. The member will see it."
-msgstr ""
+msgstr "Añade un motivo. El miembro lo verá."
 
 #: includes/Core/AssetService.php:1956
 msgid "Space rule violation"
@@ -13388,27 +13513,29 @@ msgstr "No se pudo marcar todo como leído."
 #: includes/Core/AssetService.php:2129
 #, php-format
 msgid "%d selected"
-msgstr ""
+msgstr "%d seleccionadas"
 
 #: includes/Core/AssetService.php:2130
 msgid "Delete notifications"
-msgstr ""
+msgstr "Eliminar notificaciones"
 
 #. translators: %d: number of selected notifications.
 #: includes/Core/AssetService.php:2132
 #, php-format
 msgid "%d selected notifications will be deleted. This cannot be undone."
 msgstr ""
+"Se eliminarán %d notificaciones seleccionadas. Esta acción no se puede "
+"deshacer."
 
 #. translators: %d: number of notifications deleted.
 #: includes/Core/AssetService.php:2135
 #, php-format
 msgid "%d notifications deleted."
-msgstr ""
+msgstr "Se han eliminado %d notificaciones."
 
 #: includes/Core/AssetService.php:2136
 msgid "Could not delete the notifications. Try again."
-msgstr ""
+msgstr "No se han podido eliminar las notificaciones. Inténtalo de nuevo."
 
 #: includes/Core/AssetService.php:2137
 msgid "Could not mark this notification as read."
@@ -13515,11 +13642,11 @@ msgstr "No se pudo actualizar tu preferencia de correo de difusión."
 
 #: includes/Core/AssetService.php:2198
 msgid "Email preference saved."
-msgstr ""
+msgstr "Preferencia de correo guardada."
 
 #: includes/Core/AssetService.php:2199
 msgid "Could not save your email preference."
-msgstr ""
+msgstr "No se ha podido guardar tu preferencia de correo."
 
 #: includes/Core/AssetService.php:2216
 msgid "Please name this search first."
@@ -13531,11 +13658,11 @@ msgstr "Búsqueda guardada."
 
 #: includes/Core/AssetService.php:2218
 msgid "Saving searches is not available right now."
-msgstr ""
+msgstr "Guardar búsquedas no está disponible en este momento."
 
 #: includes/Core/AssetService.php:2219
 msgid "Could not save this search. Try again."
-msgstr ""
+msgstr "No se ha podido guardar esta búsqueda. Inténtalo de nuevo."
 
 #: includes/Core/AssetService.php:2220
 msgid "Recent searches"
@@ -13651,7 +13778,7 @@ msgstr "No se pudo enviar el código. Intenta tu aplicación de autenticación."
 
 #: includes/Core/AssetService.php:2368
 msgid "Please fill in your email and password."
-msgstr ""
+msgstr "Rellena tu correo y tu contraseña."
 
 #: includes/Core/AssetService.php:2369
 msgid "Please agree to the Terms of Service and Privacy Policy to continue."
@@ -13719,7 +13846,7 @@ msgstr ""
 
 #: includes/Core/CoreHubs.php:80
 msgid "Direct messages (requires MediaVerse)."
-msgstr ""
+msgstr "Mensajes directos (requiere MediaVerse)."
 
 #: includes/Core/CoreHubs.php:81
 msgid "Activity notifications."
@@ -13846,6 +13973,8 @@ msgstr "Flujo de incorporación de miembros"
 #: includes/Core/FeatureRegistry.php:490
 msgid "Multi-step welcome flow for new members (interests, suggested follows)."
 msgstr ""
+"Flujo de bienvenida en varios pasos para nuevos miembros (intereses, "
+"seguimientos sugeridos)."
 
 #: includes/Core/FeatureRegistry.php:494
 msgid ""
@@ -13894,6 +14023,8 @@ msgid ""
 "Private messaging between members, run by MediaVerse. Turn it on or off in "
 "MediaVerse: Settings, Messages."
 msgstr ""
+"Mensajería privada entre miembros, gestionada por MediaVerse. Actívala o "
+"desactívala en MediaVerse: Ajustes, Mensajes."
 
 #: includes/Core/FeatureRegistry.php:517
 msgid "Installable app (PWA)"
@@ -13904,6 +14035,8 @@ msgid ""
 "Let members install the community as an app on their phone or computer. "
 "Without a connection it shows an offline notice."
 msgstr ""
+"Permite a los miembros instalar la comunidad como aplicación en su teléfono "
+"u ordenador. Sin conexión, muestra un aviso de desconexión."
 
 #: includes/Core/FeatureRegistry.php:521
 msgid "Scheduled posts"
@@ -14166,21 +14299,23 @@ msgstr "Puedes desbloquear desde tu configuración en cualquier momento."
 #: includes/Core/PageRouter.php:2193
 #, php-format
 msgid "Remove your connection with %s?"
-msgstr ""
+msgstr "¿Eliminar tu conexión con %s?"
 
 #: includes/Core/PageRouter.php:2194
 msgid "Remove this connection?"
-msgstr ""
+msgstr "¿Eliminar esta conexión?"
 
 #: includes/Core/PageRouter.php:2195
 msgid ""
 "To connect again you will need to send a new request and wait for them to "
 "accept."
 msgstr ""
+"Para volver a conectar, tendrás que enviar una nueva solicitud y esperar a "
+"que la acepte."
 
 #: includes/Core/PageRouter.php:2196
 msgid "Remove connection"
-msgstr ""
+msgstr "Eliminar conexión"
 
 #. translators: %d: page number of a document preview.
 #: includes/Core/PageRouter.php:2201
@@ -14357,6 +14492,8 @@ msgid ""
 "You cannot take moderation action against someone with more authority than "
 "you."
 msgstr ""
+"No puedes tomar medidas de moderación contra alguien con más autoridad que "
+"tú."
 
 #. translators: %s: hashtag without the leading hash.
 #: includes/Core/SurfaceMeta.php:125
@@ -14554,6 +14691,7 @@ msgstr ""
 #: includes/Feed/PostController.php:95
 msgid "MediaVerse document ID attached from the composer (type=document)."
 msgstr ""
+"ID del documento de MediaVerse adjuntado desde el redactor (tipo=documento)."
 
 #: includes/Feed/PostController.php:100
 msgid "Poll option labels (type=poll)."
@@ -14659,6 +14797,8 @@ msgstr "Tu cuenta está suspendida y no puede crear publicaciones."
 msgid ""
 "Only a site admin or a space owner or moderator can make a post members-only."
 msgstr ""
+"Solo un administrador del sitio, el propietario del espacio o un moderador "
+"puede hacer que una publicación sea solo para miembros."
 
 #: includes/Feed/PostService.php:663
 msgid "Your post could not be saved. Try again."
@@ -14710,6 +14850,8 @@ msgid ""
 "Only a site admin or a space owner or moderator can change members-only on a "
 "post."
 msgstr ""
+"Solo un administrador del sitio, el propietario del espacio o un moderador "
+"puede cambiar la opción de solo para miembros de una publicación."
 
 #: includes/Feed/PostService.php:2552
 msgid "The post could not be deleted. Try again."
@@ -14729,7 +14871,7 @@ msgstr "No eres el propietario de esta publicación."
 
 #: includes/Feed/PostService.php:3669
 msgid "Only a published post can be pinned."
-msgstr ""
+msgstr "Solo se puede fijar una publicación publicada."
 
 #. translators: %d: the maximum number of pinned posts allowed in this scope.
 #: includes/Feed/PostService.php:3716
@@ -14995,11 +15137,11 @@ msgstr ""
 
 #: includes/Integrations/CompanionRegistry.php:304
 msgid "Activate BuddyNext Pro"
-msgstr ""
+msgstr "Activar BuddyNext Pro"
 
 #: includes/Integrations/CompanionRegistry.php:310
 msgid "Get BuddyNext Pro"
-msgstr ""
+msgstr "Obtener BuddyNext Pro"
 
 #: includes/Media/ImageStorageService.php:90
 msgid "Invalid image parameters."
@@ -15145,6 +15287,8 @@ msgstr "Tipo de miembro no encontrado."
 msgid ""
 "Your member type can only be chosen once. Contact an admin to change it."
 msgstr ""
+"Tu tipo de miembro solo se puede elegir una vez. Contacta con un "
+"administrador para cambiarlo."
 
 #: includes/MemberTypes/MemberTypeController.php:355
 msgid ""
@@ -15351,14 +15495,12 @@ msgid "Shadow ban removed"
 msgstr "Bloqueo oculto eliminado"
 
 #: includes/Moderation/ModerationLogService.php:328
-#, fuzzy
 msgid "Banned from space"
-msgstr "Expulsado de %s"
+msgstr "Expulsado del espacio"
 
 #: includes/Moderation/ModerationLogService.php:329
-#, fuzzy
 msgid "Space ban lifted"
-msgstr "Expulsión de %s levantada"
+msgstr "Expulsión del espacio levantada"
 
 #: includes/Moderation/ModerationLogService.php:331
 msgid "Report dismissed"
@@ -15454,6 +15596,7 @@ msgstr "No tienes permiso para emitir huelgas."
 #: includes/Moderation/ModerationService.php:1234
 msgid "Add a reason for the strike. The member sees it on their account page."
 msgstr ""
+"Añade un motivo para la sanción. El miembro lo verá en su página de cuenta."
 
 #: includes/Moderation/ModerationService.php:1308
 msgid "You do not have permission to issue warnings."
@@ -15466,6 +15609,7 @@ msgstr "Solo puedes advertir a los miembros de un espacio que moderas."
 #: includes/Moderation/ModerationService.php:1330
 msgid "Add a message for the warning. The member sees it in their notice."
 msgstr ""
+"Añade un mensaje para la advertencia. El miembro lo verá en su notificación."
 
 #: includes/Moderation/ModerationService.php:1374
 msgid "You do not have permission to reverse strikes."
@@ -15525,6 +15669,9 @@ msgid ""
 "Only a community or site admin can suspend a member indefinitely. Set a "
 "duration to suspend as a moderator."
 msgstr ""
+"Solo un administrador de la comunidad o del sitio puede suspender a un "
+"miembro de forma indefinida. Como moderador, establece una duración para la "
+"suspensión."
 
 #: includes/Moderation/ModerationService.php:2364
 msgid "You do not have permission to lift suspensions."
@@ -15575,7 +15722,7 @@ msgstr "Error de base de datos al actualizar el estado del informe."
 
 #: includes/Moderation/ModerationService.php:3532
 msgid "This report was already escalated or actioned by another moderator."
-msgstr ""
+msgstr "Otro moderador ya escaló o gestionó esta denuncia."
 
 #: includes/Moderation/ModerationService.php:3533
 msgid "This report was already actioned by another moderator."
@@ -15583,7 +15730,7 @@ msgstr "Este informe ya fue procesado por otro moderador."
 
 #: includes/Moderation/ModerationService.php:3929
 msgid "Could not save the suspension. Please try again."
-msgstr ""
+msgstr "No se pudo guardar la suspensión. Inténtalo de nuevo."
 
 #: includes/Moderation/ModerationService.php:4108
 msgid "You do not have an active suspension to appeal."
@@ -15591,7 +15738,7 @@ msgstr "No tienes una suspensión activa para apelar."
 
 #: includes/Moderation/ModerationService.php:4155
 msgid "Could not send your appeal. Please try again."
-msgstr ""
+msgstr "No se pudo enviar tu apelación. Inténtalo de nuevo."
 
 #: includes/Moderation/SafeguardService.php:202
 msgid "post"
@@ -15775,11 +15922,11 @@ msgstr "Gestionar preferencias de correo electrónico"
 #: includes/Notifications/EmailSender.php:318
 #, php-format
 msgid "You get this email because of your notification settings. %s"
-msgstr ""
+msgstr "Recibes este correo por tus ajustes de notificaciones. %s"
 
 #: includes/Notifications/EmailSender.php:320
 msgid "Stop emails like this"
-msgstr ""
+msgstr "Dejar de recibir correos como este"
 
 #. translators: 1: year, 2: site name.
 #: includes/Notifications/EmailSender.php:743
@@ -15865,13 +16012,13 @@ msgstr "No se pudo guardar la preferencia de notificación del Space."
 #: includes/Notifications/NotificationListener.php:1608
 #, php-format
 msgid "%1$s posted an announcement in %2$s: \"%3$s\""
-msgstr ""
+msgstr "%1$s publicó un anuncio en %2$s: \"%3$s\""
 
 #. translators: 1: author name, 2: space name, 3: excerpt of the post.
 #: includes/Notifications/NotificationListener.php:1610
 #, php-format
 msgid "%1$s posted in %2$s: \"%3$s\""
-msgstr ""
+msgstr "%1$s publicó en %2$s: \"%3$s\""
 
 #. translators: %s: number of other people.
 #: includes/Notifications/NotificationMessageService.php:86
@@ -16093,7 +16240,7 @@ msgstr "Nuevo contenido fue reportado y está esperando revisión."
 
 #: includes/Notifications/NotificationMessageService.php:386
 msgid "A report was escalated for senior review."
-msgstr ""
+msgstr "Una denuncia se escaló para revisión superior."
 
 #: includes/Notifications/NotificationMessageService.php:389
 #: includes/Notifications/NotificationPrefCatalogue.php:401
@@ -16302,7 +16449,7 @@ msgstr "Apelación recibida"
 
 #: includes/Notifications/NotificationMessageService.php:783
 msgid "Media unlinked"
-msgstr ""
+msgstr "Multimedia desvinculado"
 
 #: includes/Notifications/NotificationMessageService.php:793
 msgid "Finish onboarding"
@@ -16535,11 +16682,11 @@ msgstr "Nuevo contenido fue reportado y está esperando revisión del moderador.
 
 #: includes/Notifications/NotificationPrefCatalogue.php:390
 msgid "Escalated reports"
-msgstr ""
+msgstr "Denuncias escaladas"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:391
 msgid "A moderator escalated a report for senior review."
-msgstr ""
+msgstr "Un moderador escaló una denuncia para revisión superior."
 
 #: includes/Notifications/NotificationPrefCatalogue.php:409
 msgid "A post you submitted was not approved by the moderators."
@@ -16570,6 +16717,8 @@ msgid ""
 "Email roundups of your unread notifications. Turn Off to stop all digest "
 "emails."
 msgstr ""
+"Resúmenes por correo de tus notificaciones sin leer. Desactiva para dejar de "
+"recibir todos los resúmenes."
 
 #: includes/Notifications/NotificationPrefCatalogue.php:492
 msgid "Comments on your media"
@@ -17124,6 +17273,9 @@ msgid ""
 "Invalid webhook signature. Sign \"{timestamp}.{raw body}\" with HMAC-SHA256 "
 "and the site secret, and send the hex digest in X-BuddyNext-Signature."
 msgstr ""
+"Firma del webhook no válida. Firma \"{timestamp}.{raw body}\" con HMAC-"
+"SHA256 y la clave secreta del sitio, y envía el resumen hexadecimal en X-"
+"BuddyNext-Signature."
 
 #: includes/Outbound/AccessWebhookController.php:85
 msgid "Payload must be valid JSON."
@@ -17134,12 +17286,14 @@ msgid ""
 "Role changes from outside are switched off on this site. An administrator "
 "can allow them under Platform, Webhooks."
 msgstr ""
+"Los cambios de rol desde el exterior están desactivados en este sitio. Un "
+"administrador puede permitirlos en Plataforma, Webhooks."
 
 #. translators: %s: action name
 #: includes/Outbound/AccessWebhookController.php:124
 #, php-format
 msgid "The action \"%s\" is switched off on this site."
-msgstr ""
+msgstr "La acción \"%s\" está desactivada en este sitio."
 
 #: includes/Outbound/AccessWebhookController.php:152
 #: includes/Outbound/AccessWebhookController.php:168
@@ -17147,6 +17301,7 @@ msgstr ""
 #: includes/Outbound/AccessWebhookController.php:345
 msgid "Another request for this member is still being processed. Try again."
 msgstr ""
+"Otra solicitud para este miembro aún se está procesando. Inténtalo de nuevo."
 
 #: includes/Outbound/AccessWebhookController.php:183
 #: includes/Outbound/AccessWebhookController.php:929
@@ -17158,6 +17313,8 @@ msgid ""
 "This \"idempotency_key\" was already used for a different request for this "
 "member. Use a new key for a new request."
 msgstr ""
+"Esta \"idempotency_key\" ya se usó para otra solicitud de este miembro. Usa "
+"una clave nueva para una solicitud nueva."
 
 #. translators: %s: action name
 #: includes/Outbound/AccessWebhookController.php:516
@@ -17167,15 +17324,15 @@ msgstr "Acción desconocida: \"%s\"."
 
 #: includes/Outbound/AccessWebhookController.php:541
 msgid "Send \"plan\" with the plan's slug."
-msgstr ""
+msgstr "Envía \"plan\" con el slug del plan."
 
 #: includes/Outbound/AccessWebhookController.php:544
 msgid "extend_plan needs \"expires_at\", the new end date."
-msgstr ""
+msgstr "extend_plan necesita \"expires_at\", la nueva fecha de fin."
 
 #: includes/Outbound/AccessWebhookController.php:582
 msgid "Membership plans need BuddyNext Pro."
-msgstr ""
+msgstr "Los planes de membresía necesitan BuddyNext Pro."
 
 #: includes/Outbound/AccessWebhookController.php:601
 msgid "Role must be admin, moderator, or member."
@@ -17192,6 +17349,9 @@ msgid ""
 "switched off on this site. An administrator can allow them under Platform, "
 "Webhooks."
 msgstr ""
+"Esa capacidad corresponde a moderadores o administradores. Los cambios de "
+"rol desde el exterior están desactivados en este sitio. Un administrador "
+"puede permitirlos en Plataforma, Webhooks."
 
 #: includes/Outbound/AccessWebhookController.php:725
 msgid ""
@@ -17199,16 +17359,22 @@ msgid ""
 "unix seconds. Leave it out and send \"lifetime\": true for a grant that "
 "never ends."
 msgstr ""
+"\"expires_at\" debe ser una fecha futura: ISO 8601 (2027-01-31T00:00:00Z) o "
+"segundos unix. Omítelo y envía \"lifetime\": true para una concesión que no "
+"caduque."
 
 #: includes/Outbound/AccessWebhookController.php:784
 msgid "\"amount\" is required and must be a whole number, zero or more."
 msgstr ""
+"\"amount\" es obligatorio y debe ser un número entero mayor o igual que cero."
 
 #: includes/Outbound/AccessWebhookController.php:817
 msgid ""
 "\"user_id\" and \"user_email\" do not name the same member. Send one of "
 "them, or both for the same member."
 msgstr ""
+"\"user_id\" y \"user_email\" no corresponden al mismo miembro. Envía uno de "
+"ellos, o ambos si son del mismo miembro."
 
 #: includes/Outbound/AccessWebhookController.php:892
 msgid "Webhook secret is not configured."
@@ -17220,6 +17386,9 @@ msgid ""
 "in X-BuddyNext-Timestamp and sign the same value; the request must arrive "
 "within five minutes."
 msgstr ""
+"La marca de tiempo de la solicitud está fuera del intervalo aceptado. Envía "
+"la hora unix actual en X-BuddyNext-Timestamp y firma el mismo valor; la "
+"solicitud debe llegar en un máximo de cinco minutos."
 
 #: includes/Outbound/AccessWebhookController.php:952
 msgid ""
@@ -17228,6 +17397,10 @@ msgid ""
 "\"{timestamp}.{raw body}\" made with the site secret. A plain token or "
 "bearer header is not accepted."
 msgstr ""
+"Este sitio requiere una solicitud firmada: envía la hora unix en X-BuddyNext-"
+"Timestamp y, en X-BuddyNext-Signature, el resumen hexadecimal HMAC-SHA256 de "
+"\"{timestamp}.{raw body}\" generado con la clave secreta del sitio. No se "
+"acepta un token simple ni una cabecera bearer."
 
 #: includes/Outbound/OutboundWebhookController.php:240
 msgid "Webhook not found."
@@ -17287,6 +17460,11 @@ msgid ""
 "Check that the receiver is reachable, then click Re-enable on its row under "
 "BuddyNext, Platform, Webhooks."
 msgstr ""
+"El endpoint de webhook %1$s se desactivó automáticamente tras %2$d fallos de "
+"entrega consecutivos.\n"
+"\n"
+"Comprueba que el receptor sea accesible y, después, haz clic en Reactivar en "
+"su fila, en BuddyNext, Plataforma, Webhooks."
 
 #: includes/Privacy/CookieConsentService.php:37
 msgid ""
@@ -17340,19 +17518,19 @@ msgstr ""
 #: includes/Privacy/PrivacyTools.php:616
 #, php-format
 msgid "%s Profile & Settings"
-msgstr ""
+msgstr "Perfil y ajustes de %s"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:663
 #, php-format
 msgid "%s Profile Fields"
-msgstr ""
+msgstr "Campos de perfil de %s"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:702
 #, php-format
 msgid "%s Following"
-msgstr ""
+msgstr "Seguidos de %s"
 
 #: includes/Privacy/PrivacyTools.php:708
 msgid "Following member"
@@ -17367,7 +17545,7 @@ msgstr "Desde"
 #: includes/Privacy/PrivacyTools.php:757
 #, php-format
 msgid "%s Followers"
-msgstr ""
+msgstr "Seguidores de %s"
 
 #: includes/Privacy/PrivacyTools.php:807 includes/Privacy/PrivacyTools.php:1117
 msgid "Received"
@@ -17388,19 +17566,19 @@ msgstr "Dirección"
 #: includes/Privacy/PrivacyTools.php:869
 #, php-format
 msgid "%s Blocked Members"
-msgstr ""
+msgstr "Miembros bloqueados de %s"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:925
 #, php-format
 msgid "%s Space Memberships"
-msgstr ""
+msgstr "Membresías de espacios de %s"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:995
 #, php-format
 msgid "%s Followed Hashtags"
-msgstr ""
+msgstr "Hashtags seguidos de %s"
 
 #. translators: 1: on-site flag, 2: email frequency.
 #: includes/Privacy/PrivacyTools.php:1041
@@ -17424,13 +17602,13 @@ msgstr "no"
 #: includes/Privacy/PrivacyTools.php:1051
 #, php-format
 msgid "%s Notification Preferences"
-msgstr ""
+msgstr "Preferencias de notificación de %s"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:1101
 #, php-format
 msgid "%s Notifications"
-msgstr ""
+msgstr "Notificaciones de %s"
 
 #: includes/Privacy/PrivacyTools.php:1113 templates/parts/dm-message.php:193
 #: templates/parts/dm-message.php:195
@@ -17441,13 +17619,13 @@ msgstr "Leer"
 #: includes/Privacy/PrivacyTools.php:1155
 #, php-format
 msgid "%s Posts"
-msgstr ""
+msgstr "Publicaciones de %s"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:1217
 #, php-format
 msgid "%s Comments"
-msgstr ""
+msgstr "Comentarios de %s"
 
 #: includes/Profile/FieldType.php:75
 msgid "Text"
@@ -17483,7 +17661,7 @@ msgstr "No disponible en tu plan actual."
 
 #: includes/Profile/FieldType.php:1075
 msgid "This field cannot be edited here. Your saved value is kept."
-msgstr ""
+msgstr "Este campo no se puede editar aquí. Se mantiene el valor guardado."
 
 #: includes/Profile/FieldType.php:1136
 msgid "No categories are available yet."
@@ -17500,6 +17678,7 @@ msgstr "Seleccionar…"
 #: includes/Profile/FieldType.php:1348
 msgid "Chosen once: contact an admin to change it."
 msgstr ""
+"Se elige una vez: ponte en contacto con un administrador para cambiarlo."
 
 #: includes/Profile/FieldType.php:1349 templates/profile/edit.php:785
 msgid "Set by the community: contact an admin to change it."
@@ -17569,8 +17748,8 @@ msgstr "Por favor elige una opción válida para %s."
 #, php-format
 msgid "%d year old"
 msgid_plural "%d years old"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d año de edad"
+msgstr[1] "%d años de edad"
 
 #: includes/Profile/GamificationAchievements.php:58
 #: templates/gamification/leaderboard.php:349
@@ -17592,7 +17771,7 @@ msgstr "Nombre personalizado de puntos"
 
 #: includes/Profile/GamificationAchievements.php:71
 msgid "Badge pages for visitors"
-msgstr ""
+msgstr "Páginas de insignias para visitantes"
 
 #: includes/Profile/GamificationAchievements.php:423
 msgid "All-time rank"
@@ -17746,6 +17925,7 @@ msgstr ""
 #, php-format
 msgid "%1$d-%2$d characters: letters, numbers, hyphens and underscores."
 msgstr ""
+"Entre %1$d y %2$d caracteres: letras, números, guiones y guiones bajos."
 
 #: includes/Profile/Handle.php:438 includes/Profile/ProfileController.php:888
 msgid "No account found."
@@ -17830,6 +18010,8 @@ msgid ""
 "Choose the group this field belongs to: send group_id for an existing group, "
 "or group_name to use or create one."
 msgstr ""
+"Elige el grupo al que pertenece este campo: envía group_id para un grupo "
+"existente o group_name para usar o crear uno."
 
 #. translators: %s: maximum file size, e.g. "5 MB".
 #: includes/Profile/ProfileController.php:2466
@@ -17941,10 +18123,13 @@ msgid ""
 "buddynext/assets/icons. Falling back to the default. Add the icon file or "
 "pick an existing slug."
 msgstr ""
+"El panel de portafolio \"%2$s\" solicitó el icono \"%1$s\", que no tiene SVG "
+"en buddynext/assets/icons. Se usará el predeterminado. Añade el archivo del "
+"icono o elige un identificador existente."
 
 #: includes/Profile/SuitePanelHost.php:324
 msgid "Portfolio"
-msgstr ""
+msgstr "Portafolio"
 
 #: includes/PWA/PwaService.php:570
 msgid "You are offline"
@@ -17978,7 +18163,7 @@ msgstr "Tu rol no permite esta acción."
 
 #: includes/REST/BaseRestController.php:462
 msgid "You can no longer take part in this space."
-msgstr ""
+msgstr "Ya no puedes participar en este espacio."
 
 #: includes/REST/BaseRestController.php:489
 msgid ""
@@ -18019,11 +18204,11 @@ msgstr "Pro: filtrar miembros activos en los últimos N días (1-365)."
 
 #: includes/Search/SearchController.php:120
 msgid "Only results updated within this window."
-msgstr ""
+msgstr "Solo resultados actualizados en este periodo."
 
 #: includes/Search/SearchController.php:128
 msgid "Order results by relevance or by most recent."
-msgstr ""
+msgstr "Ordenar resultados por relevancia o por los más recientes."
 
 #: includes/Search/SearchController.php:161
 msgid "Filter members by name or username (partial match)."
@@ -18566,7 +18751,7 @@ msgstr "automáticamente %s"
 
 #: includes/Spaces/SpaceCategoryController.php:195
 msgid "Sign in to create a space."
-msgstr ""
+msgstr "Inicia sesión para crear un espacio."
 
 #: includes/Spaces/SpaceCategoryController.php:261
 #: includes/Spaces/SpaceCategoryController.php:294
@@ -18632,7 +18817,7 @@ msgstr "No se pudo determinar el propietario del elemento."
 
 #: includes/Spaces/SpaceController.php:982
 msgid "Could not move the item out of the space."
-msgstr ""
+msgstr "No se pudo sacar el elemento del espacio."
 
 #: includes/Spaces/SpaceController.php:1415
 msgid "Space name. Required, 100 characters or fewer."
@@ -18750,19 +18935,23 @@ msgstr ""
 
 #: includes/Spaces/SpaceController.php:2537
 msgid "You joined this space."
-msgstr ""
+msgstr "Te has unido a este espacio."
 
 #: includes/Spaces/SpaceController.php:2539
 msgid ""
 "You joined. New posts here will appear in your notifications. You can change "
 "this with the bell on the space page."
 msgstr ""
+"Te has unido. Recibirás notificaciones de las nuevas publicaciones de aquí. "
+"Puedes cambiarlo con la campana de la página del espacio."
 
 #: includes/Spaces/SpaceController.php:2541
 msgid ""
 "You joined. You will hear from this space when someone mentions you. You can "
 "change this with the bell on the space page."
 msgstr ""
+"Te has unido. Recibirás notificaciones de este espacio cuando alguien te "
+"mencione. Puedes cambiarlo con la campana de la página del espacio."
 
 #: includes/Spaces/SpaceController.php:2580
 msgid "You have been banned from this space."
@@ -18791,6 +18980,7 @@ msgstr ""
 #: includes/Spaces/SpaceController.php:3026
 msgid "No member found with that @handle or email."
 msgstr ""
+"No se ha encontrado ningún miembro con ese @usuario o correo electrónico."
 
 #: includes/Spaces/SpaceController.php:3036
 msgid "A user_id or identifier parameter is required."
@@ -18948,7 +19138,7 @@ msgstr ""
 
 #: includes/Spaces/SpaceMemberService.php:976
 msgid "That person is not a member of this space."
-msgstr ""
+msgstr "Esa persona no es miembro de este espacio."
 
 #: includes/Spaces/SpaceMemberService.php:1002
 msgid ""
@@ -19002,16 +19192,18 @@ msgstr "No tienes permiso para publicar en este espacio."
 
 #: includes/Spaces/SpaceService.php:292
 msgid "That category does not exist. Pick another one."
-msgstr ""
+msgstr "Esa categoría no existe. Elige otra."
 
 #: includes/Spaces/SpaceService.php:300
 msgid ""
 "That category is for main spaces only. Pick another one for this subspace."
 msgstr ""
+"Esa categoría es solo para espacios principales. Elige otra para este "
+"subespacio."
 
 #: includes/Spaces/SpaceService.php:301
 msgid "That category is for subspaces only. Pick another one for this space."
-msgstr ""
+msgstr "Esa categoría es solo para subespacios. Elige otra para este espacio."
 
 #: includes/Spaces/SpaceService.php:356
 msgid "A space slug is required."
@@ -19048,8 +19240,8 @@ msgstr "Los espacios solo pueden anidarse dos niveles de profundidad."
 #, php-format
 msgid "This space already has the maximum of %d sub-space."
 msgid_plural "This space already has the maximum of %d sub-spaces."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Este espacio ya tiene el máximo de %d subespacio."
+msgstr[1] "Este espacio ya tiene el máximo de %d subespacios."
 
 #: includes/Spaces/SpaceService.php:643
 msgid "You do not have permission to update this space."
@@ -19642,8 +19834,8 @@ msgstr ""
 #, php-format
 msgid "An account that is not verified within %s day is removed."
 msgid_plural "An account that is not verified within %s days is removed."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Se eliminará una cuenta que no se verifique en %s día."
+msgstr[1] "Se eliminará una cuenta que no se verifique en %s días."
 
 #: templates/auth/verify.php:314
 msgid "Didn't receive it? Resend"
@@ -19762,8 +19954,8 @@ msgstr "Aún no te has unido a ningún espacio."
 #, php-format
 msgid "%d new notification"
 msgid_plural "%d new notifications"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d notificación nueva"
+msgstr[1] "%d notificaciones nuevas"
 
 #: templates/blocks/notification-bell.php:41
 msgid "Loading notifications…"
@@ -20273,7 +20465,7 @@ msgstr ""
 #: templates/feed/explore.php:161
 #, php-format
 msgid "Explore · %1$s · %2$s · %3$s"
-msgstr ""
+msgstr "Explorar · %1$s · %2$s · %3$s"
 
 #. translators: %s: space count.
 #. translators: %s: formatted space count.
@@ -20508,16 +20700,16 @@ msgstr "Sin cambios"
 #, php-format
 msgid "Up %d place"
 msgid_plural "Up %d places"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Sube %d puesto"
+msgstr[1] "Suben %d puestos"
 
 #. translators: %d: number of places moved down.
 #: templates/gamification/leaderboard.php:396
 #, php-format
 msgid "Down %d place"
 msgid_plural "Down %d places"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Baja %d puesto"
+msgstr[1] "Bajan %d puestos"
 
 #: templates/gamification/leaderboard.php:416
 msgid "All-time"
@@ -20594,8 +20786,8 @@ msgstr "Insignias ganadas"
 #, php-format
 msgid "%d more badge"
 msgid_plural "%d more badges"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d insignia más"
+msgstr[1] "%d insignias más"
 
 #. translators: %d: number of additional badges not shown.
 #. translators: %d: number of further writers not named.
@@ -20693,20 +20885,25 @@ msgid ""
 "Messages are switched off in MediaVerse. Existing conversations are kept and "
 "come back when you turn it on. (This notice is only shown to administrators.)"
 msgstr ""
+"Los mensajes están desactivados en MediaVerse. Las conversaciones existentes "
+"se mantienen y volverán cuando los actives. (Este aviso solo se muestra a "
+"los administradores.)"
 
 #: templates/messages/native.php:54
 msgid "Open MediaVerse Messages settings"
-msgstr ""
+msgstr "Abrir los ajustes de mensajes de MediaVerse"
 
 #: templates/messages/native.php:56
 msgid "Direct messaging requires MediaVerse"
-msgstr ""
+msgstr "Los mensajes directos requieren MediaVerse"
 
 #: templates/messages/native.php:58
 msgid ""
 "Install and activate the MediaVerse plugin to enable direct messaging in "
 "BuddyNext. (This notice is only shown to administrators.)"
 msgstr ""
+"Instala y activa el plugin MediaVerse para habilitar los mensajes directos "
+"en BuddyNext. (Este aviso solo se muestra a los administradores.)"
 
 #: templates/messages/native.php:63
 msgid "Messages are turned off on this community."
@@ -20740,11 +20937,11 @@ msgstr "Mensajes de conversación"
 #: templates/messages/native.php:323
 #, php-format
 msgid "You blocked %s. Unblock them to message each other again."
-msgstr ""
+msgstr "Has bloqueado a %s. Desbloquéalo para volver a escribirle."
 
 #: templates/messages/native.php:326
 msgid "You can’t reply to this conversation."
-msgstr ""
+msgstr "No puedes responder a esta conversación."
 
 #: templates/messages/native.php:401
 msgid "This member"
@@ -20787,11 +20984,11 @@ msgstr "%s no está aceptando mensajes tuyos en este momento."
 #: templates/messages/native.php:443
 #, php-format
 msgid "You blocked %s"
-msgstr ""
+msgstr "Has bloqueado a %s"
 
 #: templates/messages/native.php:446
 msgid "Unblock them to message each other again."
-msgstr ""
+msgstr "Desbloquéalo para volver a escribirle."
 
 #: templates/messages/native.php:451
 msgid "You can’t message this member"
@@ -20935,7 +21132,7 @@ msgstr "Tus apelaciones"
 #: templates/moderation/account-status.php:317
 #, php-format
 msgid "Reviewer note: %s"
-msgstr ""
+msgstr "Nota del revisor: %s"
 
 #: templates/notifications/index.php:332 templates/parts/dm-rail.php:66
 #: templates/parts/notification-row.php:124
@@ -20958,7 +21155,7 @@ msgstr "Antiguo"
 
 #: templates/notifications/index.php:402
 msgid "Select"
-msgstr ""
+msgstr "Seleccionar"
 
 #: templates/notifications/index.php:407
 msgid "Select all"
@@ -21109,7 +21306,7 @@ msgstr "En la aplicación"
 
 #: templates/onboarding/index.php:735
 msgid "Bell badge and notification panel inside this community."
-msgstr ""
+msgstr "Icono de campana y panel de notificaciones dentro de esta comunidad."
 
 #: templates/onboarding/index.php:748 templates/settings/notifications.php:247
 msgid "Push"
@@ -21176,11 +21373,11 @@ msgstr "Quitar documento"
 
 #: templates/partials/composer.php:328
 msgid "Also add to my story"
-msgstr ""
+msgstr "Añadir también a mi historia"
 
 #: templates/partials/composer.php:329
 msgid "Shows for 24 hours."
-msgstr ""
+msgstr "Se muestra durante 24 horas."
 
 #: templates/partials/composer.php:366
 msgid "Poll options (min 2)"
@@ -21672,6 +21869,8 @@ msgstr "Esperando a que un moderador revise esta publicación."
 msgid ""
 "Under review. Only you can see this post until a moderator has looked at it."
 msgstr ""
+"En revisión. Solo tú puedes ver esta publicación hasta que un moderador la "
+"haya revisado."
 
 #: templates/partials/post-card.php:927
 #: templates/parts/post-comment-form.php:39
@@ -21981,19 +22180,19 @@ msgstr "https://…/media/tu-archivo/"
 
 #: templates/partials/space-files-tab.php:354
 msgid "plain text"
-msgstr ""
+msgstr "texto sin formato"
 
 #. translators: 1: list of accepted document types, 2: largest file size, e.g. 300 MB.
 #: templates/partials/space-files-tab.php:371
 #, php-format
 msgid "Documents only: %1$s. Up to %2$s each."
-msgstr ""
+msgstr "Solo documentos: %1$s. Hasta %2$s cada uno."
 
 #. translators: %s: list of accepted document types.
 #: templates/partials/space-files-tab.php:373
 #, php-format
 msgid "Documents only: %s."
-msgstr ""
+msgstr "Solo documentos: %s."
 
 #: templates/partials/space-files-tab.php:384
 msgid ""
@@ -22237,7 +22436,7 @@ msgstr "Eliminar adjunto"
 
 #: templates/parts/dm-composer.php:115
 msgid "Attach a photo, video or audio file"
-msgstr ""
+msgstr "Adjuntar una foto, vídeo o archivo de audio"
 
 #: templates/parts/dm-composer.php:134
 msgid "Attach photo"
@@ -22307,7 +22506,7 @@ msgstr "Bloquear este miembro"
 
 #: templates/parts/dm-info-panel.php:104
 msgid "Unblock this member"
-msgstr ""
+msgstr "Desbloquear a este miembro"
 
 #: templates/parts/dm-info-panel.php:108
 #: templates/parts/dm-thread-header.php:165
@@ -22412,11 +22611,12 @@ msgstr "Sin mensajes sin leer."
 
 #: templates/parts/dm-rail.php:264
 msgid "No conversations yet"
-msgstr ""
+msgstr "Aún no hay conversaciones"
 
 #: templates/parts/dm-rail.php:265
 msgid "Message someone in the community to start one."
 msgstr ""
+"Envía un mensaje a alguien de la comunidad para empezar una conversación."
 
 #: templates/parts/dm-request-banner.php:23
 msgid "Message request"
@@ -22666,19 +22866,19 @@ msgstr "Subsecciones"
 
 #: templates/parts/not-available.php:23
 msgid "This section isn't available to you"
-msgstr ""
+msgstr "Esta sección no está disponible para ti"
 
 #: templates/parts/not-available.php:24
 msgid "The community owner has limited who can open it."
-msgstr ""
+msgstr "El propietario de la comunidad ha limitado quién puede abrirla."
 
 #: templates/parts/not-available.php:26
 msgid "Go to the home page"
-msgstr ""
+msgstr "Ir a la página de inicio"
 
 #: templates/parts/notification-row.php:121
 msgid "Select this notification"
-msgstr ""
+msgstr "Seleccionar esta notificación"
 
 #: templates/parts/notification-row.php:157
 msgid "Dismiss notification"
@@ -23191,7 +23391,7 @@ msgstr "(sin título)"
 #: templates/parts/profile/articles-panel.php:130
 #, php-format
 msgid "Co-written with %s"
-msgstr ""
+msgstr "Escrito junto con %s"
 
 #: templates/parts/profile/articles-panel.php:167
 msgid "Articles pagination"
@@ -23365,7 +23565,7 @@ msgstr "Consejo: presiona"
 
 #: templates/parts/search-hero.php:106
 msgid "on this page to focus search."
-msgstr ""
+msgstr "en esta página para centrar la búsqueda."
 
 #. translators: %1$d shown, %2$d total.
 #: templates/parts/search-result-section-generic.php:57
@@ -23645,12 +23845,14 @@ msgstr "Secciones de configuración"
 
 #: templates/parts/settings-partner-prefs.php:34
 msgid "Forum email"
-msgstr ""
+msgstr "Correo del foro"
 
 #: templates/parts/settings-partner-prefs.php:37
 msgid ""
 "These emails come from the forums. Your choice saves as soon as you pick it."
 msgstr ""
+"Estos correos llegan desde los foros. Tu elección se guarda en cuanto la "
+"seleccionas."
 
 #: templates/parts/settings-privacy-fields.php:36
 #: templates/parts/settings-privacy-fields.php:51
@@ -23699,13 +23901,15 @@ msgstr "Quién puede enviarme solicitudes de conexión"
 
 #: templates/parts/settings-privacy-fields.php:139
 msgid "Who can @mention me"
-msgstr ""
+msgstr "Quién puede mencionarme con @"
 
 #: templates/parts/settings-privacy-fields.php:139
 msgid ""
 "Controls who can notify you with a mention, in posts and comments. Others "
 "can still type your name."
 msgstr ""
+"Controla quién puede notificarte con una mención en publicaciones y "
+"comentarios. Los demás podrán seguir escribiendo tu nombre."
 
 #: templates/parts/settings-privacy-fields.php:140
 msgid "Private account"
@@ -23809,6 +24013,9 @@ msgid ""
 "comments on your posts, and their messages arrive without a notification. "
 "They aren't told."
 msgstr ""
+"Pueden seguir viendo y respondiendo a tus publicaciones. Solo tú y ellos ven "
+"sus comentarios en tus publicaciones, y sus mensajes llegan sin "
+"notificación. No se les avisa."
 
 #: templates/parts/settings-relations.php:45
 msgid "You stop seeing their activity. They aren't told."
@@ -24020,7 +24227,7 @@ msgstr[1] ""
 #: templates/parts/sidebar-this-week-stats.php:138
 #, php-format
 msgid "read (%s)"
-msgstr ""
+msgstr "leídas (%s)"
 
 #: templates/parts/sidebar-this-week-stats.php:139
 msgid "read"
@@ -24038,7 +24245,7 @@ msgstr "reacciones + comentarios"
 
 #: templates/parts/sidebar-this-week-stats.php:152
 msgid "comments"
-msgstr ""
+msgstr "comentarios"
 
 #: templates/parts/sidebar-trending-topics.php:29
 msgid "Trending Topics"
@@ -24243,7 +24450,7 @@ msgstr "Solicitud pendiente"
 
 #: templates/parts/space-hero.php:361
 msgid "You reported this space"
-msgstr ""
+msgstr "Has denunciado este espacio"
 
 #: templates/parts/space-hero.php:407
 msgid "Space sections"
@@ -24253,12 +24460,14 @@ msgstr "Secciones del espacio"
 msgid ""
 "Enter a member's @handle or an email address to invite them to this space."
 msgstr ""
+"Introduce el @usuario de un miembro o una dirección de correo para invitarlo "
+"a este espacio."
 
 #: templates/parts/space-hero.php:449 templates/parts/space-hero.php:456
 #: templates/parts/space-settings-panel-members.php:269
 #: templates/parts/space-settings-panel-members.php:276
 msgid "@handle or email address"
-msgstr ""
+msgstr "@usuario o dirección de correo"
 
 #: templates/parts/space-members-body.php:243
 msgid "Members are private"
@@ -24670,7 +24879,7 @@ msgstr ""
 
 #: templates/parts/space-settings-panel-integrations.php:110
 msgid "Turned off for the whole site by the site admin."
-msgstr ""
+msgstr "Desactivado para todo el sitio por el administrador."
 
 #: templates/parts/space-settings-panel-integrations.php:158
 msgid "Turn on optional features for this space."
@@ -24721,6 +24930,8 @@ msgid ""
 "This space’s earlier discussion comes back when you turn Discussion on. "
 "Clear it to create a new one, or search for another:"
 msgstr ""
+"El debate anterior de este espacio vuelve al activar Debate. Bórralo para "
+"crear uno nuevo o busca otro:"
 
 #: templates/parts/space-settings-panel-integrations.php:232
 msgid "Already have a discussion? Link it instead (optional):"
@@ -24932,27 +25143,30 @@ msgstr "URL del enlace de invitación"
 #: templates/parts/space-settings-panel-links.php:55
 #: templates/spaces/settings.php:669
 msgid "Linked to"
-msgstr ""
+msgstr "Vinculado a"
 
 #: templates/parts/space-settings-panel-links.php:56
 msgid ""
 "This space follows the access of what it is linked to: people who get access "
 "are added. Removing a link keeps the space and everyone in it."
 msgstr ""
+"Este espacio sigue el acceso de aquello a lo que está vinculado: se añade a "
+"las personas que obtienen acceso. Quitar un enlace conserva el espacio y a "
+"todos sus miembros."
 
 #. translators: 1: link type, 2: object id.
 #: templates/parts/space-settings-panel-links.php:72
 #, php-format
 msgid "%1$s #%2$d"
-msgstr ""
+msgstr "%1$s #%2$d"
 
 #: templates/parts/space-settings-panel-links.php:80
 msgid "Created for this link"
-msgstr ""
+msgstr "Creado para este enlace"
 
 #: templates/parts/space-settings-panel-links.php:83
 msgid "Plugin not active"
-msgstr ""
+msgstr "Plugin no activo"
 
 #. translators: %d: number of active members
 #: templates/parts/space-settings-panel-members.php:96
@@ -24989,6 +25203,8 @@ msgstr "Invitar miembro"
 #: templates/parts/space-settings-panel-members.php:264
 msgid "Enter a member's @handle or an email address to invite them."
 msgstr ""
+"Introduce el @usuario de un miembro o una dirección de correo electrónico "
+"para invitarlo."
 
 #: templates/parts/space-settings-panel-moderation.php:74
 msgid "Control what members can post in this space."
@@ -25377,14 +25593,18 @@ msgid ""
 "Scales text on this device. Use the light/dark toggle in the header to "
 "switch appearance."
 msgstr ""
+"Ajusta el tamaño del texto en este dispositivo. Usa el interruptor de claro/"
+"oscuro del encabezado para cambiar el aspecto."
 
 #: templates/settings/appearance.php:50
 msgid "Scales text on this device. Light or dark mode is set by your theme."
 msgstr ""
+"Ajusta el tamaño del texto en este dispositivo. El modo claro u oscuro lo "
+"define tu tema."
 
 #: templates/settings/appearance.php:67
 msgid "Choose how this community looks for you on this device."
-msgstr ""
+msgstr "Elige cómo se ve esta comunidad en este dispositivo."
 
 #: templates/settings/notifications.php:90
 msgid "Immediate"
@@ -25412,7 +25632,7 @@ msgstr ""
 
 #: templates/settings/notifications.php:223
 msgid "Show notifications inside this community."
-msgstr ""
+msgstr "Muestra las notificaciones dentro de esta comunidad."
 
 #: templates/settings/notifications.php:235
 msgid "Send transactional and digest emails."
@@ -25479,7 +25699,7 @@ msgstr ""
 #: templates/settings/notifications.php:384
 #, php-format
 msgid "Email for %s"
-msgstr ""
+msgstr "Correo electrónico para %s"
 
 #: templates/settings/notifications.php:415
 msgid ""
@@ -25501,7 +25721,7 @@ msgstr ""
 
 #: templates/settings/notifications.php:447
 msgid "Always emailed"
-msgstr ""
+msgstr "Siempre por correo electrónico"
 
 #: templates/settings/notifications.php:447
 msgid "In-app only"
@@ -26010,11 +26230,11 @@ msgstr "Endpoint registrado. Copia su secreto de firma más abajo."
 
 #: assets/js/admin/settings.js:175
 msgid "Re-enabling…"
-msgstr ""
+msgstr "Reactivando…"
 
 #: assets/js/admin/settings.js:188
 msgid "Could not re-enable the webhook. Try again."
-msgstr ""
+msgstr "No se pudo reactivar el webhook. Inténtalo de nuevo."
 
 #: assets/js/admin/settings.js:213
 msgid "No deliveries logged yet."
@@ -26408,12 +26628,12 @@ msgstr "Sin resultados para \"%s\""
 #: assets/js/shell/extras.js:310
 msgid "%d result"
 msgid_plural "%d results"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%d resultado"
+msgstr[1] "%d resultados"
 
 #: assets/js/shell/extras.js:322
 msgid "%1$s by %2$s"
-msgstr ""
+msgstr "%1$s por %2$s"
 
 #: assets/js/shell/extras.js:333
 msgid "Search failed"

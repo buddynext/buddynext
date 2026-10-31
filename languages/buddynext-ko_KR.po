@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: BuddyNext 1.2.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/buddynext\n"
-"POT-Creation-Date: 2026-10-31T10:13:31+00:00\n"
+"POT-Creation-Date: 2026-10-31T11:03:37+00:00\n"
 "PO-Revision-Date: 2026-07-08T06:01:07+00:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -75,7 +75,7 @@ msgstr ""
 #: bootstrap.php:269
 #, php-format
 msgid "The community runs on %1$s. %2$sSettings%3$s"
-msgstr ""
+msgstr "커뮤니티는 %1$s에서 운영됩니다. %2$s설정%3$s"
 
 #. translators: %d: numeric id of a member whose account no longer exists.
 #. translators: %d: user id of an account that no longer exists.
@@ -305,15 +305,15 @@ msgstr "문제가 생겼어요. 다시 시도해 주세요."
 
 #: bootstrap.php:1541
 msgid "Online"
-msgstr ""
+msgstr "온라인"
 
 #: bootstrap.php:1542
 msgid "Away"
-msgstr ""
+msgstr "자리 비움"
 
 #: bootstrap.php:1543
 msgid "Do not disturb"
-msgstr ""
+msgstr "방해 금지"
 
 #: bootstrap.php:1544 templates/parts/dm-thread-header.php:127
 msgid "Offline"
@@ -351,6 +351,8 @@ msgstr[0] "%d일 전"
 msgid ""
 "%s needs a newer version of the community plugin. Update it to turn this on."
 msgstr ""
+"%s 기능을 사용하려면 커뮤니티 플러그인의 최신 버전이 필요합니다. 기능을 켜려"
+"면 플러그인을 업데이트해 주세요."
 
 #. translators: %s: addon name.
 #: includes/Addons/AddonRegistry.php:209
@@ -359,12 +361,16 @@ msgid ""
 "%s was built for an older version of the community plugin and needs an "
 "update from its author."
 msgstr ""
+"%s 기능은 이전 버전의 커뮤니티 플러그인용으로 만들어졌습니다. 제작자의 업데이"
+"트가 필요합니다."
 
 #. translators: 1: addon name, 2: minimum partner version.
 #: includes/Addons/AddonRegistry.php:213
 #, php-format
 msgid "%1$s needs its partner plugin updated to version %2$s or newer."
 msgstr ""
+"%1$s 기능을 사용하려면 연동 플러그인을 버전 %2$s 이상으로 업데이트해야 합니"
+"다."
 
 #: includes/Admin/ActivityAdmin.php:72 includes/Admin/NavManager.php:995
 #: includes/Admin/NavManager.php:2300 includes/Core/CoreHubs.php:77
@@ -685,19 +691,19 @@ msgstr "사이트에서 보기"
 
 #: includes/Admin/ActivityAdmin.php:451
 msgid "Attachments"
-msgstr ""
+msgstr "첨부 파일"
 
 #. translators: %d: media id.
 #: includes/Admin/ActivityAdmin.php:460
 #, php-format
 msgid "Unavailable file #%d"
-msgstr ""
+msgstr "사용할 수 없는 파일 #%d"
 
 #. translators: %d: media id.
 #: includes/Admin/ActivityAdmin.php:460
 #, php-format
 msgid "File #%d"
-msgstr ""
+msgstr "파일 #%d"
 
 #: includes/Admin/ActivityAdmin.php:472 includes/Admin/AdminPageBase.php:509
 #: includes/Admin/Members/AvatarSettings.php:88
@@ -724,11 +730,11 @@ msgstr "삭제"
 
 #: includes/Admin/ActivityAdmin.php:485
 msgid "Link preview"
-msgstr ""
+msgstr "링크 미리보기"
 
 #: includes/Admin/ActivityAdmin.php:494
 msgid "Remove the link preview (the text keeps the link)"
-msgstr ""
+msgstr "링크 미리보기 삭제 (텍스트의 링크는 유지됩니다)"
 
 #: includes/Admin/ActivityAdmin.php:508 includes/Admin/ActivityAdmin.php:524
 #: includes/Admin/ActivityAdmin.php:563
@@ -768,28 +774,28 @@ msgstr "이 작업을 수행할 권한이 없어요."
 #, php-format
 msgid "%s post hidden from the feed."
 msgid_plural "%s posts hidden from the feed."
-msgstr[0] ""
+msgstr[0] "피드에서 숨긴 게시물 %s개."
 
 #. translators: %s: number of posts.
 #: includes/Admin/ActivityAdmin.php:641
 #, php-format
 msgid "%s post restored."
 msgid_plural "%s posts restored."
-msgstr[0] ""
+msgstr[0] "복원한 게시물 %s개."
 
 #. translators: %s: number of posts.
 #: includes/Admin/ActivityAdmin.php:645
 #, php-format
 msgid "%s post deleted."
 msgid_plural "%s posts deleted."
-msgstr[0] ""
+msgstr[0] "삭제한 게시물 %s개."
 
 #. translators: %s: number of posts that could not be actioned.
 #: includes/Admin/ActivityAdmin.php:649
 #, php-format
 msgid "%s could not be completed."
 msgid_plural "%s could not be completed."
-msgstr[0] ""
+msgstr[0] "%s개는 처리를 완료하지 못했습니다."
 
 #: includes/Admin/ActivityAdmin.php:719
 #: includes/Admin/AnnouncementsAdmin.php:148
@@ -1018,7 +1024,7 @@ msgstr "모더레이션"
 
 #: includes/Admin/AdminHub.php:108
 msgid "Automation"
-msgstr ""
+msgstr "자동화"
 
 #: includes/Admin/AdminHub.php:113
 msgid "Monetization"
@@ -1086,10 +1092,12 @@ msgid ""
 "The screen you asked for belongs to a feature that is turned off, or to a "
 "plugin that is not active. Showing “%s” instead."
 msgstr ""
+"요청하신 화면은 꺼져 있는 기능이나 활성화되지 않은 플러그인에 속합니다. 대신 "
+"“%s” 탭을 표시합니다."
 
 #: includes/Admin/AdminHub.php:1780
 msgid "Turn features on or off"
-msgstr ""
+msgstr "기능 켜기/끄기"
 
 #. translators: %s: the tab actually shown.
 #: includes/Admin/AdminHub.php:1788
@@ -1122,14 +1130,14 @@ msgstr "BuddyNext 탐색"
 
 #: includes/Admin/AdminHub.php:1952
 msgid "Menu"
-msgstr ""
+msgstr "메뉴"
 
 #. translators: %d: number of items awaiting attention on this tab.
 #: includes/Admin/AdminHub.php:1994
 #, php-format
 msgid "%d item awaiting attention"
 msgid_plural "%d items awaiting attention"
-msgstr[0] ""
+msgstr[0] "확인이 필요한 항목 %d개"
 
 #. translators: %s: field label.
 #: includes/Admin/AdminPageBase.php:436
@@ -1391,10 +1399,12 @@ msgid ""
 "Your theme (%s) sets light or dark mode for the whole site, so its own color "
 "mode setting wins over this one."
 msgstr ""
+"테마(%s)가 사이트 전체의 밝은 모드 또는 어두운 모드를 설정하고 있어, 테마의 "
+"색상 모드 설정이 이 설정보다 우선합니다."
 
 #: includes/Admin/AppearanceTab.php:129
 msgid "Change it in the Customizer"
-msgstr ""
+msgstr "사용자 지정 도구에서 변경해 주세요"
 
 #: includes/Admin/AppearanceTab.php:147 assets/js/blocks.js:317
 #: assets/js/blocks.js:321 assets/js/blocks.js:379 assets/js/blocks.js:398
@@ -1630,7 +1640,7 @@ msgstr "회원이 스페이스에서 역할을 얻거나 잃었을 때"
 
 #: includes/Admin/EmailEditor.php:238
 msgid "When an announcement is posted to a space or to the whole community"
-msgstr ""
+msgstr "스페이스 또는 커뮤니티 전체에 공지가 게시될 때"
 
 #: includes/Admin/EmailEditor.php:242
 #: includes/Notifications/NotificationPrefCatalogue.php:229
@@ -1840,11 +1850,11 @@ msgstr "승인됨"
 
 #: includes/Admin/EmailEditor.php:579
 msgid "Sample Space"
-msgstr ""
+msgstr "샘플 스페이스"
 
 #: includes/Admin/EmailEditor.php:581
 msgid "Repeated spam after a warning"
-msgstr ""
+msgstr "경고 후 스팸을 반복한 경우"
 
 #: includes/Admin/EmailEditor.php:583
 msgid "A sample notification from the past day."
@@ -2050,7 +2060,6 @@ msgstr "멤버십"
 #: includes/Admin/EmailLog.php:186 includes/Admin/Settings.php:1682
 #: includes/Notifications/NotificationMessageService.php:618
 #: includes/Notifications/NotificationPrefCatalogue.php:126
-#, fuzzy
 msgid "Connection request"
 msgstr "연결 요청"
 
@@ -2413,7 +2422,7 @@ msgstr "모든 인사이트 보기 →"
 #, php-format
 msgid "%1$d signup on %2$s"
 msgid_plural "%1$d signups on %2$s"
-msgstr[0] ""
+msgstr[0] "%2$s 가입 %1$d건"
 
 #. translators: %d: percentage of members
 #: includes/Admin/Insights.php:313
@@ -2445,13 +2454,13 @@ msgstr ""
 
 #: includes/Admin/IntegrationControlsAdmin.php:83
 msgid "Active, waiting for BuddyNext Pro"
-msgstr ""
+msgstr "활성화됨, BuddyNext Pro 대기 중"
 
 #. translators: 1: partner plugin name, 2: what BuddyNext Pro adds with it.
 #: includes/Admin/IntegrationControlsAdmin.php:92
 #, php-format
 msgid "%1$s is active. With BuddyNext Pro: %2$s"
-msgstr ""
+msgstr "%1$s이(가) 활성화되어 있습니다. BuddyNext Pro와 함께 사용하면: %2$s"
 
 #: includes/Admin/IntegrationControlsAdmin.php:108
 msgid ""
@@ -2459,6 +2468,9 @@ msgid ""
 "as WP Career Board, Listora, Learnomy, Jetonomy, or WB Gamification) and it "
 "will appear here."
 msgstr ""
+"아직 제어할 수 있는 연동 기능이 활성화되지 않았습니다. 연동 기능(예: WP "
+"Career Board, Listora, Learnomy, Jetonomy, WB Gamification)을 활성화하면 여기"
+"에 표시됩니다."
 
 #: includes/Admin/IntegrationControlsAdmin.php:143
 msgid "Update needed"
@@ -2514,7 +2526,7 @@ msgstr "멤버 내비게이션에 %s 탭을 추가해요."
 
 #: includes/Admin/IntegrationControlsAdmin.php:198
 msgid "Shows what this integration adds in member navigation."
-msgstr ""
+msgstr "이 연동 기능이 멤버 메뉴에 추가하는 항목을 표시합니다."
 
 #. translators: %s: integration name.
 #: includes/Admin/IntegrationControlsAdmin.php:204
@@ -2658,7 +2670,7 @@ msgstr "이 사이트의 플러그인"
 #, php-format
 msgid "%d to skip"
 msgid_plural "%d to skip"
-msgstr[0] ""
+msgstr[0] "건너뛸 항목 %d개"
 
 #: includes/Admin/IsolationAdmin.php:205
 msgid ""
@@ -2762,10 +2774,9 @@ msgstr "멤버를 정지하지 못했어요. 다시 시도해 주세요."
 #: assets/js/blocks.js:353 assets/js/blocks.js:354 assets/js/blocks.js:355
 #: assets/js/blocks.js:357 assets/js/blocks.js:361
 #: assets/js/shell/extras.js:274
-#, fuzzy
 msgid "Member"
 msgid_plural "Members"
-msgstr[0] "회원"
+msgstr[0] "멤버"
 
 #: includes/Admin/Members.php:683 includes/Admin/Members.php:754
 #: includes/Admin/ModerationQueue.php:775 includes/Core/AssetService.php:1508
@@ -2778,7 +2789,7 @@ msgstr[0] "회원"
 #: templates/parts/space-settings-panel-members.php:127
 msgid "Moderator"
 msgid_plural "Moderators"
-msgstr[0] ""
+msgstr[0] "운영자"
 
 #: includes/Admin/Members.php:684 includes/Admin/Members.php:753
 #: includes/Admin/Members/MemberDisplay.php:56
@@ -2838,7 +2849,7 @@ msgstr "초대"
 #, php-format
 msgid "%d member cannot be mentioned"
 msgid_plural "%d members cannot be mentioned"
-msgstr[0] ""
+msgstr[0] "언급할 수 없는 멤버 %d명"
 
 #: includes/Admin/Members.php:1453
 msgid ""
@@ -2859,7 +2870,7 @@ msgstr "핸들 복구"
 #, php-format
 msgid "Repaired %d member handle."
 msgid_plural "Repaired %d member handles."
-msgstr[0] ""
+msgstr[0] "복구한 멤버 핸들 %d개."
 
 #. translators: %d: number of members skipped.
 #: includes/Admin/Members.php:1497
@@ -2868,6 +2879,7 @@ msgid "%d could not be repaired automatically and needs a handle set by hand."
 msgid_plural ""
 "%d could not be repaired automatically and need handles set by hand."
 msgstr[0] ""
+"자동으로 복구할 수 없어 직접 핸들을 설정해야 하는 멤버가 %d명 있습니다."
 
 #: includes/Admin/Members.php:1526 includes/Admin/ModerationQueue.php:1014
 #: includes/Admin/ModerationQueue.php:1072
@@ -2892,14 +2904,14 @@ msgstr "멤버 정지를 해제했어요."
 #, php-format
 msgid "%d member suspended."
 msgid_plural "%d members suspended."
-msgstr[0] ""
+msgstr[0] "정지한 멤버 %d명."
 
 #. translators: %d: number of members.
 #: includes/Admin/Members.php:1635
 #, php-format
 msgid "%d member unsuspended."
 msgid_plural "%d members unsuspended."
-msgstr[0] ""
+msgstr[0] "정지를 해제한 멤버 %d명."
 
 #: includes/Admin/Members.php:1638
 msgid ""
@@ -3137,7 +3149,7 @@ msgstr "응답 없음"
 #, php-format
 msgid "%s member is waiting for you."
 msgid_plural "%s members are waiting for you."
-msgstr[0] ""
+msgstr[0] "승인을 기다리는 멤버 %s명이 있습니다."
 
 #: includes/Admin/Members/ApprovalManager.php:259
 msgid "Member approved: they can now sign in."
@@ -3697,14 +3709,15 @@ msgid "Email address"
 msgstr "이메일 주소"
 
 #: includes/Admin/Members/MemberEditForm.php:453
+#, fuzzy
 msgid "You cannot change your own role here."
-msgstr ""
+msgstr "여기에서는 본인의 역할을 변경할 수 없습니다."
 
 #. translators: %s: comma-separated list of role names.
 #: includes/Admin/Members/MemberEditForm.php:460
-#, php-format
+#, fuzzy, php-format
 msgid "Also holds: %s. These are kept when you save."
-msgstr ""
+msgstr "추가 역할: %s. 저장할 때 유지됩니다."
 
 #: includes/Admin/Members/MemberEditForm.php:469
 msgid "Profile URL slug"
@@ -3812,8 +3825,9 @@ msgid "No"
 msgstr "아니요"
 
 #: includes/Admin/Members/MemberTypesManager.php:256
+#, fuzzy
 msgid "Once"
-msgstr ""
+msgstr "한 번"
 
 #: includes/Admin/Members/MemberTypesManager.php:258
 #: includes/Admin/Settings.php:2714
@@ -3858,12 +3872,14 @@ msgid "Show as directory filter tab"
 msgstr "디렉터리 필터 탭으로 표시"
 
 #: includes/Admin/Members/MemberTypesManager.php:329
+#, fuzzy
 msgid "Let members choose this type for themselves"
-msgstr ""
+msgstr "멤버가 직접 이 유형을 선택하도록 허용"
 
 #: includes/Admin/Members/MemberTypesManager.php:334
+#, fuzzy
 msgid "Lock it once chosen (only the site team can change it after that)"
-msgstr ""
+msgstr "선택하면 잠금 (이후에는 사이트 운영팀만 변경할 수 있음)"
 
 #: includes/Admin/Members/MemberTypesManager.php:368
 #: templates/profile/edit.php:791 templates/profile/edit.php:797
@@ -4084,7 +4100,7 @@ msgstr "단일 항목"
 #, php-format
 msgid "%d field"
 msgid_plural "%d fields"
-msgstr[0] ""
+msgstr[0] "필드 %d개"
 
 #: includes/Admin/Members/ProfileFieldsManager.php:1647
 msgid ""
@@ -4137,6 +4153,8 @@ msgid_plural ""
 "This permanently deletes stored values for %1$d members. Type \"%2$s\" or "
 "DELETE to confirm."
 msgstr[0] ""
+"이 작업은 멤버 %1$d명의 저장된 값을 영구적으로 삭제합니다. 확인하려면 "
+"\"%2$s\" 또는 DELETE를 입력해 주세요."
 
 #. translators: %s: name of the group being deleted.
 #: includes/Admin/Members/ProfileFieldsManager.php:1736
@@ -4649,12 +4667,14 @@ msgid "Decision"
 msgstr "결정"
 
 #: includes/Admin/ModerationQueue.php:712
+#, fuzzy
 msgid "Optional note"
-msgstr ""
+msgstr "선택 메모"
 
 #: includes/Admin/ModerationQueue.php:713
+#, fuzzy
 msgid "Note for the member (optional)"
-msgstr ""
+msgstr "멤버에게 보낼 메모 (선택)"
 
 #: includes/Admin/ModerationQueue.php:715 includes/Core/AssetService.php:2008
 #: templates/community-admin.php:1210
@@ -5315,14 +5335,19 @@ msgid "Custom capability"
 msgstr "사용자 지정 권한"
 
 #: includes/Admin/NavManager.php:1695
+#, fuzzy
 msgid ""
 "Who can see this item. Anyone it is hidden from also cannot open its page "
 "and sees a \"not available\" notice instead."
 msgstr ""
+"이 항목을 볼 수 있는 사용자를 설정합니다. 숨김 대상은 페이지도 열 수 없으며 "
+"\"사용할 수 없음\" 안내가 표시됩니다."
 
 #: includes/Admin/NavManager.php:1696
+#, fuzzy
 msgid "Who can see this item. It is hidden from everyone else."
 msgstr ""
+"이 항목을 볼 수 있는 사용자를 설정합니다. 그 외 모든 사용자에게는 숨겨집니다."
 
 #: includes/Admin/NavManager.php:1706
 msgid "Required capability"
@@ -5568,16 +5593,19 @@ msgid "Schedule posts"
 msgstr "게시물 예약"
 
 #: includes/Admin/RolesTab.php:50
+#, fuzzy
 msgid "Delete anyone's post or comment"
-msgstr ""
+msgstr "모든 게시물과 댓글 삭제"
 
 #: includes/Admin/RolesTab.php:51
+#, fuzzy
 msgid "Edit anyone's post or comment"
-msgstr ""
+msgstr "모든 게시물과 댓글 편집"
 
 #: includes/Admin/RolesTab.php:52
+#, fuzzy
 msgid "Post site-wide announcements"
-msgstr ""
+msgstr "커뮤니티 전체 공지 작성"
 
 #: includes/Admin/RolesTab.php:59
 msgid "Create spaces"
@@ -5628,12 +5656,14 @@ msgid "Issue strikes"
 msgstr "경고 부여"
 
 #: includes/Admin/RolesTab.php:77
+#, fuzzy
 msgid "Suspend members with no end date"
-msgstr ""
+msgstr "종료일 없이 멤버 정지"
 
 #: includes/Admin/RolesTab.php:78
+#, fuzzy
 msgid "Decide appeals"
-msgstr ""
+msgstr "이의 신청 처리"
 
 #: includes/Admin/RolesTab.php:91
 msgid "Moderators & up"
@@ -5684,19 +5714,25 @@ msgid "Only the role permissions on this tab are reset."
 msgstr "이 탭의 역할 권한만 초기화돼요."
 
 #: includes/Admin/Settings.php:93
+#, fuzzy
 msgid "Role changes from outside services are now off."
-msgstr ""
+msgstr "외부 서비스의 역할 변경이 이제 비활성화되었습니다."
 
 #: includes/Admin/Settings.php:94
+#, fuzzy
 msgid ""
 "A connected service has changed member roles on this site before. For safety "
 "this now needs your permission. Plans, abilities and credits are not "
 "affected."
 msgstr ""
+"연결된 서비스가 이전에 이 사이트의 멤버 역할을 변경한 적이 있습니다. 안전을 "
+"위해 이제 사용자의 허락이 필요합니다. 요금제, 기능 및 크레딧에는 영향이 없습"
+"니다."
 
 #: includes/Admin/Settings.php:95
+#, fuzzy
 msgid "Review the Webhooks settings"
-msgstr ""
+msgstr "웹훅 설정 검토"
 
 #: includes/Admin/Settings.php:139 includes/Admin/Settings.php:2528
 #: includes/Onboarding/SetupWizard.php:1134
@@ -5760,7 +5796,7 @@ msgstr "설정을 저장했어요."
 #, php-format
 msgid "%d setting restored to its default."
 msgid_plural "%d settings restored to their defaults."
-msgstr[0] ""
+msgstr[0] "기본값으로 복원한 설정 %d개."
 
 #: includes/Admin/Settings.php:250
 msgid "This tab already used the default settings."
@@ -5779,6 +5815,7 @@ msgid_plural ""
 "An account that never verifies is deleted after %s days, unless it has "
 "posted."
 msgstr[0] ""
+"인증하지 않은 계정은 %s일 후 삭제되며, 게시물을 올린 계정은 제외됩니다."
 
 #: includes/Admin/Settings.php:388
 msgid ""
@@ -5853,8 +5890,9 @@ msgid "Spaces, member directory, profiles, full-text search"
 msgstr "스페이스, 멤버 디렉터리, 프로필, 전체 텍스트 검색"
 
 #: includes/Admin/Settings.php:579
+#, fuzzy
 msgid "1:1 direct messages (via MediaVerse)"
-msgstr ""
+msgstr "1:1 다이렉트 메시지 (MediaVerse 제공)"
 
 #: includes/Admin/Settings.php:580
 msgid "In-app bell + transactional email notifications"
@@ -5869,8 +5907,9 @@ msgid "REST API, Gutenberg blocks, 1 outbound webhook"
 msgstr "REST API, Gutenberg 블록, 발신 웹훅 1개"
 
 #: includes/Admin/Settings.php:583
+#, fuzzy
 msgid "Scheduled & recurring posts, up to 3 pinned posts"
-msgstr ""
+msgstr "예약 및 반복 게시물, 고정 게시물 최대 3개"
 
 #: includes/Admin/Settings.php:584
 msgid "Custom reaction emoji set (up to 20)"
@@ -6139,6 +6178,8 @@ msgid ""
 "gets an archive of their posts, comments, profile fields and other records "
 "they created."
 msgstr ""
+"멤버 개인정보 설정에 \"내 데이터 내보내기\" 옵션을 추가합니다. 멤버는 자신이 "
+"작성한 게시물, 댓글, 프로필 필드 및 기타 기록이 담긴 아카이브를 받게 됩니다."
 
 #: includes/Admin/Settings.php:997
 msgid "Allow members to delete their account"
@@ -6149,6 +6190,8 @@ msgid ""
 "Adds a \"Delete account\" option to the member Settings > Privacy page. "
 "Admins can always delete accounts regardless of this setting."
 msgstr ""
+"멤버의 설정 > 공개 범위 페이지에 \"계정 삭제\" 옵션을 추가합니다. 관리자는 "
+"이 설정과 관계없이 항상 계정을 삭제할 수 있습니다."
 
 #: includes/Admin/Settings.php:1014
 msgid "Auto (fit to width)"
@@ -6227,6 +6270,7 @@ msgstr ""
 #: includes/Admin/Settings.php:1075
 msgid "Needs MediaVerse. Activate it to choose how media links open."
 msgstr ""
+"MediaVerse가 필요합니다. 미디어 링크가 열리는 방식을 선택하려면 활성화하세요."
 
 #: includes/Admin/Settings.php:1085
 msgid "Direct Messaging"
@@ -6270,7 +6314,7 @@ msgstr "커뮤니티 메뉴"
 
 #: includes/Admin/Settings.php:1134
 msgid "Community navigation (theme menu, rail and mobile bar)"
-msgstr ""
+msgstr "커뮤니티 탐색 (테마 메뉴, 레일 및 모바일 바)"
 
 #: includes/Admin/Settings.php:1136
 msgid ""
@@ -6279,6 +6323,10 @@ msgid ""
 "rail and bottom bar go too. To rename, reorder, or hide individual items, "
 "use the Navigation tab."
 msgstr ""
+"테마에 피드 / 멤버 / 스페이스 메뉴를 추가하고 데스크톱 레일과 모바일 하단 바"
+"를 표시합니다. 끄면 테마 자체 메뉴만 사용되며 레일과 하단 바도 함께 숨겨집니"
+"다. 개별 항목의 이름을 바꾸거나, 순서를 변경하거나, 숨기려면 탐색 탭을 사용하"
+"세요."
 
 #: includes/Admin/Settings.php:1143
 msgid "Show the desktop sidebar rail"
@@ -6378,6 +6426,9 @@ msgid ""
 "percentage of its length. Capped at 95% so the gate always keeps something "
 "back; 0 shows only the lock notice. Posts under 40 words show no preview."
 msgstr ""
+"멤버 전용 게시물을 비멤버가 미리 볼 수 있는 분량을 게시물 길이의 백분율로 설"
+"정합니다. 항상 일부는 가려지도록 최대 95%로 제한됩니다. 0이면 잠금 안내만 표"
+"시됩니다. 40단어 미만의 게시물은 미리보기가 표시되지 않습니다."
 
 #: includes/Admin/Settings.php:1258
 msgid "Ask for a note when connecting"
@@ -6402,6 +6453,8 @@ msgstr "멤버에게 메시지를 보낼 수 있는 대상"
 msgid ""
 "Direct messages need MediaVerse. Activate it to set who can message members."
 msgstr ""
+"다이렉트 메시지에는 MediaVerse가 필요합니다. 누가 멤버에게 메시지를 보낼 수 "
+"있는지 설정하려면 활성화하세요."
 
 #. translators: %s: the site-wide "who can message you" level, e.g. "Everyone".
 #: includes/Admin/Settings.php:1299
@@ -6410,10 +6463,12 @@ msgid ""
 "Set in MediaVerse: %s. Members can choose this or stricter in their privacy "
 "settings."
 msgstr ""
+"MediaVerse에서 설정됨: %s. 멤버는 공개 범위 설정에서 이 옵션 또는 더 엄격한 "
+"옵션을 선택할 수 있습니다."
 
 #: includes/Admin/Settings.php:1304 includes/Admin/Settings.php:2765
 msgid "Change in MediaVerse"
-msgstr ""
+msgstr "MediaVerse에서 변경"
 
 #: includes/Admin/Settings.php:1318
 msgid "Who can create spaces"
@@ -6421,11 +6476,11 @@ msgstr "스페이스를 만들 수 있는 대상"
 
 #: includes/Admin/Settings.php:1319
 msgid "Set under Members > Roles & Capabilities."
-msgstr ""
+msgstr "멤버 > 역할 및 권한에서 설정합니다."
 
 #: includes/Admin/Settings.php:1320
 msgid "Change in Roles & Capabilities"
-msgstr ""
+msgstr "역할 및 권한에서 변경"
 
 #: includes/Admin/Settings.php:1340
 msgid ""
@@ -6568,6 +6623,8 @@ msgid ""
 "From this many active strikes, the notice a member gets with each strike "
 "also warns that their account is at risk of suspension."
 msgstr ""
+"활성 경고가 이 횟수 이상이면, 경고마다 멤버에게 전달되는 안내에 계정 정지 위"
+"험이 있다는 내용도 함께 표시됩니다."
 
 #: includes/Admin/Settings.php:1549
 msgid "Strikes before suspension"
@@ -6782,6 +6839,8 @@ msgid ""
 "Receives the daily alert when the moderation queue is long. Leave it empty "
 "to use the WordPress admin email."
 msgstr ""
+"검토 대기열이 길어지면 매일 알림을 받을 주소입니다. 비워 두면 WordPress 관리"
+"자 이메일을 사용합니다."
 
 #: includes/Admin/Settings.php:1802
 msgid "Sender identity"
@@ -6934,6 +6993,8 @@ msgid ""
 "Shows a consent checkbox on every sign-up route. On once a Terms page is "
 "chosen under Legal pages below; it has no effect until then."
 msgstr ""
+"모든 가입 경로에 동의 체크박스를 표시합니다. 아래 법적 페이지에서 이용약관 페"
+"이지를 선택하면 켜지며, 선택하기 전에는 효과가 없습니다."
 
 #: includes/Admin/Settings.php:1959 includes/Admin/Settings.php:2866
 msgid "Ask new members for their name"
@@ -7104,6 +7165,9 @@ msgid ""
 "spaces/, or a full address. Leave empty for the activity feed. A member who "
 "was sent to log in from a page goes back to that page instead."
 msgstr ""
+"멤버가 로그인한 후 이동할 위치예요. 사이트의 페이지(예: /spaces/) 또는 전체 "
+"주소를 입력하세요. 비워 두면 활동 피드로 이동해요. 페이지에서 로그인하도록 안"
+"내된 멤버는 원래 페이지로 돌아가요."
 
 #: includes/Admin/Settings.php:2145
 msgid "After logout"
@@ -7128,6 +7192,9 @@ msgid ""
 "spaces/, or a full address. Leave empty for the activity feed. A member who "
 "signed up from a page goes back to that page instead."
 msgstr ""
+"신규 멤버가 온보딩을 마친 후 이동할 위치예요. 사이트의 페이지(예: /spaces/) "
+"또는 전체 주소를 입력하세요. 비워 두면 활동 피드로 이동해요. 페이지에서 가입"
+"한 멤버는 원래 페이지로 돌아가요."
 
 #: includes/Admin/Settings.php:2163 includes/Admin/Settings.php:2172
 #: includes/Admin/Settings.php:3135
@@ -7179,7 +7246,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:2230 includes/Admin/Settings.php:3610
 msgid "Allow role changes from outside"
-msgstr ""
+msgstr "외부에서 역할 변경 허용"
 
 #: includes/Admin/Settings.php:2231 includes/Admin/Settings.php:3611
 msgid ""
@@ -7188,10 +7255,14 @@ msgid ""
 "your shared secret authorises every action, and this is the most powerful "
 "one. Plans, abilities and credits work either way."
 msgstr ""
+"기본적으로 꺼져 있어요. 켜면 서명된 요청으로 멤버의 역할을 커뮤니티 관리자, "
+"운영자 또는 멤버로 설정할 수 있어요. 직접 운영하는 서비스에서 필요한 경우가 "
+"아니라면 꺼 두세요. 공유 비밀 키가 모든 작업을 승인하며, 이 기능은 가장 강력"
+"한 권한이에요. 플랜, 권한, 크레딧은 이 설정과 관계없이 동작해요."
 
 #: includes/Admin/Settings.php:2239 includes/Admin/Settings.php:3617
 msgid "Create an account for a new buyer"
-msgstr ""
+msgstr "신규 구매자를 위한 계정 만들기"
 
 #: includes/Admin/Settings.php:2240 includes/Admin/Settings.php:3618
 msgid ""
@@ -7202,6 +7273,11 @@ msgid ""
 "Make or Zapier. Accounts are only created from requests signed with your "
 "secret."
 msgstr ""
+"기본적으로 꺼져 있어요. 켜면 계정이 없는 이메일 주소에 플랜, 권한 또는 크레딧"
+"을 부여하는 서명된 요청이 멤버 계정을 만들고(항상 신규 멤버로, 관리자는 아"
+"님), 비밀번호를 설정할 수 있는 링크를 이메일로 보내요. 다른 도구에서 결제를 "
+"받고 Make나 Zapier로 연결하는 경우에 사용하세요. 계정은 비밀 키로 서명된 요청"
+"에서만 만들어져요."
 
 #: includes/Admin/Settings.php:2434
 msgid ""
@@ -7302,15 +7378,15 @@ msgstr "필요 항목: %s"
 
 #: includes/Admin/Settings.php:2754
 msgid "Open its settings"
-msgstr ""
+msgstr "설정 열기"
 
 #: includes/Admin/Settings.php:2761
 msgid "Install MediaVerse"
-msgstr ""
+msgstr "MediaVerse 설치"
 
 #: includes/Admin/Settings.php:2763
 msgid "Turn on"
-msgstr ""
+msgstr "켜기"
 
 #: includes/Admin/Settings.php:2768
 msgid "This feature is always on and cannot be disabled."
@@ -7540,7 +7616,7 @@ msgstr ""
 
 #: includes/Admin/Settings.php:3214
 msgid "Keys and setup"
-msgstr ""
+msgstr "키 및 설정"
 
 #: includes/Admin/Settings.php:3232
 msgid "Saved. Leave blank to keep it, or paste a new one to replace it."
@@ -7626,7 +7702,7 @@ msgstr "설치에 실패했습니다. 네트워크 오류입니다."
 
 #: includes/Admin/Settings.php:3373
 msgid "Installed"
-msgstr ""
+msgstr "설치됨"
 
 #: includes/Admin/Settings.php:3376 includes/Core/AssetService.php:1040
 #: includes/Core/AssetService.php:1360 includes/Core/AssetService.php:1850
@@ -7646,13 +7722,13 @@ msgstr "설치되지 않음"
 
 #: includes/Admin/Settings.php:3398
 msgid "Connects with BuddyNext Pro"
-msgstr ""
+msgstr "BuddyNext Pro와 연동"
 
 #. translators: %s: what the integration adds, e.g. "Job posts as activity cards in the feed."
 #: includes/Admin/Settings.php:3411
 #, php-format
 msgid "Needs BuddyNext Pro to connect. With Pro: %s"
-msgstr ""
+msgstr "연동하려면 BuddyNext Pro가 필요해요. Pro 사용 시: %s"
 
 #: includes/Admin/Settings.php:3425
 msgid "Activate"
@@ -7792,14 +7868,18 @@ msgid ""
 "signature in X-BuddyNext-Signature. Make and Zapier can do this with their "
 "built-in functions."
 msgstr ""
+"여기로 JSON을 POST 하세요. \"{timestamp}.{body}\"를 HMAC-SHA256과 공유 비밀 "
+"키로 서명한 다음, 타임스탬프는 X-BuddyNext-Timestamp에, 16진수 서명은 X-"
+"BuddyNext-Signature에 담아 보내세요. Make와 Zapier는 내장 함수로 이 작업을 "
+"할 수 있어요."
 
 #: includes/Admin/Settings.php:3646
 msgid "Example: give a plan after a payment"
-msgstr ""
+msgstr "예시: 결제 후 플랜 부여"
 
 #: includes/Admin/Settings.php:3649
 msgid "Copy example"
-msgstr ""
+msgstr "예시 복사"
 
 #: includes/Admin/Settings.php:3651
 msgid ""
@@ -7809,14 +7889,19 @@ msgid ""
 "are kept on the member's plan so you can match the payment; they are not "
 "counted as revenue. Plans need BuddyNext Pro."
 msgstr ""
+"갱신 결제가 완료되면 새로운 expires_at과 함께 extend_plan을 사용하고, 구매자"
+"가 해지하면 cancel_plan을 사용하세요(이용 기간은 기간 종료일까지 유지돼요. 즉"
+"시 종료하려면 \"at_period_end\": false를 보내세요). reference, amount, "
+"currency는 결제와 대조할 수 있도록 멤버의 플랜에 저장되며 매출로 집계되지 않"
+"아요. 플랜 기능에는 BuddyNext Pro가 필요해요."
 
 #: includes/Admin/Settings.php:3658
 msgid "Recent requests"
-msgstr ""
+msgstr "최근 요청"
 
 #: includes/Admin/Settings.php:3660
 msgid "No requests yet. Requests show here as they arrive, newest first."
-msgstr ""
+msgstr "아직 요청이 없어요. 요청이 들어오면 최신순으로 여기에 표시돼요."
 
 #: includes/Admin/Settings.php:3670 includes/Admin/Settings.php:3687
 #: assets/js/blocks.js:330
@@ -7825,11 +7910,11 @@ msgstr "기간"
 
 #: includes/Admin/Settings.php:3671 includes/Admin/Settings.php:3688
 msgid "Result"
-msgstr ""
+msgstr "결과"
 
 #: includes/Admin/Settings.php:3686
 msgid "Removed member"
-msgstr ""
+msgstr "제거된 멤버"
 
 #: includes/Admin/Settings.php:3688 includes/Admin/SetupChecklist.php:510
 #: includes/Onboarding/SetupWizard.php:189
@@ -7838,7 +7923,7 @@ msgstr "완료"
 
 #: includes/Admin/Settings.php:3688
 msgid "Refused"
-msgstr ""
+msgstr "거부됨"
 
 #: includes/Admin/Settings.php:3720 includes/Admin/Settings.php:3741
 msgid "Outbound endpoints (requires Webhooks feature)"
@@ -7901,7 +7986,7 @@ msgstr "이벤트를 받으려면 아래에서 엔드포인트를 추가해 주�
 
 #: includes/Admin/Settings.php:3839
 msgid "Re-enable"
-msgstr ""
+msgstr "다시 켜기"
 
 #: includes/Admin/Settings.php:3853
 msgid "View log"
@@ -7981,7 +8066,7 @@ msgstr "복사를 완료했어요"
 
 #: includes/Admin/Settings/Field.php:366
 msgid "That choice is not available, so the setting was not changed."
-msgstr ""
+msgstr "선택할 수 없는 옵션이라 설정이 변경되지 않았어요."
 
 #: includes/Admin/Settings/SettingsDriver.php:179
 msgid "You are not allowed to reset these settings."
@@ -8005,7 +8090,7 @@ msgstr "설정 마법사 실행"
 
 #: includes/Admin/SetupChecklist.php:109
 msgid "Hide this message"
-msgstr ""
+msgstr "이 메시지 숨기기"
 
 #: includes/Admin/SetupChecklist.php:157
 msgid "BuddyNext needs pretty permalinks."
@@ -8165,13 +8250,15 @@ msgstr "BuddyX 받기(무료)"
 
 #: includes/Admin/SetupChecklist.php:321 includes/Admin/SetupChecklist.php:325
 msgid "Turn on messages"
-msgstr ""
+msgstr "메시지 켜기"
 
 #: includes/Admin/SetupChecklist.php:322
 msgid ""
 "Messages are off in MediaVerse. Turn them on to let members message each "
 "other."
 msgstr ""
+"MediaVerse에서 메시지 기능이 꺼져 있어요. 멤버끼리 메시지를 주고받으려면 켜 "
+"주세요."
 
 #: includes/Admin/SetupChecklist.php:356
 msgid "BuddyX (free)"
@@ -8233,11 +8320,11 @@ msgstr "스페이스 보관을 해제했습니다."
 
 #: includes/Admin/Spaces.php:279
 msgid "Owner changed."
-msgstr ""
+msgstr "운영자가 변경되었어요."
 
 #: includes/Admin/Spaces.php:282
 msgid "No user has that username or email."
-msgstr ""
+msgstr "해당 사용자 이름이나 이메일을 가진 사용자가 없어요."
 
 #: includes/Admin/Spaces.php:283 includes/Spaces/SpaceService.php:1035
 msgid "A banned member cannot be made the owner of this space."
@@ -8245,7 +8332,7 @@ msgstr "차단된 멤버는 이 스페이스의 소유자로 지정할 수 없�
 
 #: includes/Admin/Spaces.php:285
 msgid "The owner could not be changed."
-msgstr ""
+msgstr "운영자를 변경할 수 없었어요."
 
 #. translators: %d: maximum number of featured spaces.
 #: includes/Admin/Spaces.php:295
@@ -8260,6 +8347,8 @@ msgid ""
 "Sub-spaces cannot be featured, because featured spaces show top-level spaces "
 "only. Feature its parent space instead."
 msgstr ""
+"하위 스페이스는 추천할 수 없어요. 추천 스페이스에는 최상위 스페이스만 표시되"
+"기 때문이에요. 대신 상위 스페이스를 추천해 주세요."
 
 #: includes/Admin/Spaces.php:309
 msgid "Space featured."
@@ -8274,7 +8363,7 @@ msgstr "스페이스를 추천 목록에서 제외했습니다."
 #, php-format
 msgid "%d space featured."
 msgid_plural "%d spaces featured."
-msgstr[0] ""
+msgstr[0] "%d개의 스페이스를 추천했어요."
 
 #. translators: %d: number of sub-spaces skipped.
 #: includes/Admin/Spaces.php:322
@@ -8285,6 +8374,8 @@ msgid_plural ""
 "%d sub-spaces were skipped, because featured spaces show top-level spaces "
 "only."
 msgstr[0] ""
+"추천 스페이스에는 최상위 스페이스만 표시되므로 %d개의 하위 스페이스는 건너뛰"
+"었어요."
 
 #: includes/Admin/Spaces.php:337
 msgid "Total spaces"
@@ -8417,7 +8508,7 @@ msgstr "보관"
 #: includes/Admin/Spaces.php:690 includes/Admin/Spaces.php:1063
 #: includes/Admin/Spaces.php:1080
 msgid "Change owner"
-msgstr ""
+msgstr "운영자 변경"
 
 #: includes/Admin/Spaces.php:735
 msgid "Spaces pagination"
@@ -8477,23 +8568,24 @@ msgstr "카테고리 추가"
 
 #: includes/Admin/Spaces.php:890
 msgid "Use for"
-msgstr ""
+msgstr "사용 대상"
 
 #: includes/Admin/Spaces.php:892
 msgid "Main spaces and subspaces"
-msgstr ""
+msgstr "메인 스페이스 및 하위 스페이스"
 
 #: includes/Admin/Spaces.php:893
 msgid "Main spaces only"
-msgstr ""
+msgstr "메인 스페이스만"
 
 #: includes/Admin/Spaces.php:894
 msgid "Subspaces only"
-msgstr ""
+msgstr "하위 스페이스만"
 
 #: includes/Admin/Spaces.php:897
 msgid "Where members can pick this category when they create or edit a space."
 msgstr ""
+"멤버가 스페이스를 만들거나 편집할 때 이 카테고리를 선택할 수 있는 위치예요."
 
 #: includes/Admin/Spaces.php:903
 msgid "Show in the spaces directory"
@@ -8522,13 +8614,16 @@ msgstr "새 소유자"
 
 #: includes/Admin/Spaces.php:1073
 msgid "Type 3 letters of a name"
-msgstr ""
+msgstr "이름의 글자 3개를 입력하세요"
 
 #: includes/Admin/Spaces.php:1076
 msgid ""
 "Pick from the list. A full username or email also works. Any user who is not "
 "banned from this space can be the owner; the current owner becomes a member."
 msgstr ""
+"목록에서 선택해 주세요. 전체 사용자 이름이나 이메일 주소도 입력할 수 있습니"
+"다. 이 스페이스에서 차단되지 않은 사용자라면 누구든 소유자로 지정할 수 있으"
+"며, 현재 소유자는 멤버로 바뀝니다."
 
 #: includes/Admin/ToolsTab.php:54
 msgid "Tools"
@@ -8858,7 +8953,7 @@ msgstr "상태: 편집하지 않은 모든 이메일이 최신 기본 문구를 
 #, php-format
 msgid "Status: %d unedited email is on older wording."
 msgid_plural "Status: %d unedited emails are on older wording."
-msgstr[0] ""
+msgstr[0] "상태: 수정하지 않은 이메일 %d개가 이전 문구를 사용하고 있습니다."
 
 #: includes/Admin/ToolsTab.php:462
 msgid "Restore default emails"
@@ -8951,6 +9046,7 @@ msgstr ""
 msgid "Database repaired: %d missing table or column was created."
 msgid_plural "Database repaired: %d missing tables and columns were created."
 msgstr[0] ""
+"데이터베이스를 복구했습니다: 누락된 테이블 및 컬럼 %d개를 생성했습니다."
 
 #: includes/Admin/ToolsTab.php:1016
 msgid ""
@@ -8967,7 +9063,7 @@ msgstr ""
 #, php-format
 msgid "%d unedited email was updated to the latest default wording."
 msgid_plural "%d unedited emails were updated to the latest default wording."
-msgstr[0] ""
+msgstr[0] "수정하지 않은 이메일 %d개를 최신 기본 문구로 업데이트했습니다."
 
 #: includes/Admin/ToolsTab.php:1021
 msgid "Cache flushed."
@@ -9012,6 +9108,8 @@ msgid ""
 "Settings imported: %1$d applied, %2$d skipped (this site keeps its own "
 "version, page and setup state)."
 msgstr ""
+"설정을 가져왔습니다: %1$d개 적용, %2$d개 건너뜀(이 사이트는 고유한 버전, 페이"
+"지 및 설정 상태를 유지합니다)."
 
 #: includes/Admin/ToolsTab.php:1034
 msgid "Import file had no recognised BuddyNext settings."
@@ -9118,7 +9216,7 @@ msgstr "이메일 또는 사용자 이름과 비밀번호를 입력해 주세요
 
 #: includes/Auth/AuthController.php:992 includes/Core/AssetService.php:2342
 msgid "That email, username or password is not right."
-msgstr ""
+msgstr "이메일, 사용자 이름 또는 비밀번호가 올바르지 않습니다."
 
 #: includes/Auth/AuthController.php:1056 includes/Auth/AuthController.php:1178
 msgid "Application passwords are not available on this site."
@@ -9128,7 +9226,7 @@ msgstr "이 사이트에서는 애플리케이션 비밀번호를 사용할 수 
 #: includes/Auth/AuthController.php:1062
 #, php-format
 msgid "%s app"
-msgstr ""
+msgstr "%s 앱"
 
 #: includes/Auth/AuthController.php:1217
 msgid "Your sign-in session expired. Please enter your password again."
@@ -9230,7 +9328,7 @@ msgstr "%s 비밀번호 재설정"
 #: includes/Auth/AuthController.php:1958
 #, php-format
 msgid "Your %s account is ready"
-msgstr ""
+msgstr "%s 계정이 준비되었습니다"
 
 #. translators: 1: site name, 2: email address, 3: set-password URL.
 #: includes/Auth/AuthController.php:1963
@@ -9241,6 +9339,10 @@ msgid ""
 "first time.</p><p><a href=\"%3$s\">Set your password</a></p><p>If the button "
 "does not work, copy this link into your browser:<br>%3$s</p>"
 msgstr ""
+"<p>환영합니다. <strong>%2$s</strong> 이메일 주소로 %1$s에 계정이 만들어졌습니"
+"다.</p><p>처음 로그인하려면 비밀번호를 설정해 주세요.</p><p><a href=\"%3$s\">"
+"비밀번호 설정하기</a></p><p>버튼이 작동하지 않으면 아래 링크를 복사해 브라우"
+"저에 붙여 넣어 주세요:<br>%3$s</p>"
 
 #: includes/Auth/AuthController.php:2008
 msgid ""
@@ -9296,7 +9398,7 @@ msgstr "이 작업을 수행할 권한이 없어요."
 
 #: includes/Auth/CoreRegistration.php:152
 msgid "Consent is on, but your Terms page is not published"
-msgstr ""
+msgstr "약관 동의가 켜져 있지만 약관 페이지가 게시되지 않았습니다"
 
 #: includes/Auth/CoreRegistration.php:153
 msgid ""
@@ -9304,6 +9406,9 @@ msgid ""
 "visitors cannot open it and consent is not being collected. Publish it, "
 "choose another page below, or switch this off."
 msgstr ""
+"이 페이지는 초안, 비공개, 비밀번호 보호 상태이거나 휴지통에 있어서 방문자가 "
+"열 수 없으므로 동의를 받을 수 없습니다. 페이지를 게시하거나, 아래에서 다른 페"
+"이지를 선택하거나, 이 기능을 꺼 주세요."
 
 #: includes/Auth/CoreRegistration.php:155
 msgid "Consent is on, but no Terms page is set"
@@ -9321,11 +9426,11 @@ msgstr ""
 msgid ""
 "BuddyNext: terms consent is switched on, but your Terms page is not "
 "published."
-msgstr ""
+msgstr "BuddyNext: 약관 동의가 켜져 있지만 약관 페이지가 게시되지 않았습니다."
 
 #: includes/Auth/CoreRegistration.php:187
 msgid "Visitors cannot open it, so consent is NOT being collected or enforced."
-msgstr ""
+msgstr "방문자가 페이지를 열 수 없으므로 동의를 받거나 적용하지 않고 있습니다."
 
 #: includes/Auth/CoreRegistration.php:189
 msgid "BuddyNext: terms consent is switched on, but no Terms page is set."
@@ -9450,22 +9555,24 @@ msgid ""
 "On this network the setting is Network Admin > Settings > Allow new "
 "registrations, and it applies to every site on the network."
 msgstr ""
+"이 네트워크에서는 네트워크 관리자 > 설정 > 신규 가입 허용에서 설정하며, 이 설"
+"정은 네트워크의 모든 사이트에 적용됩니다."
 
 #: includes/Auth/CoreRegistration.php:300
 msgid "Network \"Allow new registrations\""
-msgstr ""
+msgstr "네트워크 \"신규 가입 허용\""
 
 #: includes/Auth/CoreRegistration.php:300
 msgid "WordPress \"Anyone can register\""
-msgstr ""
+msgstr "WordPress \"누구나 등록 가능\""
 
 #: includes/Auth/CoreRegistration.php:303
 msgid "Turn off new user accounts on the whole network"
-msgstr ""
+msgstr "네트워크 전체에서 신규 사용자 계정 끄기"
 
 #: includes/Auth/CoreRegistration.php:303
 msgid "Allow new user accounts on the whole network"
-msgstr ""
+msgstr "네트워크 전체에서 신규 사용자 계정 허용"
 
 #: includes/Auth/CoreRegistration.php:304
 msgid "Turn WordPress registration off"
@@ -9479,7 +9586,7 @@ msgstr "WordPress 회원가입 켜기"
 #: includes/Auth/CoreRegistration.php:331
 #, php-format
 msgid "BuddyNext mode: %1$s. %2$s: %3$s."
-msgstr ""
+msgstr "BuddyNext 모드: %1$s. %2$s: %3$s."
 
 #: includes/Auth/CoreRegistration.php:334
 #: includes/Auth/CoreRegistration.php:374
@@ -9495,11 +9602,11 @@ msgstr "꺼짐"
 #: includes/Auth/CoreRegistration.php:371
 #, php-format
 msgid "Mode %1$s - %2$s is %3$s, in %4$s"
-msgstr ""
+msgstr "모드 %1$s - %2$s: %3$s (위치: %4$s)"
 
 #: includes/Auth/CoreRegistration.php:375
 msgid "Network Admin > Settings"
-msgstr ""
+msgstr "네트워크 관리자 > 설정"
 
 #: includes/Auth/CoreRegistration.php:375
 msgid "Settings > General"
@@ -9507,7 +9614,7 @@ msgstr "설정 > 일반"
 
 #: includes/Auth/CoreRegistration.php:409
 msgid "Ask a network administrator to change it."
-msgstr ""
+msgstr "네트워크 관리자에게 변경을 요청해 주세요."
 
 #: includes/Auth/IdTokenVerifier.php:59 includes/Auth/IdTokenVerifier.php:67
 msgid "The identity token is malformed."
@@ -9664,7 +9771,7 @@ msgstr "해당 이메일 도메인으로는 가입할 수 없어요."
 
 #: includes/Auth/RegistrationGuard.php:306
 msgid "That email address cannot be used to sign up here."
-msgstr ""
+msgstr "이 이메일 주소로는 가입할 수 없습니다."
 
 #: includes/Auth/RegistrationGuard.php:384
 msgid "Access from your network is not allowed."
@@ -9740,15 +9847,15 @@ msgstr "필수 정보가 일부 빠져 있어요."
 
 #: includes/Auth/RegistrationService.php:143
 msgid "That username is not allowed."
-msgstr ""
+msgstr "사용할 수 없는 사용자 이름입니다."
 
 #: includes/Auth/RegistrationService.php:242
 msgid "That is not a valid email address."
-msgstr ""
+msgstr "올바른 이메일 주소가 아닙니다."
 
 #: includes/Auth/RegistrationService.php:245
 msgid "A member with that email address already exists."
-msgstr ""
+msgstr "이 이메일 주소를 사용하는 멤버가 이미 있습니다."
 
 #: includes/Auth/RestHoldGate.php:255
 msgid ""
@@ -10276,7 +10383,7 @@ msgstr "토론을 만들 수 없어 활성화되지 않았습니다."
 #: includes/Bridges/JetonomyBridge.php:2198
 msgid ""
 "This comment is also a reply in the forum, and you can no longer post there."
-msgstr ""
+msgstr "이 댓글은 포럼의 답글이기도 하므로 더 이상 그곳에 게시할 수 없습니다."
 
 #: includes/Bridges/JetonomyBridge.php:2499
 msgid "You do not have permission to set up this space forum."
@@ -10329,11 +10436,11 @@ msgstr "Jetonomy"
 
 #: includes/Bridges/JetonomyBridge.php:2897
 msgid "Forum notifications in the BuddyNext bell"
-msgstr ""
+msgstr "BuddyNext 알림 벨의 포럼 알림"
 
 #: includes/Bridges/JetonomyBridge.php:3484
 msgid "Anonymous"
-msgstr ""
+msgstr "익명"
 
 #: includes/Bridges/JetonomyBridge.php:3609 includes/Core/PageRouter.php:1306
 #: includes/Core/Plugin.php:926 includes/Nav/Providers/SpaceNav.php:277
@@ -10361,7 +10468,7 @@ msgstr "문서"
 
 #: includes/Bridges/WPMediaVerseBridge.php:527
 msgid "Stories"
-msgstr ""
+msgstr "스토리"
 
 #: includes/Bridges/WPMediaVerseBridge.php:1793
 msgid "shared a video"
@@ -10956,11 +11063,12 @@ msgstr "신고가 접수되었어요. 커뮤니티를 안전하게 지켜 주셔
 
 #: includes/Core/AssetService.php:1201
 msgid "You reported this post."
-msgstr ""
+msgstr "이 게시물을 신고했습니다."
 
 #: includes/Core/AssetService.php:1202
 msgid "Moderators will review it. Thanks for keeping the community safe."
 msgstr ""
+"운영자가 검토할 예정입니다. 커뮤니티를 안전하게 지켜 주셔서 감사합니다."
 
 #: includes/Core/AssetService.php:1203 templates/auth/verify.php:131
 #: templates/feed/single-post.php:87
@@ -11191,11 +11299,11 @@ msgstr "게시물이 발행되었어요"
 
 #: includes/Core/AssetService.php:1269
 msgid "Posted and added to your story."
-msgstr ""
+msgstr "게시되었고 스토리에 추가되었습니다."
 
 #: includes/Core/AssetService.php:1270
 msgid "Your post is up. It could not be added to your story."
-msgstr ""
+msgstr "게시물은 게시되었지만 스토리에 추가하지 못했습니다."
 
 #: includes/Core/AssetService.php:1271
 msgid "Post scheduled"
@@ -11285,17 +11393,17 @@ msgstr "이미지를 업로드할 수 없어요(미디어 엔진이 활성화되
 #: includes/Core/AssetService.php:1297
 #, php-format
 msgid "You can attach at most %d files per post."
-msgstr ""
+msgstr "게시물당 최대 %d개의 파일을 첨부할 수 있습니다."
 
 #: includes/Core/AssetService.php:1298
 msgid "Only 1 more file can be added."
-msgstr ""
+msgstr "파일을 1개만 더 추가할 수 있습니다."
 
 #. translators: %d: number of additional files
 #: includes/Core/AssetService.php:1300
 #, php-format
 msgid "Only %d more files can be added."
-msgstr ""
+msgstr "파일을 %d개만 더 추가할 수 있습니다."
 
 #. translators: 1: file name, 2: HTTP status code
 #: includes/Core/AssetService.php:1302
@@ -11310,19 +11418,19 @@ msgstr "모든 게시물을 확인했어요."
 
 #: includes/Core/AssetService.php:1305
 msgid "1 new post: click to show"
-msgstr ""
+msgstr "새 게시물 1개: 클릭하여 표시"
 
 #. translators: %d: number of new posts
 #: includes/Core/AssetService.php:1307
 #, php-format
 msgid "%d new posts: click to show"
-msgstr ""
+msgstr "새 게시물 %d개: 클릭하여 표시"
 
 #. translators: %d: the display ceiling for the new-posts pill (e.g. "99+ new posts").
 #: includes/Core/AssetService.php:1309
 #, php-format
 msgid "%d+ new posts: click to show"
-msgstr ""
+msgstr "새 게시물 %d개 이상: 클릭하여 표시"
 
 #: includes/Core/AssetService.php:1310
 msgid "1 new comment: show"
@@ -11351,7 +11459,7 @@ msgstr "이미 신고하셨어요."
 #: templates/parts/post-comments-list.php:105
 #, php-format
 msgid "View more comments (%d)"
-msgstr ""
+msgstr "댓글 %d개 더 보기"
 
 #: includes/Core/AssetService.php:1321
 msgid "1 vote"
@@ -11361,7 +11469,7 @@ msgstr "투표 1표"
 #: includes/Core/AssetService.php:1323 templates/parts/post-body.php:404
 #, php-format
 msgid "%1$s: %2$d%%, your vote"
-msgstr ""
+msgstr "%1$s: %2$d%%, 내 투표"
 
 #. translators: %d: number of votes.
 #: includes/Core/AssetService.php:1325
@@ -11456,7 +11564,7 @@ msgstr "차단"
 #: includes/Core/AssetService.php:1372 templates/parts/member-card.php:264
 #: templates/parts/profile-actions-overflow.php:148
 msgid "You reported this member"
-msgstr ""
+msgstr "이 멤버를 신고했어요"
 
 #: includes/Core/AssetService.php:1374 templates/parts/member-card.php:316
 #: templates/parts/post-byline.php:133
@@ -11652,26 +11760,28 @@ msgstr "초대 링크가 꺼졌어요."
 
 #: includes/Core/AssetService.php:1472
 msgid "Remove this link?"
-msgstr ""
+msgstr "이 링크를 삭제할까요?"
 
 #: includes/Core/AssetService.php:1473
 msgid ""
 "Members stay in the space. New people who get access to it will no longer be "
 "added, and nobody is removed when they lose it."
 msgstr ""
+"기존 멤버는 스페이스에 그대로 남아요. 이후 접근 권한을 얻는 사람은 자동으로 "
+"추가되지 않으며, 권한을 잃은 멤버도 자동으로 제외되지 않아요."
 
 #: includes/Core/AssetService.php:1474
 #: templates/parts/space-settings-panel-links.php:98
 msgid "Remove link"
-msgstr ""
+msgstr "링크 삭제"
 
 #: includes/Core/AssetService.php:1475
 msgid "Link removed."
-msgstr ""
+msgstr "링크를 삭제했어요."
 
 #: includes/Core/AssetService.php:1476
 msgid "Could not remove the link."
-msgstr ""
+msgstr "링크를 삭제하지 못했어요."
 
 #: includes/Core/AssetService.php:1480
 msgid "Could not send your request."
@@ -11875,7 +11985,7 @@ msgstr "나가기"
 
 #: includes/Core/AssetService.php:1547 templates/parts/space-hero.php:355
 msgid "Report this space"
-msgstr ""
+msgstr "이 스페이스 신고하기"
 
 #: includes/Core/AssetService.php:1554
 msgid "1 space available"
@@ -11975,7 +12085,7 @@ msgstr "토론을 검색할 수 없어요. 연결을 확인하고 다시 시도�
 
 #: includes/Core/AssetService.php:1588
 msgid "Unlink this discussion?"
-msgstr ""
+msgstr "이 토론과의 연결을 해제할까요?"
 
 #: includes/Core/AssetService.php:1589
 msgid ""
@@ -11983,6 +12093,9 @@ msgid ""
 "member of this space stays a member. New discussion posts stop appearing in "
 "this space. You can turn Discussion on again later to create or link one."
 msgstr ""
+"토론과 게시물은 그대로 유지되고, 이 스페이스의 멤버 자격도 변하지 않아요. 새 "
+"토론 게시물은 더 이상 이 스페이스에 표시되지 않아요. 나중에 토론 기능을 다시 "
+"켜서 새로 만들거나 연결할 수 있어요."
 
 #: includes/Core/AssetService.php:1590
 #: templates/parts/settings-connected-accounts.php:75
@@ -11992,7 +12105,7 @@ msgstr "연결 해제"
 
 #: includes/Core/AssetService.php:1591
 msgid "Discussion unlinked."
-msgstr ""
+msgstr "토론 연결을 해제했어요."
 
 #: includes/Core/AssetService.php:1592
 msgid "Request sent: you’ll be notified when it’s approved."
@@ -12140,13 +12253,13 @@ msgstr "%s을(를) 차단할 수 없었어요. 다시 시도해 주세요."
 #: includes/Core/AssetService.php:1673
 #, php-format
 msgid "%s unblocked"
-msgstr ""
+msgstr "%s 차단을 해제했어요"
 
 #. translators: %s: member display name.
 #: includes/Core/AssetService.php:1675
 #, php-format
 msgid "Could not unblock %s. Try again."
-msgstr ""
+msgstr "%s 차단을 해제하지 못했어요. 다시 시도해 주세요."
 
 #: includes/Core/AssetService.php:1676
 msgid "Report this conversation"
@@ -12350,9 +12463,9 @@ msgstr "이 미디어를 삭제할까요?"
 #. translators: %s: comma-separated list of space album names.
 #: includes/Core/AssetService.php:1763
 #: templates/partials/media-upload-composer.php:65
-#, fuzzy, php-format
+#, php-format
 msgid "It will also be removed from these space albums: %s"
-msgstr "이 미디어는 다음 %s에서도 삭제돼요: %s"
+msgstr "이 미디어는 다음 스페이스 앨범에서도 삭제돼요: %s"
 
 #: includes/Core/AssetService.php:1780
 msgid "Crop avatar"
@@ -12380,7 +12493,7 @@ msgstr "커버를 저장할 수 없어요"
 
 #: includes/Core/AssetService.php:1791
 msgid "Photo updated."
-msgstr ""
+msgstr "사진을 업데이트했어요."
 
 #: includes/Core/AssetService.php:1792
 msgid "Profile saved"
@@ -12756,34 +12869,37 @@ msgstr "콘텐츠 정책 안내"
 
 #: includes/Core/AssetService.php:1949
 msgid "Warn this member?"
-msgstr ""
+msgstr "이 멤버에게 경고를 보낼까요?"
 
 #: includes/Core/AssetService.php:1950
 msgid ""
 "They are notified and can read this message on their Account status page."
 msgstr ""
+"멤버에게 알림이 전송되며, 계정 상태 페이지에서 이 메시지를 확인할 수 있어요."
 
 #: includes/Core/AssetService.php:1951
 msgid "Send warning"
-msgstr ""
+msgstr "경고 보내기"
 
 #: includes/Core/AssetService.php:1952
 msgid "Issue a strike?"
-msgstr ""
+msgstr "스트라이크를 부여할까요?"
 
 #: includes/Core/AssetService.php:1953
 msgid ""
 "They can read this reason on their Account status page. Strikes add up "
 "toward automatic suspension."
 msgstr ""
+"멤버는 계정 상태 페이지에서 이 사유를 확인할 수 있어요. 스트라이크가 누적되"
+"면 자동으로 정지될 수 있어요."
 
 #: includes/Core/AssetService.php:1954
 msgid "Issue strike"
-msgstr ""
+msgstr "스트라이크 부여"
 
 #: includes/Core/AssetService.php:1955
 msgid "Add a reason. The member will see it."
-msgstr ""
+msgstr "사유를 입력해 주세요. 멤버에게 표시돼요."
 
 #: includes/Core/AssetService.php:1956
 msgid "Space rule violation"
@@ -13084,27 +13200,27 @@ msgstr "모든 알림을 읽음으로 표시할 수 없어요."
 #: includes/Core/AssetService.php:2129
 #, php-format
 msgid "%d selected"
-msgstr ""
+msgstr "%d개 선택됨"
 
 #: includes/Core/AssetService.php:2130
 msgid "Delete notifications"
-msgstr ""
+msgstr "알림 삭제"
 
 #. translators: %d: number of selected notifications.
 #: includes/Core/AssetService.php:2132
 #, php-format
 msgid "%d selected notifications will be deleted. This cannot be undone."
-msgstr ""
+msgstr "선택한 알림 %d개를 삭제해요. 삭제 후에는 되돌릴 수 없어요."
 
 #. translators: %d: number of notifications deleted.
 #: includes/Core/AssetService.php:2135
 #, php-format
 msgid "%d notifications deleted."
-msgstr ""
+msgstr "알림 %d개를 삭제했어요."
 
 #: includes/Core/AssetService.php:2136
 msgid "Could not delete the notifications. Try again."
-msgstr ""
+msgstr "알림을 삭제하지 못했어요. 다시 시도해 주세요."
 
 #: includes/Core/AssetService.php:2137
 msgid "Could not mark this notification as read."
@@ -13211,11 +13327,11 @@ msgstr "대량 이메일 수신 설정을 업데이트할 수 없어요."
 
 #: includes/Core/AssetService.php:2198
 msgid "Email preference saved."
-msgstr ""
+msgstr "이메일 설정을 저장했어요."
 
 #: includes/Core/AssetService.php:2199
 msgid "Could not save your email preference."
-msgstr ""
+msgstr "이메일 설정을 저장하지 못했어요."
 
 #: includes/Core/AssetService.php:2216
 msgid "Please name this search first."
@@ -13227,11 +13343,11 @@ msgstr "검색이 저장되었어요."
 
 #: includes/Core/AssetService.php:2218
 msgid "Saving searches is not available right now."
-msgstr ""
+msgstr "검색 저장 기능을 지금은 사용할 수 없어요."
 
 #: includes/Core/AssetService.php:2219
 msgid "Could not save this search. Try again."
-msgstr ""
+msgstr "이 검색을 저장하지 못했어요. 다시 시도해 주세요."
 
 #: includes/Core/AssetService.php:2220
 msgid "Recent searches"
@@ -13347,7 +13463,7 @@ msgstr "인증 코드를 보낼 수 없어요. 인증 앱을 이용해 주세요
 
 #: includes/Core/AssetService.php:2368
 msgid "Please fill in your email and password."
-msgstr ""
+msgstr "이메일과 비밀번호를 입력해 주세요."
 
 #: includes/Core/AssetService.php:2369
 msgid "Please agree to the Terms of Service and Privacy Policy to continue."
@@ -13411,7 +13527,7 @@ msgstr "멤버가 스페이스를 찾아 참여할 수 있는 스페이스 디�
 
 #: includes/Core/CoreHubs.php:80
 msgid "Direct messages (requires MediaVerse)."
-msgstr ""
+msgstr "메시지 (MediaVerse 필요)."
 
 #: includes/Core/CoreHubs.php:81
 msgid "Activity notifications."
@@ -13435,7 +13551,7 @@ msgstr "커뮤니티 관리"
 #, php-format
 msgid "And %d more notification"
 msgid_plural "And %d more notifications"
-msgstr[0] ""
+msgstr[0] "그 밖에 알림 %d개 더"
 
 #: includes/Core/FeatureRegistry.php:442
 msgid "Posts, comments, reactions, polls, shares: the heart of the community."
@@ -13520,7 +13636,7 @@ msgstr "멤버 온보딩 과정"
 
 #: includes/Core/FeatureRegistry.php:490
 msgid "Multi-step welcome flow for new members (interests, suggested follows)."
-msgstr ""
+msgstr "신규 멤버를 위한 단계별 환영 과정이에요 (관심사 선택, 추천 팔로우)."
 
 #: includes/Core/FeatureRegistry.php:494
 msgid ""
@@ -13563,6 +13679,8 @@ msgid ""
 "Private messaging between members, run by MediaVerse. Turn it on or off in "
 "MediaVerse: Settings, Messages."
 msgstr ""
+"MediaVerse에서 운영하는 멤버 간 1:1 메시지 기능이에요. MediaVerse 설정 > 메시"
+"지에서 켜거나 끌 수 있어요."
 
 #: includes/Core/FeatureRegistry.php:517
 msgid "Installable app (PWA)"
@@ -13573,6 +13691,8 @@ msgid ""
 "Let members install the community as an app on their phone or computer. "
 "Without a connection it shows an offline notice."
 msgstr ""
+"멤버가 커뮤니티를 휴대폰이나 컴퓨터에 앱으로 설치할 수 있어요. 연결이 없으면 "
+"오프라인 안내가 표시돼요."
 
 #: includes/Core/FeatureRegistry.php:521
 msgid "Scheduled posts"
@@ -13834,21 +13954,21 @@ msgstr "설정에서 언제든지 차단을 해제할 수 있어요."
 #: includes/Core/PageRouter.php:2193
 #, php-format
 msgid "Remove your connection with %s?"
-msgstr ""
+msgstr "%s 님과의 연결을 삭제할까요?"
 
 #: includes/Core/PageRouter.php:2194
 msgid "Remove this connection?"
-msgstr ""
+msgstr "이 연결을 삭제할까요?"
 
 #: includes/Core/PageRouter.php:2195
 msgid ""
 "To connect again you will need to send a new request and wait for them to "
 "accept."
-msgstr ""
+msgstr "다시 연결하려면 새 요청을 보내고 상대방의 수락을 기다려야 해요."
 
 #: includes/Core/PageRouter.php:2196
 msgid "Remove connection"
-msgstr ""
+msgstr "연결 해제"
 
 #. translators: %d: page number of a document preview.
 #: includes/Core/PageRouter.php:2201
@@ -14020,7 +14140,7 @@ msgstr "이 커뮤니티는 비공개예요. 보려면 로그인해 주세요."
 msgid ""
 "You cannot take moderation action against someone with more authority than "
 "you."
-msgstr ""
+msgstr "나보다 권한이 높은 사람에게는 운영 조치를 취할 수 없어요."
 
 #. translators: %s: hashtag without the leading hash.
 #: includes/Core/SurfaceMeta.php:125
@@ -14211,7 +14331,7 @@ msgstr "확인된 링크 미리보기 메타데이터(제목, 설명, 썸네일)
 
 #: includes/Feed/PostController.php:95
 msgid "MediaVerse document ID attached from the composer (type=document)."
-msgstr ""
+msgstr "작성기에서 첨부한 MediaVerse 문서 ID (type=document)."
 
 #: includes/Feed/PostController.php:100
 msgid "Poll option labels (type=poll)."
@@ -14311,6 +14431,8 @@ msgstr "계정이 정지되어 게시물을 작성할 수 없어요."
 msgid ""
 "Only a site admin or a space owner or moderator can make a post members-only."
 msgstr ""
+"사이트 관리자 또는 스페이스 소유자나 운영자만 게시물을 멤버 전용으로 설정할 "
+"수 있어요."
 
 #: includes/Feed/PostService.php:663
 msgid "Your post could not be saved. Try again."
@@ -14364,6 +14486,8 @@ msgid ""
 "Only a site admin or a space owner or moderator can change members-only on a "
 "post."
 msgstr ""
+"사이트 관리자 또는 스페이스 소유자나 운영자만 게시물의 멤버 전용 설정을 변경"
+"할 수 있어요."
 
 #: includes/Feed/PostService.php:2552
 msgid "The post could not be deleted. Try again."
@@ -14383,7 +14507,7 @@ msgstr "이 게시물의 소유자가 아니에요."
 
 #: includes/Feed/PostService.php:3669
 msgid "Only a published post can be pinned."
-msgstr ""
+msgstr "공개된 게시물만 고정할 수 있어요."
 
 #. translators: %d: the maximum number of pinned posts allowed in this scope.
 #: includes/Feed/PostService.php:3716
@@ -14641,11 +14765,11 @@ msgstr "멤버 프로필에 글 탭을 추가하고, 피드에 글 카드를 표
 
 #: includes/Integrations/CompanionRegistry.php:304
 msgid "Activate BuddyNext Pro"
-msgstr ""
+msgstr "BuddyNext Pro 활성화"
 
 #: includes/Integrations/CompanionRegistry.php:310
 msgid "Get BuddyNext Pro"
-msgstr ""
+msgstr "BuddyNext Pro 받기"
 
 #: includes/Media/ImageStorageService.php:90
 msgid "Invalid image parameters."
@@ -14789,6 +14913,7 @@ msgstr "멤버 유형을 찾을 수 없어요."
 msgid ""
 "Your member type can only be chosen once. Contact an admin to change it."
 msgstr ""
+"멤버 유형은 한 번만 선택할 수 있어요. 변경하려면 관리자에게 문의하세요."
 
 #: includes/MemberTypes/MemberTypeController.php:355
 msgid ""
@@ -15090,7 +15215,7 @@ msgstr "경고 누적(스트라이크)을 부여할 권한이 없어요."
 
 #: includes/Moderation/ModerationService.php:1234
 msgid "Add a reason for the strike. The member sees it on their account page."
-msgstr ""
+msgstr "경고 사유를 입력하세요. 멤버는 계정 페이지에서 이를 확인할 수 있어요."
 
 #: includes/Moderation/ModerationService.php:1308
 msgid "You do not have permission to issue warnings."
@@ -15102,7 +15227,7 @@ msgstr "운영하는 스페이스의 멤버에게만 경고를 보낼 수 있어
 
 #: includes/Moderation/ModerationService.php:1330
 msgid "Add a message for the warning. The member sees it in their notice."
-msgstr ""
+msgstr "경고 메시지를 입력하세요. 멤버는 알림에서 이를 확인할 수 있어요."
 
 #: includes/Moderation/ModerationService.php:1374
 msgid "You do not have permission to reverse strikes."
@@ -15162,6 +15287,8 @@ msgid ""
 "Only a community or site admin can suspend a member indefinitely. Set a "
 "duration to suspend as a moderator."
 msgstr ""
+"커뮤니티 또는 사이트 관리자만 멤버를 무기한 정지할 수 있어요. 운영자는 정지 "
+"기간을 설정해야 해요."
 
 #: includes/Moderation/ModerationService.php:2364
 msgid "You do not have permission to lift suspensions."
@@ -15212,7 +15339,7 @@ msgstr "신고 상태를 업데이트하지 못했어요. 잠시 후 다시 시�
 
 #: includes/Moderation/ModerationService.php:3532
 msgid "This report was already escalated or actioned by another moderator."
-msgstr ""
+msgstr "이 신고는 다른 운영자가 이미 상향 처리하거나 조치했어요."
 
 #: includes/Moderation/ModerationService.php:3533
 msgid "This report was already actioned by another moderator."
@@ -15220,7 +15347,7 @@ msgstr "이 신고는 다른 운영자가 이미 처리했어요."
 
 #: includes/Moderation/ModerationService.php:3929
 msgid "Could not save the suspension. Please try again."
-msgstr ""
+msgstr "정지 설정을 저장하지 못했어요. 다시 시도해 주세요."
 
 #: includes/Moderation/ModerationService.php:4108
 msgid "You do not have an active suspension to appeal."
@@ -15228,7 +15355,7 @@ msgstr "이의를 제기할 수 있는 활성 정지 내역이 없어요."
 
 #: includes/Moderation/ModerationService.php:4155
 msgid "Could not send your appeal. Please try again."
-msgstr ""
+msgstr "이의 신청을 보내지 못했어요. 다시 시도해 주세요."
 
 #: includes/Moderation/SafeguardService.php:202
 msgid "post"
@@ -15324,10 +15451,9 @@ msgstr ""
 #: templates/parts/profile-edit-sidebar.php:113
 msgid "Follower"
 msgid_plural "Followers"
-msgstr[0] ""
+msgstr[0] "팔로워"
 
 #: includes/Nav/Providers/ProfileNav.php:112
-#, fuzzy
 msgid "Connection"
 msgid_plural "Connections"
 msgstr[0] "연결"
@@ -15407,17 +15533,17 @@ msgstr "이메일 설정 관리"
 #: includes/Notifications/EmailSender.php:318
 #, php-format
 msgid "You get this email because of your notification settings. %s"
-msgstr ""
+msgstr "알림 설정에 따라 이 이메일을 받으셨어요. %s"
 
 #: includes/Notifications/EmailSender.php:320
 msgid "Stop emails like this"
-msgstr ""
+msgstr "이런 이메일 수신 중지"
 
 #. translators: 1: year, 2: site name.
 #: includes/Notifications/EmailSender.php:743
-#, fuzzy, php-format
+#, php-format
 msgid "© %1$s %2$s. All rights reserved."
-msgstr "© %1$s %2$s. All rights reserved."
+msgstr "© %1$s %2$s. 모든 권리 보유."
 
 #: includes/Notifications/EmailSender.php:865
 #: includes/Notifications/NotificationMessageService.php:1133
@@ -15494,20 +15620,20 @@ msgstr "스페이스 알림 설정을 저장할 수 없었어요."
 #: includes/Notifications/NotificationListener.php:1608
 #, php-format
 msgid "%1$s posted an announcement in %2$s: \"%3$s\""
-msgstr ""
+msgstr "%1$s 님이 %2$s에 공지를 게시했어요: \"%3$s\""
 
 #. translators: 1: author name, 2: space name, 3: excerpt of the post.
 #: includes/Notifications/NotificationListener.php:1610
 #, php-format
 msgid "%1$s posted in %2$s: \"%3$s\""
-msgstr ""
+msgstr "%1$s 님이 %2$s에 게시물을 올렸어요: \"%3$s\""
 
 #. translators: %s: number of other people.
 #: includes/Notifications/NotificationMessageService.php:86
 #, php-format
 msgid "%s other"
 msgid_plural "%s others"
-msgstr[0] ""
+msgstr[0] "외 %s명"
 
 #. translators: %s: actor display name.
 #: includes/Notifications/NotificationMessageService.php:155
@@ -15648,7 +15774,7 @@ msgstr "%1$s에서 회원님의 역할이 %2$s(으)로 변경되었어요."
 #, php-format
 msgid "You were invited to %d new space."
 msgid_plural "You were invited to %d new spaces."
-msgstr[0] ""
+msgstr[0] "새 스페이스 %d개에 초대받았어요."
 
 #. translators: %s: actor display name.
 #: includes/Notifications/NotificationMessageService.php:333
@@ -15717,7 +15843,7 @@ msgstr "새로운 콘텐츠가 신고되어 검토를 기다리고 있어요."
 
 #: includes/Notifications/NotificationMessageService.php:386
 msgid "A report was escalated for senior review."
-msgstr ""
+msgstr "상위 검토를 위해 신고가 이관되었어요."
 
 #: includes/Notifications/NotificationMessageService.php:389
 #: includes/Notifications/NotificationPrefCatalogue.php:401
@@ -15915,7 +16041,7 @@ msgstr "이의 신청 접수"
 
 #: includes/Notifications/NotificationMessageService.php:783
 msgid "Media unlinked"
-msgstr ""
+msgstr "미디어 연결이 해제되었어요."
 
 #: includes/Notifications/NotificationMessageService.php:793
 msgid "Finish onboarding"
@@ -16147,11 +16273,11 @@ msgstr "새 콘텐츠가 신고되어 운영자의 검토를 기다리고 있어
 
 #: includes/Notifications/NotificationPrefCatalogue.php:390
 msgid "Escalated reports"
-msgstr ""
+msgstr "이관된 신고"
 
 #: includes/Notifications/NotificationPrefCatalogue.php:391
 msgid "A moderator escalated a report for senior review."
-msgstr ""
+msgstr "운영자가 상위 검토를 위해 신고를 이관했어요."
 
 #: includes/Notifications/NotificationPrefCatalogue.php:409
 msgid "A post you submitted was not approved by the moderators."
@@ -16182,6 +16308,8 @@ msgid ""
 "Email roundups of your unread notifications. Turn Off to stop all digest "
 "emails."
 msgstr ""
+"읽지 않은 알림을 모아 이메일로 받아 보세요. ‘끄기’를 선택하면 모든 요약 이메"
+"일을 받지 않아요."
 
 #: includes/Notifications/NotificationPrefCatalogue.php:492
 msgid "Comments on your media"
@@ -16717,6 +16845,9 @@ msgid ""
 "Invalid webhook signature. Sign \"{timestamp}.{raw body}\" with HMAC-SHA256 "
 "and the site secret, and send the hex digest in X-BuddyNext-Signature."
 msgstr ""
+"웹훅 서명이 올바르지 않아요. 사이트 비밀 키와 HMAC-SHA256을 사용해 "
+"\"{timestamp}.{raw body}\"에 서명하고, 그 16진수 다이제스트를 X-BuddyNext-"
+"Signature에 담아 보내 주세요."
 
 #: includes/Outbound/AccessWebhookController.php:85
 msgid "Payload must be valid JSON."
@@ -16727,19 +16858,21 @@ msgid ""
 "Role changes from outside are switched off on this site. An administrator "
 "can allow them under Platform, Webhooks."
 msgstr ""
+"이 사이트에서는 외부에서의 역할 변경이 꺼져 있어요. 관리자는 플랫폼, 웹훅에"
+"서 이를 허용할 수 있어요."
 
 #. translators: %s: action name
 #: includes/Outbound/AccessWebhookController.php:124
 #, php-format
 msgid "The action \"%s\" is switched off on this site."
-msgstr ""
+msgstr "\"%s\" 동작은 이 사이트에서 꺼져 있어요."
 
 #: includes/Outbound/AccessWebhookController.php:152
 #: includes/Outbound/AccessWebhookController.php:168
 #: includes/Outbound/AccessWebhookController.php:323
 #: includes/Outbound/AccessWebhookController.php:345
 msgid "Another request for this member is still being processed. Try again."
-msgstr ""
+msgstr "이 멤버에 대한 다른 요청을 아직 처리하고 있어요. 다시 시도해 주세요."
 
 #: includes/Outbound/AccessWebhookController.php:183
 #: includes/Outbound/AccessWebhookController.php:929
@@ -16751,6 +16884,8 @@ msgid ""
 "This \"idempotency_key\" was already used for a different request for this "
 "member. Use a new key for a new request."
 msgstr ""
+"이 \"idempotency_key\"는 이 멤버의 다른 요청에 이미 사용되었어요. 새 요청에"
+"는 새 키를 사용해 주세요."
 
 #. translators: %s: action name
 #: includes/Outbound/AccessWebhookController.php:516
@@ -16760,15 +16895,15 @@ msgstr "알 수 없는 작업이에요: \"%s\"."
 
 #: includes/Outbound/AccessWebhookController.php:541
 msgid "Send \"plan\" with the plan's slug."
-msgstr ""
+msgstr "\"plan\"에 요금제의 슬러그를 담아 보내 주세요."
 
 #: includes/Outbound/AccessWebhookController.php:544
 msgid "extend_plan needs \"expires_at\", the new end date."
-msgstr ""
+msgstr "extend_plan에는 새 종료 날짜인 \"expires_at\"이 필요해요."
 
 #: includes/Outbound/AccessWebhookController.php:582
 msgid "Membership plans need BuddyNext Pro."
-msgstr ""
+msgstr "멤버십 요금제에는 BuddyNext Pro가 필요해요."
 
 #: includes/Outbound/AccessWebhookController.php:601
 msgid "Role must be admin, moderator, or member."
@@ -16785,6 +16920,8 @@ msgid ""
 "switched off on this site. An administrator can allow them under Platform, "
 "Webhooks."
 msgstr ""
+"이 권한은 운영자나 관리자에게 있어요. 이 사이트에서는 외부에서의 역할 변경이 "
+"꺼져 있어요. 관리자는 플랫폼, 웹훅에서 이를 허용할 수 있어요."
 
 #: includes/Outbound/AccessWebhookController.php:725
 msgid ""
@@ -16792,16 +16929,21 @@ msgid ""
 "unix seconds. Leave it out and send \"lifetime\": true for a grant that "
 "never ends."
 msgstr ""
+"\"expires_at\"은 미래의 날짜여야 해요. ISO 8601(2027-01-31T00:00:00Z) 형식이"
+"나 유닉스 초 단위로 입력해 주세요. 만료되지 않는 권한을 원하면 이 값을 빼고 "
+"\"lifetime\": true를 보내 주세요."
 
 #: includes/Outbound/AccessWebhookController.php:784
 msgid "\"amount\" is required and must be a whole number, zero or more."
-msgstr ""
+msgstr "\"amount\"는 필수이며, 0 이상의 정수여야 해요."
 
 #: includes/Outbound/AccessWebhookController.php:817
 msgid ""
 "\"user_id\" and \"user_email\" do not name the same member. Send one of "
 "them, or both for the same member."
 msgstr ""
+"\"user_id\"와 \"user_email\"이 같은 멤버를 가리키지 않아요. 둘 중 하나만 보내"
+"거나, 같은 멤버라면 둘 다 보내 주세요."
 
 #: includes/Outbound/AccessWebhookController.php:892
 msgid "Webhook secret is not configured."
@@ -16813,6 +16955,8 @@ msgid ""
 "in X-BuddyNext-Timestamp and sign the same value; the request must arrive "
 "within five minutes."
 msgstr ""
+"요청 타임스탬프가 허용 범위를 벗어났어요. 현재 유닉스 시간을 X-BuddyNext-"
+"Timestamp에 담고 같은 값으로 서명해 주세요. 요청은 5분 이내에 도착해야 해요."
 
 #: includes/Outbound/AccessWebhookController.php:952
 msgid ""
@@ -16821,6 +16965,10 @@ msgid ""
 "\"{timestamp}.{raw body}\" made with the site secret. A plain token or "
 "bearer header is not accepted."
 msgstr ""
+"이 사이트는 서명된 요청이 필요해요. 유닉스 시간을 X-BuddyNext-Timestamp에 담"
+"고, 사이트 비밀 키로 만든 \"{timestamp}.{raw body}\"의 HMAC-SHA256 16진수 값"
+"을 X-BuddyNext-Signature에 담아 보내 주세요. 일반 토큰이나 베어러 헤더는 허용"
+"되지 않아요."
 
 #: includes/Outbound/OutboundWebhookController.php:240
 msgid "Webhook not found."
@@ -16878,6 +17026,11 @@ msgid ""
 "Check that the receiver is reachable, then click Re-enable on its row under "
 "BuddyNext, Platform, Webhooks."
 msgstr ""
+"웹훅 엔드포인트 %1$s이(가) 연속 %2$d회 전송에 실패하여 자동으로 비활성화되었"
+"어요.\n"
+"\n"
+"수신 서버에 연결할 수 있는지 확인한 다음, BuddyNext, 플랫폼, 웹훅에서 해당 행"
+"의 다시 활성화를 클릭해 주세요."
 
 #: includes/Privacy/CookieConsentService.php:37
 msgid ""
@@ -16927,19 +17080,19 @@ msgstr ""
 #: includes/Privacy/PrivacyTools.php:616
 #, php-format
 msgid "%s Profile & Settings"
-msgstr ""
+msgstr "%s 프로필 및 설정"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:663
 #, php-format
 msgid "%s Profile Fields"
-msgstr ""
+msgstr "%s 프로필 항목"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:702
 #, php-format
 msgid "%s Following"
-msgstr ""
+msgstr "%s 팔로잉"
 
 #: includes/Privacy/PrivacyTools.php:708
 msgid "Following member"
@@ -16954,7 +17107,7 @@ msgstr "날짜"
 #: includes/Privacy/PrivacyTools.php:757
 #, php-format
 msgid "%s Followers"
-msgstr ""
+msgstr "%s 팔로워"
 
 #: includes/Privacy/PrivacyTools.php:807 includes/Privacy/PrivacyTools.php:1117
 msgid "Received"
@@ -16975,19 +17128,19 @@ msgstr "방향"
 #: includes/Privacy/PrivacyTools.php:869
 #, php-format
 msgid "%s Blocked Members"
-msgstr ""
+msgstr "%s 차단한 멤버"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:925
 #, php-format
 msgid "%s Space Memberships"
-msgstr ""
+msgstr "%s 스페이스 가입 정보"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:995
 #, php-format
 msgid "%s Followed Hashtags"
-msgstr ""
+msgstr "%s 팔로우한 해시태그"
 
 #. translators: 1: on-site flag, 2: email frequency.
 #: includes/Privacy/PrivacyTools.php:1041
@@ -17011,13 +17164,13 @@ msgstr "아니요"
 #: includes/Privacy/PrivacyTools.php:1051
 #, php-format
 msgid "%s Notification Preferences"
-msgstr ""
+msgstr "%s 알림 설정"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:1101
 #, php-format
 msgid "%s Notifications"
-msgstr ""
+msgstr "%s 알림"
 
 #: includes/Privacy/PrivacyTools.php:1113 templates/parts/dm-message.php:193
 #: templates/parts/dm-message.php:195
@@ -17028,13 +17181,13 @@ msgstr "읽음"
 #: includes/Privacy/PrivacyTools.php:1155
 #, php-format
 msgid "%s Posts"
-msgstr ""
+msgstr "%s 게시물"
 
 #. translators: %s: community name.
 #: includes/Privacy/PrivacyTools.php:1217
 #, php-format
 msgid "%s Comments"
-msgstr ""
+msgstr "%s 댓글"
 
 #: includes/Profile/FieldType.php:75
 msgid "Text"
@@ -17070,7 +17223,7 @@ msgstr "현재 요금제에서는 사용할 수 없어요."
 
 #: includes/Profile/FieldType.php:1075
 msgid "This field cannot be edited here. Your saved value is kept."
-msgstr ""
+msgstr "이 항목은 여기서 수정할 수 없어요. 저장된 값은 그대로 유지돼요."
 
 #: includes/Profile/FieldType.php:1136
 msgid "No categories are available yet."
@@ -17086,7 +17239,7 @@ msgstr "선택하세요…"
 
 #: includes/Profile/FieldType.php:1348
 msgid "Chosen once: contact an admin to change it."
-msgstr ""
+msgstr "한 번 선택하면 변경할 수 없어요. 변경하려면 관리자에게 문의해 주세요."
 
 #: includes/Profile/FieldType.php:1349 templates/profile/edit.php:785
 msgid "Set by the community: contact an admin to change it."
@@ -17155,7 +17308,7 @@ msgstr "%s에 대해 올바른 옵션을 선택해 주세요."
 #, php-format
 msgid "%d year old"
 msgid_plural "%d years old"
-msgstr[0] ""
+msgstr[0] "%d세"
 
 #: includes/Profile/GamificationAchievements.php:58
 #: templates/gamification/leaderboard.php:349
@@ -17177,7 +17330,7 @@ msgstr "포인트 이름 설정"
 
 #: includes/Profile/GamificationAchievements.php:71
 msgid "Badge pages for visitors"
-msgstr ""
+msgstr "방문자용 배지 페이지"
 
 #: includes/Profile/GamificationAchievements.php:423
 msgid "All-time rank"
@@ -17307,14 +17460,14 @@ msgstr "%s 얻는 방법"
 #, php-format
 msgid "Your handle must be at least %d character."
 msgid_plural "Your handle must be at least %d characters."
-msgstr[0] ""
+msgstr[0] "핸들은 최소 %d자 이상이어야 해요."
 
 #. translators: %d: maximum number of characters.
 #: includes/Profile/Handle.php:149
 #, php-format
 msgid "Your handle can be at most %d character."
 msgid_plural "Your handle can be at most %d characters."
-msgstr[0] ""
+msgstr[0] "핸들은 최대 %d자까지 입력할 수 있어요."
 
 #: includes/Profile/Handle.php:159
 msgid "Handles can use letters, numbers, hyphens and underscores only."
@@ -17324,7 +17477,7 @@ msgstr "핸들에는 영문자, 숫자, 하이픈(-), 밑줄(_)만 사용할 수
 #: includes/Profile/Handle.php:200
 #, php-format
 msgid "%1$d-%2$d characters: letters, numbers, hyphens and underscores."
-msgstr ""
+msgstr "%1$d~%2$d자: 문자, 숫자, 하이픈(-), 밑줄(_)만 사용할 수 있어요."
 
 #: includes/Profile/Handle.php:438 includes/Profile/ProfileController.php:888
 msgid "No account found."
@@ -17343,7 +17496,7 @@ msgstr "이 핸들을 적용할 수 없어요. 다른 핸들을 입력해 주세
 #, php-format
 msgid "%d member has a handle that cannot be mentioned:"
 msgid_plural "%d members have handles that cannot be mentioned:"
-msgstr[0] ""
+msgstr[0] "언급할 수 없는 핸들을 가진 멤버가 %d명 있어요:"
 
 #: includes/Profile/ProfileController.php:786
 msgid "The account password, re-entered to confirm an irreversible deletion."
@@ -17404,6 +17557,8 @@ msgid ""
 "Choose the group this field belongs to: send group_id for an existing group, "
 "or group_name to use or create one."
 msgstr ""
+"이 필드가 속한 그룹을 선택하세요. 기존 그룹이면 group_id를, 그룹을 사용하거"
+"나 새로 만들려면 group_name을 보내세요."
 
 #. translators: %s: maximum file size, e.g. "5 MB".
 #: includes/Profile/ProfileController.php:2466
@@ -17509,10 +17664,13 @@ msgid ""
 "buddynext/assets/icons. Falling back to the default. Add the icon file or "
 "pick an existing slug."
 msgstr ""
+"포트폴리오 패널 \"%2$s\"이(가) 요청한 아이콘 \"%1$s\"에 해당하는 SVG가 "
+"buddynext/assets/icons에 없어 기본 아이콘을 사용합니다. 아이콘 파일을 추가하"
+"거나 기존 슬러그를 선택하세요."
 
 #: includes/Profile/SuitePanelHost.php:324
 msgid "Portfolio"
-msgstr ""
+msgstr "포트폴리오"
 
 #: includes/PWA/PwaService.php:570
 msgid "You are offline"
@@ -17546,7 +17704,7 @@ msgstr "현재 역할로는 이 작업을 할 수 없어요."
 
 #: includes/REST/BaseRestController.php:462
 msgid "You can no longer take part in this space."
-msgstr ""
+msgstr "더 이상 이 스페이스에 참여할 수 없어요."
 
 #: includes/REST/BaseRestController.php:489
 msgid ""
@@ -17584,11 +17742,11 @@ msgstr "Pro: 최근 N일(1~365) 이내에 활동한 멤버로 필터링해요."
 
 #: includes/Search/SearchController.php:120
 msgid "Only results updated within this window."
-msgstr ""
+msgstr "이 기간 안에 업데이트된 결과만 표시해요."
 
 #: includes/Search/SearchController.php:128
 msgid "Order results by relevance or by most recent."
-msgstr ""
+msgstr "관련도순 또는 최신순으로 결과를 정렬해요."
 
 #: includes/Search/SearchController.php:161
 msgid "Filter members by name or username (partial match)."
@@ -17675,7 +17833,7 @@ msgstr "주목할 멤버"
 #, php-format
 msgid "%s follower"
 msgid_plural "%s followers"
-msgstr[0] ""
+msgstr[0] "%s 팔로워"
 
 #: includes/Sidebar/Providers/NotificationsSidebarProvider.php:76
 msgid "Unread only"
@@ -17719,7 +17877,7 @@ msgstr "커뮤니티 동향"
 #, php-format
 msgid "%s member"
 msgid_plural "%s members"
-msgstr[0] ""
+msgstr[0] "%s 멤버"
 
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:353
 msgid "You manage"
@@ -17732,7 +17890,7 @@ msgstr "내가 가입한 스페이스"
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:444
 msgid "space"
 msgid_plural "spaces"
-msgstr[0] ""
+msgstr[0] "스페이스"
 
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:448
 msgid "open to join"
@@ -17741,7 +17899,7 @@ msgstr "가입 가능"
 #: includes/Sidebar/Providers/SpacesDirectorySidebarProvider.php:452
 msgid "membership"
 msgid_plural "memberships"
-msgstr[0] ""
+msgstr[0] "멤버십"
 
 #: includes/Sidebar/Providers/SpaceSidebarProvider.php:161
 msgid "About this space"
@@ -17819,7 +17977,7 @@ msgstr "%s님에게 메시지 보내기"
 #, php-format
 msgid "%d post"
 msgid_plural "%d posts"
-msgstr[0] ""
+msgstr[0] "게시물 %d개"
 
 #: includes/SocialGraph/BlockService.php:62
 msgid "You cannot block yourself."
@@ -18118,7 +18276,7 @@ msgstr "자동으로 %s"
 
 #: includes/Spaces/SpaceCategoryController.php:195
 msgid "Sign in to create a space."
-msgstr ""
+msgstr "스페이스를 만들려면 로그인하세요."
 
 #: includes/Spaces/SpaceCategoryController.php:261
 #: includes/Spaces/SpaceCategoryController.php:294
@@ -18181,7 +18339,7 @@ msgstr "항목의 소유자를 확인할 수 없어요."
 
 #: includes/Spaces/SpaceController.php:982
 msgid "Could not move the item out of the space."
-msgstr ""
+msgstr "항목을 스페이스 밖으로 옮기지 못했어요."
 
 #: includes/Spaces/SpaceController.php:1415
 msgid "Space name. Required, 100 characters or fewer."
@@ -18298,19 +18456,23 @@ msgstr "스페이스 소유자와 운영자만 대기 중인 요청을 볼 수 �
 
 #: includes/Spaces/SpaceController.php:2537
 msgid "You joined this space."
-msgstr ""
+msgstr "이 스페이스에 참여했어요."
 
 #: includes/Spaces/SpaceController.php:2539
 msgid ""
 "You joined. New posts here will appear in your notifications. You can change "
 "this with the bell on the space page."
 msgstr ""
+"참여했어요. 이곳의 새 게시물은 알림에 표시돼요. 스페이스 페이지의 종 아이콘에"
+"서 이를 변경할 수 있어요."
 
 #: includes/Spaces/SpaceController.php:2541
 msgid ""
 "You joined. You will hear from this space when someone mentions you. You can "
 "change this with the bell on the space page."
 msgstr ""
+"참여했어요. 누군가 멘션하면 이 스페이스에서 알림을 받아요. 스페이스 페이지의 "
+"종 아이콘에서 이를 변경할 수 있어요."
 
 #: includes/Spaces/SpaceController.php:2580
 msgid "You have been banned from this space."
@@ -18337,7 +18499,7 @@ msgstr "스페이스 소유자나 운영자만 멤버를 초대할 수 있어요
 
 #: includes/Spaces/SpaceController.php:3026
 msgid "No member found with that @handle or email."
-msgstr ""
+msgstr "해당 @핸들 또는 이메일의 멤버를 찾을 수 없어요."
 
 #: includes/Spaces/SpaceController.php:3036
 msgid "A user_id or identifier parameter is required."
@@ -18490,7 +18652,7 @@ msgstr "스페이스 소유자만 멤버의 역할을 변경할 수 있어요."
 
 #: includes/Spaces/SpaceMemberService.php:976
 msgid "That person is not a member of this space."
-msgstr ""
+msgstr "해당 사용자는 이 스페이스의 멤버가 아니에요."
 
 #: includes/Spaces/SpaceMemberService.php:1002
 msgid ""
@@ -18542,16 +18704,20 @@ msgstr "이 스페이스에 게시물을 작성할 권한이 없어요."
 
 #: includes/Spaces/SpaceService.php:292
 msgid "That category does not exist. Pick another one."
-msgstr ""
+msgstr "해당 카테고리가 없어요. 다른 카테고리를 선택하세요."
 
 #: includes/Spaces/SpaceService.php:300
 msgid ""
 "That category is for main spaces only. Pick another one for this subspace."
 msgstr ""
+"해당 카테고리는 메인 스페이스 전용이에요. 이 서브 스페이스에는 다른 카테고리"
+"를 선택하세요."
 
 #: includes/Spaces/SpaceService.php:301
 msgid "That category is for subspaces only. Pick another one for this space."
 msgstr ""
+"해당 카테고리는 서브 스페이스 전용이에요. 이 스페이스에는 다른 카테고리를 선"
+"택하세요."
 
 #: includes/Spaces/SpaceService.php:356
 msgid "A space slug is required."
@@ -18630,7 +18796,7 @@ msgstr "관리 중인 스페이스 아래로만 스페이스를 옮길 수 있�
 #: includes/Spaces/SpaceService.php:3209
 #, php-format
 msgid "This space already has the maximum of %d sub-spaces."
-msgstr ""
+msgstr "이 스페이스에는 이미 최대 서브 스페이스 %d개가 있어요."
 
 #: includes/Widgets/OnlineMembersWidget.php:23
 msgid "BuddyNext: Online Members"
@@ -19172,7 +19338,7 @@ msgstr ""
 #, php-format
 msgid "An account that is not verified within %s day is removed."
 msgid_plural "An account that is not verified within %s days is removed."
-msgstr[0] ""
+msgstr[0] "%s일 안에 인증되지 않은 계정은 삭제돼요."
 
 #: templates/auth/verify.php:314
 msgid "Didn't receive it? Resend"
@@ -19628,7 +19794,7 @@ msgstr "미처리 신고가 없어요."
 #, php-format
 msgid "%1$s reporter - %2$s"
 msgid_plural "%1$s reporters - %2$s"
-msgstr[0] ""
+msgstr[0] "신고자 %1$s명 - %2$s"
 
 #: templates/community-admin.php:1061 templates/parts/post-options-menu.php:100
 #: templates/parts/profile-actions-overflow.php:52
@@ -19786,7 +19952,7 @@ msgstr ""
 #: templates/feed/explore.php:161
 #, php-format
 msgid "Explore · %1$s · %2$s · %3$s"
-msgstr ""
+msgstr "탐색 · %1$s · %2$s · %3$s"
 
 #. translators: %s: space count.
 #. translators: %s: formatted space count.
@@ -19806,7 +19972,7 @@ msgstr[0] "%s 스페이스"
 #, php-format
 msgid "%s post"
 msgid_plural "%s posts"
-msgstr[0] ""
+msgstr[0] "게시물 %s개"
 
 #: templates/feed/explore.php:177
 msgid "What's happening in the community"
@@ -20192,20 +20358,24 @@ msgid ""
 "Messages are switched off in MediaVerse. Existing conversations are kept and "
 "come back when you turn it on. (This notice is only shown to administrators.)"
 msgstr ""
+"MediaVerse에서 메시지가 꺼져 있어요. 기존 대화는 유지되며 다시 켜면 돌아와"
+"요. (이 안내는 관리자에게만 표시돼요.)"
 
 #: templates/messages/native.php:54
 msgid "Open MediaVerse Messages settings"
-msgstr ""
+msgstr "MediaVerse 메시지 설정 열기"
 
 #: templates/messages/native.php:56
 msgid "Direct messaging requires MediaVerse"
-msgstr ""
+msgstr "1:1 메시지를 사용하려면 MediaVerse가 필요해요"
 
 #: templates/messages/native.php:58
 msgid ""
 "Install and activate the MediaVerse plugin to enable direct messaging in "
 "BuddyNext. (This notice is only shown to administrators.)"
 msgstr ""
+"BuddyNext에서 1:1 메시지를 사용하려면 MediaVerse 플러그인을 설치하고 활성화하"
+"세요. (이 안내는 관리자에게만 표시돼요.)"
 
 #: templates/messages/native.php:63
 msgid "Messages are turned off on this community."
@@ -20239,11 +20409,11 @@ msgstr "대화 메시지"
 #: templates/messages/native.php:323
 #, php-format
 msgid "You blocked %s. Unblock them to message each other again."
-msgstr ""
+msgstr "%s 님을 차단했어요. 다시 메시지를 주고받으려면 차단을 해제하세요."
 
 #: templates/messages/native.php:326
 msgid "You can’t reply to this conversation."
-msgstr ""
+msgstr "이 대화에는 답장할 수 없어요."
 
 #: templates/messages/native.php:401
 msgid "This member"
@@ -20284,11 +20454,11 @@ msgstr "%s님이 지금은 메시지를 받지 않고 있어요."
 #: templates/messages/native.php:443
 #, php-format
 msgid "You blocked %s"
-msgstr ""
+msgstr "%s 님을 차단했어요"
 
 #: templates/messages/native.php:446
 msgid "Unblock them to message each other again."
-msgstr ""
+msgstr "다시 메시지를 주고받으려면 차단을 해제하세요."
 
 #: templates/messages/native.php:451
 msgid "You can’t message this member"
@@ -20400,7 +20570,7 @@ msgstr "이의 제기하기"
 #, php-format
 msgid "%d active strike"
 msgid_plural "%d active strikes"
-msgstr[0] ""
+msgstr[0] "활성 경고 %d회"
 
 #: templates/moderation/account-status.php:243
 msgid "Community guideline strike"
@@ -20411,7 +20581,7 @@ msgstr "커뮤니티 가이드라인 위반 경고"
 #, php-format
 msgid "%d warning"
 msgid_plural "%d warnings"
-msgstr[0] ""
+msgstr[0] "경고 %d회"
 
 #: templates/moderation/account-status.php:276
 msgid "Community guideline warning"
@@ -20425,7 +20595,7 @@ msgstr "내 이의 제기"
 #: templates/moderation/account-status.php:317
 #, php-format
 msgid "Reviewer note: %s"
-msgstr ""
+msgstr "검토자 메모: %s"
 
 #: templates/notifications/index.php:332 templates/parts/dm-rail.php:66
 #: templates/parts/notification-row.php:124
@@ -20448,11 +20618,11 @@ msgstr "이전"
 
 #: templates/notifications/index.php:402
 msgid "Select"
-msgstr ""
+msgstr "선택"
 
 #: templates/notifications/index.php:407
 msgid "Select all"
-msgstr ""
+msgstr "모두 선택"
 
 #: templates/notifications/index.php:456
 msgid "Could not load notifications."
@@ -20556,7 +20726,7 @@ msgstr "관심 분야의 멤버를 팔로우해서 피드를 채워 보세요."
 #, php-format
 msgid "%d follower"
 msgid_plural "%d followers"
-msgstr[0] ""
+msgstr[0] "팔로워 %d명"
 
 #: templates/onboarding/index.php:671
 msgid ""
@@ -20590,7 +20760,7 @@ msgstr "인앱"
 
 #: templates/onboarding/index.php:735
 msgid "Bell badge and notification panel inside this community."
-msgstr ""
+msgstr "이 커뮤니티의 알림 벨 아이콘과 알림 패널이에요."
 
 #: templates/onboarding/index.php:748 templates/settings/notifications.php:247
 msgid "Push"
@@ -20656,11 +20826,11 @@ msgstr "문서 삭제"
 
 #: templates/partials/composer.php:328
 msgid "Also add to my story"
-msgstr ""
+msgstr "내 스토리에도 추가"
 
 #: templates/partials/composer.php:329
 msgid "Shows for 24 hours."
-msgstr ""
+msgstr "24시간 동안 표시돼요."
 
 #: templates/partials/composer.php:366
 msgid "Poll options (min 2)"
@@ -21147,6 +21317,7 @@ msgstr "이 게시물을 운영자가 검토할 때까지 기다리는 중이에
 msgid ""
 "Under review. Only you can see this post until a moderator has looked at it."
 msgstr ""
+"검토 중이에요. 운영자가 확인하기 전까지는 나만 이 게시물을 볼 수 있어요."
 
 #: templates/partials/post-card.php:927
 #: templates/parts/post-comment-form.php:39
@@ -21455,19 +21626,19 @@ msgstr "https://…/media/your-file/"
 
 #: templates/partials/space-files-tab.php:354
 msgid "plain text"
-msgstr ""
+msgstr "일반 텍스트"
 
 #. translators: 1: list of accepted document types, 2: largest file size, e.g. 300 MB.
 #: templates/partials/space-files-tab.php:371
 #, php-format
 msgid "Documents only: %1$s. Up to %2$s each."
-msgstr ""
+msgstr "문서만 가능: %1$s. 파일당 최대 %2$s."
 
 #. translators: %s: list of accepted document types.
 #: templates/partials/space-files-tab.php:373
 #, php-format
 msgid "Documents only: %s."
-msgstr ""
+msgstr "문서만 가능: %s."
 
 #: templates/partials/space-files-tab.php:384
 msgid ""
@@ -21702,7 +21873,7 @@ msgstr "첨부 파일 제거"
 
 #: templates/parts/dm-composer.php:115
 msgid "Attach a photo, video or audio file"
-msgstr ""
+msgstr "사진, 동영상 또는 오디오 파일 첨부"
 
 #: templates/parts/dm-composer.php:134
 msgid "Attach photo"
@@ -21772,7 +21943,7 @@ msgstr "이 멤버 차단"
 
 #: templates/parts/dm-info-panel.php:104
 msgid "Unblock this member"
-msgstr ""
+msgstr "이 멤버 차단 해제"
 
 #: templates/parts/dm-info-panel.php:108
 #: templates/parts/dm-thread-header.php:165
@@ -21875,11 +22046,11 @@ msgstr "읽지 않은 메시지가 없어요."
 
 #: templates/parts/dm-rail.php:264
 msgid "No conversations yet"
-msgstr ""
+msgstr "아직 메시지가 없어요"
 
 #: templates/parts/dm-rail.php:265
 msgid "Message someone in the community to start one."
-msgstr ""
+msgstr "커뮤니티의 다른 멤버에게 메시지를 보내 대화를 시작해 보세요."
 
 #: templates/parts/dm-request-banner.php:23
 msgid "Message request"
@@ -22126,19 +22297,19 @@ msgstr "하위 섹션"
 
 #: templates/parts/not-available.php:23
 msgid "This section isn't available to you"
-msgstr ""
+msgstr "이 섹션은 이용할 수 없어요"
 
 #: templates/parts/not-available.php:24
 msgid "The community owner has limited who can open it."
-msgstr ""
+msgstr "커뮤니티 운영자가 이 섹션에 접근할 수 있는 대상을 제한했어요."
 
 #: templates/parts/not-available.php:26
 msgid "Go to the home page"
-msgstr ""
+msgstr "홈 페이지로 이동"
 
 #: templates/parts/notification-row.php:121
 msgid "Select this notification"
-msgstr ""
+msgstr "이 알림 선택"
 
 #: templates/parts/notification-row.php:157
 msgid "Dismiss notification"
@@ -22634,7 +22805,7 @@ msgstr "(제목 없음)"
 #: templates/parts/profile/articles-panel.php:130
 #, php-format
 msgid "Co-written with %s"
-msgstr ""
+msgstr "%s님과 공동 작성"
 
 #: templates/parts/profile/articles-panel.php:167
 msgid "Articles pagination"
@@ -22662,7 +22833,7 @@ msgstr "대기 중인 팔로우 요청"
 
 #: templates/parts/profile/people-panel.php:77
 msgid "Connection requests"
-msgstr ""
+msgstr "연결 요청"
 
 #: templates/parts/profile/people-panel.php:78 templates/spaces/admin.php:136
 msgid "Pending requests"
@@ -22806,7 +22977,7 @@ msgstr "팁: 아무 곳에서나"
 
 #: templates/parts/search-hero.php:106
 msgid "on this page to focus search."
-msgstr ""
+msgstr "이 페이지에서 검색에 집중하려면"
 
 #. translators: %1$d shown, %2$d total.
 #: templates/parts/search-result-section-generic.php:57
@@ -23083,12 +23254,12 @@ msgstr "설정 섹션"
 
 #: templates/parts/settings-partner-prefs.php:34
 msgid "Forum email"
-msgstr ""
+msgstr "포럼 이메일"
 
 #: templates/parts/settings-partner-prefs.php:37
 msgid ""
 "These emails come from the forums. Your choice saves as soon as you pick it."
-msgstr ""
+msgstr "이 이메일은 포럼에서 보내요. 선택하면 바로 저장돼요."
 
 #: templates/parts/settings-privacy-fields.php:36
 #: templates/parts/settings-privacy-fields.php:51
@@ -23134,13 +23305,15 @@ msgstr "나에게 연결 요청을 보낼 수 있는 사람"
 
 #: templates/parts/settings-privacy-fields.php:139
 msgid "Who can @mention me"
-msgstr ""
+msgstr "나를 멘션할 수 있는 사람"
 
 #: templates/parts/settings-privacy-fields.php:139
 msgid ""
 "Controls who can notify you with a mention, in posts and comments. Others "
 "can still type your name."
 msgstr ""
+"게시물과 댓글에서 멘션으로 알림을 보낼 수 있는 대상을 설정해요. 다른 사람도 "
+"이름을 입력할 수는 있어요."
 
 #: templates/parts/settings-privacy-fields.php:140
 msgid "Private account"
@@ -23242,6 +23415,9 @@ msgid ""
 "comments on your posts, and their messages arrive without a notification. "
 "They aren't told."
 msgstr ""
+"이 멤버는 여전히 내 게시물을 보고 답글을 달 수 있어요. 내 게시물에 남긴 댓글"
+"은 나와 해당 멤버만 볼 수 있으며, 해당 멤버의 메시지는 알림 없이 전달돼요. "
+"이 멤버에게는 알림이 가지 않아요."
 
 #: templates/parts/settings-relations.php:45
 msgid "You stop seeing their activity. They aren't told."
@@ -23449,7 +23625,7 @@ msgstr[0] ""
 #: templates/parts/sidebar-this-week-stats.php:138
 #, php-format
 msgid "read (%s)"
-msgstr ""
+msgstr "읽음 (%s)"
 
 #: templates/parts/sidebar-this-week-stats.php:139
 msgid "read"
@@ -23466,7 +23642,7 @@ msgstr "반응 + 댓글"
 
 #: templates/parts/sidebar-this-week-stats.php:152
 msgid "comments"
-msgstr ""
+msgstr "댓글"
 
 #: templates/parts/sidebar-trending-topics.php:29
 msgid "Trending Topics"
@@ -23666,7 +23842,7 @@ msgstr "요청 대기 중"
 
 #: templates/parts/space-hero.php:361
 msgid "You reported this space"
-msgstr ""
+msgstr "이 스페이스를 신고했어요"
 
 #: templates/parts/space-hero.php:407
 msgid "Space sections"
@@ -23675,13 +23851,13 @@ msgstr "스페이스 섹션"
 #: templates/parts/space-hero.php:447
 msgid ""
 "Enter a member's @handle or an email address to invite them to this space."
-msgstr ""
+msgstr "이 스페이스에 초대할 멤버의 @핸들 또는 이메일 주소를 입력해 주세요."
 
 #: templates/parts/space-hero.php:449 templates/parts/space-hero.php:456
 #: templates/parts/space-settings-panel-members.php:269
 #: templates/parts/space-settings-panel-members.php:276
 msgid "@handle or email address"
-msgstr ""
+msgstr "@핸들 또는 이메일 주소"
 
 #: templates/parts/space-members-body.php:243
 msgid "Members are private"
@@ -24084,7 +24260,7 @@ msgstr ""
 
 #: templates/parts/space-settings-panel-integrations.php:110
 msgid "Turned off for the whole site by the site admin."
-msgstr ""
+msgstr "사이트 관리자가 사이트 전체에서 껐어요."
 
 #: templates/parts/space-settings-panel-integrations.php:158
 msgid "Turn on optional features for this space."
@@ -24133,6 +24309,8 @@ msgid ""
 "This space’s earlier discussion comes back when you turn Discussion on. "
 "Clear it to create a new one, or search for another:"
 msgstr ""
+"토론 기능을 켜면 이 스페이스의 이전 토론이 다시 나타나요. 새로 만들려면 비우"
+"고, 다른 토론을 찾으려면 검색해 주세요:"
 
 #: templates/parts/space-settings-panel-integrations.php:232
 msgid "Already have a discussion? Link it instead (optional):"
@@ -24339,27 +24517,29 @@ msgstr "초대 링크 URL"
 #: templates/parts/space-settings-panel-links.php:55
 #: templates/spaces/settings.php:669
 msgid "Linked to"
-msgstr ""
+msgstr "연결된 대상"
 
 #: templates/parts/space-settings-panel-links.php:56
 msgid ""
 "This space follows the access of what it is linked to: people who get access "
 "are added. Removing a link keeps the space and everyone in it."
 msgstr ""
+"이 스페이스는 연결된 대상의 접근 권한을 따라가요. 접근 권한을 받은 사람이 추"
+"가돼요. 연결을 해제해도 스페이스와 그 안의 멤버는 그대로 유지돼요."
 
 #. translators: 1: link type, 2: object id.
 #: templates/parts/space-settings-panel-links.php:72
 #, php-format
 msgid "%1$s #%2$d"
-msgstr ""
+msgstr "%1$s #%2$d"
 
 #: templates/parts/space-settings-panel-links.php:80
 msgid "Created for this link"
-msgstr ""
+msgstr "이 연결을 위해 만들어짐"
 
 #: templates/parts/space-settings-panel-links.php:83
 msgid "Plugin not active"
-msgstr ""
+msgstr "플러그인이 활성화되어 있지 않아요"
 
 #. translators: %d: number of active members
 #: templates/parts/space-settings-panel-members.php:96
@@ -24394,7 +24574,7 @@ msgstr "멤버 초대"
 
 #: templates/parts/space-settings-panel-members.php:264
 msgid "Enter a member's @handle or an email address to invite them."
-msgstr ""
+msgstr "초대할 멤버의 @핸들 또는 이메일 주소를 입력해 주세요."
 
 #: templates/parts/space-settings-panel-moderation.php:74
 msgid "Control what members can post in this space."
@@ -24765,14 +24945,18 @@ msgid ""
 "Scales text on this device. Use the light/dark toggle in the header to "
 "switch appearance."
 msgstr ""
+"이 기기에서 글자 크기를 조절해요. 헤더의 밝은/어두운 모드 전환 버튼으로 화면 "
+"모드를 바꿀 수 있어요."
 
 #: templates/settings/appearance.php:50
 msgid "Scales text on this device. Light or dark mode is set by your theme."
 msgstr ""
+"이 기기에서 글자 크기를 조절해요. 밝은 모드와 어두운 모드는 테마에서 설정돼"
+"요."
 
 #: templates/settings/appearance.php:67
 msgid "Choose how this community looks for you on this device."
-msgstr ""
+msgstr "이 기기에서 커뮤니티가 보이는 방식을 선택해 주세요."
 
 #: templates/settings/notifications.php:90
 msgid "Immediate"
@@ -24798,7 +24982,7 @@ msgstr "전체 스위치예요. 채널을 끄면 해당 전달 경로의 모든 
 
 #: templates/settings/notifications.php:223
 msgid "Show notifications inside this community."
-msgstr ""
+msgstr "이 커뮤니티 안에서 알림을 표시해요."
 
 #: templates/settings/notifications.php:235
 msgid "Send transactional and digest emails."
@@ -24858,7 +25042,7 @@ msgstr ""
 #: templates/settings/notifications.php:384
 #, php-format
 msgid "Email for %s"
-msgstr ""
+msgstr "%s 이메일 수신"
 
 #: templates/settings/notifications.php:415
 msgid ""
@@ -24879,7 +25063,7 @@ msgstr ""
 
 #: templates/settings/notifications.php:447
 msgid "Always emailed"
-msgstr ""
+msgstr "항상 이메일로 받기"
 
 #: templates/settings/notifications.php:447
 msgid "In-app only"
@@ -25370,11 +25554,11 @@ msgstr "엔드포인트를 등록했어요. 아래에서 서명 비밀키를 복
 
 #: assets/js/admin/settings.js:175
 msgid "Re-enabling…"
-msgstr ""
+msgstr "다시 켜는 중…"
 
 #: assets/js/admin/settings.js:188
 msgid "Could not re-enable the webhook. Try again."
-msgstr ""
+msgstr "웹훅을 다시 켤 수 없어요. 다시 시도해 주세요."
 
 #: assets/js/admin/settings.js:213
 msgid "No deliveries logged yet."
@@ -25769,7 +25953,7 @@ msgstr[0] ""
 
 #: assets/js/shell/extras.js:322
 msgid "%1$s by %2$s"
-msgstr ""
+msgstr "%2$s의 %1$s"
 
 #: assets/js/shell/extras.js:333
 msgid "Search failed"
