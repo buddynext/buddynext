@@ -40,13 +40,60 @@ $bn_can_edit_any = ! $is_own_profile && $current_user_id > 0
 if ( ! $is_own_profile && ! current_user_can( 'manage_options' )
 	&& ! buddynext_service( 'privacy' )->can_view_profile( $current_user_id, $user_id )
 ) {
+	// Who may hear which audience unlocks this, and act on it. A guest, a blocked
+	// pair and a suspended viewer get the same bare line they always did: the
+	// audience is told only to someone it could help, and a control only appears
+	// when the write path would accept it.
+	$bn_lock_privacy  = buddynext_service( 'privacy' );
+	$bn_lock_social   = $bn_lock_privacy->social_state_for( $current_user_id, array( $user_id ) )[ $user_id ];
+	$bn_lock_can_act  = $bn_lock_social['may_interact'] && ! $bn_lock_social['is_blocked'];
+	$bn_lock_audience = $bn_lock_can_act ? (string) $bn_lock_privacy->get_preference( $user_id, 'profile_visibility' ) : '';
+	$bn_lock_audience = in_array( $bn_lock_audience, array( 'followers', 'connections' ), true ) ? $bn_lock_audience : '';
+	$bn_lock_text     = __( 'This profile is private.', 'buddynext' );
+	if ( 'followers' === $bn_lock_audience ) {
+		$bn_lock_text = __( 'Only followers can see this profile.', 'buddynext' );
+	} elseif ( 'connections' === $bn_lock_audience ) {
+		$bn_lock_text = __( 'Only connections can see this profile.', 'buddynext' );
+	}
+	// A member who takes connection requests only from followers has to be followed first.
+	$bn_lock_follow_first = 'connections' === $bn_lock_audience && ! $bn_lock_social['can_connect'] && ! $bn_lock_social['is_following']
+		&& 'followers' === $bn_lock_privacy->get_preference( $user_id, 'who_can_connect' );
 	?>
 		<div class="bn-card bn-profile-private bn-empty-state">
 			<div class="bn-empty-state__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
 			<h2 class="bn-empty-state__title"><?php echo esc_html( $profile_user->display_name ); ?></h2>
-			<p class="bn-empty-state__text"><?php esc_html_e( 'This profile is private.', 'buddynext' ); ?></p>
+			<p class="bn-empty-state__text"><?php echo esc_html( $bn_lock_text ); ?></p>
 			<?php if ( 0 === $current_user_id ) : ?>
 				<p class="bn-empty-state__text"><?php esc_html_e( 'Log in to see if you can view it.', 'buddynext' ); ?></p>
+				<div class="bn-profile-private__actions">
+					<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::login_url( \BuddyNext\Core\PageRouter::profile_url( (int) $user_id ) ) ); ?>"><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
+				</div>
+			<?php elseif ( '' !== $bn_lock_audience ) : ?>
+				<div class="bn-profile-private__actions">
+					<?php
+					if ( 'followers' === $bn_lock_audience || $bn_lock_follow_first ) {
+						buddynext_get_template(
+							'partials/follow-button.php',
+							array(
+								'user_id'         => $user_id,
+								'known_following' => $bn_lock_social['is_following'],
+								'known_pending'   => $bn_lock_social['is_pending'],
+								'known_blocked'   => false,
+							)
+						);
+					}
+					if ( 'connections' === $bn_lock_audience ) {
+						buddynext_get_template( 'partials/connection-button.php', array( 'user_id' => $user_id ) );
+					}
+					buddynext_get_template(
+						'partials/social-upgrade-link.php',
+						array(
+							'url'   => $bn_lock_social['upgrade_url'],
+							'label' => $bn_lock_social['upgrade_label'],
+						)
+					);
+					?>
+				</div>
 			<?php endif; ?>
 		</div>
 	<?php

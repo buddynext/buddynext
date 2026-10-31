@@ -23,7 +23,7 @@
  * the next page render reflects the change without a client refetch.
  */
 
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnResolveConnectNote, bnConfirmDisconnect } from '@buddynext/shell-dialog';
 import { restFetch, toastRestError } from '@buddynext/rest-client';
 
@@ -98,6 +98,12 @@ function followVariant( ctx ) {
 	return 'primary';
 }
 
+/* A locked profile's follow or connect control: once the viewer is in the audience
+ * there is a whole profile to show, so draw it. */
+function reloadIfLockedProfile( el ) {
+	if ( el && el.closest( '.bn-profile-private' ) ) { window.location.reload(); }
+}
+
 /* -- Follow button store ----------------------------------------------- */
 
 const followButtonStore = store( 'buddynext/follow-button', {
@@ -121,6 +127,7 @@ const followButtonStore = store( 'buddynext/follow-button', {
 			const userId       = ctx.userId;
 			const target       = ctx.targetName || ( '#' + userId );
 			const usePending   = !! ctx.privateFollow && ! wasFollowing && ! wasPending;
+			const button       = getElement().ref;
 
 			ctx.busy = true;
 
@@ -155,6 +162,7 @@ const followButtonStore = store( 'buddynext/follow-button', {
 				else if ( requested )    { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
 				else                     { msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), target ); }
 				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
+				if ( ctx.isFollowing ) { reloadIfLockedProfile( button ); }
 			} catch ( e ) {
 				// Roll back.
 				ctx.isFollowing = wasFollowing;
@@ -431,6 +439,7 @@ store( 'buddynext/connection-button', {
 			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
 			const prev = ctx.status;
+			const button = getElement().ref;
 			ctx.busy   = true;
 			ctx.status = 'accepted';
 			try {
@@ -442,6 +451,7 @@ store( 'buddynext/connection-button', {
 				} );
 				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ), { tone: 'success' } );
+				reloadIfLockedProfile( button );
 			} catch ( e ) {
 				ctx.status = prev;
 				toastRestError( e, t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) );

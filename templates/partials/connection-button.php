@@ -8,7 +8,7 @@
  *
  * Handled states:
  *   null             — "Connect"          (primary CTA)
- *   pending-sent     — "Pending"          (viewer sent request; click to withdraw)
+ *   pending-sent     — "Requested"         (viewer sent request; click to withdraw)
  *   pending-received — "Accept / Decline" (viewer received a request)
  *   accepted         — "Connected"        (mutual; click to remove)
  *   blocked          — partial returns early, renders nothing
@@ -171,7 +171,7 @@ $context_attr = esc_attr(
 		data-wp-bind--hidden="!state.showPending"
 		<?php echo $pending_sent ? '' : 'hidden'; ?>
 	>
-		<?php esc_html_e( 'Pending', 'buddynext' ); ?>
+		<?php esc_html_e( 'Requested', 'buddynext' ); ?>
 	</button>
 
 	<?php if ( $bn_can_connect || '' !== $ctx_status ) : ?>

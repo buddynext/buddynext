@@ -708,6 +708,15 @@
 	font-size: var(--bn-p-text-sm);
 }
 
+/* The one way forward on a locked profile: Follow, Connect, Upgrade or Log in. */
+.bn-profile-private__actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bn-p-s2);
+	margin-block-start: var(--bn-p-s4);
+}
+
 /* ── Responsive — Mobile ≤640px ──────────────────────────────────────────── */
 
 @media (max-width: 640px) {
