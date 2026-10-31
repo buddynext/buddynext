@@ -47,7 +47,7 @@ Re-running never duplicates anything, because the importer keeps temporary worki
 
 ## Moving from a hosted platform
 
-The importer covers WordPress-native sources only. For Mighty Networks, the team runs an assisted migration through the Mighty Networks API; see [Migrate from Mighty Networks](https://buddynext.com/migrate/mighty-networks/). For Circle, Skool or Discourse you export what the platform lets you export, invite members to new accounts and rebuild the content, or ask the team to do it for you. See the [migration overview](https://buddynext.com/migrate/).
+The importer covers WordPress-native sources only. For Mighty Networks, the team runs an assisted migration through the Mighty Networks API; see [Migrate from Mighty Networks](https://buddynext.com/migrate/mighty-networks/). For Circle, Skool or Discourse you export what the platform lets you export, invite members to new accounts and rebuild the content, or ask the team to do it for you. See the [migration overview](https://buddynext.com/migrate/). The full process is in [Assisted migration from Mighty Networks, Circle, Skool and Discourse](../migrating-from-buddypress/06-assisted-migration-from-hosted-platforms.md).
 
 ## Related
 
