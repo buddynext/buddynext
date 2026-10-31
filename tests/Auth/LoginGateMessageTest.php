@@ -212,6 +212,92 @@ class LoginGateMessageTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * What core calls a missing password stops before any hash, on every account.
+	 *
+	 * @return void
+	 */
+	public function test_missing_password_is_refused_before_any_hash(): void {
+		$pending = $this->account( 'qafix_blank_held' );
+		update_user_meta( $pending, 'bn_pending_approval', 1 );
+		$this->account( 'qafix_blank_plain' );
+
+		$hashes  = 0;
+		$counter = static function ( $check ) use ( &$hashes ) {
+			++$hashes;
+			return $check;
+		};
+		add_filter( 'check_password', $counter );
+
+		foreach ( array( 'qafix_blank_held', 'qafix_blank_plain', 'qafix_blank_absent' ) as $login ) {
+			foreach ( array( '0', '   ', ' 0 ' ) as $password ) {
+				$response = $this->login( $login, $password );
+				$this->assertSame( 400, $response->get_status(), "{$login} '{$password}'" );
+				$this->assertSame( 'rest_missing_credentials', $response->get_data()['code'] );
+			}
+		}
+
+		remove_filter( 'check_password', $counter );
+		$this->assertSame( 0, $hashes );
+	}
+
+	/**
+	 * The absent-account hash is made here, stays stored unloaded, and follows the site's cost.
+	 *
+	 * @return void
+	 */
+	public function test_absent_account_hash_follows_the_site_settings(): void {
+		global $wpdb;
+
+		delete_option( 'buddynext_login_absent_hash' );
+		$this->assert_generic( $this->login( 'qafix_nobody', 'wrong' ) );
+
+		$first = (string) get_option( 'buddynext_login_absent_hash' );
+		$this->assertFalse( wp_password_needs_rehash( $first ) );
+		$this->assertContains(
+			$wpdb->get_var( "SELECT autoload FROM {$wpdb->options} WHERE option_name = 'buddynext_login_absent_hash'" ), // phpcs:ignore WordPress.DB
+			array( 'no', 'off' )
+		);
+
+		$this->assert_generic( $this->login( 'qafix_nobody', 'wrong' ) );
+		$this->assertSame( $first, get_option( 'buddynext_login_absent_hash' ), 'Reused while current.' );
+
+		$cost = static fn( array $options ): array => array( 'cost' => 4 ) + $options;
+		add_filter( 'wp_hash_password_options', $cost );
+		$this->assert_generic( $this->login( 'qafix_nobody', 'wrong' ) );
+		$second = (string) get_option( 'buddynext_login_absent_hash' );
+		remove_filter( 'wp_hash_password_options', $cost );
+
+		$this->assertNotSame( $first, $second, 'Remade when the hash settings change.' );
+		delete_option( 'buddynext_login_absent_hash' );
+	}
+
+	/**
+	 * A reportable gate must not speak over an unreportable refusal, on any code of the error.
+	 *
+	 * @return void
+	 */
+	public function test_reportable_gate_does_not_mask_an_unreportable_refusal(): void {
+		$uid = $this->account( 'qafix_both' );
+		update_user_meta( $uid, 'bn_pending_approval', 1 );
+
+		$first = static fn(): WP_Error => new WP_Error( 'too_many_attempts', 'Locked out.' );
+		add_filter( 'authenticate', $first, 40 );
+		$this->assert_generic( $this->login( 'qafix_both', self::PASSWORD ) );
+		remove_filter( 'authenticate', $first, 40 );
+
+		$second = static function (): WP_Error {
+			$error = new WP_Error( 'incorrect_password', 'Wrong.' );
+			$error->add( 'too_many_attempts', 'Locked out.' );
+			return $error;
+		};
+		add_filter( 'authenticate', $second, 40 );
+		$this->assert_generic( $this->login( 'qafix_both', self::PASSWORD ) );
+		remove_filter( 'authenticate', $second, 40 );
+
+		$this->assertSame( 403, $this->login( 'qafix_both', self::PASSWORD )->get_status(), 'Alone, the hold is still reported.' );
+	}
+
+	/**
 	 * Ordinary members still sign in, in the same conditions.
 	 *
 	 * @return void

@@ -27,10 +27,9 @@ use WP_REST_Response;
 class AuthController {
 
 	/**
-	 * Hash of a throwaway random value, checked when a sign-in names no account so that
-	 * an absent account costs one password hash like a real one.
+	 * What core's sign-in chain says about credentials: never a gate.
 	 */
-	private const ABSENT_ACCOUNT_HASH = '$wp$2y$10$Qwb7hgknpXTTZUNWrD1hUu0jljjJYHKHdsU4LP91UZdoRfMj2aIau';
+	private const LOGIN_CREDENTIAL_CODES = array( 'invalid_username', 'invalid_email', 'incorrect_password', 'empty_username', 'empty_email', 'empty_password', 'application_passwords_disabled', 'application_passwords_disabled_for_user' );
 
 	/**
 	 * Register the controller's routes.
@@ -894,39 +893,41 @@ class AuthController {
 		$user = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
 
 		if ( ! $user instanceof \WP_User ) {
-			wp_check_password( $password, self::ABSENT_ACCOUNT_HASH );
+			wp_check_password( $password, self::absent_account_hash() );
 			return null;
 		}
 
-		$gate       = apply_filters( 'wp_authenticate_user', $user, $password );
-		$gate_shut  = is_wp_error( $gate );
-		$refusal    = $gate_shut ? $gate : $error;
-		$code       = (string) $refusal->get_error_code();
-		$reportable = in_array(
-			$code,
-			/**
-			 * Filter the sign-in refusals a member may read once they proved their password.
-			 *
-			 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
-			 * why they are held. Everything else gets the generic failure. Never add a network
-			 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
-			 * the password to whoever is being refused.
-			 *
-			 * @since 1.2.8
-			 *
-			 * @param string[] $codes Reportable WP_Error codes.
-			 */
-			(array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) ),
-			true
-		);
+		$gate      = apply_filters( 'wp_authenticate_user', $user, $password );
+		$gate_shut = is_wp_error( $gate );
+		$refusal   = $gate_shut ? $gate : $error;
+		$code      = (string) $refusal->get_error_code();
+		/**
+		 * Filter the sign-in refusals a member may read once they proved their password.
+		 *
+		 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
+		 * why they are held. Everything else gets the generic failure. Never add a network
+		 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
+		 * the password to whoever is being refused.
+		 *
+		 * @since 1.2.8
+		 *
+		 * @param string[] $codes Reportable WP_Error codes.
+		 */
+		$allowed = (array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) );
+
+		// Every code in play must be harmless: a reportable gate must not speak over
+		// something unreportable, such as an IP block, that also refused this sign-in.
+		$reportable = in_array( $code, $allowed, true )
+			&& ! array_diff( array_merge( $error->get_error_codes(), $refusal->get_error_codes() ), self::LOGIN_CREDENTIAL_CODES, $allowed );
 
 		// No gate refused, so core already hashed once and nothing here needs proof.
 		if ( ! $gate_shut && ! $reportable ) {
 			return null;
 		}
 
-		// Hash before reading $reportable, so an unreportable gate costs the same.
-		if ( ! wp_check_password( $password, $user->user_pass, $user->ID ) || ! $reportable ) {
+		// Hash before reading $reportable, so an unreportable gate costs the same. Trimmed
+		// because wp_authenticate() trims what core checks.
+		if ( ! wp_check_password( trim( $password ), $user->user_pass, $user->ID ) || ! $reportable ) {
 			return null;
 		}
 
@@ -937,6 +938,24 @@ class AuthController {
 
 		// 403, not 401: the password was correct — access is what is refused.
 		return new WP_Error( $code, $message, array( 'status' => 403 ) );
+	}
+
+	/**
+	 * Hash checked when a sign-in names no account, so an absent account costs one password
+	 * hash like a real one. Made on this site, and remade when its hash settings change,
+	 * so its cost matches the hashes in the users table.
+	 *
+	 * @return string
+	 */
+	private static function absent_account_hash(): string {
+		$hash = (string) get_option( 'buddynext_login_absent_hash', '' );
+
+		if ( '' === $hash || wp_password_needs_rehash( $hash ) ) {
+			$hash = wp_hash_password( wp_generate_password( 32 ) );
+			update_option( 'buddynext_login_absent_hash', $hash, false );
+		}
+
+		return $hash;
 	}
 
 	/**
@@ -964,7 +983,9 @@ class AuthController {
 			);
 		}
 
-		if ( '' === $user_input || '' === $password ) {
+		// empty() on the trimmed value, as core defines a missing password ('0' included):
+		// core stops there without hashing, so it must not reach the chain.
+		if ( '' === $user_input || empty( trim( $password ) ) ) {
 			return new WP_Error(
 				'rest_missing_credentials',
 				__( 'Please enter your email or username and your password.', 'buddynext' ),
