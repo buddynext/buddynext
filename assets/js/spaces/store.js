@@ -490,9 +490,8 @@ function surfacePaywall( btn, spaceId, data ) {
  * Shared body for the `approveJoinRequest` / `declineJoinRequest` store actions.
  * Reads `data-user-id` and `data-space-id` off the clicked button (the moderation
  * template puts both on each Approve/Decline button), POSTs to the spec-conformant
- * member route, and on success removes the request row and decrements the two
- * pending counters (the tab badge `.bn-tab__count` and the summary stat
- * `.bn-stat__value`). Degrades gracefully: any missing element is simply skipped,
+ * member route, and on success removes the request row and decrements the pending
+ * counters (see syncPendingCounters). Degrades gracefully: any missing element is simply skipped,
  * and a network/permission failure re-enables the row's buttons and surfaces a
  * toast when one is available — never a silent dead end, never a fatal.
  *
@@ -534,6 +533,7 @@ async function moderateJoinRequest( event, action ) {
 			if ( row && row.parentNode ) { row.parentNode.removeChild( row ); }
 			syncPendingCounters();
 			toastRestError( res );
+			if ( ! document.querySelector( '.bn-space-mod__pending-row' ) ) { window.location.reload(); }
 			return;
 		}
 
@@ -543,13 +543,18 @@ async function moderateJoinRequest( event, action ) {
 
 			syncPendingCounters();
 
+			var decided = ( 'approve' === action )
+				? t( 'requestApproved', 'Request approved.' )
+				: t( 'requestDeclined', 'Request declined.' );
+
+			// This page is done: the reload brings the next requests, or the empty state.
+			if ( ! document.querySelector( '.bn-space-mod__pending-row' ) ) {
+				bnReloadWithToast( decided, 'success' );
+				return;
+			}
+
 			if ( window.bnToast ) {
-				window.bnToast(
-					( 'approve' === action )
-						? t( 'requestApproved', 'Request approved.' )
-						: t( 'requestDeclined', 'Request declined.' ),
-					'success'
-				);
+				window.bnToast( decided, 'success' );
 			}
 			return;
 		}
@@ -570,57 +575,26 @@ async function moderateJoinRequest( event, action ) {
 }
 
 /**
- * Re-sync the two "pending requests" counters on the moderation hub to the live
- * number of request rows still in the list, after one has been removed: the
- * Pending tab badge and the "Pending member requests" summary stat.
+ * Count one decided request off every pending counter: the sub-nav badge, the
+ * stat tile, the "N awaiting approval" badge and the Moderation tab total.
  *
- * The hub renders a `.bn-tab__count` on multiple tabs (Reports, Pending) and four
- * `.bn-stat__value` tiles, so neither can be selected blindly. The Pending tab is
- * located by the `bn_mtab=pending` href; the pending stat is the only tile whose
- * label contains the word "pending" (the localized "Pending member requests"
- * label). The remaining count is read from the live `.bn-space-mod__pending-row`
- * elements so the display is self-correcting. A zeroed tab badge is removed to
- * mirror the server-rendered empty state. If the markup ever changes such that a
- * pending element is not found, the counter update is simply skipped — the row is
- * still removed, so the moderator's action is never lost.
+ * Decrements the server's COUNT rather than reading the rows on screen, which are
+ * one page of the total. A sub-nav badge at zero is removed, matching the server.
  *
  * @return {void}
  */
 function syncPendingCounters() {
-	var remaining = document.querySelectorAll( '.bn-space-mod__pending-row' ).length;
-
-	// Pending tab: the moderation-filter tab linking to bn_mtab=pending.
-	var pendingTab = null;
-	var tabs = document.querySelectorAll( '.bn-tab' );
-	for ( var i = 0; i < tabs.length; i++ ) {
-		var href = tabs[ i ].getAttribute( 'href' ) || '';
-		if ( href.indexOf( 'bn_mtab=pending' ) !== -1 ) { pendingTab = tabs[ i ]; break; }
-	}
-
-	if ( pendingTab ) {
-		var badge = pendingTab.querySelector( '.bn-tab__count' );
-		if ( remaining > 0 ) {
-			if ( badge ) {
-				badge.textContent = String( remaining );
-			}
-		} else if ( badge && badge.parentNode ) {
-			badge.parentNode.removeChild( badge );
+	document.querySelectorAll( '[data-bn-pending-count]' ).forEach( function ( el ) {
+		var left = Math.max( 0, ( parseInt( el.getAttribute( 'data-bn-pending-count' ), 10 ) || 0 ) - 1 );
+		el.setAttribute( 'data-bn-pending-count', String( left ) );
+		if ( el.hasAttribute( 'data-bn-pending-label' ) ) {
+			el.textContent = t( 'pendingAwaiting', '%s awaiting approval' ).replace( '%s', left.toLocaleString() );
+		} else if ( 0 === left && el.classList.contains( 'bn-subnav__count' ) ) {
+			el.remove();
+		} else {
+			el.textContent = String( left );
 		}
-
-	}
-
-	// Pending stat tile: the only summary tile whose label mentions "pending"
-	// ("Pending member requests"). Falls back silently if the label is absent.
-	var stats = document.querySelectorAll( '.bn-stat' );
-	for ( var j = 0; j < stats.length; j++ ) {
-		var labelEl = stats[ j ].querySelector( '.bn-stat__label' );
-		var valueEl = stats[ j ].querySelector( '.bn-stat__value' );
-		if ( ! labelEl || ! valueEl ) { continue; }
-		if ( ( labelEl.textContent || '' ).toLowerCase().indexOf( 'pending' ) !== -1 ) {
-			valueEl.textContent = String( remaining );
-			break;
-		}
-	}
+	} );
 }
 
 /* Route a membership click to the action that matches the button's LIVE state.

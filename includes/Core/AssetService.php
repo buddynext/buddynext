@@ -1494,6 +1494,8 @@ class AssetService {
 					'couldNotShare'                   => __( 'Could not share this post. Try again.', 'buddynext' ),
 					'couldNotReact'                   => __( 'Could not update your reaction. Try again.', 'buddynext' ),
 					'requestApproved'                 => __( 'Request approved.', 'buddynext' ),
+					/* translators: %s: number of join requests still waiting. */
+					'pendingAwaiting'                 => __( '%s awaiting approval', 'buddynext' ),
 					'requestDeclined'                 => __( 'Request declined.', 'buddynext' ),
 					'couldNotApproveRequest'          => __( 'Could not approve the request.', 'buddynext' ),
 					'couldNotDeclineRequest'          => __( 'Could not decline the request.', 'buddynext' ),

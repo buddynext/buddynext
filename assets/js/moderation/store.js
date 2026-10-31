@@ -33,6 +33,10 @@ function dropReportRow( reportId ) {
 	document.querySelectorAll( '[data-bn-open-reports]' ).forEach( ( el ) => {
 		el.textContent = String( Math.max( 0, ( parseInt( el.textContent, 10 ) || 0 ) - 1 ) );
 	} );
+	// A space's tab pages its reports: an emptied page has the next ones behind it.
+	if ( row.matches( '.bn-space-mod__report' ) && ! document.querySelector( '.bn-space-mod__report' ) ) {
+		window.location.reload();
+	}
 }
 
 /**
