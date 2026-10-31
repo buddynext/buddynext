@@ -2204,6 +2204,16 @@ class PageRouter {
 				'disconnectConfirm'      => __( 'Remove connection', 'buddynext' ),
 				'follow'                 => __( 'Follow', 'buddynext' ),
 				'following'              => __( 'Following', 'buddynext' ),
+				'requested'              => __( 'Requested', 'buddynext' ),
+				'upgrade'                => __( 'Upgrade', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverFollowed'          => __( 'Now following @%s', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverUnfollowed'        => __( 'Unfollowed @%s', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverRequested'         => __( 'Follow request sent to @%s', 'buddynext' ),
+				/* translators: %s: the member's public handle. */
+				'hoverCancelled'         => __( 'Follow request to @%s cancelled', 'buddynext' ),
 				'genericError'           => __( 'Something went wrong. Try again.', 'buddynext' ),
 				'actionRefused'          => __( 'That is not possible any more. Reload the page to see the latest.', 'buddynext' ),
 				/* translators: %d: page number of a document preview. */

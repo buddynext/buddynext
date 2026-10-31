@@ -19611,6 +19611,15 @@
                     "is_following": {
                         "type": "boolean"
                     },
+                    "is_pending": {
+                        "type": "boolean"
+                    },
+                    "upgrade_url": {
+                        "type": "string"
+                    },
+                    "upgrade_label": {
+                        "type": "string"
+                    },
                     "is_muted": {
                         "type": "boolean"
                     },

@@ -566,25 +566,30 @@
 
 				// Bind the Follow/Following toggle to the current relationship so the
 				// card mirrors the post-card state instead of always reading "Follow".
-				function applyFollowState( following ) {
+				function applyFollowState( following, pending ) {
 					followBtn.hidden = false;
 					var followI18n = ( window.bnShellData && window.bnShellData.i18n ) || {};
-					followBtn.textContent = following ? ( followI18n.following || 'Following' ) : ( followI18n.follow || 'Follow' );
-					followBtn.classList.toggle( 'is-following', !! following );
+					var label = following ? ( followI18n.following || 'Following' ) : ( followI18n.follow || 'Follow' );
+					followBtn.textContent = pending ? ( followI18n.requested || 'Requested' ) : label;
+					followBtn.classList.toggle( 'is-following', !! following || !! pending );
 					followBtn.onclick = function () {
 						if ( ! data.restUserUrl ) return;
-						var method = following ? 'DELETE' : 'POST';
+						var was = following || pending;
 						window.buddynextRest.restFetch( data.restUserUrl + userId + '/follow', {
-							method: method,
+							method: was ? 'DELETE' : 'POST',
 							nonce: nonce,
 							toastOnError: false
 						} ).then( function ( res ) {
-							if ( ! res.ok ) { return; }
-							following = ! following;
-							applyFollowState( following );
-							if ( window.bnToast ) {
-								window.bnToast( ( following ? 'Followed ' : 'Unfollowed ' ) + name );
+							if ( ! res.ok ) {
+								window.buddynextRest.toastRestError( res, followI18n.genericError );
+								return;
 							}
+							var requested = ! was && !! ( res.data && res.data.pending );
+							if ( window.bnToast ) {
+								var key = requested ? 'hoverRequested' : ( pending ? 'hoverCancelled' : ( following ? 'hoverUnfollowed' : 'hoverFollowed' ) );
+								window.bnToast( ( followI18n[ key ] || '%s' ).replace( '%s', handle || name ) );
+							}
+							applyFollowState( ! was && ! requested, requested );
 						} );
 					};
 				}
@@ -633,8 +638,8 @@
 						}
 						// Hide the Follow button on the viewer's own card; otherwise
 						// reflect the real relationship.
-						if ( ! u.is_self ) {
-							applyFollowState( !! u.is_following );
+						if ( ! u.is_self && ( u.can_follow || u.is_following || u.is_pending ) ) {
+							applyFollowState( !! u.is_following, !! u.is_pending );
 						}
 					} ).catch( function () { /* ignore */ } );
 				}

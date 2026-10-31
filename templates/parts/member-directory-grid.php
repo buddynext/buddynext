@@ -111,21 +111,18 @@ if ( ! empty( $bn_member_ids ) ) {
 	update_meta_cache( 'user', $bn_member_ids );
 }
 
-$bn_status_map    = array();
-$bn_following_map = array();
-$bn_mutual_map    = array();
-$bn_muted_set     = array();
-$bn_reported_map  = array();
+$bn_social       = buddynext_service( 'privacy' )->social_state_for( $bn_viewer_id, $bn_member_ids );
+$bn_mutual_map   = array();
+$bn_muted_set    = array();
+$bn_reported_map = array();
 if ( $bn_viewer_id > 0 && ! empty( $bn_member_ids ) && function_exists( 'buddynext_service' ) ) {
 	$bn_conn_service = buddynext_service( 'connections' );
-	$bn_status_map   = $bn_conn_service->statuses_for( $bn_viewer_id, $bn_member_ids );
 	// Only when the caller has NOT supplied its own mutual map. The directory passes
 	// mutual_ids_fn (see :135, which prefers it), so this ran a full derived-table join over
 	// the viewer's entire peer set on every directory page view and threw the result away.
 	if ( ! is_callable( $args['mutual_ids_fn'] ?? null ) ) {
 		$bn_mutual_map = $bn_conn_service->mutual_ids_for( $bn_viewer_id, $bn_member_ids );
 	}
-	$bn_following_map  = buddynext_service( 'follows' )->following_map( $bn_viewer_id, $bn_member_ids );
 	$bn_blocks_service = buddynext_service( 'blocks' );
 	$bn_blocks_service->prime_restricted_cache( $bn_viewer_id, $bn_member_ids );
 	$bn_muted_set = array_fill_keys( $bn_blocks_service->muted_users( $bn_viewer_id ), true );
@@ -155,7 +152,7 @@ $bn_initials_fn     = is_callable( $args['initials_fn'] )
 	? $args['initials_fn']
 	: static fn( string $name ): string => \BuddyNext\Profile\AvatarService::initials_for( $name );
 $bn_is_online_fn    = is_callable( $args['is_online_fn'] ) ? $args['is_online_fn'] : static fn( int $uid ): bool => (bool) buddynext_service( 'blocks' )->is_user_online( $bn_viewer_id, $uid );
-$bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => ! empty( $bn_following_map[ $uid ] );
+$bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => ! empty( $bn_social[ $uid ]['is_following'] );
 $bn_mutual_fn       = is_callable( $args['mutual_ids_fn'] ) ? $args['mutual_ids_fn'] : static function ( int $a, int $b ) use ( $bn_mutual_map ): array {
 	return (array) ( $bn_mutual_map[ $b ] ?? array() );
 };
@@ -201,7 +198,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		// Direction-aware status from the primed map: 'accepted', 'pending-sent',
 		// 'pending-received', another raw status, or null. Degree mirrors
 		// connection_degree(): connected => 1, share a mutual => 2, else 3.
-		$bn_status     = $bn_status_map[ $bn_member_id ] ?? null;
+		$bn_status     = $bn_social[ $bn_member_id ]['connection'] ?? null;
 		$bn_degree     = ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id )
 			? ( 'accepted' === $bn_status ? 1 : ( ! empty( $bn_mutual_ids ) ? 2 : 3 ) )
 			: 0;
@@ -244,6 +241,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'member'                 => $bn_member_obj,
 				'viewer_id'              => $bn_viewer_id,
 				'is_following'           => $bn_is_following,
+				'social'                 => $bn_social[ $bn_member_id ] ?? null,
 				'connection_state'       => $bn_conn_state,
 				'connection_status'      => null === $bn_conn_status ? 'none' : (string) $bn_conn_status,
 				'is_muted'               => $bn_is_muted,

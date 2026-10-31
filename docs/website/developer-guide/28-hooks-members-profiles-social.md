@@ -277,6 +277,7 @@ add_action( 'buddynext_after_edit_member_form', function ( int $user_id, WP_User
 | `buddynext_user_followed_first_time` | action | A user's approved follow count reaches 1, whether they followed a public account or a private account approved their request. For onboarding flows. | `int $follower_id, int $following_id` |
 | `buddynext_can_follow` | filter | Whether an actor may follow a target. Default follows the target's who-can-follow preference. | `bool $can, int $target_id, int $actor_id` |
 | `buddynext_can_connect` | filter | Whether an actor may send a connection request to a target. | `bool $can, int $target_id, int $actor_id` |
+| `buddynext_social_upgrade_url` | filter | A member card asks where to send a viewer whose plan withholds following or connecting. Return a URL only when the plan is the reason; empty hides the action. | `string $url, int $viewer_id` |
 | `buddynext_can_view_connections` | filter | Whether a viewer may see a user's followers and following lists. | `bool $can, int $owner_id, int $viewer_id` |
 | `buddynext_social_denied_error` | filter | A follow or connect is refused and the `WP_Error` is built. Listeners must return a `WP_Error`. | `WP_Error $error, string $action, int $actor_id, int $target_id` (`$action` is `follow` or `connect`) |
 | `buddynext_follow_suggestions` | filter | The "who to follow" id list is built, in rank order. | `int[] $ids, int $user_id` |

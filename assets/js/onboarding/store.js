@@ -473,6 +473,12 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			} )
 				.then( ( r ) => {
 					if ( ! r.ok ) { throw new Error( reason( r, '' ) ); }
+					// A private account stores a request, not a follow.
+					if ( isFollowing && r.data && r.data.pending ) {
+						btn.textContent = t( 'btnRequested', 'Requested' );
+						toast( t( 'toastRequested', 'Follow request sent.' ), 'success' );
+						return;
+					}
 					toast( isFollowing ? t( 'toastFollowing', 'Following.' ) : t( 'toastUnfollowed', 'Unfollowed.' ), 'success' );
 				} )
 				.catch( ( err ) => {

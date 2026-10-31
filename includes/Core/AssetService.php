@@ -1016,42 +1016,42 @@ class AssetService {
 					'ariaFollow'              => __( 'Follow this member', 'buddynext' ),
 					'ariaUnfollow'            => __( 'Unfollow this member', 'buddynext' ),
 					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestCancelled'   => __( 'Follow request to @%s cancelled', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestSent'        => __( 'Follow request sent to @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastNowFollowing'       => __( 'Now following @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotUnfollow'   => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotFollow'     => __( 'Could not follow @%s. Try again.', 'buddynext' ),
 					// Follow-request inbox.
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCanFollowYou'       => __( '@%s can now follow you', 'buddynext' ),
 					'toastApproveFailed'      => __( 'Could not approve request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestDeclined'    => __( 'Request from @%s declined', 'buddynext' ),
 					'toastDeclineFailed'      => __( 'Could not decline request. Try again.', 'buddynext' ),
 					// Connection button labels.
 					'connect'                 => __( 'Connect', 'buddynext' ),
 					'connected'               => __( 'Connected', 'buddynext' ),
 					'respond'                 => __( 'Respond', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'noteBody'                => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectionSent'     => __( 'Connection request sent to @%s', 'buddynext' ),
 					'toastCouldNotConnect'    => __( 'Could not send connection request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestWithdrawn'   => __( 'Request to @%s withdrawn', 'buddynext' ),
 					'toastCouldNotWithdraw'   => __( 'Could not withdraw request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectedWith'      => __( 'Connected with @%s', 'buddynext' ),
 					'toastCouldNotAccept'     => __( 'Could not accept request. Try again.', 'buddynext' ),
 					'toastCouldNotDecline'    => __( 'Could not decline request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastDisconnected'       => __( 'Disconnected from @%s', 'buddynext' ),
 					'toastCouldNotDisconnect' => __( 'Could not disconnect. Try again.', 'buddynext' ),
 				),
@@ -1358,6 +1358,11 @@ class AssetService {
 					'connect'                       => __( 'Connect', 'buddynext' ),
 					'connected'                     => __( 'Connected', 'buddynext' ),
 					'requested'                     => __( 'Requested', 'buddynext' ),
+					'ariaCancelRequest'             => __( 'Cancel follow request', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestSent'              => __( 'Follow request sent to @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestCancelled'         => __( 'Follow request to @%s cancelled', 'buddynext' ),
 					'accept'                        => __( 'Accept', 'buddynext' ),
 					'decline'                       => __( 'Decline', 'buddynext' ),
 					'editProfile'                   => __( 'Edit profile', 'buddynext' ),
@@ -1377,36 +1382,36 @@ class AssetService {
 					'mutualConnectionPlural'        => __( '%d mutual connections', 'buddynext' ),
 					'pagerNext'                     => __( 'Next »', 'buddynext' ),
 					'memberFallback'                => __( 'member', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastUnfollowed'               => __( 'Unfollowed @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastNowFollowing'             => __( 'Now following @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotUnfollow'         => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotFollow'           => __( 'Could not follow @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'noteBody'                      => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectionSent'           => __( 'Connection request sent to @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastCouldNotSendRequest'      => __( 'Could not send request to @%s. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestWithdrawn'         => __( 'Request to @%s withdrawn', 'buddynext' ),
 					'toastCouldNotWithdraw'         => __( 'Could not withdraw request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastDisconnected'             => __( 'Disconnected from @%s', 'buddynext' ),
 					'toastCouldNotDisconnect'       => __( 'Could not disconnect. Try again.', 'buddynext' ),
 					'toastCouldNotUpdateConnection' => __( 'Could not update connection. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastConnectedWith'            => __( 'Connected with @%s', 'buddynext' ),
 					'toastCouldNotAccept'           => __( 'Could not accept request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastRequestDeclined'          => __( 'Request from @%s declined', 'buddynext' ),
 					'toastCouldNotDecline'          => __( 'Could not decline request. Try again.', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastMuted'                    => __( 'Muted @%s', 'buddynext' ),
-					/* translators: %s: member display name. */
+					/* translators: %s: the member's public handle. */
 					'toastUnmuted'                  => __( 'Unmuted @%s', 'buddynext' ),
 					'toastCouldNotUpdateMute'       => __( 'Could not update mute state. Try again.', 'buddynext' ),
 					/* translators: %s: member display name. */
@@ -2077,6 +2082,8 @@ class AssetService {
 					'btnJoined'                => __( 'Joined', 'buddynext' ),
 					'btnFollow'                => __( 'Follow', 'buddynext' ),
 					'btnFollowing'             => __( 'Following', 'buddynext' ),
+					'btnRequested'             => __( 'Requested', 'buddynext' ),
+					'toastRequested'           => __( 'Follow request sent.', 'buddynext' ),
 					'toastSkipped'             => __( 'Skipped. You can fill in your profile any time.', 'buddynext' ),
 					'toastJoinedSpace'         => __( 'Joined the space.', 'buddynext' ),
 					'toastLeftSpace'           => __( 'Left the space.', 'buddynext' ),
@@ -2238,6 +2245,14 @@ class AssetService {
 					'searchSaveFailed'      => __( 'Could not save this search. Try again.', 'buddynext' ),
 					'searchDeleteFailed'    => __( 'Could not delete this saved search. Try again.', 'buddynext' ),
 					'followFailed'          => __( 'Could not update this follow. Try again.', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastNowFollowing'     => __( 'Now following @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastUnfollowed'       => __( 'Unfollowed @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestSent'      => __( 'Follow request sent to @%s', 'buddynext' ),
+					/* translators: %s: the member's public handle. */
+					'toastRequestCancelled' => __( 'Follow request to @%s cancelled', 'buddynext' ),
 					'membershipFailed'      => __( 'Could not update your membership. Try again.', 'buddynext' ),
 					'recentSearchesLabel'   => __( 'Recent searches', 'buddynext' ),
 					'recentSearchesTitle'   => __( 'Recent:', 'buddynext' ),

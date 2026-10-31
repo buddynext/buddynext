@@ -227,7 +227,8 @@ function buildCard( item ) {
 	// Reactive state for the delegated handler — read/written as data-* so there
 	// is one source of truth per card (no parallel JS object to drift).
 	article.dataset.displayName = item.display_name || '';
-	article.dataset.following   = item.is_following ? '1' : '0';
+	article.dataset.handle      = item.handle || '';
+	article.dataset.followState = followStateOf( item.is_following, item.is_pending );
 	article.dataset.connection  = ( item.connection && item.connection.state ) || 'none';
 	// Was hardcoded '0'. The REST payload now carries is_muted (it did not before),
 	// and the kebab label 380 lines down already read item.is_muted — so the two
@@ -391,17 +392,17 @@ function buildCard( item ) {
 		view.textContent = item.is_self ? t( 'editProfile', 'Edit profile' ) : t( 'viewProfile', 'View profile' );
 		actions.appendChild( view );
 	} else {
-		// Follow — gated on the target's who_can_follow privacy (mirrors the
-		// server member-card.php $bn_can_follow gate); an existing Following
-		// state still shows so the user can unfollow. The button carries a plain
-		// data-bn-action verb; the delegated onGridClick handler drives it.
-		if ( item.can_follow || item.is_following ) {
+		// Follow — item.can_follow is PrivacyService::can_follow(), filters and
+		// all; an existing Following or Requested state still shows so the member
+		// can undo it. The button carries a plain data-bn-action verb; the
+		// delegated onGridClick handler drives it.
+		if ( item.can_follow || item.is_following || item.is_pending ) {
 			const follow = document.createElement( 'button' );
 			follow.type = 'button';
 			follow.className = 'bn-btn bn-md-card__follow';
 			follow.setAttribute( 'data-size', 'sm' );
 			follow.setAttribute( 'data-bn-action', 'follow' );
-			paintFollowBtn( follow, item.is_following );
+			paintFollowBtn( follow, article.dataset.followState );
 			actions.appendChild( follow );
 		}
 
@@ -437,6 +438,17 @@ function buildCard( item ) {
 			decide.appendChild( b );
 		} );
 		actions.appendChild( decide );
+
+		// The viewer's plan withholds the action: same control as partials/social-upgrade-link.php.
+		if ( item.upgrade_url ) {
+			const upgrade = document.createElement( 'a' );
+			upgrade.className = 'bn-btn bn-social-upgrade';
+			upgrade.setAttribute( 'data-variant', 'primary' );
+			upgrade.setAttribute( 'data-size', 'sm' );
+			upgrade.href = item.upgrade_url;
+			upgrade.textContent = item.upgrade_label || '';
+			actions.appendChild( upgrade );
+		}
 	}
 
 	body.appendChild( actions );
@@ -479,14 +491,63 @@ function buildLabels( labels ) {
 	return wrap;
 }
 
-/* Paint a Follow button's label + data-state/variant from a following flag.
- * Used both for the initial render in buildCard() and after a delegated toggle —
- * one painter, so server-equivalent styling stays consistent. */
-function paintFollowBtn( btn, isFollowing ) {
+/* The three states of a member card's Follow control. */
+function followStateOf( isFollowing, isPending ) {
+	if ( isPending ) { return 'pending'; }
+	return isFollowing ? 'following' : 'unfollowed';
+}
+
+function followLabelFor( state ) {
+	if ( 'pending' === state ) { return t( 'requested', 'Requested' ); }
+	return 'following' === state ? t( 'following', 'Following' ) : t( 'follow', 'Follow' );
+}
+
+/* Paint a Follow button from its state. Used both for the initial render in
+ * buildCard() and after a delegated toggle — one painter, so server-equivalent
+ * styling stays consistent. */
+function paintFollowBtn( btn, state ) {
 	if ( ! btn ) { return; }
-	btn.textContent = isFollowing ? t( 'following', 'Following' ) : t( 'follow', 'Follow' );
-	btn.setAttribute( 'data-variant', isFollowing ? 'secondary' : 'primary' );
-	btn.setAttribute( 'data-state',   isFollowing ? 'following' : 'unfollowed' );
+	btn.textContent = followLabelFor( state );
+	btn.setAttribute( 'data-variant', 'unfollowed' === state ? 'primary' : 'secondary' );
+	btn.setAttribute( 'data-state', state );
+	if ( 'pending' === state ) {
+		btn.setAttribute( 'aria-label', t( 'ariaCancelRequest', 'Cancel follow request' ) );
+	} else {
+		btn.removeAttribute( 'aria-label' );
+	}
+}
+
+/* Send one follow change and toast the outcome, for both card renderers. Only the
+ * server knows whether a follow landed or waits for the owner's approval, so the
+ * caller repaints from what this returns, never ahead of it. A member who cancels
+ * or unfollows ends unfollowed; a refusal keeps the state they had.
+ *
+ * @return {Promise<string>} The Follow control's state now.
+ */
+async function sendFollow( uid, handle, state, cfg ) {
+	const res = await restFetch( '/users/' + uid + '/follow', {
+		method: 'unfollowed' === state ? 'POST' : 'DELETE', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
+	} );
+	if ( ! res.ok ) {
+		toastRestError( res, 'following' === state
+			? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), handle )
+			: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), handle ) );
+		return state;
+	}
+	if ( 'following' === state ) {
+		bnToast( fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), handle ), { tone: 'info' } );
+		return 'unfollowed';
+	}
+	if ( 'pending' === state ) {
+		bnToast( fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), handle ), { tone: 'info' } );
+		return 'unfollowed';
+	}
+	if ( res.data && res.data.pending ) {
+		bnToast( fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), handle ), { tone: 'success' } );
+		return 'pending';
+	}
+	bnToast( fmt( t( 'toastNowFollowing', 'Now following @%s' ), handle ), { tone: 'success' } );
+	return 'following';
 }
 
 /* Paint a Connect primary button (label / visibility / state) from a connection
@@ -512,37 +573,24 @@ function paintConnectBtn( btn, state ) {
  * runtime nodes the Interactivity API cannot hydrate. Mirrors the server-card
  * actions (toggleFollow/toggleConnection/…) one-for-one. */
 
-function cardName( card ) {
-	return card.dataset.displayName || t( 'memberFallback', 'member' );
+/* The public @handle every toast names, never the display name. */
+function cardHandle( card ) {
+	return card.dataset.handle || t( 'memberFallback', 'member' );
 }
 
 async function delegatedFollow( card, btn, cfg ) {
-	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
-	const name = cardName( card );
-	const was  = card.dataset.following === '1';
-	card.dataset.following = was ? '0' : '1';
-	paintFollowBtn( btn, ! was );
-	const res = await restFetch( '/users/' + uid + '/follow', {
-		method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
-	} );
-	if ( res.ok ) {
-		bnToast( was ? fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), name ) : fmt( t( 'toastNowFollowing', 'Now following @%s' ), name ), { tone: 'success' } );
-		return;
-	}
-	// Failed: roll the optimistic paint back. rest-client already surfaced the
-	// "review your account status" toast for a hold/suspension refusal, so only add
-	// the generic retry toast otherwise — a suspended member must not be told to
-	// "try again" at a follow that can never succeed (card 10264293681).
-	card.dataset.following = was ? '1' : '0';
-	paintFollowBtn( btn, was );
-	if ( ! res.suspended ) {
-		toastRestError( res, was ? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name ) : fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ) );
-	}
+	const uid = parseInt( card.dataset.userId, 10 ) || 0;
+	btn.disabled = true;
+	btn.setAttribute( 'aria-busy', 'true' );
+	card.dataset.followState = await sendFollow( uid, cardHandle( card ), card.dataset.followState, cfg );
+	paintFollowBtn( btn, card.dataset.followState );
+	btn.disabled = false;
+	btn.removeAttribute( 'aria-busy' );
 }
 
 async function delegatedConnect( card, btn, cfg ) {
 	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
-	const name = cardName( card );
+	const name = cardHandle( card );
 	const cur  = card.dataset.connection || 'none';
 	const endpoint = '/users/' + uid + '/connect';
 	if ( cur === 'pending-received' ) { return; }
@@ -587,7 +635,7 @@ async function delegatedConnect( card, btn, cfg ) {
 
 async function delegatedDecide( card, accept, cfg ) {
 	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
-	const name = cardName( card );
+	const name = cardHandle( card );
 	const prev = card.dataset.connection || 'pending-received';
 	const decideWrap = card.querySelector( '.bn-md-card__connect-decide' );
 	const primaryBtn = card.querySelector( '.bn-md-card__connect-primary' );
@@ -626,7 +674,7 @@ function delegatedCloseKebab( card ) {
 
 async function delegatedMute( card, btn, cfg ) {
 	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
-	const name = cardName( card );
+	const name = cardHandle( card );
 	const was  = card.dataset.muted === '1';
 	delegatedCloseKebab( card );
 	card.dataset.muted = was ? '0' : '1';
@@ -768,9 +816,10 @@ const membersStore = store( 'buddynext/members', {
 			return !! ctx.loading || !! ctx.hasError || !! ctx.isEmpty;
 		},
 
-		get cardFollowVariant() { return getContext().isFollowing ? 'secondary' : 'primary'; },
-		get cardFollowState()   { return getContext().isFollowing ? 'following' : 'unfollowed'; },
-		get cardFollowLabel()   { return getContext().isFollowing ? t( 'following', 'Following' ) : t( 'follow', 'Follow' ); },
+		get cardFollowState()   { const c = getContext(); return followStateOf( c.isFollowing, c.followPending ); },
+		get cardFollowVariant() { const c = getContext(); return c.isFollowing || c.followPending ? 'secondary' : 'primary'; },
+		get cardFollowLabel()   { const c = getContext(); return followLabelFor( followStateOf( c.isFollowing, c.followPending ) ); },
+		get cardFollowAria()    { return getContext().followPending ? t( 'ariaCancelRequest', 'Cancel follow request' ) : undefined; },
 
 		// Every connection state renders secondary; the state itself is carried by
 		// data-state, which is what the CSS varies on. This read as a branch with
@@ -989,43 +1038,21 @@ const membersStore = store( 'buddynext/members', {
 		/* -- Card actions (server-rendered, hydrated cards) ------------ */
 
 		async toggleFollow() {
-			const ctx     = getContext();
+			const ctx = getContext();
 			if ( ctx.busy ) { return; }
-			const wasFollow = !! ctx.isFollowing;
-			const name    = ctx.displayName || t( 'memberFallback', 'member' );
 			ctx.busy = true;
-			ctx.isFollowing = ! wasFollow;
-			try {
-				const res = await restFetch( '/users/' + ctx.userId + '/follow', {
-					method:       wasFollow ? 'DELETE' : 'POST',
-					base:         ctx.restUrl || undefined,
-					nonce:        restNonce( ctx ),
-					toastOnError: false,
-				} );
-				if ( res.ok ) {
-					bnToast(
-						wasFollow ? fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), name ) : fmt( t( 'toastNowFollowing', 'Now following @%s' ), name ),
-						{ tone: 'success' }
-					);
-				} else {
-					ctx.isFollowing = wasFollow;
-					toastRestError(
-						res,
-						wasFollow
-							? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name )
-							: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name )
-					);
-				}
-			} finally {
-				ctx.busy = false;
-			}
+			const was = followStateOf( ctx.isFollowing, ctx.followPending );
+			const now = await sendFollow( ctx.userId, ctx.handle || t( 'memberFallback', 'member' ), was, { restUrl: ctx.restUrl, restNonce: restNonce( ctx ) } );
+			ctx.isFollowing   = 'following' === now;
+			ctx.followPending = 'pending' === now;
+			ctx.busy = false;
 		},
 
 		async toggleConnection() {
 			const ctx  = getContext();
 			if ( ctx.busy ) { return; }
 			const cur  = ctx.connection || 'none';
-			const name = ctx.displayName || t( 'memberFallback', 'member' );
+			const name = ctx.handle || t( 'memberFallback', 'member' );
 			if ( cur === 'pending-received' ) { return; }
 			if ( cur === 'none' ) {
 				// LinkedIn-style optional note. Cancelling leaves the button as-is.
@@ -1104,7 +1131,7 @@ const membersStore = store( 'buddynext/members', {
 		async acceptConnection() {
 			const ctx  = getContext();
 			if ( ctx.busy ) { return; }
-			const name = ctx.displayName || t( 'memberFallback', 'member' );
+			const name = ctx.handle || t( 'memberFallback', 'member' );
 			const prev = ctx.connection;
 			ctx.busy = true;
 			ctx.connection = 'accepted';
@@ -1128,7 +1155,7 @@ const membersStore = store( 'buddynext/members', {
 		async declineConnection() {
 			const ctx  = getContext();
 			if ( ctx.busy ) { return; }
-			const name = ctx.displayName || t( 'memberFallback', 'member' );
+			const name = ctx.handle || t( 'memberFallback', 'member' );
 			const prev = ctx.connection;
 			ctx.busy = true;
 			ctx.connection = 'none';
@@ -1179,7 +1206,7 @@ const membersStore = store( 'buddynext/members', {
 
 		async toggleMute() {
 			const ctx  = getContext();
-			const name = ctx.displayName || t( 'memberFallback', 'member' );
+			const name = ctx.handle || t( 'memberFallback', 'member' );
 			const was  = !! ctx.isMuted;
 			ctx.isMuted  = ! was;
 			ctx.menuOpen = false;

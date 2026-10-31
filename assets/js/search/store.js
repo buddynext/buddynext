@@ -1,6 +1,7 @@
 /* BuddyNext — Search Results Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch, toastRestError } from '@buddynext/rest-client';
+import { bnToast } from '@buddynext/shell-dialog';
 import { onNavReady } from '@buddynext/nav-init';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -21,29 +22,40 @@ const searchStore = store( 'buddynext/search', {
 		get hasSaved() {
 			return Array.isArray( state.savedSearches ) && state.savedSearches.length > 0;
 		},
+		get rowFollowPressed() { const c = getContext(); return !! c.following || !! c.pending; },
+		get rowFollowVariant() { const c = getContext(); return c.following || c.pending ? 'secondary' : 'primary'; },
 	},
 	actions: {
-		/* Follow / unfollow a member. State is single-source on the row's
-		   context (ctx.following); the button label + variant + aria-pressed
-		   all bind to it in the template, so the handler only flips the flag
-		   and reverts it if the REST call fails — no DOM paint loop. */
+		/* Follow / unfollow a member, or send / cancel a request to a private
+		   account. State is single-source on the row's context; the template binds
+		   to it. Only the server knows whether a follow landed or waits for
+		   approval, so the state changes when it answers. */
 		* toggleFollow() {
 			const ctx = getContext();
-			if ( ! ctx.restNonce || ! ctx.userId ) { return; }
+			if ( ! ctx.restNonce || ! ctx.userId || ctx.busy ) { return; }
 			const wasFollowing = !! ctx.following;
-			ctx.following = ! wasFollowing;
+			const wasPending   = !! ctx.pending;
+			ctx.busy = true;
 			try {
 				const res = yield restFetch( '/users/' + ctx.userId + '/follow', {
-					method: wasFollowing ? 'DELETE' : 'POST',
+					method: wasFollowing || wasPending ? 'DELETE' : 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					ctx.following = wasFollowing;
 					toastRestError( res, t( 'followFailed', 'Could not update this follow. Try again.' ) );
+					return;
 				}
-			} catch ( _e ) {
-				ctx.following = wasFollowing;
+				const requested = ! wasFollowing && ! wasPending && !! ( res.data && res.data.pending );
+				ctx.pending   = requested;
+				ctx.following = ! wasFollowing && ! wasPending && ! requested;
+				let msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), ctx.handle );
+				if ( wasFollowing ) { msg = fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), ctx.handle ); }
+				if ( wasPending ) { msg = fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), ctx.handle ); }
+				if ( requested ) { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), ctx.handle ); }
+				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 

@@ -238,6 +238,17 @@ $bn_pa_mention_url = add_query_arg( 'mention', rawurlencode( $bn_pa_slug ), \Bud
 		}
 		?>
 
+		<?php
+		$bn_pa_social = buddynext_service( 'privacy' )->social_state_for( $bn_pa_viewer, array( $bn_pa_uid ) )[ $bn_pa_uid ];
+		buddynext_get_template(
+			'partials/social-upgrade-link.php',
+			array(
+				'url'   => $bn_pa_social['upgrade_url'],
+				'label' => $bn_pa_social['upgrade_label'],
+			)
+		);
+		?>
+
 		<?php // Connection state. No shared partial models this one, so it stays on the profile store. ?>
 		<?php if ( $bn_pa_can_conn || $bn_pa_connected || $bn_pa_conn_pend || $bn_pa_conn_recv ) : ?>
 			<button class="bn-btn" data-variant="secondary" data-size="sm"

@@ -126,6 +126,8 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 			$bio_raw      = (string) ( $person['bio'] ?? '' );
 			$profile_url  = (string) ( $person['profile_url'] ?? '' );
 			$is_following = ! empty( $person['is_following'] );
+			$bn_sr_social = (array) ( $person['social'] ?? array() );
+			$is_pending   = ! empty( $bn_sr_social['is_pending'] );
 			$is_self      = ! empty( $person['is_self'] );
 			?>
 			<article class="bn-card bn-search-row bn-search-row--member" data-interactive data-wp-key="member-<?php echo (int) $pid; ?>"
@@ -135,7 +137,9 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 					(string) wp_json_encode(
 						array(
 							'userId'    => $pid,
+							'handle'    => (string) ( $person['handle'] ?? '' ),
 							'following' => $is_following,
+							'pending'   => $is_pending,
 						)
 					)
 				);
@@ -163,17 +167,31 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 						<?php endif; ?>
 					</span>
 				</a>
-				<?php if ( $bn_viewer_id && ! $is_self ) : ?>
+				<?php if ( ! empty( $bn_sr_social['can_follow'] ) || $is_following || $is_pending ) : ?>
 					<button type="button"
 						class="bn-btn"
 						data-wp-class--following="context.following"
-						data-variant="<?php echo $is_following ? 'secondary' : 'primary'; ?>"
+						data-variant="<?php echo $is_following || $is_pending ? 'secondary' : 'primary'; ?>"
+						data-wp-bind--data-variant="state.rowFollowVariant"
 						data-size="sm"
 						data-wp-on--click="actions.toggleFollow"
-						data-wp-bind--aria-pressed="context.following">
-						<span data-wp-bind--hidden="context.following"><?php esc_html_e( 'Follow', 'buddynext' ); ?></span>
-						<span hidden data-wp-bind--hidden="!context.following"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+						data-wp-bind--disabled="context.busy"
+						data-wp-bind--aria-busy="context.busy"
+						data-wp-bind--aria-pressed="state.rowFollowPressed">
+						<span <?php echo $is_following || $is_pending ? 'hidden' : ''; ?> data-wp-bind--hidden="state.rowFollowPressed"><?php esc_html_e( 'Follow', 'buddynext' ); ?></span>
+						<span <?php echo $is_following ? '' : 'hidden'; ?> data-wp-bind--hidden="!context.following"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+						<span <?php echo $is_pending ? '' : 'hidden'; ?> data-wp-bind--hidden="!context.pending"><?php esc_html_e( 'Requested', 'buddynext' ); ?></span>
 					</button>
+				<?php else : ?>
+					<?php
+					buddynext_get_template(
+						'partials/social-upgrade-link.php',
+						array(
+							'url'   => $bn_sr_social['upgrade_url'] ?? '',
+							'label' => $bn_sr_social['upgrade_label'] ?? '',
+						)
+					);
+					?>
 				<?php endif; ?>
 			</article>
 		<?php endforeach; ?>

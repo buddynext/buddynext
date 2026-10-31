@@ -255,22 +255,14 @@ class MemberDirectoryController extends BaseRestController {
 			)
 		);
 
-		$following_set  = array();
-		$connection_map = array();
-		$blocked_either = array();
-		$muted_set      = array();
+		$social    = array();
+		$muted_set = array();
 		if ( $page_ids ) {
 			\BuddyNext\Profile\AvatarService::prime( $page_ids );
 			update_meta_cache( 'user', $page_ids );
 
+			$social = buddynext_service( 'privacy' )->social_state_for( $viewer_id, $page_ids );
 			if ( $viewer_id > 0 ) {
-				// following_map() returns target_id => bool and KEEPS the false entries;
-				// array_filter() reduces to the truthy keys so shape_item()'s isset()
-				// check does not read every member on the page as followed. Page-scoped,
-				// like statuses_for() / blocking_either_map() / muted_map() beside it.
-				$following_set  = array_filter( buddynext_service( 'follows' )->following_map( $viewer_id, $page_ids ) );
-				$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $page_ids );
-				$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $page_ids );
 				// The kebab "Mute/Unmute" label reads item.is_muted; without priming it
 				// a reactive card always rendered "Mute" and then un-muted a member it
 				// had just offered to mute. Page-scoped, one query.
@@ -291,7 +283,7 @@ class MemberDirectoryController extends BaseRestController {
 		}
 
 		return array_map(
-			fn( $row ) => $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set ),
+			fn( $row ) => $this->shape_item( $row, $viewer_id, $social, $muted_set ),
 			$rows
 		);
 	}
@@ -323,25 +315,13 @@ class MemberDirectoryController extends BaseRestController {
 		\BuddyNext\Profile\AvatarService::prime( $ids );
 		update_meta_cache( 'user', $ids );
 
-		$following_set  = array();
-		$connection_map = array();
-		$blocked_either = array();
-		$muted_set      = array();
+		$social    = buddynext_service( 'privacy' )->social_state_for( $viewer_id, $ids );
+		$muted_set = array();
 		if ( $viewer_id > 0 ) {
-			$following_set  = array_filter( buddynext_service( 'follows' )->following_map( $viewer_id, $ids ) );
-			$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $ids );
-			$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $ids );
-			$muted_set      = buddynext_service( 'blocks' )->muted_map( $viewer_id, $ids );
+			$muted_set = buddynext_service( 'blocks' )->muted_map( $viewer_id, $ids );
 			// Primes the reported state shape_item() reads, one query for the page.
 			buddynext_service( 'moderation' )->user_reported_map( $viewer_id, 'user', $ids );
 		}
-
-		// A suspended viewer keeps read access but loses every write affordance, so
-		// the interaction controls (follow / connect / message) must not render.
-		// Resolved once here (not per row) through buddynext_can() - the same seam
-		// the write services enforce on - so a control cannot show on the directory
-		// while the action 403s, and cannot drift from the profile surface.
-		$viewer_may_interact = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-connections/follow' );
 
 		/** Mirror the directory prime hook so Pro add-ons batch their per-member data. */
 		do_action( 'buddynext_directory_members_primed', $ids, $viewer_id );
@@ -370,7 +350,7 @@ class MemberDirectoryController extends BaseRestController {
 				'follower_count'          => '' === $follower_meta ? 0 : (int) $follower_meta,
 				'mutual_connection_count' => count( (array) ( $mutual[ $uid ] ?? array() ) ),
 			);
-			$items[]       = $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set, $viewer_may_interact );
+			$items[]       = $this->shape_item( $row, $viewer_id, $social, $muted_set );
 		}
 
 		return $items;
@@ -381,14 +361,11 @@ class MemberDirectoryController extends BaseRestController {
 	 *
 	 * @param array<string, mixed> $row            Raw service row.
 	 * @param int                  $viewer_id      Current viewer.
-	 * @param array<int, true>     $following_set  Viewer→followed lookup (uid keyed).
-	 * @param array<int, string>   $connection_map Viewer↔peer status, peer-uid keyed.
-	 * @param array<int, true>     $blocked_either Peers in a block relationship with the viewer.
+	 * @param array<int, array>    $social         PrivacyService::social_state_for() for the page.
 	 * @param array<int, true>     $muted_set      Peers the viewer has muted (uid keyed).
-	 * @param bool                 $viewer_may_interact Whether the viewer may send write interactions (false when suspended); gates the follow/connect/message affordances.
 	 * @return array<string, mixed>
 	 */
-	private function shape_item( array $row, int $viewer_id, array $following_set = array(), array $connection_map = array(), array $blocked_either = array(), array $muted_set = array(), bool $viewer_may_interact = true ): array {
+	private function shape_item( array $row, int $viewer_id, array $social = array(), array $muted_set = array() ): array {
 		$uid          = (int) ( $row['user_id'] ?? 0 );
 		$display_name = (string) ( $row['display_name'] ?? '' );
 		$user         = get_user_by( 'id', $uid );
@@ -422,48 +399,17 @@ class MemberDirectoryController extends BaseRestController {
 		$mt_service   = buddynext_service( 'member_types' );
 		$member_badge = ( $mt_service instanceof MemberTypeService ) ? $mt_service->badge_for( $uid ) : null;
 
-		// Follow / connection state — read from the page-level maps primed in
-		// list_members(), so no per-row query is issued here.
-		$is_following = false;
-		$conn_status  = null;
+		// Follow, connection and plan state, the same answer the server card renders.
+		$state        = $social[ $uid ] ?? \BuddyNext\SocialGraph\PrivacyService::NO_SOCIAL_STATE;
 		$is_self      = ( $viewer_id === $uid );
+		$can_interact = (bool) $state['may_interact'];
 		$messages_url = '';
-		$can_interact = ( $viewer_may_interact && ! $is_self );
 
 		if ( $can_interact ) {
-			$is_following = isset( $following_set[ $uid ] );
-			$conn_status  = $connection_map[ $uid ] ?? null;
 			// Only while messaging is on, so the directory never offers a dead end.
 			$messages_url = \BuddyNext\Messages\MessagesData::entry_enabled()
 				? add_query_arg( array( 'recipient' => $uid ), PageRouter::messages_url() )
 				: '';
-		}
-
-		// Skip rows where viewer has blocked the user or vice-versa.
-		$is_blocked_pair = ( $viewer_id > 0 && isset( $blocked_either[ $uid ] ) );
-		if ( $is_blocked_pair ) {
-			$is_following = false;
-			$conn_status  = null;
-		}
-
-		// Privacy-gated affordances — mirror PrivacyService::can_follow/can_connect
-		// so the JS-rendered card hides the same CTAs the server template does
-		// (who_can_follow 'nobody' or who_can_connect 'nobody'/'followers' must not
-		// offer an action the target forbids). Reads the page-primed usermeta, so
-		// no per-row query is added.
-		$can_follow  = false;
-		$can_connect = false;
-		if ( $can_interact && ! $is_blocked_pair ) {
-			$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
-			if ( $privacy && method_exists( $privacy, 'get_preference' ) ) {
-				$can_follow   = 'everyone' === $privacy->get_preference( $uid, 'who_can_follow' );
-				$connect_pref = $privacy->get_preference( $uid, 'who_can_connect' );
-				$can_connect  = 'everyone' === $connect_pref
-					|| ( 'followers' === $connect_pref && $is_following );
-			} else {
-				$can_follow  = true;
-				$can_connect = true;
-			}
 		}
 
 		$item = array(
@@ -507,9 +453,13 @@ class MemberDirectoryController extends BaseRestController {
 			),
 			'is_self'        => $is_self,
 			'can_interact'   => $can_interact,
-			'can_follow'     => $can_follow,
-			'can_connect'    => $can_connect,
-			'is_following'   => $is_following,
+			'can_follow'     => (bool) $state['can_follow'],
+			'can_connect'    => (bool) $state['can_connect'],
+			'is_following'   => (bool) $state['is_following'],
+			'is_pending'     => (bool) $state['is_pending'],
+			// Set when the viewer's own plan is what withholds the action.
+			'upgrade_url'    => (string) $state['upgrade_url'],
+			'upgrade_label'  => (string) $state['upgrade_label'],
 			// Parity with SSR (member-card.php). Without it the reactive card fell
 			// back to "not muted" for everyone: dataset.muted was hardcoded '0' and
 			// the kebab always read "Mute" — so muting a member you had already muted
@@ -517,7 +467,7 @@ class MemberDirectoryController extends BaseRestController {
 			'is_muted'       => isset( $muted_set[ $uid ] ),
 			// Parity with SSR: the card menu shows "Reported" once the viewer reported this member.
 			'has_reported'   => $viewer_id > 0 && buddynext_service( 'moderation' )->user_has_reported( $viewer_id, 'user', $uid ),
-			'connection'     => $this->shape_connection_state( $conn_status ),
+			'connection'     => $this->shape_connection_state( $state['connection'] ),
 		);
 
 		/**

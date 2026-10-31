@@ -1749,10 +1749,6 @@ class SearchService {
 	 * @return array[] Each row: id, name, initials, bio, profile_url, is_following, is_self.
 	 */
 	private function enrich_members( array $user_ids, int $viewer_id ): array {
-		$following = ( $viewer_id > 0 )
-			? buddynext_service( 'follows' )->following_map( $viewer_id, $user_ids )
-			: array();
-
 		// Prime the user + usermeta caches in two batched queries so the loop's
 		// per-row get_userdata() / get_user_meta() reads hit cache (was an N+1).
 		if ( ! empty( $user_ids ) ) {
@@ -1761,6 +1757,7 @@ class SearchService {
 		}
 
 		$identity = buddynext_service( 'profiles' )->card_identity_for( $viewer_id, $user_ids );
+		$social   = buddynext_service( 'privacy' )->social_state_for( $viewer_id, $user_ids );
 
 		$rows = array();
 		foreach ( $user_ids as $uid ) {
@@ -1773,8 +1770,10 @@ class SearchService {
 				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
 				'bio'          => (string) ( $identity[ $uid ]['bio'] ?? '' ),
 				'profile_url'  => (string) \BuddyNext\Core\PageRouter::profile_url( $uid ),
+				'handle'       => \BuddyNext\Core\PageRouter::member_handle( (int) $uid ),
 				'is_self'      => ( $uid === $viewer_id ),
-				'is_following' => ! empty( $following[ $uid ] ),
+				'social'       => $social[ $uid ] ?? \BuddyNext\SocialGraph\PrivacyService::NO_SOCIAL_STATE,
+				'is_following' => ! empty( $social[ $uid ]['is_following'] ),
 			);
 		}
 

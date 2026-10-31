@@ -142,10 +142,17 @@ const followButtonStore = store( 'buddynext/follow-button', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw res; }
+				// The server has the last word: the account may have gone private (or
+				// public) since this page was drawn.
+				const requested = ! wasFollowing && ! wasPending && !! ( res.data && res.data.pending );
+				if ( ! wasFollowing && ! wasPending ) {
+					ctx.isPending   = requested;
+					ctx.isFollowing = ! requested;
+				}
 				let msg;
 				if ( wasFollowing )      { msg = fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), target ); }
 				else if ( wasPending )   { msg = fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), target ); }
-				else if ( usePending )   { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
+				else if ( requested )    { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
 				else                     { msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), target ); }
 				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
 			} catch ( e ) {

@@ -19,7 +19,7 @@ Each part documents its `$args` keys and the hooks it fires in its PHP file head
 
 ## The member card
 
-`templates/parts/member-card.php` is the high-value reusable card (avatar, name, handle, type badge, bio, mutual-connection count, the Follow / 5-state Connect / Message / kebab action cluster), shared by the member directory, search results, and space-members panels. It exposes the full four-hook contract. Its `$args` carry, among others: `member` (the `WP_User`), `viewer_id`, `is_following`, `connection_state`, `mutual_count`, `member_type_label`, `bio`, `profile_url`, `avatar_url`, and `classes`.
+`templates/parts/member-card.php` is the high-value reusable card (avatar, name, handle, type badge, bio, mutual-connection count, the Follow / 5-state Connect / Message / kebab action cluster), shared by the member directory, search results, and space-members panels. It exposes the full four-hook contract. Its `$args` carry, among others: `member` (the `WP_User`), `viewer_id`, `is_following`, `social` (the viewer's follow, connect and plan answer from `PrivacyService::social_state_for()`), `connection_state`, `mutual_count`, `member_type_label`, `bio`, `profile_url`, `avatar_url`, and `classes`.
 
 ### Worked example: add a badge to the member card
 

@@ -1938,6 +1938,12 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	justify-content: center;
 }
 
+/* A control waiting for the server's answer. */
+.bn-btn[aria-busy="true"] {
+	opacity: 0.6;
+	cursor: progress;
+}
+
 .bn-btn-primary {
 	background: var(--brand);
 	color: var(--white);

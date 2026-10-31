@@ -155,11 +155,6 @@ $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 $bn_member_ids = array_map( static fn( $m ) => (int) $m->ID, (array) $members );
 $bn_blocks_svc = buddynext_service( 'blocks' );
 
-// Follow-state map (target_id => bool) in one query.
-$bn_following_map = $current_user_id > 0
-	? buddynext_service( 'follows' )->following_map( $current_user_id, $bn_member_ids )
-	: array();
-
 // Prime the viewer→peer block-restrict cache so the per-card restrict gate is a
 // cache hit, not a query; build the online subset (one bounded bn_presence IN,
 // replacing the per-card last_active_at lookup) and the mutual-connection peer map
@@ -189,10 +184,6 @@ $bn_mutual_ids = static function ( int $user_a, int $user_b ) use ( $bn_mutual_m
 	return ( 0 === $user_a || 0 === $user_b || $user_a === $user_b )
 		? array()
 		: ( $bn_mutual_map[ $user_b ] ?? array() );
-};
-
-$bn_is_following = static function ( int $target_user_id ) use ( $bn_following_map ): bool {
-	return ! empty( $bn_following_map[ $target_user_id ] );
 };
 
 // ── Page URLs ─────────────────────────────────────────────────────────────
@@ -399,15 +390,14 @@ if ( $current_user_id > 0 ) {
 	buddynext_get_template(
 		'parts/member-directory-grid.php',
 		array(
-			'members'         => $members,
-			'viewer_id'       => $current_user_id,
-			'view_mode'       => 'grid',
-			'avatar_tones'    => $bn_avatar_tones,
-			'type_map'        => $type_map,
-			'messages_base'   => $bn_messages_base,
-			'is_online_fn'    => $bn_is_online,
-			'is_following_fn' => $bn_is_following,
-			'mutual_ids_fn'   => $bn_mutual_ids,
+			'members'       => $members,
+			'viewer_id'     => $current_user_id,
+			'view_mode'     => 'grid',
+			'avatar_tones'  => $bn_avatar_tones,
+			'type_map'      => $type_map,
+			'messages_base' => $bn_messages_base,
+			'is_online_fn'  => $bn_is_online,
+			'mutual_ids_fn' => $bn_mutual_ids,
 		)
 	);
 

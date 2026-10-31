@@ -346,7 +346,13 @@ export function restError( res, fallback ) {
  */
 export function toastRestError( res, fallback ) {
 	if ( ! res || ! res.suspended ) {
-		bnToast( restError( res, fallback ), { tone: 'danger' } );
+		// A plan refusal carries where to go next (Pro's upgrade_url).
+		const info = ( res && res.data && res.data.data ) || {};
+		const i18n = ( window.bnShellData && window.bnShellData.i18n ) || {};
+		bnToast( restError( res, fallback ), {
+			tone: 'danger',
+			...( info.upgrade_url ? { action: { href: info.upgrade_url, label: i18n.upgrade || 'Upgrade' } } : {} ),
+		} );
 	}
 }
 
