@@ -325,6 +325,15 @@ function buildCard( item ) {
 
 	body.appendChild( identity );
 
+	// Add-on chips (Pro member labels): the server card prints these through
+	// buddynext_member_card_meta_html, in the same place.
+	if ( Array.isArray( item.labels ) && item.labels.length ) {
+		const overlay = document.createElement( 'div' );
+		overlay.className = 'bn-md-card__meta-overlay';
+		overlay.appendChild( buildLabels( item.labels ) );
+		body.appendChild( overlay );
+	}
+
 	// Member type badge — mirrors the server member-card.php: optional SVG icon
 	// (server-sanitised via MemberTypeService::render_icon_svg) before the name.
 	if ( item.member_type && item.member_type.name ) {
@@ -434,6 +443,40 @@ function buildCard( item ) {
 	article.appendChild( body );
 
 	return article;
+}
+
+/* Member-label chips, matching ProfileLabelInjector::render_chips(): the first
+ * three, then a "+N" chip. text_color and icon_svg come from the server, which
+ * owns the contrast rule and the icon set. */
+function buildLabels( labels ) {
+	const CHIP_CAP = 3;
+	const wrap = document.createElement( 'span' );
+	wrap.className = 'bn-member-labels';
+	const chip = ( text ) => {
+		const el = document.createElement( 'span' );
+		el.className = 'bn-badge bn-member-label';
+		el.setAttribute( 'data-tone', 'accent' );
+		el.append( text );
+		return el;
+	};
+	labels.slice( 0, CHIP_CAP ).forEach( ( label ) => {
+		const el = chip( label.name || '' );
+		el.setAttribute( 'data-label-slug', label.slug || '' );
+		if ( label.color ) {
+			el.style.background  = label.color;
+			el.style.color       = label.text_color || '';
+			el.style.borderColor = 'transparent';
+		}
+		// Rendered by IconService from a validated slug, never member input.
+		if ( label.icon_svg ) { el.insertAdjacentHTML( 'afterbegin', label.icon_svg ); }
+		wrap.appendChild( el );
+	} );
+	if ( labels.length > CHIP_CAP ) {
+		const more = chip( '+' + ( labels.length - CHIP_CAP ) );
+		more.classList.add( 'bn-member-label--more' );
+		wrap.appendChild( more );
+	}
+	return wrap;
 }
 
 /* Paint a Follow button's label + data-state/variant from a following flag.
