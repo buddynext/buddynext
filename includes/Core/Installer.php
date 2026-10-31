@@ -1069,6 +1069,13 @@ class Installer {
 			update_option( 'buddynext_email_defaults', self::EMAIL_DEFAULTS_VERSION, false );
 		}
 
+		// Search rows written before index_user() honoured visibility still hold hidden
+		// headlines and bios. Queued, once.
+		if ( ! get_option( 'buddynext_member_index_private_fields' ) ) {
+			\BuddyNext\Search\SearchService::schedule_reindex_all();
+			update_option( 'buddynext_member_index_private_fields', 1, false );
+		}
+
 		// Captured before run() below stamps buddynext_schema_version to the current
 		// value - a couple of the option-cleanup steps key on how far behind the
 		// site actually was, and would otherwise read the just-written new number.
@@ -4106,10 +4113,9 @@ class Installer {
 		 * of these from their own edit screen - the group stays `public`, which is
 		 * the ceiling that permits it.
 		 *
-		 * Headline and bio stay public because they are what a member wants found,
-		 * and index_user() has always indexed them regardless of the searchable
-		 * flag - making them members-only would leave that indexing writing to a
-		 * column nobody anonymous can read.
+		 * Headline and bio stay public because they are what a member wants found:
+		 * index_user() indexes them regardless of the searchable flag, in the tier
+		 * their visibility allows.
 		 *
 		 * FRESH INSTALLS ONLY, like the rest of this seeder. Nothing is rewritten
 		 * on an existing site: those fields keep whatever the owner has, and an

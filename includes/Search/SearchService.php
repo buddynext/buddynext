@@ -1760,6 +1760,8 @@ class SearchService {
 			update_meta_cache( 'user', $user_ids );
 		}
 
+		$identity = buddynext_service( 'profiles' )->card_identity_for( $viewer_id, $user_ids );
+
 		$rows = array();
 		foreach ( $user_ids as $uid ) {
 			$user = get_userdata( $uid );
@@ -1769,9 +1771,7 @@ class SearchService {
 				'id'           => $uid,
 				'name'         => $name,
 				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
-				// Read never written: see ProfileService::bios_for(). Members were never indexed by
-				// their bio, so nobody could be found by what they wrote about themselves.
-				'bio'          => buddynext_service( 'profiles' )->bio_for( $uid ),
+				'bio'          => (string) ( $identity[ $uid ]['bio'] ?? '' ),
 				'profile_url'  => (string) \BuddyNext\Core\PageRouter::profile_url( $uid ),
 				'is_self'      => ( $uid === $viewer_id ),
 				'is_following' => ! empty( $following[ $uid ] ),

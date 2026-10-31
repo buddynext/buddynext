@@ -26,7 +26,8 @@
  * @var string         $member_type_color  Optional. Owner-configured badge background. Default ''.
  * @var string         $member_type_text_color Optional. Owner-configured badge text colour. Default ''.
  * @var string         $avatar_tone        Optional. Avatar tone slot. Default 'accent'.
- * @var string         $bio                Optional. Pre-resolved bio string. Default ''.
+ * @var string         $headline           Optional. Headline the viewer may read. Default ''.
+ * @var string         $bio                Optional. Bio the viewer may read. Default ''.
  * @var string         $profile_url        Optional. Profile permalink. Default ''.
  * @var string         $avatar_url         Optional. Avatar URL. Default ''.
  * @var string         $initials           Optional. Initials fallback. Default ''.
@@ -68,6 +69,7 @@ $args = array(
 	'member_type_text_color' => isset( $member_type_text_color ) ? (string) $member_type_text_color : '',
 	'member_type_icon'       => isset( $member_type_icon ) ? (string) $member_type_icon : '',
 	'avatar_tone'            => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
+	'headline'               => isset( $headline ) ? (string) $headline : '',
 	'bio'                    => isset( $bio ) ? (string) $bio : '',
 	'profile_url'            => isset( $profile_url ) ? (string) $profile_url : '',
 	'cover_url'              => isset( $cover_url ) ? (string) $cover_url : '',
@@ -324,11 +326,10 @@ do_action( 'buddynext_part_member_card_before', $args );
 
 		<?php
 		// Profession/headline tagline — the single most identifying line on a
-		// member card (who this person is), mirroring the profile hero. Read from
-		// the bn_headline usermeta that ProfileService::save_profile() keeps in
-		// lockstep with the canonical value, so directory browsing isn't a wall of
-		// names with no context.
-		$bn_md_headline = (string) get_user_meta( $bn_member_id, 'bn_headline', true );
+		// member card (who this person is), mirroring the profile hero, so directory
+		// browsing isn't a wall of names with no context. Resolved by the caller
+		// (ProfileService::card_identity_for) so it honours the member's visibility.
+		$bn_md_headline = (string) $args['headline'];
 		if ( '' !== $bn_md_headline ) :
 			?>
 			<p class="bn-md-card__headline"><?php echo esc_html( $bn_md_headline ); ?></p>

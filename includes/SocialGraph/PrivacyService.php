@@ -283,17 +283,34 @@ class PrivacyService {
 			return false;
 		}
 
-		$visibility = $this->get_preference( $owner_id, 'profile_visibility' );
+		// Closures so a public profile answers without a follow or connection query.
+		return $this->profile_audience_allows(
+			$owner_id,
+			fn(): bool => $this->follows->is_following( $viewer_id, $owner_id ),
+			fn(): bool => $this->connections->are_connected( $viewer_id, $owner_id )
+		);
+	}
 
-		switch ( $visibility ) {
+	/**
+	 * Whether a viewer's relationship to a member satisfies that member's
+	 * profile_visibility. Separate from can_view_profile() so a list can answer it
+	 * from batched maps instead of one query per row.
+	 *
+	 * @param int      $owner_id     Profile owner.
+	 * @param callable $is_follower  Returns whether the viewer follows the owner.
+	 * @param callable $is_connected Returns whether the viewer is connected to the owner.
+	 * @return bool
+	 */
+	public function profile_audience_allows( int $owner_id, callable $is_follower, callable $is_connected ): bool {
+		switch ( $this->get_preference( $owner_id, 'profile_visibility' ) ) {
 			case 'public':
 				return true;
 
 			case 'followers':
-				return $this->follows->is_following( $viewer_id, $owner_id );
+				return (bool) $is_follower();
 
 			case 'connections':
-				return $this->connections->are_connected( $viewer_id, $owner_id );
+				return (bool) $is_connected();
 
 			default:
 				return false;

@@ -351,7 +351,7 @@ class MemberDirectoryController extends BaseRestController {
 			? $directory->online_among( $ids ) : array();
 		$mutual    = is_object( $directory ) && method_exists( $directory, 'mutual_peers_for_page' )
 			? $directory->mutual_peers_for_page( $viewer_id, $ids ) : array();
-		$bios      = buddynext_service( 'profiles' )->bios_for( $ids );
+		$identity  = buddynext_service( 'profiles' )->card_identity_for( $viewer_id, $ids );
 
 		$items = array();
 		foreach ( $ids as $uid ) {
@@ -364,7 +364,8 @@ class MemberDirectoryController extends BaseRestController {
 				'user_id'                 => $uid,
 				'display_name'            => (string) $user->display_name,
 				'avatar_url'              => get_avatar_url( $uid, array( 'size' => 96 ) ),
-				'bio'                     => (string) ( $bios[ $uid ] ?? '' ),
+				'headline'                => (string) ( $identity[ $uid ]['headline'] ?? '' ),
+				'bio'                     => (string) ( $identity[ $uid ]['bio'] ?? '' ),
 				'is_online'               => isset( $online[ $uid ] ),
 				'follower_count'          => '' === $follower_meta ? 0 : (int) $follower_meta,
 				'mutual_connection_count' => count( (array) ( $mutual[ $uid ] ?? array() ) ),
@@ -469,10 +470,9 @@ class MemberDirectoryController extends BaseRestController {
 			'user_id'        => $uid,
 			'display_name'   => $display_name,
 			'handle'         => $handle,
-			// Profession tagline for the card (matches member-card.php). The member
-			// IDs' usermeta is cache-warmed earlier in the request, so this is a
-			// cache hit, not an N+1.
-			'headline'       => (string) get_user_meta( $uid, 'bn_headline', true ),
+			// Profession tagline for the card (matches member-card.php), already
+			// reduced to what this viewer may read (ProfileService::card_identity_for).
+			'headline'       => (string) ( $row['headline'] ?? '' ),
 			'avatar_url'     => (string) ( $row['avatar_url'] ?? '' ),
 			// The member's real cover, so a directory card shows what their own
 			// profile shows. Without it every card fell back to the tone gradient

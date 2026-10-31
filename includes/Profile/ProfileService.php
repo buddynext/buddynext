@@ -2790,15 +2790,21 @@ class ProfileService {
 			return;
 		}
 
-		$parts    = array();
-		$headline = (string) get_user_meta( $user_id, 'bn_headline', true );
-		if ( '' !== $headline ) {
-			$parts[] = $headline;
-		}
-		// Read never written - the bio lives in bn_profile_values. See bios_for().
-		$bio = $this->bio_for( $user_id );
-		if ( '' !== $bio ) {
-			$parts[] = $bio;
+		$parts        = array();
+		$member_parts = array();
+		$identity     = $this->identity_rows( array( $user_id ) )[ $user_id ] ?? array();
+
+		// Same tiers as the mirrors below: a value hidden from strangers must not make
+		// its owner findable by searching for it.
+		foreach ( $identity as $field ) {
+			if ( '' === $field['value'] ) {
+				continue;
+			}
+			if ( 'public' === $field['visibility'] ) {
+				$parts[] = $field['value'];
+			} elseif ( 'members' === $field['visibility'] ) {
+				$member_parts[] = $field['value'];
+			}
 		}
 		// PUBLIC searchable field values → content (matched for everyone, including strangers).
 		// MEMBERS-tier values            → content_members (matched only for a logged-in viewer).
@@ -2806,8 +2812,7 @@ class ProfileService {
 		// Two columns, not one column plus a filter, because the anonymous query then never even
 		// NAMES content_members — the privacy boundary is structural instead of conditional, and
 		// there is no flag left to get wrong.
-		$member_parts = array();
-		$directory    = buddynext_service( 'member_directory' );
+		$directory = buddynext_service( 'member_directory' );
 		if ( is_object( $directory ) && method_exists( $directory, 'searchable_mirror_keys' ) ) {
 			foreach ( $directory->searchable_mirror_keys() as $mirror_key ) {
 				$mirror_val = (string) get_user_meta( $user_id, (string) $mirror_key, true );
@@ -2822,6 +2827,11 @@ class ProfileService {
 					$member_parts[] = $members_val;
 				}
 			}
+		}
+		// A profile closed to strangers keeps only its name in the index, whatever its fields say.
+		if ( 'public' !== buddynext_service( 'privacy' )->get_preference( $user_id, 'profile_visibility' ) ) {
+			$parts        = array();
+			$member_parts = array();
 		}
 		$content         = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
 		$content_members = trim( implode( ' ', array_values( array_unique( $member_parts ) ) ) );
@@ -4589,25 +4599,78 @@ class ProfileService {
 	}
 
 	/**
-	 * Bio text for a batch of members, read from where the bio actually lives.
+	 * Headline and bio of each member, as far as this viewer may read them.
 	 *
-	 * `bio` is a real bn_profile_fields row, so its value is in bn_profile_values. Four call
-	 * sites used to read get_user_meta( $uid, 'bn_field_bio' ) instead - a key nothing writes for
-	 * it. The bn_field_* usermeta is only written as a side effect of the search mirror, and the
-	 * mirror only runs for fields flagged is_searchable; the stock bio is is_searchable = 0. So
-	 * the key was never written and every one of those four surfaces showed an empty bio.
-	 * (Measured on a seeded site: 12 members with a bio in the table, 0 with the usermeta.)
+	 * The one reader for member lists: directory cards (SSR and REST), search rows,
+	 * blocks, sidebars. It applies the same two gates as the profile page, so a card
+	 * can never show what clicking through to the profile would hide: the owner's
+	 * profile_visibility (PrivacyService)
+	 * and each field's effective visibility against the viewer's rank (get_profile()).
 	 *
-	 * Whether a bio is SEARCHABLE and whether it is READABLE are two different questions. This is
-	 * the one reader they all share now, so they cannot drift apart again.
+	 * Batched: one values query plus one each for follows, connections and blocks,
+	 * however many members are on the page.
 	 *
-	 * The usermeta mirror is still honoured where a site has one - a virtual, code-registered bio
-	 * lives only in usermeta.
+	 * @param int             $viewer_id Viewer (0 = logged out).
+	 * @param array<int, int> $user_ids  Members to resolve.
+	 * @return array<int, array{headline: string, bio: string}> Hidden values are ''.
+	 */
+	public function card_identity_for( int $viewer_id, array $user_ids ): array {
+		$rows = $this->identity_rows( $user_ids );
+
+		if ( array() === $rows ) {
+			return array();
+		}
+
+		$ids         = array_keys( $rows );
+		$following   = array();
+		$connections = array();
+		$blocked     = array();
+
+		if ( $viewer_id > 0 ) {
+			$following   = buddynext_service( 'follows' )->following_map( $viewer_id, $ids );
+			$connections = buddynext_service( 'connections' )->statuses_for( $viewer_id, $ids );
+			$blocked     = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $ids );
+		}
+
+		$privacy = buddynext_service( 'privacy' );
+		// Who may edit any profile opens a closed one, as the profile page lets a site admin.
+		$viewer_edits_any = $viewer_id > 0 && buddynext_can( $viewer_id, 'buddynext-profile/edit-any' );
+		$out              = array();
+
+		foreach ( $rows as $uid => $fields ) {
+			$is_owner     = $uid === $viewer_id;
+			$is_follower  = ! empty( $following[ $uid ] );
+			$is_connected = 'accepted' === ( $connections[ $uid ] ?? '' );
+
+			$profile_open = $is_owner || $viewer_edits_any || (
+				empty( $blocked[ $uid ] )
+				&& $privacy->profile_audience_allows( $uid, static fn(): bool => $is_follower, static fn(): bool => $is_connected )
+			);
+
+			$viewer_rank = self::viewer_visibility_rank( $viewer_id > 0, $is_follower, $is_connected );
+
+			foreach ( $fields as $key => $field ) {
+				$readable = $is_owner || ( $profile_open && self::visibility_rank( $field['visibility'] ) <= $viewer_rank );
+
+				$out[ $uid ][ $key ] = $readable ? $field['value'] : '';
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Stored headline and bio of each member, with the visibility each one resolves to.
+	 *
+	 * Values come from bn_profile_values, where they actually live: the usermeta keys
+	 * are only a fallback, for a code-registered bio or a member whose only copy is
+	 * the older bn_headline / description key. A fallback value takes the same
+	 * visibility as the field, so hiding the field hides every copy.
 	 *
 	 * @param array<int, int> $user_ids Members to resolve.
-	 * @return array<int, string> user_id => bio text.
+	 * @return array<int, array{headline: array{value: string, visibility: string}, bio: array{value: string, visibility: string}}>
 	 */
-	public function bios_for( array $user_ids ): array {
+	private function identity_rows( array $user_ids ): array {
 		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
 
 		if ( empty( $user_ids ) ) {
@@ -4621,46 +4684,76 @@ class ProfileService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT v.user_id, v.value
-				   FROM {$wpdb->prefix}bn_profile_values v
-				   JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
-				  WHERE f.field_key = 'bio'
-				    AND v.entry_index = 0
-				    AND v.user_id IN ({$placeholders})",
+				"SELECT f.field_key, f.visibility, g.visibility AS group_visibility, g.type_restriction,
+				        v.user_id, v.value, v.entry_visibility
+				   FROM {$wpdb->prefix}bn_profile_fields f
+				   JOIN {$wpdb->prefix}bn_profile_groups g ON g.id = f.group_id
+				   LEFT JOIN {$wpdb->prefix}bn_profile_values v
+				          ON v.field_id = f.id AND v.entry_index = 0 AND v.user_id IN ({$placeholders})
+				  WHERE f.field_key IN ('headline', 'bio')",
 				...$user_ids
 			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
-		$out = array();
+		$defs   = array();
+		$stored = array();
 
 		foreach ( (array) $rows as $row ) {
-			$out[ (int) $row['user_id'] ] = (string) $row['value'];
+			$defs[ $row['field_key'] ] = $row;
+
+			if ( null !== $row['user_id'] ) {
+				$stored[ (int) $row['user_id'] ][ $row['field_key'] ] = $row;
+			}
 		}
 
 		// One query primes every member's meta; without it the loop below is an N+1.
 		\BuddyNext\Profile\AvatarService::prime( $user_ids );
 
+		$fallback_keys = array(
+			'headline' => array( 'bn_headline' ),
+			'bio'      => array( 'bn_field_bio', 'description' ),
+		);
+		$out           = array();
+
 		foreach ( $user_ids as $uid ) {
-			if ( '' === ( $out[ $uid ] ?? '' ) ) {
-				$mirror = get_user_meta( $uid, 'bn_field_bio', true );
-				if ( is_string( $mirror ) && '' !== $mirror ) {
-					$out[ $uid ] = $mirror;
+			foreach ( $fallback_keys as $key => $meta_keys ) {
+				$row   = $stored[ $uid ][ $key ] ?? null;
+				$value = (string) ( $row['value'] ?? '' );
+
+				foreach ( $meta_keys as $meta_key ) {
+					if ( '' === $value ) {
+						$value = (string) get_user_meta( $uid, $meta_key, true );
+					}
 				}
+
+				$def = $defs[ $key ] ?? array();
+
+				$visibility = $this->effective_visibility(
+					array(
+						'visibility'       => (string) ( $def['visibility'] ?? 'public' ),
+						'group_visibility' => (string) ( $def['group_visibility'] ?? 'public' ),
+					),
+					isset( $row['entry_visibility'] ) ? (string) $row['entry_visibility'] : null
+				);
+
+				// A group limited to a member type does not exist on other members' profiles.
+				$restriction = (string) ( $def['type_restriction'] ?? '' );
+				if ( '' !== $restriction && '' !== $value ) {
+					$type = buddynext_service( 'member_types' )->get_user_type( $uid );
+					if ( ! is_array( $type ) || (string) ( $type['slug'] ?? '' ) !== $restriction ) {
+						$value = '';
+					}
+				}
+
+				$out[ $uid ][ $key ] = array(
+					'value'      => $value,
+					'visibility' => $visibility,
+				);
 			}
 		}
 
 		return $out;
-	}
-
-	/**
-	 * Bio text for one member.
-	 *
-	 * @param int $user_id Member id.
-	 * @return string
-	 */
-	public function bio_for( int $user_id ): string {
-		return (string) ( $this->bios_for( array( $user_id ) )[ $user_id ] ?? '' );
 	}
 }

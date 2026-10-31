@@ -255,9 +255,12 @@ Follower, following, and connection totals are **denormalized into `wp_usermeta`
 
 A member is mirrored into the unified `bn_search_index` table (one row per object, `object_type = 'user'`) by `ProfileService::index_user( int $user_id )`. The indexed `content` is the member's `display_name` (as the title) plus the concatenation of:
 
-- the headline (`bn_headline` usermeta),
-- the bio (`bn_field_bio` usermeta), and
+- the headline and the bio, when their visibility is `public`, and
 - the public, searchable extended-profile field mirrors returned by `MemberDirectoryService::searchable_mirror_keys()`.
+
+A headline or bio visible to `members` goes to `content_members`, which only logged-in searches read. Anything tighter is not indexed, and a member whose `profile_visibility` is not `public` keeps only their name in the index.
+
+To show a headline or bio on a member list, read `ProfileService::card_identity_for( int $viewer_id, array $user_ids )`. It is batched and returns only what that viewer may read, so never read `bn_headline` or `bn_profile_values` directly for a list.
 
 Member-directory and global search then match against this row through the shared FULLTEXT primitive `SearchService::match_member_ids( string $term, int $limit = 500 )`, which uses the `ft_search` FULLTEXT index when present and falls back to `LIKE` otherwise, returning the matching `object_id` (user) list. Reuse `match_member_ids()` rather than writing your own query when you need a "members matching this term" id set.
 

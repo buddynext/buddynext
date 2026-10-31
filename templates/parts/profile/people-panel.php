@@ -46,7 +46,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 	// Batch-prime mutual-connection counts + headline for the whole request list,
 	// so a long pending queue (popular/private accounts) never fires a per-row
 	// mutual query. Mutual counts reuse the directory's one-query self-join; the
-	// headline reads from primed usermeta.
+	// headline is the batched read that honours the requester's visibility.
 	$bn_pp_ids = array();
 	foreach ( $bn_pp_pending as $bn_pp_u ) {
 		if ( $bn_pp_u instanceof WP_User ) {
@@ -59,6 +59,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 		$bn_pp_mutual = buddynext_service( 'connections' )->mutual_ids_for( $bn_pp_viewer, $bn_pp_ids );
 		update_meta_cache( 'user', $bn_pp_ids );
 	}
+	$bn_pp_identity = buddynext_service( 'profiles' )->card_identity_for( $bn_pp_viewer, $bn_pp_ids );
 	?>
 	<?php
 	// The section is the Interactivity region and holds the pending count; each
@@ -124,7 +125,7 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 						<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_pp_req->display_name ); ?></a>
 						<span class="bn-follow-requests__handle">@<?php echo esc_html( \BuddyNext\Core\PageRouter::member_handle( $bn_pp_rid ) ); ?></span>
 						<?php
-						$bn_pp_headline = (string) get_user_meta( $bn_pp_rid, 'bn_headline', true );
+						$bn_pp_headline = (string) ( $bn_pp_identity[ $bn_pp_rid ]['headline'] ?? '' );
 						if ( '' !== $bn_pp_headline ) :
 							?>
 							<span class="bn-follow-requests__headline"><?php echo esc_html( $bn_pp_headline ); ?></span>

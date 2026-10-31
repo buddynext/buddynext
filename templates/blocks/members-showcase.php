@@ -82,6 +82,10 @@ if ( 'picked' === $bn_ms_source ) {
 	$bn_ms_members = (array) ( $bn_ms_result['items'] ?? array() );
 }
 
+$bn_ms_identity = $bn_ms_headline
+	? buddynext_service( 'profiles' )->card_identity_for( $bn_ms_viewer, wp_list_pluck( $bn_ms_members, 'user_id' ) )
+	: array();
+
 // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- get_block_wrapper_attributes() escapes its own output.
 ?>
 <section 
@@ -124,7 +128,7 @@ echo get_block_wrapper_attributes(
 				$bn_ms_name   = (string) ( $bn_ms_member['display_name'] ?? '' );
 				$bn_ms_url    = (string) PageRouter::profile_url( $bn_ms_uid );
 				$bn_ms_avatar = (string) get_avatar_url( $bn_ms_uid, array( 'size' => 96 ) );
-				$bn_ms_head   = $bn_ms_headline ? trim( (string) get_user_meta( $bn_ms_uid, 'bn_headline', true ) ) : '';
+				$bn_ms_head   = trim( (string) ( $bn_ms_identity[ $bn_ms_uid ]['headline'] ?? '' ) );
 				$bn_ms_self   = ( $bn_ms_viewer > 0 && $bn_ms_viewer === $bn_ms_uid );
 				?>
 				<li class="bn-ms-item">

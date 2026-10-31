@@ -1086,10 +1086,9 @@ class ProfileController extends BaseRestController {
 			$profile['can_follow'] = false;
 		}
 		if ( ! isset( $profile['bio'] ) ) {
-			// The bio lives in bn_profile_values; the bn_field_bio usermeta is written by nothing
-			// (see ProfileService::bios_for). Reading it here handed the app an empty bio for
-			// every member - and BuddyNext is REST-first, so the app renders from exactly this.
-			$profile['bio'] = buddynext_service( 'profiles' )->bio_for( $profile_user_id );
+			// BuddyNext is REST-first, so the app renders from exactly this: it has to be the
+			// real bio, and only when the member's Bio visibility lets this viewer read it.
+			$profile['bio'] = $service->card_identity_for( $viewer_id, array( $profile_user_id ) )[ $profile_user_id ]['bio'] ?? '';
 		}
 
 		// Member type — a member's identity (Staff, Contributor, …) belongs on the

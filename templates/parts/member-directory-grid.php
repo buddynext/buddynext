@@ -170,15 +170,14 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 	data-wp-on--click="actions.onGridClick"
 	<?php echo empty( $bn_members ) ? 'hidden' : ''; ?>
 >
-	<?php \BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_members, 'ID' ) ); ?>
+	<?php
+	\BuddyNext\Profile\AvatarService::prime( wp_list_pluck( $bn_members, 'ID' ) );
+	$bn_identity = buddynext_service( 'profiles' )->card_identity_for( $bn_viewer_id, wp_list_pluck( $bn_members, 'ID' ) );
+	?>
 	<?php foreach ( $bn_members as $bn_member_obj ) : ?>
 		<?php
 		$bn_member_id    = (int) $bn_member_obj->ID;
 		$bn_display_name = (string) $bn_member_obj->display_name;
-		$bn_bio          = (string) get_user_meta( $bn_member_id, 'bn_field_bio', true );
-		if ( '' === $bn_bio ) {
-			$bn_bio = (string) get_user_meta( $bn_member_id, 'description', true );
-		}
 		$bn_profile_url  = \BuddyNext\Core\PageRouter::profile_url( $bn_member_id );
 		$bn_cover_url    = buddynext_user_cover_url( $bn_member_id );
 		$bn_avatar_url   = (string) get_avatar_url( $bn_member_id, array( 'size' => 96 ) );
@@ -258,7 +257,8 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'member_type_color'      => $bn_type_color,
 				'member_type_text_color' => $bn_type_text,
 				'avatar_tone'            => $bn_avatar_tone,
-				'bio'                    => $bn_bio,
+				'headline'               => (string) ( $bn_identity[ $bn_member_id ]['headline'] ?? '' ),
+				'bio'                    => (string) ( $bn_identity[ $bn_member_id ]['bio'] ?? '' ),
 				'profile_url'            => $bn_profile_url,
 				'cover_url'              => $bn_cover_url,
 				'avatar_url'             => $bn_avatar_url,

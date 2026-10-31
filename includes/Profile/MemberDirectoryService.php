@@ -761,35 +761,22 @@ class MemberDirectoryService {
 			}
 		}
 
-		/*
-		 * Bios, batched, from where they ACTUALLY live.
-		 *
-		 * This read get_user_meta( $uid, 'bn_field_bio' ). Nothing in the product writes that key
-		 * for the bio: it is a real bn_profile_fields row (field_key = 'bio'), so its value goes
-		 * to bn_profile_values, and the bn_field_* usermeta is only written as a SIDE EFFECT of
-		 * the search mirror - which only runs for fields flagged is_searchable. The stock bio is
-		 * is_searchable = 0. So the mirror never ran, the key was never written, and the directory
-		 * showed an empty bio for every member who had one. (Measured on a seeded site: 12 members
-		 * with a bio in bn_profile_values, 0 with the usermeta.)
-		 *
-		 * Whether a bio is SEARCHABLE and whether it is VISIBLE in the directory are two different
-		 * questions. Reading the value directly decouples them.
-		 *
-		 * One query for the whole page, not one per member - this list renders 20+ cards.
-		 */
-		// One reader for the whole product - ProfileService owns bn_profile_values.
-		$bios = buddynext_service( 'profiles' )->bios_for( $row_ids );
+		// Batched, and reduced to what this viewer may read: the card must not show
+		// what the profile page hides.
+		// ponytail: this result sits in the 60s bn_dir_ cache, so hiding a field can take
+		// up to 60s to reach a list on a site with a persistent object cache.
+		$identity = buddynext_service( 'profiles' )->card_identity_for( $viewer_id, $row_ids );
 
 		$items = array_map(
-			static function ( $r ) use ( $mutual_counts, $follower_counts, $viewer_id, $blocks, $bios ) {
+			static function ( $r ) use ( $mutual_counts, $follower_counts, $viewer_id, $blocks, $identity ) {
 				$uid = (int) $r['ID'];
-				$bio = $bios[ $uid ] ?? '';
 				return array(
 					'user_id'                 => $uid,
 					'display_name'            => $r['display_name'],
 					'avatar_url'              => get_avatar_url( $uid, array( 'size' => 96 ) ),
 					'registered_at'           => $r['user_registered'],
-					'bio'                     => $bio ? $bio : '',
+					'headline'                => (string) ( $identity[ $uid ]['headline'] ?? '' ),
+					'bio'                     => (string) ( $identity[ $uid ]['bio'] ?? '' ),
 					// last_active comes from the always-present bn_presence JOIN, so this
 					// resolves with no per-card presence query (restrict gate still applies).
 					'is_online'               => $blocks->is_user_online_at( $viewer_id, $uid, (int) ( $r['last_active'] ?? 0 ) ),
