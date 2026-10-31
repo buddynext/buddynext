@@ -1372,7 +1372,37 @@ class FieldType {
 		}
 		$html .= '</fieldset>';
 
-		return $html;
+		return $html . self::member_type_once_hint();
+	}
+
+	/**
+	 * The warning that some self-selectable types cannot be changed once picked.
+	 *
+	 * @return string Escaped HTML, empty when no type is pick-once.
+	 */
+	public static function member_type_once_hint(): string {
+		$service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_all' ) ) {
+			return '';
+		}
+
+		$names = array();
+		foreach ( (array) $service->get_all() as $type ) {
+			if ( 2 === (int) ( $type['self_select'] ?? 0 ) ) {
+				$names[] = (string) ( $type['name'] ?? $type['slug'] ?? '' );
+			}
+		}
+		if ( array() === $names ) {
+			return '';
+		}
+
+		return '<p class="bn-field-hint">' . esc_html(
+			sprintf(
+				/* translators: %s: comma-separated member type names */
+				__( 'Choose carefully: %s can only be picked once. After that, only an admin can change it.', 'buddynext' ),
+				implode( ', ', $names )
+			)
+		) . '</p>';
 	}
 
 	/**

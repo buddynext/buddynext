@@ -1837,6 +1837,10 @@ class AssetService {
 					'socialUnlinkFailed'               => __( 'Could not unlink. Try again.', 'buddynext' ),
 					'memberTypeSaved'                  => __( 'Member type updated', 'buddynext' ),
 					'memberTypeFailed'                 => __( 'Could not update member type', 'buddynext' ),
+					/* translators: %s: member type name */
+					'memberTypeOnceTitle'              => __( 'Choose %s?', 'buddynext' ),
+					'memberTypeOnceBody'               => __( 'You can only pick this once. After that, only an admin can change it.', 'buddynext' ),
+					'memberTypeOnceConfirm'            => __( 'Choose', 'buddynext' ),
 					'prefSaved'                        => __( 'Preference saved', 'buddynext' ),
 					'displayNameRequired'              => __( 'Display name is required.', 'buddynext' ),
 					'invalidUrl'                       => __( 'Enter a valid URL (https://example.com).', 'buddynext' ),

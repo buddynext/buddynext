@@ -774,7 +774,11 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				// real type missing from the list entirely: the page reported them as
 				// unclassified and invited them to pick something. The endpoint now
 				// refuses that change, so offering it would be a control that fails.
-				$bn_mt_locked = '' !== $bn_current_slug && empty( $bn_current_type['self_select'] );
+				//
+				// A pick-once type (self_select = 2) is locked the same way once held:
+				// may_change_own_type() refuses any further change.
+				$bn_mt_mode   = (int) ( $bn_current_type['self_select'] ?? 0 );
+				$bn_mt_locked = '' !== $bn_current_slug && 1 !== $bn_mt_mode;
 
 				if ( $bn_mt_locked ) {
 					// Same wording as the profile-field renderer, because it is the
@@ -782,7 +786,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_mt_html = sprintf(
 						'<div class="bn-field-membertype is-set"><span class="bn-membertype-badge">%1$s</span> <span class="bn-field-hint">%2$s</span></div>',
 						esc_html( (string) ( $bn_current_type['name'] ?? $bn_current_slug ) ),
-						esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
+						2 === $bn_mt_mode
+							? esc_html__( 'Chosen once: contact an admin to change it.', 'buddynext' )
+							: esc_html__( 'Set by the community: contact an admin to change it.', 'buddynext' )
 					);
 
 					buddynext_get_template(
@@ -795,17 +801,19 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					);
 				} elseif ( ! empty( $bn_self_types ) ) {
 					$bn_mt_html  = '<label class="bn-ep-label bn-sr-only" for="bn-ep-member-type">' . esc_html__( 'Member type', 'buddynext' ) . '</label>';
-					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-bn-autosave data-user-id="' . esc_attr( (string) $user_id ) . '" data-wp-on--change="actions.setMemberType">';
+					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-bn-autosave data-user-id="' . esc_attr( (string) $user_id ) . '" data-bn-prev="' . esc_attr( $bn_current_slug ) . '" data-wp-on--change="actions.setMemberType">';
 					$bn_mt_html .= '<option value="">' . esc_html__( 'None', 'buddynext' ) . '</option>';
 					foreach ( $bn_self_types as $bn_t ) {
 						$bn_mt_html .= sprintf(
-							'<option value="%s"%s>%s</option>',
+							'<option value="%s"%s%s>%s</option>',
 							esc_attr( (string) ( $bn_t['slug'] ?? '' ) ),
 							selected( $bn_current_slug, (string) ( $bn_t['slug'] ?? '' ), false ),
+							2 === (int) ( $bn_t['self_select'] ?? 0 ) ? ' data-bn-once="1"' : '',
 							esc_html( (string) ( $bn_t['name'] ?? $bn_t['slug'] ?? '' ) )
 						);
 					}
 					$bn_mt_html .= '</select>';
+					$bn_mt_html .= \BuddyNext\Profile\FieldType::member_type_once_hint();
 
 					// Surface the selected type's description so the member knows
 					// what it means (the data is already plumbed, just not shown).

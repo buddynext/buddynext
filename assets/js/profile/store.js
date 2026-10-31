@@ -1434,16 +1434,40 @@ const profileStore = store( 'buddynext/profile', {
 			// successful save. Stop the change bubbling to the form's markDirty
 			// listener; genuine edits to other fields still set the dirty flag.
 			if ( event && typeof event.stopPropagation === 'function' ) { event.stopPropagation(); }
+
+			var restNonce = nonce(); // Reads the store scope, which ends at the first await.
+
+			// The first pick of a pick-once type is permanent, and this select saves
+			// on change: it needs a yes before it fires, not a hint read afterwards.
+			var picked = sel.options[ sel.selectedIndex ];
+			var once   = !! ( picked && picked.dataset.bnOnce );
+			if ( once && ! await bnConfirm( {
+				title:        fmt( t( 'memberTypeOnceTitle', 'Choose %s?' ), picked.textContent ),
+				body:         t( 'memberTypeOnceBody', 'You can only pick this once. After that, only an admin can change it.' ),
+				confirmLabel: t( 'memberTypeOnceConfirm', 'Choose' ),
+				tone:         'default',
+			} ) ) {
+				sel.value = sel.dataset.bnPrev || '';
+				return;
+			}
+
 			try {
 				var res = await restFetch( '/users/' + userId + '/member-type', {
 					method:       'PUT',
-					nonce:        nonce(),
+					nonce:        restNonce,
 					body:         { type_slug: sel.value },
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw res; }
+				if ( once ) {
+					// Redraw as the locked state the server now enforces.
+					bnReloadWithToast( t( 'memberTypeSaved', 'Member type updated' ), { tone: 'success' } );
+					return;
+				}
+				sel.dataset.bnPrev = sel.value;
 				bnToast( t( 'memberTypeSaved', 'Member type updated' ), { tone: 'success' } );
 			} catch ( e ) {
+				sel.value = sel.dataset.bnPrev || '';
 				toastRestError( e, t( 'memberTypeFailed', 'Could not update member type' ) );
 			}
 		},
