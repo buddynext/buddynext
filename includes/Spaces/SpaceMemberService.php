@@ -578,7 +578,18 @@ class SpaceMemberService {
 			);
 		}
 
-		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
+		$status = (string) $this->get_status( $space_id, $user_id );
+
+		// The hero and the directory card cancel a request through this route. Someone
+		// who was never in the space has not left it: their cancel is its own event.
+		if ( 'pending' === $status ) {
+			return $this->cancel_request( $space_id, $user_id );
+		}
+
+		// A ban from before 1.2.7 lives on this row, so deleting it would lift the ban.
+		if ( 'banned' === $status ) {
+			return true;
+		}
 
 		global $wpdb;
 
@@ -593,19 +604,22 @@ class SpaceMemberService {
 		);
 
 		if ( $wpdb->rows_affected > 0 ) {
-			if ( $was_active ) {
-				$this->adjust_member_count( $space_id, -1 );
-			}
-
 			$this->invalidate_cache( $space_id, $user_id );
 
-			/**
-			 * Fires after a user leaves a space.
-			 *
-			 * @param int $space_id Space left.
-			 * @param int $user_id  User who left.
-			 */
-			do_action( 'buddynext_space_member_left', $space_id, $user_id );
+			// A declined invitation also deletes its row here, without ever being a member.
+			if ( 'active' === $status ) {
+				$this->adjust_member_count( $space_id, -1 );
+
+				/**
+				 * Fires after an active member leaves a space. Not for a cancelled
+				 * join request (buddynext_space_join_request_cancelled) or a declined
+				 * invitation.
+				 *
+				 * @param int $space_id Space left.
+				 * @param int $user_id  User who left.
+				 */
+				do_action( 'buddynext_space_member_left', $space_id, $user_id );
+			}
 		}
 
 		return true;

@@ -83,7 +83,7 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_space_member_left` | action | A user leaves a space voluntarily | `int $space_id, int $user_id` |
+| `buddynext_space_member_left` | action | An active member leaves a space voluntarily (not a cancelled request or a declined invitation) | `int $space_id, int $user_id` |
 | `buddynext_space_member_removed` | action | A member is removed by a moderator (also fires when a member is banned) | `int $space_id, int $user_id, int $actor_id` |
 | `buddynext_space_role_changed` | action | A member's role is promoted or demoted | `int $space_id, int $target_id, string $new_role, int $actor_id` |
 | `buddynext_space_user_banned` | action | A user is banned from a space | `int $space_id, int $user_id, int $actor_id` |
