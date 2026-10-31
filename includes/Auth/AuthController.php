@@ -27,6 +27,12 @@ use WP_REST_Response;
 class AuthController {
 
 	/**
+	 * Hash of a throwaway random value, checked when a sign-in names no account so that
+	 * an absent account costs one password hash like a real one.
+	 */
+	private const ABSENT_ACCOUNT_HASH = '$wp$2y$10$Qwb7hgknpXTTZUNWrD1hUu0jljjJYHKHdsU4LP91UZdoRfMj2aIau';
+
+	/**
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
@@ -860,54 +866,77 @@ class AuthController {
 	/**
 	 * Find the real reason a member with the CORRECT password was refused.
 	 *
-	 * The wp_authenticate() call runs the whole filter chain, so its WP_Error can mean "wrong
-	 * password" or "a gate refused you" (the approval hold, or any other plugin's
-	 * wp_authenticate_user or authenticate gate). Telling a member who typed the right
+	 * The wp_authenticate() call runs the whole filter chain, so its WP_Error can mean
+	 * "wrong password" or "a gate refused you". Telling a member who typed the right
 	 * password that it is wrong is a lie they can never act on.
 	 *
-	 * The password is proved first, because gates run BEFORE core checks it: an error
-	 * from one says nothing about the caller. Without proof this returns null and the
-	 * caller answers with its generic failure, so nothing about the account's state
-	 * reaches someone who does not hold the password.
+	 * Three rules keep this from becoming an oracle:
 	 *
-	 * The gates are then asked directly rather than read from $error, because on a REST
-	 * request with application passwords in use, core's
-	 * wp_authenticate_application_password() (authenticate priority 20) replaces whatever
-	 * came before it with its own credential error.
+	 *  - Fail closed. Only codes on the buddynext_login_reportable_gate_codes list are
+	 *    ever reported. Reporting any other refusal, an IP block or an anti-automation
+	 *    check above all, would confirm the password to whoever is being refused.
+	 *  - Prove the password first. Gates run BEFORE core checks it, so a gate's error
+	 *    says nothing about the caller. Without proof the caller gets its generic failure.
+	 *  - One password hash on every wrong-password path, so pending, ordinary and absent
+	 *    accounts cost the same: core hashes for an account no gate refused, this method
+	 *    hashes where core stopped at a gate, and an absent account hashes a dummy.
+	 *
+	 * The gates are asked directly rather than read from $error, because on a REST request
+	 * with application passwords in use, core's wp_authenticate_application_password()
+	 * (authenticate priority 20) replaces whatever came before it with a credential error.
 	 *
 	 * @param WP_Error $error      Error returned by wp_authenticate().
 	 * @param string   $user_input Login or email the member typed.
 	 * @param string   $password   Password they supplied.
-	 * @return WP_Error|null The gate's own error when this was a gate refusal, else null.
+	 * @return WP_Error|null The gate's own error when this was a reportable refusal, else null.
 	 */
 	private static function authenticate_gate_error( WP_Error $error, string $user_input, string $password ): ?WP_Error {
 		$user = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
 
-		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+		if ( ! $user instanceof \WP_User ) {
+			wp_check_password( $password, self::ABSENT_ACCOUNT_HASH );
 			return null;
 		}
 
-		$gate = apply_filters( 'wp_authenticate_user', $user, $password );
+		$gate       = apply_filters( 'wp_authenticate_user', $user, $password );
+		$gate_shut  = is_wp_error( $gate );
+		$refusal    = $gate_shut ? $gate : $error;
+		$code       = (string) $refusal->get_error_code();
+		$reportable = in_array(
+			$code,
+			/**
+			 * Filter the sign-in refusals a member may read once they proved their password.
+			 *
+			 * Add a code here so your wp_authenticate_user or authenticate gate tells a member
+			 * why they are held. Everything else gets the generic failure. Never add a network
+			 * or anti-automation refusal (IP block, lockout, bot check): reporting it confirms
+			 * the password to whoever is being refused.
+			 *
+			 * @since 1.2.8
+			 *
+			 * @param string[] $codes Reportable WP_Error codes.
+			 */
+			(array) apply_filters( 'buddynext_login_reportable_gate_codes', array( 'bn_pending_approval' ) ),
+			true
+		);
 
-		if ( ! is_wp_error( $gate ) ) {
-			// No wp_authenticate_user gate: an `authenticate` gate may still have refused.
-			// What core's credential and application-password checks say is not a gate.
-			$not_a_gate = array( 'invalid_username', 'invalid_email', 'incorrect_password', 'empty_username', 'empty_email', 'empty_password', 'application_passwords_disabled', 'application_passwords_disabled_for_user' );
-
-			if ( in_array( (string) $error->get_error_code(), $not_a_gate, true ) ) {
-				return null;
-			}
-
-			$gate = $error;
+		// No gate refused, so core already hashed once and nothing here needs proof.
+		if ( ! $gate_shut && ! $reportable ) {
+			return null;
 		}
 
-		$message = wp_strip_all_tags( (string) $gate->get_error_message() );
+		// Hash before reading $reportable, so an unreportable gate costs the same.
+		if ( ! wp_check_password( $password, $user->user_pass, $user->ID ) || ! $reportable ) {
+			return null;
+		}
+
+		$message = wp_strip_all_tags( (string) $refusal->get_error_message() );
 		if ( '' === $message ) {
 			$message = __( 'This account cannot sign in right now.', 'buddynext' );
 		}
 
 		// 403, not 401: the password was correct — access is what is refused.
-		return new WP_Error( (string) $gate->get_error_code(), $message, array( 'status' => 403 ) );
+		return new WP_Error( $code, $message, array( 'status' => 403 ) );
 	}
 
 	/**
@@ -924,7 +953,9 @@ class AuthController {
 		// The owner's blocked-IP list. It governed POSTING only, so a blocklisted
 		// IP could still sign in — which is not what anyone means when they block
 		// an IP address.
-		$blocked = ( new RegistrationGuard() )->check_ip( self::client_ip() );
+		// The address the block itself reads (buddynext_client_ip), so behind a proxy a
+		// blocked IP is refused here, whatever its password, and never reaches a gate.
+		$blocked = ( new RegistrationGuard() )->check_ip( \BuddyNext\Moderation\SafeguardService::client_ip() );
 		if ( is_wp_error( $blocked ) ) {
 			return new WP_Error(
 				'bn_login_ip',

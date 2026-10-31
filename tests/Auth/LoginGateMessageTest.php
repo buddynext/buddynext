@@ -122,31 +122,93 @@ class LoginGateMessageTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Any other plugin's gate gets the same treatment, on either filter.
+	 * Fail closed: another gate's refusal stays generic, even with the right password,
+	 * until its plugin opts in. A network refusal must never confirm a password.
 	 *
 	 * @return void
 	 */
-	public function test_any_gate_is_reported_only_to_the_password_holder(): void {
+	public function test_unlisted_gates_stay_generic_until_opted_in(): void {
 		$this->account( 'qafix_gated' );
 
 		$gate = static fn( $user ) => $user instanceof \WP_User && 'qafix_gated' === $user->user_login
 			? new WP_Error( 'other_plugin_unverified', '<b>Confirm your account first.</b>' )
 			: $user;
 
+		foreach ( array( 'wp_authenticate_user' => 10, 'authenticate' => 30 ) as $hook => $priority ) {
+			add_filter( $hook, $gate, $priority );
+
+			$this->assert_generic( $this->login( 'qafix_gated', self::PASSWORD ) );
+			$this->assert_generic( $this->login( 'qafix_gated', 'wrong' ) );
+
+			$opt_in = static fn( array $codes ): array => array_merge( $codes, array( 'other_plugin_unverified' ) );
+			add_filter( 'buddynext_login_reportable_gate_codes', $opt_in );
+
+			$right = $this->login( 'qafix_gated', self::PASSWORD );
+			$this->assertSame( 403, $right->get_status(), $hook );
+			$this->assertSame( 'Confirm your account first.', $right->get_data()['message'], $hook );
+			$this->assert_generic( $this->login( 'qafix_gated', 'wrong' ) );
+
+			remove_filter( 'buddynext_login_reportable_gate_codes', $opt_in );
+			remove_filter( $hook, $gate, $priority );
+		}
+	}
+
+	/**
+	 * A blocked IP hears the same refusal whatever its password, on the address the block reads.
+	 *
+	 * @return void
+	 */
+	public function test_blocked_ip_is_no_password_oracle(): void {
+		$this->account( 'qafix_ip' );
+		update_option( 'buddynext_blocked_ips', '203.0.113.9' );
+		$proxied = static fn(): string => '203.0.113.9';
+		add_filter( 'buddynext_client_ip', $proxied );
+
+		$right = $this->login( 'qafix_ip', self::PASSWORD );
+		$wrong = $this->login( 'qafix_ip', 'wrong' );
+
+		remove_filter( 'buddynext_client_ip', $proxied );
+		delete_option( 'buddynext_blocked_ips' );
+
+		$this->assertSame( 'bn_login_ip', $right->get_data()['code'] );
+		$this->assertSame( $right->get_data(), $wrong->get_data() );
+		$this->assertSame( $right->get_status(), $wrong->get_status() );
+	}
+
+	/**
+	 * Every wrong-password path costs one hash, with application passwords in use or not.
+	 *
+	 * @return void
+	 */
+	public function test_wrong_password_costs_one_hash_on_every_path(): void {
+		$pending = $this->account( 'qafix_cost_held' );
+		update_user_meta( $pending, 'bn_pending_approval', 1 );
+		$this->account( 'qafix_cost_plain' );
+		$unlisted = $this->account( 'qafix_cost_gated' );
+
+		$gate = static fn( $user ) => $user instanceof \WP_User && $unlisted === $user->ID ? new WP_Error( 'bn_blocked_ip', 'x' ) : $user;
 		add_filter( 'wp_authenticate_user', $gate );
-		$right = $this->login( 'qafix_gated', self::PASSWORD );
-		$this->assert_generic( $this->login( 'qafix_gated', 'wrong' ) );
+
+		$hashes  = 0;
+		$counter = static function ( $check ) use ( &$hashes ) {
+			++$hashes;
+			return $check;
+		};
+		add_filter( 'check_password', $counter );
+
+		foreach ( array( true, false ) as $in_use ) {
+			if ( ! $in_use ) {
+				delete_network_option( get_main_network_id(), \WP_Application_Passwords::OPTION_KEY_IN_USE );
+			}
+			foreach ( array( 'qafix_cost_held', 'qafix_cost_plain', 'qafix_cost_gated', 'qafix_cost_absent', 'qafix_cost_absent@example.test' ) as $login ) {
+				$hashes = 0;
+				$this->assert_generic( $this->login( $login, 'wrong' ) );
+				$this->assertSame( 1, $hashes, $login . ( $in_use ? ' with' : ' without' ) . ' application passwords' );
+			}
+		}
+
+		remove_filter( 'check_password', $counter );
 		remove_filter( 'wp_authenticate_user', $gate );
-
-		$this->assertSame( 403, $right->get_status() );
-		$this->assertSame( 'other_plugin_unverified', $right->get_data()['code'] );
-		$this->assertSame( 'Confirm your account first.', $right->get_data()['message'] );
-
-		add_filter( 'authenticate', $gate, 30 );
-		$late = $this->login( 'qafix_gated', self::PASSWORD );
-		remove_filter( 'authenticate', $gate, 30 );
-		$this->assertSame( 403, $late->get_status() );
-		$this->assertSame( 'other_plugin_unverified', $late->get_data()['code'] );
 	}
 
 	/**
