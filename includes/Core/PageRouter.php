@@ -1899,7 +1899,7 @@ class PageRouter {
 	}
 
 	/**
-	 * Hydrate the single-post record and register head-meta tags when visible.
+	 * Answer 404 for a post this viewer cannot read, else register its head-meta tags.
 	 *
 	 * Called from dispatch_hub_template() at template_redirect (before
 	 * get_header() fires wp_head). Mirrors the visibility gates in
@@ -1910,20 +1910,23 @@ class PageRouter {
 	 * @return void
 	 */
 	private function maybe_register_single_post_meta( int $post_id ): void {
-		if ( $post_id <= 0 ) {
+		$posts     = new \BuddyNext\Feed\PostService();
+		$post      = $post_id > 0 ? $posts->get( $post_id ) : null;
+		$viewer_id = get_current_user_id();
+
+		// The template shows the not-found state, but its own status_header() runs
+		// too late on a block theme, so the page answered 200. Same gates, set here.
+		if ( null === $post
+			|| ( 'published' !== ( $post['status'] ?? 'published' ) && (int) $post['user_id'] !== $viewer_id )
+			|| null !== $posts->visibility_error( $post_id, $viewer_id ) ) {
+			status_header( 404 );
+			nocache_headers();
 			return;
 		}
+
 		if ( ! class_exists( \BuddyNext\Feed\SinglePostMeta::class ) ) {
 			return;
 		}
-
-		$posts = new \BuddyNext\Feed\PostService();
-		$post  = $posts->get( $post_id );
-		if ( null === $post ) {
-			return;
-		}
-
-		$viewer_id = get_current_user_id();
 
 		// Who may read the post is decided in ONE place, PostService::visibility_error(),
 		// the gate the page itself and the REST read use. This method used to keep
@@ -1932,10 +1935,6 @@ class PageRouter {
 		// nor about connections-only posts, so the page answered 404 while its head
 		// still printed the author's name and the full text in the description,
 		// og: and twitter: tags, for crawlers and anyone who views source.
-		if ( null !== $posts->visibility_error( $post_id, $viewer_id ) ) {
-			return;
-		}
-
 		\BuddyNext\Feed\SinglePostMeta::emit_for_post( $post );
 	}
 
