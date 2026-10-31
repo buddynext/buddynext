@@ -20,7 +20,7 @@
  * @var int    $space_id         Required. Current space ID.
  * @var int    $current_user_id  Optional. Viewing user ID. Default 0.
  * @var bool   $is_member        Optional. Viewer is an active member. Default false.
- * @var bool   $is_owner         Optional. Viewer is owner/moderator. Default false.
+ * @var bool   $is_owner         Optional. Viewer can manage the space (owner, moderator, site admin). Default false.
  * @var bool   $is_pending       Optional. Viewer has a pending join request. Default false.
  * @var bool   $is_guest         Optional. Viewer is logged out. Default false.
  * @var string $privacy_label    Required. Localised privacy label.
@@ -93,7 +93,7 @@ $bn_class   = trim(
 $bn_space         = $args['space'];
 $bn_space_id      = (int) $args['space_id'];
 $bn_is_member     = (bool) $args['is_member'];
-$bn_is_owner      = (bool) $args['is_owner'];
+$bn_can_manage    = (bool) $args['is_owner']; // Owner, moderator or site admin. Not "is a member": see the action cluster below.
 $bn_is_pending    = (bool) $args['is_pending'];
 $bn_is_invited    = (bool) $args['is_invited'];
 $bn_is_guest      = (bool) $args['is_guest'];
@@ -101,6 +101,14 @@ $bn_privacy_label = (string) $args['privacy_label'];
 $bn_privacy_tone  = (string) $args['privacy_tone'];
 $bn_notif_pref    = (string) $args['notif_pref'];
 $bn_is_archived   = ! empty( $bn_space->is_archived );
+
+// Asked per viewer rather than passed in: who_can_invite can let plain members
+// invite and keep moderators out, so it is not implied by can-manage. An archived
+// space takes no new members.
+$bn_viewer_id  = get_current_user_id();
+$bn_can_invite = ! $bn_is_guest && ! $bn_is_archived && buddynext_service( 'space_members' )->can_invite( $bn_space_id, $bn_viewer_id );
+// The space owner has no Leave: leave() refuses them until ownership is transferred.
+$bn_can_leave = $bn_is_member && 'owner' !== buddynext_service( 'space_members' )->get_role( $bn_space_id, $bn_viewer_id );
 
 // Owner-set brand colour (the registered `color` space field). When present it
 // drives the hero accent through a CSS custom property; when empty the stylesheet
@@ -241,8 +249,8 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<?php if ( $bn_is_guest ) : ?>
 				<?php // Guests already get the "Log in to join" CTA from the first chain above; show no join/request action here, otherwise both buttons render at once. ?>
 
-			<?php elseif ( $bn_is_owner ) : ?>
-				<?php if ( ! $bn_is_archived ) : // An archived space takes no new members. ?>
+			<?php elseif ( $bn_can_manage || $bn_is_member ) : ?>
+				<?php if ( $bn_can_invite ) : ?>
 				<button
 					type="button"
 					class="bn-btn"
@@ -251,21 +259,22 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-wp-on--click="actions.openInviteModal"
 				><?php buddynext_icon( 'user-plus' ); ?> <?php esc_html_e( 'Invite', 'buddynext' ); ?></button>
 				<?php endif; ?>
+				<?php if ( $bn_can_manage ) : ?>
 				<a
 					href="<?php echo esc_url( buddynext_space_settings_url( $bn_space->slug ) ); ?>"
 					class="bn-btn"
 					data-variant="secondary"
 					data-size="sm"
 				><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
-				<?php // The space admin page (stats + shortcuts) had no way in; same audience as Settings. ?>
+					<?php // The space admin page (stats + shortcuts) had no way in; same audience as Settings. ?>
 				<a
 					href="<?php echo esc_url( buddynext_space_admin_url( $bn_space->slug ) ); ?>"
 					class="bn-btn"
 					data-variant="secondary"
 					data-size="sm"
 				><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Admin', 'buddynext' ); ?></a>
-
-			<?php elseif ( $bn_is_member ) : ?>
+				<?php endif; ?>
+				<?php if ( $bn_can_leave ) : ?>
 				<button
 					class="bn-btn"
 					data-variant="secondary"
@@ -274,6 +283,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-wp-on--click="actions.leaveSpace"
 					aria-label="<?php esc_attr_e( 'Joined - click to leave', 'buddynext' ); ?>"
 				><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
+				<?php endif; ?>
 
 			<?php elseif ( $bn_is_pending ) : ?>
 				<button
@@ -342,7 +352,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 				><?php esc_html_e( 'Request to join', 'buddynext' ); ?></button>
 			<?php endif; ?>
 
-			<?php if ( ! $bn_is_guest && ! $bn_is_owner && buddynext_can( get_current_user_id(), 'buddynext-moderation/report' ) ) : ?>
+			<?php if ( ! $bn_is_guest && ! $bn_can_manage && buddynext_can( get_current_user_id(), 'buddynext-moderation/report' ) ) : ?>
 				<?php $bn_sh_reported = buddynext_service( 'moderation' )->user_has_reported( get_current_user_id(), 'space', $bn_space_id ); ?>
 				<span class="bn-report-slot" data-bn-report-slot>
 					<button
@@ -369,7 +379,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	<?php
 	// Arrived on a revoked, expired or used-up invite link: say so, or the
 	// ordinary join button reads as a rejection. Same line for every reason.
-	if ( ! $bn_is_member && ! $bn_is_owner && \BuddyNext\Spaces\SpaceInviteLinkService::dead_link_for( $bn_space_id ) ) :
+	if ( ! $bn_is_member && ! $bn_can_manage && \BuddyNext\Spaces\SpaceInviteLinkService::dead_link_for( $bn_space_id ) ) :
 		/**
 		 * Filters the notice shown on a space opened through a dead invite link.
 		 *
@@ -410,7 +420,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	?>
 </section>
 
-<?php if ( $bn_is_owner ) : ?>
+<?php if ( $bn_can_invite ) : ?>
 	<?php
 	/*
 	 * Invite-member modal. The hero "Invite" button dispatches

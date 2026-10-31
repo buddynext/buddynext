@@ -1212,6 +1212,10 @@ var storeInstance = store( 'buddynext/spaces', {
 
 					bumpMemberCount( spaceCardFor( btn ), -1 );
 
+					// A moderator's card also carried Manage, which they just lost.
+					var leftManage = btn && btn.parentNode && btn.parentNode.querySelector( '[data-bn-card-manage]' );
+					if ( leftManage ) { leftManage.remove(); }
+
 					// On the space's own page everything under the hero (feed, composer,
 					// member tabs) was drawn for a member: redraw it for a non-member. A
 					// card in a list has nothing else to change.
@@ -2379,6 +2383,19 @@ function readSpacesFilterState() {
 	};
 }
 
+function buildJoinedButton( spaceId ) {
+	var btn = document.createElement( 'button' );
+	btn.className = 'bn-btn';
+	btn.dataset.variant      = 'secondary';
+	btn.dataset.size         = 'sm';
+	btn.dataset.currentState = 'joined';
+	btn.setAttribute( 'data-wp-on--click', 'actions.leaveSpace' );
+	btn.dataset.spaceId      = String( spaceId );
+	btn.setAttribute( 'aria-label', t( 'ariaJoinedClickToLeave', 'Joined - click to leave' ) );
+	btn.textContent = t( 'labelJoined', 'Joined' );
+	return btn;
+}
+
 /**
  * Build a single space card in the DOM from a REST row.
  * Mirrors the SSR markup of templates/spaces/directory.php using
@@ -2562,16 +2579,11 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.variant = 'secondary';
 		ctaEl.dataset.size    = 'sm';
 		ctaEl.textContent     = t( 'labelManage', 'Manage' );
+		ctaEl.setAttribute( 'data-bn-card-manage', '' );
+		foot.appendChild( ctaEl );
+		ctaEl = 'moderator' === role ? buildJoinedButton( spaceId ) : null;
 	} else if ( isMember ) {
-		ctaEl = document.createElement( 'button' );
-		ctaEl.className = 'bn-btn';
-		ctaEl.dataset.variant      = 'secondary';
-		ctaEl.dataset.size         = 'sm';
-		ctaEl.dataset.currentState = 'joined';
-		ctaEl.setAttribute( 'data-wp-on--click', 'actions.leaveSpace' );
-		ctaEl.dataset.spaceId      = String( spaceId );
-		ctaEl.setAttribute( 'aria-label', t( 'ariaJoinedClickToLeave', 'Joined - click to leave' ) );
-		ctaEl.textContent = t( 'labelJoined', 'Joined' );
+		ctaEl = buildJoinedButton( spaceId );
 	} else if ( isPending ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
