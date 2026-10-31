@@ -10,7 +10,7 @@
  */
 
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { bnToast, bnConfirm } from '@buddynext/shell-dialog';
 // The SAME upload path the composer uses. The picker must not grow a second way to
@@ -249,7 +249,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 					ctx.activeAlbumId = 0;
 					bnToast( t( 'albumDeleted', 'Album deleted' ), { tone: 'success' } );
 				} else {
-					bnToast( t( 'deleteFailed', 'Could not delete the album.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'deleteFailed', 'Could not delete the album.' ) );
 				}
 			} catch ( e ) {
 				bnToast( t( 'deleteFailed', 'Could not delete the album.' ), { tone: 'danger' } );
@@ -420,7 +420,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 					await loadAlbumDetail( ctx );
 					syncCountFromServer( ctx, res.data );
 				} else {
-					bnToast( t( 'addFailed', 'Could not add media.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'addFailed', 'Could not add media.' ) );
 				}
 			} catch ( e ) {
 				bnToast( t( 'addFailed', 'Could not add media.' ), { tone: 'danger' } );
@@ -654,7 +654,7 @@ function bindDetailDelete( ctx ) {
 				syncCountFromServer( ctx, res.data );
 				bnToast( t( 'removedFromAlbum', 'Removed from album' ), { tone: 'success' } );
 			} else {
-				bnToast( t( 'removeFailed', 'Could not remove.' ), { tone: 'danger' } );
+				toastRestError( res, t( 'removeFailed', 'Could not remove.' ) );
 			}
 		} catch ( err ) {
 			bnToast( t( 'removeFailed', 'Could not remove.' ), { tone: 'danger' } );
@@ -681,7 +681,7 @@ function bindDetailCover( ctx ) {
 				ctx.albums = ( ctx.albums || [] ).map( ( a ) => ( a.id === ctx.activeAlbumId ? toCard( res.data ) : a ) );
 				bnToast( t( 'coverSet', 'Cover updated' ), { tone: 'success' } );
 			} else {
-				bnToast( t( 'coverFailed', 'Could not set the cover.' ), { tone: 'danger' } );
+				toastRestError( res, t( 'coverFailed', 'Could not set the cover.' ) );
 			}
 		} catch ( err ) {
 			bnToast( t( 'coverFailed', 'Could not set the cover.' ), { tone: 'danger' } );

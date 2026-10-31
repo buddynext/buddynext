@@ -1,6 +1,6 @@
 /* BuddyNext — Search Results Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -33,11 +33,15 @@ const searchStore = store( 'buddynext/search', {
 			const wasFollowing = !! ctx.following;
 			ctx.following = ! wasFollowing;
 			try {
-				yield restFetch( '/users/' + ctx.userId + '/follow', {
+				const res = yield restFetch( '/users/' + ctx.userId + '/follow', {
 					method: wasFollowing ? 'DELETE' : 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
+				if ( ! res.ok ) {
+					ctx.following = wasFollowing;
+					toastRestError( res, t( 'followFailed', 'Could not update this follow. Try again.' ) );
+				}
 			} catch ( _e ) {
 				ctx.following = wasFollowing;
 			}
@@ -54,11 +58,15 @@ const searchStore = store( 'buddynext/search', {
 				// Join/leave have dedicated POST endpoints; /spaces/{id}/members is
 				// GET-only (listing), so the previous POST/DELETE there 404'd and the
 				// search-result join button never worked.
-				yield restFetch( '/spaces/' + ctx.spaceId + ( wasJoined ? '/leave' : '/join' ), {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + ( wasJoined ? '/leave' : '/join' ), {
 					method: 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
+				if ( ! res.ok ) {
+					ctx.joined = wasJoined;
+					toastRestError( res, t( 'membershipFailed', 'Could not update your membership. Try again.' ) );
+				}
 			} catch ( _e ) {
 				ctx.joined = wasJoined;
 			}
@@ -138,16 +146,22 @@ const searchStore = store( 'buddynext/search', {
 				return;
 			}
 			try {
-				yield restFetch( ctx.savedSearchUrl + '/' + id, {
+				const res = yield restFetch( ctx.savedSearchUrl + '/' + id, {
 					method: 'DELETE',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
+				// Already gone (another tab) is the state the member asked for.
+				if ( ! res.ok && 404 !== res.status ) {
+					toastRestError( res, t( 'searchDeleteFailed', 'Could not delete this saved search. Try again.' ) );
+					return;
+				}
 				state.savedSearches = state.savedSearches.filter( function ( s ) {
 					return s.id !== id;
 				} );
 			} catch ( _e ) {
-				/* leave list intact on failure */
+				/* restFetch resolves on HTTP errors; only an unexpected throw lands here. */
+				toastRestError( null, t( 'searchDeleteFailed', 'Could not delete this saved search. Try again.' ) );
 			}
 		},
 

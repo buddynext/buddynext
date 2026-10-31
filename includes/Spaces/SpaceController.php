@@ -3305,6 +3305,11 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'cannot_remove_owner', __( 'The space owner cannot be removed.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// Already gone (another moderator, or they left) is a stale row, not a failure.
+		if ( null === $target_role ) {
+			return new WP_Error( 'not_a_member', __( 'This person is no longer a member of this space.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
 		// A space moderator cannot remove the administrators above them.
 		$outranked = ( new \BuddyNext\Core\RoleService() )->outranked_error( $target_id, $actor_id );
 		if ( null !== $outranked ) {

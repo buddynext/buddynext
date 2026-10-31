@@ -994,7 +994,7 @@ $posts_pct_abs = abs( $posts_pct );
 								)
 							);
 							?>
-							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" data-report-id="<?php echo esc_attr( (string) (int) $rpt['id'] ); ?>" data-wp-context="<?php echo esc_attr( (string) $rpt_ctx ); ?>">
+							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" data-report-id="<?php echo esc_attr( (string) (int) $rpt['id'] ); ?>"<?php echo 'user' === $rpt_obj_type ? ' data-bn-reported-member="' . esc_attr( (string) $rpt_obj_id ) . '"' : ''; ?> data-wp-context="<?php echo esc_attr( (string) $rpt_ctx ); ?>">
 								<div class="bn-ca-report-row__body">
 									<div class="bn-ca-report-row__type">
 										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>

@@ -6,7 +6,7 @@
  * under the same namespace — WP Interactivity API merges the two calls.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -70,9 +70,7 @@ const hashtagsStore = store( 'buddynext/feed', {
 
 				if ( ! res.ok ) {
 					ctx.following = following; // Roll back.
-					if ( window.bnToast ) {
-						window.bnToast( t( 'followUpdateFailed', 'Could not update follow state. Try again.' ), { type: 'error' } );
-					}
+					toastRestError( res, t( 'followUpdateFailed', 'Could not update follow state. Try again.' ) );
 				} else if ( window.bnToast ) {
 					window.bnToast(
 						following

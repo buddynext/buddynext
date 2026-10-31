@@ -25,7 +25,7 @@
 
 import { store, getContext } from '@wordpress/interactivity';
 import { bnToast, bnResolveConnectNote, bnConfirmDisconnect } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -141,23 +141,20 @@ const followButtonStore = store( 'buddynext/follow-button', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				let msg;
 				if ( wasFollowing )      { msg = fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), target ); }
 				else if ( wasPending )   { msg = fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), target ); }
 				else if ( usePending )   { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
 				else                     { msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), target ); }
 				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				// Roll back.
 				ctx.isFollowing = wasFollowing;
 				ctx.isPending   = wasPending;
-				bnToast(
-					wasFollowing
+				toastRestError( e, wasFollowing
 						? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), target )
-						: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), target ),
-					{ tone: 'danger' }
-				);
+						: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), target ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -242,13 +239,14 @@ store( 'buddynext/follow-requests', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'approve_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bumpMetric( 'followers' );
 				bnToast( fmt( t( 'toastCanFollowYou', '@%s can now follow you' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'success' } );
 				refreshPeopleList();
-			} catch ( _e ) {
-				bnToast( t( 'toastApproveFailed', 'Could not approve request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastApproveFailed', 'Could not approve request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -264,11 +262,12 @@ store( 'buddynext/follow-requests', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'reject_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'info' } );
-			} catch ( _e ) {
-				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastDeclineFailed', 'Could not decline request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -300,13 +299,14 @@ store( 'buddynext/connection-requests', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bumpMetric( 'connections' );
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'success' } );
 				refreshPeopleList();
-			} catch ( _e ) {
-				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -322,11 +322,12 @@ store( 'buddynext/connection-requests', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				settleRequest( ctx );
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'info' } );
-			} catch ( _e ) {
-				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				if ( 404 === e.status ) { settleRequest( ctx ); }
+				toastRestError( e, t( 'toastDeclineFailed', 'Could not decline request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -384,11 +385,11 @@ store( 'buddynext/connection-button', {
 					body:         { note: note },
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.status = prev || '';
-				bnToast( t( 'toastCouldNotConnect', 'Could not send connection request. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotConnect', 'Could not send connection request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -408,11 +409,11 @@ store( 'buddynext/connection-button', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'withdraw_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastRequestWithdrawn', 'Request to @%s withdrawn' ), name ), { tone: 'info' } );
-			} catch ( _e ) {
-				ctx.status = prev;
-				bnToast( t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				ctx.status = 404 === e.status ? '' : prev;
+				toastRestError( e, t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -432,11 +433,11 @@ store( 'buddynext/connection-button', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ), { tone: 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.status = prev;
-				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -456,11 +457,11 @@ store( 'buddynext/connection-button', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), name ), { tone: 'info' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.status = prev;
-				bnToast( t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -481,11 +482,11 @@ store( 'buddynext/connection-button', {
 					nonce:        ctxNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'disconnect_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastDisconnected', 'Disconnected from @%s' ), name ), { tone: 'info' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.status = prev;
-				bnToast( t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}

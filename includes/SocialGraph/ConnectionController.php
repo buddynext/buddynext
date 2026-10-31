@@ -357,7 +357,8 @@ class ConnectionController extends BaseRestController {
 		}
 
 		if ( is_wp_error( $result ) ) {
-			return $this->preserve_status( $result, 400 );
+			// Nothing left to remove: the other side withdrew or disconnected first.
+			return $this->preserve_status( $result, 'not_connected' === $result->get_error_code() ? 404 : 400 );
 		}
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );

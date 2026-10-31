@@ -2205,6 +2205,7 @@ class PageRouter {
 				'follow'                 => __( 'Follow', 'buddynext' ),
 				'following'              => __( 'Following', 'buddynext' ),
 				'genericError'           => __( 'Something went wrong. Try again.', 'buddynext' ),
+				'actionRefused'          => __( 'That is not possible any more. Reload the page to see the latest.', 'buddynext' ),
 				/* translators: %d: page number of a document preview. */
 				'pageNumber'             => __( 'Page %d', 'buddynext' ),
 				'block'                  => __( 'Block', 'buddynext' ),

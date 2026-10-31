@@ -414,8 +414,8 @@
 				if ( res && res.ok ) {
 					if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.unlinkDone || 'Removed from the space', { tone: 'success' } ); }
 					close();
-				} else if ( typeof window.bnToast === 'function' ) {
-					window.bnToast( I18N.unlinkFail || 'Could not remove it from the space. Try again.', { tone: 'danger' } );
+				} else {
+					window.buddynextRest.toastRestError( res, I18N.unlinkFail || 'Could not remove it from the space. Try again.' );
 				}
 			} );
 		} );
@@ -689,8 +689,8 @@
 				json: { reason: result.reason, details: result.notes || '' },
 			} ).then( function () {
 				notify( __( 'Thanks, this has been sent to the moderators.', 'buddynext' ), 'success' );
-			} ).catch( function () {
-				notify( __( 'Could not send that report. Try again.', 'buddynext' ), 'error' );
+			} ).catch( function ( res ) {
+				notify( window.buddynextRest.restError( res, __( 'Could not send that report. Try again.', 'buddynext' ) ), 'error' );
 			} );
 		} );
 	}
@@ -733,8 +733,8 @@
 				if ( ! res.ok ) { throw res; }
 				notify( __( 'Blocked. You will not see their content.', 'buddynext' ), 'success' );
 				close();
-			} ).catch( function () {
-				notify( __( 'Could not block that member. Try again.', 'buddynext' ), 'error' );
+			} ).catch( function ( res ) {
+				notify( window.buddynextRest.restError( res, __( 'Could not block that member. Try again.', 'buddynext' ) ), 'error' );
 			} );
 		} );
 	}

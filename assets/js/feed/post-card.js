@@ -16,7 +16,7 @@
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReloadWithToast, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
 import { uploadMedia, validateMedia } from '@buddynext/upload-core';
 import { t, fmt, prependFeedCard, bnApplyFilters, escapeHtml, clearField, toUtcSqlDatetime, toSiteInputValue, siteNowInputValue } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
@@ -495,7 +495,7 @@ function appendResendVerifyButton( container, nonce ) {
 				bnToast( t( 'verifyResent', 'Verification email sent. Check your inbox.' ), { tone: 'success' } );
 			} else {
 				const data = res.data || {};
-				bnToast( data.message || t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+				toastRestError( res, t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ) );
 			}
 		} catch ( _e ) {
 			bnToast( t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
@@ -834,11 +834,11 @@ async function submitReply( form ) {
 			}
 			errEl.replaceChildren();
 			const span = document.createElement( 'span' );
-			span.textContent = data.message || t( 'replyFailed', 'Could not post reply. Try again.' );
+			span.textContent = restError( res, t( 'replyFailed', 'Could not post reply. Try again.' ) );
 			errEl.appendChild( span );
 			appendResendVerifyButton( errEl, viewer().restNonce );
 		} else {
-			bnToast( data.message || t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'replyFailed', 'Could not post reply. Try again.' ) );
 		}
 	} catch ( _e ) {
 		bnToast( t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
@@ -906,7 +906,7 @@ async function saveCommentEdit( form ) {
 			body:    { content: next, render: 'html' },
 		} );
 		if ( ! res.ok ) {
-			bnToast( t( 'commentUpdateFailed', 'Could not update comment. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'commentUpdateFailed', 'Could not update comment. Try again.' ) );
 			return;
 		}
 		// The server's formatted text, so @mentions and #hashtags stay links.
@@ -944,7 +944,7 @@ async function deleteComment( card ) {
 	const { postId } = commentScope( card );
 	const res = await restFetch( '/comments/' + card.dataset.commentId, { method: 'DELETE', nonce: viewer().restNonce, toastOnError: false } );
 	if ( ! res.ok ) {
-		bnToast( t( 'commentDeleteFailed', 'Could not delete comment. Try again.' ), { tone: 'danger' } );
+		toastRestError( res, t( 'commentDeleteFailed', 'Could not delete comment. Try again.' ) );
 		return;
 	}
 	// Soft delete: the thread keeps its shape; the text becomes a placeholder.
@@ -967,7 +967,7 @@ async function toggleCommentPin( card, btn ) {
 			method: wasPinned ? 'DELETE' : 'POST', nonce: viewer().restNonce, toastOnError: false,
 		} );
 		if ( ! res.ok ) {
-			bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'pinStatusFailed', 'Could not change pin status. Try again.' ) );
 			return;
 		}
 		card.classList.toggle( 'bn-comment-card--pinned', ! wasPinned );
@@ -1003,7 +1003,7 @@ async function reportComment( card, btn ) {
 		const data = res.data || {};
 		// 409 = already reported: the report is on file, so show it as reported too.
 		if ( ! res.ok && 409 !== res.status ) {
-			bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'reportFailed', 'Could not submit report. Try again.' ) );
 			return;
 		}
 		// The control shows the report landed, like the post-level Report.
@@ -1787,11 +1787,9 @@ store( 'buddynext/post-card', {
 					// gives one (the attempted action decides the fallback wording).
 					const wanted = ! prev;
 					ctx.bookmarked = prev;
-					const data     = res.data || {};
-					const fallback = wanted
+					toastRestError( res, wanted
 						? t( 'bookmarkAddFailed', 'Could not save this post. Try again.' )
-						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' );
-					bnToast( data.message || fallback, { tone: 'danger' } );
+						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' ) );
 				}
 			} catch ( _e ) {
 				const wanted   = ! prev;
@@ -1978,7 +1976,7 @@ store( 'buddynext/post-card', {
 					// permission or moderation-lock message) over the generic one.
 					const data = res.data || {};
 					bnToast(
-						data.message || t( 'postDeleteFailed', 'Could not delete this post. Try again.' ),
+						restError( res, t( 'postDeleteFailed', 'Could not delete this post. Try again.' ) ),
 						{ tone: 'danger' }
 					);
 				}
@@ -2043,7 +2041,7 @@ store( 'buddynext/post-card', {
 					ctx.shareShared = false;
 					// Surface the server's reason (e.g. already_shared) instead of
 					// failing silently — the guard is correct, the UX was mute.
-					const msg = ( res.data && res.data.message ) || t( 'shareFailed', 'Could not share this post. Try again.' );
+					const msg = restError( res, t( 'shareFailed', 'Could not share this post. Try again.' ) );
 					if ( window.bnToast ) { window.bnToast( msg, 'error' ); }
 				}
 			} catch ( _e ) {
@@ -2115,7 +2113,7 @@ store( 'buddynext/post-card', {
 					// Surface the server's reason instead of a generic failure.
 					const data = res.data || {};
 					bnToast(
-						data.message || t( 'reportFailed', 'Could not submit report. Try again.' ),
+						restError( res, t( 'reportFailed', 'Could not submit report. Try again.' ) ),
 						{ tone: 'danger' }
 					);
 				}
@@ -2511,16 +2509,7 @@ store( 'buddynext/post-card', {
 					bnToast( ctx.isPinned ? t( 'postPinned', 'Post pinned' ) : t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
 				} else {
 					ctx.isPinned = prev;
-					let message = prev ? t( 'postUnpinFailed', 'Could not unpin this post. Try again.' ) : t( 'postPinFailed', 'Could not pin this post. Try again.' );
-					try {
-						const data = res.data;
-						if ( data && data.message ) {
-							message = data.message;
-						}
-					} catch ( _err ) {
-						// Non-JSON body - keep the generic fallback message.
-					}
-					bnToast( message, { tone: 'danger' } );
+					toastRestError( res, prev ? t( 'postUnpinFailed', 'Could not unpin this post. Try again.' ) : t( 'postPinFailed', 'Could not pin this post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				ctx.isPinned = prev;
@@ -2541,11 +2530,7 @@ store( 'buddynext/post-card', {
 				if ( res.ok ) {
 					bnReloadWithToast( t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
 				} else {
-					let message = t( 'postUnpinFailed', 'Could not unpin this post. Try again.' );
-					if ( res.data && res.data.message ) {
-						message = res.data.message;
-					}
-					bnToast( message, { tone: 'danger' } );
+					toastRestError( res, t( 'postUnpinFailed', 'Could not unpin this post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
@@ -2655,7 +2640,7 @@ store( 'buddynext/post-card', {
 					// instead of flattening to a generic 400. Fall back only when
 					// the response carries no message.
 					showInlineError(
-						( res.data && res.data.message ) ? String( res.data.message ) : t( 'commentPostFailed', 'Could not post your comment. Try again.' ),
+						restError( res, t( 'commentPostFailed', 'Could not post your comment. Try again.' ) ),
 						res.data && res.data.code,
 						res.data && res.data.data && res.data.data.appeal_url
 					);
@@ -2702,7 +2687,7 @@ store( 'buddynext/post-card', {
 					// (card 10264293681 RFT round 4).
 					const data = res.data || {};
 					bnToast(
-						data.message || t( 'voteFailed', 'Could not record your vote. Try again.' ),
+						restError( res, t( 'voteFailed', 'Could not record your vote. Try again.' ) ),
 						{ tone: 'danger' }
 					);
 				}
@@ -2733,10 +2718,7 @@ store( 'buddynext/post-card', {
 					'.bn-post-card--announcement[data-post-id="' + ctx.postId + '"]'
 				)?.remove();
 			} else {
-				bnToast(
-					t( 'announcementDismissFailed', 'Could not dismiss this announcement. Try again.' ),
-					{ tone: 'danger' }
-				);
+				toastRestError( res, t( 'announcementDismissFailed', 'Could not dismiss this announcement. Try again.' ) );
 			}
 		},
 		// Admin-only: end the announcement for everyone (expire its pin now).
@@ -2754,7 +2736,7 @@ store( 'buddynext/post-card', {
 					document.querySelector( '.bn-post-card--announcement' )?.remove();
 					bnToast( t( 'announcementEnded', 'Announcement ended' ), { tone: 'success' } );
 				} else {
-					bnToast( t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ), { tone: 'danger' } );

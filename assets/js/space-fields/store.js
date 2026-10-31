@@ -6,7 +6,7 @@
  * inputs, posts them, and surfaces the server's per-field 422 errors inline. */
 import { store, getContext } from '@wordpress/interactivity';
 import { bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 
 let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
@@ -82,7 +82,7 @@ const spaceFieldsStore = store( 'buddynext/space-fields', {
 						const el  = row && row.querySelector( '[data-bn-field-error]' );
 						if ( el ) { el.textContent = errs[ key ]; el.hidden = false; shown++; }
 					} );
-					if ( ! shown ) { bnToast( t( 'saveFailed', 'Could not save the fields. Try again.' ), { tone: 'danger' } ); }
+					if ( ! shown ) { toastRestError( res, t( 'saveFailed', 'Could not save the fields. Try again.' ) ); }
 				}
 			} catch ( _e ) {
 				bnToast( t( 'saveFailed', 'Could not save the fields. Try again.' ), { tone: 'danger' } );

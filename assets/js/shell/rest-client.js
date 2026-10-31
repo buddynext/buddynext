@@ -30,9 +30,10 @@
  *   - Never throws on HTTP/network errors — always resolves to
  *     `{ ok, status, data, error? }`. A tripped deadline resolves with
  *     `{ ok: false, status: 0, error: 'timeout' }`.
- *   - On a failed result, shows one generic error toast unless the caller
- *     opts out with `{ toastOnError: false }` (sites doing optimistic rollback
- *     plus their own toast must opt out to avoid double-toasting).
+ *   - On a failed result, shows one error toast (see restError()) unless the
+ *     caller opts out with `{ toastOnError: false }` (sites doing optimistic
+ *     rollback plus their own toast must opt out to avoid double-toasting, and
+ *     use toastRestError() so the server's reason is not lost).
  */
 
 import { bnToast } from '@buddynext/shell-dialog';
@@ -313,6 +314,43 @@ function performRequest( path, opts, isRetry ) {
 }
 
 /**
+ * The sentence to show a member for a failed request.
+ *
+ * The server's own message wins: it is the only thing that knows why. A
+ * permanent refusal with no usable message (a proxy's bare 403, a route that is
+ * gone) must not fall back to a caller's "Try again", since retrying cannot work.
+ *
+ * @param {Object} res        A restFetch() result.
+ * @param {string} [fallback] Text for a retryable failure (timeout, offline, 5xx).
+ * @return {string} Message.
+ */
+export function restError( res, fallback ) {
+	const data = ( res && res.data ) || {};
+	const i18n = ( window.bnShellData && window.bnShellData.i18n ) || {};
+	// Core's own plumbing errors are written for developers, not members.
+	if ( data.message && 'rest_no_route' !== data.code && 'rest_cookie_invalid_nonce' !== data.code ) {
+		return String( data.message );
+	}
+	if ( res && [ 401, 403, 404, 409, 410 ].includes( res.status ) ) {
+		return i18n.actionRefused || 'That is not possible any more. Reload the page to see the latest.';
+	}
+	return fallback || i18n.genericError || 'Something went wrong. Try again.';
+}
+
+/**
+ * Toast a failed request for a caller that opted out of restFetch's own toast.
+ * Stays quiet for a suspended member, who has already been shown the appeal toast.
+ *
+ * @param {Object} res        A restFetch() result.
+ * @param {string} [fallback] Text for a retryable failure.
+ */
+export function toastRestError( res, fallback ) {
+	if ( ! res || ! res.suspended ) {
+		bnToast( restError( res, fallback ), { tone: 'danger' } );
+	}
+}
+
+/**
  * Perform a REST request.
  *
  * @param {string} path Path relative to the namespace base (or absolute URL).
@@ -344,12 +382,7 @@ export async function restFetch( path, opts ) {
 				}
 			);
 		} else if ( opts.toastOnError !== false ) {
-			bnToast(
-				( result.data && result.data.message ) ||
-					( window.bnShellData && window.bnShellData.i18n && window.bnShellData.i18n.genericError ) ||
-					'Something went wrong. Try again.',
-				{ tone: 'danger' }
-			);
+			bnToast( restError( result ), { tone: 'danger' } );
 		}
 	}
 	return result;
@@ -357,4 +390,4 @@ export async function restFetch( path, opts ) {
 
 // Named global for parity with the adoption plan and for the block bundle
 // (blocks.js), which is not part of the feature-store module graph.
-window.buddynextRest = { restFetch };
+window.buddynextRest = { restFetch, restError, toastRestError };

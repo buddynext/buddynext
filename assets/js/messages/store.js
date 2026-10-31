@@ -17,7 +17,7 @@
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnBlockConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
 // Shared client-side thumbnail only — DM upload stays on MediaVerse's own
 // conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
 // small preview so a large attachment doesn't decode full-res into the chip.
@@ -725,7 +725,7 @@ function applyReaction( ctx, msgEl, slug ) {
 			nonce: ctx.nonce,
 			method: 'DELETE',
 			toastOnError: false,
-		} );
+		} ).then( reactionSaved );
 	} else {
 		// Drop my previous reaction (if any), then add/boost the new one.
 		if ( mineNow ) {
@@ -748,10 +748,22 @@ function applyReaction( ctx, msgEl, slug ) {
 			method: 'POST',
 			body: { emoji: slug },
 			toastOnError: false,
-		} );
+		} ).then( reactionSaved );
 	}
 
 	box.hidden = ! box.querySelector( '.bn-dm-msg__reaction' );
+}
+
+/**
+ * The chips are painted before the server answers. On a refusal say so; the next
+ * poll's reaction_updates puts the chip back to what the server holds.
+ *
+ * @param {Object} res restFetch result.
+ */
+function reactionSaved( res ) {
+	if ( ! res.ok ) {
+		toastRestError( res, t( 'reactionFailed', 'Could not save your reaction. Try again.' ) );
+	}
 }
 
 /**
@@ -943,7 +955,7 @@ const messagesStore = store( 'buddynext/messages', {
 							dMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly: please wait a moment.' );
 							break;
 						default:
-							dMsg = t( 'sendFailed', 'Could not send. Try again.' );
+							dMsg = restError( created, t( 'sendFailed', 'Could not send. Try again.' ) );
 							break;
 					}
 					bnToast( dMsg, { tone: 'danger' } );
@@ -1009,6 +1021,14 @@ const messagesStore = store( 'buddynext/messages', {
 				}
 			}
 
+			// The dedupe guard: the first copy went through, so this is not a failed
+			// send. Restoring the text would invite a third copy.
+			if ( ! ok && 'duplicate_message' === ( res.data && res.data.error ) ) {
+				bnToast( t( 'sendAlreadySent', 'Already sent.' ), { tone: 'info' } );
+				if ( threadPollFn ) { threadPollFn(); }
+				return;
+			}
+
 			if ( ! ok ) {
 				// Restore the composer so the member can retry — no data loss.
 				if ( input ) {
@@ -1048,14 +1068,11 @@ const messagesStore = store( 'buddynext/messages', {
 					case 'not_participant':
 						denyMsg = t( 'sendDeniedNotParticipant', 'You can no longer post to this conversation.' );
 						break;
-					case 'duplicate_message':
-						denyMsg = '';
-						break; // dedupe guard — the message already went through.
 					default:
-						denyMsg = t( 'sendDeniedGeneric', 'Your message couldn’t be sent. Try again.' );
+						denyMsg = restError( res, t( 'sendDeniedGeneric', 'Your message couldn’t be sent. Try again.' ) );
 						break;
 				}
-				if ( denyMsg ) {
+				if ( ! res.suspended ) {
 					bnToast( denyMsg, { tone: 'danger' } );
 				}
 			}
@@ -1157,8 +1174,11 @@ const messagesStore = store( 'buddynext/messages', {
 				} );
 				if ( res.ok || res.status === 201 ) {
 					bnToast( t( 'reportMessageSuccess', 'Message reported. Our moderators will review it.' ), { tone: 'success' } );
+				} else if ( 409 === res.status ) {
+					// Already reported: the report is on file, as on every other report surface.
+					bnToast( restError( res ), { tone: 'info' } );
 				} else {
-					bnToast( t( 'reportMessageFailed', 'Could not report this message. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'reportMessageFailed', 'Could not report this message. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'reportMessageFailed', 'Could not report this message. Try again.' ), { tone: 'danger' } );
@@ -1207,7 +1227,7 @@ const messagesStore = store( 'buddynext/messages', {
 				} else if ( res.status === 403 ) {
 					bnToast( t( 'deleteMsgNotSender', 'You can only delete your own messages.' ), { tone: 'danger' } );
 				} else {
-					bnToast( t( 'deleteMsgFailed', 'Could not delete the message. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'deleteMsgFailed', 'Could not delete the message. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'deleteMsgFailed', 'Could not delete the message. Try again.' ), { tone: 'danger' } );
@@ -1242,7 +1262,7 @@ const messagesStore = store( 'buddynext/messages', {
 				} else if ( res.status === 403 ) {
 					bnToast( t( 'unsendMsgNotSender', 'You can only unsend your own messages.' ), { tone: 'danger' } );
 				} else {
-					bnToast( t( 'unsendMsgFailed', 'Could not unsend the message. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'unsendMsgFailed', 'Could not unsend the message. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'unsendMsgFailed', 'Could not unsend the message. Try again.' ), { tone: 'danger' } );
@@ -1311,7 +1331,7 @@ const messagesStore = store( 'buddynext/messages', {
 					// Reload the thread: the server draws it read-only with an Unblock option.
 					window.location.reload();
 				} else {
-					bnToast( fmt( t( 'blockFailed', 'Could not block. Try again.' ), name ), { tone: 'danger' } );
+					toastRestError( res, fmt( t( 'blockFailed', 'Could not block. Try again.' ), name ) );
 				}
 			} catch ( _e ) {
 				bnToast( fmt( t( 'blockFailed', 'Could not block. Try again.' ), name ), { tone: 'danger' } );
@@ -1335,7 +1355,7 @@ const messagesStore = store( 'buddynext/messages', {
 					window.location.reload();
 					return;
 				}
-				bnToast( fmt( t( 'unblockFailed', 'Could not unblock %s. Try again.' ), name ), { tone: 'danger' } );
+				toastRestError( res, fmt( t( 'unblockFailed', 'Could not unblock %s. Try again.' ), name ) );
 			} catch ( _e ) {
 				bnToast( fmt( t( 'unblockFailed', 'Could not unblock %s. Try again.' ), name ), { tone: 'danger' } );
 			} finally {
@@ -1367,8 +1387,11 @@ const messagesStore = store( 'buddynext/messages', {
 				if ( res.ok || res.status === 201 ) {
 					bnToast( t( 'reportConversationSuccess', 'Reported. Our moderators will review it.' ), { tone: 'success' } );
 					ctx.infoPanelOpen = false;
+				} else if ( 409 === res.status ) {
+					bnToast( restError( res ), { tone: 'info' } );
+					ctx.infoPanelOpen = false;
 				} else {
-					bnToast( t( 'reportConversationFailed', 'Could not submit the report. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'reportConversationFailed', 'Could not submit the report. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'reportConversationFailed', 'Could not submit the report. Try again.' ), { tone: 'danger' } );
@@ -1401,10 +1424,7 @@ const messagesStore = store( 'buddynext/messages', {
 				return;
 			}
 			// Keep the confirm modal open so Delete is one click away for a retry.
-			bnToast(
-				( res && res.data && res.data.message ) || t( 'deleteConversationFailed', 'Could not delete this conversation. Try again.' ),
-				{ tone: 'danger' }
-			);
+			toastRestError( res, t( 'deleteConversationFailed', 'Could not delete this conversation. Try again.' ) );
 		},
 
 		// Mute / unmute this conversation. The engine's PATCH sets the participant's
@@ -1429,6 +1449,9 @@ const messagesStore = store( 'buddynext/messages', {
 			ctx.infoBusy = false;
 			if ( res && res.ok ) {
 				ctx.isMuted = next;
+				bnToast( next ? t( 'conversationMuted', 'Conversation muted' ) : t( 'conversationUnmuted', 'Conversation unmuted' ), { tone: 'success' } );
+			} else {
+				toastRestError( res, t( 'conversationMuteFailed', 'Could not update this conversation. Try again.' ) );
 			}
 		},
 
@@ -1865,7 +1888,7 @@ const messagesStore = store( 'buddynext/messages', {
 			const opts = { base: ctx.mvsProRest, nonce: ctx.nonce, method, toastOnError: false };
 			if ( body ) { opts.body = body; }
 			const res  = yield restFetch( '/groups/' + ctx.activeConvId + path, opts );
-			return { ok: res.ok, data: res.data };
+			return res;
 		},
 		*renameGroup() {
 			const ctx = getContext();
@@ -1875,7 +1898,7 @@ const messagesStore = store( 'buddynext/messages', {
 				const r = yield actions.groupApi( 'PUT', '', { title: String( ctx.activeGroupName || '' ).trim() } );
 				ctx.groupBusy = false;
 				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( t( 'groupRenamed', 'Group renamed' ), { tone: 'success' } ); }
-				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
+				else { toastRestError( r, t( 'groupActionFailed', 'Something went wrong.' ) ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;
 				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
@@ -1893,7 +1916,7 @@ const messagesStore = store( 'buddynext/messages', {
 				const r = yield actions.groupApi( 'PUT', '/participants/' + id + '/role', { role: next } );
 				ctx.groupBusy = false;
 				if ( r.ok ) { applyGroupShape( ctx, r.data ); }
-				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
+				else { toastRestError( r, t( 'groupActionFailed', 'Something went wrong.' ) ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;
 				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
@@ -1910,7 +1933,7 @@ const messagesStore = store( 'buddynext/messages', {
 				const r = yield actions.groupApi( 'DELETE', '/participants/' + id, null );
 				ctx.groupBusy = false;
 				if ( r.ok ) { applyGroupShape( ctx, r.data ); }
-				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
+				else { toastRestError( r, t( 'groupActionFailed', 'Something went wrong.' ) ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;
 				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
@@ -1961,7 +1984,7 @@ const messagesStore = store( 'buddynext/messages', {
 					const list = document.querySelector( '.bn-dm-group__add-results' );
 					if ( list ) { list.replaceChildren(); }
 				} else {
-					bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
+					toastRestError( r, t( 'groupActionFailed', 'Something went wrong.' ) );
 				}
 			} catch ( _e ) {
 				ctx.groupBusy = false;
@@ -2023,7 +2046,7 @@ const messagesStore = store( 'buddynext/messages', {
 						// dropdown must NOT keep showing the previous query's rows
 						// (or a stale "No people found.") as if they answered this
 						// search: replace them with an explicit error state.
-						list.replaceChildren( composeMessage( t( 'composeError', 'Could not search right now. Try again.' ) ) );
+						list.replaceChildren( composeMessage( restError( res, t( 'composeError', 'Could not search right now. Try again.' ) ) ) );
 						return;
 					}
 					const data    = res.data;

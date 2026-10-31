@@ -15,7 +15,7 @@
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnBlockConfirm, bnConfirmDisconnect, bnMarkReported, bnReportDialog, bnResolveConnectNote } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 
 /* -- i18n -------------------------------------------------------------- */
@@ -493,7 +493,7 @@ async function delegatedFollow( card, btn, cfg ) {
 	card.dataset.following = was ? '1' : '0';
 	paintFollowBtn( btn, was );
 	if ( ! res.suspended ) {
-		bnToast( was ? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name ) : fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ), { tone: 'danger' } );
+		toastRestError( res, was ? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name ) : fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ) );
 	}
 }
 
@@ -513,12 +513,12 @@ async function delegatedConnect( card, btn, cfg ) {
 		paintConnectBtn( btn, 'pending-sent' );
 		try {
 			const res = await restFetch( endpoint, { method: 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, body: { note }, toastOnError: false } );
-			if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
+			if ( ! res.ok ) { throw res; }
 			bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
-		} catch ( _e ) {
+		} catch ( e ) {
 			card.dataset.connection = 'none';
 			paintConnectBtn( btn, 'none' );
-			bnToast( fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ), { tone: 'danger' } );
+			toastRestError( e, fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ) );
 		}
 		return;
 	}
@@ -531,12 +531,13 @@ async function delegatedConnect( card, btn, cfg ) {
 		paintConnectBtn( btn, 'none' );
 		try {
 			const res = await restFetch( endpoint, { method: 'DELETE', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false } );
-			if ( ! res.ok ) { throw new Error( 'connect_remove_failed_' + res.status ); }
+			if ( ! res.ok ) { throw res; }
 			bnToast( cur === 'accepted' ? fmt( t( 'toastDisconnected', 'Disconnected from @%s' ), name ) : fmt( t( 'toastRequestWithdrawn', 'Request to @%s withdrawn' ), name ), { tone: 'info' } );
-		} catch ( _e ) {
-			card.dataset.connection = cur;
-			paintConnectBtn( btn, cur );
-			bnToast( t( 'toastCouldNotUpdateConnection', 'Could not update connection. Try again.' ), { tone: 'danger' } );
+		} catch ( e ) {
+			const real = 404 === e.status ? 'none' : cur;
+			card.dataset.connection = real;
+			paintConnectBtn( btn, real );
+			toastRestError( e, t( 'toastCouldNotUpdateConnection', 'Could not update connection. Try again.' ) );
 		}
 	}
 }
@@ -553,13 +554,15 @@ async function delegatedDecide( card, accept, cfg ) {
 	try {
 		const res = await restFetch( '/users/' + uid + '/connect/' + ( accept ? 'accept' : 'decline' ),
 			{ method: 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false } );
-		if ( ! res.ok ) { throw new Error( 'decide_failed_' + res.status ); }
+		if ( ! res.ok ) { throw res; }
 		bnToast( accept ? fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ) : fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), name ), { tone: accept ? 'success' : 'info' } );
-	} catch ( _e ) {
-		card.dataset.connection = prev;
-		if ( decideWrap ) { decideWrap.hidden = prev !== 'pending-received'; }
-		if ( primaryBtn ) { paintConnectBtn( primaryBtn, prev ); }
-		bnToast( accept ? t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) : t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+	} catch ( e ) {
+		// 404: the other person withdrew it, so going back to "pending" would be stale.
+		const real = 404 === e.status ? 'none' : prev;
+		card.dataset.connection = real;
+		if ( decideWrap ) { decideWrap.hidden = real !== 'pending-received'; }
+		if ( primaryBtn ) { paintConnectBtn( primaryBtn, real ); }
+		toastRestError( e, accept ? t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) : t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ) );
 	}
 }
 
@@ -589,12 +592,12 @@ async function delegatedMute( card, btn, cfg ) {
 		const res = await restFetch( '/users/' + uid + '/mute', {
 			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
 		} );
-		if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
+		if ( ! res.ok ) { throw res; }
 		bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
-	} catch ( _e ) {
+	} catch ( e ) {
 		card.dataset.muted = was ? '1' : '0';
 		btn.textContent = was ? t( 'unmute', 'Unmute' ) : t( 'mute', 'Mute' );
-		bnToast( t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ), { tone: 'danger' } );
+		toastRestError( e, t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ) );
 	}
 }
 
@@ -963,18 +966,12 @@ const membersStore = store( 'buddynext/members', {
 					);
 				} else {
 					ctx.isFollowing = wasFollow;
-					// rest-client already surfaced the "review your account status"
-					// toast for a hold/suspension; only add the generic retry toast
-					// otherwise, so a suspended member is not told to "try again" at a
-					// follow that can never succeed (card 10264293681).
-					if ( ! res.suspended ) {
-						bnToast(
-							wasFollow
-								? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name )
-								: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ),
-							{ tone: 'danger' }
-						);
-					}
+					toastRestError(
+						res,
+						wasFollow
+							? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name )
+							: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name )
+					);
 				}
 			} finally {
 				ctx.busy = false;
@@ -1011,7 +1008,7 @@ const membersStore = store( 'buddynext/members', {
 						// suspension; only add the generic retry toast otherwise
 						// (card 10264293681).
 						if ( ! res.suspended ) {
-							bnToast( fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ), { tone: 'danger' } );
+							toastRestError( res, fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ) );
 						}
 					}
 				} finally {
@@ -1029,11 +1026,11 @@ const membersStore = store( 'buddynext/members', {
 						nonce:        restNonce( ctx ),
 						toastOnError: false,
 					} );
-					if ( ! res.ok ) { throw new Error( 'withdraw_failed_' + res.status ); }
+					if ( ! res.ok ) { throw res; }
 					bnToast( fmt( t( 'toastRequestWithdrawn', 'Request to @%s withdrawn' ), name ), { tone: 'info' } );
-				} catch ( _e ) {
-					ctx.connection = 'pending-sent';
-					bnToast( t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ), { tone: 'danger' } );
+				} catch ( e ) {
+					ctx.connection = 404 === e.status ? 'none' : 'pending-sent';
+					toastRestError( e, t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ) );
 				} finally {
 					ctx.busy = false;
 				}
@@ -1050,11 +1047,11 @@ const membersStore = store( 'buddynext/members', {
 						nonce:        restNonce( ctx ),
 						toastOnError: false,
 					} );
-					if ( ! res.ok ) { throw new Error( 'disconnect_failed_' + res.status ); }
+					if ( ! res.ok ) { throw res; }
 					bnToast( fmt( t( 'toastDisconnected', 'Disconnected from @%s' ), name ), { tone: 'info' } );
-				} catch ( _e ) {
+				} catch ( e ) {
 					ctx.connection = 'accepted';
-					bnToast( t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ), { tone: 'danger' } );
+					toastRestError( e, t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ) );
 				} finally {
 					ctx.busy = false;
 				}
@@ -1075,11 +1072,11 @@ const membersStore = store( 'buddynext/members', {
 					nonce:        restNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ), { tone: 'success' } );
-			} catch ( _e ) {
-				ctx.connection = prev;
-				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				ctx.connection = 404 === e.status ? 'none' : prev;
+				toastRestError( e, t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -1099,11 +1096,11 @@ const membersStore = store( 'buddynext/members', {
 					nonce:        restNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), name ), { tone: 'info' } );
-			} catch ( _e ) {
-				ctx.connection = prev;
-				bnToast( t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ), { tone: 'danger' } );
+			} catch ( e ) {
+				ctx.connection = 404 === e.status ? 'none' : prev;
+				toastRestError( e, t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ) );
 			} finally {
 				ctx.busy = false;
 			}
@@ -1150,11 +1147,11 @@ const membersStore = store( 'buddynext/members', {
 					nonce:        restNonce( ctx ),
 					toastOnError: false,
 				} );
-				if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
+				if ( ! res.ok ) { throw res; }
 				bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
-			} catch ( _e ) {
+			} catch ( e ) {
 				ctx.isMuted = was;
-				bnToast( t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ), { tone: 'danger' } );
+				toastRestError( e, t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ) );
 			}
 		},
 
@@ -1202,12 +1199,12 @@ async function blockMember( userId, displayName ) {
 			'/users/' + userId + '/block',
 			{ method: 'POST', base: restUrl || undefined, nonce: nonce, toastOnError: false }
 		);
-		if ( ! res.ok ) { throw new Error( 'block_failed' ); }
+		if ( ! res.ok ) { throw res; }
 		bnToast( fmt( t( 'toastBlocked', '%s blocked' ), name ), { tone: 'success' } );
 		const card = document.querySelector( '.bn-md-card[data-user-id="' + userId + '"]' );
 		if ( card ) { card.remove(); }
-	} catch ( _e ) {
-		bnToast( t( 'toastCouldNotBlock', 'Could not block. Try again.' ), { tone: 'danger' } );
+	} catch ( e ) {
+		toastRestError( e, t( 'toastCouldNotBlock', 'Could not block. Try again.' ) );
 	}
 }
 
@@ -1230,7 +1227,7 @@ async function reportMember( userId, trigger ) {
 		const data = res.data || {};
 		// 409 = already reported: the report is on file, so show it as reported too.
 		if ( ! res.ok && 409 !== res.status ) {
-			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'toastCouldNotReport', 'Could not submit report. Try again.' ) );
 			return;
 		}
 		const done = t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' );

@@ -16,7 +16,7 @@
 
 import { store, getContext, getElement, withScope } from '@wordpress/interactivity';
 import { bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restError, restFetch , toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
 import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime } from '@buddynext/feed-shared';
@@ -1565,7 +1565,7 @@ store( 'buddynext/post-composer', {
 					bnToast( t( 'verifyResent', 'Verification email sent. Check your inbox.' ), { tone: 'success' } );
 				} else {
 					const data = res.data || {};
-					bnToast( data.message || t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+					toastRestError( res, t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ) );
 				}
 			} catch ( _e ) {
 				bnToast( t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
@@ -1625,7 +1625,7 @@ store( 'buddynext/post-composer', {
 					document.querySelectorAll( '[data-bn-voice-field]' ).forEach( ( el ) => { el.value = ''; } );
 					return;
 				}
-				ctx.voiceError = t( 'voiceScheduleFailed', 'Could not schedule the voice room. Try again.' );
+				ctx.voiceError = restError( res, t( 'voiceScheduleFailed', 'Could not schedule the voice room. Try again.' ) );
 				ctx.submitting = false;
 			} catch ( _e ) {
 				ctx.voiceError = t( 'networkError', 'Network error. Try again.' );

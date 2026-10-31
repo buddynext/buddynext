@@ -1,6 +1,6 @@
 /* BuddyNext — Spaces Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 import { onNavReady, bnPageUrl } from '@buddynext/nav-init';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 import { openCoverReposModal } from '@buddynext/cover-reposition';
@@ -116,9 +116,7 @@ async function renderDiscussionResults( picker, q ) {
 	// here instead of falling through to an empty list — otherwise the picker just
 	// closes with no feedback and reads as "no discussions found" on a real error.
 	if ( ! res.ok ) {
-		if ( window.bnToast ) {
-			window.bnToast( t( 'discussionSearchFailed', 'Could not search discussions. Check your connection and try again.' ), 'danger' );
-		}
+		toastRestError( res, t( 'discussionSearchFailed', 'Could not search discussions. Check your connection and try again.' ) );
 		closeDiscussionResults( picker );
 		return;
 	}
@@ -203,9 +201,7 @@ async function renderParentResults( picker, q ) {
 		{ method: 'GET', nonce: resolveNonce(), toastOnError: false }
 	);
 	if ( ! res.ok ) {
-		if ( window.bnToast ) {
-			window.bnToast( t( 'parentSearchFailed', 'Could not search spaces. Check your connection and try again.' ), 'danger' );
-		}
+		toastRestError( res, t( 'parentSearchFailed', 'Could not search spaces. Check your connection and try again.' ) );
 		return;
 	}
 
@@ -532,6 +528,15 @@ async function moderateJoinRequest( event, action ) {
 
 		var ok = res.ok && ( ( 'approve' === action ) ? data.approved : data.declined );
 
+		// Another moderator already handled it: the row is stale, every retry would
+		// fail the same way. Take it off the list and say so.
+		if ( 404 === res.status || 409 === res.status ) {
+			if ( row && row.parentNode ) { row.parentNode.removeChild( row ); }
+			syncPendingCounters();
+			toastRestError( res );
+			return;
+		}
+
 		if ( ok ) {
 			// Remove the request row, then sync the counters to the live count.
 			if ( row && row.parentNode ) { row.parentNode.removeChild( row ); }
@@ -553,12 +558,9 @@ async function moderateJoinRequest( event, action ) {
 		if ( row ) { row.style.opacity = '1'; }
 		for ( var j = 0; j < rowBtns.length; j++ ) { rowBtns[ j ].disabled = false; }
 		if ( window.bnToast ) {
-			var msg = ( data && data.message )
-				? data.message
-				: ( ( 'approve' === action )
-					? t( 'couldNotApproveRequest', 'Could not approve the request.' )
-					: t( 'couldNotDeclineRequest', 'Could not decline the request.' ) );
-			window.bnToast( msg, 'danger' );
+			toastRestError( res, ( 'approve' === action )
+				? t( 'couldNotApproveRequest', 'Could not approve the request.' )
+				: t( 'couldNotDeclineRequest', 'Could not decline the request.' ) );
 		}
 	} catch ( _e ) {
 		if ( row ) { row.style.opacity = '1'; }
@@ -1081,7 +1083,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotDeclineInvite', 'Could not decline the invitation.' ), 'danger' ); }
+					toastRestError( res, t( 'couldNotDeclineInvite', 'Could not decline the invitation.' ) );
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
@@ -1162,7 +1164,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				bnToast( res.ok ? done : ( data.message || done ), { tone: res.ok ? 'success' : 'info' } );
 				return;
 			}
-			bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+			toastRestError( res, t( 'toastCouldNotReport', 'Could not submit report. Try again.' ) );
 		},
 
 		leaveSpace: async function ( event ) {
@@ -1388,6 +1390,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					window.location.reload();
 				} else {
 					if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = t( 'post', 'Post' ); }
+					toastRestError( res, t( 'couldNotPost', 'Could not post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = t( 'post', 'Post' ); }
@@ -1419,7 +1422,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( countEl ) { countEl.textContent = String( count ); }
 
 			try {
-				await restFetch( '/reactions/toggle', {
+				var res = await restFetch( '/reactions/toggle', {
 					method:  'POST',
 					nonce:   resolveNonce(),
 					body: {
@@ -1429,7 +1432,9 @@ var storeInstance = store( 'buddynext/spaces', {
 					},
 					toastOnError: false,
 				} );
-			} catch ( _e ) {
+				if ( ! res.ok ) { throw res; }
+			} catch ( e ) {
+				toastRestError( e, t( 'couldNotReact', 'Could not update your reaction. Try again.' ) );
 				// Revert optimistic update on network failure.
 				if ( hasReacted ) {
 					count = count + 1;
@@ -1511,8 +1516,7 @@ var storeInstance = store( 'buddynext/spaces', {
 							return;
 						}
 						// Surface the server's reason (e.g. 409 already reported).
-						var data = res.data;
-						if ( window.bnToast ) { window.bnToast( ( data && data.message ) || t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ), { tone: 'danger' } ); }
+						toastRestError( res, t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ) );
 					} ).catch( function () {
 						if ( window.bnToast ) { window.bnToast( t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ), { tone: 'danger' } ); }
 					} );
@@ -1567,6 +1571,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} else {
 					btn.textContent = origText;
 					btn.disabled    = false;
+					toastRestError( res, t( 'couldNotShare', 'Could not share this post. Try again.' ) );
 				}
 			} catch ( _e ) {
 				btn.textContent = origText;
@@ -1828,7 +1833,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					bnReloadWithToast( t( 'spaceArchived', 'Space archived.' ), 'success' );
 				} else {
 					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotArchive', 'Could not archive the space. Try again.' ), 'danger' ); }
+					toastRestError( res, t( 'couldNotArchive', 'Could not archive the space. Try again.' ) );
 				}
 			} catch ( _e ) {
 				btn.disabled = false;
@@ -1864,7 +1869,7 @@ var storeInstance = store( 'buddynext/spaces', {
 					bnReloadWithToast( t( 'spaceRestored', 'Space restored.' ), 'success' );
 				} else {
 					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
+					toastRestError( res, t( 'couldNotRestore', 'Could not restore the space. Try again.' ) );
 				}
 			} catch ( _e ) {
 				btn.disabled = false;
@@ -1992,9 +1997,7 @@ var storeInstance = store( 'buddynext/spaces', {
 							);
 						}
 					}
-					if ( window.bnToast ) {
-						window.bnToast( t( 'couldNotUpdateNotifPref', 'Could not update notification preference.' ), 'danger' );
-					}
+					toastRestError( res, t( 'couldNotUpdateNotifPref', 'Could not update notification preference.' ) );
 				} else if ( window.bnToast ) {
 					window.bnToast( t( 'notifPrefSaved', 'Notification preference saved.' ), 'success' );
 				}

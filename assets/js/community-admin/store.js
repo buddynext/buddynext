@@ -8,7 +8,7 @@
  */
 import { store, getContext } from '@wordpress/interactivity';
 import { bnToast } from '@buddynext/shell-dialog';
-import { restFetch } from '@buddynext/rest-client';
+import { restFetch, toastRestError } from '@buddynext/rest-client';
 
 /* Translated strings are injected server-side into this namespace's state when
  * available; each lookup keeps an English literal fallback so the control never
@@ -48,8 +48,7 @@ const caStore = store( 'buddynext/community-admin', {
 			} else {
 				// Revert the control to the last known-good role on failure.
 				select.value = prevRole;
-				const msg = ( res && res.error && res.error.message ) || i18n.roleFailed || 'Could not update the role. Try again.';
-				bnToast( msg, { tone: 'danger' } );
+				toastRestError( res, i18n.roleFailed || 'Could not update the role. Try again.' );
 			}
 		},
 	},
