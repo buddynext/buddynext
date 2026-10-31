@@ -775,37 +775,6 @@ class AuthController {
 	}
 
 	/**
-	 * Translate an authenticate-chain WP_Error into a REST gate response, when
-	 * (and only when) it is a NON-CREDENTIAL gate rather than a bad password.
-	 *
-	 * Because wp_authenticate() runs the whole filter chain, its WP_Error can mean
-	 * two very different things:
-	 *
-	 *   1. The credentials were wrong (invalid_username, incorrect_password, …).
-	 *      Those must stay collapsed into one generic 401 by the caller — telling
-	 *      the client which half was wrong turns the endpoint into an account
-	 *      enumeration oracle.
-	 *   2. The credentials were RIGHT but a policy gate refused the sign-in — today
-	 *      that is `bn_pending_approval` (Plugin::register_hooks() adds the
-	 *      wp_authenticate_user filter for the `approval` registration mode).
-	 *      Flattening that into "Invalid email or password." sends a member who
-	 *      typed the correct password off to reset it, chasing a password problem
-	 *      they do not have. wp-login.php shows the real message; the REST login
-	 *      must too.
-	 *
-	 * Only codes on the allowlist below are passed through, so a future gate filter
-	 * cannot accidentally start leaking a credential hint. Email verification is
-	 * intentionally absent: it does not block sign-in (VerificationListener lets the
-	 * user in and the router lands them on /auth/verify/), so it never reaches here.
-	 *
-	 * @param WP_Error $error      Error returned by wp_authenticate().
-	 * @param string   $user_input Submitted username or email, for the re-check below.
-	 * @param string   $password   Submitted password, for the re-check below.
-	 * @return WP_Error|null A 403 gate error to return to the client, or null when
-	 *                       the failure is a credential failure the caller should
-	 *                       answer with its generic 401.
-	 */
-	/**
 	 * User meta recording that the member chose their own password.
 	 *
 	 * WordPress always stores a password hash, so the hash cannot tell us whether
@@ -889,12 +858,22 @@ class AuthController {
 	}
 
 	/**
-	 * Re-issue a gate refusal that wp_authenticate() flattened into a generic error.
+	 * Find the real reason a member with the CORRECT password was refused.
 	 *
-	 * Because wp_authenticate() runs the whole filter chain, a WP_Error coming back from
-	 * it can mean "wrong password" OR "a gate refused you" — the approval hold, for
-	 * instance, is a wp_authenticate_user filter. Those must not surface to the member
-	 * as "incorrect password", which would be a lie they could never act on.
+	 * The wp_authenticate() call runs the whole filter chain, so its WP_Error can mean "wrong
+	 * password" or "a gate refused you" (the approval hold, or any other plugin's
+	 * wp_authenticate_user or authenticate gate). Telling a member who typed the right
+	 * password that it is wrong is a lie they can never act on.
+	 *
+	 * The password is proved first, because gates run BEFORE core checks it: an error
+	 * from one says nothing about the caller. Without proof this returns null and the
+	 * caller answers with its generic failure, so nothing about the account's state
+	 * reaches someone who does not hold the password.
+	 *
+	 * The gates are then asked directly rather than read from $error, because on a REST
+	 * request with application passwords in use, core's
+	 * wp_authenticate_application_password() (authenticate priority 20) replaces whatever
+	 * came before it with its own credential error.
 	 *
 	 * @param WP_Error $error      Error returned by wp_authenticate().
 	 * @param string   $user_input Login or email the member typed.
@@ -902,36 +881,33 @@ class AuthController {
 	 * @return WP_Error|null The gate's own error when this was a gate refusal, else null.
 	 */
 	private static function authenticate_gate_error( WP_Error $error, string $user_input, string $password ): ?WP_Error {
-		$gate_codes = array(
-			// The account exists and is held for administrator approval.
-			'bn_pending_approval',
-		);
-
-		$code = (string) $error->get_error_code();
-		if ( ! in_array( $code, $gate_codes, true ) ) {
-			return null;
-		}
-
-		// WordPress applies the `wp_authenticate_user` filter — where the approval
-		// gate lives — BEFORE it checks the password. So reaching this point proves
-		// only that the account is pending, not that the caller knows its password.
-		// Revealing the gate to someone who failed the password check would turn
-		// this endpoint into an enumeration oracle ("that address is a real, pending
-		// account"), which is exactly what the generic 401 below exists to prevent.
-		// So verify the password ourselves, and only then explain the real reason.
 		$user = \BuddyNext\Profile\Handle::user_for_sign_in( $user_input );
 
 		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
-			return null; // Fall through to the generic credential failure.
+			return null;
 		}
 
-		$message = wp_strip_all_tags( (string) $error->get_error_message() );
+		$gate = apply_filters( 'wp_authenticate_user', $user, $password );
+
+		if ( ! is_wp_error( $gate ) ) {
+			// No wp_authenticate_user gate: an `authenticate` gate may still have refused.
+			// What core's credential and application-password checks say is not a gate.
+			$not_a_gate = array( 'invalid_username', 'invalid_email', 'incorrect_password', 'empty_username', 'empty_email', 'empty_password', 'application_passwords_disabled', 'application_passwords_disabled_for_user' );
+
+			if ( in_array( (string) $error->get_error_code(), $not_a_gate, true ) ) {
+				return null;
+			}
+
+			$gate = $error;
+		}
+
+		$message = wp_strip_all_tags( (string) $gate->get_error_message() );
 		if ( '' === $message ) {
-			$message = __( 'Your account is awaiting administrator approval.', 'buddynext' );
+			$message = __( 'This account cannot sign in right now.', 'buddynext' );
 		}
 
 		// 403, not 401: the password was correct — access is what is refused.
-		return new WP_Error( $code, $message, array( 'status' => 403 ) );
+		return new WP_Error( (string) $gate->get_error_code(), $message, array( 'status' => 403 ) );
 	}
 
 	/**
