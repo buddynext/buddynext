@@ -16,6 +16,16 @@ import { restError, restFetch, toastRestError } from '@buddynext/rest-client';
  * the state is absent. fmt() fills sprintf-style '%s'/'%d' placeholders. */
 let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+
+/* The note field on both appeal decisions, matching wp-admin's appeal queue. */
+function appealNoteField() {
+	return {
+		inputType: 'text',
+		maxLength: 500,
+		placeholder: t( 'appealNotePlaceholder', 'Optional note' ),
+		inputLabel: t( 'appealNoteLabel', 'Note for the member (optional)' ),
+	};
+}
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
 /**
@@ -471,20 +481,21 @@ const moderationStore = store( 'buddynext/moderation', {
 		* approveAppeal() {
 			const ctx = getContext();
 			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
-			const ok = yield bnConfirm( {
+			const note = yield bnPrompt( {
+				...appealNoteField(),
 				title: t( 'approveAppealTitle', 'Approve this appeal?' ),
 				body: t( 'approveAppealBody', 'The member’s suspension will be lifted and they will be notified.' ),
 				confirmLabel: t( 'approveLabel', 'Approve' ),
 				// Approving an appeal lifts a suspension; it is not a destructive action.
 				tone: 'default',
 			} );
-			if ( ! ok ) { return; }
-			// Real route: POST /appeals/{id}/resolve { decision }.
+			if ( null === note ) { return; }
+			// Real route: POST /appeals/{id}/resolve { decision, reviewer_note }.
 			const res = yield restFetch( 'appeals/' + ctx.appealId + '/resolve', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { decision: 'approved' },
+				body: { decision: 'approved', reviewer_note: note.trim() },
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
@@ -500,18 +511,19 @@ const moderationStore = store( 'buddynext/moderation', {
 		* denyAppeal() {
 			const ctx = getContext();
 			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
-			const ok = yield bnConfirm( {
+			const note = yield bnPrompt( {
+				...appealNoteField(),
 				title: t( 'denyAppealTitle', 'Deny this appeal?' ),
 				body: t( 'denyAppealBody', 'The suspension stays in place. The member will be notified of the decision.' ),
 				confirmLabel: t( 'denyLabel', 'Deny' ),
 				tone: 'danger',
 			} );
-			if ( ! ok ) { return; }
+			if ( null === note ) { return; }
 			const res = yield restFetch( 'appeals/' + ctx.appealId + '/resolve', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { decision: 'denied' },
+				body: { decision: 'denied', reviewer_note: note.trim() },
 				toastOnError: false,
 			} );
 			if ( res.ok ) {

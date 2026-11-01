@@ -381,6 +381,8 @@ export function bnConfirmDisconnect( displayName ) {
  *                                   re-auth asks for 'password' here rather than
  *                                   growing its own dialog.
  * @param {string} [opts.autocomplete] autocomplete hint for the input.
+ * @param {number} [opts.maxLength]  Most characters the input takes.
+ * @param {string} [opts.inputLabel] Accessible name for the input.
  * @param {Function} [opts.validate] ( value ) => error string, or '' when valid.
  *                                   An error shows under the input and the
  *                                   dialog stays open, so nothing typed is lost.
@@ -401,6 +403,8 @@ export function bnPrompt( opts ) {
 	}
 	input.placeholder = cfg.placeholder || '';
 	input.value = cfg.defaultValue || '';
+	if ( cfg.maxLength ) { input.maxLength = cfg.maxLength; }
+	if ( cfg.inputLabel ) { input.setAttribute( 'aria-label', cfg.inputLabel ); }
 	input.style.marginTop = '12px';
 	input.style.width = '100%';
 

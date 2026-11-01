@@ -2034,6 +2034,8 @@ class AssetService {
 					'appealApproved'        => __( 'Appeal approved: suspension lifted.', 'buddynext' ),
 					'approveAppealFailed'   => __( 'Could not approve the appeal. Try again.', 'buddynext' ),
 					'denyAppealTitle'       => __( 'Deny this appeal?', 'buddynext' ),
+					'appealNotePlaceholder' => __( 'Optional note', 'buddynext' ),
+					'appealNoteLabel'       => __( 'Note for the member (optional)', 'buddynext' ),
 					'denyAppealBody'        => __( 'The suspension stays in place. The member will be notified of the decision.', 'buddynext' ),
 					'denyLabel'             => __( 'Deny', 'buddynext' ),
 					'appealDenied'          => __( 'Appeal denied', 'buddynext' ),
