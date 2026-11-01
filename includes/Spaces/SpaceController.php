@@ -3069,7 +3069,8 @@ class SpaceController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	private function invite_by_email( int $space_id, int $inviter_id, string $email ): WP_REST_Response|WP_Error {
-		if ( null === ( new SpaceService() )->get( $space_id ) ) {
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
@@ -3078,6 +3079,15 @@ class SpaceController extends BaseRestController {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can invite members.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Checked here for every address: only the account path below would otherwise refuse it.
+		if ( ! empty( $space['is_archived'] ) ) {
+			return new WP_Error(
+				'space_archived',
+				__( 'This space is archived and is not accepting new members.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -3095,11 +3105,15 @@ class SpaceController extends BaseRestController {
 
 		$account = get_user_by( 'email', $email );
 		if ( $account instanceof \WP_User ) {
-			if ( ! $site_level && in_array( $members->get_status( $space_id, (int) $account->ID ), array( 'active', 'invited' ), true ) ) {
+			// Any standing in this space (member, invited, pending, banned) reads as one refusal.
+			if ( ! $site_level && null !== $members->get_status( $space_id, (int) $account->ID ) ) {
 				return $this->email_invite_not_sent();
 			}
 			$invited = $members->invite( $space_id, $inviter_id, (int) $account->ID );
 			if ( is_wp_error( $invited ) ) {
+				if ( ! $site_level ) {
+					return $this->email_invite_not_sent();
+				}
 				$this->merge_error_data( $invited, array( 'status' => 403 ) );
 				return $invited;
 			}

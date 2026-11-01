@@ -93,8 +93,23 @@ class SpaceInviteByHandleTest extends \WP_Test_REST_TestCase {
 		( new \BuddyNext\Spaces\SpaceMemberService() )->join( $this->space_id, $member );
 		self::factory()->user->create( array( 'user_email' => 'qafix-stranger@example.com' ) );
 
+		// Every other standing an account can hold in this space.
+		global $wpdb;
+		foreach ( array( 'pending', 'banned' ) as $standing ) {
+			$held = self::factory()->user->create( array( 'user_email' => "qafix-{$standing}@example.com" ) );
+			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prefix . 'bn_space_members',
+				array(
+					'space_id' => $this->space_id,
+					'user_id'  => $held,
+					'role'     => 'member',
+					'status'   => $standing,
+				)
+			);
+		}
+
 		$answers = array();
-		foreach ( array( 'here', 'site', 'other', 'member' ) as $who ) {
+		foreach ( array( 'here', 'site', 'other', 'member', 'pending', 'banned' ) as $who ) {
 			$response = $this->invite( "qafix-{$who}@example.com" );
 			$this->assertSame( 409, $response->get_status(), $who );
 			$answers[] = $response->get_data();
@@ -107,7 +122,10 @@ class SpaceInviteByHandleTest extends \WP_Test_REST_TestCase {
 		$this->assertNull( $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_invites WHERE id = %d", $site['invite_id'] ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 		// An account that is not in the space reads exactly as a new address does.
-		$this->assertSame( $this->invite( 'qafix-new@example.com' )->get_data(), $this->invite( 'qafix-stranger@example.com' )->get_data() );
+		$new      = $this->invite( 'qafix-new@example.com' );
+		$stranger = $this->invite( 'qafix-stranger@example.com' );
+		$this->assertSame( $new->get_status(), $stranger->get_status() );
+		$this->assertSame( $new->get_data(), $stranger->get_data() );
 	}
 
 	public function test_site_admin_sees_the_reason_and_may_attach(): void {
@@ -142,5 +160,18 @@ class SpaceInviteByHandleTest extends \WP_Test_REST_TestCase {
 		$handle_user = self::factory()->user->create( array( 'user_login' => 'qafix_byhandle' ) );
 		$this->assertSame( 200, $this->invite( 'qafix_byhandle' )->get_status(), 'a @handle invite reveals no address, so it is not counted' );
 		$this->assertGreaterThan( 0, $handle_user );
+	}
+
+	public function test_archived_space_refuses_any_address_alike(): void {
+		global $wpdb;
+		self::factory()->user->create( array( 'user_email' => 'qafix-known@example.com' ) );
+		$wpdb->update( $wpdb->prefix . 'bn_spaces', array( 'is_archived' => 1 ), array( 'id' => $this->space_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		wp_cache_flush();
+
+		$known   = $this->invite( 'qafix-known@example.com' );
+		$unknown = $this->invite( 'qafix-unknown@example.com' );
+		$this->assertSame( 403, $known->get_status() );
+		$this->assertSame( $known->get_data(), $unknown->get_data() );
+		$this->assertSame( 0, (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites WHERE email = %s", 'qafix-unknown@example.com' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	}
 }
