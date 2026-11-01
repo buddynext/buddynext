@@ -739,16 +739,7 @@ class PostService {
 		// alive from dead spaces without a GROUP BY over bn_posts at request time.
 		$bn_space_id = (int) ( $data['space_id'] ?? 0 );
 		if ( $bn_space_id > 0 ) {
-			global $wpdb;
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_spaces',
-				array( 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ),
-				array( 'id' => $bn_space_id ),
-				array( '%s' ),
-				array( '%d' )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			buddynext_service( 'spaces' )->touch_activity( $bn_space_id, ! empty( $data['created_at'] ) ? (string) $data['created_at'] : null );
 
 			/**
 			 * Fires when a space's post set changes — a post created in it, or removed
@@ -3907,12 +3898,13 @@ class PostService {
 	/**
 	 * Increment the share_count for a post (floor 0).
 	 *
-	 * @param int $post_id Target post.
-	 * @param int $delta   +1 or -1.
+	 * @param int         $post_id Target post.
+	 * @param int         $delta   +1 or -1.
+	 * @param string|null $at      UTC time of the share, for a +1. Null means now.
 	 */
-	public function adjust_share_count( int $post_id, int $delta ): void {
+	public function adjust_share_count( int $post_id, int $delta, ?string $at = null ): void {
 		if ( $delta > 0 ) {
-			$this->increment_counter( $post_id, 'share_count' );
+			$this->increment_counter( $post_id, 'share_count', $at );
 		} else {
 			$this->decrement_counter( $post_id, 'share_count' );
 		}
@@ -3932,23 +3924,28 @@ class PostService {
 	 * CommentService, ReactionService and the WPMediaVerse bridge route here
 	 * instead of writing bn_posts directly.
 	 *
-	 * @param int    $post_id Post id.
-	 * @param string $column  One of self::COUNTER_COLUMNS.
+	 * @param int         $post_id Post id.
+	 * @param string      $column  One of self::COUNTER_COLUMNS.
+	 * @param string|null $at      UTC time of the engaging record. Null means now.
 	 */
-	public function increment_counter( int $post_id, string $column ): void {
+	public function increment_counter( int $post_id, string $column, ?string $at = null ): void {
 		if ( $post_id <= 0 || ! in_array( $column, self::COUNTER_COLUMNS, true ) ) {
 			return;
 		}
 
 		global $wpdb;
+		$stamp = \BuddyNext\Core\Backdate::resolve( $at );
 		// A new reaction/comment/share marks the post as freshly active — bump
 		// last_activity_at so the "Active" feed surfaces it. Decrement does not
-		// (removing engagement is not activity).
+		// (removing engagement is not activity). GREATEST: an older backdated
+		// record never moves a post backwards, and a live one still lands on now.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = %s, updated_at = UTC_TIMESTAMP() WHERE id = %d",
-				current_time( 'mysql', true ),
+				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = GREATEST( COALESCE( last_activity_at, %s ), %s ), updated_at = GREATEST( updated_at, %s ) WHERE id = %d",
+				$stamp,
+				$stamp,
+				$stamp,
 				$post_id
 			)
 		);

@@ -3656,7 +3656,7 @@ class WPMediaVerseBridge {
 		// a null container/key must skip the counter, not fatal the sync.
 		$post_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : null;
 		if ( $post_service ) {
-			$post_service->increment_counter( $bn_post_id, 'comment_count' );
+			$post_service->increment_counter( $bn_post_id, 'comment_count', $written );
 		}
 
 		// Fire BuddyNext hook so notifications/webhooks pick it up. Use the

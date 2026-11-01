@@ -267,7 +267,7 @@ class CommentService {
 		$this->bust_cache( $object_type, $object_id );
 
 		if ( 'post' === $object_type ) {
-			buddynext_service( 'post_service' )->increment_counter( $object_id, 'comment_count' );
+			buddynext_service( 'post_service' )->increment_counter( $object_id, 'comment_count', $bn_stamp );
 		}
 
 		/**

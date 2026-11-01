@@ -1686,6 +1686,39 @@ class SpaceService {
 	private const ACTIVITY_THROTTLE_GROUP = 'buddynext_space_activity';
 
 	/**
+	 * Move a space's last_active_at forward to a time. Never backwards, so an older
+	 * backdated record leaves newer activity alone.
+	 *
+	 * @param int         $space_id Space id.
+	 * @param string|null $at       UTC time of the activity. Null means now.
+	 * @return void
+	 */
+	public function touch_activity( int $space_id, ?string $at = null ): void {
+		global $wpdb;
+
+		$stamp = \BuddyNext\Core\Backdate::resolve( $at );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_spaces SET last_active_at = %s WHERE id = %d AND ( last_active_at IS NULL OR last_active_at < %s )",
+				$stamp,
+				$space_id,
+				$stamp
+			)
+		);
+
+		// A live touch leaves these to their TTL, as it always has. A backdated one
+		// is an import, where the page read straight after must show the source time.
+		if ( null !== $at && $wpdb->rows_affected > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$slug = (string) $wpdb->get_var( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $space_id ) );
+			wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+			wp_cache_delete( 'space_slug_' . $slug, self::CACHE_GROUP );
+			self::flush_space_lists();
+		}
+	}
+
+	/**
 	 * Bump a space's last_active_at when a comment lands on one of its posts.
 	 *
 	 * A new post already stamps last_active_at (run_post_published_effects); this
@@ -1695,7 +1728,10 @@ class SpaceService {
 	 * write per ACTIVITY_THROTTLE_SECONDS per space. Only comments on a POST count;
 	 * a comment on anything else is ignored. Hooked on buddynext_comment_created.
 	 *
-	 * @param int    $comment_id  New comment id (unused; fixed by the hook signature).
+	 * A backdated comment skips the throttle: an import writes years of comments in
+	 * seconds, and touch_activity() only writes one that is newer than the stored time.
+	 *
+	 * @param int    $comment_id  New comment id.
 	 * @param string $object_type What the comment is attached to.
 	 * @param int    $object_id   The commented object's id (a post id when relevant).
 	 * @param int    $user_id     Commenter id (unused; fixed by the hook signature).
@@ -1708,21 +1744,30 @@ class SpaceService {
 
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$space_id = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id )
+		$row      = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT p.space_id, c.created_at FROM {$wpdb->prefix}bn_posts p LEFT JOIN {$wpdb->prefix}bn_comments c ON c.id = %d WHERE p.id = %d",
+				$comment_id,
+				$object_id
+			),
+			ARRAY_A
 		);
-		if ( $space_id <= 0 || $this->activity_throttled( $space_id ) ) {
+		$space_id = (int) ( $row['space_id'] ?? 0 );
+		if ( $space_id <= 0 ) {
 			return;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$wpdb->prefix . 'bn_spaces',
-			array( 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ),
-			array( 'id' => $space_id ),
-			array( '%s' ),
-			array( '%d' )
-		);
+		$written = (string) ( $row['created_at'] ?? '' );
+		if ( '' !== $written && strtotime( $written . ' UTC' ) < time() - self::ACTIVITY_THROTTLE_SECONDS ) {
+			$this->touch_activity( $space_id, $written );
+			return;
+		}
+
+		if ( $this->activity_throttled( $space_id ) ) {
+			return;
+		}
+
+		$this->touch_activity( $space_id );
 		$this->mark_activity_throttled( $space_id );
 	}
 

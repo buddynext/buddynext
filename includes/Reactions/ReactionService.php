@@ -94,6 +94,8 @@ class ReactionService {
 
 		global $wpdb;
 
+		$bn_stamp = \BuddyNext\Core\Backdate::resolve( $created_at );
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
@@ -103,7 +105,7 @@ class ReactionService {
 				sanitize_key( $object_type ),
 				$object_id,
 				$emoji,
-				\BuddyNext\Core\Backdate::resolve( $created_at )
+				$bn_stamp
 			)
 		);
 
@@ -113,7 +115,7 @@ class ReactionService {
 			$this->invalidate_cache( $object_type, $object_id, $user_id );
 
 			if ( 'post' === $object_type ) {
-				buddynext_service( 'post_service' )->increment_counter( $object_id, 'reaction_count' );
+				buddynext_service( 'post_service' )->increment_counter( $object_id, 'reaction_count', $bn_stamp );
 			}
 
 			/**

@@ -674,6 +674,26 @@ Each render/sanitize filter is passed `null` (or the running value) as its first
 
 ---
 
+## Recipe 17 - Import records with their original dates (1.2.8)
+
+An importer writes through the services, never raw `bn_*` SQL, and passes each record's time from the source. The time is an optional UTC `Y-m-d H:i:s` string. Leave it out and the method stamps now, as it does for a live member. A future or unreadable value also means now.
+
+| Method | Where the time goes |
+|---|---|
+| `PostService::create( $user, $data )` | `$data['created_at']`, optional `$data['last_activity_at']` |
+| `CommentService::create( $user, $type, $id, $content, $parent, $created_at )` | 6th argument |
+| `ReactionService::react( $user, $type, $id, $emoji, $created_at )` | 5th argument |
+| `SpaceService::create( $user, $data )` | `$data['created_at']` |
+| `SpaceMemberService::join( $space, $user, $joined_at )` | 3rd argument |
+| `SpaceMemberService::request_join( $space, $user, $joined_at )` | 3rd argument |
+| `BookmarkService::bookmark( $user, $post, $created_at )` | 3rd argument |
+| `ShareService::share( $user, $post, $content, $created_at )` | 4th argument |
+| `IntegrationActivity::publish( ..., $meta, $created_at )` | 9th argument |
+
+Comments, reactions and shares move their post's `last_activity_at` to their own time, and posts and comments do the same for their space's `last_active_at`. Both only move forward, so records can arrive in any order and the newest one wins. A backdated comment skips the throttle that limits live comments to one space write every five minutes.
+
+These arguments are for server-side callers. No REST route accepts them, so a member cannot backdate their own content.
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.

@@ -73,19 +73,21 @@ class BookmarkService {
 	 *
 	 * Silently ignores duplicate bookmarks (INSERT IGNORE).
 	 *
-	 * @param int $user_id User saving the post.
-	 * @param int $post_id Post to save.
+	 * @param int         $user_id    User saving the post.
+	 * @param int         $post_id    Post to save.
+	 * @param string|null $created_at UTC save time (see Core\Backdate). Null means now.
 	 */
-	public function bookmark( int $user_id, int $post_id ): void {
+	public function bookmark( int $user_id, int $post_id, ?string $created_at = null ): void {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_bookmarks (user_id, post_id, created_at)
-				 VALUES (%d, %d, UTC_TIMESTAMP())",
+				 VALUES (%d, %d, %s)",
 				$user_id,
-				$post_id
+				$post_id,
+				\BuddyNext\Core\Backdate::resolve( $created_at )
 			)
 		);
 		$inserted = $wpdb->rows_affected > 0;

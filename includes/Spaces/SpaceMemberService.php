@@ -85,11 +85,12 @@ class SpaceMemberService {
 	 * was previously invited (status='invited') their row is promoted to
 	 * 'active'. A banned user cannot rejoin.
 	 *
-	 * @param int $space_id Space to join.
-	 * @param int $user_id  User joining.
+	 * @param int         $space_id  Space to join.
+	 * @param int         $user_id   User joining.
+	 * @param string|null $joined_at UTC join time (see Core\Backdate). Null means now.
 	 * @return true|WP_Error
 	 */
-	public function join( int $space_id, int $user_id ): bool|WP_Error {
+	public function join( int $space_id, int $user_id, ?string $joined_at = null ): bool|WP_Error {
 		// Pre-load space row so listeners on buddynext_can_join_space (including
 		// Pro's gated-space gate) receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
@@ -160,14 +161,18 @@ class SpaceMemberService {
 		if ( null !== $status ) {
 			// Row exists (pending/invited) — promote to active.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$fields = array( 'status' => 'active' );
+			if ( ! empty( $joined_at ) ) {
+				$fields['joined_at'] = \BuddyNext\Core\Backdate::resolve( $joined_at );
+			}
 			$wpdb->update(
 				$wpdb->prefix . 'bn_space_members',
-				array( 'status' => 'active' ),
+				$fields,
 				array(
 					'space_id' => $space_id,
 					'user_id'  => $user_id,
 				),
-				array( '%s' ),
+				'%s',
 				array( '%d', '%d' )
 			);
 		} else {
@@ -180,7 +185,7 @@ class SpaceMemberService {
 					$space_id,
 					$user_id,
 					$this->default_notification_pref( $space_id ),
-					current_time( 'mysql', true )
+					\BuddyNext\Core\Backdate::resolve( $joined_at )
 				)
 			);
 
@@ -210,11 +215,12 @@ class SpaceMemberService {
 	 * A duplicate request is silently accepted (idempotent). A banned user
 	 * cannot request to join.
 	 *
-	 * @param int $space_id Space to request membership in.
-	 * @param int $user_id  User requesting membership.
+	 * @param int         $space_id  Space to request membership in.
+	 * @param int         $user_id   User requesting membership.
+	 * @param string|null $joined_at UTC request time (see Core\Backdate). Null means now.
 	 * @return true|WP_Error
 	 */
-	public function request_join( int $space_id, int $user_id ): bool|WP_Error {
+	public function request_join( int $space_id, int $user_id, ?string $joined_at = null ): bool|WP_Error {
 		// Pre-load space row so listeners receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
 
@@ -287,7 +293,7 @@ class SpaceMemberService {
 				$space_id,
 				$user_id,
 				$this->default_notification_pref( $space_id ),
-				current_time( 'mysql', true )
+				\BuddyNext\Core\Backdate::resolve( $joined_at )
 			)
 		);
 

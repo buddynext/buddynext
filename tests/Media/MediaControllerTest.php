@@ -62,7 +62,8 @@ class MediaControllerTest extends \WP_UnitTestCase {
 	 * The engine's two capabilities decide, for both the delete and its usage check.
 	 */
 	public function test_trash_follows_the_engine_capabilities(): void {
-		$user = self::factory()->user->create_and_get();
+		// No role: MediaVerse grants these caps to roles, and the role table outlives a test run.
+		$user = self::factory()->user->create_and_get( array( 'role' => '' ) );
 		$this->assertFalse( \BuddyNext\Media\MediaClient::can_trash( $user->ID, $user->ID ), 'Own media, capability revoked.' );
 
 		$user->add_cap( 'delete_mvs_medias' );
