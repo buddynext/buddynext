@@ -333,27 +333,26 @@ class NotificationService {
 		$group_key    = isset( $data['group_key'] ) ? sanitize_text_field( $data['group_key'] ) : null;
 		$type         = sanitize_text_field( $data['type'] ?? '' );
 
-		// Respect the recipient's in-app notification preferences before creating
-		// (or merging into) any row. The per-type 'on_site' pref (Settings ->
-		// Notifications) and the master in-app channel toggle are the user/admin
-		// opt-out; previously create() inserted unconditionally and only the email
-		// channel consulted prefs, so disabling an in-app type had no effect.
+		// Channels are independent. The per-type 'on_site' pref (Settings ->
+		// Notifications) and the master in-app toggle only take the notification out
+		// of the bell: email, push and the digests still need the row and the hook,
+		// so it is written with in_app = 0 unless no other channel wants it either.
 		// Unknown/system types default to on_site = true (NotificationPrefService::
 		// default_pref), so critical notices are never suppressed; the
-		// buddynext_notification_force_on_site filter lets a caller force-send.
+		// buddynext_notification_force_on_site filter lets a caller force the bell.
+		$in_app = 1;
 		if ( '' !== $type && ! (bool) apply_filters( 'buddynext_notification_force_on_site', false, $recipient_id, $type, $data ) ) {
 			$prefs = function_exists( 'buddynext_service' ) ? buddynext_service( 'notification_prefs' ) : null;
 			if ( is_object( $prefs ) && method_exists( $prefs, 'get_pref' ) ) {
-				$pref = (array) $prefs->get_pref( $recipient_id, $type );
-				if ( empty( $pref['on_site'] ) ) {
-					return 0;
-				}
-				if ( method_exists( $prefs, 'get_channel_prefs' ) ) {
-					$channels = (array) $prefs->get_channel_prefs( $recipient_id );
-					// in_app defaults ON; suppress only when explicitly disabled.
-					if ( array_key_exists( 'in_app', $channels ) && empty( $channels['in_app'] ) ) {
+				$pref     = (array) $prefs->get_pref( $recipient_id, $type );
+				$channels = (array) $prefs->get_channel_prefs( $recipient_id );
+				// in_app defaults ON; off only when explicitly disabled.
+				if ( empty( $pref['on_site'] ) || ( array_key_exists( 'in_app', $channels ) && empty( $channels['in_app'] ) ) ) {
+					if ( ! $this->delivery_wanted( $recipient_id, $type, $data ) ) {
 						return 0;
 					}
+					$in_app         = 0;
+					$data['in_app'] = false;
 				}
 			}
 		}
@@ -404,11 +403,12 @@ class NotificationService {
 			$existing = $wpdb->get_row(
 				$wpdb->prepare(
 					"SELECT id, sender_id, data FROM {$wpdb->prefix}bn_notifications
-					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
+					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0 AND in_app = %d
 					   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
 					 LIMIT 1",
 					$recipient_id,
-					$group_key
+					$group_key,
+					$in_app
 				),
 				ARRAY_A
 			);
@@ -494,11 +494,12 @@ class NotificationService {
 				'group_count'  => 1,
 				'data'         => isset( $data['data'] ) ? wp_json_encode( $data['data'] ) : null,
 				'is_read'      => 0,
+				'in_app'       => $in_app,
 				// UTC write (not the column's local-time default) so the bell's
 				// relative times are correct on any server timezone.
 				'created_at'   => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%d', '%s' )
 		);
 
 		// A failed insert must not bust the cache, fire the listener, or return a
@@ -524,6 +525,33 @@ class NotificationService {
 		do_action( 'buddynext_notification_created', $notif_id, $recipient_id, $data );
 
 		return $notif_id;
+	}
+
+	/**
+	 * Whether a channel other than the bell wants this notification.
+	 *
+	 * @param int    $recipient_id Recipient.
+	 * @param string $type         Notification type key.
+	 * @param array  $data         The payload passed to create().
+	 * @return bool
+	 */
+	public function delivery_wanted( int $recipient_id, string $type, array $data ): bool {
+		/**
+		 * Filter whether a member with In-app off still gets this notification on
+		 * another channel. False writes no row and fires no hook. Pro's push answers here.
+		 *
+		 * @param bool   $wanted       True when the member's email settings want it.
+		 * @param int    $recipient_id Recipient.
+		 * @param string $type         Notification type key.
+		 * @param array  $data         The payload passed to create().
+		 */
+		return (bool) apply_filters(
+			'buddynext_notification_delivery_wanted',
+			buddynext_service( 'notification_prefs' )->email_wanted( $recipient_id, $type ),
+			$recipient_id,
+			$type,
+			$data
+		);
 	}
 
 	/**
@@ -740,12 +768,14 @@ class NotificationService {
 		$wpdb->update(
 			$wpdb->prefix . 'bn_notifications',
 			array( 'is_read' => 1 ),
+			// A row outside the bell stays unread for the digest: this member never saw it.
 			array(
 				'recipient_id' => $user_id,
 				'is_read'      => 0,
+				'in_app'       => 1,
 			),
 			array( '%d' ),
-			array( '%d', '%d' )
+			array( '%d', '%d', '%d' )
 		);
 
 		// Marking everything read is a stronger engagement than merely viewing, so
@@ -776,7 +806,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND is_read = 0" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
+				 WHERE recipient_id = %d AND is_read = 0" . $this->bell_rows_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from bell_rows_sql().
 				$user_id
 			)
 		);
@@ -847,7 +877,7 @@ class NotificationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND created_at > %s AND is_read = 0" . $this->hidden_types_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
+				 WHERE recipient_id = %d AND created_at > %s AND is_read = 0" . $this->bell_rows_sql(), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from bell_rows_sql().
 				$user_id,
 				$last_seen
 			)
@@ -1330,7 +1360,7 @@ class NotificationService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT type, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND is_read = 0" . $this->hidden_types_sql() . ' GROUP BY type', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from hidden_types_sql().
+				 WHERE recipient_id = %d AND is_read = 0" . $this->bell_rows_sql() . ' GROUP BY type', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- fixed literals from bell_rows_sql().
 				$user_id
 			),
 			ARRAY_A
@@ -1373,7 +1403,7 @@ class NotificationService {
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT sender_id FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND sender_id IS NOT NULL AND sender_id > 0
+				 WHERE recipient_id = %d AND in_app = 1 AND sender_id IS NOT NULL AND sender_id > 0
 				 GROUP BY sender_id
 				 ORDER BY MAX(created_at) DESC
 				 LIMIT %d",
@@ -1402,33 +1432,34 @@ class NotificationService {
 	private function filter_where( string $filter ): string {
 		switch ( $filter ) {
 			case 'unread':
-				return 'AND is_read = 0' . $this->hidden_types_sql();
+				return 'AND is_read = 0' . $this->bell_rows_sql();
 			case 'read':
-				return 'AND is_read = 1' . $this->hidden_types_sql();
+				return 'AND is_read = 1' . $this->bell_rows_sql();
 			default:
-				return $this->hidden_types_sql();
+				return $this->bell_rows_sql();
 		}
 	}
 
 	/**
-	 * SQL clause leaving out notification types whose feature is switched off.
+	 * SQL clause for what the bell shows: not the rows kept only for email, push and
+	 * digests (in_app = 0), and not notification types whose feature is switched off.
 	 *
 	 * With messaging off in WPMediaVerse, "sent you a message" rows would open the
 	 * unavailable Messages page, so they are left out of the list and every count
 	 * while it is off, and come back untouched when it is on (card 10344001598).
 	 * Counts are cached for CACHE_TTL seconds, so they follow a switch within it.
 	 *
-	 * @return string '' or " AND type NOT IN (...)".
+	 * @return string " AND in_app = 1" plus " AND type NOT IN (...)" when any are off.
 	 */
-	private function hidden_types_sql(): string {
+	private function bell_rows_sql(): string {
 		$types = array();
 		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
 			$types[] = 'bn.new_message';
 		}
 		if ( empty( $types ) ) {
-			return '';
+			return ' AND in_app = 1';
 		}
-		return " AND type NOT IN ('" . implode( "','", array_map( 'esc_sql', $types ) ) . "')";
+		return " AND in_app = 1 AND type NOT IN ('" . implode( "','", array_map( 'esc_sql', $types ) ) . "')";
 	}
 
 	/**

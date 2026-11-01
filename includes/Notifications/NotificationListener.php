@@ -1074,6 +1074,41 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
+	 * The members of a fan-out batch with In-app off for this type, and whether another
+	 * channel still wants it for each. Same rule as NotificationService::create().
+	 *
+	 * @param int[]  $member_ids Members.
+	 * @param string $type       Notification type key.
+	 * @return array<int,bool> member id => delivery wanted; members with the bell on are absent.
+	 */
+	private function delivery_only_members( array $member_ids, string $type ): array {
+		$prefs = buddynext_service( 'notification_prefs' );
+
+		// One query for the batch, and usermeta primed once for the channel reads.
+		$on_site = $prefs->get_on_site_map( $member_ids, $type );
+		update_meta_cache( 'user', $member_ids );
+
+		$off = array();
+		foreach ( $member_ids as $member_id ) {
+			$payload  = array(
+				'recipient_id' => $member_id,
+				'type'         => $type,
+			);
+			$channels = (array) $prefs->get_channel_prefs( $member_id );
+			if ( ( array_key_exists( $member_id, $on_site ) && ! $on_site[ $member_id ] )
+				|| ( array_key_exists( 'in_app', $channels ) && empty( $channels['in_app'] ) ) ) {
+				if ( apply_filters( 'buddynext_notification_force_on_site', false, $member_id, $type, $payload ) ) {
+					continue;
+				}
+				// One pref read per member who switched the bell off, not per member.
+				$off[ $member_id ] = buddynext_service( 'notifications' )->delivery_wanted( $member_id, $type, $payload );
+			}
+		}
+
+		return $off;
+	}
+
+	/**
 	 * Bulk-record the announcement bell for a batch of members, retry-safely.
 	 *
 	 * One notification per (post, member): the group_key is unique per member for
@@ -1084,7 +1119,7 @@ class NotificationListener implements ListenerInterface {
 	 *
 	 * @param int   $post_id    Announcement post id.
 	 * @param int   $author_id  Author (sender).
-	 * @param int[] $member_ids Bell recipients (already pref- and block-filtered).
+	 * @param int[] $member_ids Recipients (already block-filtered); In-app prefs are read here.
 	 * @return void
 	 */
 	private function record_announcement_bell( int $post_id, int $author_id, array $member_ids ): void {
@@ -1117,6 +1152,10 @@ class NotificationListener implements ListenerInterface {
 			$already[ (int) $row['recipient_id'] ] = true;
 		}
 		$new_ids = array_values( array_filter( $member_ids, static fn( $id ): bool => empty( $already[ $id ] ) ) );
+
+		// In-app off keeps the row out of the bell; email and push still run from it.
+		$bell_off = $this->delivery_only_members( $new_ids, 'bn.announcement' );
+		$new_ids  = array_values( array_filter( $new_ids, static fn( $id ): bool => ! isset( $bell_off[ $id ] ) || $bell_off[ $id ] ) );
 		if ( empty( $new_ids ) ) {
 			return;
 		}
@@ -1127,15 +1166,15 @@ class NotificationListener implements ListenerInterface {
 			$values = array();
 			foreach ( $chunk as $rid ) {
 				// data is a literal NULL (an announcement carries no JSON payload).
-				$row_ph[] = '(%d, %d, %s, %s, %d, %s, %d, NULL, %d, %s)';
-				array_push( $values, $rid, $author_id, 'bn.announcement', 'post', $post_id, $group_keys[ $rid ], 1, 0, $now );
+				$row_ph[] = '(%d, %d, %s, %s, %d, %s, %d, NULL, %d, %d, %s)';
+				array_push( $values, $rid, $author_id, 'bn.announcement', 'post', $post_id, $group_keys[ $rid ], 1, 0, isset( $bell_off[ $rid ] ) ? 0 : 1, $now );
 			}
 			$rows_sql = implode( ', ', $row_ph );
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 			$wpdb->query(
 				$wpdb->prepare(
 					"INSERT INTO {$wpdb->prefix}bn_notifications
-					 (recipient_id, sender_id, type, object_type, object_id, group_key, group_count, data, is_read, created_at)
+					 (recipient_id, sender_id, type, object_type, object_id, group_key, group_count, data, is_read, in_app, created_at)
 					 VALUES {$rows_sql}",
 					$values
 				)
@@ -1176,6 +1215,9 @@ class NotificationListener implements ListenerInterface {
 				// per-row email listener sent a second, empty one.
 				'defer_email'  => true,
 			);
+			if ( isset( $bell_off[ $rid ] ) ) {
+				$data['in_app'] = false;
+			}
 			/** This action is documented in includes/Notifications/NotificationService.php */
 			do_action( 'buddynext_notification_created', $notif_id, $rid, $data );
 		}
@@ -1266,14 +1308,9 @@ class NotificationListener implements ListenerInterface {
 			);
 		}
 
-		$pref_service = buddynext_service( 'notification_prefs' );
-
-		// In-app gates mirroring NotificationService::create(): per-type on_site
-		// (batched, one query) + the in_app channel toggle (usermeta, primed once).
-		$on_site = ( is_object( $pref_service ) && method_exists( $pref_service, 'get_on_site_map' ) )
-			? $pref_service->get_on_site_map( $candidates, 'bn.space_new_post' )
-			: array();
-		update_meta_cache( 'user', $candidates );
+		// In-app off keeps the row out of the bell (see NotificationService::create());
+		// a member no other channel wants it for gets nothing.
+		$bell_off = $this->delivery_only_members( $candidates, 'bn.space_new_post' );
 
 		// Build the recipient set, applying the SAME gate filters create() applies
 		// per recipient so the batched path notifies exactly who the per-row path
@@ -1291,15 +1328,11 @@ class NotificationListener implements ListenerInterface {
 				'defer_email'  => true,
 			);
 
-			$forced = (bool) apply_filters( 'buddynext_notification_force_on_site', false, $member_id, 'bn.space_new_post', $data );
-			if ( ! $forced ) {
-				if ( array_key_exists( $member_id, $on_site ) && ! $on_site[ $member_id ] ) {
+			if ( isset( $bell_off[ $member_id ] ) ) {
+				if ( ! $bell_off[ $member_id ] ) {
 					continue;
 				}
-				$channels = (array) $pref_service->get_channel_prefs( $member_id );
-				if ( array_key_exists( 'in_app', $channels ) && empty( $channels['in_app'] ) ) {
-					continue;
-				}
+				$data['in_app'] = false;
 			}
 
 			/** This filter is documented in includes/Notifications/NotificationService.php */
@@ -1337,7 +1370,7 @@ class NotificationListener implements ListenerInterface {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$existing_rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT recipient_id, id FROM {$wpdb->prefix}bn_notifications
+				"SELECT recipient_id, id, in_app FROM {$wpdb->prefix}bn_notifications
 				 WHERE group_key IN ( {$key_ph} ) AND is_read = 0
 				   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR",
 				array_values( $group_keys )
@@ -1346,6 +1379,10 @@ class NotificationListener implements ListenerInterface {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		foreach ( (array) $existing_rows as $row ) {
+			// A row on the other side of the bell stands alone, as in create().
+			if ( isset( $bell_off[ (int) $row['recipient_id'] ] ) !== ! (int) $row['in_app'] ) {
+				continue;
+			}
 			$existing[ (int) $row['recipient_id'] ] = (int) $row['id'];
 		}
 
@@ -1377,15 +1414,15 @@ class NotificationListener implements ListenerInterface {
 				$values = array();
 				foreach ( $chunk as $rid ) {
 					// data column is a literal NULL (space posts carry no JSON payload).
-					$row_ph[] = '(%d, %d, %s, %s, %d, %s, %d, NULL, %d, %s)';
-					array_push( $values, $rid, $author_id, 'bn.space_new_post', 'post', $post_id, $group_keys[ $rid ], 1, 0, $now );
+					$row_ph[] = '(%d, %d, %s, %s, %d, %s, %d, NULL, %d, %d, %s)';
+					array_push( $values, $rid, $author_id, 'bn.space_new_post', 'post', $post_id, $group_keys[ $rid ], 1, 0, isset( $bell_off[ $rid ] ) ? 0 : 1, $now );
 				}
 				$rows_sql = implode( ', ', $row_ph );
 				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 				$wpdb->query(
 					$wpdb->prepare(
 						"INSERT INTO {$wpdb->prefix}bn_notifications
-						 (recipient_id, sender_id, type, object_type, object_id, group_key, group_count, data, is_read, created_at)
+						 (recipient_id, sender_id, type, object_type, object_id, group_key, group_count, data, is_read, in_app, created_at)
 						 VALUES {$rows_sql}",
 						$values
 					)

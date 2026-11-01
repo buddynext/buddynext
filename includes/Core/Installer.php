@@ -471,8 +471,11 @@ class Installer {
 	 *  72: repair Jetonomy discussion links saved on feed cards with their
 	 *      non-ASCII slug encoded twice (%f0 stored as %25f0), which opened
 	 *      "Topic not found". Data only; no table change.
+	 *  73: bn_notifications.in_app - 0 on a row kept only for email, push and the
+	 *      digests of a member with In-app off, so the bell leaves it out.
+	 *      dbDelta ADDs the column; existing rows default to 1.
 	 */
-	private const SCHEMA_VERSION = 72;
+	private const SCHEMA_VERSION = 73;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -4730,6 +4733,7 @@ class Installer {
 				group_count INT UNSIGNED NOT NULL DEFAULT 1,
 				data JSON DEFAULT NULL,
 				is_read TINYINT(1) NOT NULL DEFAULT 0,
+				in_app TINYINT(1) NOT NULL DEFAULT 1,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY          bell (recipient_id, is_read, created_at),

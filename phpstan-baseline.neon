@@ -66,12 +66,6 @@ parameters:
 			path: includes/Nav/UserLinks.php
 
 		-
-			message: '#^Call to function method_exists\(\) with BuddyNext\\Notifications\\NotificationPrefService and ''get_channel_prefs'' will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
-			count: 1
-			path: includes/Notifications/EmailSender.php
-
-		-
 			message: '#^PHPDoc tag @var above a method has no effect\.$#'
 			identifier: varTag.misplaced
 			count: 1

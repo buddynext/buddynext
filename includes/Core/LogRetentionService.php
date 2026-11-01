@@ -190,6 +190,13 @@ class LogRetentionService {
 			$read_cutoff
 		);
 
+		// Rows outside the bell can never be read, so they age out on the owner's window
+		// like read ones. Every window is longer than the 7-day digest look-back.
+		$deleted['notifications'] += $this->delete_batched(
+			"DELETE FROM {$wpdb->prefix}bn_notifications WHERE is_read = 0 AND in_app = 0 AND created_at < %s LIMIT %d",
+			$read_cutoff
+		);
+
 		// Unread notifications older than the HARD MAX — never the owner's window.
 		$deleted['notifications'] += $this->delete_batched(
 			"DELETE FROM {$wpdb->prefix}bn_notifications WHERE is_read = 0 AND created_at < %s LIMIT %d",
