@@ -211,4 +211,42 @@ class FeaturedSpacesTest extends \WP_Test_REST_TestCase {
 		$get = rest_do_request( new WP_REST_Request( 'GET', '/buddynext/v1/settings/featured-spaces' ) );
 		$this->assertSame( array( $b, $a ), $get->get_data()['ids'] );
 	}
+
+	/** At the cap nothing is added, and every eligible space counts as over the cap. */
+	public function test_add_many_at_cap_reports_over_cap_not_success(): void {
+		add_filter( 'buddynext_featured_spaces_limit', static fn() => 2 );
+		$a = $this->make_space( 'many-a' );
+		$b = $this->make_space( 'many-b' );
+		$c = $this->make_space( 'many-c' );
+		$d = $this->make_space( 'many-d' );
+		FeaturedSpaces::set_ids( array( $a, $b ) );
+
+		$counts = FeaturedSpaces::add_many( array( $c, $d ) );
+
+		$this->assertSame( array( 'done' => 0, 'skipped' => 0, 'over_cap' => 2, 'already' => 0 ), $counts );
+		$this->assertSame( array( $a, $b ), FeaturedSpaces::get_ids() );
+	}
+
+	/** Partial room, an already-featured pick and a sub-space are each counted apart. */
+	public function test_add_many_counts_each_outcome(): void {
+		add_filter( 'buddynext_featured_spaces_limit', static fn() => 2 );
+		$a     = $this->make_space( 'mix-a' );
+		$b     = $this->make_space( 'mix-b' );
+		$c     = $this->make_space( 'mix-c' );
+		$child = (int) $this->spaces->create( $this->owner_id, array( 'name' => 'Mix child', 'slug' => 'mix-child', 'type' => 'open', 'parent_id' => $a ) );
+		FeaturedSpaces::set_ids( array( $a ) );
+
+		$counts = FeaturedSpaces::add_many( array( $a, $b, $c, $child ) );
+
+		$this->assertSame( array( 'done' => 1, 'skipped' => 1, 'over_cap' => 1, 'already' => 1 ), $counts );
+	}
+
+	/** A stale id pruned while one is added is still one space featured, not a net zero. */
+	public function test_add_many_counts_a_real_add_when_a_stale_id_is_pruned(): void {
+		$a = $this->make_space( 'stale-a' );
+		$b = $this->make_space( 'stale-b' );
+		update_option( FeaturedSpaces::OPTION, array( $a, 999999 ) );
+
+		$this->assertSame( 1, FeaturedSpaces::add_many( array( $b ) )['done'] );
+	}
 }

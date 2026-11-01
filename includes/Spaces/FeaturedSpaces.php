@@ -144,6 +144,34 @@ class FeaturedSpaces {
 	}
 
 	/**
+	 * Feature several spaces and report what became of each one.
+	 *
+	 * The counts are measured against the stored list rather than taken as a net
+	 * change, because set_ids() also prunes stale ids: pruning one and adding one
+	 * nets to zero while one space was in fact featured.
+	 *
+	 * @param int[] $ids Requested space ids.
+	 * @return array{done:int,skipped:int,over_cap:int,already:int} done = newly
+	 *         featured, skipped = not eligible (sub-space, archived, gone),
+	 *         over_cap = eligible but past the limit, already = featured before.
+	 */
+	public static function add_many( array $ids ): array {
+		$ids      = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+		$eligible = self::featurable( $ids );
+		$current  = self::get_ids();
+		$already  = array_intersect( $eligible, $current );
+		$stored   = self::set_ids( array_merge( $current, $eligible ) );
+		$added    = count( array_diff( $stored, $current ) );
+
+		return array(
+			'done'     => $added,
+			'skipped'  => count( $ids ) - count( $eligible ),
+			'over_cap' => count( $eligible ) - count( $already ) - $added,
+			'already'  => count( $already ),
+		);
+	}
+
+	/**
 	 * Filter a list of ids down to spaces that still exist, are not archived and
 	 * are top-level, preserving the input order. Every featured surface lists
 	 * top-level spaces only, so a featured sub-space would take a slot and never

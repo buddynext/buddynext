@@ -176,4 +176,42 @@ class SpacesTest extends \WP_UnitTestCase {
 		$result = $this->spaces->list_spaces( array( 'per_page' => 2 ) );
 		$this->assertLessThanOrEqual( 2, count( $result['spaces'] ) );
 	}
+
+	/**
+	 * A failed delete must be reported as a failure, because the bulk count reads it.
+	 */
+	public function test_delete_space_reports_a_missing_space(): void {
+		$this->assertWPError( $this->spaces->delete_space( 999999 ) );
+	}
+
+	/**
+	 * A failed delete is never reported as a clean success.
+	 */
+	public function test_bulk_notice_delete_with_failure_is_a_warning(): void {
+		$notice = Spaces::bulk_notice( 'delete', array( 'done' => 1, 'failed' => 1 ) );
+
+		$this->assertSame( 'warning', $notice['tone'] );
+		$this->assertStringContainsString( '1 space deleted.', $notice['text'] );
+		$this->assertStringContainsString( '1 could not be deleted', $notice['text'] );
+		$this->assertSame( 'success', Spaces::bulk_notice( 'delete', array( 'done' => 2, 'failed' => 0 ) )['tone'] );
+	}
+
+	/**
+	 * At the cap the notice is a warning naming the cap and the skipped count.
+	 */
+	public function test_bulk_notice_feature_at_cap_names_cap_and_count(): void {
+		$notice = Spaces::bulk_notice( 'feature', array( 'done' => 0, 'over_cap' => 2 ) );
+
+		$this->assertSame( 'warning', $notice['tone'] );
+		$this->assertStringContainsString( 'up to ' . \BuddyNext\Spaces\FeaturedSpaces::limit() . ' spaces, so 2 were skipped', $notice['text'] );
+	}
+
+	/**
+	 * Unfeature reports its count, and nothing-to-do is not a success.
+	 */
+	public function test_bulk_notice_unfeature(): void {
+		$this->assertSame( 'success', Spaces::bulk_notice( 'unfeature', array( 'done' => 2 ) )['tone'] );
+		$this->assertSame( 'warning', Spaces::bulk_notice( 'unfeature', array( 'done' => 0, 'already' => 1 ) )['tone'] );
+		$this->assertNull( Spaces::bulk_notice( 'bogus', array( 'done' => 1 ) ) );
+	}
 }
