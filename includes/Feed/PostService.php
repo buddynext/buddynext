@@ -173,7 +173,7 @@ class PostService {
 	 * filter instead of forking the plugin. Only string types are kept, and the
 	 * built-ins can never be removed (a filter may add, not drop, so a misbehaving
 	 * add-on cannot disable a core type). The type still has to be rendered — a
-	 * registered type with no card renderer falls back to the plain text card.
+	 * type added here with no card renderer falls back to the plain text card.
 	 *
 	 * @return string[] The accepted post types.
 	 */
@@ -1614,9 +1614,34 @@ class PostService {
 		if ( 'discussion' === $type ) {
 			return false;
 		}
-		// Any other type: a registered renderer owns the body; without one the
-		// template falls back to the plain text body.
-		return ! has_filter( 'buddynext_render_post_body_' . $type );
+		// Any other type: a registered renderer owns the body. Without one, a card
+		// whose partner is gone holds only a system sentence; a type the site added
+		// itself is plain text.
+		return ! has_filter( 'buddynext_render_post_body_' . $type ) && ! self::is_orphaned_card( $type );
+	}
+
+	/**
+	 * Whether a post is a partner's card and that partner is not here to draw it.
+	 *
+	 * Renderers exist only while their plugin runs, so a deactivated partner leaves
+	 * cards holding a verb and a link to a page that no longer resolves. Those show
+	 * a neutral line and cannot be edited. A type added through the allowed-types
+	 * filter with no renderer is the site's own plain text, so it is not an orphan.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $type Post type.
+	 * @return bool
+	 */
+	public static function is_orphaned_card( string $type ): bool {
+		if ( 'discussion' === $type ) {
+			return ! has_filter( 'buddynext_discussion_card_url' );
+		}
+		if ( in_array( $type, array( 'text', 'activity', 'announcement', 'photo', 'file', 'link', 'poll', 'share' ), true )
+			|| has_filter( 'buddynext_render_post_body_' . $type ) ) {
+			return false;
+		}
+		return in_array( $type, self::ALLOWED_TYPES, true ) || ! in_array( $type, self::allowed_types(), true );
 	}
 
 	/**
@@ -2213,6 +2238,22 @@ class PostService {
 			}
 		}
 
+		// A partner's card is edited at its source: the body here is a system sentence.
+		// The Edit control already says so; this holds for a direct API call. Staff
+		// keep the wp-admin redaction path, as with the edit window.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+		if ( is_array( $row ) && isset( $data['content'] ) && ! buddynext_can( $user_id, 'buddynext-feed/edit-any-post' )
+			&& ! in_array( (string) $row['type'], array( 'share', 'poll' ), true )
+			&& ! self::has_editable_text( (string) $row['type'], (string) $row['content'] ) ) {
+			return new WP_Error(
+				'post_not_editable',
+				__( 'This post cannot be edited.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Enforce the post edit window (buddynext_post_edit_window, minutes): once
 		// a post is older than the window a non-admin can no longer edit it.
 		// 0 = unlimited.
@@ -2222,9 +2263,6 @@ class PostService {
 		// pre-moderation alike: the window guards against rewriting history members
 		// have already read, and neither has been read. An `under_review` post is
 		// NOT exempt, because it was published before it was hidden.
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
 		if ( is_array( $row ) && ! self::within_edit_window( (string) $row['created_at'], (string) $row['status'], $user_id ) ) {
 			return new WP_Error(
 				'edit_window_closed',

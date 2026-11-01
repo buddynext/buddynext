@@ -157,6 +157,10 @@ Discussion cards follow the Integrations toggle (`buddynext_integration_enabled(
 
 A discussion card is checked as it renders, through the `buddynext_discussion_card_url` filter (`string $url, array $link_meta`). The bridge keeps the link only while the discussion exists and is public. Otherwise the card shows "This discussion is no longer available." and is withdrawn from every feed, and it is restored in place if the discussion is republished. This covers deletes and forum visibility changes that fire no hook. Return `''` from the filter to mark a card unavailable yourself.
 
+### When a partner is not active
+
+Card renderers exist only while their plugin runs. With no renderer (or, for discussions, no `buddynext_discussion_card_url` callback), `PostService::is_orphaned_card( $type )` is true: the card shows its stored title and "This is no longer available." with no link, never its system sentence, and offers no Edit. Media and document cards show no title, since only the partner can say who may see it, and discussion cards keep "This discussion is no longer available." REST items carry `card_unavailable: true` with empty `content` and `link_url`. A type a site adds through `buddynext_feed_allowed_post_types` with no renderer stays a plain text card.
+
 ### Profile hand-over
 
 BuddyNext owns the member profile. Opening Jetonomy's own profile directly (`{base}/u/{name}/`) redirects (301) to the BuddyNext profile; its `activity`, `replies` and `votes` pages go to the profile too, `posts` goes to the profile's Discussions tab, and `edit` goes to the BuddyNext profile editor. The owner-only `bookmarks` and `drafts` pages and Jetonomy's `badges` page stay on Jetonomy.

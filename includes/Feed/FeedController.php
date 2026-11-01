@@ -18,6 +18,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\FeedService;
+use BuddyNext\Feed\IntegrationActivity;
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
 use BuddyNext\Spaces\SpaceMemberService;
@@ -596,6 +597,17 @@ class FeedController extends BaseRestController {
 			// shared-embed) gates identically and web + app get the same shape.
 			// Read before the members-only gate swaps the body for a teaser.
 			$editable_text = PostService::has_editable_text( (string) ( $item['type'] ?? '' ), (string) ( $item['content'] ?? '' ) );
+
+			// A card whose partner is gone: no dead link and no system sentence for a
+			// client to draw, the same neutral state the web card shows.
+			$item['card_unavailable'] = PostService::is_orphaned_card( (string) ( $item['type'] ?? '' ) );
+			if ( $item['card_unavailable'] ) {
+				$bn_orphan_meta       = is_array( $item['link_meta'] ?? null ) ? $item['link_meta'] : array();
+				$item['content']      = '';
+				$item['content_html'] = '';
+				$item['link_url']     = '';
+				$item['link_meta']    = array( 'title' => IntegrationActivity::orphaned_card_title( (string) $item['type'], (string) ( $bn_orphan_meta['title'] ?? '' ) ) );
+			}
 
 			if ( ! empty( $item['members_only'] ) ) {
 				$item = $this->apply_members_only_gate( $item, $viewer, $format );

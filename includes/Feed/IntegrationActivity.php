@@ -600,6 +600,51 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * The stored title a card may keep once its partner is gone.
+	 *
+	 * Media and document titles are decided per viewer at render by the partner, so
+	 * with it gone there is nobody left to ask and they stay hidden. Discussions keep
+	 * the neutral line they show for a deleted topic.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $type  Post type.
+	 * @param string $title Stored card title.
+	 * @return string The title, or '' when it must not be shown.
+	 *
+	 * @api
+	 */
+	public static function orphaned_card_title( string $type, string $title ): string {
+		return in_array( $type, array( 'media', 'document', 'discussion' ), true ) ? '' : $title;
+	}
+
+	/**
+	 * Render the neutral card for a post whose partner plugin is not active: the
+	 * title it may keep and a plain line, with no link and no system sentence.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param array<string,mixed> $args Post-body args ({ link_preview, bn_post_type }).
+	 * @return string Pre-escaped card HTML.
+	 *
+	 * @api
+	 */
+	public static function render_orphaned_card( array $args ): string {
+		$type  = isset( $args['bn_post_type'] ) ? (string) $args['bn_post_type'] : '';
+		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$title = self::orphaned_card_title( $type, trim( (string) ( $link['title'] ?? '' ) ) );
+
+		$html  = '<div class="bn-post-card__bridge-card bn-post-card__bridge-card--orphaned is-unavailable">';
+		$html .= '<span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( 'info' ) . '</span>';
+		$html .= '<div class="bn-post-card__bridge-content">';
+		if ( '' !== $title ) {
+			$html .= '<span class="bn-post-card__bridge-title">' . esc_html( $title ) . '</span>';
+		}
+		$html .= '<p class="bn-post-card__bridge-text">' . esc_html__( 'This is no longer available.', 'buddynext' ) . '</p>';
+		return $html . '</div></div>';
+	}
+
+	/**
 	 * Render the uniform integration feed card for a typed bridge post.
 	 *
 	 * The single card style every bridge shares: an icon + a source label + the

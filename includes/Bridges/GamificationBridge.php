@@ -135,20 +135,24 @@ class GamificationBridge {
 
 		// Render the badge feed card through Free's typed-card seam, so it shows the
 		// uniform integration bridge card (icon + "Badge" + linked name) instead of
-		// the plain-text fallback — the same one job/listing/course use.
-		add_filter( 'buddynext_render_post_body_badge', array( $this, 'render_feed_card' ), 10, 2 );
-		add_filter( 'buddynext_integration_card_preview', array( $this, 'explore_card_preview' ), 10, 2 );
-		// Card label + icon, read by the feed card and the Explore card alike.
-		add_filter(
-			'buddynext_integration_card_types',
-			static function ( array $types ): array {
-				$types['badge'] = array(
-					'label' => __( 'Badge', 'buddynext' ),
-					'icon'  => 'award',
-				);
-				return $types;
-			}
-		);
+		// the plain-text fallback — the same one job/listing/course use. Only while
+		// WB Gamification runs: with it gone the card has nothing to link to, so the
+		// neutral fallback takes over, as for every other partner.
+		if ( defined( 'WB_GAM_VERSION' ) || function_exists( 'wb_gam_submit_event' ) ) {
+			add_filter( 'buddynext_render_post_body_badge', array( $this, 'render_feed_card' ), 10, 2 );
+			add_filter( 'buddynext_integration_card_preview', array( $this, 'explore_card_preview' ), 10, 2 );
+			// Card label + icon, read by the feed card and the Explore card alike.
+			add_filter(
+				'buddynext_integration_card_types',
+				static function ( array $types ): array {
+					$types['badge'] = array(
+						'label' => __( 'Badge', 'buddynext' ),
+						'icon'  => 'award',
+					);
+					return $types;
+				}
+			);
+		}
 
 		// Points are a SILENT background reward in BuddyNext. wb-gamification's
 		// per-action cooldown is a transient anti-burst limit; surfacing it to the
