@@ -59,6 +59,7 @@ class SetupWizard {
 	public function init(): void {
 		add_action( 'admin_menu', array( $this, 'add_wizard_page' ) );
 		add_action( 'admin_post_buddynext_wizard_step', array( $this, 'handle_step_submit' ) );
+		add_action( 'admin_notices', array( $this, 'render_exit_notice' ) );
 	}
 
 	/**
@@ -408,6 +409,37 @@ class SetupWizard {
 		}
 	}
 
+	/**
+	 * Confirm the wizard's exits on the dashboard they land on.
+	 *
+	 * @return void
+	 */
+	public function render_exit_notice(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only flags from the wizard's own redirect.
+		$page   = sanitize_key( wp_unslash( (string) ( $_GET['page'] ?? '' ) ) );
+		$wizard = sanitize_key( wp_unslash( (string) ( $_GET['wizard'] ?? '' ) ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( 'buddynext' !== $page ) {
+			return;
+		}
+
+		$attributes = array( 'data-bn-clear-param' => 'wizard' );
+		if ( 'saved' === $wizard ) {
+			\BuddyNext\Admin\AdminPageBase::render_notice(
+				sprintf(
+					/* translators: %s: link to resume the setup wizard. */
+					__( 'Your setup progress is saved. %s', 'buddynext' ),
+					'<a href="' . esc_url( add_query_arg( 'page', 'buddynext-setup', admin_url( 'admin.php' ) ) ) . '">' . esc_html__( 'Continue setup', 'buddynext' ) . '</a>'
+				),
+				'success',
+				true,
+				$attributes
+			);
+		} elseif ( 'done' === $wizard ) {
+			\BuddyNext\Admin\AdminPageBase::render_notice( __( 'Setup complete. Your community is ready.', 'buddynext' ), 'success', false, $attributes );
+		}
+	}
+
 	// ── Form handler ──────────────────────────────────────────────────────────
 
 	/**
@@ -450,19 +482,6 @@ class SetupWizard {
 			exit;
 		}
 
-		// Save & exit: return to the dashboard without persisting the current form.
-		if ( 'save_exit' === $wizard_action ) {
-			$exit_url = add_query_arg(
-				array(
-					'page'   => 'buddynext',
-					'wizard' => 'saved',
-				),
-				admin_url( 'admin.php' )
-			);
-			wp_safe_redirect( $exit_url );
-			exit;
-		}
-
 		$steps    = $this->steps();
 		$this_key = $this->current_step_key();
 		$def      = $steps[ $this_key ] ?? null;
@@ -471,6 +490,21 @@ class SetupWizard {
 		// data to save (Profile Fields, Addons, Done) declares none.
 		if ( is_array( $def ) ) {
 			$this->call_step( $def['save'] ?? null );
+		}
+
+		// Save & exit: the same save as Continue, but stay on this step so the owner
+		// resumes on what they just saved.
+		if ( 'save_exit' === $wizard_action ) {
+			wp_safe_redirect(
+				add_query_arg(
+					array(
+						'page'   => 'buddynext',
+						'wizard' => 'saved',
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
 		}
 
 		// The last step is the finish step: mark the wizard complete and leave for

@@ -13,7 +13,7 @@ You stay in control of the pace:
 - **Continue** saves the current step and moves on.
 - **Back** returns to the previous step without saving the current one.
 - **Skip this step** moves on without changing anything on that step.
-- **Save & exit** leaves the wizard and returns you to the dashboard. You can come back any time.
+- **Save & exit** saves the current step, as Continue does, and returns you to the dashboard with a confirmation. You can come back any time and pick up on the same step.
 
 > **Note:** Nothing on this wizard is permanent. Every step names the admin section where you can change that setting later, and re-running the wizard never creates duplicate pages, categories, or profile groups.
 
