@@ -37,7 +37,7 @@ The All gated spaces perk is the all-access pass. A plan that grants it lets its
 
 ### What a blocked member sees
 
-When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button either starts checkout (when a gateway price is linked to a required plan) or points to the call-to-action link you set. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
+When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. When a space is opened by more than one plan, the prompt names them cheapest-first (for example "Available on Basic or Premium"), so the member sees the most affordable way in. A member who already holds any plan that opens the space - or an all-access plan - is never shown the paywall. The button points to the call-to-action link you set. With no link set, it goes to the plan's own page when one plan is on offer, Unlisted plans included, or to your pricing page when several listed plans are. A hidden Unlisted plan is not named or linked while a listed plan opens the same space. When none of the space's plans can be bought, only a listed all-access plan can stand in; otherwise there is no button. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
 
 ## Setting it up (for owners)
@@ -68,7 +68,7 @@ These apply to every gated space unless a space overrides them.
 
 | Setting | What it does | Default |
 |---|---|---|
-| CTA URL | Where the upgrade button points: your own pricing page, a WooCommerce product, or any checkout URL. Leave blank to use the membership pricing page, or no button at all when nothing is on sale. | (empty) |
+| CTA URL | Where the upgrade button points: your own pricing page, a WooCommerce product, or any checkout URL. Leave blank to link the plan that opens the space or the membership pricing page, or no button at all when nothing that opens it is on sale. | (empty) |
 | Button label | The text on the upgrade button. | Become a Member |
 | Description | The copy shown under the paywall heading. | (empty) |
 | Show annual savings badge | Shows members how much they save by paying annually, on the pricing page. | On |
