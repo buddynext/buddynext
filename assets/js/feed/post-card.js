@@ -2754,7 +2754,7 @@ store( 'buddynext/post-card', {
 				// Only drop the banner once the server confirms the end —
 				// removing it on a 403/404/500 gave a false sense of success.
 				if ( res.ok ) {
-					document.querySelector( '.bn-post-card--announcement' )?.remove();
+					document.querySelectorAll( '.bn-post-card--announcement[data-post-id="' + ctx.postId + '"]' ).forEach( ( el ) => el.remove() );
 					bnToast( t( 'announcementEnded', 'Announcement ended' ), { tone: 'success' } );
 				} else {
 					toastRestError( res, t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ) );
