@@ -83,6 +83,10 @@ $bn_auth_url     = \BuddyNext\Core\PageRouter::login_url( '' );
 $bn_rest_root    = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $bn_resend_nonce = wp_create_nonce( 'wp_rest' );
 
+// Sending a new link needs an account session, so a guest signs in and lands back
+// here, where the Resend control is.
+$bn_verify_signin_url = \BuddyNext\Core\PageRouter::login_url( \BuddyNext\Core\PageRouter::verify_url() );
+
 // Ensure the auth bundle CSS is enqueued — verify.php may render via
 // the hub bundle path which auto-enqueues bn-auth, but defending against
 // the direct-render edge case where dispatch_hub_template bypasses the
@@ -194,7 +198,13 @@ wp_enqueue_style( 'bn-auth' );
 				</div>
 				<h1 class="bn-auth-title"><?php esc_html_e( 'This link expired or is invalid', 'buddynext' ); ?></h1>
 				<p class="bn-auth-sub">
-					<?php esc_html_e( 'Verification links expire after 48 hours. Request a fresh link below.', 'buddynext' ); ?>
+					<?php
+					if ( $bn_verify_current_user > 0 ) {
+						esc_html_e( 'Verification links expire after 48 hours. Request a fresh link below.', 'buddynext' );
+					} else {
+						esc_html_e( 'Verification links expire after 48 hours. Sign in to get a fresh link.', 'buddynext' );
+					}
+					?>
 				</p>
 
 				<div class="bn-badge bn-verify-feedback" role="status" aria-live="polite"
@@ -225,8 +235,8 @@ wp_enqueue_style( 'bn-auth' );
 				<?php else : ?>
 					<div class="bn-verify-actions">
 						<a class="bn-btn" data-variant="primary" data-size="lg"
-							href="<?php echo esc_url( $bn_auth_url ); ?>">
-							<?php esc_html_e( 'Back to sign in', 'buddynext' ); ?>
+							href="<?php echo esc_url( $bn_verify_signin_url ); ?>">
+							<?php esc_html_e( 'Sign in', 'buddynext' ); ?>
 						</a>
 					</div>
 				<?php endif; ?>
@@ -317,6 +327,16 @@ wp_enqueue_style( 'bn-auth' );
 								<?php esc_html_e( 'Sending...', 'buddynext' ); ?>
 							</span>
 						</button>
+					</div>
+				<?php else : ?>
+					<p class="bn-auth-sub">
+						<?php esc_html_e( "Didn't receive it? Sign in to get a new link.", 'buddynext' ); ?>
+					</p>
+					<div class="bn-verify-actions">
+						<a class="bn-btn" data-variant="ghost" data-size="lg"
+							href="<?php echo esc_url( $bn_verify_signin_url ); ?>">
+							<?php esc_html_e( 'Sign in', 'buddynext' ); ?>
+						</a>
 					</div>
 				<?php endif; ?>
 			</div>
