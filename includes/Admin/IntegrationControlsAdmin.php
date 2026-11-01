@@ -144,7 +144,8 @@ class IntegrationControlsAdmin {
 							<?php elseif ( $bn_behind ) : ?>
 								<?php // "Newer partner", not "Update available": the PARTNER is ahead of the bridge, so the owner has nothing to update - it is BuddyNext's bridge that is due a refresh. The old label sent owners to Plugins to update an already-current plugin (card 10320537769). ?>
 								<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Newer partner', 'buddynext' ); ?></span>
-							<?php else : ?>
+							<?php elseif ( null !== $bn_companion || '' !== $bn_version ) : ?>
+								<?php // A core-owned toggle (no partner, no version) is not a product that can be Active. ?>
 								<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 							<?php endif; ?>
 						</div>

@@ -183,16 +183,18 @@ final class CompanionRegistry {
 	}
 
 	/**
-	 * The companion whose bridge registers this integration key, or null.
+	 * The ACTIVE companion whose bridge registers this integration key, or null.
 	 *
 	 * Lets Integration Settings name each box by the product the owner installed.
+	 * Core can own a key a companion also maps to (the blog-to-feed toggle is `blog`),
+	 * so an inactive companion lends neither its name nor its Active badge.
 	 *
 	 * @param string $integration_key Key on the buddynext_integrations registry.
 	 * @return array<string, mixed>|null
 	 */
 	public static function for_integration( string $integration_key ): ?array {
-		foreach ( self::all() as $entry ) {
-			if ( ( $entry['integration'] ?? '' ) === $integration_key ) {
+		foreach ( self::all() as $slug => $entry ) {
+			if ( ( $entry['integration'] ?? '' ) === $integration_key && self::is_active( (string) $slug ) ) {
 				return $entry;
 			}
 		}
