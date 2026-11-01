@@ -236,7 +236,7 @@ class CronService {
 	/**
 	 * Delete accounts that signed up through BuddyNext and never verified.
 	 *
-	 * Only accounts carrying the buddynext_verify_pending marker are eligible. Only
+	 * Only accounts carrying the buddynext_signup_awaiting_verify marker are eligible. Only
 	 * RegistrationService::create() sets it, while verification is on, and verifying
 	 * clears it, so another plugin's sign-ups and members who registered before
 	 * verification was enabled are never touched. An account is deleted only when it
@@ -256,12 +256,6 @@ class CronService {
 			return;
 		}
 
-		// Markers from before 1.2.8 cover other plugins' sign-ups too, and the upgrade
-		// job clears them. Deleting cannot be undone, so never run ahead of that job.
-		if ( Installer::migrations_pending() ) {
-			return;
-		}
-
 		global $wpdb;
 		$cutoff = time() - ( $days * DAY_IN_SECONDS );
 
@@ -269,7 +263,7 @@ class CronService {
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->usermeta}
-				 WHERE meta_key = 'buddynext_verify_pending' AND CAST(meta_value AS UNSIGNED) < %d
+				 WHERE meta_key = 'buddynext_signup_awaiting_verify' AND CAST(meta_value AS UNSIGNED) < %d
 				 ORDER BY user_id ASC
 				 LIMIT 50",
 				$cutoff
@@ -305,7 +299,7 @@ class CronService {
 			if ( user_can( $uid, 'manage_options' )
 				|| (bool) get_user_meta( $uid, 'buddynext_email_verified', true )
 				|| $keep ) {
-				delete_user_meta( $uid, 'buddynext_verify_pending' );
+				delete_user_meta( $uid, 'buddynext_signup_awaiting_verify' );
 				continue;
 			}
 

@@ -141,7 +141,7 @@ class VerificationService {
 	public function mark_verified( int $user_id ): void {
 		update_user_meta( $user_id, 'buddynext_email_verified', 1 );
 		// Cleared so the account is no longer a purge candidate.
-		delete_user_meta( $user_id, 'buddynext_verify_pending' );
+		delete_user_meta( $user_id, 'buddynext_signup_awaiting_verify' );
 
 		/**
 		 * Fires after a user's email address becomes verified.

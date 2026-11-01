@@ -201,7 +201,7 @@ class RegistrationService {
 		// own rules, so their accounts are never ours to delete, and no plugin has to
 		// declare anything to stay safe.
 		if ( VerificationService::is_required() ) {
-			$userdata['meta_input'] = array( 'buddynext_verify_pending' => time() );
+			$userdata['meta_input'] = array( 'buddynext_signup_awaiting_verify' => time() );
 		}
 
 		$user_id = wp_insert_user( $userdata );

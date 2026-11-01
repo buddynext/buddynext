@@ -283,7 +283,7 @@ wp_enqueue_style( 'bn-auth' );
 				// Say so before it happens: an account that signed up here and never
 				// verifies is deleted by the cleanup job
 				// (CronService::purge_stale_unverified()). Nobody else is at risk.
-				$bn_verify_purge_days = ( \BuddyNext\Auth\VerificationService::is_required() && '' !== (string) get_user_meta( $bn_verify_current_user, 'buddynext_verify_pending', true ) ) ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
+				$bn_verify_purge_days = ( \BuddyNext\Auth\VerificationService::is_required() && '' !== (string) get_user_meta( $bn_verify_current_user, 'buddynext_signup_awaiting_verify', true ) ) ? \BuddyNext\Core\CronService::unverified_purge_days() : 0;
 				if ( $bn_verify_purge_days > 0 ) :
 					?>
 					<p class="bn-auth-sub">

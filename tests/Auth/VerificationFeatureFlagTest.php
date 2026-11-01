@@ -148,7 +148,7 @@ class VerificationFeatureFlagTest extends WP_UnitTestCase {
 	public function test_cleanup_job_does_not_purge_while_the_feature_is_off(): void {
 		$this->feature_off();
 		$user = self::factory()->user->create( array( 'role' => 'subscriber' ) );
-		update_user_meta( $user, 'buddynext_verify_pending', time() - YEAR_IN_SECONDS );
+		update_user_meta( $user, 'buddynext_signup_awaiting_verify', time() - YEAR_IN_SECONDS );
 
 		( new \ReflectionMethod( CronService::class, 'purge_stale_unverified' ) )->invoke( new CronService() );
 

@@ -38,7 +38,7 @@ class UnverifiedPurgeTest extends \WP_UnitTestCase {
 	 */
 	private function pending_member( int $days ): int {
 		$id = self::factory()->user->create();
-		update_user_meta( $id, 'buddynext_verify_pending', time() - $days * DAY_IN_SECONDS );
+		update_user_meta( $id, 'buddynext_signup_awaiting_verify', time() - $days * DAY_IN_SECONDS );
 
 		return $id;
 	}
@@ -99,23 +99,23 @@ class UnverifiedPurgeTest extends \WP_UnitTestCase {
 
 		$svc = new \BuddyNext\Auth\VerificationService();
 
-		$this->assertNotSame( '', (string) get_user_meta( $own_form, 'buddynext_verify_pending', true ) );
+		$this->assertNotSame( '', (string) get_user_meta( $own_form, 'buddynext_signup_awaiting_verify', true ) );
 		$this->assertFalse( $svc->is_verified( $own_form ) );
 
-		$this->assertSame( '', (string) get_user_meta( $by_admin, 'buddynext_verify_pending', true ) );
+		$this->assertSame( '', (string) get_user_meta( $by_admin, 'buddynext_signup_awaiting_verify', true ) );
 		$this->assertTrue( $svc->is_verified( $by_admin ) );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$this->assertSame( '0', $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_verify_tokens WHERE user_id = %d", $by_admin ) ) );
 
 		foreach ( array( $other_plugin, $by_member ) as $foreign ) {
-			$this->assertSame( '', (string) get_user_meta( $foreign, 'buddynext_verify_pending', true ), 'No marker, so never a candidate.' );
+			$this->assertSame( '', (string) get_user_meta( $foreign, 'buddynext_signup_awaiting_verify', true ), 'No marker, so never a candidate.' );
 			// Verification itself still applies to them, and a resend adds no marker.
 			$this->assertFalse( $svc->is_verified( $foreign ) );
 			$svc->create_token( $foreign );
-			$this->assertSame( '', (string) get_user_meta( $foreign, 'buddynext_verify_pending', true ) );
+			$this->assertSame( '', (string) get_user_meta( $foreign, 'buddynext_signup_awaiting_verify', true ) );
 		}
 
-		update_user_meta( $own_form, 'buddynext_verify_pending', time() - 9 * DAY_IN_SECONDS );
+		update_user_meta( $own_form, 'buddynext_signup_awaiting_verify', time() - 9 * DAY_IN_SECONDS );
 		( new CronService() )->handle_cleanup_tokens();
 		wp_cache_flush();
 
@@ -133,35 +133,31 @@ class UnverifiedPurgeTest extends \WP_UnitTestCase {
 	public function test_signup_with_verification_off_gets_no_marker(): void {
 		update_option( 'buddynext_email_verify', false );
 		$id = $this->bn_signup( 'off@example.test' );
-		$this->assertSame( '', (string) get_user_meta( $id, 'buddynext_verify_pending', true ) );
+		$this->assertSame( '', (string) get_user_meta( $id, 'buddynext_signup_awaiting_verify', true ) );
 	}
 
 	/**
-	 * Upgrading clears old markers, and nothing is deleted until that has happened.
+	 * An old marker can never delete an account, whether or not the migration has run.
 	 *
 	 * @return void
 	 */
-	public function test_upgrade_forgets_old_markers_and_cleanup_waits_for_it(): void {
-		$old = $this->pending_member( 30 );
+	public function test_old_marker_never_deletes_and_is_cleaned_up(): void {
+		$old = self::factory()->user->create();
+		update_user_meta( $old, 'buddynext_verify_pending', time() - 30 * DAY_IN_SECONDS );
 
-		update_option( 'buddynext_pending_migrations', 73 );
 		( new CronService() )->handle_cleanup_tokens();
 		wp_cache_flush();
-		$this->assertNotFalse( get_userdata( $old ), 'The cleanup must not run ahead of the migration.' );
+		$this->assertNotFalse( get_userdata( $old ), 'Migration not run yet.' );
 
-		delete_option( 'buddynext_pending_migrations' );
 		$method = new \ReflectionMethod( Installer::class, 'maybe_migrate_purge_markers' );
 
 		$method->invoke( null, 74 );
 		wp_cache_flush();
-		$this->assertNotSame( '', (string) get_user_meta( $old, 'buddynext_verify_pending', true ), 'A site already upgraded keeps its markers.' );
+		$this->assertNotSame( '', (string) get_user_meta( $old, 'buddynext_verify_pending', true ), 'A site already upgraded is left alone.' );
 
 		$method->invoke( null, 73 );
 		wp_cache_flush();
 		$this->assertSame( '', (string) get_user_meta( $old, 'buddynext_verify_pending', true ) );
-
-		( new CronService() )->handle_cleanup_tokens();
-		wp_cache_flush();
 		$this->assertNotFalse( get_userdata( $old ) );
 	}
 
@@ -179,7 +175,7 @@ class UnverifiedPurgeTest extends \WP_UnitTestCase {
 
 		remove_filter( 'buddynext_unverified_account_keep', $keep, 10 );
 		$this->assertNotFalse( get_userdata( $buyer ) );
-		$this->assertSame( '', (string) get_user_meta( $buyer, 'buddynext_verify_pending', true ), 'A kept account leaves the scan.' );
+		$this->assertSame( '', (string) get_user_meta( $buyer, 'buddynext_signup_awaiting_verify', true ), 'A kept account leaves the scan.' );
 	}
 
 	/**

@@ -557,7 +557,7 @@ class Members extends AdminPageBase {
 	 *
 	 * Delegates to `VerificationService::mark_verified()` rather than writing the
 	 * meta here. That method is the one place that knows the whole act: set
-	 * `buddynext_email_verified`, clear `buddynext_verify_pending` so the account
+	 * `buddynext_email_verified`, clear `buddynext_signup_awaiting_verify` so the account
 	 * stops being a purge candidate, and fire `buddynext_user_verified` for whatever
 	 * is listening. An admin-side copy that only wrote the meta would leave the
 	 * account queued for deletion while displaying as verified.
