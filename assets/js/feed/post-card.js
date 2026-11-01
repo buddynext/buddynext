@@ -2297,13 +2297,35 @@ store( 'buddynext/post-card', {
 				addBtn.addEventListener( 'click', () => picker.click() );
 
 				picker.addEventListener( 'change', async () => {
-					const files = Array.from( picker.files || [] );
+					let files = Array.from( picker.files || [] );
 					picker.value = '';
+					// The composer's limits. Files still uploading count, and an older post
+					// over the cap can remove files but not add them.
+					const maxMedia  = Number( viewer().mediaMaxCount );
+					const maxSizeMB = Number( viewer().mediaMaxMB ) || 0;
+					const remaining = maxMedia - mediaIds.length - uploading;
+					if ( remaining <= 0 ) {
+						bnToast( fmt( t( 'maxImagesPerPost', 'You can attach at most %d files per post.' ), maxMedia ), { tone: 'info' } );
+						return;
+					}
+					if ( files.length > remaining ) {
+						bnToast(
+							1 === remaining
+								? t( 'oneMoreImage', 'Only 1 more file can be added.' )
+								: fmt( t( 'moreImages', 'Only %d more files can be added.' ), remaining ),
+							{ tone: 'info' }
+						);
+						files = files.slice( 0, remaining );
+					}
 					// Two passes, as in the composer: every picked file gets its tile and
 					// a "Waiting" pill at once, then each upload shows its percentage.
 					const jobs = [];
 					for ( const file of files ) {
-						const invalid = validateMedia( file, { badTypeMsg: t( 'mediaBadType', 'Only images, video and audio can be attached.' ) } );
+						const invalid = validateMedia( file, {
+							maxSizeMB,
+							badTypeMsg:  t( 'mediaBadType', 'Only images, video and audio can be attached.' ),
+							tooLargeMsg: fmt( t( 'mediaTooLarge', 'File is larger than the %d MB allowed.' ), maxSizeMB ),
+						} );
 						if ( invalid ) {
 							bnToast( invalid, { tone: 'danger' } );
 							continue;

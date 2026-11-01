@@ -85,7 +85,7 @@ class PostEditMediaTest extends \WP_UnitTestCase {
 					 * @return int
 					 */
 					public function get_author( $media_id ): int {
-						return 100 === (int) $media_id ? $this->owner : 0;
+						return (int) $media_id >= 100 && (int) $media_id < 200 ? $this->owner : 0;
 					}
 				};
 			},
@@ -224,5 +224,74 @@ class PostEditMediaTest extends \WP_UnitTestCase {
 			)
 		);
 		$this->assertSame( 'followers', $this->row( $post )['privacy'] );
+	}
+
+	/**
+	 * Both write paths hold the composer's cap, and one over it writes nothing.
+	 *
+	 * @return void
+	 */
+	public function test_more_media_than_the_cap_is_refused(): void {
+		$post = $this->text_post( $this->owner );
+		$five = array( 100, 101, 102, 103, 104 );
+
+		$edit = $this->service->update( $post, $this->owner, array( 'media_ids' => $five ) );
+		$this->assertSame( 'too_many_media', $edit->get_error_code() );
+		$this->assertSame( 422, $edit->get_error_data()['status'] );
+		$this->assertNull( $this->row( $post )['media_ids'] );
+
+		$created = $this->service->create(
+			$this->owner,
+			array(
+				'type'      => 'photo',
+				'media_ids' => $five,
+			)
+		);
+		$this->assertSame( 'too_many_media', $created->get_error_code() );
+
+		$this->assertTrue( $this->service->update( $post, $this->owner, array( 'media_ids' => array( 100, 101, 102, 103 ) ) ) );
+	}
+
+	/**
+	 * An older post over the cap stays editable: it may lose files on request, never gain one.
+	 *
+	 * @return void
+	 */
+	public function test_post_already_over_the_cap_stays_editable(): void {
+		global $wpdb;
+		$post = $this->text_post( $this->owner );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'type' => 'photo', 'media_ids' => '[100,101,102,103,104,105]' ), array( 'id' => $post ) );
+		wp_cache_flush();
+
+		$this->assertTrue( $this->service->update( $post, $this->owner, array( 'content' => 'New caption' ) ) );
+		$this->assertSame( array( 100, 101, 102, 103, 104, 105 ), json_decode( $this->row( $post )['media_ids'] ), 'a caption edit keeps every file' );
+
+		$this->assertTrue( $this->service->update( $post, $this->owner, array( 'media_ids' => array( 100, 101, 102, 103, 104 ) ) ) );
+		$this->assertSame( array( 100, 101, 102, 103, 104 ), json_decode( $this->row( $post )['media_ids'] ) );
+
+		$swap = $this->service->update( $post, $this->owner, array( 'media_ids' => array( 100, 101, 102, 103, 199 ) ) );
+		$this->assertSame( 'too_many_media', $swap->get_error_code() );
+	}
+
+	/**
+	 * With the media engine off a media_ids edit neither fails nor wipes the post's files.
+	 *
+	 * @return void
+	 */
+	public function test_engine_off_edit_leaves_media_alone(): void {
+		global $wpdb;
+		$post = $this->text_post( $this->owner );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'type' => 'photo', 'media_ids' => '[100]' ), array( 'id' => $post ) );
+		wp_cache_flush();
+
+		remove_all_filters( 'buddynext_media_service' );
+		add_filter( 'buddynext_media_service', '__return_null', 10, 2 );
+
+		$this->assertTrue( $this->service->update( $post, $this->owner, array( 'content' => 'x', 'media_ids' => array( 1, 2, 3, 4, 5, 6 ) ) ) );
+		$row = $this->row( $post );
+		$this->assertSame( array( 100 ), json_decode( $row['media_ids'] ) );
+		$this->assertSame( 'photo', $row['type'] );
 	}
 }

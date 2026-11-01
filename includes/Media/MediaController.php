@@ -984,14 +984,15 @@ class MediaController extends BaseRestController {
 		$posts->create(
 			get_current_user_id(),
 			array(
-				'type'      => 'media',
-				'content'   => sprintf(
+				'type'           => 'media',
+				'content'        => sprintf(
 					/* translators: %s: album name. */
 					__( 'Added photos to %s', 'buddynext' ),
 					get_the_title( $album_id )
 				),
-				'space_id'  => $space_id,
-				'media_ids' => $media_ids,
+				'space_id'       => $space_id,
+				'media_ids'      => $media_ids,
+				'uncapped_media' => true,
 			)
 		);
 	}

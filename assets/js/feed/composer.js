@@ -803,7 +803,7 @@ store( 'buddynext/post-composer', {
 				fileInput._bnWired = true;
 				fileInput.addEventListener( 'change', async function () {
 					const files     = fileInput.files;
-					const MAX_MEDIA = 4;
+					const MAX_MEDIA = Number( ctxData.mediaMaxCount );
 
 					if ( ! files || ! files.length ) {
 						return;

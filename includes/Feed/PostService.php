@@ -25,6 +25,11 @@ use BuddyNext\Moderation\ModerationService;
 class PostService {
 
 	/**
+	 * Most files one post may carry. The composer and the edit form read this same value.
+	 */
+	public const MAX_MEDIA_PER_POST = 4;
+
+	/**
 	 * Set up the post service (no required dependencies at construction time).
 	 */
 	public function __construct() {
@@ -525,7 +530,7 @@ class PostService {
 		// media-index ids supplied by the client; without an ownership check a
 		// member could attach another member's (possibly private) media to their
 		// own post. Reject the post if any id is not theirs.
-		$owned_media = $this->authorize_media_ids( (array) ( $data['media_ids'] ?? array() ), $user_id );
+		$owned_media = $this->authorize_media_ids( (array) ( $data['media_ids'] ?? array() ), $user_id, array(), ! empty( $data['uncapped_media'] ) );
 		if ( is_wp_error( $owned_media ) ) {
 			return $owned_media;
 		}
@@ -934,20 +939,37 @@ class PostService {
 	 *
 	 * @param array $media_ids Raw media ids from the request.
 	 * @param int   $user_id   Posting user.
-	 * @return int[]|WP_Error Sanitised owned ids, or WP_Error if one is not owned.
+	 * @param int[] $existing  Ids the post already carries. Without an addition, an older post
+	 *                         over the cap stays editable and loses nothing.
+	 * @param bool  $uncapped  An album share carries the whole album. Set only by the album
+	 *                         route: the posts route builds its data from named parameters.
+	 * @return int[]|WP_Error Sanitised owned ids, or WP_Error if one is not owned or there are too many.
 	 */
-	private function authorize_media_ids( array $media_ids, int $user_id ): array|WP_Error {
+	private function authorize_media_ids( array $media_ids, int $user_id, array $existing = array(), bool $uncapped = false ): array|WP_Error {
 		$ids = array_values( array_unique( array_filter( array_map( 'absint', $media_ids ) ) ) );
 		if ( empty( $ids ) ) {
 			return array();
 		}
 
-		$repo = \BuddyNext\Media\MediaClient::repo();
-		if ( ! $repo || ! method_exists( $repo, 'get_author' ) ) {
+		if ( ! self::media_engine_ready() ) {
 			// Engine absent: media cannot be resolved or rendered and ownership
 			// cannot be verified. Drop attachments instead of blocking the post.
 			return array();
 		}
+
+		if ( ! $uncapped && count( $ids ) > self::MAX_MEDIA_PER_POST && array_diff( $ids, $existing ) ) {
+			return new WP_Error(
+				'too_many_media',
+				sprintf(
+					/* translators: %d: maximum number of files on one post. */
+					__( 'You can attach at most %d files per post.', 'buddynext' ),
+					self::MAX_MEDIA_PER_POST
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		$repo = \BuddyNext\Media\MediaClient::repo();
 
 		/*
 		 * Site admins may attach media they do NOT own (curation / moderation
@@ -982,6 +1004,16 @@ class PostService {
 		}
 
 		return $ids;
+	}
+
+	/**
+	 * Whether media ids can be verified at all.
+	 *
+	 * @return bool
+	 */
+	private static function media_engine_ready(): bool {
+		$repo = \BuddyNext\Media\MediaClient::repo();
+		return $repo && method_exists( $repo, 'get_author' );
 	}
 
 	/**
@@ -2333,18 +2365,20 @@ class PostService {
 		// the post's AUTHOR (a moderator fixing someone's post cannot attach their
 		// own files to it; a site admin keeps create()'s curator exemption).
 		// Removing only detaches: the file stays in its owner's media library.
+		// With the engine off the ids cannot be checked, and dropping them here would wipe
+		// what the post already holds, so the list is left as it is.
 		$media_change = null;
-		if ( array_key_exists( 'media_ids', $data ) ) {
+		if ( array_key_exists( 'media_ids', $data ) && self::media_engine_ready() ) {
 			$media_post = $this->get( $post_id );
 			if ( null === $media_post ) {
 				return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 			}
 			$media_owner = user_can( $user_id, 'manage_options' ) ? $user_id : (int) $media_post['user_id'];
-			$new_media   = $this->authorize_media_ids( (array) $data['media_ids'], $media_owner );
+			$old_media   = array_values( array_map( 'intval', (array) ( $media_post['media_ids'] ?? array() ) ) );
+			$new_media   = $this->authorize_media_ids( (array) $data['media_ids'], $media_owner, $old_media );
 			if ( is_wp_error( $new_media ) ) {
 				return $new_media;
 			}
-			$old_media = array_values( array_map( 'intval', (array) ( $media_post['media_ids'] ?? array() ) ) );
 
 			// The post's type follows what it carries: text gains a photo -> photo,
 			// photo loses its last one -> text. Every other type (poll, event, link,
