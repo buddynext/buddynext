@@ -363,8 +363,8 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return ' ' . sprintf(
 			/* translators: %s: number of days. */
 			_n(
-				'An account that never verifies is deleted after %s day, unless it has posted.',
-				'An account that never verifies is deleted after %s days, unless it has posted.',
+				'An account made on the BuddyNext sign-up form that never verifies is deleted after %s day, unless it has posted.',
+				'An account made on the BuddyNext sign-up form that never verifies is deleted after %s days, unless it has posted.',
 				$days,
 				'buddynext'
 			),

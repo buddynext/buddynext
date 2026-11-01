@@ -234,10 +234,11 @@ class CronService {
 	}
 
 	/**
-	 * Delete accounts that registered under email verification and never verified.
+	 * Delete accounts that signed up through BuddyNext and never verified.
 	 *
-	 * Only accounts carrying the buddynext_verify_pending marker (set at token
-	 * creation, cleared on verify) are eligible, so members who registered before
+	 * Only accounts carrying the buddynext_verify_pending marker are eligible. Only
+	 * RegistrationService::create() sets it, while verification is on, and verifying
+	 * clears it, so another plugin's sign-ups and members who registered before
 	 * verification was enabled are never touched. An account is deleted only when it
 	 * is past the grace window AND is not an admin AND has no content — belt and
 	 * braces on top of the posting gate. Bounded per run; the marker is cleared for
@@ -252,6 +253,12 @@ class CronService {
 
 		$days = self::unverified_purge_days();
 		if ( $days <= 0 ) {
+			return;
+		}
+
+		// Markers from before 1.2.8 cover other plugins' sign-ups too, and the upgrade
+		// job clears them. Deleting cannot be undone, so never run ahead of that job.
+		if ( Installer::migrations_pending() ) {
 			return;
 		}
 
@@ -285,7 +292,8 @@ class CronService {
 			 *
 			 * BuddyNext keeps an account that has written a post. Anything else a
 			 * site counts as "this is a real member" belongs here: a purchase, a
-			 * course enrolment, a booking. BuddyNext Pro keeps paying members.
+			 * course enrolment, a booking. BuddyNext Pro keeps paying members. Only
+			 * accounts from BuddyNext's own sign-up reach this filter.
 			 *
 			 * @since 1.2.5
 			 *

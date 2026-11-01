@@ -196,6 +196,14 @@ class RegistrationService {
 			$userdata['display_name'] = wp_slash( sanitize_text_field( $name ) );
 		}
 
+		// The cleanup of never-verified accounts covers only accounts made here, at
+		// BuddyNext's own door. A site's other plugins have their own forms and their
+		// own rules, so their accounts are never ours to delete, and no plugin has to
+		// declare anything to stay safe.
+		if ( VerificationService::is_required() ) {
+			$userdata['meta_input'] = array( 'buddynext_verify_pending' => time() );
+		}
+
 		$user_id = wp_insert_user( $userdata );
 		if ( is_wp_error( $user_id ) ) {
 			return $user_id;

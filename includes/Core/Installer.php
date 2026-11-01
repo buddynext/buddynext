@@ -488,8 +488,11 @@ class Installer {
 	 *  73: bn_notifications.in_app - 0 on a row kept only for email, push and the
 	 *      digests of a member with In-app off, so the bell leaves it out.
 	 *      dbDelta ADDs the column; existing rows default to 1.
+	 *  74: the never-verified cleanup now covers only BuddyNext's own sign-up, so
+	 *      markers stamped on any account before it, whichever plugin made it, are
+	 *      cleared. Data only; no table change.
 	 */
-	private const SCHEMA_VERSION = 73;
+	private const SCHEMA_VERSION = 74;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -1225,6 +1228,15 @@ class Installer {
 	}
 
 	/**
+	 * Whether an upgrade's data migrations are still waiting to run.
+	 *
+	 * @return bool
+	 */
+	public static function migrations_pending(): bool {
+		return false !== get_option( self::PENDING_MIGRATIONS_OPTION, false );
+	}
+
+	/**
 	 * Take the lock that lets one request upgrade at a time, without waiting for it.
 	 *
 	 * A database lock belongs to the connection, so a request that dies mid-upgrade
@@ -1528,6 +1540,10 @@ class Installer {
 		// opted in is already at the current schema and never reaches this step.
 		self::maybe_clear_unconsented_tracking( $bn_stored_schema );
 
+		// v74: forget every purge marker written before the cleanup was limited to
+		// BuddyNext's own sign-up.
+		self::maybe_migrate_purge_markers( $bn_stored_schema );
+
 		// run() is authoritative on the schema version: it stamps it when the schema
 		// is healthy and deliberately WITHHOLDS it when install_schema() recorded a
 		// failure (a missing table/column, or an index widen that did not take).
@@ -1598,6 +1614,25 @@ class Installer {
 			update_option( \BuddyNext\Core\PluginIsolation::OPTION_ENABLED, '1', true );
 		}
 		// Otherwise leave it unset so the new default (OFF) applies.
+	}
+
+	/**
+	 * Clear the purge markers written before the cleanup was limited to BuddyNext's
+	 * own sign-up.
+	 *
+	 * The marker never recorded which form made an account, so an old one cannot be
+	 * told apart from another plugin's sign-up. Those accounts are kept: an unverified
+	 * account left in place can still be removed by hand, a deleted one cannot be
+	 * brought back.
+	 *
+	 * @param int $stored_schema The buddynext_schema_version recorded before this upgrade ran.
+	 * @return void
+	 */
+	private static function maybe_migrate_purge_markers( int $stored_schema ): void {
+		if ( $stored_schema >= 74 ) {
+			return;
+		}
+		delete_metadata( 'user', 0, 'buddynext_verify_pending', '', true );
 	}
 
 	/**
