@@ -59,6 +59,17 @@ use WP_Error;
 class FieldType {
 
 	/**
+	 * Character limits for the built-in plain-text fields. The one source for the
+	 * form's maxlength and the server's refusal.
+	 */
+	public const TEXT_CAPS = array(
+		'bio'      => 1000,
+		'headline' => 160,
+		'location' => 120,
+		'pronouns' => 40,
+	);
+
+	/**
 	 * Built-in type registry.
 	 *
 	 * Keyed by type slug; each entry is:
@@ -1111,12 +1122,13 @@ class FieldType {
 				// .bn-textarea is the multi-line control (auto height, min 80px,
 				// vertical resize). With .bn-input the field rendered one line tall.
 				return sprintf(
-					'<textarea class="bn-textarea bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s>%3$s</textarea>',
+					'<textarea class="bn-textarea bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s%6$s>%3$s</textarea>',
 					esc_attr( $id ),
 					esc_attr( $name ),
 					esc_textarea( (string) $value ),
 					$required,
-					$placeholder_attr
+					$placeholder_attr,
+					self::maxlength_attr( $field )
 				);
 
 			case 'select':
@@ -1225,15 +1237,45 @@ class FieldType {
 		}
 
 		return sprintf(
-			'<input type="%1$s" class="bn-input bn-field-%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s%7$s />',
+			'<input type="%1$s" class="bn-input bn-field-%1$s" id="%2$s" name="%3$s" value="%4$s"%5$s%6$s%7$s%8$s />',
 			esc_attr( $html_type ),
 			esc_attr( $id ),
 			esc_attr( $name ),
 			esc_attr( $value ),
 			'' !== $placeholder ? ' placeholder="' . esc_attr( $placeholder ) . '"' : '',
 			$bounds,
-			$required
+			$required,
+			self::maxlength_attr( $field )
 		);
+	}
+
+	/**
+	 * The most characters a built-in plain-text field holds; 0 when it has no cap.
+	 *
+	 * A built-in key re-typed to a structured type (Location -> Map) stores a
+	 * payload this limit does not describe, so the cap only applies to text and
+	 * textarea.
+	 *
+	 * @param array $field Field definition.
+	 * @return int
+	 */
+	public static function text_cap( array $field ): int {
+		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+		if ( ! in_array( $type, array( 'text', 'textarea' ), true ) ) {
+			return 0;
+		}
+		return self::TEXT_CAPS[ (string) ( $field['field_key'] ?? '' ) ] ?? 0;
+	}
+
+	/**
+	 * The ` maxlength` attribute for a field, or '' when it has no cap.
+	 *
+	 * @param array $field Field definition.
+	 * @return string
+	 */
+	private static function maxlength_attr( array $field ): string {
+		$cap = self::text_cap( $field );
+		return $cap > 0 ? sprintf( ' maxlength="%d"', $cap ) : '';
 	}
 
 	/**

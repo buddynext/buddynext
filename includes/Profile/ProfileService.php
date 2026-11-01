@@ -839,6 +839,65 @@ class ProfileService {
 	}
 
 	/**
+	 * Field errors for submitted values longer than their field's cap.
+	 *
+	 * A value already stored over the cap passes while it is unchanged: the edit
+	 * form submits every field, so refusing it would stop a member with an older
+	 * long bio from saving anything else on the page.
+	 *
+	 * @param int                  $user_id User being saved; 0 when there is no account yet.
+	 * @param array<string, mixed> $data    Submitted field_key => value pairs.
+	 * @return array<string, string> field_key => message.
+	 */
+	public function text_cap_errors( int $user_id, array $data ): array {
+		global $wpdb;
+
+		$errors = array();
+		foreach ( $this->get_flat_fields() as $field ) {
+			$key = (string) ( $field['field_key'] ?? '' );
+			$cap = \BuddyNext\Profile\FieldType::text_cap( $field );
+			if ( 0 === $cap || ! isset( $data[ $key ] ) || ! is_string( $data[ $key ] ) ) {
+				continue;
+			}
+
+			$value = \BuddyNext\Profile\FieldType::sanitize( $field, $data[ $key ] );
+			if ( ! is_string( $value ) ) {
+				continue;
+			}
+
+			// A form post sends CRLF where the textarea and its maxlength count LF.
+			$value = str_replace( "\r\n", "\n", $value );
+			if ( mb_strlen( $value ) <= $cap ) {
+				continue;
+			}
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$stored = $user_id > 0 ? (string) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT value FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id = %d AND entry_index = 0",
+					$user_id,
+					(int) $field['id']
+				)
+			) : '';
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$stored = \BuddyNext\Profile\FieldType::sanitize( $field, $stored );
+
+			if ( is_string( $stored ) && str_replace( "\r\n", "\n", $stored ) === $value ) {
+				continue;
+			}
+
+			$errors[ $key ] = sprintf(
+				/* translators: 1: field label, 2: maximum number of characters. */
+				__( '%1$s can be at most %2$s characters.', 'buddynext' ),
+				(string) ( $field['label'] ?? $key ),
+				number_format_i18n( $cap )
+			);
+		}
+
+		return $errors;
+	}
+
+	/**
 	 * Save profile field values for a user.
 	 *
 	 * Flat fields: keyed directly as field_key => value.
@@ -911,7 +970,7 @@ class ProfileService {
 
 		// Accumulate per-field rejection messages so the method can report an
 		// honest result instead of always claiming success.
-		$field_errors = array();
+		$field_errors = $this->text_cap_errors( $user_id, $data );
 
 		// ATOMICITY: every write below is DEFERRED into this queue and executed
 		// only after the whole submission has validated. Nothing this method

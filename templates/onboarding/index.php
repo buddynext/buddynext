@@ -406,6 +406,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						id="bn-ob-bio"
 						name="bn_bio"
 						rows="3"
+						maxlength="<?php echo (int) \BuddyNext\Profile\FieldType::TEXT_CAPS['bio']; ?>"
 						placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself...', 'buddynext' ); ?>"
 						data-wp-on--input="actions.setBio"><?php echo esc_textarea( $bio ); ?></textarea>
 				</div>

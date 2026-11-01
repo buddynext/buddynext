@@ -1341,42 +1341,6 @@ class ProfileController extends BaseRestController {
 			buddynext_service( 'follows' )->approve_pending_requests( $user_id );
 		}
 
-		// Cap long-form PLAIN-TEXT fields at sensible lengths before they hit the
-		// service. These caps only make sense for text/textarea: they truncate the
-		// raw string, which corrupts a STRUCTURED value. The built-in `location`
-		// key stores JSON once its field type is switched to the Pro Map type
-		// ("location"); a blind mb_substr( ..., 120 ) sliced that JSON mid-string,
-		// json_decode() then failed, and the whole profile save was rejected with
-		// "Location value is not valid JSON." Advanced/structured field types own
-		// their own length rules in the sanitise/validate layer, so resolve each
-		// capped field's current type and skip the cap for anything but plain text.
-		$caps = array(
-			'bio'      => 1000,
-			'headline' => 160,
-			'location' => 120,
-			'pronouns' => 40,
-		);
-
-		$bn_field_types = array();
-		foreach ( $service->get_flat_fields() as $bn_flat_field ) {
-			$bn_field_types[ (string) ( $bn_flat_field['field_key'] ?? '' ) ] = (string) ( $bn_flat_field['type'] ?? 'text' );
-		}
-
-		foreach ( $caps as $field_key => $max ) {
-			if ( ! isset( $data[ $field_key ] ) || ! is_string( $data[ $field_key ] ) ) {
-				continue;
-			}
-
-			// A built-in field re-typed to a structured type (Location -> Map, etc.)
-			// stores a non-plain-text payload the cap would corrupt.
-			$bn_field_type = $bn_field_types[ $field_key ] ?? 'text';
-			if ( ! in_array( $bn_field_type, array( 'text', 'textarea' ), true ) ) {
-				continue;
-			}
-
-			$data[ $field_key ] = mb_substr( $data[ $field_key ], 0, $max );
-		}
-
 		// Normalise every URL-type field — accept input without a protocol by
 		// prefixing https. Keyed on field TYPE, not a hardcoded key list, so an
 		// owner-created url field is normalised exactly like the seeded website /
@@ -1574,6 +1538,12 @@ class ProfileController extends BaseRestController {
 		// bare `continue` and still returned 200 {"saved":true}.
 		$profiles    = function_exists( 'buddynext_service' ) ? buddynext_service( 'profiles' ) : null;
 		$flat_fields = ( $profiles instanceof \BuddyNext\Profile\ProfileService ) ? $profiles->get_flat_fields() : array();
+
+		// Refused here as well as in save_profile() because this route writes the
+		// display name and privacy keys before it reaches save_profile().
+		if ( $profiles instanceof \BuddyNext\Profile\ProfileService ) {
+			$errors += $profiles->text_cap_errors( $target_user_id, $data );
+		}
 
 		foreach ( $flat_fields as $field_def ) {
 			$fkey = (string) ( $field_def['field_key'] ?? '' );
