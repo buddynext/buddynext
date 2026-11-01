@@ -106,6 +106,11 @@
 		if ( ! previewFrame || ! body ) {
 			return;
 		}
+		// Chrome leaves a sandboxed frame blank once it has sat in a hidden panel, so
+		// nothing loads until the tab is open, and each preview gets a new frame.
+		if ( previewFrame.closest( '[hidden]' ) ) {
+			return;
+		}
 		// Render the authored body inside the REAL branded shell (same header +
 		// footer as a genuine send), with sample tokens filled. The server still
 		// sanitizes via wp_kses_post() on save; this is a faithful live preview.
@@ -114,7 +119,10 @@
 		var html = String( previewCfg.shell )
 			.replace( '{{BNSUBJECT}}', subject )
 			.replace( '{{BNBODY}}', bodyHtml );
-		previewFrame.setAttribute( 'srcdoc', html );
+		var frame = previewFrame.cloneNode( false );
+		frame.setAttribute( 'srcdoc', html );
+		previewFrame.replaceWith( frame );
+		previewFrame = frame;
 	}
 
 	if ( body ) {

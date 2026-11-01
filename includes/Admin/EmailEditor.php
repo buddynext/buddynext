@@ -1208,6 +1208,7 @@ class EmailEditor {
 						<iframe
 							class="bn-email-editor__preview-frame"
 							title="<?php esc_attr_e( 'Email preview', 'buddynext' ); ?>"
+							sandbox=""
 							data-bn-preview-iframe
 						></iframe>
 					</div>
