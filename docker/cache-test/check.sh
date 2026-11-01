@@ -193,6 +193,30 @@ else
 fi
 rm -f "$BN_JAR"
 
+# 6. A signed-in member is not served a guest copy that already exists (card
+#    10463436157). Check 2 cannot see this: no guest copy exists when its member
+#    loads each page, and a cache can answer from one before PHP runs.
+member_after_guest_copy() { # $1: "known" when this setting is documented as unsupported.
+	purge
+	for path in / /spaces/ /activity/explore/; do
+		curl -s "$BASE$path" >/dev/null; sleep 1; curl -s "$BASE$path" >/dev/null
+		BODY="$(curl -s -b "$JAR" "$BASE$path")"
+		if [[ "$BODY" == *'logged-in'* ]]; then
+			[ "${1:-}" = known ] && fail "member $path is logged in, so the docs calling this setting unsupported are out of date" || pass "member $path is logged in with a guest copy cached"
+		elif [ "${1:-}" = known ]; then
+			printf '  KNOWN %s\n' "member $path gets the guest copy with this setting off, as the docs say"
+		else
+			fail "member $path served the guest copy"
+		fi
+	done
+}
+if [ "$CACHE" = w3-total-cache ]; then
+	member_after_guest_copy known
+	wp w3-total-cache option set pgcache.reject.logged true --type=boolean >/dev/null
+	wp w3-total-cache fix_environment >/dev/null
+fi
+member_after_guest_copy
+
 cache_off
 rm -f "$JAR"
 echo "== $CACHE: $FAILS failure(s)"

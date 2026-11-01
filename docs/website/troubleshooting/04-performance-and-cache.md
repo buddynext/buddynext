@@ -62,6 +62,7 @@ See [Integrations Overview](../integrations/01-overview.md).
 1. Update to BuddyNext 1.2.2 or later. It marks every page a logged-in member sees as uncacheable, so no exclusion list is needed.
 2. Purge all caches (page cache, and any CDN) after updating.
 3. If you cannot update yet, turn off your cache's "cache logged-in users" option, or exclude your onboarding page (by default `/onboarding/`).
+4. On W3 Total Cache, keep "Don't cache pages for logged in users" on. With it off, a member is served the guest copy of any page that already has one, looks logged out, and no BuddyNext version can prevent it, because the cache answers before BuddyNext runs.
 
 See [Page Cache and Optimisation Plugins](../getting-started/09a-page-cache-and-optimisation.md) for what was tested and where each plugin keeps these settings.
 
