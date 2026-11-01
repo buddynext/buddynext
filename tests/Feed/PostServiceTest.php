@@ -316,9 +316,22 @@ class PostServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( PostService::has_editable_text( 'text', '' ) );
 		$this->assertTrue( PostService::has_editable_text( 'announcement', 'Hello' ) );
 
-		foreach ( array( 'photo', 'file', 'link', 'share', 'poll' ) as $type ) {
+		foreach ( array( 'photo', 'file', 'link' ) as $type ) {
+			$this->assertTrue( PostService::has_editable_text( $type, 'A caption' ), "$type with a caption is editable" );
+			$this->assertTrue( PostService::has_editable_text( $type, "  \n" ), "$type without a caption gets a caption box" );
+		}
+
+		foreach ( array( 'share', 'poll' ) as $type ) {
 			$this->assertTrue( PostService::has_editable_text( $type, 'A caption' ), "$type with a caption is editable" );
 			$this->assertFalse( PostService::has_editable_text( $type, "  \n" ), "$type without a caption has no text to edit" );
+		}
+
+		foreach ( array( 'media', 'document', 'event', 'listing', 'course', 'badge' ) as $type ) {
+			$typed = static fn() => '<div>card</div>';
+			add_filter( 'buddynext_render_post_body_' . $type, $typed );
+			$this->assertFalse( PostService::has_editable_text( $type, '' ), "$type is a typed card" );
+			$this->assertFalse( PostService::has_editable_text( $type, 'Text' ), "$type is a typed card" );
+			remove_filter( 'buddynext_render_post_body_' . $type, $typed );
 		}
 
 		$this->assertFalse( PostService::has_editable_text( 'discussion', 'Topic' ), 'a forum discussion is edited in the forum' );

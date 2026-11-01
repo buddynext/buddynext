@@ -1603,7 +1603,11 @@ class PostService {
 		if ( in_array( $type, array( 'text', 'activity', 'announcement' ), true ) ) {
 			return true;
 		}
-		if ( in_array( $type, array( 'photo', 'file', 'link', 'share', 'poll' ), true ) ) {
+		// A caption-less photo, file or link still gets Edit: the editor creates the caption box.
+		if ( in_array( $type, array( 'photo', 'file', 'link' ), true ) ) {
+			return true;
+		}
+		if ( in_array( $type, array( 'share', 'poll' ), true ) ) {
 			return '' !== trim( $content );
 		}
 		// A forum discussion card shows the topic from its forum; edit it there.

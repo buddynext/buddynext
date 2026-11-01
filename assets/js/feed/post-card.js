@@ -2158,8 +2158,9 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
-			const contentEl = card.querySelector( '.bn-post-card__content' );
-			if ( ! contentEl ) {
+			let contentEl = card.querySelector( '.bn-post-card__content' );
+			const bodyEl  = card.querySelector( '.bn-post-card__body' );
+			if ( ! contentEl && ! bodyEl ) {
 				bnToast( t( 'postNotEditable', 'This post cannot be edited.' ), { tone: 'info' } );
 				return;
 			}
@@ -2172,6 +2173,7 @@ store( 'buddynext/post-card', {
 			let postType    = '';
 			let postSpaceId = 0;
 			let mediaItems  = [];
+			let hasLink     = false;
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
 					nonce: viewer().restNonce,
@@ -2187,9 +2189,16 @@ store( 'buddynext/post-card', {
 					postType    = ( data && data.type ) ? String( data.type ) : '';
 					postSpaceId = ( data && data.space_id ) ? parseInt( data.space_id, 10 ) || 0 : 0;
 					mediaItems  = ( data && Array.isArray( data.media ) ) ? data.media : [];
+					hasLink     = !! ( data && data.link_url );
 				}
 			} catch ( _e ) {
 				// Fall back to the visible text if the fetch fails.
+			}
+			// A caption-less photo, file or link has no text node yet: give the caption one.
+			if ( ! contentEl ) {
+				contentEl = document.createElement( 'div' );
+				contentEl.className = 'bn-post-card__content';
+				bodyEl.prepend( contentEl );
 			}
 			if ( '' === rawContent ) {
 				rawContent = ( contentEl.textContent || '' ).trim();
@@ -2455,6 +2464,10 @@ store( 'buddynext/post-card', {
 			const teardown = () => {
 				form.remove();
 				contentEl.hidden = false;
+				// Still no caption: leave no empty box behind on the card.
+				if ( '' === contentEl.textContent.trim() ) {
+					contentEl.remove();
+				}
 			};
 
 			cancelBtn.addEventListener( 'click', () => {
@@ -2470,7 +2483,8 @@ store( 'buddynext/post-card', {
 			saveBtn.addEventListener( 'click', async () => {
 				const next         = ta.value.trim();
 				const mediaChanged = mediaIds.join( ',' ) !== mediaStart;
-				if ( '' === next && ! mediaIds.length ) {
+				const hasAttachment = mediaIds.length > 0 || 'file' === postType || ( 'link' === postType && hasLink && ! removePreview );
+				if ( '' === next && ! hasAttachment ) {
 					bnToast( t( 'postContentEmpty', 'Post content cannot be empty.' ), { tone: 'info' } );
 					return;
 				}
@@ -2522,7 +2536,7 @@ store( 'buddynext/post-card', {
 					}
 					// The server decides: edited_at stays empty for an unchanged
 					// save or an audience-only change.
-					if ( res.data && res.data.edited_at && ! card.querySelector( '.bn-post-card__edited' ) ) {
+					if ( next && res.data && res.data.edited_at && ! card.querySelector( '.bn-post-card__edited' ) ) {
 						const mark = document.createElement( 'span' );
 						mark.className = 'bn-post-card__edited';
 						mark.textContent = t( 'editedSpaced', ' (edited)' );

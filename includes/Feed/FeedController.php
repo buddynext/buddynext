@@ -607,7 +607,7 @@ class FeedController extends BaseRestController {
 			$item['viewer_state'] = $this->viewer_state_for( $pid, $maps ) + array(
 				// Stable, so it rides the initial shape only and not the refresh route.
 				// The web post card's rule: own post inside the edit window, or admin,
-				// and only when the card has text to edit. Under-reports for space
+				// and only when the card type has an inline editor. Under-reports for space
 				// moderators (safe direction: never offers an edit the API rejects).
 				'can_edit' => $viewer > 0 && $editable_text && (
 					( $viewer === $aid && PostService::within_edit_window( (string) ( $item['created_at'] ?? '' ), (string) ( $item['status'] ?? 'published' ), $viewer ) )
