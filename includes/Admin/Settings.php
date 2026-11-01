@@ -3412,7 +3412,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					$bn_badge_label = __( 'Not installed', 'buddynext' );
 				}
 				?>
-			<div class="bn-companion-card" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+			<div class="bn-companion-card" id="bn-companion-<?php echo esc_attr( sanitize_html_class( (string) $bn_slug ) ); ?>" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 				<div class="bn-companion-card__head">
 					<img
 						class="bn-companion-card__logo"
@@ -3451,7 +3451,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<div class="bn-companion-card__actions">
 					<?php // Active companions already carry the "Connected" status badge in the card head, so the actions row shows only "Learn more". ?>
 					<?php if ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
-						<a href="<?php echo esc_url( wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_basename ) . '&plugin_status=all' ), 'activate-plugin_' . $bn_basename ) ); ?>"
+						<a href="<?php echo esc_url( \BuddyNext\Integrations\CompanionRegistry::activate_url( $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
 					<?php elseif ( 'not_installed' === $bn_status && $can_install ) : ?>
 						<button type="button" class="bn-addon-row__action bn-companion-install" data-slug="<?php echo esc_attr( $bn_slug ); ?>">

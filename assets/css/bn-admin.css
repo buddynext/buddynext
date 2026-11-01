@@ -1143,6 +1143,15 @@ select.bn-text-input {
 	color: var(--bn-a-text-1);
 }
 
+.bn-toggle-row__action {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--bn-a-s2);
+	flex-shrink: 0;
+}
+
 .bn-toggle-row__copy .bn-field-hint {
 	margin: var(--bn-a-s1) 0 0;
 }

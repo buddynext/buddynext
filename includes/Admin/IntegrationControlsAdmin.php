@@ -275,15 +275,14 @@ class IntegrationControlsAdmin {
 			<?php endif; ?>
 		</form>
 		<?php
-		// Family plugins not yet connected — surfaced so the owner can discover and
-		// add them. Sourced from the companion catalog's runtime probe; the whole
-		// block is skipped on a site where every companion is already active.
+		// Family plugins not yet connected, each with the step it actually needs next.
+		// The whole block is skipped on a site where every companion is connected.
 		$bn_available = array();
 		if ( class_exists( '\\BuddyNext\\Integrations\\CompanionRegistry' ) ) {
-			foreach ( \BuddyNext\Integrations\CompanionRegistry::all() as $bn_c ) {
-				$bn_detect = $bn_c['detect'] ?? null;
-				if ( ! ( is_callable( $bn_detect ) && (bool) $bn_detect() ) ) {
-					$bn_available[] = $bn_c;
+			foreach ( \BuddyNext\Integrations\CompanionRegistry::all() as $bn_slug => $bn_c ) {
+				$bn_step = \BuddyNext\Integrations\CompanionRegistry::next_step( (string) $bn_slug );
+				if ( null !== $bn_step ) {
+					$bn_available[] = array( $bn_c, $bn_step );
 				}
 			}
 		}
@@ -295,7 +294,7 @@ class IntegrationControlsAdmin {
 				</div>
 				<div class="bn-ss-body">
 					<?php
-					foreach ( $bn_available as $bn_c ) :
+					foreach ( $bn_available as list( $bn_c, $bn_step ) ) :
 						$bn_al = (string) ( $bn_c['label'] ?? '' );
 						$bn_aw = (string) ( $bn_c['why'] ?? ( $bn_c['unlocks'] ?? '' ) );
 						if ( '' === $bn_al ) {
@@ -309,9 +308,14 @@ class IntegrationControlsAdmin {
 									<p class="bn-field-hint"><?php echo esc_html( $bn_aw ); ?></p>
 								<?php endif; ?>
 							</div>
-							<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ); ?>">
-								<?php esc_html_e( 'Add', 'buddynext' ); ?>
-							</a>
+							<span class="bn-toggle-row__action">
+								<?php if ( 'needs_pro' === $bn_step['state'] ) : ?>
+									<span class="bn-field-hint"><?php esc_html_e( 'Needs BuddyNext Pro', 'buddynext' ); ?></span>
+								<?php endif; ?>
+								<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $bn_step['url'] ); ?>"<?php echo $bn_step['external'] ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>>
+									<?php echo esc_html( $bn_step['label'] ); ?>
+								</a>
+							</span>
 						</div>
 					<?php endforeach; ?>
 				</div>

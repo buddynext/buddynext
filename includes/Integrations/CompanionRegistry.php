@@ -259,6 +259,61 @@ final class CompanionRegistry {
 	}
 
 	/**
+	 * The admin's one-click activation link for a plugin on disk.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $basename Plugin basename.
+	 * @return string
+	 */
+	public static function activate_url( string $basename ): string {
+		return wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $basename ) . '&plugin_status=all' ), 'activate-plugin_' . $basename );
+	}
+
+	/**
+	 * What an owner has to do next for a companion that is not yet connected.
+	 *
+	 * A Pro-bridged partner connects only through BuddyNext Pro, so without Pro
+	 * that is the step whatever its own state: installing it alone connects nothing.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @param string $slug Companion slug.
+	 * @return array{state:string,label:string,url:string,external:bool}|null Null once connected.
+	 */
+	public static function next_step( string $slug ): ?array {
+		$entry  = self::get( $slug );
+		$status = self::status( $slug );
+		if ( null === $entry ) {
+			return null;
+		}
+		if ( ! empty( $entry['needs_pro'] ) ) {
+			$pro = self::pro_action();
+			if ( null !== $pro ) {
+				return array( 'state' => 'needs_pro' ) + $pro;
+			}
+		}
+		if ( 'active' === $status ) {
+			return null;
+		}
+		$basename = (string) ( $entry['free']['basename'] ?? '' );
+		if ( 'inactive' === $status && '' !== $basename && current_user_can( 'activate_plugins' ) ) {
+			return array(
+				'state'    => 'activate',
+				'label'    => __( 'Activate', 'buddynext' ),
+				'url'      => self::activate_url( $basename ),
+				'external' => false,
+			);
+		}
+		return array(
+			'state'    => 'inactive' === $status ? 'inactive' : 'install',
+			'label'    => 'inactive' === $status ? __( 'View add-on', 'buddynext' ) : __( 'Install', 'buddynext' ),
+			'url'      => \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) . '#bn-companion-' . sanitize_html_class( $slug ),
+			'external' => false,
+		);
+	}
+
+	/**
 	 * Active partners that connect only through BuddyNext Pro, while Pro is not active.
 	 *
 	 * @return array<string, array<string, mixed>> Slug => entry.
@@ -302,7 +357,7 @@ final class CompanionRegistry {
 		if ( file_exists( WP_PLUGIN_DIR . '/' . $basename ) && current_user_can( 'activate_plugins' ) ) {
 			return array(
 				'label'    => __( 'Activate BuddyNext Pro', 'buddynext' ),
-				'url'      => wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $basename ) . '&plugin_status=all' ), 'activate-plugin_' . $basename ),
+				'url'      => self::activate_url( $basename ),
 				'external' => false,
 			);
 		}
