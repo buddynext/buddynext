@@ -413,7 +413,7 @@ abstract class AdminPageBase {
 	 *
 	 * @param string $option_name WP option name.
 	 * @param string $label       Field label.
-	 * @param string $value       Current hex value (e.g. `Appearance::DEFAULT_BRAND`).
+	 * @param string $value       Current hex value (e.g. `Appearance::display_brand()`).
 	 * @param string $hint        Optional hint text beneath the field.
 	 * @return void
 	 */
@@ -424,7 +424,7 @@ abstract class AdminPageBase {
 		string $hint = ''
 	): void {
 		$input_id = 'bn-field-' . sanitize_key( $option_name );
-		$value    = '' !== $value ? $value : \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
+		$value    = '' !== $value ? $value : \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
 		?>
 		<div class="bn-field bn-color-field">
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>

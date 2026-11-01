@@ -255,11 +255,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 	// When no custom colour is set the space uses the site's default accent (the
 	// hero emits no per-space brand var), so show THAT in the swatch rather than a
 	// literal blue the space never actually renders.
-	$bn_site_brand = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
-	if ( '' === $bn_site_brand ) {
-		$bn_site_brand = \BuddyNext\Theme\Appearance::DEFAULT_BRAND;
-	}
-	$bn_brand_swatch = $bn_brand_on ? $bn_brand_color : $bn_site_brand;
+	$bn_brand_swatch = $bn_brand_on ? $bn_brand_color : \BuddyNext\Theme\Appearance::display_brand();
 	?>
 	<div class="bn-space-settings__field">
 		<label for="space_brand_color"><?php esc_html_e( 'Brand colour', 'buddynext' ); ?></label>

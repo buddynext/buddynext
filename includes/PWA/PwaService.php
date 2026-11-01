@@ -99,7 +99,6 @@ class PwaService {
 	 * @return array<string, mixed>
 	 */
 	public function get_manifest(): array {
-		$brand    = \BuddyNext\Theme\Appearance::picked_brand();
 		$manifest = array(
 			'name'             => buddynext_site_name(),
 			'short_name'       => mb_substr( buddynext_site_name(), 0, 12 ),
@@ -107,7 +106,7 @@ class PwaService {
 			'start_url'        => home_url( '/' ),
 			'display'          => 'standalone',
 			'background_color' => $this->splash_color(),
-			'theme_color'      => '' !== $brand ? $brand : \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX,
+			'theme_color'      => \BuddyNext\Theme\Appearance::display_brand(),
 			'orientation'      => 'portrait-primary',
 			'scope'            => home_url( '/' ),
 			'categories'       => array( 'social', 'community' ),

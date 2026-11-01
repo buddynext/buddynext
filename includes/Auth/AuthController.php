@@ -1915,11 +1915,12 @@ class AuthController {
 		);
 
 		$body = sprintf(
-			/* translators: 1: site name, 2: username, 3: reset URL. */
-			__( '<p>Someone requested a password reset for your %1$s account (<strong>%2$s</strong>).</p><p>If this was you, set a new password using the button below. If it wasn\'t, you can ignore this email and your password will stay the same.</p><p><a href="%3$s" style="display:inline-block;background:#0073aa;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">Reset my password</a></p><p style="font-size:13px;color:#6b7280;">Or paste this link into your browser:<br>%3$s</p>', 'buddynext' ),
+			/* translators: 1: site name, 2: username, 3: reset URL, 4: button colour. */
+			__( '<p>Someone requested a password reset for your %1$s account (<strong>%2$s</strong>).</p><p>If this was you, set a new password using the button below. If it wasn\'t, you can ignore this email and your password will stay the same.</p><p><a href="%3$s" style="display:inline-block;background:%4$s;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">Reset my password</a></p><p style="font-size:13px;color:#6b7280;">Or paste this link into your browser:<br>%3$s</p>', 'buddynext' ),
 			esc_html( $site_name ),
 			esc_html( $user_login ),
-			esc_url( $url )
+			esc_url( $url ),
+			esc_attr( \BuddyNext\Theme\Appearance::display_brand() )
 		);
 
 		$subject = sprintf(

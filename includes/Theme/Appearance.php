@@ -174,6 +174,19 @@ class Appearance {
 	}
 
 	/**
+	 * The colour to show or send when something needs a real colour: the owner's pick,
+	 * else the accent the site renders. Email, invoice, app manifest and every picker read
+	 * this. Never store it as a pick: only an explicit choice writes the option.
+	 *
+	 * @return string Hex colour.
+	 */
+	public static function display_brand(): string {
+		$picked = self::picked_brand();
+
+		return '' !== $picked ? $picked : self::DEFAULT_ACCENT_HEX;
+	}
+
+	/**
 	 * The accent BuddyNext actually renders when no brand colour has been picked.
 	 *
 	 * NOT the same thing as DEFAULT_BRAND, and the difference matters. DEFAULT_BRAND

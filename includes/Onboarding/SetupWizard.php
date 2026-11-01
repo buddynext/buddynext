@@ -542,25 +542,12 @@ class SetupWizard {
 		// as "it differs from what the step showed". Storing the untouched default
 		// would override the theme's accent on every page, see Appearance::attach_accent().
 		$brand_color = (string) sanitize_hex_color( wp_unslash( (string) ( $_POST['brand_color'] ?? '' ) ) );
-		if ( '' !== $brand_color && strtolower( $brand_color ) !== strtolower( self::displayed_brand_color() ) ) {
+		if ( '' !== $brand_color && strtolower( $brand_color ) !== strtolower( \BuddyNext\Theme\Appearance::display_brand() ) ) {
 			$data['brand_color'] = $brand_color;
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		$this->save_settings( $data );
-	}
-
-	/**
-	 * The colour the branding step shows: the owner's pick, else what the site renders today.
-	 *
-	 * Never the DEFAULT_BRAND sentinel, a WordPress admin blue the product does not use.
-	 *
-	 * @return string Hex colour.
-	 */
-	private static function displayed_brand_color(): string {
-		$picked = \BuddyNext\Theme\Appearance::picked_brand();
-
-		return '' !== $picked ? $picked : \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
 	}
 
 	/**
@@ -844,7 +831,7 @@ class SetupWizard {
 	private function render_step_branding(): void {
 		$site_name = (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) );
 
-		$brand_color = self::displayed_brand_color();
+		$brand_color = \BuddyNext\Theme\Appearance::display_brand();
 
 		$this->render_step_head(
 			__( 'What should your community be called?', 'buddynext' ),
