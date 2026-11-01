@@ -49,6 +49,20 @@ class ExploreExcludedTypesTest extends \WP_UnitTestCase {
 		$this->assertNotContains( $this->doc, $ids );
 	}
 
+	public function test_a_card_whose_partner_is_gone_stays_off_explore(): void {
+		global $wpdb;
+		$wpdb->insert( $wpdb->prefix . 'bn_posts', array( 'user_id' => self::factory()->user->create(), 'type' => 'course', 'content' => 'completed a course', 'status' => 'published', 'privacy' => 'public' ) );
+		$card = (int) $wpdb->insert_id;
+
+		$this->assertNotContains( $card, $this->explore_ids(), 'no renderer: nothing to show' );
+
+		$renderer = static fn() => '<div>card</div>';
+		add_filter( 'buddynext_render_post_body_course', $renderer );
+		$ids = $this->explore_ids();
+		remove_filter( 'buddynext_render_post_body_course', $renderer );
+		$this->assertContains( $card, $ids, 'with its partner back it returns' );
+	}
+
 	public function test_filter_opts_documents_back_in(): void {
 		add_filter( 'buddynext_explore_excluded_post_types', '__return_empty_array' );
 		$this->assertContains( $this->doc, $this->explore_ids() );

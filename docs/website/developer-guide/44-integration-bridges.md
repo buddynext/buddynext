@@ -159,7 +159,7 @@ A discussion card is checked as it renders, through the `buddynext_discussion_ca
 
 ### When a partner is not active
 
-Card renderers exist only while their plugin runs. With no renderer (or, for discussions, no `buddynext_discussion_card_url` callback), `PostService::is_orphaned_card( $type )` is true: the card shows its stored title and "This is no longer available." with no link, never its system sentence, and offers no Edit. Media and document cards show no title, since only the partner can say who may see it, and discussion cards keep "This discussion is no longer available." REST items carry `card_unavailable: true` with empty `content` and `link_url`. A type a site adds through `buddynext_feed_allowed_post_types` with no renderer stays a plain text card.
+Card renderers exist only while their plugin runs. With no renderer (or, for discussions, no `buddynext_discussion_card_url` callback), `PostService::is_orphaned_card( $type )` is true: the card shows its stored title and "This is no longer available." with no link, never its system sentence, and offers no Edit. Media and document cards show no title, since only the partner can say who may see it, and discussion cards keep "This discussion is no longer available." REST items carry `card_unavailable: true` with empty `content` and `link_url`. These cards stay off Explore. A type a site adds through `buddynext_feed_allowed_post_types` with no renderer stays a plain text card.
 
 ### Profile hand-over
 
