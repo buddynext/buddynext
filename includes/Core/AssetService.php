@@ -1277,6 +1277,8 @@ class AssetService {
 					'resendVerification'        => __( 'Resend verification email', 'buddynext' ),
 					'reviewAccountStatus'       => __( 'Review your account status', 'buddynext' ),
 					'pollMinOptions'            => __( 'Add at least two poll options.', 'buddynext' ),
+					'pollEndPast'               => __( 'Pick a poll end time in the future.', 'buddynext' ),
+					'pollEndBeforePublish'      => __( 'The poll would end before the post is published. Pick a later end time or an earlier publish time.', 'buddynext' ),
 					'savingDraft'               => __( 'Saving draft…', 'buddynext' ),
 					'draftSaved'                => __( 'Draft saved', 'buddynext' ),
 					'draftRestored'             => __( 'Draft restored', 'buddynext' ),

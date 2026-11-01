@@ -19,7 +19,7 @@ import { bnToast } from '@buddynext/shell-dialog';
 import { restError, restFetch , toastRestError } from '@buddynext/rest-client';
 import { onNavReady } from '@buddynext/nav-init';
 import { mediaPreview, mediaKind, uploadMedia, deleteMedia, validateMedia } from '@buddynext/upload-core';
-import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime } from '@buddynext/feed-shared';
+import { t, fmt, prependFeedCard, clearField, autoResizeTextarea, toUtcSqlDatetime, siteNowInputValue } from '@buddynext/feed-shared';
 import { bnClampPopoverToViewport } from '@buddynext/popover';
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
@@ -1161,6 +1161,8 @@ store( 'buddynext/post-composer', {
 			const ctx        = getContext();
 			ctx.composerOpen = true;
 			ctx.composerType = ctx.composerType === 'poll' ? 'text' : 'poll';
+			const endInput = document.querySelector( '.bn-composer__poll-end-input' );
+			if ( endInput ) { endInput.min = siteNowInputValue(); }
 		},
 		toggleSchedule() {
 			const ctx          = getContext();
@@ -1373,7 +1375,24 @@ store( 'buddynext/post-composer', {
 				const endInput = document.querySelector( '.bn-composer__poll-end-input' );
 				const endRaw   = endInput ? endInput.value.trim() : '';
 				if ( endRaw ) {
-					body.poll_end_date = toUtcSqlDatetime( endRaw );
+					const endUtc = toUtcSqlDatetime( endRaw );
+					// `endUtc` is already UTC, so compare instants, not the browser's wall clock.
+					const endMs  = endUtc ? new Date( endUtc.replace( ' ', 'T' ) + 'Z' ).getTime() : 0;
+					let endError = '';
+					if ( ! endUtc ) {
+						endError = t( 'scheduleInvalid', 'Pick a valid date and time.' );
+					} else if ( endMs <= Date.now() ) {
+						endError = t( 'pollEndPast', 'Pick a poll end time in the future.' );
+					} else if ( ctx.scheduledAt && endMs <= new Date( ctx.scheduledAt.replace( ' ', 'T' ) + 'Z' ).getTime() ) {
+						endError = t( 'pollEndBeforePublish', 'The poll would end before the post is published. Pick a later end time or an earlier publish time.' );
+					}
+					if ( endError ) {
+						ctx.submitting     = false;
+						ctx.errorMessage   = endError;
+						ctx.errorRetryable = false;
+						return;
+					}
+					body.poll_end_date = endUtc;
 				}
 			}
 

@@ -207,4 +207,91 @@ class PollServiceTest extends \WP_UnitTestCase {
 			$wpdb->prepare( "SELECT vote_count FROM {$wpdb->prefix}bn_poll_options WHERE id = %d", $option_id )
 		);
 	}
+
+	/**
+	 * Create a poll with a given deadline, as a new author.
+	 *
+	 * @param mixed $end   Requested poll_end_date.
+	 * @param array $extra Extra post data.
+	 * @return int|\WP_Error
+	 */
+	private function poll_ending( $end, array $extra = array() ) {
+		$author = self::factory()->user->create();
+		wp_set_current_user( $author );
+		return $this->posts->create(
+			$author,
+			array(
+				'type'          => 'poll',
+				'content'       => 'QA-FIX poll',
+				'options'       => array( 'A', 'B' ),
+				'poll_end_date' => $end,
+			) + $extra
+		);
+	}
+
+	/**
+	 * A past or malformed deadline is refused with a clear 422.
+	 *
+	 * @dataProvider bad_poll_end_dates
+	 *
+	 * @param mixed  $end  Requested deadline.
+	 * @param string $code Expected error code.
+	 */
+	public function test_bad_poll_end_is_refused( $end, string $code ): void {
+		$result = $this->poll_ending( $end );
+		$this->assertWPError( $result );
+		$this->assertSame( $code, $result->get_error_code() );
+		$this->assertSame( 422, $result->get_error_data()['status'] );
+	}
+
+	/**
+	 * Deadlines a poll must not take.
+	 *
+	 * @return array<string,array{0:mixed,1:string}>
+	 */
+	public function bad_poll_end_dates(): array {
+		return array(
+			'past'         => array( '2020-01-01 00:00:00', 'poll_end_in_past' ),
+			'garbage'      => array( 'garbage', 'invalid_poll_end_date' ),
+			'not a date'   => array( '2099-13-45 00:00:00', 'invalid_poll_end_date' ),
+			'date only'    => array( '2099-01-01', 'invalid_poll_end_date' ),
+			'not a string' => array( array( '2099-01-01 00:00:00' ), 'invalid_poll_end_date' ),
+		);
+	}
+
+	/**
+	 * A future deadline is stored; no deadline is still no deadline.
+	 */
+	public function test_future_or_absent_poll_end_is_accepted(): void {
+		global $wpdb;
+		$future = gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS );
+
+		$id = $this->poll_ending( $future );
+		$this->assertIsInt( $id );
+		$this->assertSame( $future, $wpdb->get_var( $wpdb->prepare( "SELECT end_date FROM {$wpdb->prefix}bn_poll_options WHERE post_id = %d LIMIT 1", $id ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		$open = $this->poll_ending( '' );
+		$this->assertIsInt( $open );
+		$this->assertNull( $wpdb->get_var( $wpdb->prepare( "SELECT end_date FROM {$wpdb->prefix}bn_poll_options WHERE post_id = %d LIMIT 1", $open ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+
+	/**
+	 * A scheduled poll must not go live already closed, on create or on a reschedule.
+	 */
+	public function test_scheduled_poll_cannot_open_after_it_ends(): void {
+		$end    = gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS );
+		$before = gmdate( 'Y-m-d H:i:s', time() + HOUR_IN_SECONDS );
+		$after  = gmdate( 'Y-m-d H:i:s', time() + 2 * DAY_IN_SECONDS );
+
+		$refused = $this->poll_ending( $end, array( 'scheduled_at' => $after ) );
+		$this->assertSame( 'poll_end_before_publish', $refused->get_error_code() );
+
+		$id = $this->poll_ending( $end, array( 'scheduled_at' => $before ) );
+		$this->assertIsInt( $id );
+
+		$moved = $this->posts->update( $id, get_current_user_id(), array( 'scheduled_at' => $after ) );
+		$this->assertSame( 'poll_end_before_publish', $moved->get_error_code() );
+		$this->assertFalse( $this->posts->set_schedule( $id, $after ) );
+		$this->assertTrue( $this->posts->set_schedule( $id, gmdate( 'Y-m-d H:i:s', time() + 2 * HOUR_IN_SECONDS ) ) );
+	}
 }

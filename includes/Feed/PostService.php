@@ -375,6 +375,10 @@ class PostService {
 					__( 'Polls may have at most 5 options.', 'buddynext' )
 				);
 			}
+			$poll_end_error = $this->poll_end_error( $data['poll_end_date'] ?? '', (string) ( $data['scheduled_at'] ?? '' ) );
+			if ( null !== $poll_end_error ) {
+				return $poll_end_error;
+			}
 		}
 
 		if ( 'announcement' === $type ) {
@@ -2312,6 +2316,14 @@ class PostService {
 				);
 			}
 
+			$poll_end = (string) ( $current['poll_options'][0]['end_date'] ?? '' );
+			if ( '' !== $poll_end ) {
+				$poll_conflict = $this->poll_opens_after_end( $poll_end, gmdate( 'Y-m-d H:i:s', $ts ) );
+				if ( null !== $poll_conflict ) {
+					return $poll_conflict;
+				}
+			}
+
 			$fields['scheduled_at'] = gmdate( 'Y-m-d H:i:s', $ts );
 			$formats[]              = '%s';
 		}
@@ -4025,6 +4037,11 @@ class PostService {
 			return false;
 		}
 
+		$poll_end = (string) ( $current['poll_options'][0]['end_date'] ?? '' );
+		if ( '' !== $poll_end && null !== $this->poll_opens_after_end( $poll_end, $scheduled_at ) ) {
+			return false;
+		}
+
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
@@ -4875,6 +4892,61 @@ class PostService {
 	}
 
 	/**
+	 * Why a poll cannot take this end time, or null when it can.
+	 *
+	 * A past deadline publishes a poll nobody can vote on, and a malformed one used to
+	 * be stored as no deadline at all, so the poll silently never closed.
+	 *
+	 * @param mixed  $end_date     Requested UTC "Y-m-d H:i:s" deadline; empty = no deadline.
+	 * @param string $scheduled_at UTC time the post goes live, if it is scheduled.
+	 * @return WP_Error|null
+	 */
+	private function poll_end_error( $end_date, string $scheduled_at = '' ): ?WP_Error {
+		if ( null === $end_date || '' === $end_date ) {
+			return null;
+		}
+
+		$parsed = is_string( $end_date ) ? \DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $end_date, new \DateTimeZone( 'UTC' ) ) : false;
+		if ( false === $parsed || $parsed->format( 'Y-m-d H:i:s' ) !== $end_date ) {
+			return new WP_Error(
+				'invalid_poll_end_date',
+				__( 'That poll end time is not a valid date and time.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		if ( $parsed->getTimestamp() <= time() ) {
+			return new WP_Error(
+				'poll_end_in_past',
+				__( 'Pick a poll end time in the future.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		return $this->poll_opens_after_end( $end_date, $scheduled_at );
+	}
+
+	/**
+	 * Refuse a publish time at or after the poll's deadline: it would go live already closed.
+	 *
+	 * @param string $end_date     UTC poll deadline.
+	 * @param string $scheduled_at UTC time the post goes live ('' = now).
+	 * @return WP_Error|null
+	 */
+	private function poll_opens_after_end( string $end_date, string $scheduled_at ): ?WP_Error {
+		$opens = '' === $scheduled_at ? false : strtotime( $scheduled_at . ' UTC' );
+		if ( false === $opens || $opens < strtotime( $end_date . ' UTC' ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'poll_end_before_publish',
+			__( 'The poll would end before the post is published. Pick a later end time or an earlier publish time.', 'buddynext' ),
+			array( 'status' => 422 )
+		);
+	}
+
+	/**
 	 * Insert poll options for a new poll post.
 	 *
 	 * @param int      $post_id  Post ID.
@@ -4887,10 +4959,8 @@ class PostService {
 	private function insert_poll_options( int $post_id, array $options, string $end_date = '' ): void {
 		global $wpdb;
 
-		// Accept only a valid "Y-m-d H:i:s" deadline; anything else stores NULL.
-		$end_value = ( '' !== $end_date && preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $end_date ) )
-			? $end_date
-			: null;
+		// create() has already refused anything but a valid future deadline.
+		$end_value = '' !== $end_date ? $end_date : null;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		foreach ( array_values( $options ) as $i => $raw ) {
