@@ -261,6 +261,34 @@
 		overlay.classList.toggle( 'bn-lightbox--dm', !! item.dm );
 	}
 
+	// One rule for the Download link and the native player menu, on open and after Save.
+	function applyDownload( m, isDM ) {
+		var canDownload = false !== m.allow_download;
+		var dl = isDM ? panel.dmDownload : panel.download;
+		if ( dl ) {
+			dl.hidden = ! canDownload;
+			if ( canDownload && m.file_url ) { dl.setAttribute( 'href', m.file_url ); }
+		}
+		setNoDownload( stage && stage.querySelector( 'video, audio' ), ! canDownload );
+	}
+
+	function setNoDownload( player, noDownload ) {
+		if ( ! player ) { return; }
+		if ( noDownload ) { player.setAttribute( 'controlsList', 'nodownload' ); } else { player.removeAttribute( 'controlsList' ); }
+	}
+
+	// After an owner saves: the item in the viewer and every tile of it on this page
+	// follow, so stepping away and back, or playing the tile inline, tells the same story.
+	function syncTileDownload( id, noDownload ) {
+		gallery.forEach( function ( item ) {
+			if ( item.id === id ) { item.noDownload = noDownload; }
+		} );
+		document.querySelectorAll( '.bn-media-tile[data-bn-media-id="' + id + '"]' ).forEach( function ( tile ) {
+			if ( noDownload ) { tile.setAttribute( 'data-no-download', '1' ); } else { tile.removeAttribute( 'data-no-download' ); }
+			setNoDownload( tile.querySelector( 'audio' ), noDownload );
+		} );
+	}
+
 	// ── Panel ───────────────────────────────────────────────────────────────
 	function clear( node ) { if ( node ) { while ( node.firstChild ) { node.removeChild( node.firstChild ); } } }
 
@@ -300,14 +328,7 @@
 			// BuddyNext owns the UX and must not send users into the engine UI.
 			// The engine's answer (site switch + the owner's per-item opt-out) decides
 			// whether Download exists at all, and the native player's own save menu.
-			var canDownload = false !== m.allow_download;
-			var dl = isDM ? panel.dmDownload : panel.download;
-			if ( dl ) {
-				dl.hidden = ! canDownload;
-				if ( canDownload && m.file_url ) { dl.setAttribute( 'href', m.file_url ); }
-			}
-			var player = stage && stage.querySelector( 'video, audio' );
-			if ( player && ! canDownload ) { player.setAttribute( 'controlsList', 'nodownload' ); }
+			applyDownload( m, isDM );
 		} ).catch( function () { contextDone(); } );
 
 		// DM media: no favorite / reactions / comments / view tracking. The image
@@ -1162,7 +1183,11 @@
 					allow_download: dl.checked,
 				},
 			} ).then( function ( updated ) {
-				if ( updated && updated.id ) { currentMedia = updated; }
+				if ( updated && updated.id ) {
+					currentMedia = updated;
+					applyDownload( updated, false );
+					syncTileDownload( parseInt( updated.id, 10 ), false === updated.allow_download );
+				}
 				closeExtraPanel();
 			} ).catch( function () {} );
 		} ) );
