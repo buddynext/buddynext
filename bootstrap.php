@@ -282,7 +282,10 @@ add_action(
 add_action( 'init', array( \BuddyNext\Core\Installer::class, 'install_if_missing' ), 5 );
 
 // Apply pending DB schema upgrades on a plain plugin update (no deactivate/
-// reactivate needed). Cheap no-op once the stored schema revision matches.
+// reactivate needed), on the first request of any kind: priority 0, ahead of every
+// feature's init work. One option compare once the stored schema revision matches.
+add_action( 'init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade_schema' ), 0 );
+add_action( \BuddyNext\Core\Installer::FINISH_UPGRADE_HOOK, array( \BuddyNext\Core\Installer::class, 'finish_upgrade' ) );
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
 \BuddyNext\Core\Installer::register_site_health();
 

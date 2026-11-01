@@ -102,6 +102,20 @@ class Installer {
 	 */
 	public const SCHEMA_FAILURE_OPTION = 'buddynext_schema_failure';
 
+	/**
+	 * Holds the schema version a site was on while its data migrations are still owed.
+	 *
+	 * @var string
+	 */
+	private const PENDING_MIGRATIONS_OPTION = 'buddynext_pending_migrations';
+
+	/**
+	 * Background action that runs the data migrations after a schema upgrade.
+	 *
+	 * @var string
+	 */
+	public const FINISH_UPGRADE_HOOK = 'buddynext_finish_upgrade';
+
 	public const OWNED_TABLES = array(
 		'bn_appeals',
 		'bn_blocks',
@@ -1056,9 +1070,11 @@ class Installer {
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION,
 	 * or when a table it claims to have created is missing.
 	 *
-	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
-	 * up column/table changes. Cheap no-op once the versions match, the schema is
-	 * intact, and no one-shot profile-flag correction is pending.
+	 * Hooked on admin_init: everything an update needs that is not urgent enough to
+	 * spend a visitor's request on, and the backstop for the data migrations when no
+	 * background runner has done them (see maybe_upgrade_schema()). Cheap no-op once
+	 * the versions match, the schema is intact, no migration is pending and no one-shot
+	 * profile-flag correction is pending.
 	 *
 	 * @return void
 	 */
@@ -1083,10 +1099,13 @@ class Installer {
 		// value - a couple of the option-cleanup steps key on how far behind the
 		// site actually was, and would otherwise read the just-written new number.
 		$bn_stored_schema = (int) get_option( 'buddynext_schema_version', 0 );
+		$bn_pending       = get_option( self::PENDING_MIGRATIONS_OPTION, false );
 
-		if ( self::SCHEMA_VERSION === $bn_stored_schema
+		$bn_schema_current = self::SCHEMA_VERSION === $bn_stored_schema
 			&& self::schema_intact()
-			&& self::profile_flags_converged() ) {
+			&& self::profile_flags_converged();
+
+		if ( $bn_schema_current && false === $bn_pending ) {
 			return;
 		}
 
@@ -1106,8 +1125,150 @@ class Installer {
 			return;
 		}
 
-		self::run();
+		if ( ! self::acquire_upgrade_lock() ) {
+			return;
+		}
 
+		try {
+			if ( ! $bn_schema_current ) {
+				self::run();
+			}
+			// A visitor's request may have moved the schema on already: the version that
+			// decides the migrations is the one it found, kept in the pending marker.
+			self::run_migrations( false === $bn_pending ? $bn_stored_schema : (int) $bn_pending );
+		} finally {
+			self::release_upgrade_lock();
+		}
+	}
+
+	/**
+	 * Bring the schema up to date on any request, as soon as the code is ahead of it.
+	 *
+	 * A plugin update runs new code before anyone opens wp-admin, and until then every
+	 * query naming a new column fails: notifications were lost, not delayed. On a normal
+	 * request this costs one autoloaded option compare and no query.
+	 *
+	 * Only the schema runs here (run(): dbDelta, seeds, the version stamp), under a lock so
+	 * one request does it and the others carry on as if nothing were happening. The data
+	 * migrations stay off a visitor's request: they go to a background job, with the next
+	 * wp-admin load as the backstop when no runner comes.
+	 *
+	 * @return void
+	 */
+	public static function maybe_upgrade_schema(): void {
+		$stored = get_option( 'buddynext_schema_version' );
+
+		// Not installed yet is install_if_missing()'s job. A newer stored version is a
+		// rolled-back plugin, which wp-admin's strict compare already deals with.
+		if ( false === $stored || (int) $stored >= self::SCHEMA_VERSION || wp_installing() ) {
+			return;
+		}
+
+		if ( self::schema_failure_is_recent() || '' !== self::unsupported_db_reason() || ! self::acquire_upgrade_lock() ) {
+			return;
+		}
+
+		try {
+			global $wpdb;
+
+			// Read past this request's cached options: another request may have finished
+			// between the compare above and winning the lock.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$fresh = (int) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", 'buddynext_schema_version' ) );
+
+			if ( $fresh < self::SCHEMA_VERSION ) {
+				// Written first, so a request that dies part way still leaves the
+				// migrations owed. add_option() keeps the oldest version if one is owed.
+				add_option( self::PENDING_MIGRATIONS_OPTION, $fresh, '', false );
+				self::run();
+				add_action( 'wp_loaded', array( self::class, 'schedule_finish_upgrade' ) );
+			}
+		} finally {
+			self::release_upgrade_lock();
+		}
+	}
+
+	/**
+	 * Queue the data migrations a schema upgrade left owing.
+	 *
+	 * @return void
+	 */
+	public static function schedule_finish_upgrade(): void {
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::FINISH_UPGRADE_HOOK, array(), 'buddynext', true );
+			return;
+		}
+		wp_schedule_single_event( time() + 30, self::FINISH_UPGRADE_HOOK );
+	}
+
+	/**
+	 * Background half of maybe_upgrade_schema(): run the data migrations it left owing.
+	 *
+	 * @return void
+	 */
+	public static function finish_upgrade(): void {
+		$pending = get_option( self::PENDING_MIGRATIONS_OPTION, false );
+		if ( false === $pending ) {
+			return;
+		}
+
+		if ( ! self::acquire_upgrade_lock() ) {
+			self::schedule_finish_upgrade();
+			return;
+		}
+
+		try {
+			self::run_migrations( (int) $pending );
+		} finally {
+			self::release_upgrade_lock();
+		}
+	}
+
+	/**
+	 * Take the lock that lets one request upgrade at a time, without waiting for it.
+	 *
+	 * A database lock belongs to the connection, so a request that dies mid-upgrade
+	 * cannot leave it held. If the server refuses, this request simply skips the upgrade.
+	 *
+	 * @return bool
+	 */
+	private static function acquire_upgrade_lock(): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return 1 === (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', self::upgrade_lock_name() ) );
+	}
+
+	/**
+	 * Release the upgrade lock.
+	 *
+	 * @return void
+	 */
+	private static function release_upgrade_lock(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', self::upgrade_lock_name() ) );
+	}
+
+	/**
+	 * The lock name. Database locks are per server, and a server can host several sites.
+	 *
+	 * @return string
+	 */
+	private static function upgrade_lock_name(): string {
+		global $wpdb;
+
+		return 'bn_upgrade_' . md5( DB_NAME . $wpdb->prefix );
+	}
+
+	/**
+	 * The one-time data migrations that follow a schema upgrade. Idempotent.
+	 *
+	 * @param int $bn_stored_schema The schema version the site was on before this upgrade.
+	 * @return void
+	 */
+	private static function run_migrations( int $bn_stored_schema ): void {
 		// v6: remove stale cron events from existing installs.
 		// Safe to call repeatedly — each step checks the current schedule state.
 		CronScheduler::run_cron_migration();
@@ -1377,6 +1538,7 @@ class Installer {
 		// failure recorded; otherwise leave it behind so the next pass retries.
 		if ( false === get_option( self::SCHEMA_FAILURE_OPTION, false ) ) {
 			update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+			delete_option( self::PENDING_MIGRATIONS_OPTION );
 		}
 	}
 

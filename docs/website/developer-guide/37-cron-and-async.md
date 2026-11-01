@@ -39,6 +39,7 @@ Armed on demand and self-clearing - they do not poll when there is no work.
 
 | Hook | When it fires | What it does |
 |---|---|---|
+| `buddynext_finish_upgrade` | After a schema upgrade made by a request outside wp-admin | Runs the one-time data migrations that upgrade left owing, under the upgrade lock. The next wp-admin load runs them if no runner has. |
 | `buddynext_publish_scheduled` | Armed at the next due scheduled post's time | Publishes due scheduled posts, then re-arms for the next one (or stays disarmed). Free-owned - runs with Pro absent. |
 | `bn_onboarding_nudge_24h` | Single event, 24h after signup | Sends the first onboarding nudge to a member who has not finished the setup steps. Armed per user at registration; self-clears once onboarding completes. |
 | `bn_onboarding_nudge_72h` | Single event, 72h after signup | Sends the second onboarding nudge if the member is still incomplete at 72 hours. Same per-user arming model as the 24h nudge. |
