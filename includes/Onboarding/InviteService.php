@@ -36,31 +36,50 @@ class InviteService {
 	 * @param string $first_name Recipient first name (optional, for personalisation).
 	 * @param int    $ttl_days   Token lifetime in days. Negative values create an already-expired invite (useful in tests).
 	 * @param int    $space_id   Optional space to drop the new member into on registration (0 = none).
-	 * @return int  New invite ID, or 0 when skipped (existing account / live pending invite / empty email).
+	 * @return array{status:string,invite_id:int} What happened, and the invite it happened to (0 when none):
+	 *   - sent:              new invite, wp_mail accepted the email.
+	 *   - queued:            new invite, the email went to Action Scheduler; the outcome is not known yet
+	 *                        (a failed send marks the row 'bounced').
+	 *   - mail_failed:       new invite, wp_mail refused the email; the row is 'bounced' and can be resent.
+	 *   - attached:          the address had a pending invite with no space; it now leads to $space_id. No new email.
+	 *   - already_invited:   the address has a pending invite, to $space_id or with no space asked for. No new email.
+	 *   - invited_elsewhere: the address has a pending invite to a different space, which one invite cannot also hold.
+	 *   - existing_member:   the address already has an account.
+	 *   - invalid:           empty or malformed email.
+	 *   - failed:            the row could not be written.
 	 */
-	public function create( string $email, string $first_name = '', int $ttl_days = self::DEFAULT_TTL_DAYS, int $space_id = 0 ): int {
+	public function create( string $email, string $first_name = '', int $ttl_days = self::DEFAULT_TTL_DAYS, int $space_id = 0 ): array {
 		global $wpdb;
 
 		$email = sanitize_email( $email );
 		if ( '' === $email ) {
-			return 0;
+			return array(
+				'status'    => 'invalid',
+				'invite_id' => 0,
+			);
 		}
 
-		// Dedup: skip if the address already has a real account or a live
-		// (non-expired) pending invite. Returning 0 lets callers report a
-		// skip/duplicate instead of silently re-inviting the same person.
+		// Dedup: never re-invite an address that already has a real account or a
+		// live (non-expired) pending invite.
 		if ( get_user_by( 'email', $email ) ) {
-			return 0;
+			return array(
+				'status'    => 'existing_member',
+				'invite_id' => 0,
+			);
 		}
-		$has_pending = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$pending = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites WHERE email = %s AND status = 'pending' AND expires_at > %s",
+				"SELECT id, space_id FROM {$wpdb->prefix}bn_invites WHERE email = %s AND status = 'pending' AND expires_at > %s ORDER BY id DESC LIMIT 1",
 				$email,
 				current_time( 'mysql', true )
-			)
+			),
+			ARRAY_A
 		);
-		if ( $has_pending > 0 ) {
-			return 0;
+		if ( is_array( $pending ) ) {
+			return array(
+				'status'    => $this->link_pending_invite( (int) $pending['id'], (int) $pending['space_id'], $space_id ),
+				'invite_id' => (int) $pending['id'],
+			);
 		}
 
 		$token      = $this->generate_token();
@@ -83,24 +102,66 @@ class InviteService {
 		);
 
 		$invite_id = (int) $wpdb->insert_id;
-		if ( $invite_id > 0 ) {
-			$payload = array(
-				'id'         => $invite_id,
-				'email'      => sanitize_email( $email ),
-				'first_name' => sanitize_text_field( $first_name ),
-				'token'      => $token,
+		if ( $invite_id <= 0 ) {
+			return array(
+				'status'    => 'failed',
+				'invite_id' => 0,
 			);
-			// Defer the send to Action Scheduler so a bulk/CSV import (which loops
-			// create()) enqueues N fast async sends instead of N blocking wp_mail()
-			// calls that time the request out. Falls back to inline when AS is absent.
-			if ( function_exists( 'as_enqueue_async_action' ) ) {
-				as_enqueue_async_action( 'buddynext_async_send_invite_email', array( $payload ), 'buddynext' );
-			} else {
-				$this->send_invite_email( $payload );
-			}
 		}
 
-		return $invite_id;
+		$payload = array(
+			'id'         => $invite_id,
+			'email'      => $email,
+			'first_name' => sanitize_text_field( $first_name ),
+			'token'      => $token,
+		);
+		// Defer the send to Action Scheduler so a bulk/CSV import (which loops
+		// create()) enqueues N fast async sends instead of N blocking wp_mail()
+		// calls that time the request out. Falls back to inline when AS is absent.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_async_send_invite_email', array( $payload ), 'buddynext' );
+			$status = 'queued';
+		} else {
+			$status = $this->deliver_invite_email( $payload ) ? 'sent' : 'mail_failed';
+		}
+
+		return array(
+			'status'    => $status,
+			'invite_id' => $invite_id,
+		);
+	}
+
+	/**
+	 * Decide what a second invite to an address with a live pending invite means.
+	 *
+	 * One invite row holds one space, so a pending invite with no space can take on the
+	 * space being asked for, and one already bound to another space cannot.
+	 *
+	 * @param int $invite_id Pending invite ID.
+	 * @param int $current   Space the pending invite leads to (0 = none).
+	 * @param int $requested Space this invite is for (0 = none).
+	 * @return string A create() status: attached, already_invited or invited_elsewhere.
+	 */
+	private function link_pending_invite( int $invite_id, int $current, int $requested ): string {
+		if ( $requested <= 0 || $current === $requested ) {
+			return 'already_invited';
+		}
+		if ( $current > 0 ) {
+			return 'invited_elsewhere';
+		}
+
+		global $wpdb;
+		// The space_id condition keeps two simultaneous invites from overwriting each other.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$attached = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_invites SET space_id = %d WHERE id = %d AND space_id IS NULL",
+				$requested,
+				$invite_id
+			)
+		);
+
+		return $attached > 0 ? 'attached' : 'invited_elsewhere';
 	}
 
 	/**
@@ -353,7 +414,7 @@ class InviteService {
 
 		// Report the real delivery result so the admin notice is honest rather
 		// than always claiming success.
-		return $this->send_invite_email( $invite );
+		return $this->deliver_invite_email( $invite );
 	}
 
 	/**
@@ -364,19 +425,30 @@ class InviteService {
 	 * first column; an optional second column is treated as the recipient's
 	 * first name.
 	 *
-	 * Rows with an invalid email format are counted as skipped. Rows that
-	 * fail to insert (e.g. duplicate email in a pending state) are counted
-	 * as errors with a descriptive message. The file handle is always closed.
+	 * Blank or malformed rows, addresses that already have an account and addresses
+	 * with a pending invite are counted as skipped, by reason. Rows that could not
+	 * be written are errors. The file handle is always closed.
 	 *
 	 * @param int    $inviter_id User ID of the person sending invites (reserved for capability checks by callers).
 	 * @param string $csv_path   Absolute path to the uploaded CSV file.
-	 * @return array{imported: int, skipped: int, errors: string[]} Import summary.
+	 * @return array{imported: int, queued: int, mail_failed: int, skipped: int, reasons: array{already_invited: int, existing_member: int, invalid: int}, errors: string[], not_read: int, max_rows: int} Import summary.
+	 *         imported counts every invite accepted for delivery; queued is the part of it not
+	 *         actually mailed yet. not_read is how many rows the max_rows cap left unread.
 	 */
 	public function import_from_csv( int $inviter_id, string $csv_path ): array {
 		$summary = array(
-			'imported' => 0,
-			'skipped'  => 0,
-			'errors'   => array(),
+			'imported'    => 0,
+			'queued'      => 0,
+			'mail_failed' => 0,
+			'skipped'     => 0,
+			'reasons'     => array(
+				'already_invited' => 0,
+				'existing_member' => 0,
+				'invalid'         => 0,
+			),
+			'errors'      => array(),
+			'not_read'    => 0,
+			'max_rows'    => 0,
 		);
 
 		if ( ! is_readable( $csv_path ) ) {
@@ -392,43 +464,56 @@ class InviteService {
 
 		// Cap rows processed per upload so a huge file can't run an unbounded
 		// insert + wp_mail loop. Filterable for larger trusted imports.
-		$max_rows  = (int) apply_filters( 'buddynext_invite_csv_max_rows', 500 );
-		$processed = 0;
+		$max_rows            = (int) apply_filters( 'buddynext_invite_csv_max_rows', 500 );
+		$summary['max_rows'] = $max_rows;
+		$processed           = 0;
 
 		try {
 			// Skip header row.
-			fgetcsv( $handle );
+			fgetcsv( $handle, null, ',', '"', '' );
 
 			while ( true ) {
-				if ( $processed >= $max_rows ) {
-					break;
-				}
-				$row = fgetcsv( $handle );
+				$row = fgetcsv( $handle, null, ',', '"', '' );
 				if ( false === $row ) {
 					break;
+				}
+				if ( $processed >= $max_rows ) {
+					++$summary['not_read'];
+					continue;
 				}
 				++$processed;
 
 				$raw_email = isset( $row[0] ) ? trim( (string) $row[0] ) : '';
-				if ( '' === $raw_email ) {
-					++$summary['skipped'];
-					continue;
-				}
-
-				$email = is_email( $raw_email );
+				$email     = '' === $raw_email ? false : is_email( $raw_email );
 				if ( false === $email ) {
 					++$summary['skipped'];
+					++$summary['reasons']['invalid'];
 					continue;
 				}
 
 				$first_name = isset( $row[1] ) ? sanitize_text_field( trim( (string) $row[1] ) ) : '';
-				$invite_id  = $this->create( $email, $first_name );
+				$status     = $this->create( $email, $first_name )['status'];
 
-				if ( $invite_id > 0 ) {
-					++$summary['imported'];
-				} else {
-					/* translators: %s: email address */
-					$summary['errors'][] = sprintf( __( 'Failed to create invite for %s.', 'buddynext' ), $email );
+				switch ( $status ) {
+					case 'queued':
+						++$summary['queued'];
+						++$summary['imported'];
+						break;
+					case 'sent':
+						++$summary['imported'];
+						break;
+					case 'mail_failed':
+						++$summary['mail_failed'];
+						break;
+					case 'already_invited':
+					case 'existing_member':
+					case 'invalid':
+						++$summary['skipped'];
+						++$summary['reasons'][ $status ];
+						break;
+					default:
+						/* translators: %s: email address */
+						$summary['errors'][] = sprintf( __( 'Failed to create invite for %s.', 'buddynext' ), $email );
 				}
 			}
 		} finally {
@@ -476,11 +561,21 @@ class InviteService {
 	 * (OnboardingListener::handle_async_invite_email) calls this so create() can
 	 * enqueue the send instead of dispatching inline.
 	 *
+	 * A refused send marks the invite 'bounced'.
+	 *
 	 * @param array<string, mixed> $invite Invite payload { id, email, first_name, token }.
 	 * @return bool True when the email was handed to wp_mail successfully.
 	 */
 	public function deliver_invite_email( array $invite ): bool {
-		return $this->send_invite_email( $invite );
+		$sent = $this->send_invite_email( $invite );
+
+		// Nobody is waiting on a queued send, so the row is the only place a failure can
+		// show: the invite moves to the Bounced tab, where it can be resent.
+		if ( ! $sent && ! empty( $invite['id'] ) ) {
+			$this->set_status( (int) $invite['id'], 'bounced' );
+		}
+
+		return $sent;
 	}
 
 	/**

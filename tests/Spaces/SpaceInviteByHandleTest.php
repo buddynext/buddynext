@@ -63,4 +63,21 @@ class SpaceInviteByHandleTest extends \WP_Test_REST_TestCase {
 	public function test_unknown_handle_is_not_found(): void {
 		$this->assertSame( 404, $this->invite( '@nobody-by-that-name' )->get_status() );
 	}
+
+	public function test_duplicate_email_invite_is_not_reported_as_sent(): void {
+		global $wpdb;
+		$email = 'qafix-dup@example.com';
+
+		$first = $this->invite( $email );
+		$this->assertSame( 200, $first->get_status() );
+		$this->assertTrue( $first->get_data()['email_invited'] );
+
+		$second = $this->invite( $email );
+		$this->assertSame( 409, $second->get_status() );
+		$this->assertSame( 'already_invited', $second->get_data()['code'] );
+		$this->assertStringContainsString( 'Already invited', $second->get_data()['message'] );
+
+		$rows = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites WHERE email = %s", $email ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( 1, $rows );
+	}
 }

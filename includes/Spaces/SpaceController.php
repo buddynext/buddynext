@@ -3028,13 +3028,14 @@ class SpaceController extends BaseRestController {
 							array( 'status' => 403 )
 						);
 					}
-					( new \BuddyNext\Onboarding\InviteService() )->create(
-						$identifier,
-						'',
-						\BuddyNext\Onboarding\InviteService::DEFAULT_TTL_DAYS,
-						$space_id
+					return $this->email_invite_response(
+						( new \BuddyNext\Onboarding\InviteService() )->create(
+							$identifier,
+							'',
+							\BuddyNext\Onboarding\InviteService::DEFAULT_TTL_DAYS,
+							$space_id
+						)['status']
 					);
-					return new WP_REST_Response( array( 'email_invited' => true ), 200 );
 				} else {
 					return new WP_Error(
 						'user_not_found',
@@ -3071,6 +3072,63 @@ class SpaceController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'invited' => true ), 200 );
+	}
+
+	/**
+	 * Tell the inviter what an email invite really did. Only a new invite says sent.
+	 *
+	 * @param string $status InviteService::create() status.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function email_invite_response( string $status ): WP_REST_Response|WP_Error {
+		if ( in_array( $status, array( 'sent', 'queued' ), true ) ) {
+			return new WP_REST_Response(
+				array(
+					'email_invited' => true,
+					'message'       => __( 'Invitation sent', 'buddynext' ),
+				),
+				200
+			);
+		}
+
+		if ( 'attached' === $status ) {
+			return new WP_REST_Response(
+				array(
+					'email_invited' => false,
+					'attached'      => true,
+					'message'       => __( 'Already invited to the site, so no new email was sent. They will join this space when they accept.', 'buddynext' ),
+				),
+				200
+			);
+		}
+
+		return match ( $status ) {
+			'already_invited'   => new WP_Error(
+				'already_invited',
+				__( 'Already invited. This address has a pending invitation to this space.', 'buddynext' ),
+				array( 'status' => 409 )
+			),
+			'invited_elsewhere' => new WP_Error(
+				'invited_elsewhere',
+				__( 'Already invited to another space. Once they accept that invitation, you can invite them here by name.', 'buddynext' ),
+				array( 'status' => 409 )
+			),
+			'existing_member'   => new WP_Error(
+				'existing_member',
+				__( 'That address already belongs to a member. Invite them by their @handle.', 'buddynext' ),
+				array( 'status' => 409 )
+			),
+			'mail_failed'       => new WP_Error(
+				'invite_not_delivered',
+				__( 'The invitation could not be emailed. Try again later.', 'buddynext' ),
+				array( 'status' => 502 )
+			),
+			default             => new WP_Error(
+				'invite_failed',
+				__( 'Could not send the invitation.', 'buddynext' ),
+				array( 'status' => 500 )
+			),
+		};
 	}
 
 	/**

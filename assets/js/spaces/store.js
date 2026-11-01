@@ -2073,7 +2073,8 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent' ), 'success' ); }
+					// An attached invite sent nothing new: the server words it, and it is not a success toast.
+					if ( window.bnToast ) { window.bnToast( ( res.data && res.data.message ) || t( 'invitationSent', 'Invitation sent' ), res.data && res.data.attached ? 'info' : 'success' ); }
 					// The modal is reused for the next invite, so the button must be live again.
 					btn.disabled = false;
 					closeAllSpaceModals();

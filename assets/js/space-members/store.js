@@ -208,7 +208,8 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					bnToast( t( 'inviteSent', 'Invitation sent' ), { tone: 'success' } );
+					// An attached invite sent nothing new: the server words it, and it is not a success toast.
+					bnToast( ( res.data && res.data.message ) || t( 'inviteSent', 'Invitation sent' ), { tone: res.data && res.data.attached ? 'info' : 'success' } );
 					if ( input ) { input.value = ''; }
 				} else {
 					const msg = ( res.data && res.data.message ) ? res.data.message : t( 'inviteFailed', 'Could not send the invitation.' );
