@@ -204,7 +204,14 @@ if ( $bn_allow_export || $bn_allow_deletion ) {
 			. '</div>';
 	}
 
-	if ( $bn_allow_deletion ) {
+	if ( $bn_allow_deletion && \BuddyNext\Profile\ProfileController::is_self_delete_refused( get_current_user_id() ) ) {
+		$data_html .= '<div class="bn-ep-data-row">'
+			. '<div class="bn-ep-data-row__text">'
+			. '<strong>' . esc_html__( 'Delete my account', 'buddynext' ) . '</strong>'
+			. '<span>' . esc_html__( 'Administrators cannot delete their own account here. Another administrator can remove it from Users in the WordPress dashboard.', 'buddynext' ) . '</span>'
+			. '</div>'
+			. '</div>';
+	} elseif ( $bn_allow_deletion ) {
 		$data_html .= '<div class="bn-ep-data-row">'
 			. '<div class="bn-ep-data-row__text">'
 			. '<strong>' . esc_html__( 'Delete my account', 'buddynext' ) . '</strong>'

@@ -126,4 +126,26 @@ class AccountDeletionRequiresPasswordTest extends \WP_UnitTestCase {
 		$this->assertSame( 'admin_cannot_self_delete', $response->get_data()['code'] ?? '' );
 		$this->assertTrue( $this->user_exists( $admin ) );
 	}
+
+	/**
+	 * The Delete row asks the route's question: a member gets the button, an
+	 * administrator gets the reason and no button.
+	 *
+	 * @return void
+	 */
+	public function test_settings_row_matches_what_the_route_will_do(): void {
+		$render = static function (): string {
+			ob_start();
+			buddynext_get_template( 'parts/settings-privacy-fields.php' );
+			return (string) ob_get_clean();
+		};
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->assertStringContainsString( 'actions.deleteMyAccount', $render() );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$admin = $render();
+		$this->assertStringNotContainsString( 'actions.deleteMyAccount', $admin );
+		$this->assertStringContainsString( 'Administrators cannot delete their own account here', $admin );
+	}
 }

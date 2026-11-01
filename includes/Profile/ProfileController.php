@@ -858,6 +858,17 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * Whether DELETE /me/account refuses this member outright. The settings row asks
+	 * the same question, so it never offers what the route will refuse.
+	 *
+	 * @param int $user_id Member.
+	 * @return bool
+	 */
+	public static function is_self_delete_refused( int $user_id ): bool {
+		return user_can( $user_id, 'manage_options' );
+	}
+
+	/**
 	 * DELETE /me/account — let a member delete their own account.
 	 *
 	 * Gated by the Privacy → "Allow account deletion" setting. Scrubs the member's
@@ -889,7 +900,7 @@ class ProfileController extends BaseRestController {
 		}
 
 		// Never let an administrator self-delete through this member-facing route.
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( self::is_self_delete_refused( $user_id ) ) {
 			return new WP_Error(
 				'admin_cannot_self_delete',
 				__( 'Administrators cannot delete their own account here.', 'buddynext' ),
