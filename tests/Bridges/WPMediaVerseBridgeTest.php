@@ -316,6 +316,21 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The Media feed switch stops automatic upload cards. A document post is one a
+	 * member wrote, so it still draws its card (here the unavailable line, as no
+	 * document engine runs under test) rather than an empty body.
+	 *
+	 * @return void
+	 */
+	public function test_media_feed_off_keeps_a_members_document_card(): void {
+		update_option( 'buddynext_integration_media_feed', '0' );
+		$html = ( new WPMediaVerseBridge() )->render_document_card( '', array( 'link_meta' => array( 'doc_id' => 7 ) ) );
+		delete_option( 'buddynext_integration_media_feed' );
+
+		$this->assertStringContainsString( 'bn-post-card__bridge-card--document', $html );
+	}
+
+	/**
 	 * When MVS's configured max is BELOW the server ceiling, that lower number
 	 * wins — it is what MVS will actually accept.
 	 *

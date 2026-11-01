@@ -237,7 +237,7 @@ class WPMediaVerseBridge {
 		// A document shared from the composer renders as a link-out card. The
 		// post stores only the document id; this seam resolves the card PER VIEWER
 		// so a private document's title is never snapshotted into someone else's
-		// feed. Gated inside on the 'media' integration/feed toggle.
+		// feed.
 		add_filter( 'buddynext_render_post_body_document', array( $this, 'render_document_card' ), 10, 2 );
 
 		// One notification per action (owner decision 2026-09-27): for the types
@@ -2686,15 +2686,12 @@ class WPMediaVerseBridge {
 	 * @return array{enabled:bool,accept:string,max_size:int,types:string[]}
 	 */
 	public static function document_composer_config(): array {
-		$off = array(
+		$off  = array(
 			'enabled'  => false,
 			'accept'   => '',
 			'max_size' => 0,
 			'types'    => array(),
 		);
-		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
-			return $off;
-		}
 		$docs = self::documents_config();
 		if ( empty( $docs['enabled'] ) ) {
 			return $off;
@@ -3292,17 +3289,15 @@ class WPMediaVerseBridge {
 	 * document id, asks MVS whether THIS viewer may see it, and renders the
 	 * shared bridge card (icon + "Document" + the real title + a download link)
 	 * when they may — or a neutral, title-less "unavailable" line when they may
-	 * not, so a private document never leaks its name into a feed. Falls back to
-	 * the plain-text body when the integration's feed aspect is off.
+	 * not, so a private document never leaks its name into a feed. A member wrote
+	 * this post themselves, so the Media "Post to the activity feed" switch, which
+	 * only stops automatic upload cards, does not touch it.
 	 *
 	 * @param string              $html Incoming card HTML (default '').
 	 * @param array<string,mixed> $args Post-body args (link_meta, post_content, bn_post_type).
 	 * @return string
 	 */
 	public function render_document_card( string $html, array $args ): string {
-		if ( ! buddynext_integration_enabled( 'media', 'feed' ) ) {
-			return $html;
-		}
 		$meta   = isset( $args['link_meta'] ) && is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
 		$doc_id = isset( $meta['doc_id'] ) ? (int) $meta['doc_id'] : 0;
 		if ( $doc_id <= 0 ) {
