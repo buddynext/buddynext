@@ -960,6 +960,30 @@ async function deleteComment( card ) {
 	bnToast( t( 'commentDeletedToast', 'Comment deleted' ), { tone: 'success' } );
 }
 
+/**
+ * Draw one comment card as pinned or not: card class, Pinned badge, Pin/Unpin label.
+ *
+ * @param {HTMLElement}      card   Comment card.
+ * @param {boolean}          pinned Pinned state to draw.
+ * @param {HTMLElement|null} btn    The card's pin control, absent for a viewer who cannot pin.
+ */
+function paintCommentPin( card, pinned, btn ) {
+	card.classList.toggle( 'bn-comment-card--pinned', pinned );
+	if ( btn ) {
+		setCommentActionLabel( btn, pinned ? t( 'unpin', 'Unpin' ) : t( 'pin', 'Pin' ) );
+	}
+	const header = commentPart( card, '.bn-comment__header' );
+	const badge  = header && header.querySelector( '.bn-comment__pinned-badge' );
+	if ( ! pinned && badge ) {
+		badge.remove();
+	} else if ( pinned && header && ! badge ) {
+		const pin = document.createElement( 'span' );
+		pin.className   = 'bn-comment__pinned-badge';
+		pin.textContent = t( 'pinned', 'Pinned' );
+		header.insertBefore( pin, header.querySelector( '.bn-comment__time' ) );
+	}
+}
+
 async function toggleCommentPin( card, btn ) {
 	const wasPinned = card.classList.contains( 'bn-comment-card--pinned' );
 	try {
@@ -970,17 +994,14 @@ async function toggleCommentPin( card, btn ) {
 			toastRestError( res, t( 'pinStatusFailed', 'Could not change pin status. Try again.' ) );
 			return;
 		}
-		card.classList.toggle( 'bn-comment-card--pinned', ! wasPinned );
-		setCommentActionLabel( btn, wasPinned ? t( 'pin', 'Pin' ) : t( 'unpin', 'Unpin' ) );
-		const header = commentPart( card, '.bn-comment__header' );
-		const badge  = header && header.querySelector( '.bn-comment__pinned-badge' );
-		if ( wasPinned && badge ) {
-			badge.remove();
-		} else if ( ! wasPinned && header && ! badge ) {
-			const pin = document.createElement( 'span' );
-			pin.className   = 'bn-comment__pinned-badge';
-			pin.textContent = t( 'pinned', 'Pinned' );
-			header.insertBefore( pin, header.querySelector( '.bn-comment__time' ) );
+		paintCommentPin( card, ! wasPinned, btn );
+		// A post holds one pinned comment, so pinning this one replaced any other.
+		if ( ! wasPinned ) {
+			card.closest( '[data-comment-list]' )?.querySelectorAll( '.bn-comment-card--pinned' ).forEach( ( other ) => {
+				if ( other !== card ) {
+					paintCommentPin( other, false, commentPart( other, '.bn-comment__actions' )?.querySelector( '.bn-comment__pin-btn' ) );
+				}
+			} );
 		}
 		bnToast( wasPinned ? t( 'commentUnpinned', 'Comment unpinned' ) : t( 'commentPinned', 'Comment pinned' ), { tone: 'success' } );
 	} catch ( _e ) {

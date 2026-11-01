@@ -414,7 +414,8 @@ class CommentController extends BaseRestController {
 	}
 
 	/**
-	 * Unpin the pinned comment on a comment's parent object.
+	 * Unpin a comment. A comment that is not the pinned one is already unpinned, and the
+	 * comment that is pinned stays pinned.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
@@ -424,14 +425,11 @@ class CommentController extends BaseRestController {
 		$comment_id = (int) $request->get_param( 'id' );
 		$user_id    = get_current_user_id();
 
-		$comment = $service->get( $comment_id );
-		if ( null === $comment ) {
+		if ( null === $service->get( $comment_id ) ) {
 			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		$result = $service->unpin( (string) $comment['object_type'], (int) $comment['object_id'], $user_id );
-
-		if ( ! $result ) {
+		if ( ! $service->unpin( $comment_id, $user_id ) ) {
 			return new WP_Error( 'rest_forbidden', __( 'You cannot unpin this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

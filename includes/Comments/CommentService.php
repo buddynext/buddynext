@@ -809,21 +809,27 @@ class CommentService {
 	}
 
 	/**
-	 * Unpin the pinned comment for an object.
+	 * Unpin a comment, if it is the one pinned on its object.
 	 *
-	 * @param string $object_type Object type.
-	 * @param int    $object_id   Object ID.
-	 * @param int    $user_id     User requesting the unpin (must be mod or admin).
-	 * @return bool True if unpinned, false if user lacks permission.
+	 * An object has one pin slot. A moderator looking at a stale page can press Unpin on a
+	 * comment someone has since replaced; that must not take down the comment pinned now.
+	 *
+	 * @param int $comment_id Comment to unpin.
+	 * @param int $user_id    User requesting the unpin (must be mod or admin).
+	 * @return bool True when the comment is no longer pinned, false if not found or user lacks permission.
 	 */
-	public function unpin( string $object_type, int $object_id, int $user_id ): bool {
-		if ( ! $this->can_pin_comment( $user_id, $object_type, $object_id ) ) {
+	public function unpin( int $comment_id, int $user_id ): bool {
+		$comment = $this->get( $comment_id );
+
+		if ( null === $comment || ! $this->can_pin_comment( $user_id, (string) $comment['object_type'], (int) $comment['object_id'] ) ) {
 			return false;
 		}
 
-		$meta_key = 'bn_pinned_comment_' . sanitize_key( $object_type ) . '_' . (int) $object_id;
+		$meta_key = 'bn_pinned_comment_' . sanitize_key( $comment['object_type'] ) . '_' . (int) $comment['object_id'];
 
-		delete_option( $meta_key );
+		if ( (int) get_option( $meta_key, 0 ) === $comment_id ) {
+			delete_option( $meta_key );
+		}
 
 		return true;
 	}
