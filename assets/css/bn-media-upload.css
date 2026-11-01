@@ -323,8 +323,13 @@
 		justify-content: flex-end;
 	}
 
-	/* Touch: keep the delete control always visible (no hover on touch). */
+}
+
+/* Touch, at any width: no hover to reveal the control, and a finger-sized target. */
+@media (hover: none) {
 	.bn-media-cell__delete {
+		width: var(--bn-s10);
+		height: var(--bn-s10);
 		opacity: 1;
 	}
 }

@@ -47,6 +47,7 @@
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
 			save:     overlay.querySelector( '[data-bn-lb-save]' ),
 			edit:     overlay.querySelector( '[data-bn-lb-edit]' ),
+			del:      overlay.querySelector( '[data-bn-lb-delete]' ),
 			unlink:   overlay.querySelector( '[data-bn-lb-unlink]' ),
 			more:     overlay.querySelector( '[data-bn-lb-more]' ),
 			moreWrap: overlay.querySelector( '[data-bn-lb-more-wrap]' ),
@@ -81,6 +82,7 @@
 		}
 		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
 		if ( panel.edit ) { panel.edit.addEventListener( 'click', openEditPanel ); }
+		if ( panel.del ) { panel.del.addEventListener( 'click', deleteCurrent ); }
 		// Choosing any item closes the menu first (capture phase) and parks focus on
 		// the ⋯ trigger, so a dialog the item opens records a visible opener to
 		// return focus to instead of a menu item that is now hidden.
@@ -421,6 +423,58 @@
 		} );
 	}
 
+	// Owner Delete: confirm, delete, then take the item out of the viewer and the page.
+	function deleteCurrent() {
+		if ( ! current || 'function' !== typeof window.bnConfirm ) { return; }
+		var id     = current;
+		var postId = currentPostId;
+
+		// Same warning as the tile's Remove. A courtesy: it never blocks the delete.
+		window.buddynextRest.restFetch( '/me/media/' + id + '/usage', {
+			nonce: cfg.nonce || '', method: 'GET', toastOnError: false,
+		} ).catch( function () { return null; } ).then( function ( usage ) {
+			var albums = ( usage && usage.ok && usage.data && Array.isArray( usage.data.space_albums ) ) ? usage.data.space_albums : [];
+			var body   = [];
+			if ( albums.length ) {
+				body.push( ( I18N.deleteInSpaces || 'It will also be removed from these space albums: %s' ).replace( '%s', albums.map( function ( a ) { return a.title; } ).join( ', ' ) ) );
+			}
+			if ( postId > 0 ) { body.push( I18N.deleteInPost || '' ); }
+			body.push( I18N.deleteBody || 'This cannot be undone.' );
+			return window.bnConfirm( { title: I18N.deleteConfirm || 'Delete this media?', body: body.join( ' ' ), confirmLabel: I18N.deleteAction || 'Delete', tone: 'danger' } );
+		} ).then( function ( ok ) {
+			if ( ! ok ) { return; }
+			api( '/media/' + id, { method: 'DELETE' } ).then( function () {
+				removeDeleted( id );
+				if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.deleteDone || 'Media deleted', { tone: 'success' } ); }
+			} ).catch( function ( res ) {
+				// Somebody else got there first: the outcome the owner asked for.
+				if ( res && 404 === res.status ) { removeDeleted( id ); return; }
+				window.buddynextRest.toastRestError( res, I18N.deleteFail || 'Could not delete this media. Try again.' );
+			} );
+		} );
+	}
+
+	// The server has already removed the item from its post, and the post if that left it
+	// with no media, so the page follows without a reload.
+	function removeDeleted( id ) {
+		document.querySelectorAll( '.bn-media-tile[data-bn-media-id="' + id + '"]' ).forEach( function ( tile ) {
+			var card = tile.closest( '.bn-post-card' );
+			var grid = tile.closest( '.bn-post-card__media-grid' );
+			( tile.closest( '.bn-media-cell' ) || tile ).remove();
+			if ( card && ! card.querySelector( '.bn-media-tile' ) ) {
+				card.remove();
+			} else if ( grid ) {
+				grid.className = grid.className.replace( /bn-post-card__media-grid--\d+/, 'bn-post-card__media-grid--' + Math.min( grid.querySelectorAll( '.bn-media-tile' ).length, 4 ) );
+			}
+		} );
+
+		gallery = gallery.filter( function ( item ) { return item.id !== id; } );
+		if ( ! gallery.length ) { close(); return; }
+		index = index % gallery.length;
+		renderMedia();
+		if ( gallery[ index ].id ) { loadPanel( gallery[ index ].id ); }
+	}
+
 	function applyAbuseControls( m ) {
 		// WPMediaVerse's media payload carries the uploader's numeric id as `author`
 		// (MediaController: `'author' => $author_id_raw`, and its own code reads it back as
@@ -441,6 +495,8 @@
 		// owner true, another member false, anonymous false. Re-deriving "is this
 		// mine" here would be a second copy of a rule the server already answers.
 		if ( panel.edit ) { panel.edit.hidden = ! ( LOGGED_IN && m && m.can_edit ); }
+		// Delete likewise: can_delete mirrors the permission check on DELETE /media/{id}.
+		if ( panel.del ) { panel.del.hidden = ! ( LOGGED_IN && m && m.can_delete ) || 'function' !== typeof window.bnConfirm; }
 		// Save bookmarks the POST this photo belongs to, so it lands in the same
 		// saved list the feed card's Save writes to. Media with no post parent -
 		// the library, DM media - has nothing to bookmark, so the control does not

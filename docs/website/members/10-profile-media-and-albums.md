@@ -44,7 +44,7 @@ Both controls are hidden on your own media (nobody reports themselves) and for l
 
 ### Removing your own media
 
-You can delete any item you uploaded. Removing a photo or video takes it out of your gallery for everyone. If the item was also in one of your albums, it is removed from the album view too - you stay in control of every copy.
+You can delete any item you uploaded: open it and choose **More > Delete**, or use the **Remove** button on its tile in your Media tab. Deleting a photo or video takes it out of your gallery for everyone. If the item was also in one of your albums, it is removed from the album view too - you stay in control of every copy. Deleting from the viewer also takes it out of the post it was shared in, and a post left with no media is deleted with its text and comments; the confirmation says so before you agree.
 
 ### Creating and managing albums
 

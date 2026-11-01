@@ -125,6 +125,15 @@ class MediaAssets {
 					'unlinkAction'     => __( 'Remove', 'buddynext' ),
 					'unlinkDone'       => __( 'Removed from the space', 'buddynext' ),
 					'unlinkFail'       => __( 'Could not remove it from the space. Try again.', 'buddynext' ),
+					// Owner Delete in the More menu.
+					'deleteConfirm'    => __( 'Delete this media?', 'buddynext' ),
+					'deleteBody'       => __( 'This cannot be undone.', 'buddynext' ),
+					'deleteInPost'     => __( 'It will also be removed from its post. A post left with no media is deleted, with its text and comments.', 'buddynext' ),
+					/* translators: %s: comma-separated space album titles. */
+					'deleteInSpaces'   => __( 'It will also be removed from these space albums: %s', 'buddynext' ),
+					'deleteAction'     => __( 'Delete', 'buddynext' ),
+					'deleteDone'       => __( 'Media deleted', 'buddynext' ),
+					'deleteFail'       => __( 'Could not delete this media. Try again.', 'buddynext' ),
 				),
 			)
 		);
