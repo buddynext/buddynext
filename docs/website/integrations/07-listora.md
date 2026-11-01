@@ -56,7 +56,7 @@ Beyond surfacing new listings in the feed and search, WB Listora can run a curat
 
 **The Businesses tab (space owner).** The **Businesses tab** is on in every space while WB Listora is active. A space owner can switch it off under **Manage space > Integrations**. A second setting, **Only organisers can submit businesses**, restricts who may submit (default: any member). Nothing else is required; there is no separate provisioning step.
 
-**Submitting (member).** A member has to be a member of the space first. On the Businesses tab, **Add your business** lets them pick one of their own published listings and submit it to the space. It waits for the team's approval and the member is told it is pending. To keep the review queue usable, a member can have only a limited number of submissions awaiting review in one space at a time (five by default), so no one can flood it.
+**Submitting (member).** A member has to be a member of the space first. On the Businesses tab, **Add your business** lets them pick one of their own published listings and submit it to the space. With many listings, the picker pages through them. It waits for the team's approval, and **Your businesses in this space** shows the member each listing as **Awaiting review** or **Listed here**. A member with no listing to pick gets **Add your business** as a link to WB Listora's add-listing page. To keep the review queue usable, a member can have only a limited number of submissions awaiting review in one space at a time (five by default), so no one can flood it.
 
 **Approving (space team).** The space owner, a space moderator, or a site admin sees a review queue on the tab and approves or rejects each submission. Nothing appears in the showcase until the team approves it.
 
