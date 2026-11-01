@@ -16,6 +16,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Media;
 
+use BuddyNext\Media\Galleries;
 use BuddyNext\Media\MediaController;
 use BuddyNext\REST\Router;
 use ReflectionMethod;
@@ -70,6 +71,68 @@ class MediaControllerTest extends \WP_UnitTestCase {
 
 		$user->add_cap( 'delete_others_mvs_medias' );
 		$this->assertTrue( \BuddyNext\Media\MediaClient::can_trash( $this->member, $user->ID ), 'Delegated moderator.' );
+	}
+
+	/**
+	 * A moderator must not learn the name of a secret space through the usage check.
+	 */
+	public function test_usage_hides_a_secret_space_from_a_moderator_outside_it(): void {
+		$owner = self::factory()->user->create();
+		$space = buddynext_service( 'spaces' )->create(
+			$owner,
+			array(
+				'name' => 'Hidden Space',
+				'slug' => 'hidden-space-usage',
+				'type' => 'secret',
+			)
+		);
+		$album = self::factory()->post->create( array( 'post_title' => 'Secret Album' ) );
+		update_post_meta( $album, Galleries::SPACE_META, $space );
+
+		$services = new class( $this->member, $album ) {
+			/**
+			 * Set up.
+			 *
+			 * @param int $author Media author.
+			 * @param int $album  Album holding the media.
+			 */
+			public function __construct( private int $author, private int $album ) {}
+
+			/**
+			 * Media author.
+			 *
+			 * @return int
+			 */
+			public function get_author(): int {
+				return $this->author;
+			}
+
+			/**
+			 * Albums holding the media.
+			 *
+			 * @return int[]
+			 */
+			public function albums_for_media(): array {
+				return array( $this->album );
+			}
+		};
+		$swap     = static fn( $resolved, $key ) => in_array( $key, array( 'media_repository', 'albums', 'album_service' ), true ) ? $services : $resolved;
+		add_filter( 'buddynext_media_service', $swap, 10, 2 );
+
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/me/media/5/usage' );
+		$request->set_param( 'media_id', 5 );
+
+		$author = get_user_by( 'id', $this->member );
+		$author->add_cap( 'delete_mvs_medias' );
+		wp_set_current_user( $this->member );
+		$this->assertCount( 1, $this->controller->media_usage( $request )->get_data()['space_albums'], 'The owner is warned.' );
+
+		$moderator = self::factory()->user->create_and_get();
+		$moderator->add_cap( 'delete_others_mvs_medias' );
+		wp_set_current_user( $moderator->ID );
+		$this->assertSame( array(), $this->controller->media_usage( $request )->get_data()['space_albums'], 'Outside the space.' );
+
+		remove_filter( 'buddynext_media_service', $swap, 10 );
 	}
 
 	/**

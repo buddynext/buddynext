@@ -540,10 +540,24 @@ class MediaController extends BaseRestController {
 			);
 		}
 
+		$albums = Galleries::space_albums_for_media( $media_id );
+
+		// The owner is warned about every album their photo is in. A moderator acting
+		// on it must not learn the name of a space they cannot see.
+		$viewer = get_current_user_id();
+		if ( $viewer !== $author ) {
+			$albums = array_values(
+				array_filter(
+					$albums,
+					static fn( array $album ): bool => Galleries::can_view_space( (int) $album['space_id'], $viewer )
+				)
+			);
+		}
+
 		return new WP_REST_Response(
 			array(
 				'media_id'     => $media_id,
-				'space_albums' => Galleries::space_albums_for_media( $media_id ),
+				'space_albums' => $albums,
 				'in_post'      => array() !== ( new \BuddyNext\Feed\PostService() )->ids_with_media( $media_id, 'published' ),
 			),
 			200
