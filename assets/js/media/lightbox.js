@@ -447,36 +447,36 @@
 	// Owner Delete: confirm, delete, then take the item out of the viewer and the page.
 	function deleteCurrent() {
 		if ( ! current || 'function' !== typeof window.bnConfirm ) { return; }
-		var id     = current;
-		var postId = currentPostId;
+		var id = current;
 
 		// Same warning as the tile's Remove. A courtesy: it never blocks the delete.
 		window.buddynextRest.restFetch( '/me/media/' + id + '/usage', {
 			nonce: cfg.nonce || '', method: 'GET', toastOnError: false,
 		} ).catch( function () { return null; } ).then( function ( usage ) {
 			var albums = ( usage && usage.ok && usage.data && Array.isArray( usage.data.space_albums ) ) ? usage.data.space_albums : [];
-			var body   = [];
+			var body   = [ I18N.deleteBody || '' ];
 			if ( albums.length ) {
 				body.push( ( I18N.deleteInSpaces || 'It will also be removed from these space albums: %s' ).replace( '%s', albums.map( function ( a ) { return a.title; } ).join( ', ' ) ) );
 			}
-			if ( postId > 0 ) { body.push( I18N.deleteInPost || '' ); }
-			body.push( I18N.deleteBody || 'This cannot be undone.' );
+			if ( usage && usage.ok && usage.data && usage.data.in_post ) { body.push( I18N.deleteInPost || '' ); }
 			return window.bnConfirm( { title: I18N.deleteConfirm || 'Delete this media?', body: body.join( ' ' ), confirmLabel: I18N.deleteAction || 'Delete', tone: 'danger' } );
 		} ).then( function ( ok ) {
 			if ( ! ok ) { return; }
-			api( '/media/' + id, { method: 'DELETE' } ).then( function () {
+			// BuddyNext's route, not the engine's: that one deletes for good.
+			window.buddynextRest.restFetch( '/me/media/' + id, {
+				nonce: cfg.nonce || '', method: 'DELETE', toastOnError: false,
+			} ).then( function ( res ) {
+				if ( ! res || ! res.ok ) { throw res; }
 				removeDeleted( id );
 				if ( typeof window.bnToast === 'function' ) { window.bnToast( I18N.deleteDone || 'Media deleted', { tone: 'success' } ); }
 			} ).catch( function ( res ) {
-				// Somebody else got there first: the outcome the owner asked for.
-				if ( res && 404 === res.status ) { removeDeleted( id ); return; }
 				window.buddynextRest.toastRestError( res, I18N.deleteFail || 'Could not delete this media. Try again.' );
 			} );
 		} );
 	}
 
-	// The server has already removed the item from its post, and the post if that left it
-	// with no media, so the page follows without a reload.
+	// The server has already taken the item out of its post, and hidden the post if that
+	// left it with no media, so the page follows without a reload.
 	function removeDeleted( id ) {
 		document.querySelectorAll( '.bn-media-tile[data-bn-media-id="' + id + '"]' ).forEach( function ( tile ) {
 			var card = tile.closest( '.bn-post-card' );

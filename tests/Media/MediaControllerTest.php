@@ -55,6 +55,33 @@ class MediaControllerTest extends \WP_UnitTestCase {
 		$this->member     = self::factory()->user->create();
 	}
 
+	// ── Viewer Delete and tile Remove: one trash route, one rule ───────────────
+
+	/**
+	 * The engine's two capabilities decide, for both the delete and its usage check.
+	 */
+	public function test_trash_follows_the_engine_capabilities(): void {
+		$user = self::factory()->user->create_and_get();
+		$this->assertFalse( \BuddyNext\Media\MediaClient::can_trash( $user->ID, $user->ID ), 'Own media, capability revoked.' );
+
+		$user->add_cap( 'delete_mvs_medias' );
+		$this->assertTrue( \BuddyNext\Media\MediaClient::can_trash( $user->ID, $user->ID ), 'Own media.' );
+		$this->assertFalse( \BuddyNext\Media\MediaClient::can_trash( $this->member, $user->ID ), 'Somebody else\'s media.' );
+
+		$user->add_cap( 'delete_others_mvs_medias' );
+		$this->assertTrue( \BuddyNext\Media\MediaClient::can_trash( $this->member, $user->ID ), 'Delegated moderator.' );
+	}
+
+	/**
+	 * The viewer never calls the engine's delete route, which deletes for good.
+	 */
+	public function test_viewer_delete_uses_the_trash_route(): void {
+		$source = (string) file_get_contents( BUDDYNEXT_DIR . 'assets/js/media/lightbox.js' );
+
+		$this->assertStringNotContainsString( "api( '/media/' + id, { method: 'DELETE' } )", $source );
+		$this->assertMatchesRegularExpression( "#restFetch\\( '/me/media/' \\+ id, \\{\\s*nonce: cfg\\.nonce \\|\\| '', method: 'DELETE'#", $source );
+	}
+
 	// ── Graceful degradation: engine stubbed, services resolve to null ─────────
 
 	/**

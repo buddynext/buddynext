@@ -75,6 +75,13 @@ class MediaUrlResolver {
 			return null;
 		}
 
+		// Trashed is gone for everyone. The viewer-aware URLs below would still answer
+		// the owner, so they kept seeing it in their posts while nobody else did, and
+		// a post with every photo trashed was never hidden.
+		if ( 'trash' === (string) $repo->get( $media_id, 'status' ) ) {
+			return null;
+		}
+
 		// Prefer the viewer-aware thumbnail (WPMediaVerse 1.8.1+) so non-public
 		// media (Members / Friends / Only Me) show their real poster to viewers who
 		// are allowed to see them — owner, admin, permitted audience — instead of a

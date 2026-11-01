@@ -23,7 +23,7 @@
  "includes/Feed/PostService.php": 6,
  "includes/Media/Galleries.php": 1,
  "includes/Media/MediaClient.php": 1,
- "includes/Media/MediaController.php": 4,
+ "includes/Media/MediaController.php": 2,
  "includes/MemberTypes/MemberTypeController.php": 3,
  "includes/Nav/NavOverrides.php": 1,
  "includes/Nav/Providers/SpaceNav.php": 3,

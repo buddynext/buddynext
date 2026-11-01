@@ -45,6 +45,18 @@ class MediaClient {
 	}
 
 	/**
+	 * Whether a member may trash this media. The engine owns the rule: the same two
+	 * capabilities decide its `can_delete` flag, so the control and the answer agree.
+	 *
+	 * @param int $author  The media's author.
+	 * @param int $user_id The member asking.
+	 * @return bool
+	 */
+	public static function can_trash( int $author, int $user_id ): bool {
+		return user_can( $user_id, $author === $user_id ? 'delete_mvs_medias' : 'delete_others_mvs_medias' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- The engine registers these.
+	}
+
+	/**
 	 * May this member upload media?
 	 *
 	 * The owner decides in MediaVerse ("Who can upload media", stored as the
