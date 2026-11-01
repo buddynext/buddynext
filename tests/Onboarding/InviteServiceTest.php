@@ -160,11 +160,14 @@ class InviteServiceTest extends \WP_UnitTestCase {
 		$space_of = static fn( int $id ) => (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_invites WHERE id = %d", $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 		$site = $this->service->create( 'site@example.com' );
-		$this->assertSame( 'attached', $this->service->create( 'site@example.com', '', 7, 11 )['status'] );
+		$this->assertSame( 'already_invited', $this->service->create( 'site@example.com', '', 7, 11 )['status'], 'an actor who may not repoint it is told only that it exists' );
+		$this->assertSame( 0, $space_of( $site['invite_id'] ), 'and the row does not move' );
+
+		$this->assertSame( 'attached', $this->service->create( 'site@example.com', '', 7, 11, true )['status'] );
 		$this->assertSame( 11, $space_of( $site['invite_id'] ) );
 
 		$this->assertSame( 'already_invited', $this->service->create( 'site@example.com', '', 7, 11 )['status'] );
-		$this->assertSame( 'invited_elsewhere', $this->service->create( 'site@example.com', '', 7, 22 )['status'] );
+		$this->assertSame( 'invited_elsewhere', $this->service->create( 'site@example.com', '', 7, 22, true )['status'] );
 		$this->assertSame( 11, $space_of( $site['invite_id'] ), 'the first space keeps its invite' );
 
 		$this->assertSame( 'already_invited', $this->service->create( 'site@example.com' )['status'], 'asking for no space changes nothing' );

@@ -53,7 +53,7 @@ The gating is authored from the Monetization admin (either the Paywall tab's spa
 | POST | `/spaces/{id}/approve-request` | Auth (owner/mod) | Legacy approve route (kept for backwards compatibility). |
 | PUT | `/spaces/{id}/members/{user_id}/role` | Auth (owner/mod) | Change a member's role within the space. |
 | DELETE | `/spaces/{id}/members/{user_id}` | Auth (owner/mod) | Remove a member from the space. |
-| POST | `/spaces/{id}/invite` | Auth (owner/mod) | Invite a user to the space. An email with no account gets an invitation: `200 {"email_invited": true}` when a new one goes out, `200 {"email_invited": false, "attached": true}` when a pending site invitation now leads to this space, `409` `already_invited` / `invited_elsewhere` / `existing_member` when nothing new was sent, `502` `invite_not_delivered` when the email was refused. |
+| POST | `/spaces/{id}/invite` | Auth (owner/mod) | Invite a user to the space. An email address answers `200 {"email_invited": true}` when an invitation goes out, with or without an account behind it. When nothing was sent, an inviter below site level always gets `409 invite_not_sent`, which says nothing about accounts or other spaces, and is limited to 30 email invites an hour (`429 invite_rate_limited`). A site administrator or community moderator sees the reason: `409` `already_invited` / `invited_elsewhere` / `existing_member`, `200 {"attached": true}` when an administrator's invite points a pending site invitation at this space, or `502 invite_not_delivered`. |
 | POST | `/spaces/{id}/transfer-ownership` | Auth (owner) | Transfer ownership to another member. |
 | POST | `/spaces/{id}/transfer` | Auth (owner) | Alias of transfer-ownership (used by the space-home action row). |
 

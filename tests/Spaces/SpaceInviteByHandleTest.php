@@ -74,10 +74,73 @@ class SpaceInviteByHandleTest extends \WP_Test_REST_TestCase {
 
 		$second = $this->invite( $email );
 		$this->assertSame( 409, $second->get_status() );
-		$this->assertSame( 'already_invited', $second->get_data()['code'] );
-		$this->assertStringContainsString( 'Already invited', $second->get_data()['message'] );
+		$this->assertSame( 'invite_not_sent', $second->get_data()['code'] );
 
 		$rows = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites WHERE email = %s", $email ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$this->assertSame( 1, $rows );
+	}
+
+	public function test_inviter_below_site_level_cannot_tell_why_nothing_was_sent(): void {
+		global $wpdb;
+		$services = new \BuddyNext\Onboarding\InviteService();
+
+		// A pending invite to this space, one with no space, and one to a space the inviter cannot see.
+		$services->create( 'qafix-here@example.com', '', 7, $this->space_id );
+		$site = $services->create( 'qafix-site@example.com' );
+		$services->create( 'qafix-other@example.com', '', 7, $this->space_id + 1000 );
+		// A member of this space, and a member of nothing.
+		$member = self::factory()->user->create( array( 'user_email' => 'qafix-member@example.com' ) );
+		( new \BuddyNext\Spaces\SpaceMemberService() )->join( $this->space_id, $member );
+		self::factory()->user->create( array( 'user_email' => 'qafix-stranger@example.com' ) );
+
+		$answers = array();
+		foreach ( array( 'here', 'site', 'other', 'member' ) as $who ) {
+			$response = $this->invite( "qafix-{$who}@example.com" );
+			$this->assertSame( 409, $response->get_status(), $who );
+			$answers[] = $response->get_data();
+		}
+		$this->assertCount( 1, array_unique( $answers, SORT_REGULAR ), 'every reason reads the same' );
+		$this->assertStringNotContainsString( 'space', $answers[0]['message'] );
+		$this->assertStringNotContainsString( 'account', $answers[0]['message'] );
+
+		// Nothing an owner does here moves someone else's site invite into this space.
+		$this->assertNull( $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_invites WHERE id = %d", $site['invite_id'] ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		// An account that is not in the space reads exactly as a new address does.
+		$this->assertSame( $this->invite( 'qafix-new@example.com' )->get_data(), $this->invite( 'qafix-stranger@example.com' )->get_data() );
+	}
+
+	public function test_site_admin_sees_the_reason_and_may_attach(): void {
+		global $wpdb;
+		$services = new \BuddyNext\Onboarding\InviteService();
+		$site     = $services->create( 'qafix-site@example.com' );
+		$services->create( 'qafix-other@example.com', '', 7, $this->space_id + 1000 );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$this->assertTrue( $this->invite( 'qafix-site@example.com' )->get_data()['attached'] );
+		$this->assertSame( (string) $this->space_id, $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_invites WHERE id = %d", $site['invite_id'] ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( 'already_invited', $this->invite( 'qafix-site@example.com' )->get_data()['code'] );
+		$this->assertSame( 'invited_elsewhere', $this->invite( 'qafix-other@example.com' )->get_data()['code'] );
+	}
+
+	public function test_non_inviter_gets_one_refusal_whatever_the_address(): void {
+		self::factory()->user->create( array( 'user_email' => 'qafix-known@example.com' ) );
+		wp_set_current_user( self::factory()->user->create() );
+
+		$known   = $this->invite( 'qafix-known@example.com' );
+		$unknown = $this->invite( 'qafix-unknown@example.com' );
+		$this->assertSame( 403, $known->get_status() );
+		$this->assertSame( $known->get_data(), $unknown->get_data() );
+	}
+
+	public function test_email_invites_are_throttled_per_inviter(): void {
+		\BuddyNext\Core\RateLimiter::set( 'bn_space_email_invite_' . $this->owner, 30, HOUR_IN_SECONDS );
+		$response = $this->invite( 'qafix-throttled@example.com' );
+		$this->assertSame( 429, $response->get_status() );
+		$this->assertSame( 'invite_rate_limited', $response->get_data()['code'] );
+
+		$handle_user = self::factory()->user->create( array( 'user_login' => 'qafix_byhandle' ) );
+		$this->assertSame( 200, $this->invite( 'qafix_byhandle' )->get_status(), 'a @handle invite reveals no address, so it is not counted' );
+		$this->assertGreaterThan( 0, $handle_user );
 	}
 }

@@ -36,19 +36,21 @@ class InviteService {
 	 * @param string $first_name Recipient first name (optional, for personalisation).
 	 * @param int    $ttl_days   Token lifetime in days. Negative values create an already-expired invite (useful in tests).
 	 * @param int    $space_id   Optional space to drop the new member into on registration (0 = none).
+	 * @param bool   $may_attach Whether the actor may point an existing pending invite with no space at $space_id.
+	 *                           Site managers only: that invite is someone else's, and bn_invites records no issuer.
 	 * @return array{status:string,invite_id:int} What happened, and the invite it happened to (0 when none):
 	 *   - sent:              new invite, wp_mail accepted the email.
 	 *   - queued:            new invite, the email went to Action Scheduler; the outcome is not known yet
 	 *                        (a failed send marks the row 'bounced').
 	 *   - mail_failed:       new invite, wp_mail refused the email; the row is 'bounced' and can be resent.
 	 *   - attached:          the address had a pending invite with no space; it now leads to $space_id. No new email.
-	 *   - already_invited:   the address has a pending invite, to $space_id or with no space asked for. No new email.
+	 *   - already_invited:   the address has a pending invite this call left unchanged. No new email.
 	 *   - invited_elsewhere: the address has a pending invite to a different space, which one invite cannot also hold.
 	 *   - existing_member:   the address already has an account.
 	 *   - invalid:           empty or malformed email.
 	 *   - failed:            the row could not be written.
 	 */
-	public function create( string $email, string $first_name = '', int $ttl_days = self::DEFAULT_TTL_DAYS, int $space_id = 0 ): array {
+	public function create( string $email, string $first_name = '', int $ttl_days = self::DEFAULT_TTL_DAYS, int $space_id = 0, bool $may_attach = false ): array {
 		global $wpdb;
 
 		$email = sanitize_email( $email );
@@ -77,7 +79,7 @@ class InviteService {
 		);
 		if ( is_array( $pending ) ) {
 			return array(
-				'status'    => $this->link_pending_invite( (int) $pending['id'], (int) $pending['space_id'], $space_id ),
+				'status'    => $this->link_pending_invite( (int) $pending['id'], (int) $pending['space_id'], $space_id, $may_attach ),
 				'invite_id' => (int) $pending['id'],
 			);
 		}
@@ -137,17 +139,21 @@ class InviteService {
 	 * One invite row holds one space, so a pending invite with no space can take on the
 	 * space being asked for, and one already bound to another space cannot.
 	 *
-	 * @param int $invite_id Pending invite ID.
-	 * @param int $current   Space the pending invite leads to (0 = none).
-	 * @param int $requested Space this invite is for (0 = none).
+	 * @param int  $invite_id  Pending invite ID.
+	 * @param int  $current    Space the pending invite leads to (0 = none).
+	 * @param int  $requested  Space this invite is for (0 = none).
+	 * @param bool $may_attach Whether the actor may repoint the invite. See create().
 	 * @return string A create() status: attached, already_invited or invited_elsewhere.
 	 */
-	private function link_pending_invite( int $invite_id, int $current, int $requested ): string {
+	private function link_pending_invite( int $invite_id, int $current, int $requested, bool $may_attach ): string {
 		if ( $requested <= 0 || $current === $requested ) {
 			return 'already_invited';
 		}
 		if ( $current > 0 ) {
 			return 'invited_elsewhere';
+		}
+		if ( ! $may_attach ) {
+			return 'already_invited';
 		}
 
 		global $wpdb;
