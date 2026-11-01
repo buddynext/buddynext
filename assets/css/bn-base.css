@@ -1444,6 +1444,8 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 		border-top-right-radius: var(--bn-r-lg);
 		box-shadow: var(--bn-shadow-lg);
 		padding: var(--bn-s2) var(--bn-s4) calc(var(--bn-s4) + env(safe-area-inset-bottom, 0px));
+		max-height: 80dvh;
+		overflow-y: auto;
 		animation: bn-more-slide-up var(--bn-dur-slow) var(--bn-ease-out);
 	}
 	.bn-mobile-more[hidden] { display: none; }
@@ -1492,6 +1494,7 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	}
 	.bn-mobile-more__link:hover,
 	.bn-mobile-more__link:focus { background: var(--bg-hover); }
+	.bn-mobile-more__badge { margin-inline-start: auto; }
 	.bn-mobile-more__link svg {
 		width: 20px;
 		height: 20px;

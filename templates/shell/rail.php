@@ -5,9 +5,8 @@
  * Renders the persistent vertical navigation column inside .bn-app__shell.
  * The mobile bottom-bar nav (.bn-mobile-nav) lives in partials/nav.php
  * and is rendered by hub-shell.php on every BN hub — at <= 768px the
- * rail hides and the mobile bottom tab bar takes over (matching the
- * Home / Spaces / + / Alerts / Profile pattern in
- * docs/v2 Plans/v2/mobile.html).
+ * rail hides and the mobile bottom tab bar takes over, with its More sheet
+ * holding every item below that has no slot in the bar.
  *
  * Context variables (all optional):
  *   $hub  string  Current hub slug (feed / people / spaces / messages / …).

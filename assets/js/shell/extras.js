@@ -444,6 +444,8 @@
 			if ( b ) b.hidden = ! open;
 			var toggle = document.querySelector( '[data-bn-more-toggle]' );
 			if ( toggle ) toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+			var focusTo = open ? s.querySelector( '.bn-mobile-more__close' ) : toggle;
+			if ( focusTo ) focusTo.focus();
 		}
 
 		document.addEventListener( 'click', function ( e ) {

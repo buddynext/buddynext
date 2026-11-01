@@ -16,9 +16,9 @@
  *
  * What this partial now renders:
  *   1. The Level-2 `.bn-context-nav` filtered bar (when items are present).
- *   2. The mobile bottom-bar `.bn-mobile-nav` (below 640px the rail hides
- *      and this 5-item Feed / Spaces / + / Alerts / Profile tab bar takes
- *      over — see docs/v2 Plans/v2/mobile.html).
+ *   2. The mobile bottom-bar `.bn-mobile-nav` (at 768px and below the rail hides
+ *      and this 5-slot tab bar takes over), with a More sheet holding everything
+ *      else the rail offers, so no destination is lost on a phone.
  *
  * Context variables (all optional — safe defaults apply):
  *   $bn_nav_active  string  Key of the active section: 'feed'|'explore'|
@@ -127,9 +127,8 @@ if ( ! empty( $bn_context_items ) ) :
 	// each side, so with 5 slots it lands on the viewport centre on its own. A
 	// sixth slot silently breaks that — Messages was previously a 6th item, which
 	// pushed Create 35px left of centre at 390px and squeezed every label to 69px.
-	// Messages is NOT in the bar: it is reachable from the theme header (Reign's
-	// Mobile Header Icons expose Message + Notification) and from the rail at
-	// >= 640px. If a slot must be added, one has to come out.
+	// Messages is NOT in the bar: it is in the More sheet, with every other rail
+	// destination. If a slot must be added, one has to come out.
 	$bn_spaces_enabled = ! function_exists( 'buddynext_service' )
 		|| ! is_object( buddynext_service( 'features' ) )
 		|| buddynext_service( 'features' )->is_enabled( 'spaces' );
@@ -176,7 +175,7 @@ if ( ! empty( $bn_context_items ) ) :
 			'icon'  => 'users',
 			'label' => __( 'Members', 'buddynext' ),
 			// Guests only: takes the slot Create vacates so the bar does not
-			// collapse to two items. Members reach the directory from the rail.
+			// collapse to two items. Members reach the directory from the More sheet.
 			'show'  => 0 === $bn_nav_current_user,
 		),
 		array(
@@ -217,23 +216,46 @@ if ( ! empty( $bn_context_items ) ) :
 	 */
 	$bn_mobile_items = (array) apply_filters( 'buddynext_mobile_nav_items', $bn_mobile_items, $bn_mobile_active );
 
-	// Split the visible bar slots from any "overflow" entries (admin-created
-	// custom tabs flagged by NavOverrides::apply_mobile_items). The bar is a fixed
-	// 5-slot strip with a centred Create button, so custom tabs never get their own
-	// slot: when present, the Profile slot folds into a "More" sheet and a "More"
-	// toggle takes the 5th slot. With no custom tabs the bar is unchanged.
+	// Split the visible bar slots from any "overflow" entries (admin-created custom
+	// tabs flagged by NavOverrides::apply_mobile_items). The bar is a fixed 5-slot
+	// strip with a centred Create button, so nothing else gets a slot: the Profile
+	// slot folds into a "More" sheet and a "More" toggle takes the 5th slot.
 	$bn_bar_items      = array();
+	$bn_custom_items   = array();
+	$bn_slot_keys      = array();
 	$bn_overflow_items = array();
 	foreach ( $bn_mobile_items as $bn_m_item ) {
-		if ( ! is_array( $bn_m_item ) || empty( $bn_m_item['show'] ) ) {
+		if ( ! is_array( $bn_m_item ) ) {
+			continue;
+		}
+		$bn_slot_keys[] = (string) ( $bn_m_item['key'] ?? '' );
+		if ( empty( $bn_m_item['show'] ) ) {
 			continue;
 		}
 		if ( ! empty( $bn_m_item['overflow'] ) ) {
-			$bn_overflow_items[] = $bn_m_item;
+			$bn_custom_items[] = $bn_m_item;
 		} else {
 			$bn_bar_items[] = $bn_m_item;
 		}
 	}
+
+	// The rest of the sheet is the rail's own resolved list, the same one its owner
+	// overrides, feature switches and bridges write to, so the two cannot drift. A key
+	// with a slot stays out even when the owner hid that slot on mobile. A guest has
+	// the Members slot; the rail calls that item `people`.
+	foreach ( buddynext_service( 'shell_nav' )->resolve( $bn_nav_current_user, (string) get_query_var( 'bn_hub', '' ) )['items'] as $bn_rail_item ) {
+		$bn_rail_key = $bn_rail_item['key'];
+		if ( ! in_array( $bn_rail_key, $bn_slot_keys, true ) && ( 'people' !== $bn_rail_key || $bn_nav_current_user > 0 ) ) {
+			$bn_overflow_items[] = $bn_rail_item;
+		}
+	}
+	$bn_rail_keys = array_column( $bn_overflow_items, 'key' );
+	foreach ( $bn_custom_items as $bn_custom_item ) {
+		if ( ! in_array( (string) ( $bn_custom_item['key'] ?? '' ), $bn_rail_keys, true ) ) {
+			$bn_overflow_items[] = $bn_custom_item;
+		}
+	}
+
 	if ( $bn_overflow_items ) {
 		foreach ( $bn_bar_items as $bn_i => $bn_it ) {
 			if ( 'profile' === (string) ( $bn_it['key'] ?? '' ) ) {
@@ -249,6 +271,7 @@ if ( ! empty( $bn_context_items ) ) :
 			'icon'  => 'more-horizontal',
 			'label' => __( 'More', 'buddynext' ),
 			'show'  => true,
+			'badge' => array_sum( array_map( 'intval', array_column( $bn_overflow_items, 'badge' ) ) ),
 		);
 	}
 	?>
@@ -277,6 +300,9 @@ if ( ! empty( $bn_context_items ) ) :
 				aria-controls="bn-mobile-more"
 				data-bn-more-toggle>
 				<?php buddynext_icon( 'more-horizontal' ); ?>
+				<?php if ( $bn_m_item['badge'] > 0 ) : ?>
+					<span class="bn-mobile-nav__badge"><?php echo esc_html( $bn_m_item['badge'] > 99 ? '99+' : (string) $bn_m_item['badge'] ); ?></span>
+				<?php endif; ?>
 				<span><?php echo esc_html( (string) $bn_m_item['label'] ); ?></span>
 			</button>
 			<?php
@@ -322,10 +348,15 @@ if ( ! empty( $bn_context_items ) ) :
 		</div>
 		<ul class="bn-mobile-more__list">
 			<?php foreach ( $bn_overflow_items as $bn_ov ) : ?>
+				<?php $bn_ov_badge = (int) ( $bn_ov['badge'] ?? 0 ); ?>
 				<li>
-					<a class="bn-mobile-more__link" href="<?php echo esc_url( (string) ( $bn_ov['url'] ?? '#' ) ); ?>">
+					<a class="bn-mobile-more__link" href="<?php echo esc_url( (string) ( $bn_ov['url'] ?? '#' ) ); ?>"
+						<?php echo (string) ( $bn_ov['key'] ?? '' ) === $bn_mobile_active ? 'aria-current="page"' : ''; ?>>
 						<?php buddynext_icon( (string) ( $bn_ov['icon'] ?? 'link' ) ); ?>
 						<span><?php echo esc_html( (string) ( $bn_ov['label'] ?? '' ) ); ?></span>
+						<?php if ( $bn_ov_badge > 0 ) : ?>
+							<span class="bn-badge bn-mobile-more__badge" data-tone="danger"><?php echo esc_html( $bn_ov_badge > 99 ? '99+' : (string) $bn_ov_badge ); ?></span>
+						<?php endif; ?>
 					</a>
 				</li>
 			<?php endforeach; ?>
