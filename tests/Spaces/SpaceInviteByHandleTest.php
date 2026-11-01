@@ -128,6 +128,42 @@ class SpaceInviteByHandleTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( $new->get_data(), $stranger->get_data() );
 	}
 
+	public function test_inviting_an_active_member_never_says_sent(): void {
+		$member = self::factory()->user->create(
+			array(
+				'user_email' => 'qafix-active@example.com',
+				'user_login' => 'qafixactive',
+			)
+		);
+		( new \BuddyNext\Spaces\SpaceMemberService() )->join( $this->space_id, $member );
+
+		// Below site level: the one neutral answer, by email and by @handle.
+		$by_email  = $this->invite( 'qafix-active@example.com' );
+		$by_handle = $this->invite( '@qafixactive' );
+		$this->assertSame( 409, $by_email->get_status() );
+		$this->assertSame( 'invite_not_sent', $by_email->get_data()['code'] );
+		$this->assertSame( $by_email->get_data(), $by_handle->get_data() );
+
+		// Site level: the real reason, by email, @handle and user id.
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$request = new WP_REST_Request( 'POST', "/buddynext/v1/spaces/{$this->space_id}/invite" );
+		$request->set_body_params( array( 'user_id' => $member ) );
+		foreach ( array( $this->invite( 'qafix-active@example.com' ), $this->invite( '@qafixactive' ), rest_do_request( $request ) ) as $response ) {
+			$this->assertSame( 409, $response->get_status() );
+			$this->assertSame( 'already_member', $response->get_data()['code'] );
+		}
+
+		// A second invite to someone already invited sends nothing and says so.
+		$invited = self::factory()->user->create( array( 'user_login' => 'qafixinvited' ) );
+		$this->assertSame( 200, $this->invite( '@qafixinvited' )->get_status() );
+		$this->assertSame( 'already_invited', $this->invite( '@qafixinvited' )->get_data()['code'] );
+		wp_set_current_user( $this->owner );
+		$this->assertSame( 'invite_not_sent', $this->invite( '@qafixinvited' )->get_data()['code'] );
+
+		// The membership itself is untouched.
+		$this->assertSame( 'active', ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $this->space_id, $member ) );
+	}
+
 	public function test_site_admin_sees_the_reason_and_may_attach(): void {
 		global $wpdb;
 		$services = new \BuddyNext\Onboarding\InviteService();

@@ -3047,6 +3047,9 @@ class SpaceController extends BaseRestController {
 		$result = ( new SpaceMemberService() )->invite( $space_id, $inviter_id, $invited_user_id );
 
 		if ( is_wp_error( $result ) ) {
+			if ( in_array( $result->get_error_code(), array( 'already_member', 'already_invited' ), true ) ) {
+				return buddynext_can( $inviter_id, 'buddynext-moderation/review-queue' ) ? $result : $this->invite_not_sent();
+			}
 			$this->merge_error_data( $result, array( 'status' => 403 ) );
 			return $result;
 		}
@@ -3107,12 +3110,15 @@ class SpaceController extends BaseRestController {
 		if ( $account instanceof \WP_User ) {
 			// Any standing in this space (member, invited, pending, banned) reads as one refusal.
 			if ( ! $site_level && null !== $members->get_status( $space_id, (int) $account->ID ) ) {
-				return $this->email_invite_not_sent();
+				return $this->invite_not_sent();
 			}
 			$invited = $members->invite( $space_id, $inviter_id, (int) $account->ID );
 			if ( is_wp_error( $invited ) ) {
 				if ( ! $site_level ) {
-					return $this->email_invite_not_sent();
+					return $this->invite_not_sent();
+				}
+				if ( in_array( $invited->get_error_code(), array( 'already_member', 'already_invited' ), true ) ) {
+					return $invited;
 				}
 				$this->merge_error_data( $invited, array( 'status' => 403 ) );
 				return $invited;
@@ -3136,14 +3142,14 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
-	 * The one answer below site level when an email invite sent nothing.
+	 * The one answer below site level when an invite sent nothing.
 	 *
 	 * @return WP_Error
 	 */
-	private function email_invite_not_sent(): WP_Error {
+	private function invite_not_sent(): WP_Error {
 		return new WP_Error(
 			'invite_not_sent',
-			__( "This address can't be invited right now. If they already have an invitation, they can use that one.", 'buddynext' ),
+			__( "This person can't be invited right now. If they already have an invitation, they can use that one.", 'buddynext' ),
 			array( 'status' => 409 )
 		);
 	}
@@ -3167,7 +3173,7 @@ class SpaceController extends BaseRestController {
 		}
 
 		if ( ! $site_level && in_array( $status, array( 'attached', 'already_invited', 'invited_elsewhere', 'existing_member' ), true ) ) {
-			return $this->email_invite_not_sent();
+			return $this->invite_not_sent();
 		}
 
 		if ( 'attached' === $status ) {

@@ -344,7 +344,7 @@ class SpaceMemberService {
 	 * @param int $space_id        Space to invite into.
 	 * @param int $inviter_id      Acting user (must be owner/mod or admin).
 	 * @param int $invited_user_id User being invited.
-	 * @return true|WP_Error
+	 * @return true|WP_Error True only when a row was written and the invitation fired.
 	 */
 	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): bool|WP_Error {
 		$space = $this->load_space_row( $space_id );
@@ -376,7 +376,19 @@ class SpaceMemberService {
 		$current_status = $this->get_status( $space_id, $invited_user_id );
 
 		if ( 'active' === $current_status ) {
-			return true; // Already a member.
+			return new WP_Error(
+				'already_member',
+				__( 'Already a member of this space, so no invitation was sent.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
+
+		if ( 'invited' === $current_status ) {
+			return new WP_Error(
+				'already_invited',
+				__( 'Already invited to this space, so no new invitation was sent.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
 		}
 
 		global $wpdb;
