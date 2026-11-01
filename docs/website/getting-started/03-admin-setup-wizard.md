@@ -25,7 +25,7 @@ A community has a lot of moving parts - registration rules, profile fields, noti
 
 | Step | Screen | What you decide |
 |------|--------|-----------------|
-| 1 | **Branding** | Your community name and a single brand color. The name appears in headers, emails, and the browser tab. The color drives primary buttons, links, and focus states. |
+| 1 | **Branding** | Your community name and a single brand color. The name appears in headers, emails, and the browser tab. The color drives primary buttons, links, and focus states. Leave the swatch as it is and nothing is stored, so your theme's accent stays in charge. |
 | 2 | **Registration** | How new members get in (see the registration modes below) and whether to require email verification before a member can post or react. |
 | 3 | **Profile Fields** | A review of the profile groups your community will start with - Headline, bio, location, website, and pronouns, plus extras such as Social Links, Work Experience, Education, and Skills. This step lists them so you know what members will fill in; you shape the actual fields later under Members > Directory > Profile Fields. (Interests are added automatically from your space categories.) |
 | 4 | **Spaces** | Starter categories for organizing spaces. Comes pre-filled with General, Announcements, Help & Support, and Off-topic. Edit the comma-separated list or clear it to set categories up later. |

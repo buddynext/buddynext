@@ -530,13 +530,37 @@ class SetupWizard {
 	 */
 	private function save_step_branding(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce verified in handle_step_submit().
-		$this->save_settings(
-			array(
-				'site_name'   => sanitize_text_field( wp_unslash( $_POST['site_name'] ?? '' ) ),
-				'brand_color' => sanitize_hex_color( wp_unslash( (string) ( $_POST['brand_color'] ?? '#0073aa' ) ) ),
-			)
-		);
+		$data = array();
+
+		// A blank name would wipe the one already stored.
+		$site_name = sanitize_text_field( wp_unslash( $_POST['site_name'] ?? '' ) );
+		if ( '' !== $site_name ) {
+			$data['site_name'] = $site_name;
+		}
+
+		// The picker always posts a value, so "the owner chose this" can only be read
+		// as "it differs from what the step showed". Storing the untouched default
+		// would override the theme's accent on every page, see Appearance::attach_accent().
+		$brand_color = (string) sanitize_hex_color( wp_unslash( (string) ( $_POST['brand_color'] ?? '' ) ) );
+		if ( '' !== $brand_color && strtolower( $brand_color ) !== strtolower( self::displayed_brand_color() ) ) {
+			$data['brand_color'] = $brand_color;
+		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$this->save_settings( $data );
+	}
+
+	/**
+	 * The colour the branding step shows: the owner's pick, else what the site renders today.
+	 *
+	 * Never the DEFAULT_BRAND sentinel, a WordPress admin blue the product does not use.
+	 *
+	 * @return string Hex colour.
+	 */
+	private static function displayed_brand_color(): string {
+		$picked = \BuddyNext\Theme\Appearance::picked_brand();
+
+		return '' !== $picked ? $picked : \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
 	}
 
 	/**
@@ -820,23 +844,7 @@ class SetupWizard {
 	private function render_step_branding(): void {
 		$site_name = (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) );
 
-		/*
-		 * Show what the site looks like NOW, not the sentinel that means "unbranded".
-		 *
-		 * The stored default is Appearance::DEFAULT_BRAND (#0073aa), which
-		 * attach_accent() treats as "inherit the tokens" and emits nothing for. Putting
-		 * it in the picker meant this step offered WordPress admin blue - a colour the
-		 * product never renders - and accepting it appeared to do nothing, because it
-		 * does nothing by design.
-		 *
-		 * Displaying DEFAULT_ACCENT_HEX instead makes the swatch honest: it is the
-		 * indigo the site is actually using. Nothing is written unless the owner picks
-		 * a colour, so accepting the default still leaves the tokens in charge.
-		 */
-		$brand_color = (string) get_option( 'buddynext_brand_color', \BuddyNext\Theme\Appearance::DEFAULT_BRAND );
-		if ( '' === $brand_color || strtolower( $brand_color ) === \BuddyNext\Theme\Appearance::DEFAULT_BRAND ) {
-			$brand_color = \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX;
-		}
+		$brand_color = self::displayed_brand_color();
 
 		$this->render_step_head(
 			__( 'What should your community be called?', 'buddynext' ),

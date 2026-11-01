@@ -377,4 +377,85 @@ class SetupWizardTest extends \WP_UnitTestCase {
 		$this->assertSame( '', $render( array( 'page' => 'buddynext' ) ) );
 		$this->assertSame( '', $render( array( 'page' => 'buddynext-spaces', 'wizard' => 'saved' ) ) );
 	}
+
+	/**
+	 * Continue with the swatch untouched writes nothing, so the theme's accent stands.
+	 */
+	public function test_untouched_brand_colour_writes_nothing(): void {
+		delete_option( 'buddynext_brand_color' );
+
+		foreach ( array( 'continue', 'save_exit' ) as $action ) {
+			delete_option( 'buddynext_setup_step' );
+			$this->submit_step(
+				array(
+					'wizard_action' => $action,
+					'step'          => 'branding',
+					'site_name'     => 'Name',
+					'brand_color'   => \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX,
+				)
+			);
+			$this->assertFalse( get_option( 'buddynext_brand_color' ), $action );
+			$this->assertSame( '', \BuddyNext\Theme\Appearance::picked_brand() );
+		}
+	}
+
+	/**
+	 * Only a colour the owner picked is stored, and a stored pick is left alone or replaced.
+	 */
+	public function test_picked_brand_colour_is_stored_and_a_stored_one_survives(): void {
+		delete_option( 'buddynext_brand_color' );
+		$post = array(
+			'wizard_action' => 'save_exit',
+			'step'          => 'branding',
+			'site_name'     => 'Name',
+		);
+
+		$this->submit_step( $post + array( 'brand_color' => '#ff0000' ) );
+		$this->assertSame( '#ff0000', get_option( 'buddynext_brand_color' ) );
+
+		// Shown #ff0000, left as it is.
+		$this->submit_step( $post + array( 'brand_color' => '#FF0000' ) );
+		$this->assertSame( '#ff0000', get_option( 'buddynext_brand_color' ) );
+
+		// From a real pick, the default accent is now a choice like any other.
+		$this->submit_step( $post + array( 'brand_color' => \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX ) );
+		$this->assertSame( \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX, get_option( 'buddynext_brand_color' ) );
+
+		// A value stored by an earlier wizard run is not rewritten by walking past it.
+		$this->submit_step( $post + array( 'brand_color' => \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX ) );
+		$this->assertSame( \BuddyNext\Theme\Appearance::DEFAULT_ACCENT_HEX, get_option( 'buddynext_brand_color' ) );
+	}
+
+	/**
+	 * A blank or spaces-only name keeps the stored one.
+	 */
+	public function test_blank_site_name_does_not_wipe_the_stored_one(): void {
+		update_option( 'buddynext_site_name', 'Keep Me' );
+
+		$this->submit_step(
+			array(
+				'wizard_action' => 'save_exit',
+				'step'          => 'branding',
+				'site_name'     => '   ',
+			)
+		);
+
+		$this->assertSame( 'Keep Me', get_option( 'buddynext_site_name' ) );
+	}
+
+	/**
+	 * The opt-in rule: unset, empty, invalid and the sentinel all read as not picked.
+	 */
+	public function test_picked_brand_reads_every_unpicked_shape(): void {
+		delete_option( 'buddynext_brand_color' );
+		$this->assertSame( '', \BuddyNext\Theme\Appearance::picked_brand() );
+
+		foreach ( array( '', 'not-a-colour', '#0073aa', '#0073AA' ) as $value ) {
+			update_option( 'buddynext_brand_color', $value );
+			$this->assertSame( '', \BuddyNext\Theme\Appearance::picked_brand(), $value );
+		}
+
+		update_option( 'buddynext_brand_color', '#ff6b6b' );
+		$this->assertSame( '#ff6b6b', \BuddyNext\Theme\Appearance::picked_brand() );
+	}
 }

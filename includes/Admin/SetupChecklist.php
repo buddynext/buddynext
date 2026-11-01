@@ -287,7 +287,7 @@ final class SetupChecklist {
 				'key'       => 'brand',
 				'label'     => __( 'Brand it', 'buddynext' ),
 				'desc'      => __( 'Set your accent colour so the community feels like yours.', 'buddynext' ),
-				'done'      => false !== get_option( 'buddynext_brand_color', false ),
+				'done'      => '' !== \BuddyNext\Theme\Appearance::picked_brand(),
 				'cta'       => AdminHub::tab_url( 'settings', 'appearance' ),
 				'cta_label' => __( 'Customise', 'buddynext' ),
 				'icon'      => 'palette',

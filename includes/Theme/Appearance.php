@@ -160,6 +160,20 @@ class Appearance {
 	}
 
 	/**
+	 * The brand colour the owner chose, or '' when they have not chosen one.
+	 *
+	 * The one reading of the opt-in rule: empty, invalid or the DEFAULT_BRAND
+	 * sentinel all mean "inherit the theme/native palette".
+	 *
+	 * @return string Hex colour, or ''.
+	 */
+	public static function picked_brand(): string {
+		$hex = (string) sanitize_hex_color( (string) get_option( 'buddynext_brand_color', self::DEFAULT_BRAND ) );
+
+		return strtolower( $hex ) === self::DEFAULT_BRAND ? '' : $hex;
+	}
+
+	/**
 	 * The accent BuddyNext actually renders when no brand colour has been picked.
 	 *
 	 * NOT the same thing as DEFAULT_BRAND, and the difference matters. DEFAULT_BRAND
@@ -194,9 +208,8 @@ class Appearance {
 	 * @return void
 	 */
 	public function attach_accent(): void {
-		$hex = sanitize_hex_color( (string) get_option( 'buddynext_brand_color', self::DEFAULT_BRAND ) );
-		// Opt-in: empty or the legacy default = inherit the theme/native palette.
-		if ( ! $hex || strtolower( $hex ) === self::DEFAULT_BRAND ) {
+		$hex = self::picked_brand();
+		if ( '' === $hex ) {
 			return;
 		}
 
