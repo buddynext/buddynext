@@ -59,6 +59,42 @@ class UnverifiedPurgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * An account an administrator creates is verified and never swept; a sign-up is.
+	 *
+	 * @return void
+	 */
+	public function test_admin_created_account_is_verified_and_a_signup_is_not(): void {
+		global $wpdb;
+
+		wp_set_current_user( 0 );
+		$signup = self::factory()->user->create();
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$by_member = self::factory()->user->create();
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$by_admin = self::factory()->user->create();
+		wp_set_current_user( 0 );
+
+		$this->assertSame( '', (string) get_user_meta( $by_admin, 'buddynext_verify_pending', true ) );
+		$this->assertTrue( ( new \BuddyNext\Auth\VerificationService() )->is_verified( $by_admin ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$this->assertSame( '0', $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_verify_tokens WHERE user_id = %d", $by_admin ) ) );
+
+		foreach ( array( $signup, $by_member ) as $unproven ) {
+			$this->assertNotSame( '', (string) get_user_meta( $unproven, 'buddynext_verify_pending', true ) );
+			$this->assertFalse( ( new \BuddyNext\Auth\VerificationService() )->is_verified( $unproven ) );
+			update_user_meta( $unproven, 'buddynext_verify_pending', time() - 9 * DAY_IN_SECONDS );
+		}
+
+		( new CronService() )->handle_cleanup_tokens();
+
+		$this->assertNotFalse( get_userdata( $by_admin ) );
+		$this->assertFalse( get_userdata( $signup ) );
+		$this->assertFalse( get_userdata( $by_member ) );
+	}
+
+	/**
 	 * A site can keep an account for its own reason (a purchase, an enrolment).
 	 *
 	 * @return void

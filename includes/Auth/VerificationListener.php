@@ -213,7 +213,29 @@ class VerificationListener implements ListenerInterface {
 			return;
 		}
 
+		if ( self::created_by_admin() ) {
+			// Sets the verified meta, leaves no purge marker, sends the welcome email
+			// instead of the verify one: the same account the site gets with verification off.
+			$this->svc->mark_verified( $user_id );
+			return;
+		}
+
 		$this->svc->create_token( $user_id );
+	}
+
+	/**
+	 * Whether the account being created right now is an administrator's doing.
+	 *
+	 * Read from who is acting, never from the request: a visitor signing up has no
+	 * capability and is not on the command line, whatever they submit. Covers Users >
+	 * Add New, REST /wp/v2/users, WP-CLI and any plugin screen run by a user who may
+	 * create users. A background job with no user is not trusted, as it may be working
+	 * through public sign-ups.
+	 *
+	 * @return bool
+	 */
+	private static function created_by_admin(): bool {
+		return current_user_can( 'create_users' ) || ( defined( 'WP_CLI' ) && WP_CLI );
 	}
 
 	/**

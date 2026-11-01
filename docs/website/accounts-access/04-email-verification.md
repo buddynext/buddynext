@@ -91,6 +91,7 @@ The message that carries the confirmation link is a standard BuddyNext email, se
 
 ## Good to know
 
+- **An account you create yourself is already verified.** A member an administrator adds in Users > Add New, through the REST API or with WP-CLI gets no confirmation email and is never removed by the cleanup. An account that was created this way on an earlier version and is still waiting stays in that state: confirm it from the member editor.
 - **Accounts that never verify are removed after 7 days.** A daily cleanup deletes an account whose verification has been waiting more than 7 days. Administrators, verified members and anyone who has posted are never removed, and with BuddyNext Pro a member on a paid plan is kept too. The setting and the Check your inbox page both say so. A developer can change the number of days, or switch the cleanup off, with the `buddynext_unverified_purge_days` filter, and keep other accounts with `buddynext_unverified_account_keep`.
 - **Unverified state.** A new account stays unverified until the link is clicked. While unverified, the member is steered to the verification screen rather than the full community.
 - **Link expiry.** A confirmation link is valid for 48 hours after it is sent. If a member clicks an old link, they are told it has expired and asked to request a new one - which they do with the **Resend** button.
