@@ -7,8 +7,9 @@
  * by the partial — no inline HTML duplication.
  *
  * Variables:
- *   string $scope    'home' | 'explore' | 'profile'
- *   int    $per_page Items per page
+ *   string $scope     'home' | 'explore' | 'profile'
+ *   int    $per_page  Items per page
+ *   int    $member_id Whose posts the 'profile' scope shows, resolved by the block.
  *
  * @package BuddyNext
  */
@@ -20,7 +21,9 @@ $scope       = $scope ?? 'home';
 $bn_per_page = $per_page ?? 20;
 $feed_svc    = buddynext_service( 'feed' );
 
-if ( 'home' === $scope && $viewer_id ) {
+if ( 'profile' === $scope ) {
+	$result = $feed_svc->profile_feed( (int) ( $member_id ?? 0 ), $viewer_id, null, $bn_per_page );
+} elseif ( 'home' === $scope && $viewer_id ) {
 	$result = $feed_svc->home_feed( $viewer_id, null, $bn_per_page );
 } else {
 	$result = $feed_svc->explore_feed( null, $bn_per_page );
@@ -50,9 +53,9 @@ echo get_block_wrapper_attributes(
 		buddynext_get_template(
 			'parts/empty-state.php',
 			array(
-				'icon'  => 'message-circle',
-				'title' => __( 'No posts yet', 'buddynext' ),
-				'body'  => __( 'Be the first to share something with the community!', 'buddynext' ),
+				'icon'  => ! empty( $result['private'] ) ? 'lock' : 'message-circle',
+				'title' => ! empty( $result['private'] ) ? __( 'This member\'s posts are private.', 'buddynext' ) : __( 'No posts yet', 'buddynext' ),
+				'body'  => 'profile' === $scope ? '' : __( 'Be the first to share something with the community!', 'buddynext' ),
 			)
 		);
 		?>
@@ -84,7 +87,7 @@ echo get_block_wrapper_attributes(
 			 */
 			?>
 			<a
-				href="<?php echo esc_url( 'explore' === $scope ? \BuddyNext\Core\PageRouter::explore_url() : \BuddyNext\Core\PageRouter::activity_url() ); ?>"
+				href="<?php echo esc_url( 'profile' === $scope ? \BuddyNext\Core\PageRouter::profile_url( (int) $member_id ) : ( 'explore' === $scope ? \BuddyNext\Core\PageRouter::explore_url() : \BuddyNext\Core\PageRouter::activity_url() ) ); ?>"
 				class="bn-btn bn-load-more__btn"
 				data-variant="ghost"
 				data-size="sm"

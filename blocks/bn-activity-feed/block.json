@@ -33,6 +33,10 @@
 		}
 	},
 	"attributes": {
+		"userId": {
+			"type": "integer",
+			"default": 0
+		},
 		"scope": {
 			"type": "string",
 			"default": "home",

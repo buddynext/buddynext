@@ -38,7 +38,7 @@ Each row lists the block name, what it renders, its attributes (name, type, defa
 
 | Block | Purpose | Attributes (name : type = default) | REST data source | View module |
 |---|---|---|---|---|
-| `buddynext/activity-feed` | Renders the community activity feed. Scope selects which feed to show. | `scope` : string = `home` (enum: `home`, `profile`, `space`, `explore`) · `perPage` : integer = `20` | First paint via the `feed` service; live load/refresh via `GET`/`POST` `buddynext/v1/posts` and `buddynext/v1/feed` (mark-all-read at `buddynext/v1/notifications/mark-all-read` for header contexts). | `@buddynext/feed` |
+| `buddynext/activity-feed` | Renders the community activity feed. Scope selects which feed to show. Scope `profile` shows one member's posts: `userId`, or the author of the page. | `userId` : integer = `0` · `scope` : string = `home` (enum: `home`, `profile`, `space`, `explore`) · `perPage` : integer = `20` | First paint via the `feed` service; live load/refresh via `GET`/`POST` `buddynext/v1/posts` and `buddynext/v1/feed` (mark-all-read at `buddynext/v1/notifications/mark-all-read` for header contexts). | `@buddynext/feed` |
 | `buddynext/post-composer` | "What's on your mind" post-creation box. | `placeholder` : string = `""` | `POST buddynext/v1/posts` (create). Link previews via `buddynext/v1/link-preview`. | `@buddynext/feed` |
 | `buddynext/trending-hashtags` | Trending hashtags as a list or tag cloud. | `count` : integer = `8` · `display` : string = `list` (enum: `list`, `cloud`) · `from` : string = `7d` (enum: `24h`, `7d`, `30d`) | First paint via the `hashtags` service (`get_trending()`), backed by the hashtags REST surface under `buddynext/v1` (hashtags routes). | none |
 | `buddynext/community-activity` | Recent public activity on a landing page - social proof that the community is alive, rendered for logged-out visitors. | `count` : integer = `5` · `show` : string = `all` (`all`, `posts`, `discussions`, `media`) · `showSpaceName` : boolean = `false` | First paint via the `feed` service; live data under `buddynext/v1` (`posts` / `feed`). | none |
@@ -66,9 +66,9 @@ Each row lists the block name, what it renders, its attributes (name, type, defa
 
 | Block | Purpose | Attributes (name : type = default) | REST data source | View module |
 |---|---|---|---|---|
-| `buddynext/profile-header` | Profile header: avatar, cover, name, bio, social links, follow/connect buttons. | `userId` : integer = `0` · `showStats` : boolean = `true` · `showActions` : boolean = `true` | `profiles` service (`get_profile()`) plus the `follows` service for the action buttons; profile + follow routes under `buddynext/v1`. | `@buddynext/social-buttons` |
-| `buddynext/profile-fields` | Renders one profile field group (for example basic info, work, education). | `userId` : integer = `0` · `group` : string = `""` | `profiles` service (`get_profile()`); profile-field routes under `buddynext/v1`. | none |
-| `buddynext/profile-completion-bar` | Profile completion progress bar with prompt cards for incomplete sections. | `userId` : integer = `0` | `profiles` service (`get_completion_score()`); profile routes under `buddynext/v1`. | none |
+| `buddynext/profile-header` | Profile header: avatar, cover, name, bio, social links, follow/connect buttons. Shows `userId`, or the author of the page, under the profile page's privacy rule. Never falls back to the viewer. | `userId` : integer = `0` · `showStats` : boolean = `true` · `showActions` : boolean = `true` | `profiles` service (`get_profile()`) plus the `follows` service for the action buttons; profile + follow routes under `buddynext/v1`. | `@buddynext/social-buttons` |
+| `buddynext/profile-fields` | Renders one profile field group (for example basic info, work, education). Same member rule as `profile-header`. | `userId` : integer = `0` · `group` : string = `""` | `profiles` service (`get_profile()`); profile-field routes under `buddynext/v1`. | none |
+| `buddynext/profile-completion-bar` | Profile completion progress bar with prompt cards for incomplete sections. Only the member it belongs to sees it. | `userId` : integer = `0` | `profiles` service (`get_completion_score()`); profile routes under `buddynext/v1`. | none |
 
 ### Utility
 
