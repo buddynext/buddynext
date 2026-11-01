@@ -168,6 +168,31 @@ if [ "$CACHE" != none ]; then
 	[ -n "$POST_ID" ] && curl -s -o /dev/null -b "$JAR" -H "X-WP-Nonce: $NONCE" -X DELETE "$BASE/wp-json/buddynext/v1/posts/$POST_ID"
 fi
 
+# 5. The first page after a BuddyNext sign-in is logged in (card 10463222397). Guest
+#    copy warmed first: a cache answers from it before PHP runs, and a REST sign-in
+#    cannot set LiteSpeed's vary cookie. wp-login.php never showed this, so only the
+#    plugin's own form exposes it. Then the same page again without the marker.
+purge
+curl -s "$BASE/" >/dev/null; sleep 1; curl -s "$BASE/" >/dev/null
+BN_JAR="$(mktemp)"
+DEST="$(curl -s -c "$BN_JAR" -H 'Content-Type: application/json' \
+	-d "{\"user\":\"member\",\"password\":\"member\",\"redirect_to\":\"$BASE/\"}" "$BASE/wp-json/buddynext/v1/auth/login" \
+	| sed -n 's/.*"redirect_to":"\([^"]*\)".*/\1/p' | sed 's#\\/#/#g')"
+if [ -z "$DEST" ]; then
+	fail "BuddyNext sign-in returned no destination"
+else
+	BODY="$(curl -s -b "$BN_JAR" -c "$BN_JAR" "$DEST")"
+	[[ "$BODY" == *'logged-in'* ]] && pass "first page after BuddyNext sign-in is logged in" || fail "first page after BuddyNext sign-in served the guest copy"
+	BODY="$(curl -s -b "$BN_JAR" -c "$BN_JAR" "$BASE/")"
+	[[ "$BODY" == *'logged-in'* ]] && pass "same page again, no marker, is logged in" || fail "home after BuddyNext sign-in served the guest copy"
+	# A guest following a member's old link gets a fresh guest page, and leaves no copy.
+	BODY="$(curl -s "$DEST")"
+	[[ "$BODY" != *'logged-in'* ]] && pass "guest on a marked link stays a guest" || fail "guest on a marked link saw a member's page"
+	HEADERS="$(curl -s -D - -o /dev/null "$DEST")"
+	[[ "$HEADERS" == *'no-store'* ]] && pass "marked page tells caches not to store it" || fail "marked page is cacheable"
+fi
+rm -f "$BN_JAR"
+
 cache_off
 rm -f "$JAR"
 echo "== $CACHE: $FAILS failure(s)"

@@ -1046,7 +1046,7 @@ class AuthController {
 		$payload = array(
 			'success'     => true,
 			'user_id'     => (int) $user->ID,
-			'redirect_to' => esc_url_raw( $redirect_to ),
+			'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( $redirect_to ) ),
 			// A REST nonce so a just-logged-in client can immediately call the
 			// authenticated routes (e.g. mint an app password) over its cookie.
 			'rest_nonce'  => wp_create_nonce( 'wp_rest' ),
@@ -1278,7 +1278,7 @@ class AuthController {
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user->ID,
-				'redirect_to' => esc_url_raw( $redirect_to ),
+				'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( $redirect_to ) ),
 			),
 			200
 		);
@@ -1535,7 +1535,7 @@ class AuthController {
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user_id,
-				'redirect_to' => esc_url_raw( self::post_register_redirect( (int) $user_id, $params ) ),
+				'redirect_to' => esc_url_raw( SessionIssuer::first_page_url( self::post_register_redirect( (int) $user_id, $params ) ) ),
 			),
 			200
 		);
@@ -1717,7 +1717,7 @@ class AuthController {
 				'redirect_to' => esc_url_raw(
 					'' !== $parked_destination
 						? $parked_destination
-						: self::post_register_redirect( (int) $user_id, $params )
+						: SessionIssuer::first_page_url( self::post_register_redirect( (int) $user_id, $params ) )
 				),
 			),
 			200

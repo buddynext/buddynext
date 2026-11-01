@@ -19,6 +19,8 @@ Guests still get cached copies of public pages (Explore, open spaces, public pro
 
 BuddyNext does this with the WordPress-standard `DONOTCACHEPAGE` signal, plus `Cache-Control: no-store` headers for reverse proxies and browsers.
 
+**The first page after signing in is logged in.** A cache answers from its guest copy before WordPress runs, and it cannot know a visitor has just signed in. So after a BuddyNext sign-in, sign-up or two-factor step, the member lands on a one-time address (`?bn_signed_in=...`) no cache holds, and the address bar drops the marker straight away. Tested on LiteSpeed Cache on OpenLiteSpeed and on WP Super Cache. LiteSpeed Enterprise with QUIC.cloud has not been tested; if your cache is set to ignore unknown query strings, add `bn_signed_in` to its list of query strings that must not be cached.
+
 WP Rocket normally skips caching any page whose address differs from its page's permalink, which would have left every profile, post and sub-page (such as Explore) uncached for guests. BuddyNext tells WP Rocket these are its own valid pages, so guests get them cached and optimised like any other page.
 
 ## What was tested

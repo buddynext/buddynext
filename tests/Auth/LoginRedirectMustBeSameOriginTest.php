@@ -147,4 +147,21 @@ class LoginRedirectMustBeSameOriginTest extends WP_UnitTestCase {
 			'A legitimate same-origin destination was discarded, so members no longer return to where they were going.'
 		);
 	}
+
+	/**
+	 * The first page after a sign-in is a URL no page cache can hold: a marker unique per
+	 * sign-in (card 10463222397). The destination is otherwise the one asked for.
+	 *
+	 * @return void
+	 */
+	public function test_each_sign_in_lands_on_its_own_uncacheable_url(): void {
+		$home  = home_url( '/members/' );
+		$first = $this->login_and_get_destination( $home );
+		wp_set_current_user( 0 );
+		$second = $this->login_and_get_destination( $home );
+
+		$this->assertSame( $home, remove_query_arg( \BuddyNext\Auth\SessionIssuer::FIRST_PAGE_ARG, $first ) );
+		$this->assertNotEmpty( wp_parse_args( (string) wp_parse_url( $first, PHP_URL_QUERY ) )[ \BuddyNext\Auth\SessionIssuer::FIRST_PAGE_ARG ] ?? '' );
+		$this->assertNotSame( $first, $second, 'A fixed marker could be served a copy cached from anyone else.' );
+	}
 }

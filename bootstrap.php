@@ -288,6 +288,7 @@ add_action( 'init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade_sche
 add_action( \BuddyNext\Core\Installer::FINISH_UPGRADE_HOOK, array( \BuddyNext\Core\Installer::class, 'finish_upgrade' ) );
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
 \BuddyNext\Core\Installer::register_site_health();
+\BuddyNext\Auth\SessionIssuer::register();
 
 // Keep the front-end isolation mu-plugin in sync with the plugin's generated
 // source on every update — signature-compared, so it rewrites the mu-plugin
