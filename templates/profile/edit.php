@@ -23,12 +23,8 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-// Must be logged in and editing own profile (or admin).
+// Guests never get here: PageRouter::pre_output_redirect() sends them to sign in.
 $current_user_id = get_current_user_id();
-if ( ! $current_user_id ) {
-	wp_safe_redirect( \BuddyNext\Core\PageRouter::login_url() );
-	exit;
-}
 
 if ( empty( $user_id ) || ! is_int( $user_id ) ) {
 	$user_id = $current_user_id;

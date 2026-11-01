@@ -45,19 +45,10 @@ if ( '1' === $bn_email_changed_param ) {
 	$bn_verify_state = 'success';
 } elseif ( '0' === $bn_verified_param ) {
 	$bn_verify_state = 'error';
-} elseif ( $bn_verify_current_user > 0 ) {
-	$bn_already_verified = (bool) get_user_meta( $bn_verify_current_user, 'buddynext_email_verified', true );
-	if ( $bn_already_verified ) {
-		wp_safe_redirect( \BuddyNext\Core\PageRouter::activity_url() );
-		exit;
-	}
-	$bn_verify_state = 'pending';
-} elseif ( '' !== $bn_email_hint ) {
-	// Guest who just signed up — they have an email hint but no session.
-	$bn_verify_state = 'pending';
 } else {
-	wp_safe_redirect( \BuddyNext\Core\PageRouter::login_url( '' ) );
-	exit;
+	// An unverified member, or a guest who just signed up with an email hint.
+	// PageRouter::pre_output_redirect() has already sent everyone else away.
+	$bn_verify_state = 'pending';
 }
 
 $bn_verify_user  = $bn_verify_current_user > 0 ? get_userdata( $bn_verify_current_user ) : false;

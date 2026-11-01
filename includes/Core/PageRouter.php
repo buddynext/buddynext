@@ -773,12 +773,9 @@ class PageRouter {
 
 		$context = $this->build_hub_context( $hub );
 
-		// Nothing is mailed while verification is not required, so "check your inbox"
-		// would be a dead end. A result link (bn_verified, bn_email_changed) still shows.
-		if ( 'auth' === $hub && 'verify' === get_query_var( 'bn_auth_action', '' )
-			&& ! \BuddyNext\Auth\VerificationService::is_required()
-			&& ! isset( $_GET['bn_verified'] ) && ! isset( $_GET['bn_email_changed'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_safe_redirect( self::activity_url() );
+		$bn_redirect = self::pre_output_redirect( $template );
+		if ( '' !== $bn_redirect ) {
+			wp_safe_redirect( $bn_redirect );
 			exit;
 		}
 
@@ -2830,6 +2827,42 @@ class PageRouter {
 			}
 		}
 		return 'directory/members.php';
+	}
+
+	/**
+	 * Where a visitor must go instead of this template, or '' to render it.
+	 *
+	 * Decided here because a template runs after the page has started printing: a
+	 * redirect from inside one does nothing, and its exit leaves a blank page.
+	 *
+	 * @param string $template Template path relative to templates/.
+	 * @return string URL, or '' when the template should render.
+	 */
+	public static function pre_output_redirect( string $template ): string {
+		if ( 'profile/edit.php' === $template && ! is_user_logged_in() ) {
+			global $wp;
+			return self::login_url( home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) ) );
+		}
+
+		// A result link (bn_verified, bn_email_changed) always shows.
+		if ( 'auth/verify.php' !== $template || isset( $_GET['bn_verified'] ) || isset( $_GET['bn_email_changed'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return '';
+		}
+
+		// Nothing is mailed while verification is not required, so "check your inbox"
+		// would be a dead end.
+		if ( ! \BuddyNext\Auth\VerificationService::is_required() ) {
+			return self::activity_url();
+		}
+
+		$user_id = get_current_user_id();
+		if ( $user_id > 0 ) {
+			return get_user_meta( $user_id, 'buddynext_email_verified', true ) ? self::activity_url() : '';
+		}
+
+		// A guest who just signed up has the address in the link; nobody else has an
+		// inbox to check.
+		return empty( $_GET['email'] ) ? self::login_url( '' ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	}
 
 	/**

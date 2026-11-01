@@ -32,7 +32,7 @@ $hashtag_slug = isset( $args['hashtag_slug'] )
 	: sanitize_title( get_query_var( 'bn_hashtag', '' ) );
 
 // Headers are already sent by wp_head() when this template runs; use an
-// inline not-found state rather than wp_safe_redirect().
+// inline not-found state rather than a redirect.
 $hashtag_not_found = ! $hashtag_slug;
 
 // ── Load hashtag row (service layer — no raw SQL in templates) ──────────────
