@@ -195,6 +195,23 @@
 		}
 	} );
 
+	/* ── Send test — carry the editor's unsaved subject and body along ─ */
+	var testForm = root.querySelector( '[data-bn-test-form]' );
+	if ( testForm && subjectInput && body ) {
+		testForm.addEventListener( 'submit', function () {
+			[ [ 'draft_subject', subjectInput.value ], [ 'draft_body', body.value ] ].forEach( function ( pair ) {
+				var field = testForm.querySelector( 'input[name="' + pair[ 0 ] + '"]' );
+				if ( ! field ) {
+					field = document.createElement( 'input' );
+					field.type = 'hidden';
+					field.name = pair[ 0 ];
+					testForm.appendChild( field );
+				}
+				field.value = pair[ 1 ];
+			} );
+		} );
+	}
+
 	/* ── Enabled toggle: keep visual switch in sync with checkbox ─── */
 	var toggleWrap = root.querySelector( '[data-bn-toggle-wrap]' );
 	if ( toggleWrap ) {
