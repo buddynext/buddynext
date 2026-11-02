@@ -52,6 +52,8 @@ Work through this list first. Each item removes a way for the run to go wrong.
 
 BuddyNext Importer is a separate, free plugin. It is not part of the BuddyNext download, so you install it yourself on the site that holds your old data.
 
+**Download:** get the plugin from the [BuddyNext Importer repository on GitHub](https://github.com/buddynext/buddynext-importer). The latest release zip (v1.1.0) is on the [release page](https://github.com/buddynext/buddynext-importer/releases/tag/v1.1.0); upload it under **Plugins > Add New > Upload Plugin**.
+
 Once it is active, the screen is at **Tools > Import to BuddyNext** in wp-admin. The same work is available from WP-CLI under `wp buddynext-import`. The two routes do the same thing, so use whichever you prefer.
 
 The importer picks the source it finds: BuddyBoss first, then BuddyPress. If both are present, BuddyBoss wins.

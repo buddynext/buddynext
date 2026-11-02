@@ -179,6 +179,7 @@ Everything BuddyNext can do, and the page that documents it. This is the exhaust
 - [Concept Glossary](../migrating-from-buddypress/02-concept-glossary.md) **(Free)**
 - [BuddyBoss Feature Parity](../migrating-from-buddypress/03-buddyboss-feature-parity.md) **(Free)**
 - [Migrating Your Data](../migrating-from-buddypress/04-migrating-your-data.md) **(Free)**
+- [BuddyNext Importer on GitHub](https://github.com/buddynext/buddynext-importer) - the free companion plugin that carries your BuddyPress or BuddyBoss data across ([v1.1.0 zip](https://github.com/buddynext/buddynext-importer/releases/tag/v1.1.0)) **(Free)**
 - [What Changed for Members](../migrating-from-buddypress/05-what-changed-for-members.md) **(Free)**
 
 ## For developers
