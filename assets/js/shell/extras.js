@@ -671,128 +671,200 @@
 		}, true );
 	}() );
 
-	// ── Primary nav-bar scroll controls ────────────────────────────────────
-	// The primary tab bar ( .bn-navgroup > .bn-tabs ) hides its scrollbar, so a
-	// strip with more tabs than fit has no scrollbar to drag and (on desktop) no
-	// obvious way to reach the hidden tabs. Wrap the strip in a flex scroller and
-	// flank it with chevron buttons that:
-	//   - tap / click  -> scroll one "page" ( ~75% of the visible width )
-	//   - press + hold -> scroll continuously until release
-	//   - touch        -> the strip still swipes natively; buttons also tap/hold
-	// Unified across mouse / touch / pen via Pointer Events. The buttons sit
-	// BESIDE the strip (never over a tab) so no tab is ever covered. Works on iOS
-	// Safari + Firefox, where the CSS scroll-timeline edge-fade does not.
+	// ── Fit or fold: show what fits, put only the rest under "More" ────────
+	// One behaviour for every row that can run out of room (owner, 2026-11-04:
+	// fold by space, never by a count). Everything stays in the row while it
+	// fits; when it does not, items fold into a "More" menu from the end, the
+	// current tab never folds, and with room for everything there is no More.
+	//
+	// Two kinds of row use it:
+	//   - Primary tab strips ( .bn-navgroup > .bn-tabs ): profile, space, space
+	//     settings, member settings. The menu is built from the folded tabs, so
+	//     no template changes and every add-on tab is covered.
+	//   - Any [data-bn-fit] row whose foldable items carry data-bn-fit-item="key"
+	//     and whose server-rendered menu holds a matching data-bn-fit-copy="key"
+	//     (the own-profile action row). Copies keep their own Interactivity
+	//     directives, which a JS clone would lose.
+	// Without JS a tab strip still scrolls sideways, as before.
 	( function () {
-		var EDGE = 2;        // px tolerance so sub-pixel widths do not flicker.
-		var HOLD_MS = 350;   // press longer than this -> continuous scroll.
-		var STEP_PX = 14;    // continuous-scroll speed, px per animation frame.
+		var EDGE = 1;
+		var uid  = 0;
 
-		// dir: -1 = toward start (inline-start), +1 = toward end. Returns the
-		// signed scrollLeft delta, accounting for RTL ( negative scrollLeft ).
-		function delta( strip, dir, px ) {
-			var rtl = 'rtl' === getComputedStyle( strip ).direction;
-			return px * dir * ( rtl ? -1 : 1 );
-		}
-
-		function update( strip ) {
-			if ( ! strip._bnStart ) return;
-			var max = strip.scrollWidth - strip.clientWidth;
-			var rtl = 'rtl' === getComputedStyle( strip ).direction;
-			var pos = rtl ? -strip.scrollLeft : strip.scrollLeft;
-			strip._bnStart.hidden = ! ( max > EDGE && pos > EDGE );
-			strip._bnEnd.hidden   = ! ( max > EDGE && pos < max - EDGE );
-		}
-
-		// True while there is still room to move in `dir` ( so a hold stops at
-		// the edge instead of spinning forever ).
-		function canMove( strip, dir ) {
-			var max = strip.scrollWidth - strip.clientWidth;
-			var rtl = 'rtl' === getComputedStyle( strip ).direction;
-			var pos = rtl ? -strip.scrollLeft : strip.scrollLeft;
-			return dir < 0 ? pos > EDGE : pos < max - EDGE;
-		}
-
-		function page( strip, dir ) {
-			var px = Math.max( 120, Math.round( strip.clientWidth * 0.75 ) );
-			strip.scrollBy( { left: delta( strip, dir, px ), behavior: 'smooth' } );
-		}
-
-		function makeBtn( edge ) {
-			var b = document.createElement( 'button' );
-			b.type = 'button';
-			b.className = 'bn-navgroup__nav bn-navgroup__nav--' + edge;
-			// Pointer affordance only; keyboard users scroll tabs into view by
-			// tabbing through the tabs themselves, so keep these out of tab order
-			// and out of the a11y tree to avoid duplicate, label-less stops.
-			b.setAttribute( 'aria-hidden', 'true' );
-			b.tabIndex = -1;
-			b.hidden = true;
-			return b;
-		}
-
-		function bindHold( strip, btn, dir ) {
-			var holdTimer = null;
-			var raf = null;
-
-			function stop() {
-				if ( holdTimer ) { clearTimeout( holdTimer ); holdTimer = null; }
-				if ( raf ) { cancelAnimationFrame( raf ); raf = null; }
+		// Overflow for a single-line strip (scrolls) or a wrapping row (an item
+		// drops to a second line).
+		function overflows( row ) {
+			if ( row.scrollWidth > row.clientWidth + EDGE ) {
+				return true;
 			}
-			function loop() {
-				if ( ! canMove( strip, dir ) ) { stop(); return; }
-				strip.scrollLeft += delta( strip, dir, STEP_PX );
-				update( strip );
-				raf = requestAnimationFrame( loop );
+			var top = null;
+			var kids = row.children;
+			for ( var i = 0; i < kids.length; i++ ) {
+				if ( kids[ i ].hidden || ! kids[ i ].offsetParent ) {
+					continue;
+				}
+				if ( null === top ) {
+					top = kids[ i ].offsetTop;
+				} else if ( kids[ i ].offsetTop > top + 2 ) {
+					return true;
+				}
 			}
-			btn.addEventListener( 'pointerdown', function ( e ) {
-				// Primary button / touch / pen only; ignore right-click.
-				if ( e.button && 0 !== e.button ) return;
-				e.preventDefault();
-				page( strip, dir );                       // immediate one-page nudge
-				holdTimer = setTimeout( function () {     // ...then continuous if held
-					holdTimer = null;
-					loop();
-				}, HOLD_MS );
+			return false;
+		}
+
+		// Show everything, then fold from the end until the row fits. Returns
+		// the folded items in their original order.
+		function fold( row, items, more, keep ) {
+			items.forEach( function ( el ) { el.hidden = false; } );
+			more.hidden = true;
+			if ( ! overflows( row ) ) {
+				return [];
+			}
+			more.hidden = false;
+			var folded = [];
+			for ( var i = items.length - 1; i >= 0 && overflows( row ); i-- ) {
+				if ( items[ i ] === keep ) {
+					continue;
+				}
+				items[ i ].hidden = true;
+				folded.unshift( items[ i ] );
+			}
+			return folded;
+		}
+
+		function closeMenu( more ) {
+			var btn  = more.querySelector( '[aria-expanded]' );
+			var menu = more.querySelector( '.bn-fit-menu' );
+			if ( btn ) btn.setAttribute( 'aria-expanded', 'false' );
+			if ( menu ) menu.hidden = true;
+		}
+
+		// Open downward, or upward when the space below is smaller: on a phone the
+		// tab bar often sits just above the fixed bottom bar, which would cover a
+		// menu that opens down. Cap the height to the side it opens on.
+		function place( btn, menu ) {
+			menu.classList.remove( 'is-up' );
+			menu.style.removeProperty( 'max-block-size' );
+			var mobile = document.querySelector( '.bn-mobile-nav' );
+			var floor  = window.innerHeight - ( mobile && mobile.offsetParent ? mobile.getBoundingClientRect().height : 0 );
+			var r      = btn.getBoundingClientRect();
+			var below  = floor - r.bottom - 8;
+			var above  = r.top - 8;
+			var up     = menu.offsetHeight > below && above > below;
+			menu.classList.toggle( 'is-up', up );
+			menu.style.maxBlockSize = Math.max( 120, Math.floor( up ? above : below ) ) + 'px';
+		}
+
+		function bindMenu( more ) {
+			if ( more._bnFitBound ) return;
+			more._bnFitBound = true;
+			var btn  = more.querySelector( '[aria-expanded]' );
+			var menu = more.querySelector( '.bn-fit-menu' );
+			btn.addEventListener( 'click', function () {
+				var open = 'true' !== btn.getAttribute( 'aria-expanded' );
+				btn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+				menu.hidden = ! open;
+				if ( open ) {
+					place( btn, menu );
+					var first = menu.querySelector( 'a, button' );
+					if ( first ) first.focus();
+				}
 			} );
-			// Release in every way a press can end.
-			[ 'pointerup', 'pointercancel', 'pointerleave' ].forEach( function ( ev ) {
-				btn.addEventListener( ev, stop );
+			more.addEventListener( 'keydown', function ( e ) {
+				if ( 'Escape' === e.key && ! menu.hidden ) {
+					closeMenu( more );
+					btn.focus();
+				}
 			} );
-			window.addEventListener( 'blur', stop );
+			menu.addEventListener( 'click', function ( e ) {
+				if ( e.target.closest( 'a, button' ) ) closeMenu( more );
+			} );
+			document.addEventListener( 'click', function ( e ) {
+				if ( ! menu.hidden && ! more.contains( e.target ) ) closeMenu( more );
+			} );
+			more.addEventListener( 'focusout', function ( e ) {
+				if ( e.relatedTarget && ! more.contains( e.relatedTarget ) ) closeMenu( more );
+			} );
 		}
 
-		function wire( strip ) {
-			if ( strip.dataset.bnOverflowWired ) { update( strip ); return; }
-			var group = strip.parentElement;
-			if ( ! group || ! group.classList.contains( 'bn-navgroup' ) ) return;
-			strip.dataset.bnOverflowWired = '1';
+		// ── Tab strips ──
+		function moreControl( strip ) {
+			var id   = 'bn-fit-menu-' + ( ++uid );
+			var more = document.createElement( 'div' );
+			more.className = 'bn-fit-more';
+			more.hidden = true;
+			var btn = document.createElement( 'button' );
+			btn.type = 'button';
+			btn.className = 'bn-tab bn-fit-more__btn';
+			btn.setAttribute( 'aria-expanded', 'false' );
+			btn.setAttribute( 'aria-controls', id );
+			btn.innerHTML = '<span></span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>';
+			btn.firstChild.textContent = __( 'More', 'buddynext' );
+			var menu = document.createElement( 'ul' );
+			menu.className = 'bn-fit-menu';
+			menu.id = id;
+			menu.hidden = true;
+			menu.setAttribute( 'aria-label', strip.getAttribute( 'aria-label' ) || __( 'More', 'buddynext' ) );
+			more.appendChild( btn );
+			more.appendChild( menu );
+			return more;
+		}
 
-			// Wrap the strip in a flex scroller and flank it with the buttons so
-			// they sit beside the tabs, never on top of them.
-			var scroller = document.createElement( 'div' );
-			scroller.className = 'bn-navgroup__scroller';
-			group.insertBefore( scroller, strip );
-			var startBtn = makeBtn( 'start' );
-			var endBtn   = makeBtn( 'end' );
-			scroller.appendChild( startBtn );
-			scroller.appendChild( strip );
-			scroller.appendChild( endBtn );
-			strip._bnStart = startBtn;
-			strip._bnEnd   = endBtn;
-
-			bindHold( strip, startBtn, -1 );
-			bindHold( strip, endBtn, 1 );
-
-			strip.addEventListener( 'scroll', function () { update( strip ); }, { passive: true } );
-			if ( window.ResizeObserver ) {
-				new ResizeObserver( function () { update( strip ); } ).observe( strip );
+		function fitStrip( strip ) {
+			var bar = strip.parentElement;
+			if ( ! bar.classList.contains( 'bn-navgroup__bar' ) ) {
+				// Wrap once: the strip and its More share one row and one baseline.
+				var group = bar;
+				bar = document.createElement( 'div' );
+				bar.className = 'bn-navgroup__bar';
+				group.insertBefore( bar, strip );
+				bar.appendChild( strip );
+				bar.appendChild( moreControl( strip ) );
+				strip.classList.add( 'is-fit' );
+				bindMenu( bar.lastChild );
+				if ( window.ResizeObserver ) {
+					new ResizeObserver( function () { fitStrip( strip ); } ).observe( bar );
+				}
 			}
-			update( strip );
+			var more  = bar.lastChild;
+			var tabs  = Array.prototype.slice.call( strip.querySelectorAll( ':scope > .bn-tab' ) );
+			var keep  = strip.querySelector( ':scope > .bn-tab[aria-current]:not([aria-current="false"]), :scope > .bn-tab[aria-selected="true"]' );
+			var folded = fold( strip, tabs, more, keep );
+			var menu = more.querySelector( '.bn-fit-menu' );
+			menu.textContent = '';
+			folded.forEach( function ( tab ) {
+				var li = document.createElement( 'li' );
+				var a  = document.createElement( 'a' );
+				a.className = 'bn-fit-menu__item';
+				a.href = tab.getAttribute( 'href' );
+				a.innerHTML = tab.innerHTML;
+				if ( tab.hasAttribute( 'data-bn-full-load' ) ) a.setAttribute( 'data-bn-full-load', '' );
+				li.appendChild( a );
+				menu.appendChild( li );
+			} );
+			if ( ! folded.length ) closeMenu( more );
+		}
+
+		// ── Pre-rendered rows ──
+		function fitRow( row ) {
+			var more  = row.querySelector( ':scope > [data-bn-fit-more]' );
+			if ( ! more ) return;
+			var items = Array.prototype.slice.call( row.querySelectorAll( ':scope > [data-bn-fit-item]' ) );
+			var folded = fold( row, items, more, null );
+			var keys = folded.map( function ( el ) { return el.getAttribute( 'data-bn-fit-item' ); } );
+			row.querySelectorAll( '[data-bn-fit-copy]' ).forEach( function ( copy ) {
+				copy.hidden = keys.indexOf( copy.getAttribute( 'data-bn-fit-copy' ) ) < 0;
+			} );
+			// A menu that only ever held foldable copies has nothing left to show.
+			if ( ! folded.length && ! more.hasAttribute( 'data-bn-fit-always' ) ) more.hidden = true;
+			if ( ! row._bnFitObserved && window.ResizeObserver ) {
+				row._bnFitObserved = true;
+				new ResizeObserver( function () { fitRow( row ); } ).observe( row.parentElement );
+			}
 		}
 
 		function init() {
-			var strips = document.querySelectorAll( '.bn-navgroup > .bn-tabs' );
-			for ( var i = 0; i < strips.length; i++ ) { wire( strips[ i ] ); }
+			document.querySelectorAll( '.bn-navgroup > .bn-tabs, .bn-navgroup__bar > .bn-tabs' ).forEach( fitStrip );
+			document.querySelectorAll( '[data-bn-fit]' ).forEach( fitRow );
 		}
 
 		if ( 'loading' === document.readyState ) {
@@ -800,9 +872,11 @@
 		} else {
 			init();
 		}
-		// Re-measure on viewport changes and re-wire after a client-side
-		// navigation swaps the nav bar ( navigate.js -> buddynext:navigated ).
-		window.addEventListener( 'resize', init, { passive: true } );
+		// Web fonts change label widths; a client-side navigation swaps the bar
+		// or moves the current tab ( navigate.js -> buddynext:navigated ).
+		if ( document.fonts && document.fonts.ready ) {
+			document.fonts.ready.then( init );
+		}
 		document.addEventListener( 'buddynext:navigated', init );
 	}() );
 

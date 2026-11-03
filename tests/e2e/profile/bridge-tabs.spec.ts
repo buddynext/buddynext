@@ -167,7 +167,8 @@ async function assertBridgeDegrade(
         }
 
         // ON: the tab is present.
-        await expect(page.locator(tabFor(tabSlug)).first()).toBeVisible();
+        // Attached, not visible: a tab that does not fit folds under "More".
+        await expect(page.locator(tabFor(tabSlug)).first()).toBeAttached();
         expect(await routeHasTab(page, tabSlug), `route nav lists the ${tabSlug} tab while the integration is on`).toBe(true);
 
         // Owner turns the integration's nav off.
