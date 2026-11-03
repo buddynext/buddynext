@@ -22,9 +22,9 @@ For the owner this is a transport upgrade, not a feature rebuild. The same event
 
 There is nothing for a member to configure. Once the owner has connected a realtime server, the transport loads automatically for logged-in members. They simply notice that things update without a refresh:
 
-- The notification bell badge updates as notifications arrive, on every page.
+- The notification bell badge updates as notifications arrive, on every page. A notification type with **In-app** switched off sends no live bell update, because no bell row changed.
 - New posts in the feed and in spaces appear live.
-- Reactions and comments on posts they are viewing update in place.
+- Reaction and comment counts on posts they are viewing update in place, and they go down as well as up when someone removes a reaction or deletes a comment. Your own tab does not receive your own event.
 - Direct messages arrive instantly in an open conversation, through the MediaVerse messaging engine.
 
 If the server is unreachable, the member sees no error - the experience falls back to the standard polling updates.
@@ -33,7 +33,7 @@ If the server is unreachable, the member sees no error - the experience falls ba
 
 ## Setting it up (for owners)
 
-Realtime settings live in the BuddyNext admin under **Realtime & Push > Realtime**. The page opens with a setup guide for choosing a server. Realtime has its own switch in the Features catalogue, **Realtime**, which is off by default. Turn it on first; the Realtime screen then shows whether it is off, on but not yet configured, or on and configured.
+Realtime settings live in the BuddyNext admin under **Realtime & Push > Realtime**. The page opens with a setup guide for choosing a server. Realtime has its own switch in the Features catalogue, **Realtime**, which is off by default. Turn it on first; the Realtime screen then shows whether it is off, on but not yet configured, or on and configured. Its Features row also links here with **Open its settings**. The older standalone Realtime address forwards into the BuddyNext admin, so old bookmarks open with the BuddyNext sidebar.
 
 ### Requirements
 

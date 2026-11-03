@@ -16,7 +16,7 @@ A member's profile shows a Portfolio tab whenever there is something to put in i
 
 - **WP Career Board** - **Jobs** and **Resume** (the member's public resume), each linking out to the WP Career Board page. The owner sees "Manage Jobs" and "Manage Resume" links.
 - **WB Listora** - **Listings**, the member's directory listings, linking out to each listing, plus an owner-only "Manage Business" link.
-- **Learnomy** - **Certifications** (completed courses and certificates, public), **Teaching** (courses they teach, public), and a private **Learning** shelf of in-progress courses.
+- **Learnomy** - **Certifications** (completed courses and certificates, public; it needs Learnomy's Certificates module, and Integration Settings shows it disabled with a **Turn on Certificates** action when the module is off), **Teaching** (courses they teach, public), and a private **Learning** shelf of in-progress courses.
 
 Two things keep the tab honest:
 
@@ -42,6 +42,17 @@ There is nothing to assemble. The Portfolio tab is built into BuddyNext; Pro fil
 BuddyNext Pro declares these minimum partner versions: WP Career Board 1.4.3 and Learnomy 1.9.4. WB Listora declares none.
 
 Each integration's own behaviour - what a job or listing or course does - is configured in that app, not here. The Portfolio tab only decides how a member's activity from those apps is shown on their profile.
+
+### Space tabs from the same apps
+
+Pro also adds two tabs to spaces, and both are on in every space by default while their app is active:
+
+- **Events** - from Eventonomy. A space owner can switch it off for their space, and a choice already saved is kept.
+- **Businesses** - from WB Listora. Members of the space add their own listings. With WB Listora 2.1.1 or later, **Your businesses in this space** names every listing the member has there, newest first, up to 50 (with "Your newest 50 of N." beyond that), and the space team's own listing is listed at once without review. The submit message says whether the listing was added or sent for review. An older WB Listora keeps the shorter list and sends every listing for review.
+
+In Settings > Navigation these two tabs are labelled with their app and show when Integration Settings has the app off.
+
+With WB Listora 2.1.1 or later, an approved review of a published listing also posts a card to the community feed ("reviewed a listing", with the rating and an excerpt). Editing the review refreshes the card, and rejecting or deleting it removes the card. This follows the **Post to the activity feed** switch for WB Listora.
 
 ## Good to know
 

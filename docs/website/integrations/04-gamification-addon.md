@@ -70,7 +70,7 @@ This integration has no settings of its own beyond the two switches below. Buddy
 
 | Setting | What it does | Default |
 |---|---|---|
-| Show in navigation | Shows the Leaderboard link, the Achievements, Points and Kudos profile tabs and space leaderboards. Turning it off also stops WB Gamification notifications reaching the bell. | On |
+| Show in navigation | Shows the Leaderboard link, the Achievements, Points and Kudos profile tabs and space leaderboards. Turning it off only hides these; WB Gamification notifications still reach the bell. | On |
 | Post to the activity feed | Whether a shared credential badge posts a feed activity. | On |
 
 BuddyNext shows the site's own name for points (for example "Points" or "Coins") everywhere, as set in WB Gamification. If WB Gamification hands its leaderboard to Jetonomy, BuddyNext hides its own Leaderboard link and the leaderboard address goes to Jetonomy's board, so members see one ranking.

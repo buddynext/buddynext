@@ -128,6 +128,8 @@ curl -X POST "https://example.com/wp-json/buddynext/v1/companions/install" \
 2. **Installed but inactive** (`free.basename` exists on disk) -> activates in place, never re-downloads.
 3. **Not installed** -> activates the free license at the store (`edd_action=activate_license` with `item_id`, `license`, `url`), then resolves the signed package URL (`edd_action=get_version`), then downloads and unpacks it through WP core's `Plugin_Upgrader`, then activates the plugin.
 
+Both store calls go through `buddynext_licence_request( array $params )`, the same function BuddyNext and BuddyNext Pro use for licence checks and update checks. It sends the request to `updates.wbcomdesigns.com` and falls back to `wbcomdesigns.com` when the first host cannot be reached. It returns the decoded reply object, or `false` when no host answered. A licence refusal is a normal reply, not `false`. The function adds `url` and `environment` itself, so pass only `edd_action`, `license` and `item_id`. Use it for any licence call of your own instead of calling the store directly.
+
 EDD Software Licensing authorizes the download only after the free license is activated for the site's domain, which is why activation happens first; if the store refuses, the installer surfaces the store's real reason (for example an HTTP 401 with the license message) so the failure is diagnosable rather than a generic "download failed."
 
 > **Warning:** The installer only ever talks to and downloads from `wbcomdesigns.com`. The resolved package URL host is checked and must be `wbcomdesigns.com` or a `*.wbcomdesigns.com` subdomain - it never follows a redirect off-domain. The download URL is resolved through EDD from the registry, never taken from client input.

@@ -30,7 +30,7 @@ Each row is one reported item, with all of its reports merged:
 
 On a reported **profile**, the More menu's member actions read Warn member, Strike member and Suspend member, and act on the reported member.
 
-The list shows 20 items per page, with Previous and Next links underneath.
+The list shows 20 items per page, with Previous and Next links underneath. A space's own **Moderation** tab pages the same way for reports, join requests and the log, so nothing past the first 20 is out of reach, and its counters count down from the true total as you work.
 
 ### Filtering and sorting
 

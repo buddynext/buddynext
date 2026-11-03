@@ -21,6 +21,8 @@ The badge uses the color you chose for the type, so groups are visually distinct
 
 If you mark a type as self-selectable, members can choose it themselves. The type then appears as a selector on their own profile edit page, and they can pick from the available self-select types - or choose "None" to clear the type they picked earlier. Types you have not marked self-selectable never appear as a choice - only an owner can assign those.
 
+When a type is set to **Lock it once chosen**, the profile form warns the member before the pick ("You can only pick this once. After that, only an admin can change it.") and asks them to confirm. If the site refuses a later change, the selector goes back to the member's type and shows the reason.
+
 
 ## Setting it up (for owners)
 

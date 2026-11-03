@@ -53,13 +53,17 @@ The dashboard is organized into views you switch between at the top of the page.
 | View | What it shows |
 |---|---|
 | Overview | A time-window picker (7 days, 30 days, 90 days, 1 year) and stat cards: Active today (DAU), Active this week (WAU), Active this month (MAU), Posts today, Engagement rate, and New signups, each with a change against the previous period. Below them are a daily-activity chart and Top content (ranked by engagement - reactions plus comments) and Top members (ranked by tracked actions) tables. The figures refresh at most every few minutes. |
-| Cohorts | Weekly cohort retention for the last 8 weeks: the share of each signup week that returned in later weeks. |
+| Cohorts | Weekly cohort retention for the last 8 weeks, ending with the current week: the share of each signup week that returned in later weeks. Each row shows how many members registered that week. |
 | Funnel | Step-by-step conversion over the trailing 30 days: Sign up, First post, Reaction received, First follow. Each step shows how many reached it, the drop-off, and the conversion. |
 | Profile views | Daily profile views, top viewed profiles, top viewers, and how many members have opted out of being listed as viewers. |
 
 > **Note:** Top content and top members appear as tables inside the Overview view, not as separate views. Per-space health metrics are not a dashboard view; they show as the "Last 30 days" row on a space's admin page when you switch on **Show space owners their stats**, and are also available through the REST API.
 
 > **Note:** The daily-activity and daily profile-views charts show dates along the bottom (month and year on a 1-year window). Point at the line to see one day's value, or open **Show data** under the chart for every date and value as a table; that table also works with a keyboard, on a phone and with a screen reader. On windows longer than 30 days the daily-activity chart groups days, so each point is the total for the days up to its date.
+
+> **Note:** Bar charts, such as Top viewers on Profile views and the step reach on Funnel, show each bar's name and value as text beside the bar. On a phone the name sits above its bar.
+
+> **Note:** A member search across every content type is recorded with the search type `all`. A search limited to one type (members, posts, spaces) keeps that type. Each search is recorded once.
 
 > **Note:** DAU, WAU, and MAU stand for daily, weekly, and monthly active users - the count of distinct members who took at least one tracked action in that window.
 
@@ -74,7 +78,7 @@ The dashboard has no required configuration. It starts collecting and displaying
 | Setting | Where | What it does | Default |
 |---|---|---|---|
 | Analytics | Features catalogue | Master switch for collecting events, the dashboard and the profile-views panel. | On |
-| Show space owners their stats | Engagement → Insights, above the view tabs | Adds a "Last 30 days" row (new members, left, net growth, posts) to each space's admin page, for the people who manage that space. Off means only site admins see analytics. | Off |
+| Show space owners their stats | Engagement → Insights, above the view tabs | Adds a "Last 30 days" row (new members, left, net growth, posts) to each space's admin page, for the people who manage that space. Off means only site admins see analytics. Switch it on and choose **Save**. | Off |
 | Hide my profile views | Each member's privacy settings | Stops the member's visits to other profiles from being recorded. Set by the member, not the owner. | Off |
 | Data retention (days) | Free settings, Data retention section | How long analytics events are kept. | 365 |
 

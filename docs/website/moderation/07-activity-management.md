@@ -50,7 +50,7 @@ The list is ordered newest first and paginated at 25 rows a page, with the total
 ### Acting on a row
 
 - **View** opens the post on the front end in a new tab, so you can see it in context before deciding anything.
-- **Edit** opens the content in a text area. Save changes rewrites the post body in place, re-runs the content safeguards (banned words and blocked links) and marks the post as edited; Cancel leaves it untouched. This lets an administrator redact part of a member's post - a phone number, a name, a link - without removing the whole thing, which is often the fairer outcome.
+- **Edit** opens the content in a text area. Save changes rewrites the post body in place, re-runs the content safeguards (banned words and blocked links) and marks the post as edited; Cancel leaves it untouched. The edit form also lists the post's photos, files and link preview, each with a **Remove** box. Removing one only detaches it from the post; the file stays in its owner's library. A photo post with no photos left becomes a text post, and a post left with nothing is refused. This lets an administrator redact part of a member's post - a phone number, a name, a link - without removing the whole thing, which is often the fairer outcome.
 - **Delete** removes the activity permanently.
 
 ### Acting on many rows at once

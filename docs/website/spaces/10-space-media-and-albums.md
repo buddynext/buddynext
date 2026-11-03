@@ -19,7 +19,7 @@ It also removes an awkward workaround. Before, the only albums BuddyNext had wer
 The Media tab is on in every space while MediaVerse is active. A space owner who does not want a gallery switches it off under **Manage space > Integrations**, and that choice is kept.
 
 1. Open the space and go to **Settings > Integrations**.
-2. Switch on **Enable Media tab**.
+2. Switch **Enable Media tab** back on (or off).
 3. Save.
 
 The tab appears in the space's tab strip next to Feed, Members and About.

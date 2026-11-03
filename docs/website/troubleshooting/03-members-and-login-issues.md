@@ -21,6 +21,28 @@ See [Email Verification](../accounts-access/04-email-verification.md).
 
 See [Email Verification](../accounts-access/04-email-verification.md).
 
+## A member cannot sign in with their @handle
+
+**Symptom:** A member types their @handle on a login form and is told the email, username or password is not right.
+
+**Likely causes and fixes:**
+
+- **It is not their current handle.** Only a member's current handle signs in. An old handle, or the system address `user-` followed by a number, does not.
+- **The password is wrong.** The message is the same for every failure, on purpose: "That email, username or password is not right." It never says which part was wrong.
+- **The account is not allowed in yet.** A member awaiting approval who types the right password is told the account cannot sign in right now. Approve them from **BuddyNext > Members > Pending**.
+
+See [Login](../accounts-access/02-login.md).
+
+## I cannot find the approval queue
+
+**Fix:** The **Pending** tab under **BuddyNext > Members** stays available while anyone is waiting, even after you switch the registration mode away from Admin Approval. Switching the mode does not approve anyone, so a notice links to the queue. Approve each member from the tab, or with **Approve** on their row.
+
+See [Registration](../accounts-access/01-registration.md).
+
+## A member looks logged out right after signing in
+
+**Likely cause:** A page cache served the guest copy. Members land on a one-time address after sign-in so caches do not hold it. If your cache ignores unknown query strings, add `bn_signed_in` to its list of query strings that must not be cached. See [Page Cache and Optimisation Plugins](../getting-started/09a-page-cache-and-optimisation.md).
+
 ## A member lost access to their authenticator app and can't sign in
 
 **Symptom:** 2FA is on for the member's account, and they no longer have the device with the authenticator app.

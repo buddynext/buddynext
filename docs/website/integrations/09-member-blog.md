@@ -15,6 +15,7 @@ BuddyNext already carries a published post into the community feed as an article
 BuddyNext's side of this integration is deliberately small, and deliberately generic.
 
 - **An Articles tab** on each member profile, listing that member's published posts - title, date, excerpt and featured image - each linking out to the post itself. The list is paged, ten posts to a page, and the tab shows a count.
+- **The tab shows only where it helps.** The Articles tab appears for members Member Blog lets write, and on any profile that has published articles. A member who cannot write sees no empty tab and no **Write** button; **Manage articles** stays.
 - **An owner route back to writing.** When you are looking at your own Articles tab, you also get **Write a new article** and **Manage articles**, plus an Edit link on each row. All of them go to Member Blog's dashboard.
 - **Drafts and pending posts, for you only.** Your own tab shows work in progress with a status badge so an unfinished draft never reads as published. Nobody else sees them, apart from people who can edit other members' posts (such as editors and administrators).
 

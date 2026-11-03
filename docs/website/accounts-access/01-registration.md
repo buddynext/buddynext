@@ -100,9 +100,13 @@ You decide which profile fields show on the sign-up form. Go to **BuddyNext > Me
 ### Manage invitations and approvals
 
 - **Invitations.** When using Invite Only mode, manage invites under **BuddyNext > Members > Directory > Invites** - create, resend, and revoke them there. (There is a shortcut button on the Registration & Login settings tab.) For the full walkthrough, including bulk CSV invites and tracking, see [Inviting People to Your Community](10-invitations.md).
-- **Approvals.** In Admin Approval mode, pending accounts wait for review. Approve them from the Members admin screen; until then they cannot sign in.
+- **Approvals.** In Admin Approval mode, pending accounts wait for review. Approve them from the **Pending** tab on the Members admin screen, or with **Approve** on the member's row; until then they cannot sign in. Each approval runs once, so a double click does not send the welcome email twice. The **Pending** tab stays available while anyone is waiting, even if you switch the registration mode away from Admin Approval. Switching the mode does not approve anyone, and a notice with a link to the queue reminds you.
 
 ![The Invites manager where owners send and track invitations](../images/admin-invites.webp)
+
+### Multisite
+
+On a multisite network, a logged-out visitor who opens `wp-signup.php` goes to the BuddyNext sign-up form, the same as `wp-login.php?action=register`. If you chose the core WordPress form for sign-up, it stays. Logged-in members still use `wp-signup.php` to create a site.
 
 ## Good to know
 

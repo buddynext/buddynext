@@ -73,6 +73,12 @@ Each Pro capability that has its own admin screen has one on/off switch in the F
 | AI suite | Off, needs an AI provider key |
 | AI moderation | Off, needs an AI provider key |
 
+Push notifications, Realtime and the AI suite each have a settings screen that exists only while the feature is on. Once you turn one on and save, its row in the Features catalogue shows **Open its settings**, which opens that screen inside the BuddyNext admin. The older standalone addresses for Realtime, AI Feed, Payments and White-label also forward into the BuddyNext admin, so old bookmarks still work.
+
+## Your license
+
+Open **Settings > License** to activate your Pro key, see its status, and deactivate it. The tab shows the masked key and when it expires. When a key has lapsed, the tab shows the status (Expired, Disabled, Not active on this site, or No activations left), the date it ended and a **Renew license** link. Pro keeps working, and only automatic updates pause until you renew. If **Deactivate license** cannot reach the license server, the tab says so and keeps the key, instead of reporting success. If the server does not confirm the deactivation, the key is removed from this site and a warning tells you to check your account in case an activation is still in use. Pro asks the same update server as BuddyNext Free for licence checks and updates.
+
 ## What stays the same
 
 Everything in Free keeps working exactly as before. Pro adds features on top and never removes one you already use. Members do not lose access to anything, and your license key is only ever used to keep you on the latest version - it does not switch features on or off.

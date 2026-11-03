@@ -4,7 +4,7 @@ If you run a space, you can see whether it is growing at a glance - without bein
 
 ## What you see
 
-Open your space, then **Admin**. Below the "at a glance" row (members, pending requests, open reports) you'll find **Last 30 days** with four tiles:
+Open your space, then choose **Admin** in the space header, next to **Settings**. The owner, moderators and site administrators see it. Below the "at a glance" row (members, pending requests, open reports) you'll find **Last 30 days** with four tiles:
 
 - **New members** - how many people joined in the last 30 days.
 - **Left** - how many left in the same window.

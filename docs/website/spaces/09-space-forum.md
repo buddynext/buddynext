@@ -18,7 +18,7 @@ When a space owner has turned the discussion on for that space, members see a **
 
 - **Open the forum.** Select the Discussions tab in a space. The space forum opens with BuddyNext's navigation wrapped around it, so it looks and moves like the rest of the community rather than a separate plugin.
 - **One forum per space, created when the owner switches it on.** The space's discussion is created the first time the owner turns it on, so there are no empty forums sitting around on spaces that do not want one.
-- **Start a discussion.** Create a new discussion with a title and body. Unlike a feed post, it carries a subject line and lives as its own thread. The space's **Who can post** setting decides who can do this; anyone below it can still reply and vote. Visitors who are not members are offered Log in or Join instead.
+- **Start a discussion.** Create a new discussion with a title and body. Unlike a feed post, it carries a subject line and lives as its own thread. The space's **Who can post** setting decides who can do this; anyone below it can still reply and vote. When a space has no discussions yet, the empty state shows each visitor their real next step: **Start a discussion** if they may post, **Join to start a discussion** or **Request to join** if they are not a member yet, a note to wait for approval if their request is pending, and **Log in** for guests.
 - **Reply in a thread.** Replies are shown in order under the discussion, so a conversation reads top to bottom instead of branching.
 - **Mention people.** Typing an @-mention in a discussion notifies that member through BuddyNext's normal notifications, the same as a mention anywhere else in the community.
 - **Vote and mark answers.** Discussions and replies can be voted on, and a reply can be accepted as the answer, so the useful response rises to the top.
@@ -51,6 +51,8 @@ Switching it off hides the tab but keeps the discussion and everything in it, so
 To link a different discussion, select **Unlink** next to **Linked discussion** and confirm. The forum, its posts and every space member stay where they are; only the link to this space is removed. Unlinking also switches **Enable discussion** off. Switching it on again brings back the discussion you just unlinked; clear it to create a new discussion instead, or search for another one to link. A member who is banned from or leaves the space afterwards loses access to the old discussion too.
 
 > **Note:** Until Jetonomy is active, the forum does not exist. BuddyNext registers none of its forum navigation or behavior, and pages render exactly as they did before. The integration adds zero overhead on sites that do not use it.
+
+If the link that creates a space's discussion fails, the space page now says why: the link expired, the discussion could not be created, or only the owner or a moderator may start discussions. When trying again can work, the message comes with a fresh link.
 
 ### Feed sync setting
 

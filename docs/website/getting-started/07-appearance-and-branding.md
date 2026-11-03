@@ -14,7 +14,7 @@ Set under **Settings > General**, the **Community name** (and the **Community de
 
 ## Brand color
 
-Under **Settings > Appearance**, **Brand color** is your community's accent. Until you pick one, the picker, your emails and your invoices all show the blue the community already uses, and saving the page without changing it does not count as a pick. It is used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick a color, or paste a hex code if you have an exact brand value. One color change re-themes the whole community consistently - you do not style each element by hand.
+Under **Settings > Appearance**, **Brand color** is your community's accent. Until you pick one, the picker, your emails and your invoices all show the blue the community already uses, and saving the page without changing it does not count as a pick. It is used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick a color, or paste a hex code if you have an exact brand value. One color change re-themes the whole community consistently - you do not style each element by hand. The brand color also sets the theme color of the installed app and the browser bar on phones. The app's start screen follows your default color scheme.
 
 ## Logo
 

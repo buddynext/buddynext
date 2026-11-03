@@ -689,10 +689,33 @@ An importer writes through the services, never raw `bn_*` SQL, and passes each r
 | `BookmarkService::bookmark( $user, $post, $created_at )` | 3rd argument |
 | `ShareService::share( $user, $post, $content, $created_at )` | 4th argument |
 | `IntegrationActivity::publish( ..., $meta, $created_at )` | 9th argument |
+| `PostService::adjust_share_count( $post, $delta, $at )` | 3rd argument, used for a `+1` |
+| `PostService::increment_counter( $post, $column, $at )` | 3rd argument |
+| `SpaceService::touch_activity( $space, $at )` | 2nd argument |
 
 Comments, reactions and shares move their post's `last_activity_at` to their own time, and posts and comments do the same for their space's `last_active_at`. Both only move forward, so records can arrive in any order and the newest one wins. A backdated comment skips the throttle that limits live comments to one space write every five minutes.
 
 These arguments are for server-side callers. No REST route accepts them, so a member cannot backdate their own content.
+
+## Recipe 18 - Create a site invite and read what happened (1.2.8)
+
+`InviteService::create( string $email, string $first_name = '', int $ttl_days = DEFAULT_TTL_DAYS, int $space_id = 0, bool $may_attach = false )` returns an array, not an id: `array{ status: string, invite_id: int }`. `invite_id` is `0` when no invite was written. Branch on `status`:
+
+| `status` | Meaning |
+|---|---|
+| `sent` | New invite. `wp_mail()` accepted the email. |
+| `queued` | New invite. The email went to Action Scheduler. A failed send later marks the row `bounced`. |
+| `mail_failed` | New invite saved, but `wp_mail()` refused the email. The row is `bounced` and can be resent. |
+| `attached` | The address had a pending invite with no space. It now leads to `$space_id`. No new email. Only when `$may_attach` is true, which is for site managers. |
+| `already_invited` | The address has a pending invite this call left unchanged. No new email. |
+| `invited_elsewhere` | The address has a pending invite to a different space. |
+| `existing_member` | The address already has an account. |
+| `invalid` | Empty or malformed email. |
+| `failed` | The row could not be written. |
+
+Never report a duplicate as sent. Only `sent`, `queued` and `attached` mean the person has a working invite.
+
+`InviteService::import_from_csv( $inviter_id, $csv_path )` returns `imported`, `queued`, `mail_failed`, `skipped`, `reasons` (`already_invited`, `existing_member`, `invalid`), `errors`, `not_read` and `max_rows`. `not_read` counts the rows the row cap (filter `buddynext_invite_csv_max_rows`) left unread.
 
 ## Notes and gotchas
 

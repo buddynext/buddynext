@@ -40,6 +40,10 @@ Pro is a separate plugin installed alongside Free (upload its zip under **Plugin
 
 None of them are required for the social core to work. Each adds one specific capability: MediaVerse (direct messaging and photo/file uploads), Jetonomy (forums), WB Gamification (points, badges, levels), WP Career Board (jobs), Learnomy (courses and certificates), WB Listora (directory listings), Eventonomy (events), and WB Member Blog (front-end post publishing). Install only the ones your community needs - a companion plugin you never install costs nothing in performance, and removing one only disables the feature it powered. See [Integrations Overview](../integrations/01-overview.md).
 
+## Which languages does BuddyNext come in?
+
+BuddyNext and BuddyNext Pro ship with translations for German, Spanish, French, Italian, Japanese, Korean, Dutch, Brazilian Portuguese, Russian and Simplified Chinese. WordPress loads the one that matches your site language under **Settings > General > Site Language**. Strings that are not translated yet show in English.
+
 ## Related
 
 - [Installing BuddyNext](../getting-started/02-installation.md)

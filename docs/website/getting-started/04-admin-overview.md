@@ -61,6 +61,16 @@ The admin had a full quality pass in 1.0.4, so screenshots from earlier versions
 
 ![The License screen, now one click from the admin menu](../images/admin-license.webp)
 
+## Admin screens in 1.2.8
+
+- **The menu folds on phones.** Below 783px wide, the BuddyNext admin menu folds behind one button that names where you are, such as "Members > Pending". Tap it to see the full menu. Tablets and desktop keep the side menu.
+- **The setup reminder can be hidden.** "BuddyNext setup is not complete" shows only on the Dashboard and BuddyNext screens, not on other plugins' screens. Use **Hide this message** to hide it for your own account.
+- **A greyed-out setting keeps its value.** When a control is greyed out because something it depends on is off, saving the screen leaves its stored value alone. For example, saving with Reactions off no longer resets your chosen reactions.
+- **Features rows link to their settings.** On **Platform > Features**, a feature that has its own settings screen, such as Push, Realtime or the AI features, shows **Open its settings** while it is on. The link opens the screen inside the BuddyNext admin.
+- **Integration Settings shows the next step.** Each companion that is not yet connected shows its real next action: **Activate**, **Install** on its card, or **Needs BuddyNext Pro**. A companion that needs Pro also carries a **Connects with BuddyNext Pro** badge on its Add-ons card, with one button to activate or get Pro. A box is named as active only when its companion plugin is active.
+- **Failed installs say why.** If a companion install fails on **Platform > Add-ons**, the error shows under the button on that card.
+- **Bulk Delete asks first.** Bulk **Delete** on Spaces and Members asks you to confirm and names how many items it will remove. Afterwards the result says what really happened, including any that failed and the limit on featured spaces.
+
 ## Dark mode follows your theme (1.0.7)
 
 The Appearance tab controls your community's brand color, and dark mode rides along with it automatically. BuddyNext does not have its own light/dark switch - it follows the toggle your theme already provides. If your site runs BuddyX or Reign, switching that theme's light/dark toggle switches BuddyNext with it, with no extra setup.
@@ -110,6 +120,14 @@ Two slots stay pinned and show a fixed handle instead of a draggable one:
 - **Profile**, the fixed last slot.
 
 Everything else in the bar (Activity, Spaces, Notifications, and any tab a plugin adds) reorders freely around them, and the front-end bar honours the order you save.
+
+### Tab bars and the More menu (1.2.8)
+
+The tab bars on profiles, spaces, space settings, member settings and feed filters no longer scroll sideways. Every tab that fits stays in the bar, and only the tabs that do not fit fold into a **More** menu. The tab a member is on never folds, and a bar with room for every tab shows no More. Tabs added by integrations fold the same way, with nothing to set up.
+
+### Mobile menu (1.2.8)
+
+On a phone, the **More** sheet is always there, on any theme. It lists Members, Explore, Messages, Bookmarks and Settings, so they stay reachable even when the bottom bar has no room for them. The sheet is built from the same list as the left rail.
 
 ## Jump to any setting with the command palette
 

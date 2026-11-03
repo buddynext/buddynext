@@ -22,7 +22,7 @@ For an owner, polls turn the feed into a two-way channel. Use one to settle a de
 2. Switch the composer to poll mode using the poll tool.
 3. Type your **question** in the main composer field. The question is required, the same as the text on any other post.
 4. Fill in the answer **options**. The composer gives you two required option fields plus three optional ones, so a poll can offer up to five choices.
-5. Optionally set a **closing date and time** in the "Poll ends" field. Leave it blank to keep the poll open indefinitely.
+5. Optionally set a **closing date and time** in the "Poll ends" field. The picker starts at the current time, and the composer says the end must be in the future. Leave it blank to keep the poll open indefinitely.
 6. Post it. The poll appears in the feed as a card showing the question and its options.
 
 > **Note:** A poll needs at least two options and offers up to five. The composer will not let you post a poll with fewer than two filled-in options.
@@ -53,7 +53,7 @@ When the setting is off, the poll tool no longer appears in the composer and mem
 - **One vote per person.** Each member can hold one vote on a poll at a time. They can switch it to another option or remove it, but they cannot stack multiple votes.
 - **The question is required.** A poll posts as a normal feed post whose text is the question, so an empty question is not allowed.
 - **Results are live.** There is no "submit" step and no waiting. The moment a vote lands, every viewer's card reflects the new totals on their next view.
-- **Optional closing date.** A poll can carry a closing date and time, set in the composer's "Poll ends" field. Once that time passes, the poll stops accepting votes and the card shows a "Poll closed" state; the results stay visible. Leave the field blank and the poll stays open and votable for as long as the post exists.
+- **Optional closing date.** A poll can carry a closing date and time, set in the composer's "Poll ends" field. Once that time passes, the poll stops accepting votes and the card shows a "Poll closed" state; the results stay visible. A past or invalid end time, or one before the post's scheduled publish time, is refused with a message. Leave the field blank and the poll stays open and votable for as long as the post exists.
 
 ## Related
 

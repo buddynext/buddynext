@@ -98,6 +98,8 @@ The message that carries the confirmation link is a standard BuddyNext email, se
 - **Link expiry.** A confirmation link is valid for 48 hours after it is sent. If a member clicks an old link, they are told it has expired and asked to request a new one - which they do with the **Resend** button.
 - **Resending replaces the old link.** Each resend issues a fresh link and clears the previous pending one, so only the newest link works. Always tell members to use the most recent email.
 - **Already verified.** If a member who is already verified tries to resend, BuddyNext tells them their address is already confirmed and does not send another email.
+- **One answer to "is it required?".** Verification counts as required only when the **Email verification** feature is on and **Require email verification** is ticked. If you switch the feature off, the setting keeps its value but nothing is required, nobody is sent to an inbox and the Check your inbox page sends visitors on to the feed.
+- **Expired or pending link while signed out.** A visitor who opens an expired or pending link and is not signed in sees **Sign in** instead of a resend button. After signing in they come back to the page and can ask for a fresh link.
 - **Verification off.** If you never turn the feature on, or leave the require toggle off, every account counts as verified automatically and members go straight into the community after sign-up.
 
 ## Related

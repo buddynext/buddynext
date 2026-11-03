@@ -39,7 +39,10 @@ The media viewer (the full-screen lightbox a member gets when they click a photo
 - **Report** - sends the media to moderators for review. It only appears while media reporting is on (see below).
 - **Block** - blocks the member who uploaded it. This blocks the *person*, not the file, and it is BuddyNext's own block, exactly the same as blocking someone from their profile.
 
-Both are hidden on your own media. The same menu also offers **Edit** where the viewer may edit the item, and **Remove from space** for a space owner or moderator looking at media on a space drive.
+Both are hidden on your own media. The same menu also offers **Edit** where the viewer may edit the item, **Delete** for the person allowed to delete it, and **Remove from space** for a space owner or moderator looking at media on a space drive.
+
+- **Delete moves to the trash.** The viewer's **Delete** and the **Remove** on a media tile do the same thing: the item goes to the trash and can be restored, under one rule and one message. A post whose only media was that item is hidden until you restore it. Nothing is deleted for good from here.
+- **Allow downloads applies on Save.** In the viewer's **Edit** panel, **Allow downloads** takes effect as soon as you save, with no page reload, in the viewer and on every tile of that item on the page. Turning it off removes the **Download** button and the player's download option. Audio and video players also lose the right-click menu. The hint under the switch says it cannot stop someone who can play or see the file from saving or recording it, so treat it as a deterrent.
 
 This matters more than it looks. The bridge sends the standalone media page back to the post the media came from, which is what keeps a member inside the community rather than bouncing them into a separate media plugin's page. That page happened to be the one carrying MediaVerse's own Report button - so without these controls, a BuddyNext community would have had no way at all for a member to report a photo. The lightbox is the media viewer on a BuddyNext site, so the controls belong there.
 
@@ -74,11 +77,13 @@ If the plugin is already installed but switched off, the card shows an **Activat
 
 The moment MediaVerse is active alongside BuddyNext, the bridge between them attaches automatically. There is nothing further to configure for basic messaging - the engine's own chat panel, standalone messages page, and notifications step aside so BuddyNext owns the experience. Members get direct messaging, media in posts, and the Media sidebar link with no extra setup.
 
-Messages are switched on or off in one place: **MediaVerse > Settings > Messages** ("Turn on private messages"). BuddyNext only shows the status. **Platform > Features** shows whether Direct messages are on and links to that setting, and **Settings > General > Direct Messaging** shows the current "Who can message members" level with a **Change in MediaVerse** button. With Messages off, the Messages page, the Message buttons and message notifications are hidden, and stored conversations are kept for when you turn it back on.
+Messages are switched on or off in MediaVerse (**MediaVerse > Settings > Messages**, "Turn on private messages"). When they are off, the **Direct messages** row under **Platform > Features** offers a one-click **Turn on** (or **Install MediaVerse** if it is missing), and the setup checklist has a **Turn on messages** step that completes once messaging is on. **Platform > Features** shows whether Direct messages are on and links to that setting, and **Settings > General > Direct Messaging** shows the current "Who can message members" level with a **Change in MediaVerse** button. With Messages off, the Messages page, the Message buttons and message notifications are hidden, and stored conversations are kept for when you turn it back on.
 
 Who can message whom is MediaVerse's own rule: the site-wide level set there, which members can keep or tighten in their BuddyNext privacy settings, plus BuddyNext's blocks (see Direct Messaging and Blocking and Muting).
 
-Under **Integration Settings**, the Media card has two switches: **Show in navigation** (the Media link and profile Media tab) and **Post to the activity feed** (cards for public uploads), plus an **Albums** sub-tab switch. Direct messaging does not depend on these switches.
+Under **Integration Settings**, the Media card has two switches: **Show in navigation** (the Media link and profile Media tab) and **Post to the activity feed** (cards for public uploads), plus an **Albums** sub-tab switch. Direct messaging does not depend on these switches. The Media **Post to the activity feed** switch stops only the automatic cards for uploads. Members can still attach documents to posts, and their document posts keep showing.
+
+@handles work in MediaVerse mentions and document shares too: a member's custom profile handle resolves to the right community member (needs MediaVerse 2.6.3 or later).
 
 One BuddyNext setting does apply to media, on **Settings > General**:
 

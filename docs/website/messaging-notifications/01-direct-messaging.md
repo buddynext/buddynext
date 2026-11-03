@@ -67,6 +67,8 @@ The messaging controls live in **MediaVerse > Settings > Messages** (the Social 
 - **Messages go through the same content safeguards as posts.** A message containing a site-wide banned word or a blocked link domain is rejected outright, the same as a post - the sender sees why. (Because a message is not posted into a space, a space's own banned-word list is not checked.) See Content Safeguards.
 - Blocking prevents messaging in both directions. If either member has blocked the other, neither can send a message - the block is checked on every send. The sender is told why the send was refused, so a block, a "No one" choice and a "People you follow back" choice each produce an accurate notice rather than a generic error.
 - "Who can message me" is enforced on send by MediaVerse, using the same follows members see in BuddyNext. A member set to "No one" cannot be reached by direct message at all.
+- **Old photos still show as photos.** A photo sent as a plain attachment in an older conversation shows as a photo tile and opens full size in a new tab. Other files keep the file chip.
+- **Leaving a group can be refused.** If leaving a group chat fails, you stay in the conversation and a message says why.
 - The empty state is normal. A brand-new account with no conversations sees an empty inbox until someone messages them or they start a conversation.
 
 ## Free vs Pro

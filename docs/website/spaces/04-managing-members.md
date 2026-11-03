@@ -42,6 +42,17 @@ If you are an owner or moderator (and in spaces where members are allowed to inv
 
 > **Note:** Who is allowed to send invites is a space setting. By default only moderators and the owner can invite, but the owner can open invites to all members. See Setting it up below.
 
+The **Invite** button follows the space's **Who can invite new members** setting. If the owner opens invites to all members, every member sees it. If it is set to moderators and owner, only they see it. Being able to manage the space is no longer what decides it.
+
+When you invite by email address, the answer depends on your role:
+
+- **Owners and moderators** see one neutral answer for every address that cannot be invited right now, whether the person is already a member, already invited, or the space is archived. This stops anyone using the invite box to find out who has an account or who belongs to a space. The message says the address cannot be invited right now and that anyone who already has an invitation can use that one.
+- **Site managers** (people who can review the moderation queue) see the real reason, such as already a member or already invited.
+- Owners and moderators can send up to 30 email invitations per hour. Past that, BuddyNext asks them to try again later. Site managers have no limit.
+- Only a site manager can re-send a pending invitation to a different address.
+
+An invite to a person who is already a member or already invited is never reported as sent.
+
 To bring in many people at once rather than one at a time, share the space's invite link instead. See [Invite people with a link](11-invite-with-a-link.md).
 
 ### Approving and declining join requests

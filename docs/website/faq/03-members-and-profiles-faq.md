@@ -38,6 +38,14 @@ Not currently - there is no per-member privacy control to turn off the online in
 
 Manage everything you have blocked, muted, or restricted from one list in your own profile settings. See [Blocking and Muting](../members/08-blocking-and-muting.md).
 
+## Why does my profile say a value "can be at most" some characters?
+
+Some profile text has a length limit: headline 160 characters, bio 1000, location 120 and pronouns 40. When a value is too long the form shows the message next to that field and keeps what you typed, so you can shorten it. Nothing is cut off for you. See [Custom Profile Fields](../members/02-profile-fields.md).
+
+## Can I change my member type after I pick it?
+
+It depends on the type. If the site owner set the type to **Lock it once chosen**, you can pick it once, and the form warns you first. After that only an admin can change it. Other types you can change or clear from your profile edit page. See [Member Types](../members/05-member-types.md).
+
 ## What happens to my data if I delete my account?
 
 Deletion is a full erasure with no "keep my content" option: your profile data, preferences, follows, connections, and blocks are erased, and your posts and comments are permanently deleted along with the account. This can't be undone. If you only want to step away rather than close the account for good, consider making your profile private or muting people instead. See [Privacy and Data](../accounts-access/08-privacy-and-data.md).

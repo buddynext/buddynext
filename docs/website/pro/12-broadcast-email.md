@@ -49,6 +49,7 @@ Open **Campaigns > Broadcasts**. The page lists your campaigns (Name, Subject, S
 
 1. **Campaign name** - an internal name so you can find the campaign in your list. Members never see it.
 2. **Compose** - the subject line and the message body. The composer accepts HTML for headings, links, and formatting. Merge tags you can use are `{{first_name}}`, `{{user_name}}`, `{{user_email}}`, `{{site_name}}`, `{{site_url}}`, `{{login_url}}`, `{{unsubscribe_url}}` and `{{current_year}}`.
+   A live preview of the email sits beside the editor. It runs in a sandboxed frame, so a script in the body does not run in your admin session.
 3. **Segment** - who should receive it (see the segment table below).
 4. **Schedule** (optional) - a date and time to send automatically, interpreted in your site's timezone. Leave it blank to keep the campaign as a draft you send manually. A time in the past is refused with a message. The campaign list shows the send time in your site's timezone under **Scheduled for**.
 5. Use **Create campaign** to save it. With no schedule the campaign starts as a draft; with a schedule set it is queued to send at that time. If something is missing or refused, the form comes back with what you typed.

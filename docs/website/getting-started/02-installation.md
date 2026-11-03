@@ -46,6 +46,8 @@ Pro is a separate plugin that you install on top of the free one. It is not in t
 4. Click **Activate**.
 5. Go to **BuddyNext > Get Started > License**, paste your Pro license key, and activate it. The License tab appears only once Pro is active.
 
+Licence checks and update checks go to `updates.wbcomdesigns.com` and fall back to `wbcomdesigns.com` on their own if that address cannot be reached. If your firewall limits outgoing requests, allow both addresses.
+
 > **Note:** The license key gates **updates only**. It never unlocks or locks features. Pro is fully functional after activation, and the key simply lets your site receive Pro updates. Keep it active so you get security and feature updates.
 
 ## Optional companion plugins
