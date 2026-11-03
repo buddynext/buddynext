@@ -54,6 +54,8 @@ Every field carries the following controls.
 | Sort order | The position of the field within its group. Lower numbers appear first. | Appended last |
 | Width | How much of a row the field takes on the profile edit and signup forms: **Auto**, **Half row** or **Full row**. Two Half fields in a row sit side by side, so you can pair ZIP and City under a full-width Street. Auto keeps the usual layout: on the profile edit form paragraphs and choice lists take a full row and other fields half; on the signup form every field takes a full row. Phones always show one field per row. The profile itself (the About tab) is not affected. | Auto |
 
+![Profile Fields admin with a field's Width set to Half row](../images/admin-profile-fields-width.webp)
+
 ### Group controls
 
 | Control | What it controls | Default |
@@ -63,6 +65,12 @@ Every field carries the following controls.
 | Visibility | Section-level visibility that sets the ceiling for every field inside it (same five levels). Group visibility is the ceiling; each field starts at its default and a member may set their own field anywhere up to that ceiling. | Members only |
 | Intro | Optional text shown above the group's fields on the profile edit form and, when the group has fields on it, the signup form - for example "These details are only visible to staff and are used for club administration." Edit it with the pencil next to the group name. It is guidance for filling in the form, so it is not shown on the member's profile. | Empty (nothing shown) |
 | Sort order | The position of the group on the profile. Lower numbers appear first. | Appended last |
+
+![Editing a group's name and intro from the pencil next to the group name](../images/admin-profile-group-intro.webp)
+
+![Edit Profile with the group intro above a full-width Street and ZIP and City side by side](../images/profile-edit-field-width.webp)
+
+![The sign-up form with the group intro and two Half row fields sharing a row](../images/member-signup-field-width.webp)
 
 ### Field types (free plan)
 

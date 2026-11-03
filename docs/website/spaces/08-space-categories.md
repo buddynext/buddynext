@@ -37,6 +37,8 @@ Categories are managed in the admin under BuddyNext > Spaces > Directory, in the
 | Show in the spaces directory | Whether the category appears as a filter option for members in the directory. | On |
 
 
+![Adding a space category with the Use for choice](../images/admin-space-categories-use-for.webp)
+
 ### Main spaces, subspaces, or both
 
 Use for lets one category list serve two levels of organisation. A community where top-level spaces are clubs and their subspaces are the events those clubs run can set its club categories to **Main spaces only** and its event categories to **Subspaces only**. Members then see only the categories that fit the space they are creating or editing, and the choice follows them if they pick or change a parent space.

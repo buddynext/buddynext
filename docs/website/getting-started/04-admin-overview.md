@@ -71,6 +71,8 @@ The admin had a full quality pass in 1.0.4, so screenshots from earlier versions
 - **Failed installs say why.** If a companion install fails on **Platform > Add-ons**, the error shows under the button on that card.
 - **Bulk Delete asks first.** Bulk **Delete** on Spaces and Members asks you to confirm and names how many items it will remove. Afterwards the result says what really happened, including any that failed and the limit on featured spaces.
 
+![A Platform > Features row that is on, with its Open its settings link](../images/admin-features-open-settings.webp)
+
 ## Dark mode follows your theme (1.0.7)
 
 The Appearance tab controls your community's brand color, and dark mode rides along with it automatically. BuddyNext does not have its own light/dark switch - it follows the toggle your theme already provides. If your site runs BuddyX or Reign, switching that theme's light/dark toggle switches BuddyNext with it, with no extra setup.
@@ -102,6 +104,8 @@ If an integration's **Show in navigation** switch is off in **Settings > Integra
 
 Custom links can be added to the Main Navigation. The other four surfaces list the items that exist; they are extended in code rather than from this screen.
 
+![Settings > Navigation Profile Tabs, listing integration tabs with their source badges in site order](../images/admin-navigation-profile-tabs.webp)
+
 ### The Account Dropdown (1.0.8)
 
 The header avatar menu is new to this screen in 1.0.8. Previously it was the one navigation surface with no admin control at all - hiding Bookmarks, renaming a link, or reordering the menu meant writing code. It is now a scope like any other, so it hides, renames, reorders, and gates by capability from the same panel as everything else.
@@ -124,6 +128,8 @@ Everything else in the bar (Activity, Spaces, Notifications, and any tab a plugi
 ### Tab bars and the More menu (1.2.8)
 
 The tab bars on profiles, spaces, space settings, member settings and feed filters no longer scroll sideways. Every tab that fits stays in the bar, and only the tabs that do not fit fold into a **More** menu. The tab a member is on never folds, and a bar with room for every tab shows no More. Tabs added by integrations fold the same way, with nothing to set up.
+
+![A profile tab bar on a phone, with the tabs that do not fit in the open More menu](../images/profile-tabs-more-mobile.webp)
 
 ### Mobile menu (1.2.8)
 
