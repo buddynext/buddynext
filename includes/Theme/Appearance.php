@@ -264,9 +264,13 @@ class Appearance {
 		// colour, deepened only as far as a white label needs (--bn-accent-fg),
 		// and a genuinely light colour keeps its fill with a dark label. Both
 		// follow the --bn-accent pinned above, so they never disagree.
-		$css .= '.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]{'
+		// The Follow button in a sidebar member row is an accent OUTLINE on
+		// purpose (bn-base.css, .bn-member-row .bn-follow-btn); it takes the
+		// accent through its text and border, so the fill reassert skips it.
+		$bn_primary = '.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]:not(.bn-member-row .bn-follow-btn)';
+		$css       .= $bn_primary . '{'
 			. 'background-color:var(--bn-accent-solid)!important;border-color:var(--bn-accent-solid)!important;color:var(--bn-accent-fg)!important;}'
-			. '.bn-app .bn-btn--primary:hover,.bn-app .bn-btn[data-variant="primary"]:hover{'
+			. '.bn-app .bn-btn--primary:hover,.bn-app .bn-btn[data-variant="primary"]:not(.bn-member-row .bn-follow-btn):hover{'
 			. 'background-color:color-mix(in oklch,var(--bn-accent-solid) 82%,black)!important;'
 			. 'border-color:color-mix(in oklch,var(--bn-accent-solid) 82%,black)!important;}';
 
