@@ -23,6 +23,10 @@
  *                          account to act on, so it is off for logged-out
  *                          visitors and meaningless on your own profile.
  * @var string $edit_url    Non-empty renders "Edit profile" (moderator capability).
+ * @var bool   $fit         The row shows Share inline and folds it here only when
+ *                          it does not fit (shell/extras.js data-bn-fit): the share
+ *                          items become copies, hidden until folded, and the menu
+ *                          hides itself when nothing is folded.
  * @var string $message_url Non-empty renders "Message" as the first item, shown
  *                          ONLY below 640px. Above that the row shows Message as
  *                          its own control and this copy stays hidden — see
@@ -44,8 +48,9 @@ $bn_ov_safety   = ! empty( $show_safety );
 $bn_ov_edit     = isset( $edit_url ) ? (string) $edit_url : '';
 $bn_ov_message  = isset( $message_url ) ? (string) $message_url : '';
 $bn_ov_reported = ! empty( $has_reported );
+$bn_ov_fit      = ! empty( $fit );
 ?>
-<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen" data-wp-class--is-flipped="context.moreMenuFlip">
+<div class="bn-more-menu-wrap"<?php echo $bn_ov_fit ? ' data-bn-fit-more hidden' : ''; ?> data-wp-class--is-open="context.moreMenuOpen" data-wp-class--is-flipped="context.moreMenuFlip">
 	<button class="bn-btn bn-pf-more-trigger"
 		data-variant="secondary"
 		data-size="sm"
@@ -93,6 +98,7 @@ $bn_ov_reported = ! empty( $has_reported );
 			<button class="bn-more-menu-item"
 				type="button"
 				role="menuitem"
+				<?php echo $bn_ov_fit ? 'data-bn-fit-copy="share" hidden' : ''; ?>
 				data-share-url="<?php echo esc_attr( $bn_ov_profile ); ?>"
 				data-wp-on--click="actions.shareProfile">
 				<?php buddynext_icon( 'share-2' ); ?>
@@ -101,7 +107,7 @@ $bn_ov_reported = ! empty( $has_reported );
 		<?php endif; ?>
 
 		<?php if ( '' !== $bn_ov_mention ) : ?>
-			<a class="bn-more-menu-item" role="menuitem" href="<?php echo esc_url( $bn_ov_mention ); ?>">
+			<a class="bn-more-menu-item" role="menuitem" <?php echo $bn_ov_fit ? 'data-bn-fit-copy="mention" hidden' : ''; ?> href="<?php echo esc_url( $bn_ov_mention ); ?>">
 				<?php buddynext_icon( 'message-circle' ); ?>
 				<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
 			</a>

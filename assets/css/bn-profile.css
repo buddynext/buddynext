@@ -1202,8 +1202,12 @@
 .bn-pf-meta__item a:hover,
 .bn-pf-meta__item a:focus-visible { text-decoration: underline; }
 
-/* Actions column */
+/* Actions column. min-width: 0 keeps the row inside the head's column: as a
+   grid item it otherwise grows to its content, which on a narrow phone pushed
+   the page wider instead of letting the fit-or-fold row (data-bn-fit) see that
+   it had run out of room. */
 .bn-pf-actions {
+	min-width: 0;
 	display: flex;
 	gap: var(--bn-s2);
 	flex-wrap: wrap;
