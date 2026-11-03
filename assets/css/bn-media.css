@@ -687,6 +687,11 @@ body.bn-lightbox-open { overflow: hidden; }
 	font-weight: var(--bn-fw-medium);
 	color: var(--bn-ink-2);
 }
+.bn-lightbox__field-hint {
+	margin: -4px 0 0;
+	font-size: var( --bn-text-xs );
+	color: var( --bn-ink-3 );
+}
 .bn-lightbox__field-input {
 	font: inherit;
 	font-size: var( --bn-text-sm, 0.875rem );

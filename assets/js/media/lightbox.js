@@ -1170,6 +1170,11 @@
 		host.appendChild( field( __( 'Description' ), desc ) );
 		host.appendChild( field( __( 'Privacy' ), privacy ) );
 		host.appendChild( field( __( 'Allow downloads' ), dl ) );
+		// Say what the switch can and cannot do, so an owner does not rely on it as protection.
+		var dlHint = document.createElement( 'p' );
+		dlHint.className = 'bn-lightbox__field-hint';
+		dlHint.textContent = __( 'Off removes the Download button and the player\'s download option. It cannot stop someone who can play or view it from saving or recording it.' );
+		host.appendChild( dlHint );
 
 		var actions = document.createElement( 'div' );
 		actions.className = 'bn-lightbox__panel-actions';
@@ -1307,6 +1312,16 @@
 	function isOpenableType( type ) {
 		return 'image' === type || 'video' === type || 'audio' === type;
 	}
+
+	// Downloads off: our players (tiles, this viewer, DMs) carry
+	// controlsList="nodownload", which drops Download from the browser's player
+	// menu; refuse the right-click menu on them too, so "Save audio as" is not
+	// one click away. A deterrent - anyone who can play the file can record it.
+	document.addEventListener( 'contextmenu', function ( e ) {
+		if ( e.target.closest && e.target.closest( 'audio[controlslist~="nodownload"], video[controlslist~="nodownload"]' ) ) {
+			e.preventDefault();
+		}
+	} );
 
 	// Delegated open. Audio keeps its inline native player, so a click on that
 	// player must PLAY, not open — skip clicks that land inside an <audio>/<video>
