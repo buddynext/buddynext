@@ -613,16 +613,18 @@
 
    No card, no fill, no border. A boxed notice reads as a system message bolted
    onto the profile; the buttons already carry their own edges, so the sentence
-   plus spacing is enough to group them. Separation here is rhythm, not chrome. */
+   plus spacing is enough to group them. Separation here is rhythm, not chrome.
+
+   No margins: .bn-pf-head is a grid, and its row gap (20px, 12px on phones)
+   already separates this block from the identity above and the action row
+   below, more than the 8px inside it, so Accept/Decline still read as their
+   own pair. A margin here stacked on that gap and opened a 40px hole under
+   the request. */
 .bn-pf-request {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
-	margin-block: var(--bn-s3) var(--bn-s5);
 }
-/* The gap below is doing the work the removed box used to do. Without it Accept
-   and Follow sit 8px apart as two solid blue blocks and read as one undivided
-   set of four buttons - which is the ambiguity this whole change is about. */
 .bn-pf-request[hidden] { display: none; }
 .bn-pf-request__text {
 	margin: 0;
@@ -1204,10 +1206,28 @@
 .bn-pf-actions {
 	display: flex;
 	gap: var(--bn-s2);
-	padding-block-start: var(--bn-s4);
 	flex-wrap: wrap;
 	justify-content: flex-end;
 	align-items: center;
+}
+/* Side by side with the name only: the padding lines the buttons up with it.
+   Stacked (the container query above, the 1024/768 rules below), the head's
+   row gap spaces the row; padding there stacked on the gap. */
+@container (min-width: 901px) {
+	.bn-pf-actions { padding-block-start: var(--bn-s4); }
+}
+
+/* Side by side with a pending request: the request and the action row share
+   the right-hand column, request on top. Left to auto-placement the request
+   took that column and pushed the action row onto a new line under the
+   avatar. The 1024px rule below drops back to one column. */
+@media (min-width: 1025px) {
+	@container (min-width: 901px) {
+		.bn-pf-head:has( > .bn-pf-request:not([hidden]) ) > .bn-pf-avatar-wrap { grid-column: 1; grid-row: 1 / span 2; }
+		.bn-pf-head:has( > .bn-pf-request:not([hidden]) ) > .bn-pf-id { grid-column: 2; grid-row: 1 / span 2; }
+		.bn-pf-head > .bn-pf-request:not([hidden]) { grid-column: 3; grid-row: 1; padding-block-start: var(--bn-s4); }
+		.bn-pf-head:has( > .bn-pf-request:not([hidden]) ) > .bn-pf-actions { grid-column: 3; grid-row: 2; padding-block-start: 0; justify-content: flex-start; }
+	}
 }
 
 /* Connected (settled) — quiet outline matching the member-card treatment:
@@ -1863,6 +1883,7 @@ a.bn-space-row:hover .bn-space-name {
 	.bn-pf-actions {
 		justify-self: start;
 		justify-content: flex-start;
+		padding-block-start: 0;
 	}
 }
 
