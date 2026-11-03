@@ -935,6 +935,9 @@ function buddynext_nav_panel_id( string $slug ): string {
  * the `buddynext_profile_fields` groups on first call.
  *
  * @param array<string,mixed> $args Field definition (group_key, key, label, type, …).
+ *                                  Optional `width`: 'auto' (default), 'half' or
+ *                                  'full', the field's width on the edit and
+ *                                  sign-up forms.
  * @return void
  */
 function buddynext_register_profile_field( array $args ): void {

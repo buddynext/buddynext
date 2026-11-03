@@ -284,6 +284,35 @@
 	gap: 6px;
 }
 
+/* Profile fields on the sign-up form. Every field takes the full row unless
+   the owner set it to Half (Profile Fields > Width); two Half fields share a
+   row. Phones: one field per row. GitHub #217. */
+.bn-auth-profile-fields {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--bn-s4) var(--bn-s3);
+}
+.bn-auth-profile-fields > * {
+	grid-column: 1 / -1;
+	min-width: 0;
+}
+.bn-auth-profile-fields > .bn-auth-field--half {
+	grid-column: auto;
+}
+@media (max-width: 480px) {
+	.bn-auth-profile-fields > .bn-auth-field--half {
+		grid-column: 1 / -1;
+	}
+}
+/* A group's intro (owner help text), above that group's first field. */
+.bn-auth-group-intro {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: 1.45;
+	white-space: pre-line;
+}
+
 .bn-auth-field__row {
 	display: grid;
 	grid-template-columns: 1fr 1fr;

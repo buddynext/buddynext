@@ -491,8 +491,12 @@ class Installer {
 	 *  74: the never-verified cleanup now reads a new marker only BuddyNext's own
 	 *      sign-up sets, so the old buddynext_verify_pending rows are removed.
 	 *      Housekeeping: nothing reads them. Data only; no table change.
+	 *  75: bn_profile_fields.width (auto|half|full, default auto = the old
+	 *      by-type layout) and bn_profile_groups.intro (optional text shown above
+	 *      a group's fields on the edit and sign-up forms). dbDelta ADDs both;
+	 *      existing sites render exactly as before. GitHub #217.
 	 */
-	private const SCHEMA_VERSION = 74;
+	private const SCHEMA_VERSION = 75;
 
 	/**
 	 * Bump when a default in email_default_history() changes, so the upgrade moves
@@ -3056,6 +3060,14 @@ class Installer {
 				// edit + signup) and input placeholder. Empty = render nothing.
 				'description'      => 'ADD COLUMN description VARCHAR(255) DEFAULT NULL',
 				'placeholder'      => 'ADD COLUMN placeholder VARCHAR(255) DEFAULT NULL',
+				// v75: owner-chosen width on the edit and sign-up forms. 'auto' keeps
+				// the by-type layout (FieldType::layout_width()).
+				'width'            => "ADD COLUMN width VARCHAR(8) NOT NULL DEFAULT 'auto'",
+			),
+			// v75: optional intro shown above the group's fields on the edit and
+			// sign-up forms. Empty = nothing renders.
+			'bn_profile_groups'   => array(
+				'intro' => 'ADD COLUMN intro TEXT NULL',
 			),
 
 			// Members-tier searchable content, kept in its OWN column so it can never be
@@ -5095,6 +5107,7 @@ class Installer {
 				is_system TINYINT(1) NOT NULL DEFAULT 0,
 				sort_order INT NOT NULL DEFAULT 0,
 				type_restriction VARCHAR(100) DEFAULT NULL,
+				intro TEXT NULL,
 				PRIMARY KEY (id),
 				UNIQUE KEY  group_key (group_key),
 				KEY         type_res (type_restriction)
@@ -5116,6 +5129,7 @@ class Installer {
 				is_system TINYINT(1) NOT NULL DEFAULT 0,
 				visibility ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order INT NOT NULL DEFAULT 0,
+				width VARCHAR(8) NOT NULL DEFAULT 'auto',
 				PRIMARY KEY   (id),
 				UNIQUE KEY    field_key (field_key),
 				KEY           group_idx (group_id)

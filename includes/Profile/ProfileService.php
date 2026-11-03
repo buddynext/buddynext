@@ -209,6 +209,7 @@ class ProfileService {
 				g.is_system    AS group_is_system,
 				g.sort_order   AS group_sort_order,
 				g.type_restriction AS group_type_restriction,
+				g.intro        AS group_intro,
 				f.id           AS field_id,
 				f.field_key,
 				f.label        AS field_label,
@@ -216,6 +217,7 @@ class ProfileService {
 				f.options,
 				f.description,
 				f.placeholder,
+				f.width,
 				f.is_required,
 				f.is_searchable,
 				f.show_on_register,
@@ -245,6 +247,7 @@ class ProfileService {
 					'is_system'        => (bool) $row['group_is_system'],
 					'sort_order'       => (int) $row['group_sort_order'],
 					'type_restriction' => isset( $row['group_type_restriction'] ) ? (string) $row['group_type_restriction'] : '',
+					'intro'            => (string) ( $row['group_intro'] ?? '' ),
 					'fields'           => array(),
 				);
 			}
@@ -259,6 +262,7 @@ class ProfileService {
 					'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
 					'description'      => (string) ( $row['description'] ?? '' ),
 					'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
+					'width'            => FieldType::sanitize_width( $row['width'] ?? 'auto' ),
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
 					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
@@ -356,6 +360,7 @@ class ProfileService {
 			'options'          => $field['options'] ?? null,
 			'description'      => sanitize_text_field( (string) ( $field['description'] ?? '' ) ),
 			'placeholder'      => sanitize_text_field( (string) ( $field['placeholder'] ?? '' ) ),
+			'width'            => FieldType::sanitize_width( $field['width'] ?? 'auto' ),
 			'is_required'      => ! empty( $field['is_required'] ),
 			'is_searchable'    => ! empty( $field['is_searchable'] ),
 			'show_on_register' => ! empty( $field['show_on_register'] ),
@@ -393,6 +398,8 @@ class ProfileService {
 					continue;
 				}
 				$field['group_key'] = $group['group_key'] ?? '';
+				// The group's intro, shown above its first field on the sign-up form.
+				$field['group_intro'] = (string) ( $group['intro'] ?? '' );
 				// Needed by field_applies_to_user(): a system group is never
 				// lockable, so its fields must stay writable whatever a plan says.
 				$field['group_is_system'] = ! empty( $group['is_system'] );
@@ -421,7 +428,7 @@ class ProfileService {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
-			"SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction
+			"SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction, intro
 			 FROM {$wpdb->prefix}bn_profile_groups
 			 ORDER BY sort_order ASC, id ASC",
 			ARRAY_A
@@ -439,6 +446,7 @@ class ProfileService {
 					'is_system'        => (bool) $row['is_system'],
 					'sort_order'       => (int) $row['sort_order'],
 					'type_restriction' => isset( $row['type_restriction'] ) ? (string) $row['type_restriction'] : '',
+					'intro'            => (string) ( $row['intro'] ?? '' ),
 				);
 			},
 			(array) $rows
@@ -515,7 +523,7 @@ class ProfileService {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $id ),
+			$wpdb->prepare( "SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction, intro FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $id ),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -541,7 +549,7 @@ class ProfileService {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, is_system, visibility, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			$wpdb->prepare( "SELECT id, group_id, field_key, label, type, options, description, placeholder, width, is_required, is_searchable, show_on_register, show_in_header, is_system, visibility, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -627,7 +635,7 @@ class ProfileService {
 	/**
 	 * Create a new profile group.
 	 *
-	 * @param array $data Group data: group_key, label, type, visibility, sort_order.
+	 * @param array $data Group data: group_key, label, type, visibility, sort_order, intro.
 	 * @return int Inserted group ID.
 	 */
 	public function create_group( array $data ): int {
@@ -643,8 +651,9 @@ class ProfileService {
 				'visibility' => $data['visibility'] ?? 'public',
 				'is_system'  => 0,
 				'sort_order' => (int) ( $data['sort_order'] ?? 0 ),
+				'intro'      => sanitize_textarea_field( (string) ( $data['intro'] ?? '' ) ),
 			),
-			array( '%s', '%s', '%s', '%s', '%d', '%d' )
+			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -663,7 +672,7 @@ class ProfileService {
 	 *
 	 * @param array $data Field data: group_id|group_name, field_key, label, type,
 	 *                    options, description, placeholder, is_required,
-	 *                    is_searchable, visibility, sort_order.
+	 *                    is_searchable, visibility, sort_order, width (auto|half|full).
 	 * @return int Inserted field ID.
 	 */
 	public function create_field( array $data ): int {
@@ -712,8 +721,8 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
-					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, visibility, sort_order)
-				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %d, %s, %d)",
+					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, show_in_header, visibility, sort_order, width)
+				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %d, %s, %d, %s)",
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
@@ -732,7 +741,8 @@ class ProfileService {
 				// default. Field visibility is the value's starting point, not a
 				// floor, so the member can still publish it.
 				$data['visibility'] ?? 'members',
-				(int) ( $data['sort_order'] ?? 0 )
+				(int) ( $data['sort_order'] ?? 0 ),
+				FieldType::sanitize_width( $data['width'] ?? 'auto' )
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);
@@ -1817,6 +1827,7 @@ class ProfileService {
 					g.sort_order   AS group_sort_order,
 					g.is_system    AS group_is_system,
 					g.type_restriction AS group_type_restriction,
+					g.intro        AS group_intro,
 					f.id           AS field_id,
 					f.field_key,
 					f.label        AS field_label,
@@ -1824,6 +1835,7 @@ class ProfileService {
 					f.options,
 					f.description,
 					f.placeholder,
+					f.width,
 					f.is_required  AS field_is_required,
 					f.visibility   AS field_visibility,
 					f.sort_order   AS field_sort_order,
@@ -1989,6 +2001,7 @@ class ProfileService {
 					'visibility' => $gvis,
 					'is_system'  => (bool) ( $row['group_is_system'] ?? false ),
 					'sort_order' => (int) $row['group_sort_order'],
+					'intro'      => (string) ( $row['group_intro'] ?? '' ),
 					// Only ever true on the OWNER's own read — a non-owner never
 					// gets this far for a locked group (see G3 above).
 					'locked'     => $g_locked,
@@ -2008,6 +2021,7 @@ class ProfileService {
 				'options'              => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
 				'description'          => (string) ( $row['description'] ?? '' ),
 				'placeholder'          => (string) ( $row['placeholder'] ?? '' ),
+				'width'                => FieldType::sanitize_width( $row['width'] ?? 'auto' ),
 				'is_required'          => (bool) ( $row['field_is_required'] ?? false ),
 				'sort_order'           => (int) $row['field_sort_order'],
 				'value'                => self::view_value(
@@ -2076,6 +2090,9 @@ class ProfileService {
 				'visibility' => $group['visibility'],
 				'is_system'  => ! empty( $group['is_system'] ),
 				'sort_order' => $group['sort_order'],
+				// Help text for the edit and sign-up forms (owner-authored). Not
+				// profile data: the About tab and exports do not render it.
+				'intro'      => $group['intro'],
 				// Owner-only: their plan does not include this group. The edit
 				// screen renders it as a locked section rather than an input, and
 				// nothing else in the product should treat it as writable.
@@ -2342,6 +2359,7 @@ class ProfileService {
 					'options'          => $vf['options'] ?? null,
 					'is_required'      => (bool) ( $vf['is_required'] ?? false ),
 					'sort_order'       => (int) ( $vf['sort_order'] ?? 99 ),
+					'width'            => FieldType::sanitize_width( $vf['width'] ?? 'auto' ),
 					'value'            => self::view_value(
 						array(
 							'type'    => (string) ( $vf['type'] ?? 'text' ),
@@ -2377,6 +2395,7 @@ class ProfileService {
 						'type'       => 'flat',
 						'visibility' => 'public',
 						'sort_order' => (int) ( $vg['sort_order'] ?? 99 ),
+						'intro'      => (string) ( $vg['intro'] ?? '' ),
 						'fields'     => array( $field ),
 					);
 					$flat_group_index[ $gkey ] = count( $output_groups ) - 1;
@@ -2917,7 +2936,7 @@ class ProfileService {
 	/**
 	 * Update a profile group's metadata.
 	 *
-	 * Allowed $data keys: label, visibility, sort_order.
+	 * Allowed $data keys: label, visibility, sort_order, intro, type_restriction.
 	 * Unknown keys are ignored. Busts 'all_groups' and 'all_fields' cache keys.
 	 *
 	 * @param int   $id   Profile group ID.
@@ -2943,6 +2962,13 @@ class ProfileService {
 		if ( isset( $data['sort_order'] ) ) {
 			$update['sort_order'] = (int) $data['sort_order'];
 			$format[]             = '%d';
+		}
+
+		// Help text shown above the group's fields on the edit and sign-up forms.
+		// An empty string clears it.
+		if ( isset( $data['intro'] ) ) {
+			$update['intro'] = sanitize_textarea_field( (string) $data['intro'] );
+			$format[]        = '%s';
 		}
 
 		// Which member type (if any) the group is limited to. array_key_exists, not
@@ -3335,6 +3361,11 @@ class ProfileService {
 		if ( isset( $data['placeholder'] ) ) {
 			$update['placeholder'] = sanitize_text_field( (string) $data['placeholder'] );
 			$format[]              = '%s';
+		}
+
+		if ( isset( $data['width'] ) ) {
+			$update['width'] = FieldType::sanitize_width( $data['width'] );
+			$format[]        = '%s';
 		}
 
 		if ( isset( $data['is_required'] ) ) {

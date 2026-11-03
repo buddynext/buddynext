@@ -486,6 +486,38 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * The Width choice on the add and edit field panels.
+	 *
+	 * Auto keeps the by-type layout (FieldType::is_full_width), so a site that
+	 * never touches it renders exactly as before. GitHub #217.
+	 *
+	 * @param string $id      Control id.
+	 * @param string $current Stored width.
+	 * @return void
+	 */
+	private function render_width_control( string $id, string $current ): void {
+		$current = \BuddyNext\Profile\FieldType::sanitize_width( $current );
+		$labels  = array(
+			'auto' => __( 'Auto', 'buddynext' ),
+			'half' => __( 'Half row', 'buddynext' ),
+			'full' => __( 'Full row', 'buddynext' ),
+		);
+		?>
+		<div class="bn-pf-af-row">
+			<div class="bn-pf-af-field bn-a-pf-col-narrow">
+				<label for="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Width', 'buddynext' ); ?></label>
+				<select id="<?php echo esc_attr( $id ); ?>" name="width">
+					<?php foreach ( $labels as $bn_w_value => $bn_w_label ) : ?>
+						<option value="<?php echo esc_attr( $bn_w_value ); ?>" <?php selected( $current, $bn_w_value ); ?>><?php echo esc_html( $bn_w_label ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<p class="bn-pf-af-hint"><?php esc_html_e( 'How much of a row the field takes on the profile edit and signup forms. Auto: paragraphs and choice lists take a full row, other fields half. Two half fields in a row sit side by side. Phones always show one field per row.', 'buddynext' ); ?></p>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Handle admin_post_bn_create_profile_group form submission.
 	 *
 	 * @return void
@@ -590,6 +622,7 @@ class ProfileFieldsManager {
 		$visibility     = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
 		$description    = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
 		$placeholder    = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
+		$width          = \BuddyNext\Profile\FieldType::sanitize_width( sanitize_key( wp_unslash( $_POST['width'] ?? 'auto' ) ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -654,6 +687,7 @@ class ProfileFieldsManager {
 					'options'          => $parsed_opts,
 					'description'      => $description,
 					'placeholder'      => $placeholder,
+					'width'            => $width,
 					'is_required'      => $is_required > 0 ? 1 : 0,
 					'is_searchable'    => $is_searchable,
 					'show_on_register' => $show_on_register,
@@ -1103,6 +1137,11 @@ class ProfileFieldsManager {
 			$update['visibility'] = $visibility;
 		}
 
+		// Intro (same panel as the rename). Empty clears it.
+		if ( isset( $_POST['intro'] ) ) {
+			$update['intro'] = sanitize_textarea_field( wp_unslash( $_POST['intro'] ) );
+		}
+
 		// G2 (per-member-type profiles): limit the group to one LIVE member
 		// type. Empty = every member sees it (the default). Unknown slugs are
 		// refused so a stale form cannot point the group at a deleted type.
@@ -1242,6 +1281,7 @@ class ProfileFieldsManager {
 		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
 		$description = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
 		$placeholder = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
+		$width       = \BuddyNext\Profile\FieldType::sanitize_width( sanitize_key( wp_unslash( $_POST['width'] ?? 'auto' ) ) );
 
 		// An unrecognised submitted type falls back to the type the field ALREADY HAS — never
 		// to 'text'. Coercing to text turned "I do not know this type" into "so I will
@@ -1344,6 +1384,7 @@ class ProfileFieldsManager {
 			'label'            => $label,
 			'description'      => $description,
 			'placeholder'      => $placeholder,
+			'width'            => $width,
 			'is_required'      => $is_required,
 			'is_searchable'    => $is_searchable,
 			'show_on_register' => $show_on_register,
@@ -1593,7 +1634,8 @@ class ProfileFieldsManager {
 
 						<button type="button" class="bn-pf-icon-btn bn-pf-group-rename"
 							data-bn-pf-toggle="bn-pf-rename-<?php echo absint( $gid ); ?>"
-							title="<?php esc_attr_e( 'Rename group', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
+							title="<?php esc_attr_e( 'Edit group name and intro', 'buddynext' ); ?>"
+							aria-label="<?php esc_attr_e( 'Edit group name and intro', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
 
 						<?php if ( $is_system ) : ?>
 							<span class="bn-pf-badge bn-pf-b-system"><?php esc_html_e( 'System', 'buddynext' ); ?></span>
@@ -1764,10 +1806,18 @@ class ProfileFieldsManager {
 						<input type="hidden" name="action" value="bn_update_profile_group">
 						<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 						<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
-						<label class="screen-reader-text" for="bn-pf-rename-input-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Group name', 'buddynext' ); ?></label>
-						<input type="text" id="bn-pf-rename-input-<?php echo absint( $gid ); ?>"
-							name="label" class="regular-text"
-							value="<?php echo esc_attr( $group['label'] ); ?>" required>
+						<div class="bn-pf-af-field">
+							<label for="bn-pf-rename-input-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Group name', 'buddynext' ); ?></label>
+							<input type="text" id="bn-pf-rename-input-<?php echo absint( $gid ); ?>"
+								name="label" class="regular-text"
+								value="<?php echo esc_attr( $group['label'] ); ?>" required>
+						</div>
+						<div class="bn-pf-af-field">
+							<label for="bn-pf-intro-input-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Intro', 'buddynext' ); ?></label>
+							<textarea id="bn-pf-intro-input-<?php echo absint( $gid ); ?>" name="intro" rows="3" class="large-text"
+								placeholder="<?php esc_attr_e( 'For example: These details are only visible to staff and are used for club administration.', 'buddynext' ); ?>"><?php echo esc_textarea( (string) ( $group['intro'] ?? '' ) ); ?></textarea>
+							<p class="bn-pf-af-hint"><?php esc_html_e( 'Shown above this group\'s fields on the profile edit and signup forms. Not shown on the profile itself. Leave blank to show nothing.', 'buddynext' ); ?></p>
+						</div>
 						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 					</form>
 				</div>
@@ -2073,6 +2123,7 @@ class ProfileFieldsManager {
 												</div>
 											</div>
 											<p class="bn-pf-opts-hint"><?php esc_html_e( 'Help text appears under the field name on the profile edit and signup forms. Placeholder shows inside the empty input. Leave both blank to show nothing extra.', 'buddynext' ); ?></p>
+											<?php $this->render_width_control( 'bn-ef-width-' . absint( $fid ), (string) ( $field['width'] ?? 'auto' ) ); ?>
 											<div id="bn-ef-opts-<?php echo absint( $fid ); ?>" class="bn-pf-opts-wrap" style="<?php echo $is_choice_type ? '' : 'display:none;'; ?>">
 												<label for="bn-ef-opts-ta-<?php echo absint( $fid ); ?>">
 													<?php esc_html_e( 'Options (one per line)', 'buddynext' ); ?>
@@ -2243,6 +2294,7 @@ class ProfileFieldsManager {
 							</div>
 						</div>
 						<p class="bn-pf-opts-hint"><?php esc_html_e( 'Help text appears under the field name on the profile edit and signup forms. Placeholder shows inside the empty input. Leave both blank to show nothing extra.', 'buddynext' ); ?></p>
+						<?php $this->render_width_control( 'bn-af-width-' . absint( $gid ), 'auto' ); ?>
 						<div id="bn-af-opts-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">
 							<label for="bn-af-opts-ta-<?php echo absint( $gid ); ?>">
 								<?php esc_html_e( 'Options (one per line)', 'buddynext' ); ?>

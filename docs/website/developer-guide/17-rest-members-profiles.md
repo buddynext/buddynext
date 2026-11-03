@@ -200,8 +200,8 @@ Profile groups contain fields. Lists are public; all writes require `require_adm
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/profile-groups` | public | List all group definitions (metadata only) |
-| POST | `/profile-groups` | require_admin | Create a group (`group_key`, `label`, `type`, `visibility`, `sort_order`) |
-| PUT | `/profile-groups/{id}` | require_admin | Update a group (`label`, `visibility`, `sort_order`) |
+| POST | `/profile-groups` | require_admin | Create a group (`group_key`, `label`, `type`, `visibility`, `sort_order`, `intro`) |
+| PUT | `/profile-groups/{id}` | require_admin | Update a group (`label`, `visibility`, `sort_order`, `intro`) |
 | DELETE | `/profile-groups/{id}` | require_admin | Delete a group |
 | POST | `/profile-groups/{id}/reorder` | require_admin | Move a group up or down (`direction`) |
 
@@ -210,10 +210,12 @@ Profile groups contain fields. Lists are public; all writes require `require_adm
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/profile-fields` | public | List all field definitions |
-| POST | `/profile-fields` | require_admin | Create a field (`group_id` or `group_name`, `field_key`, `label`, `type`, `options`, `description`, `placeholder`, `is_required`, `is_searchable`, `show_on_register`, `show_in_header`, `visibility`, `sort_order`) |
-| PUT | `/profile-fields/{id}` | require_admin | Update a field (any of the create fields except `field_key`: `label`, `type`, `options`, `description`, `placeholder`, `is_required`, `is_searchable`, `show_on_register`, `show_in_header`, `visibility`, `sort_order`, `group_id`) |
+| POST | `/profile-fields` | require_admin | Create a field (`group_id` or `group_name`, `field_key`, `label`, `type`, `options`, `description`, `placeholder`, `width`, `is_required`, `is_searchable`, `show_on_register`, `show_in_header`, `visibility`, `sort_order`) |
+| PUT | `/profile-fields/{id}` | require_admin | Update a field (any of the create fields except `field_key`: `label`, `type`, `options`, `description`, `placeholder`, `width`, `is_required`, `is_searchable`, `show_on_register`, `show_in_header`, `visibility`, `sort_order`, `group_id`) |
 | DELETE | `/profile-fields/{id}` | require_admin | Delete a field |
 | POST | `/profile-fields/{id}/reorder` | require_admin | Move a field up or down (`direction`) |
+
+`width` is `auto`, `half` or `full` (any other value is refused with `rest_invalid_param`): the field's width on the edit and sign-up forms. Each field in `GET /profile-fields` and in a member's `GET /users/{id}/profile` carries it, so an app can lay out its own edit screen the same way. Groups carry `intro`, optional owner text shown above the group's fields on those forms; `POST /profile-groups` and `PUT /profile-groups/{id}` accept it, and an empty string clears it.
 
 ## Member types (CRUD + assignment)
 

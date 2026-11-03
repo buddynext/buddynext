@@ -2327,6 +2327,9 @@ a.bn-space-row:hover .bn-space-name {
 	margin: var(--bn-s1) 0 0;
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
+	/* A group intro is owner-written and may hold line breaks. */
+	white-space: pre-line;
+	max-width: 65ch;
 }
 .bn-ep-card-body {
 	padding: var(--bn-s5);

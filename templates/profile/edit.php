@@ -544,7 +544,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 									? ' for="' . esc_attr( \BuddyNext\Profile\FieldType::input_id( $bn_name ) ) . '"'
 									: '';
 
-								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label"' . $bn_sf_for . '>' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
+								// Entries have always laid sub-fields out half width; only an
+								// explicit owner choice changes that, so Auto stays as it was.
+								$bn_sf_cls    = 'full' === \BuddyNext\Profile\FieldType::sanitize_width( $bn_field['width'] ?? 'auto' ) ? ' bn-ep-field--full' : '';
+								$bn_rep_html .= '<div class="bn-ep-field' . $bn_sf_cls . '"><label class="bn-ep-label"' . $bn_sf_for . '>' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
 							}
 						}
 						$bn_rep_html .= '</div>';
@@ -572,7 +575,9 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_rep_html .= '</div>';
 					$bn_rep_html .= '<footer class="bn-ep-card-footer"><button class="bn-btn bn-ep-add-entry" type="button" data-variant="ghost" data-size="sm" data-group="' . esc_attr( $bn_gkey ) . '" data-wp-on--click="actions.addEntry">' . \BuddyNext\Core\IconService::render( 'plus' ) . '<span>' . esc_html__( 'Add entry', 'buddynext' ) . '</span></button></footer>';
 
-					echo '<section class="bn-card bn-ep-card"><header class="bn-ep-card-header"><h2 class="bn-ep-card-title">' . esc_html( $bn_glabel ) . '</h2></header>';
+					// Group intro (owner help text), under the title like a flat group's.
+					$bn_gintro = trim( (string) ( $bn_group['intro'] ?? '' ) );
+					echo '<section class="bn-card bn-ep-card"><header class="bn-ep-card-header"><h2 class="bn-ep-card-title">' . esc_html( $bn_glabel ) . '</h2>' . ( '' !== $bn_gintro ? '<p class="bn-ep-card-subtitle">' . esc_html( $bn_gintro ) . '</p>' : '' ) . '</header>';
 					// Repeater body markup is assembled from individually escaped
 					// pieces above (FieldType output is escaped per its contract).
 					echo $bn_rep_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -606,9 +611,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_label  = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
 					$bn_inp_id = 'bn-ep-' . str_replace( '_', '-', $bn_fkey );
 
-					// Wide controls (textarea) take the full row.
+					// The owner's width (Profile Fields > Width); Auto keeps the by-type
+					// rule. One rule shared with the sign-up form (FieldType::is_full_width).
 					$bn_field_cls = 'bn-ep-field';
-					if ( in_array( $bn_ftype, array( 'textarea', 'multiselect', 'radio' ), true ) ) {
+					if ( \BuddyNext\Profile\FieldType::is_full_width( $bn_field ) ) {
 						$bn_field_cls .= ' bn-ep-field--full';
 					}
 
@@ -727,6 +733,8 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					'parts/profile-edit-section.php',
 					array(
 						'title'      => $bn_glabel,
+						// Group intro: the owner's help text for this section of the form.
+						'subtitle'   => trim( (string) ( $bn_group['intro'] ?? '' ) ),
 						'body_html'  => $bn_body_html,
 						'attributes' => \BuddyNext\Profile\FieldType::group_wrapper_attributes( $bn_group, $user_id ),
 					)

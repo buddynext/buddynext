@@ -232,6 +232,13 @@ class ProfileController extends BaseRestController {
 				'type'              => 'string',
 				'sanitize_callback' => 'sanitize_text_field',
 			),
+			// Width on the edit and sign-up forms. 'auto' keeps the by-type layout.
+			'width'            => array(
+				'required'    => false,
+				'type'        => 'string',
+				'enum'        => FieldType::WIDTHS,
+				'description' => 'Width on the edit and sign-up forms: auto (by field type), half or full row.',
+			),
 			'is_required'      => array(
 				'required' => false,
 				'type'     => 'boolean',
@@ -628,6 +635,12 @@ class ProfileController extends BaseRestController {
 							'default'           => 0,
 							'sanitize_callback' => 'absint',
 						),
+						'intro'      => array(
+							'required'          => false,
+							'type'              => 'string',
+							'description'       => 'Optional text shown above the group\'s fields on the edit and sign-up forms.',
+							'sanitize_callback' => 'sanitize_textarea_field',
+						),
 					),
 				),
 			)
@@ -660,6 +673,12 @@ class ProfileController extends BaseRestController {
 							'required'          => false,
 							'type'              => 'integer',
 							'sanitize_callback' => 'absint',
+						),
+						'intro'      => array(
+							'required'          => false,
+							'type'              => 'string',
+							'description'       => 'Optional text shown above the group\'s fields on the edit and sign-up forms.',
+							'sanitize_callback' => 'sanitize_textarea_field',
 						),
 					),
 				),
@@ -2062,6 +2081,11 @@ class ProfileController extends BaseRestController {
 			$data['sort_order'] = absint( $sort_order );
 		}
 
+		$intro = $request->get_param( 'intro' );
+		if ( null !== $intro ) {
+			$data['intro'] = sanitize_textarea_field( (string) $intro );
+		}
+
 		buddynext_service( 'profiles' )->update_group( $id, $data );
 
 		return new WP_REST_Response( array( 'updated' => true ), 200 );
@@ -2142,6 +2166,11 @@ class ProfileController extends BaseRestController {
 		$visibility = $request->get_param( 'visibility' );
 		if ( null !== $visibility ) {
 			$data['visibility'] = sanitize_key( (string) $visibility );
+		}
+
+		$width = $request->get_param( 'width' );
+		if ( null !== $width ) {
+			$data['width'] = FieldType::sanitize_width( $width );
 		}
 
 		if ( null !== $request->get_param( 'options' ) ) {

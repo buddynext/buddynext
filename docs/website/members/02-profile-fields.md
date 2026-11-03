@@ -52,6 +52,7 @@ Every field carries the following controls.
 | Ask for this on the registration form | Adds the field to the sign-up form so you collect it before the member reaches their profile. Fields in a repeating group cannot be added to sign-up. | Off |
 | Show in the profile header | Puts the field's value in the row of details under the member's name in the profile header (the default header shows Location and Website). Which fields appear, and their order, is entirely up to this flag and the field's sort order - there is no fixed list. Fields in a repeating group cannot be shown in the header. | Off, except Location and Website, which start on |
 | Sort order | The position of the field within its group. Lower numbers appear first. | Appended last |
+| Width | How much of a row the field takes on the profile edit and signup forms: **Auto**, **Half row** or **Full row**. Two Half fields in a row sit side by side, so you can pair ZIP and City under a full-width Street. Auto keeps the usual layout: on the profile edit form paragraphs and choice lists take a full row and other fields half; on the signup form every field takes a full row. Phones always show one field per row. The profile itself (the About tab) is not affected. | Auto |
 
 ### Group controls
 
@@ -60,6 +61,7 @@ Every field carries the following controls.
 | Label | The section heading shown on the profile and edit form. | (required, no default) |
 | Type | Flat (single set of fields) or Repeater (members can add multiple entries). | Flat |
 | Visibility | Section-level visibility that sets the ceiling for every field inside it (same five levels). Group visibility is the ceiling; each field starts at its default and a member may set their own field anywhere up to that ceiling. | Members only |
+| Intro | Optional text shown above the group's fields on the profile edit form and, when the group has fields on it, the signup form - for example "These details are only visible to staff and are used for club administration." Edit it with the pencil next to the group name. It is guidance for filling in the form, so it is not shown on the member's profile. | Empty (nothing shown) |
 | Sort order | The position of the group on the profile. Lower numbers appear first. | Appended last |
 
 ### Field types (free plan)

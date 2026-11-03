@@ -4623,6 +4623,9 @@ final class ResponseSchema {
 							'sort_order'       => array(
 								'type' => 'integer',
 							),
+							'intro'            => array(
+								'type' => 'string',
+							),
 							'locked'           => array(
 								'type' => 'boolean',
 							),
@@ -4661,6 +4664,10 @@ final class ResponseSchema {
 							),
 							'placeholder'          => array(
 								'type' => 'string',
+							),
+							'width'                => array(
+								'type' => 'string',
+								'enum' => array( 'auto', 'half', 'full' ),
 							),
 							'is_required'          => array(
 								'type' => 'boolean',
@@ -5193,6 +5200,9 @@ final class ResponseSchema {
 							'type_restriction' => array(
 								'type' => 'string',
 							),
+							'intro'            => array(
+								'type' => 'string',
+							),
 							'fields'           => array(
 								'type' => 'array',
 							),
@@ -5241,6 +5251,9 @@ final class ResponseSchema {
 								'type' => 'integer',
 							),
 							'type_restriction' => array(
+								'type' => 'string',
+							),
+							'intro'            => array(
 								'type' => 'string',
 							),
 						),
@@ -6154,6 +6167,9 @@ final class ResponseSchema {
 							'sort_order'       => array(
 								'type' => 'integer',
 							),
+							'intro'            => array(
+								'type' => 'string',
+							),
 							'locked'           => array(
 								'type' => 'boolean',
 							),
@@ -6192,6 +6208,10 @@ final class ResponseSchema {
 							),
 							'placeholder'          => array(
 								'type' => 'string',
+							),
+							'width'                => array(
+								'type' => 'string',
+								'enum' => array( 'auto', 'half', 'full' ),
 							),
 							'is_required'          => array(
 								'type' => 'boolean',

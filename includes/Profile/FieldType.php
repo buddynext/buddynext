@@ -896,6 +896,43 @@ class FieldType {
 	}
 
 	/**
+	 * Widths an owner can give a field on the edit and sign-up forms.
+	 *
+	 * 'auto' keeps the by-type layout below, so a site that never sets a width
+	 * renders exactly as before. GitHub #217.
+	 */
+	public const WIDTHS = array( 'auto', 'half', 'full' );
+
+	/**
+	 * A stored width, or 'auto' for anything unknown.
+	 *
+	 * @param mixed $width Raw value from a form, REST or the table.
+	 * @return string One of self::WIDTHS.
+	 */
+	public static function sanitize_width( $width ): string {
+		$width = sanitize_key( (string) $width );
+		return in_array( $width, self::WIDTHS, true ) ? $width : 'auto';
+	}
+
+	/**
+	 * Whether a field takes a full row of the two-column form grid.
+	 *
+	 * The owner's width wins; 'auto' falls back to the control's natural size
+	 * (a paragraph or a group of choices needs the whole row). One rule for the
+	 * Edit Profile form and the sign-up form, so a width means the same on both.
+	 *
+	 * @param array<string,mixed> $field Field definition (type, width).
+	 * @return bool
+	 */
+	public static function is_full_width( array $field ): bool {
+		$width = self::sanitize_width( $field['width'] ?? 'auto' );
+		if ( 'auto' !== $width ) {
+			return 'full' === $width;
+		}
+		return in_array( (string) ( $field['type'] ?? 'text' ), array( 'textarea', 'multiselect', 'radio' ), true );
+	}
+
+	/**
 	 * Whether a type renders ONE labelable control that a `<label for>` may target.
 	 *
 	 * False for the group types: radio, member_type and the multiselect family
