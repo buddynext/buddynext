@@ -2331,6 +2331,26 @@ body:has(.bn-ep-save-bar) .bn-toast-container {
 	--bn-btn-px: var(--bn-s3);
 	font-size: var(--text-xs);
 }
+/* Follow in a sidebar row is a light outline, not the shared solid block.
+   Three or four solid accent buttons stacked in a 280px widget outshouted the
+   page's own main action, and the shared 100px width pin left the name ~100px,
+   so every @handle truncated. Outline keeps it clearly a button; the width pin
+   drops to what "Following" needs at this size (7em, so it scales with the
+   label size), giving the name the room back. Height stays at the 40px tap
+   floor. Following keeps the shared neutral secondary look. */
+.bn-member-row .bn-follow-btn {
+	min-inline-size: 7em;
+}
+.bn-member-row .bn-follow-btn[data-variant="primary"] {
+	background: transparent;
+	color: var(--bn-accent-text);
+	border-color: currentColor;
+}
+.bn-member-row .bn-follow-btn[data-variant="primary"]:hover,
+.bn-member-row .bn-follow-btn[data-variant="primary"]:focus-visible {
+	background: color-mix(in oklch, var(--bn-accent-solid) 10%, transparent);
+	color: var(--bn-accent-text);
+}
 
 /* ── Reusable sidebar row base ──────────────────────────────────────────
 	Apply .bn-sbar-row to any list item inside bn-sidebar-card__body.
