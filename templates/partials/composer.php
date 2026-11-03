@@ -212,7 +212,7 @@ $composer_stories_url = ( ! $composer_space && \BuddyNext\Media\MediaClient::sto
 				// Same source and clamp as the Media-tab composer — never a
 				// hardcoded number. See WPMediaVerseBridge::media_max_bytes().
 				'mediaMaxMB'            => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( get_current_user_id() ),
-				'mediaMaxCount'         => \BuddyNext\Feed\PostService::MAX_MEDIA_PER_POST,
+				'mediaMaxCount'         => \BuddyNext\Feed\PostService::max_media_per_post(),
 				'docEnabled'            => (bool) $composer_doc_config['enabled'],
 				'docAccept'             => (string) $composer_doc_config['accept'],
 				'docMaxSize'            => (int) $composer_doc_config['max_size'],

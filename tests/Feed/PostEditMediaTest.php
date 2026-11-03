@@ -253,6 +253,31 @@ class PostEditMediaTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A site can raise the cap through one filter, and the server check, the
+	 * composer and the edit form all read it (Zoho #42456).
+	 *
+	 * @return void
+	 */
+	public function test_the_cap_follows_the_filter(): void {
+		$this->assertSame( 4, \BuddyNext\Feed\PostService::max_media_per_post(), 'default' );
+
+		$six = static fn() => 6;
+		add_filter( 'buddynext_max_media_per_post', $six );
+		$post = $this->text_post( $this->owner );
+
+		$this->assertSame( 6, \BuddyNext\Feed\PostService::max_media_per_post() );
+		$this->assertTrue( $this->service->update( $post, $this->owner, array( 'media_ids' => array( 100, 101, 102, 103, 104, 105 ) ) ) );
+		$seven = $this->service->update( $post, $this->owner, array( 'media_ids' => array( 100, 101, 102, 103, 104, 105, 106 ) ) );
+		$this->assertSame( 'too_many_media', $seven->get_error_code() );
+		$this->assertStringContainsString( '6', $seven->get_error_message() );
+		remove_filter( 'buddynext_max_media_per_post', $six );
+
+		add_filter( 'buddynext_max_media_per_post', '__return_zero' );
+		$this->assertSame( 1, \BuddyNext\Feed\PostService::max_media_per_post(), 'never below one' );
+		remove_filter( 'buddynext_max_media_per_post', '__return_zero' );
+	}
+
+	/**
 	 * An older post over the cap stays editable: it may lose files on request, never gain one.
 	 *
 	 * @return void

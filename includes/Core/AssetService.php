@@ -1089,7 +1089,7 @@ class AssetService {
 				'restUrl'           => rest_url( 'buddynext/v1' ),
 				'canUploadMedia'    => \BuddyNext\Media\MediaClient::can_upload( $viewer_id ),
 				'mediaMaxMB'        => \BuddyNext\Bridges\WPMediaVerseBridge::media_max_mb( $viewer_id ),
-				'mediaMaxCount'     => \BuddyNext\Feed\PostService::MAX_MEDIA_PER_POST,
+				'mediaMaxCount'     => \BuddyNext\Feed\PostService::max_media_per_post(),
 				'reactDefaultLabel' => __( 'React', 'buddynext' ),
 			)
 		);

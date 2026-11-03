@@ -25,9 +25,32 @@ use BuddyNext\Moderation\ModerationService;
 class PostService {
 
 	/**
-	 * Most files one post may carry. The composer and the edit form read this same value.
+	 * Default for the most files one post may carry; read it through max_media_per_post().
 	 */
 	public const MAX_MEDIA_PER_POST = 4;
+
+	/**
+	 * Most files one post may carry: the server check, the composer and the edit
+	 * form all read this, so they never disagree.
+	 *
+	 * @since 1.2.8
+	 *
+	 * @return int At least 1.
+	 */
+	public static function max_media_per_post(): int {
+		/**
+		 * Filter the most photos, videos or files one feed post may carry.
+		 *
+		 * The default is 4. A site that wants bigger galleries raises it here
+		 * (Zoho #42456); keep it within what the gallery layout and the upload
+		 * size limits suit.
+		 *
+		 * @since 1.2.8
+		 *
+		 * @param int $max Files per post.
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_max_media_per_post', self::MAX_MEDIA_PER_POST ) );
+	}
 
 	/**
 	 * Set up the post service (no required dependencies at construction time).
@@ -948,13 +971,14 @@ class PostService {
 			return array();
 		}
 
-		if ( ! $uncapped && count( $ids ) > self::MAX_MEDIA_PER_POST && array_diff( $ids, $existing ) ) {
+		$max = self::max_media_per_post();
+		if ( ! $uncapped && count( $ids ) > $max && array_diff( $ids, $existing ) ) {
 			return new WP_Error(
 				'too_many_media',
 				sprintf(
 					/* translators: %d: maximum number of files on one post. */
 					__( 'You can attach at most %d files per post.', 'buddynext' ),
-					self::MAX_MEDIA_PER_POST
+					$max
 				),
 				array( 'status' => 422 )
 			);
