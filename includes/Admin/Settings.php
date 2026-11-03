@@ -2764,7 +2764,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						<?php endif; ?>
 						<?php if ( $current && ! empty( $feature['setup_page'] ) ) : ?>
 							<?php // A feature whose own settings screen exists only while it is on (credentials, parts to enable). ?>
-							<p class="bn-feature-row__deps"><a href="<?php echo esc_url( admin_url( 'admin.php?page=' . rawurlencode( (string) $feature['setup_page'] ) ) ); ?>"><?php esc_html_e( 'Open its settings', 'buddynext' ); ?></a></p>
+							<?php
+							// The setup page's tab inside the BuddyNext admin, not its old
+							// standalone slug, which opened without the sidebar (card 10470216210).
+							$bn_setup_url = AdminHub::legacy_page_url( (string) $feature['setup_page'] );
+							if ( '' === $bn_setup_url ) {
+								$bn_setup_url = admin_url( 'admin.php?page=' . rawurlencode( (string) $feature['setup_page'] ) );
+							}
+							?>
+							<p class="bn-feature-row__deps"><a href="<?php echo esc_url( $bn_setup_url ); ?>"><?php esc_html_e( 'Open its settings', 'buddynext' ); ?></a></p>
 						<?php endif; ?>
 					</div>
 					<div class="bn-feature-row__toggle">

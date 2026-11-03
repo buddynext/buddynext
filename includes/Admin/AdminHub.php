@@ -1077,6 +1077,27 @@ class AdminHub {
 	}
 
 	/**
+	 * The hub address of a page registered under its old standalone slug.
+	 *
+	 * A link built from an old `?page=` slug (for example a feature's
+	 * "Open its settings") lands on the bare legacy page, outside the BuddyNext
+	 * admin layout, until redirect_legacy_pages() forwards it. Building the link
+	 * from this goes straight to the tab. Empty when the slug is not a declared
+	 * legacy page, so the caller can keep its own fallback.
+	 *
+	 * @param string $page Legacy `?page=` slug.
+	 * @return string Hub tab URL, or '' when unknown.
+	 */
+	public static function legacy_page_url( string $page ): string {
+		$page = sanitize_key( $page );
+		if ( '' === $page || ! isset( self::$legacy_pages[ $page ] ) ) {
+			return '';
+		}
+		$url = self::tab_url( self::$legacy_pages[ $page ]['section'], self::$legacy_pages[ $page ]['tab'] );
+		return admin_url( 'admin.php' ) === $url ? '' : $url;
+	}
+
+	/**
 	 * Send a legacy standalone admin page to the hub tab that replaced it.
 	 *
 	 * Every screen that moved into the hub kept its original `add_submenu_page()`
