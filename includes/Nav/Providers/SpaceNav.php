@@ -257,16 +257,17 @@ final class SpaceNav {
 				},
 			),
 			array(
-				'id'        => 'media',
-				'surface'   => 'space',
-				'layer'     => 'primary',
-				'label'     => __( 'Media', 'buddynext' ),
-				'priority'  => 30,
-				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
-				'condition' => static fn( NavContext $c ): bool => MediaClient::available()
+				'id'          => 'media',
+				'surface'     => 'space',
+				'integration' => 'media',
+				'layer'       => 'primary',
+				'label'       => __( 'Media', 'buddynext' ),
+				'priority'    => 30,
+				'url'         => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
+				'condition'   => static fn( NavContext $c ): bool => MediaClient::available()
 					&& buddynext_integration_enabled( 'media', 'nav' )
 					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_media_tab' ),
-				'render'    => function ( NavContext $c ): void {
+				'render'      => function ( NavContext $c ): void {
 					$this->render_media_panel( $c->subject_id );
 				},
 			),
@@ -286,12 +287,13 @@ final class SpaceNav {
 				},
 			),
 			array(
-				'id'        => 'files',
-				'surface'   => 'space',
-				'layer'     => 'primary',
-				'label'     => __( 'Files', 'buddynext' ),
-				'priority'  => 35,
-				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
+				'id'          => 'files',
+				'surface'     => 'space',
+				'integration' => 'media',
+				'layer'       => 'primary',
+				'label'       => __( 'Files', 'buddynext' ),
+				'priority'    => 35,
+				'url'         => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
 				// Same integration gate as Media (both are WPMediaVerse surfaces),
 				// but keyed on the documents feature + the per-space Files toggle.
 				// Per-viewer drive access (read/none, 403 vs 404) is settled by the
@@ -306,8 +308,8 @@ final class SpaceNav {
 				// show". A tab that structurally cannot hold content is worse than
 				// no tab. Filter it back on for a site whose MediaVerse serves
 				// anonymous reads.
-				'condition' => static fn( NavContext $c ): bool => self::files_tab_visible( (int) $c->subject_id ),
-				'render'    => function ( NavContext $c ): void {
+				'condition'   => static fn( NavContext $c ): bool => self::files_tab_visible( (int) $c->subject_id ),
+				'render'      => function ( NavContext $c ): void {
 					$this->render_files_panel( $c->subject_id );
 				},
 			),

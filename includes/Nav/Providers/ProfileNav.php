@@ -201,32 +201,34 @@ final class ProfileNav {
 				'render'   => fn( NavContext $c ) => $this->render_replies( $c ),
 			),
 			array(
-				'id'        => 'media',
-				'surface'   => 'profile',
-				'layer'     => 'primary',
-				'label'     => __( 'Media', 'buddynext' ),
-				'priority'  => 40,
-				'condition' => static fn(): bool => MediaClient::available() && buddynext_integration_enabled( 'media', 'nav' ),
-				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
-				'count'     => static fn( NavContext $c ): int => (int) Galleries::user_media_count( $c->subject_id, $c->viewer_id ),
-				'render'    => fn( NavContext $c ) => $this->render_media( $c ),
+				'id'          => 'media',
+				'surface'     => 'profile',
+				'integration' => 'media',
+				'layer'       => 'primary',
+				'label'       => __( 'Media', 'buddynext' ),
+				'priority'    => 40,
+				'condition'   => static fn(): bool => MediaClient::available() && buddynext_integration_enabled( 'media', 'nav' ),
+				'url'         => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
+				'count'       => static fn( NavContext $c ): int => (int) Galleries::user_media_count( $c->subject_id, $c->viewer_id ),
+				'render'      => fn( NavContext $c ) => $this->render_media( $c ),
 			),
 			array(
-				'id'        => 'files',
-				'surface'   => 'profile',
-				'layer'     => 'primary',
-				'label'     => __( 'Files', 'buddynext' ),
-				'priority'  => 45,
+				'id'          => 'files',
+				'surface'     => 'profile',
+				'integration' => 'media',
+				'layer'       => 'primary',
+				'label'       => __( 'Files', 'buddynext' ),
+				'priority'    => 45,
 				// Owner-only: the member's own document drive ('user:N'), rendered
 				// by BuddyNext's own Files UI. A stranger sees nothing, so the tab
 				// only shows on your own profile; it shows whenever the documents
 				// feature is available, with its own empty state when the drive is
 				// empty (the owner adds to it by attaching a document to a post).
-				'condition' => static fn( NavContext $c ): bool => $c->is_self()
+				'condition'   => static fn( NavContext $c ): bool => $c->is_self()
 					&& buddynext_integration_enabled( 'media', 'nav' )
 					&& \BuddyNext\Bridges\WPMediaVerseBridge::documents_available(),
-				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
-				'render'    => fn( NavContext $c ) => $this->render_files( $c ),
+				'url'         => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'files' ),
+				'render'      => fn( NavContext $c ) => $this->render_files( $c ),
 			),
 			array(
 				'id'       => 'likes',

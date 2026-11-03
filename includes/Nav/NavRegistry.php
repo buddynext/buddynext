@@ -322,6 +322,52 @@ final class NavRegistry {
 	}
 
 	/**
+	 * Primary tab ids for a surface in the order the front end shows them,
+	 * ignoring per-request conditions, sub-tabs listed right after their parent.
+	 *
+	 * Uses the same priority + before/after ordering as resolve(), with the
+	 * owner's saved positions applied the way Nav\NavOverrides applies them, so
+	 * the Navigation editor lists tabs exactly as members see them.
+	 *
+	 * @param string                         $surface   profile | space.
+	 * @param array<string,int>              $positions Saved position per tab id.
+	 * @param array<int,array<string,mixed>> $extra     Unregistered tabs to place too
+	 *                                                  (the owner's custom tabs).
+	 * @return array<string,string> Tab id => parent id ('' for a top-level tab).
+	 */
+	public function ordered_primary( string $surface, array $positions = array(), array $extra = array() ): array {
+		$items = array();
+		$seen  = array();
+		$next  = $this->seq;
+		foreach ( array_merge( $this->registered( $surface ), $extra ) as $a ) {
+			if ( 'primary' !== ( $a['layer'] ?? '' ) ) {
+				continue;
+			}
+			$id = sanitize_key( (string) ( $a['id'] ?? '' ) );
+			if ( isset( $positions[ $id ] ) ) {
+				$a['priority'] = max( 1, (int) $positions[ $id ] );
+				$a['before']   = null;
+				$a['after']    = null;
+			}
+			$item = NavItem::from_array( $a, isset( $a['__seq'] ) ? (int) $a['__seq'] : $next++ );
+			if ( null === $item || isset( $seen[ $item->id ] ) ) {
+				continue;
+			}
+			$seen[ $item->id ] = true;
+			$items[]           = $item;
+		}
+
+		$out = array();
+		foreach ( $this->nest( $this->order( $items ) ) as $top ) {
+			$out[ $top->id ] = '';
+			foreach ( $top->children as $child ) {
+				$out[ $child->id ] = $top->id;
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Every registration array for one surface, before any context gate.
 	 *
 	 * Lets providers/bridges register on first use (resolve then runs lazily so
@@ -333,7 +379,12 @@ final class NavRegistry {
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function registered( string $surface ): array {
-		if ( ! $this->providers_fired ) {
+		// Providers and bridges hook `buddynext_register_nav` while plugins load.
+		// Firing it earlier (an upgrade routine reading the editor list) would
+		// latch the registry before they are all hooked, and their tabs would be
+		// missing for the rest of the request. Before init, report what has been
+		// registered so far and leave the action for the first real read.
+		if ( ! $this->providers_fired && did_action( 'init' ) ) {
 			$this->providers_fired = true;
 			do_action( 'buddynext_register_nav', $this );
 		}

@@ -168,10 +168,11 @@ class MemberBlogBridge {
 
 		$registry->register(
 			array(
-				'id'        => 'articles',
-				'surface'   => 'profile',
-				'layer'     => 'primary',
-				'label'     => __( 'Articles', 'buddynext' ),
+				'id'          => 'articles',
+				'surface'     => 'profile',
+				'integration' => self::INTEGRATION,
+				'layer'       => 'primary',
+				'label'       => __( 'Articles', 'buddynext' ),
 				// No icon, deliberately. Profile tabs are text-only - ProfileNav
 				// declares none for any core tab, and the strip reads as one row of
 				// words. An icon here is not a nicer tab, it is the only tab that
@@ -186,11 +187,11 @@ class MemberBlogBridge {
 				// for the whole strip, not for one tab.
 				// After Discussions (60), before the Portfolio cluster - authored
 				// long-form sits with the member's other social content.
-				'priority'  => 65,
-				'condition' => $enabled,
-				'url'       => static fn( NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'articles/',
-				'count'     => fn( NavContext $c ): int => $this->article_count( $c->subject_id ),
-				'render'    => function ( NavContext $c ): void {
+				'priority'    => 65,
+				'condition'   => $enabled,
+				'url'         => static fn( NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'articles/',
+				'count'       => fn( NavContext $c ): int => $this->article_count( $c->subject_id ),
+				'render'      => function ( NavContext $c ): void {
 					$this->render_profile_articles_panel( $c->subject_id, $c->viewer_id );
 				},
 			)

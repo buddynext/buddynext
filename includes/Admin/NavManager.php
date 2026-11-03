@@ -736,6 +736,10 @@ class NavManager extends AdminPageBase {
 			);
 		}
 
+		if ( in_array( $scope, array( 'profile', 'space' ), true ) ) {
+			$defaults = $this->number_in_site_order( $scope, $defaults );
+		}
+
 		// Sub-tabs list right under their parent, in their own order.
 		$top = array();
 		foreach ( $defaults as $t ) {
@@ -803,7 +807,7 @@ class NavManager extends AdminPageBase {
 
 		$tabs = array();
 		foreach ( $static as $tab ) {
-			$tabs[ sanitize_key( (string) $tab['slug'] ) ] = $tab;
+			$tabs[ sanitize_key( (string) $tab['slug'] ) ] = $tab + array( 'core' => true );
 		}
 
 		$labels = array();
@@ -821,23 +825,77 @@ class NavManager extends AdminPageBase {
 			$parent = sanitize_key( (string) ( $item['parent'] ?? '' ) );
 			$known  = $tabs[ $id ] ?? array();
 			if ( '' !== $parent && isset( $labels[ $parent ] ) ) {
-				/* translators: %s: label of the parent tab, e.g. "Network". */
-				$description = sprintf( __( 'Sub-tab inside %s', 'buddynext' ), $labels[ $parent ] );
+				/* translators: %1$s: label of the parent tab, e.g. "Network". */
+				$description = sprintf( __( 'Sub-tab inside %1$s. Hidden whenever %1$s is hidden.', 'buddynext' ), $labels[ $parent ] );
 			} else {
-				$description = $known['description'] ?? $core[ $scope ][ $id ][0] ?? __( 'Added by an integration', 'buddynext' );
+				$description = $known['description']
+					?? $core[ $scope ][ $id ][0]
+					?? ( '' !== (string) ( $item['description'] ?? '' ) ? sanitize_text_field( (string) $item['description'] ) : __( 'Added by another plugin', 'buddynext' ) );
 			}
 			$tabs[ $id ] = array(
-				'slug'        => $id,
-				'label'       => $labels[ $id ],
-				'order'       => (int) ( $item['priority'] ?? 50 ),
-				'icon'        => $known['icon'] ?? $core[ $scope ][ $id ][1] ?? ( '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom' ),
-				'description' => $description,
-				'capability'  => 'read',
-				'parent'      => isset( $labels[ $parent ] ) ? $parent : '',
+				'slug'         => $id,
+				'label'        => $labels[ $id ],
+				'order'        => (int) ( $item['priority'] ?? 50 ),
+				'icon'         => $known['icon'] ?? $core[ $scope ][ $id ][1] ?? ( '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom' ),
+				'description'  => $description,
+				'capability'   => 'read',
+				'parent'       => isset( $labels[ $parent ] ) ? $parent : '',
+				'parent_label' => $labels[ $parent ] ?? '',
+				'core'         => isset( $known['slug'] ) || isset( $core[ $scope ][ $id ] ),
+				'integration'  => sanitize_key( (string) ( $item['integration'] ?? '' ) ),
 			);
 		}
 
 		return array_values( $tabs );
+	}
+
+	/**
+	 * Number profile/space rows 10, 20, 30 in the order members see them.
+	 *
+	 * The order comes from the Nav registry (priority, before/after anchors and
+	 * saved positions, as Nav\NavOverrides applies them), with the owner's own
+	 * custom tabs placed by their saved position. Sub-tabs are numbered within
+	 * their parent. So the editor shows the site's real order, and a plain save
+	 * stores that same order. Rows the site does not show (a core tab whose
+	 * feature is off) go last.
+	 *
+	 * @param string                           $scope profile | space.
+	 * @param array<int, array<string, mixed>> $tabs  Rows with overrides applied.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function number_in_site_order( string $scope, array $tabs ): array {
+		$positions = array();
+		$custom    = array();
+		foreach ( $this->get_overrides_for_scope( $scope ) as $slug => $ov ) {
+			$slug = sanitize_key( (string) $slug );
+			if ( isset( $ov['order'] ) ) {
+				$positions[ $slug ] = (int) $ov['order'];
+			}
+			if ( ! empty( $ov['custom'] ) ) {
+				$custom[] = array(
+					'id'       => $slug,
+					'surface'  => $scope,
+					'layer'    => 'primary',
+					'label'    => $slug,
+					'url'      => '#', // Placement only; never rendered.
+					'priority' => (int) ( $ov['order'] ?? 900 ),
+				);
+			}
+		}
+
+		$number = array();
+		$step   = array();
+		foreach ( \BuddyNext\Nav\NavRegistry::instance()->ordered_primary( $scope, $positions, $custom ) as $id => $parent ) {
+			$step[ $parent ] = ( $step[ $parent ] ?? 0 ) + 10;
+			$number[ $id ]   = $step[ $parent ];
+		}
+
+		foreach ( $tabs as &$tab ) {
+			$slug         = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
+			$tab['order'] = $number[ $slug ] ?? 900 + (int) ( $tab['order'] ?? 0 );
+		}
+		unset( $tab );
+		return $tabs;
 	}
 
 	/**
@@ -1416,14 +1474,25 @@ class NavManager extends AdminPageBase {
 		// active — the option is unavailable, so the owner cannot configure it.
 		$requires    = (string) ( $tab['requires_plugin'] ?? '' );
 		$dep_missing = '' !== $requires && ! \BuddyNext\Messages\MessagesData::available();
+
+		// Registry tabs: where the tab comes from, and whether Integration
+		// Settings has it switched off. That switch hides the tab on the site
+		// whatever this row says, so the row says so too.
+		$integration = (string) ( $tab['integration'] ?? '' );
+		$all_integ   = '' !== $integration ? buddynext_integrations() : array();
+		$integ_label = (string) ( $all_integ[ $integration ]['label'] ?? '' );
+		$integ_off   = '' !== $integ_label && ! buddynext_integration_enabled( $integration, 'nav' );
+		$is_child    = '' !== (string) ( $tab['parent'] ?? '' );
+		$from_other  = $is_core && isset( $tab['core'] ) && ! $tab['core'];
 		?>
-		<li class="bn-drag-row<?php echo ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) ) ? ' bn-drag-row--pinned' : ''; ?>"
+		<li class="bn-drag-row<?php echo ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) ) ? ' bn-drag-row--pinned' : ''; ?><?php echo $is_child ? ' bn-drag-row--child' : ''; ?>"
 			data-slug="<?php echo esc_attr( $slug ); ?>"
 			data-scope="<?php echo esc_attr( $scope ); ?>"
 			id="<?php echo esc_attr( $row_id ); ?>"
 			<?php echo $hidden ? 'data-row-hidden' : ''; ?>
 			<?php echo $locked ? ' data-row-locked' : ''; ?>
-			<?php echo $dep_missing ? ' data-row-dependency' : ''; ?>>
+			<?php echo $dep_missing ? ' data-row-dependency' : ''; ?>
+			<?php echo $integ_off ? ' data-row-off' : ''; ?>>
 
 			<?php
 			/*
@@ -1478,10 +1547,17 @@ class NavManager extends AdminPageBase {
 					<?php echo esc_html( $label ); ?>
 					<?php if ( $locked ) : ?>
 						<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Fixed', 'buddynext' ); ?></span>
+					<?php elseif ( '' !== $integ_label ) : ?>
+						<span class="bn-badge" data-tone="accent"><?php echo esc_html( $integ_label ); ?></span>
+					<?php elseif ( $from_other ) : ?>
+						<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Add-on', 'buddynext' ); ?></span>
 					<?php elseif ( $is_core ) : ?>
 						<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
 					<?php else : ?>
 						<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Custom', 'buddynext' ); ?></span>
+					<?php endif; ?>
+					<?php if ( $integ_off ) : ?>
+						<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Off in Integration Settings', 'buddynext' ); ?></span>
 					<?php endif; ?>
 					<?php if ( $dep_missing ) : ?>
 						<span class="bn-badge" data-tone="warn">
@@ -1506,6 +1582,13 @@ class NavManager extends AdminPageBase {
 								__( 'Unavailable: install and activate the %s plugin to enable messaging.', 'buddynext' ),
 								$requires
 							)
+						);
+					} elseif ( $integ_off ) {
+						printf(
+							/* translators: 1: integration name, 2: link to Integration Settings. */
+							esc_html__( 'Not shown on the site: "Show in navigation" is off for %1$s in %2$s.', 'buddynext' ),
+							esc_html( $integ_label ),
+							'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 						);
 					} else {
 						echo esc_html( (string) ( $tab['description'] ?? '' ) );

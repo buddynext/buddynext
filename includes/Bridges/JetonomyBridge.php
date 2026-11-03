@@ -2966,15 +2966,16 @@ class JetonomyBridge {
 		// the content-seam render, same as every other profile tab.
 		$registry->register(
 			array(
-				'id'        => 'discussions',
-				'surface'   => 'profile',
-				'layer'     => 'primary',
-				'label'     => __( 'Discussions', 'buddynext' ),
-				'priority'  => 60,
-				'condition' => $jetonomy_active,
-				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'discussions/',
-				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
-				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+				'id'          => 'discussions',
+				'surface'     => 'profile',
+				'integration' => 'jetonomy',
+				'layer'       => 'primary',
+				'label'       => __( 'Discussions', 'buddynext' ),
+				'priority'    => 60,
+				'condition'   => $jetonomy_active,
+				'url'         => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'discussions/',
+				'count'       => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
+				'render'      => function ( \BuddyNext\Nav\NavContext $c ): void {
 					$this->render_profile_discussions_panel( $c->subject_id );
 				},
 			)
@@ -2990,20 +2991,21 @@ class JetonomyBridge {
 		// provision trigger. Count badges the linked forum's published thread total.
 		$registry->register(
 			array(
-				'id'        => 'discussions',
-				'surface'   => 'space',
-				'layer'     => 'primary',
-				'label'     => __( 'Discussions', 'buddynext' ),
-				'priority'  => 35,
+				'id'          => 'discussions',
+				'surface'     => 'space',
+				'integration' => 'jetonomy',
+				'layer'       => 'primary',
+				'label'       => __( 'Discussions', 'buddynext' ),
+				'priority'    => 35,
 				// Per-space: only when THIS space's owner has enabled its dedicated
 				// discussion. A space with none (or with it toggled off) shows no tab.
-				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $jetonomy_active()
+				'condition'   => fn( \BuddyNext\Nav\NavContext $c ): bool => $jetonomy_active()
 					&& $this->space_discussion_enabled( $c->subject_id ),
-				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
+				'url'         => function ( \BuddyNext\Nav\NavContext $c ): string {
 					return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'discussions/';
 				},
-				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->space_discussion_count( $c->subject_id ),
-				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+				'count'       => fn( \BuddyNext\Nav\NavContext $c ): int => $this->space_discussion_count( $c->subject_id ),
+				'render'      => function ( \BuddyNext\Nav\NavContext $c ): void {
 					$this->render_space_discussions_panel( $c->subject_id, $c->viewer_id );
 				},
 			)
