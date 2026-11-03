@@ -99,20 +99,7 @@ final class NavRegistry {
 			return $this->resolved_cache[ $cache_key ];
 		}
 
-		// Let providers/bridges register on first use, then resolve lazily so
-		// count/condition callables see the live request.
-		if ( ! $this->providers_fired ) {
-			$this->providers_fired = true;
-			do_action( 'buddynext_register_nav', $this );
-		}
-
-		// Only this surface's items.
-		$raw = array_values(
-			array_filter(
-				$this->items,
-				static fn( array $i ): bool => ( $i['surface'] ?? '' ) === $ctx->surface
-			)
-		);
+		$raw = $this->registered( $ctx->surface );
 
 		/**
 		 * Public mutation point — add / reposition / edit / remove items.
@@ -332,6 +319,30 @@ final class NavRegistry {
 			// else: orphan (no such parent) — dropped.
 		}
 		return array_values( $top );
+	}
+
+	/**
+	 * Every registration array for one surface, before any context gate.
+	 *
+	 * Lets providers/bridges register on first use (resolve then runs lazily so
+	 * count/condition callables see the live request). Also the catalogue the
+	 * Navigation editor lists, so a tab registered here is always manageable
+	 * there, conditional ones included.
+	 *
+	 * @param string $surface global | profile | space.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function registered( string $surface ): array {
+		if ( ! $this->providers_fired ) {
+			$this->providers_fired = true;
+			do_action( 'buddynext_register_nav', $this );
+		}
+		return array_values(
+			array_filter(
+				$this->items,
+				static fn( array $i ): bool => ( $i['surface'] ?? '' ) === $surface
+			)
+		);
 	}
 
 	/**

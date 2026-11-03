@@ -653,23 +653,7 @@ class NavManager extends AdminPageBase {
 	 * @return array<string,string> Slug => default label.
 	 */
 	public function default_label_map( string $scope ): array {
-		switch ( $scope ) {
-			case 'profile':
-				$defaults = $this->default_profile_tabs();
-				break;
-			case 'space':
-				$defaults = $this->default_space_tabs();
-				break;
-			case 'mobile':
-				$defaults = $this->default_mobile_tabs();
-				break;
-			case 'account':
-				$defaults = $this->default_account_tabs();
-				break;
-			default:
-				$defaults = $this->default_tabs();
-				break;
-		}
+		$defaults = $this->catalogue( $scope );
 
 		$map = array();
 		foreach ( $defaults as $tab ) {
@@ -690,23 +674,7 @@ class NavManager extends AdminPageBase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function get_tabs_for_scope( string $scope ): array {
-		switch ( $scope ) {
-			case 'profile':
-				$defaults = $this->default_profile_tabs();
-				break;
-			case 'space':
-				$defaults = $this->default_space_tabs();
-				break;
-			case 'mobile':
-				$defaults = $this->default_mobile_tabs();
-				break;
-			case 'account':
-				$defaults = $this->default_account_tabs();
-				break;
-			default:
-				$defaults = $this->default_tabs();
-				break;
-		}
+		$defaults = $this->catalogue( $scope );
 
 		$overrides = $this->get_overrides_for_scope( $scope );
 
@@ -768,12 +736,108 @@ class NavManager extends AdminPageBase {
 			);
 		}
 
-		usort(
-			$defaults,
-			fn( array $a, array $b ) => ( $a['order'] ?? 10 ) <=> ( $b['order'] ?? 10 )
-		);
+		// Sub-tabs list right under their parent, in their own order.
+		$top = array();
+		foreach ( $defaults as $t ) {
+			if ( empty( $t['parent'] ) ) {
+				$top[ (string) $t['slug'] ] = (int) ( $t['order'] ?? 10 );
+			}
+		}
+		$sort_key = static fn( array $t ): array => empty( $t['parent'] )
+			? array( (int) ( $t['order'] ?? 10 ), 0, 0 )
+			: array( $top[ $t['parent'] ] ?? 999, 1, (int) ( $t['order'] ?? 10 ) );
+		usort( $defaults, static fn( array $a, array $b ): int => $sort_key( $a ) <=> $sort_key( $b ) );
 
 		return $defaults;
+	}
+
+	/**
+	 * Every tab the editor lists for a scope.
+	 *
+	 * Profile and space tabs come from the Nav registry, the same source the
+	 * front end renders, so a tab registered later (Portfolio, About, Network,
+	 * an integration's tab) is always manageable here. The static lists below
+	 * only add descriptions and icons, and keep a row for a core tab whose
+	 * feature is switched off. Order is the registered priority, the value the
+	 * front end sorts by. Sub-tabs carry their parent so they list under it.
+	 *
+	 * @param string $scope One of: main, profile, space, mobile, account.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function catalogue( string $scope ): array {
+		switch ( $scope ) {
+			case 'profile':
+				$static = $this->default_profile_tabs();
+				break;
+			case 'space':
+				$static = $this->default_space_tabs();
+				break;
+			case 'mobile':
+				return $this->default_mobile_tabs();
+			case 'account':
+				return $this->default_account_tabs();
+			default:
+				return $this->default_tabs();
+		}
+
+		// Core tabs registered in code with no row in the static list:
+		// slug => array( description, icon ).
+		$core = array(
+			'profile' => array(
+				'about'       => array( __( 'Profile fields and bio', 'buddynext' ), 'tab-about' ),
+				'scheduled'   => array( __( 'The member\'s scheduled posts (shown to them only)', 'buddynext' ), 'clock' ),
+				'pending'     => array( __( 'The member\'s posts awaiting review (shown to them only)', 'buddynext' ), 'inbox' ),
+				'files'       => array( __( 'The member\'s own documents (shown to them only)', 'buddynext' ), 'file-text' ),
+				'network'     => array( __( 'Connections, followers and following', 'buddynext' ), 'tab-connections' ),
+				'discussions' => array( __( 'Discussions the member has published (Jetonomy)', 'buddynext' ), 'message-square' ),
+				'articles'    => array( __( 'Blog articles the member has written (Member Blog)', 'buddynext' ), 'file-text' ),
+				'portfolio'   => array( __( 'Panels that integrations add for the member, such as listings or courses', 'buddynext' ), 'briefcase' ),
+			),
+			'space'   => array(
+				'files'       => array( __( 'Documents shared inside this space', 'buddynext' ), 'file-text' ),
+				'leaderboard' => array( __( 'Members of this space ranked by points', 'buddynext' ), 'award' ),
+				'moderation'  => array( __( 'Review queue for space moderators', 'buddynext' ), 'shield' ),
+				'discussions' => array( __( 'Link to this space\'s forum (Jetonomy)', 'buddynext' ), 'message-square' ),
+			),
+		);
+
+		$tabs = array();
+		foreach ( $static as $tab ) {
+			$tabs[ sanitize_key( (string) $tab['slug'] ) ] = $tab;
+		}
+
+		$labels = array();
+		$items  = array();
+		foreach ( \BuddyNext\Nav\NavRegistry::instance()->registered( $scope ) as $item ) {
+			$id = sanitize_key( (string) ( $item['id'] ?? '' ) );
+			if ( '' === $id || 'primary' !== ( $item['layer'] ?? '' ) || isset( $items[ $id ] ) ) {
+				continue;
+			}
+			$items[ $id ]  = $item;
+			$labels[ $id ] = sanitize_text_field( (string) ( $item['label'] ?? $id ) );
+		}
+
+		foreach ( $items as $id => $item ) {
+			$parent = sanitize_key( (string) ( $item['parent'] ?? '' ) );
+			$known  = $tabs[ $id ] ?? array();
+			if ( '' !== $parent && isset( $labels[ $parent ] ) ) {
+				/* translators: %s: label of the parent tab, e.g. "Network". */
+				$description = sprintf( __( 'Sub-tab inside %s', 'buddynext' ), $labels[ $parent ] );
+			} else {
+				$description = $known['description'] ?? $core[ $scope ][ $id ][0] ?? __( 'Added by an integration', 'buddynext' );
+			}
+			$tabs[ $id ] = array(
+				'slug'        => $id,
+				'label'       => $labels[ $id ],
+				'order'       => (int) ( $item['priority'] ?? 50 ),
+				'icon'        => $known['icon'] ?? $core[ $scope ][ $id ][1] ?? ( '' !== (string) ( $item['icon'] ?? '' ) ? sanitize_key( (string) $item['icon'] ) : 'tab-custom' ),
+				'description' => $description,
+				'capability'  => 'read',
+				'parent'      => isset( $labels[ $parent ] ) ? $parent : '',
+			);
+		}
+
+		return array_values( $tabs );
 	}
 
 	/**
@@ -783,10 +847,10 @@ class NavManager extends AdminPageBase {
 	 */
 	private function default_profile_tabs(): array {
 		// Slugs MUST match the nav item ids the profile surface registers
-		// (ProfileNav + bridges, resolved via buddynext_nav()), so the front-end
-		// applier (Nav\NavOverrides::apply_nav_items) can map saved
-		// overrides onto real items. The Discussions tab is bridge-injected
-		// (Jetonomy) and is left to that bridge.
+		// (ProfileNav + bridges), so the front-end applier
+		// (Nav\NavOverrides::apply_nav_items) can map saved overrides onto real
+		// items. catalogue() adds every other registered tab; these rows only
+		// supply descriptions and icons.
 		return array(
 			array(
 				'slug'        => 'posts',

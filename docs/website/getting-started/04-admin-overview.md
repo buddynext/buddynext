@@ -74,8 +74,8 @@ The Appearance tab controls your community's brand color, and dark mode rides al
 | Surface | What it is |
 |---------|------------|
 | Main Navigation | The community nav bar. |
-| Profile Tabs | The tabs on a member's profile. |
-| Space Tabs | The tabs on a space page. |
+| Profile Tabs | Every tab on a member's profile, including tabs added by integrations (Portfolio, Discussions and others). Sub-tabs such as Followers are listed under their parent. |
+| Space Tabs | Every tab on a space page, including tabs added by integrations (Discussions, Businesses and others). |
 | Mobile Bottom Nav | The bar pinned to the bottom of the screen on phones. |
 | Account Dropdown | The menu behind the avatar in the header. |
 

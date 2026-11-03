@@ -264,4 +264,31 @@ class NavManagerTest extends \WP_UnitTestCase {
 			}
 		}
 	}
+	/**
+	 * A tab registered on the Nav API is listed in the editor, so the owner can
+	 * hide, rename and reorder it, and a sub-tab lists right under its parent.
+	 * GitHub #220: Portfolio (and About, Network, Discussions, space Files …)
+	 * rendered on the front end but had no row in Settings → Navigation.
+	 *
+	 * @return void
+	 */
+	public function test_registered_tabs_are_listed_in_the_editor(): void {
+		$registry = \BuddyNext\Nav\NavRegistry::instance();
+		$registry->reset();
+		$register = static function ( \BuddyNext\Nav\NavRegistry $r ): void {
+			$r->register( array( 'id' => 'qa-parent', 'surface' => 'profile', 'layer' => 'primary', 'label' => 'QA Parent', 'priority' => 5, 'condition' => '__return_false' ) );
+			$r->register( array( 'id' => 'qa-child', 'surface' => 'profile', 'layer' => 'primary', 'label' => 'QA Child', 'parent' => 'qa-parent', 'priority' => 10 ) );
+			$r->register( array( 'id' => 'qa-metric', 'surface' => 'profile', 'layer' => 'metric', 'label' => 'QA Metric', 'priority' => 1 ) );
+		};
+		add_action( 'buddynext_register_nav', $register );
+
+		$slugs = array_column( $this->nav->get_tabs_for_scope( 'profile' ), 'slug' );
+
+		remove_action( 'buddynext_register_nav', $register );
+		$registry->reset();
+
+		$this->assertContains( 'qa-parent', $slugs, 'A registered tab must be listed even when its condition hides it for this request.' );
+		$this->assertSame( array_search( 'qa-parent', $slugs, true ) + 1, array_search( 'qa-child', $slugs, true ), 'A sub-tab lists right under its parent.' );
+		$this->assertNotContains( 'qa-metric', $slugs, 'Metric items are not tabs.' );
+	}
 }
