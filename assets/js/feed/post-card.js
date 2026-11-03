@@ -2526,9 +2526,11 @@ store( 'buddynext/post-card', {
 						bnReloadWithToast( t( 'postUpdated', 'Post updated' ), 'success' );
 						return;
 					}
-					// Reflect the saved text immediately (line breaks preserved). Full
-					// mention/hashtag formatting re-applies on the next page load.
-					contentEl.textContent = next;
+					// Show the saved text as the server renders it: its formatted HTML
+					// (mentions and hashtags linked), each line break a <br> like the
+					// template's nl2br(). textContent left raw newlines, which collapsed
+					// every paragraph into one until a reload (Zoho #42457).
+					contentEl.innerHTML = String( ( res.data && res.data.content_html ) || '' ).replace( /\r?\n/g, '<br>\n' );
 					// The server has cleared link_url/link_meta, so drop the card for
 					// real rather than leaving it hidden until the next page load.
 					if ( previewEl && removePreview ) {

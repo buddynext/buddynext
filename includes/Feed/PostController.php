@@ -512,7 +512,13 @@ class PostController extends BaseRestController {
 			return self::forbidden_unless_status( $result );
 		}
 
-		return new WP_REST_Response( $service->get( $post_id ), 200 );
+		// The saved text as the feed formats it (mentions and hashtags linked), so
+		// the card can show the edit as the next page load would. Same field the
+		// feed list and the comment PUT already send.
+		$post                 = (array) $service->get( $post_id );
+		$post['content_html'] = buddynext_format_content( (string) ( $post['content'] ?? '' ) );
+
+		return new WP_REST_Response( $post, 200 );
 	}
 
 	/**
