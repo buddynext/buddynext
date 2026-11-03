@@ -384,19 +384,31 @@ function enhanceCommentForms( root ) {
 	} );
 }
 
-// Comment forms appear after the initial DOM (thread opens, reply
-// composer injected). Watch the body and enhance any new
-// .bn-comment-form__input that lands.
+// Other boxes whose text is saved with @mentions and #hashtags, built by
+// post-card.js when the member opens them: the post edit form and the reply
+// to a comment. They take the typeahead only; the comment box's counter and
+// auto-grow are not theirs (card 10470038669).
+const TYPEAHEAD_FIELDS = '.bn-post-card__edit-input, .bn-comment__reply-input';
+
+function enhanceTypeaheadFields( root ) {
+	( root || document ).querySelectorAll( TYPEAHEAD_FIELDS ).forEach( ( textarea ) => {
+		if ( textarea.dataset.bnTypeahead ) { return; }
+		textarea.dataset.bnTypeahead = '1';
+		attachMentionHashtagTypeahead( textarea );
+	} );
+}
+
+// Comment forms, post edit forms and reply forms appear after the initial DOM
+// (thread opens, Edit or Reply clicked). Watch the body and enhance any that land.
 if ( typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' ) {
 	const cmtObserver = new MutationObserver( ( mutations ) => {
 		mutations.forEach( ( m ) => {
 			m.addedNodes.forEach( ( n ) => {
-				if ( n.nodeType !== 1 ) { return; }
-				if ( n.classList && n.classList.contains( 'bn-comment-form__input' ) ) {
-					enhanceCommentForms( n.parentElement );
-				} else if ( n.querySelector ) {
-					enhanceCommentForms( n );
-				}
+				if ( n.nodeType !== 1 || ! n.querySelectorAll ) { return; }
+				// The parent, so a textarea added on its own is found as well.
+				const scope = n.parentElement || n;
+				enhanceCommentForms( scope );
+				enhanceTypeaheadFields( scope );
 			} );
 		} );
 	} );
