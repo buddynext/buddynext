@@ -443,6 +443,13 @@ Two things worth knowing before you rely on it:
   BuddyNext leaves the document title alone entirely and your filter will not be
   applied. That is deliberate - the owner installed that plugin to own their titles -
   so set your title there instead on those sites.
+- **Share tags are BuddyNext's on its own pages.** With Yoast or Rank Math active,
+  BuddyNext still prints the Open Graph and Twitter tags for its surfaces and asks the
+  SEO plugin to skip its own social tags there, so a shared profile or post is never
+  described as the hub or home page it is mapped to. The SEO plugin keeps its
+  description, robots and schema output. To hand the social tags back to the SEO
+  plugin, return an empty array from `buddynext_head_meta`; `buddynext_head_meta_image`
+  changes only the fallback image.
 
 One registration gives your hub a live route: `PageRouter` dispatches your `register_rules` and `resolve_template` on every request, a slug change flushes rewrites automatically (BuddyNext hooks `update_option_{your_slug_option}` for every registered hub), and - if your add-on is active when BuddyNext is activated - the Installer creates a backing WP page for it. `includes/Core/CoreHubs.php` registers the built-in hubs through the same `HubRegistry`.
 

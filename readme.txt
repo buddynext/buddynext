@@ -101,6 +101,8 @@ Owners lay out the profile form, tab bars fold what does not fit into More, ever
 * Improve  - Unblock, unmute and unrestrict confirm the result.
 * Improve  - The photo viewer keeps keyboard focus, online status reads without colour, and search announces how many results came back.
 * Improve  - Translations are complete for 10 languages.
+* Fix      - With Rank Math or Yoast active, a shared profile or post shows its own link, title and picture instead of the hub or home page.
+* Fix      - A shared member profile uses the cover photo when the profile is public.
 * Fix      - Every profile and space tab can be hidden, renamed and reordered, including Portfolio, About and Network.
 * Fix      - The profile header has even spacing, and a pending connection request keeps the action buttons in place.
 * Fix      - Sidebar Follow buttons are lighter and leave room for the member's name.

@@ -69,6 +69,7 @@ This release lets owners lay out the profile form, folds tab bars that run out o
 
 ## Fixes
 
+- With Rank Math or Yoast active, a shared profile or post shows its own link, title and picture, not the hub or home page. A public profile shares its cover photo.
 - Every profile and space tab can be hidden, renamed and reordered, including Portfolio, About and Network.
 - Profile header spacing is even, and a pending connection request keeps the action buttons in place.
 - Sidebar **Follow** buttons are lighter and leave room for the member's name.
