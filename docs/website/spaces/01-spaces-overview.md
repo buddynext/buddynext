@@ -1,4 +1,4 @@
-# Spaces
+# Spaces overview
 
 Spaces are the sub-communities inside your BuddyNext site - focused groups where members gather around a shared topic, team, course, or interest. Each space has its own member list and its own activity feed, so conversation stays on-topic instead of getting lost in the site-wide stream.
 
