@@ -64,7 +64,24 @@ abstract class AdminPageBase {
 		// section H1 + tab strip before calling this method. We only emit
 		// the body content; the subtitle hangs under the Hub's H1.
 		$this->render_page_header();
+		$this->render_save_notices();
 		$this->render_content();
+	}
+
+	/**
+	 * Print what the Settings API carried across the options.php redirect.
+	 *
+	 * Core prints these only on its own Settings screens, so a page here that
+	 * saves through options.php showed nothing: neither "Settings saved." nor a
+	 * sanitizer's refusal (a Realtime host without http:// was dropped silently).
+	 * Settings::render_content() prints its tab's notices itself and opts out.
+	 *
+	 * @return void
+	 */
+	protected function render_save_notices(): void {
+		if ( isset( $_GET['settings-updated'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only.
+			settings_errors();
+		}
 	}
 
 	// ── Chrome helpers ─────────────────────────────────────────────────────────

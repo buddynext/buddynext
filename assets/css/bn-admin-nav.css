@@ -366,6 +366,14 @@
 	border-top: 1px solid var(--bn-a-border-soft);
 }
 
+/* The code-only surfaces put a sentence here, not buttons: flex split its text
+   and <code> into columns. */
+.bn-nav-add-row--note {
+	display: block;
+	margin: 0;
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+}
+
 .bn-add-tab-btn {
 	flex: 1;
 	display: flex;

@@ -1437,7 +1437,7 @@ class NavManager extends AdminPageBase {
 				$this->render_add_tab_form( $scope );
 			else :
 				?>
-				<p class="description bn-nav-add-row">
+				<p class="description bn-nav-add-row bn-nav-add-row--note">
 					<?php
 					printf(
 						/* translators: %s: the buddynext_register_nav hook name, in code formatting. */

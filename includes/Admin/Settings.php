@@ -2525,6 +2525,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * The settings tabs print their own notices, merged under one key, inside
+	 * render_content(); printing the raw Settings API list here as well would
+	 * show each one twice.
+	 *
+	 * @return void
+	 */
+	protected function render_save_notices(): void {}
+
+	/**
 	 * Render the settings page content: tab bar + form with section cards.
 	 *
 	 * @return void
