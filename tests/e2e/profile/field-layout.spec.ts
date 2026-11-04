@@ -58,6 +58,16 @@ test.describe('Profile field width and group intro', () => {
             expect(zip.y, 'ZIP and City share a row').toBe(city.y);
             expect(city.x, 'City sits beside ZIP').toBeGreaterThan(zip.x);
             expect(street.w, 'Street is a full row').toBeGreaterThan(zip.w * 1.8);
+            // Tablet: still paired, like sign-up (QA bounce on card 10472648943).
+            await page.setViewportSize({ width: 768, height: 1000 });
+            const tZip = await box(page, scope, 'J998 ZIP');
+            const tCity = await box(page, scope, 'J998 City');
+            expect(tZip.y, 'Edit Profile pairs Half fields at 768').toBe(tCity.y);
+            // Phone: one field per row.
+            await page.setViewportSize({ width: 390, height: 900 });
+            const mZip = await box(page, scope, 'J998 ZIP');
+            const mCity = await box(page, scope, 'J998 City');
+            expect(mCity.y, 'Edit Profile: one field per row on a phone').toBeGreaterThan(mZip.y);
 
             // About tab: a plain list, no intro.
             await page.goto(`/members/${A_LOGIN}/about/`);
@@ -73,6 +83,10 @@ test.describe('Profile field width and group intro', () => {
             const gZip = await box(gp, '.bn-auth-profile-fields .bn-auth-field', 'J998 ZIP');
             const gCity = await box(gp, '.bn-auth-profile-fields .bn-auth-field', 'J998 City');
             expect(gZip.y, 'sign-up pairs Half fields').toBe(gCity.y);
+            await gp.setViewportSize({ width: 768, height: 1100 });
+            const sZip = await box(gp, '.bn-auth-profile-fields .bn-auth-field', 'J998 ZIP');
+            const sCity = await box(gp, '.bn-auth-profile-fields .bn-auth-field', 'J998 City');
+            expect(sZip.y, 'sign-up pairs Half fields at 768').toBe(sCity.y);
             // Phones: one field per row.
             await gp.setViewportSize({ width: 390, height: 900 });
             await gp.reload();

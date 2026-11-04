@@ -2427,9 +2427,10 @@ a.bn-space-row:hover .bn-space-name {
  * its position no longer depends on what the field renders underneath. */
 .bn-ep-field-head {
 	display: flex;
+	flex-wrap: wrap; /* a label that does not fit beside the select puts the select under it, never clips */
 	align-items: center;
 	justify-content: flex-start;
-	gap: var(--bn-s3);
+	gap: 0 var(--bn-s3);
 }
 .bn-ep-field-head .bn-ep-label {
 	min-width: 0;
@@ -2899,7 +2900,6 @@ a.bn-space-row:hover .bn-space-name {
 @media (max-width: 768px) {
 	.bn-ep-shell { padding: var(--bn-s4); }
 	.bn-ep-hero-head { grid-template-columns: 1fr; }
-	.bn-ep-grid { grid-template-columns: 1fr; }
 	.bn-ep-slug-field { flex-direction: column; align-items: stretch; }
 	.bn-ep-account-row { flex-direction: column; align-items: flex-start; gap: var(--bn-s2); }
 }
@@ -3145,7 +3145,11 @@ a.bn-space-row:hover .bn-space-name {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 }
+/* Edit Profile pairs Half fields down to tablet width, like the sign-up form;
+   one field per row only on phones (GitHub #217). Same breakpoint as
+   .bn-auth-profile-fields in bn-auth.css. */
 @media (max-width: 480px) {
+	.bn-ep-grid { grid-template-columns: 1fr; }
 	.bn-pf-detail { grid-template-columns: 1fr; gap: 2px; }
 	.bn-pf-detail__label { font-size: var(--bn-text-xs); }
 }
